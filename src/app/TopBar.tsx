@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ImagesSquare, Newspaper, MagnifyingGlass, Printer,
   ListMagnifyingGlass,
@@ -34,8 +34,11 @@ interface TopBarProps {
   /** 창 나누기 배치. onPaneLayoutChange 가 있으면 배치 고르는 단추가 나온다 */
   paneLayout?: PdfSplitLayoutId
   onPaneLayoutChange?: (layout: PdfSplitLayoutId) => void
-  /** 격자 배치라 탭이 패널마다 위에 있다(상단바 탭 구역은 비운다) */
-  gridPanes?: boolean
+  /**
+   * 격자 배치(위아래·2×2 …)의 맨 윗줄 칸들. 주면 그 칸들의 탭 줄을 칸 폭에 맞춰 상단바에 얹는다
+   * (아랫줄 칸의 탭은 칸 안에 있다)
+   */
+  gridZones?: readonly { readonly paneId: string; readonly tabs: ReactNode; readonly grow: number }[]
   /** 3단일 때 세 번째(맨 오른쪽) 패널의 탭 줄과 세 패널의 폭 비율 */
   thirdTabs?: ReactNode
   paneGrows?: readonly [number, number, number]
@@ -61,7 +64,7 @@ export function TopBar({
   singlePane = false,
   paneLayout = 'single',
   onPaneLayoutChange,
-  gridPanes = false,
+  gridZones,
   thirdTabs,
   paneGrows,
   memoBar,
@@ -154,7 +157,20 @@ export function TopBar({
       {/* "deep" 이어야 한다. 값 없는 속성은 이 div 자체를 눌렀을 때만 드래그로 치고,
           그 안의 탭 줄·빈 칸을 누르면 바깥 .topbar 의 deep 까지 올라가기 전에 막아 버린다. */}
       <div className="topbar-panetabs" data-tauri-drag-region="deep">
-        {thirdTabs !== undefined && paneGrows !== undefined ? (
+        {gridZones !== undefined && !docSearchActive ? (
+          gridZones.map((zone, index) => (
+            <Fragment key={zone.paneId}>
+              {index === 0 ? null : <div className="topbar-pane-divider" aria-hidden="true" />}
+              <div
+                className={`topbar-panetab-zone${index === gridZones.length - 1 ? ' topbar-panetab-zone-right' : index > 0 ? ' topbar-panetab-zone-middle' : ''}`}
+                data-pane-id={zone.paneId}
+                style={{ flexGrow: zone.grow }}
+              >
+                {zone.tabs}
+              </div>
+            </Fragment>
+          ))
+        ) : thirdTabs !== undefined && paneGrows !== undefined ? (
           <>
             <div className="topbar-panetab-zone" data-pane-id="left" style={{ flexGrow: paneGrows[0] }}>{leftTabs}</div>
             <div className="topbar-pane-divider" aria-hidden="true" />

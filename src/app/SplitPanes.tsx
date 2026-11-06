@@ -20,7 +20,7 @@ interface SplitPanesProps {
    * 경계와 같은 자리에서 갈린다. 그 두 값의 주인은 이 컴포넌트의 드래그
    * 상태이므로, 렌더 시점에 여기서 건네준다.
    */
-  topBar: (layout: { sidebarPx: number; leftFrac: number; sidebarVisible: boolean; paneGrows: readonly [number, number, number] }) => React.ReactNode
+  topBar: (layout: { sidebarPx: number; leftFrac: number; sidebarVisible: boolean; paneGrows: readonly [number, number, number]; gridZones?: readonly GridTopZone[] }) => React.ReactNode
   /** 사이드바를 접었는가. 접으면 사이드바와 그 구분선이 함께 사라진다 */
   sidebarCollapsed: boolean
   layout?: { sidebarPx: number; leftFrac: number }
@@ -50,6 +50,20 @@ interface SplitPanesProps {
    * 단추를 누른 채 끌면 단추가 아니라 칸막이 끌기다(폭 조정을 막지 않는다).
    */
   onSwapPanes?: (boundary: 0 | 1) => void
+}
+
+/**
+ * 격자 배치에서 맨 윗줄 칸들. 이 칸들의 탭은 좌우 나누기 때처럼 상단바에 얹고(칸 안에는 탭 줄을 두지 않는다),
+ * 아랫줄 칸만 칸 안에 탭 줄을 둔다. index 는 grid.tabs·칸 차례, grow 는 그 칸이 차지하는 열 비율의 합
+ */
+export interface GridTopZone { readonly index: number; readonly grow: number }
+
+export function gridTopZones(layout: PdfSplitLayout, cols: readonly number[]): GridTopZone[] {
+  return layout.cells
+    .map((place, index) => ({ place, index }))
+    .filter(({ place }) => place.row === 0)
+    .sort((a, b) => a.place.col - b.place.col)
+    .map(({ place, index }) => ({ index, grow: cols.slice(place.col, place.col + place.colSpan).reduce((sum, value) => sum + value, 0) }))
 }
 
 /** 3단의 두 구분선 자리(작업 영역 폭에 대한 비율). 다음 실행에도 기억한다 */
@@ -130,6 +144,14 @@ export function SplitPanes({
   const layoutRef = useRef({ sidebarPx, leftFrac })
   layoutRef.current = { sidebarPx, leftFrac }
   const [threeFracs, setThreeFracs] = useState(readThreeFracs)
+  // 격자 칸 비율은 여기서 갖는다. 상단바의 탭 구역이 아래 칸 경계와 같은 자리에서 갈려야 해서다
+  const gridLayout = grid?.layout
+  const [gridFractions, setGridFractions] = useState(() => gridLayout === undefined ? null : readGridFractions(gridLayout))
+  const [gridFractionsFor, setGridFractionsFor] = useState(gridLayout)
+  if (gridFractionsFor !== gridLayout) {
+    setGridFractionsFor(gridLayout)
+    setGridFractions(gridLayout === undefined ? null : readGridFractions(gridLayout))
+  }
   const threeFracsRef = useRef(threeFracs)
   threeFracsRef.current = threeFracs
   const startDrag = useCallback(
@@ -298,6 +320,7 @@ export function SplitPanes({
         leftFrac: leftGrow,
         sidebarVisible: !sidebarHidden && !libraryExpanded,
         paneGrows: [leftGrow, rightGrow, thirdGrow],
+        gridZones: gridLayout === undefined || gridFractions === null || libraryExpanded ? undefined : gridTopZones(gridLayout, gridFractions.cols),
       })}
       <div className={appClassName}>
         <div className="sidebar" aria-hidden={sidebarHidden} inert={sidebarHidden}>
@@ -313,8 +336,8 @@ export function SplitPanes({
             onPointerDown={sidebarHidden ? undefined : dragSidebar}
           />
         )}
-        {grid !== undefined ? (
-          <GridPanes layout={grid.layout} tabs={grid.tabs} cells={[left, right, third, fourth]} hidden={libraryExpanded} />
+        {grid !== undefined && gridFractions !== null ? (
+          <GridPanes layout={grid.layout} fractions={gridFractions} onFractionsChange={setGridFractions} tabs={grid.tabs} cells={[left, right, third, fourth]} hidden={libraryExpanded} />
         ) : (
         <div
           className="panes"
@@ -376,7 +399,7 @@ export function SplitPanes({
 }
 
 /** 격자 칸 비율(배치마다). 다음 실행에도 기억한다 */
-function readGridFractions(layout: PdfSplitLayout): { cols: number[]; rows: number[] } {
+function readGridFractions(layout: PdfSplitLayout): GridFractions {
   try {
     const raw: unknown = JSON.parse(window.localStorage.getItem(`iwae:pane-grid:v1:${layout.id}`) ?? 'null')
     if (typeof raw === 'object' && raw !== null) {
@@ -388,14 +411,22 @@ function readGridFractions(layout: PdfSplitLayout): { cols: number[]; rows: numb
   return { cols: evenFractions(layout.cols), rows: evenFractions(layout.rows) }
 }
 
+type GridFractions = { cols: number[]; rows: number[] }
+
 /**
- * 앱 창 격자 나누기(PDF 안 화면 나누기와 같은 배치). 칸마다 맨 위에 그 패널의 탭 줄, 아래에 패널 내용.
- * 칸 사이 선을 끌어 크기를 바꾼다.
+ * 앱 창 격자 나누기(PDF 안 화면 나누기와 같은 배치). 맨 윗줄 칸의 탭은 상단바에 있고,
+ * 아랫줄 칸만 칸 맨 위에 그 패널의 탭 줄을 둔다. 칸 사이 선을 끌어 크기를 바꾼다.
  */
-function GridPanes({ layout, tabs, cells, hidden }: { readonly layout: PdfSplitLayout; readonly tabs: readonly React.ReactNode[]; readonly cells: readonly React.ReactNode[]; readonly hidden: boolean }) {
-  const [fractions, setFractions] = useState(() => readGridFractions(layout))
+function GridPanes({ layout, fractions, onFractionsChange, tabs, cells, hidden }: {
+  readonly layout: PdfSplitLayout
+  readonly fractions: GridFractions
+  readonly onFractionsChange: (next: GridFractions) => void
+  readonly tabs: readonly React.ReactNode[]
+  readonly cells: readonly React.ReactNode[]
+  readonly hidden: boolean
+}) {
+  const setFractions = onFractionsChange
   const rootRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { setFractions(readGridFractions(layout)) }, [layout])
   const dragDivider = (axis: 'col' | 'row', boundary: number) => (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
     event.preventDefault()
@@ -442,7 +473,7 @@ function GridPanes({ layout, tabs, cells, hidden }: { readonly layout: PdfSplitL
           className={`pane pane-grid-cell pane-grid-cell-${index}`}
           style={{ gridColumn: `${place.col + 1} / span ${place.colSpan}`, gridRow: `${place.row + 1} / span ${place.rowSpan}` }}
         >
-          <div className="pane-grid-tabs">{tabs[index]}</div>
+          {place.row === 0 ? null : <div className="pane-grid-tabs topbar-panetab-zone">{tabs[index]}</div>}
           <div className="pane-grid-body">{cells[index]}</div>
         </div>
       ))}

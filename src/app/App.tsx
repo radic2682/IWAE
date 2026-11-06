@@ -2181,7 +2181,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       threePane={shownPaneCount === 3 && gridLayout === null}
       grid={gridLayout === null ? undefined : { layout: gridLayout, tabs: visiblePanes(shownPaneCount).map((pane) => renderPaneTabs(pane)) }}
       onSwapPanes={docSearchMode ? undefined : swapPanes}
-      topBar={({ sidebarPx, leftFrac, sidebarVisible, paneGrows }) => (
+      topBar={({ sidebarPx, leftFrac, sidebarVisible, paneGrows, gridZones }) => (
         <TopBar
           sidebarCollapsed={sidebarCollapsed}
           sidebarVisible={sidebarVisible}
@@ -2194,7 +2194,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           leftTabs={docSearchMode ? <span className="topbar-docsearch-label">{t('문서 검색')}</span> : gridLayout !== null ? null : renderPaneTabs('left')}
           rightTabs={gridLayout !== null ? null : renderPaneTabs('right')}
           thirdTabs={shownPaneCount === 3 && gridLayout === null ? renderPaneTabs('third') : undefined}
-          gridPanes={gridLayout !== null}
+          gridZones={gridLayout === null || gridZones === undefined ? undefined : gridZones.map((zone) => {
+            const pane = visiblePanes(shownPaneCount)[zone.index] ?? 'left'
+            return { paneId: pane, tabs: renderPaneTabs(pane), grow: zone.grow }
+          })}
           paneGrows={paneGrows}
           docSearchActive={docSearchMode}
           onToggleDocSearch={toggleDocSearchMode}

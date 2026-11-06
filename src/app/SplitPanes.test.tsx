@@ -257,3 +257,29 @@ describe('SplitPanes — 칸막이 「양쪽 바꾸기」', () => {
     expect(onLayoutChange).toHaveBeenCalled()
   })
 })
+
+describe('격자 배치의 상단바 탭 구역', () => {
+  it('맨 윗줄 칸만 열 순서대로, 차지한 열 비율의 합으로 낸다', async () => {
+    const { gridTopZones } = await import('./SplitPanes')
+    const { pdfSplitLayout } = await import('../core/pdfSplit')
+    expect(gridTopZones(pdfSplitLayout('rows2'), [1])).toEqual([{ index: 0, grow: 1 }])
+    expect(gridTopZones(pdfSplitLayout('grid4'), [0.3, 0.7])).toEqual([{ index: 0, grow: 0.3 }, { index: 1, grow: 0.7 }])
+  })
+
+  it('윗줄 칸은 칸 안에 탭 줄을 두지 않고 상단바에 넘긴다', () => {
+    const topBar = vi.fn(() => null)
+    const { container } = render(
+      <SplitPanes
+        sidebar={null}
+        topBar={topBar}
+        sidebarCollapsed={false}
+        left={<div>왼</div>}
+        right={<div>오</div>}
+        grid={{ layout: { id: 'rows2', label: '', cols: 1, rows: 2, cells: [{ col: 0, row: 0, colSpan: 1, rowSpan: 1 }, { col: 0, row: 1, colSpan: 1, rowSpan: 1 }] }, tabs: [<span key="a">윗탭</span>, <span key="b">아랫탭</span>] }}
+      />,
+    )
+    expect(container.querySelectorAll('.pane-grid-tabs')).toHaveLength(1)
+    expect(container.querySelector('.pane-grid-tabs')?.textContent).toBe('아랫탭')
+    expect(topBar).toHaveBeenLastCalledWith(expect.objectContaining({ gridZones: [{ index: 0, grow: 1 }] }))
+  })
+})

@@ -946,6 +946,15 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   border-bottom: 1px solid var(--divider);
 }
 .pane-grid-tabs > * { flex: 1 1 auto; min-width: 0; }
+/* 아랫줄 칸의 탭 줄은 상단바 탭 구역과 같은 모양을 쓴다(같은 클래스를 함께 단다). 높이·바탕만 칸에 맞춘다 */
+.panes-grid .pane-grid-tabs.topbar-panetab-zone {
+  flex: 0 0 38px;
+  align-items: flex-end;
+  padding: 0;
+  border-bottom: 0;
+  /* 상단바와 같은 바탕이라야 고른 탭(아래 도구줄과 같은 색)이 떠 보인다 */
+  background: var(--tabstrip, var(--chrome));
+}
 .pane-grid-body {
   position: relative;
   display: flex;
