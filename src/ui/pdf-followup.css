@@ -1,0 +1,1016 @@
+.pane-doc { container-type: inline-size; }
+
+.reader-toolbar,
+.reader-primary-tools,
+.reader-search {
+  display: flex;
+  align-items: center;
+}
+
+.reader-toolbar {
+  gap: 4px;
+  min-height: var(--control-size-floating);
+}
+
+.reader-primary-tools { gap: 2px; }
+
+.reader-search {
+  gap: 4px;
+  min-width: var(--control-size-floating);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control, 6px);
+  background: var(--control-surface-floating);
+  transition: width 150ms cubic-bezier(.2, .8, .2, 1), border-color 120ms ease;
+}
+
+.reader-search-expanded {
+  border-color: var(--control-border-floating);
+}
+
+.reader-search input {
+  width: min(260px, 32vw);
+  min-width: 120px;
+  height: calc(var(--control-size-floating) - 4px);
+  padding: 0 8px 0 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-strong);
+}
+
+.reader-tool-button {
+  display: grid;
+  width: var(--control-size-floating);
+  height: var(--control-size-floating);
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control, 6px);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.reader-tool-button:hover,
+.reader-tool-button:focus-visible {
+  border-color: var(--control-border-floating-hover);
+  background: var(--chrome-hover);
+  color: var(--text-strong);
+}
+
+.reader-tool-button-active {
+  border-color: var(--accent);
+  background: var(--chrome-active);
+  color: var(--accent);
+}
+
+.pane-doc .pane-frame-with-toolbar {
+  isolation: isolate;
+  --pdf-toolstrip-h: 82px;
+}
+
+.pane-doc .pane-frame-with-toolbar::before {
+  content: '';
+  position: absolute;
+  z-index: 11;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--pdf-toolstrip-h);
+  border-bottom: 1px solid var(--divider);
+  background: var(--chrome);
+  pointer-events: none;
+}
+
+.pane-doc .pane-toolbar {
+  position: absolute;
+  z-index: 16;
+  top: 45px;
+  left: 10px;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.pane-doc .pdf-inline-tools {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 8px;
+  background: var(--control-surface-floating);
+  box-shadow: 0 4px 14px var(--shadow-floating);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.pane-doc .pdf-mode-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pane-doc .pdf-compact-tool {
+  width: var(--control-size-floating);
+  max-width: var(--control-size-floating);
+  height: var(--control-size-floating);
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.pane-doc .pdf-compact-tool:hover,
+.pane-doc .pdf-compact-tool:focus-visible {
+  background: var(--chrome-hover);
+  color: var(--text-strong);
+}
+
+.pane-doc .pdf-compact-tool:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.pane-doc .pdf-compact-tool.toolbar-tool-btn-active {
+  background: var(--chrome-active);
+  color: var(--text-strong);
+}
+
+.pane-doc .pdf-compact-tool svg {
+  flex: 0 0 auto;
+}
+
+.pane-doc .pdf-compact-tool-label {
+  max-width: none;
+  opacity: 1;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pane-doc .pdf-floating-control {
+  position: absolute;
+  z-index: 16;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  min-width: var(--control-size-floating);
+  height: var(--control-size-floating);
+  overflow: visible;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-strong);
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.pane-doc .pdf-search-floating-tool {
+  z-index: 18;
+  top: 6px;
+}
+
+.pane-doc .pdf-search-floating-tool-expanded {
+  width: min(390px, calc(100% - 20px));
+}
+
+.pane-doc .pdf-search-floating-tool-expanded .pdf-floating-control-expansion {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pane-doc .pdf-highlighter-floating-tool {
+  top: 44px;
+  left: auto;
+  right: 10px;
+}
+
+.pane-doc .pdf-highlighter-floating-tool.pdf-highlighter-active {
+  border-color: #b78a16;
+  background: rgb(255 238 145 / 96%);
+  color: #5b4306;
+  box-shadow: 0 0 0 2px rgb(236 188 42 / 24%), 0 5px 16px rgb(71 54 10 / 16%);
+}
+
+.pane-doc .selection-layer.selection-mode-highlight {
+  cursor: text;
+}
+
+.pane-doc .selection-layer.selection-gesture-region,
+.pane-doc .selection-layer.selection-highlight-eraser {
+  cursor: crosshair;
+}
+
+.selection-translation-result {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  max-width: min(420px, 70vw);
+  padding: 10px;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 9px;
+  background: var(--control-surface-expanded);
+  box-shadow: 0 8px 24px var(--shadow-floating);
+}
+
+.selection-action-status {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--danger) 58%, var(--divider));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper) 97%, transparent);
+  color: var(--danger);
+  box-shadow: 0 8px 24px var(--shadow-soft);
+  font-size: 11px;
+}
+
+.selection-translation-result p {
+  margin: 0 0 8px;
+  color: var(--text-strong);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.pane-doc .pdf-floating-control:hover,
+.pane-doc .pdf-floating-control:focus-within,
+.pane-doc .pdf-floating-control-expanded {
+  border-color: transparent;
+  background: var(--chrome-hover);
+  color: var(--text-strong);
+}
+
+.pane-doc .pdf-pane,
+.pane-doc .pdf-scrollbar {
+  top: var(--pdf-toolstrip-h);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-doc .pdf-compact-tool,
+  .pane-doc .pdf-floating-control {
+    transition-duration: 0.01ms;
+  }
+}
+
+.pane-doc .pdf-floating-control-trigger {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  backdrop-filter: none;
+}
+
+.pane-doc .pdf-floating-control-trigger:hover,
+.pane-doc .pdf-floating-control-trigger:focus-visible,
+.pane-doc .pdf-floating-control-trigger[aria-pressed="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  outline: none;
+}
+
+.pane-doc .pdf-floating-control-expansion {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-4px);
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 200ms ease;
+}
+
+.pane-doc .pdf-floating-control-expanded .pdf-floating-control-expansion {
+  max-width: min(390px, calc(100vw - 150px));
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.pane-doc .pdf-search-field {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 3px 5px 3px 2px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.pane-doc .pdf-search-floating-tool .pdf-search-panel {
+  top: 40px;
+  right: auto;
+  left: 0;
+  width: 100%;
+}
+
+.pane-doc .pdf-highlighter-palette {
+  height: 32px;
+  padding: 4px 5px 4px 2px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.pane-doc .pdf-highlighter-eraser {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.pane-doc .pdf-highlighter-eraser:hover,
+.pane-doc .pdf-highlighter-eraser:focus-visible,
+.pane-doc .pdf-highlighter-eraser[aria-pressed="true"] {
+  border-color: var(--control-border-floating-hover);
+  background: var(--control-surface-expanded);
+  color: var(--text-strong);
+  outline: none;
+}
+
+.pane-doc .pdf-highlighter-floating-tool.pdf-highlighter-erase-active {
+  border-color: #7b8796;
+  background: rgb(240 243 247 / 96%);
+  color: #29313a;
+}
+
+.pane-doc .selection-mark-layer {
+  z-index: 1;
+}
+
+.pane-doc .selection-interaction-layer {
+  z-index: 2;
+}
+
+.pane-doc .pane-bottom-bar {
+  position: absolute;
+  z-index: 16;
+  right: auto;
+  bottom: 10px;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 20px);
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: translateX(-50%);
+}
+
+.pane-doc .pdf-bottom-bar-surface {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 5px 10px;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 10px;
+  background: var(--control-surface-floating);
+  box-shadow: 0 4px 18px var(--shadow-floating);
+  backdrop-filter: blur(12px) saturate(120%);
+  scrollbar-width: none;
+}
+
+.pane-doc .pdf-bottom-bar-surface::-webkit-scrollbar {
+  display: none;
+}
+
+.pane-doc .pdf-bookmark-btn-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-doc .pdf-compact-tool,
+  .pane-doc .pdf-compact-tool-label,
+  .pane-doc .pdf-floating-control-expansion {
+    transition: none;
+  }
+}
+
+@container (min-width: 760px) {
+  .pane-doc .pane-frame-with-toolbar { --pdf-toolstrip-h: 44px; }
+  .pane-doc .pdf-search-floating-tool-expanded { width: min(340px, calc(100% - 450px)); }
+  .pane-doc .pane-toolbar { top: 6px; left: calc(20px + min(340px, 100cqw - 450px)); }
+  .pane-doc .pdf-highlighter-floating-tool { top: 6px; }
+}
+
+@container (max-width: 560px) {
+  .pane-doc .pane-frame-with-toolbar { --pdf-toolstrip-h: 118px; }
+  .pane-doc .pdf-highlighter-floating-tool { top: 80px; }
+}
+
+.pdf-excerpt-drag-preview {
+  position: fixed;
+  z-index: 2147483647;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 18px rgba(8, 18, 28, .3));
+  transform: rotate(-2deg);
+  animation: pdf-excerpt-lift 140ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes pdf-excerpt-lift {
+  from { opacity: .72; transform: translateY(5px) rotate(0) scale(.96); }
+  to { opacity: 1; transform: translateY(0) rotate(-2deg) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-excerpt-drag-preview { animation: none; transform: none; }
+}
+
+/* 문서 전체 화면 버튼. 도구 묶음 오른쪽에 같은 떠 있는 칩으로 둔다.
+   .pane-toolbar 가 pointer-events:none 이라(아래 PDF 를 가리지 않으려고)
+   이 버튼도 도구 묶음처럼 스스로 다시 켜야 눌린다. */
+.pane-doc .pane-toolbar { display: flex; align-items: center; gap: 6px; }
+
+.pane-doc .pdf-compact-tool.pane-fullscreen-toggle {
+  width: calc(var(--control-size-floating) + 6px);
+  max-width: none;
+  height: calc(var(--control-size-floating) + 6px);
+  border: 1px solid var(--control-border-floating);
+  border-radius: 8px;
+  background: var(--control-surface-floating);
+  box-shadow: 0 4px 14px var(--shadow-floating);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.pane-doc .pdf-compact-tool.pane-fullscreen-toggle:hover,
+.pane-doc .pdf-compact-tool.pane-fullscreen-toggle:focus-visible { background: var(--chrome-hover); }
+
+/* PDF 링크. 선택 레이어(z-index 1) 위에 얹고 링크 사각형만 눌린다. */
+.pdf-link-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.pdf-link {
+  position: absolute;
+  border-radius: 2px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.pdf-link:hover,
+.pdf-link:focus-visible {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 -1.5px 0 var(--accent);
+  outline: none;
+}
+
+/* 화면에서만 돌린 페이지. 돌아가기 전 크기의 상자를 칸 가운데에 두고 돌린다. */
+.pdf-page-rotator {
+  position: absolute;
+  transform-origin: center center;
+  transition: transform var(--layout-duration, 230ms) var(--layout-ease, ease);
+}
+
+/* 돌아간 페이지는 보기 전용이다 — 끌기 좌표를 돌려 맞추지 않으므로 선택을 막는다. */
+.pdf-page-rotated .selection-interaction-layer { pointer-events: none; cursor: default !important; }
+
+/* 어두운 테마용 반전. 형광펜·검색 표시는 그대로 두고 페이지 그림만 뒤집는다. */
+.pdf-pane-inverted .pdf-page { filter: invert(1) hue-rotate(180deg); }
+/* 어두운 쪽에서는 하이라이트도 같이 뒤집고 곱하기 대신 스크린으로 섞는다. 밝은 쪽에 곱한 결과를 그대로 뒤집은 모습이라
+   흰 글자는 그대로, 검은 바탕만 짙은 형광색으로 물든다(곱하기로 두면 검은 바탕에 묻혀 안 보였다). */
+.pdf-pane-inverted .selection-mark-layer { filter: invert(1) hue-rotate(180deg); mix-blend-mode: screen; }
+.pdf-pane-inverted .selection-mark-layer :is(rect, path) { mix-blend-mode: multiply; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-page-rotator { transition: none; }
+}
+
+.pdf-view-menu { position: relative; display: inline-flex; }
+.pdf-view-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+
+.pdf-view-menu-panel {
+  position: fixed;
+  z-index: 41;
+  display: grid;
+  gap: 4px;
+  width: 210px;
+  padding: 8px;
+  border: 1px solid var(--control-border-floating, var(--divider));
+  border-radius: 8px;
+  background: var(--control-surface-floating, var(--paper));
+  box-shadow: 0 10px 28px var(--shadow-floating, var(--shadow-soft));
+  backdrop-filter: blur(10px);
+  animation: pdf-view-menu-in 140ms var(--layout-ease, ease) both;
+}
+
+.pdf-view-menu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+.pdf-view-menu-row button,
+.pdf-view-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pdf-view-menu-row button { justify-content: center; border-color: var(--divider); }
+.pdf-view-menu-row button[aria-checked='true'] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; }
+.pdf-view-menu-item:hover, .pdf-view-menu-row button:hover { background: var(--chrome-hover); }
+.pdf-view-menu-value { margin-left: auto; color: var(--text-dim); }
+.pdf-view-menu-note { margin: 2px 4px 0; color: var(--text-dim); font-size: 11px; }
+
+@keyframes pdf-view-menu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pdf-view-menu-panel { animation: none; } }
+
+/* ── 두 패널 어디에나 문서를 연다 ──────────────────────────────
+   .pane-focus-scope 는 "이 패널을 만졌다"를 잡는 껍데기라 배치에 끼지 않는다.
+   .pane-doc 는 문서 보기 한 벌의 상자이자, 위 규칙들의 컨테이너 쿼리 기준이다. */
+.pane-focus-scope { display: contents; }
+.pane-doc {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 문서 위 도구줄을 한 줄로 줄인다. 예전에는 패널 폭에 따라 82~118px 을 비워 둬서
+   좁은 패널일수록 PDF 가 위에서부터 잘려 나갔다. 검색·선택 도구·전체 화면·형광펜을
+   같은 34px 줄에 세운다. */
+.pane-doc .pane-frame-with-toolbar {
+  --pdf-toolstrip-h: 34px;
+  --control-size-floating: 28px;
+}
+.pane-doc .pdf-search-floating-tool { top: 3px; left: 6px; }
+.pane-doc .pane-toolbar { top: 3px; left: 42px; gap: 2px; }
+.pane-doc .pdf-highlighter-floating-tool { top: 3px; right: 18px; }
+.pane-doc .pdf-inline-tools {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.pane-doc .pdf-compact-tool.pane-fullscreen-toggle {
+  width: var(--control-size-floating);
+  height: var(--control-size-floating);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+/* 검색창을 펼치면 그 오른쪽으로 도구를 민다. */
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar {
+  left: calc(16px + min(340px, 100cqw - 220px));
+}
+.pane-doc .pdf-search-floating-tool-expanded { width: min(340px, calc(100% - 220px)); }
+
+/* 상단바 탭: 종류 아이콘과 끌어 옮기기 */
+.pane-top-tab-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pane-top-tab-kind { flex: 0 0 auto; color: var(--text-dim); }
+.pane-top-tab-note .pane-top-tab-kind { color: var(--accent); }
+.pane-top-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-tab-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  max-width: 240px;
+  padding: 5px 10px;
+  overflow: hidden;
+  border: 1px solid var(--divider-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 8px 22px var(--shadow-floating);
+  pointer-events: none;
+}
+body.pane-tab-dragging, body.pane-tab-dragging * { cursor: grabbing !important; }
+.topbar-panetab-zone.pane-drop-target { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pane-focus-scope.pane-drop-target > * { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* 탭 바로 아래 도구줄 가운데의 문서 이름. 탭은 줄어들어 잘리므로 지금 보는 문서의 이름
+   전체는 여기서 본다. 도구줄 높이 안에 넣어 PDF 를 더 가리지 않는다. */
+.pane-doc { position: relative; }
+.pane-doc-title {
+  position: absolute;
+  z-index: 12;
+  top: 0;
+  /* 왼쪽 도구(검색·선택·영역·전체 화면) 뒤에서 시작해 오른쪽 형광펜 앞에서 끝난다 */
+  left: 136px;
+  right: 64px;
+  height: var(--pdf-toolstrip-h, 34px);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 9px;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.pane-doc-title-main {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+.pane-doc-title-sub {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+}
+/* 검색창을 펼치면 이름이 그 밑에 깔리지 않게 숨긴다 */
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-doc-title { visibility: hidden; }
+@container (max-width: 300px) { .pane-doc-title { display: none; } }
+
+/* ── 문서 머리 카드 ───────────────────────────────────────────
+   하단바처럼 PDF 위에 떠 있는 반투명 카드. 1줄은 문서 이름 전체(왼쪽 정렬), 2줄은 검색·선택·
+   영역·전체 화면·형광펜 단추. PDF 는 패널 맨 위까지 쓰고, 첫 쪽이 카드에 가리지 않도록
+   스크롤 영역 위쪽만 카드 높이만큼 비운다. */
+/* 카드 치수는 .pane-doc 에 둔다 — 이름 줄은 .pane-frame 의 형제라 거기 둔 변수를 못 본다 */
+/* 도구줄: 활성 탭·도구줄·PDF 바탕을 한 색으로 이어 한 면처럼 보이게 한다(브라우저형).
+   [검색·선택·영역·전체 화면]  문서 정식 이름 · 파일 이름  [형광펜] */
+.pane-doc {
+  --doc-card-top: 0px;
+  --doc-card-h: 40px;
+  --doc-row2-top: 5px;
+  --doc-head-h: 40px;
+}
+.pane-doc .pane-frame-with-toolbar {
+  --pdf-toolstrip-h: 0px;
+  --control-size-floating: 30px;
+}
+.pane-doc .pane-frame-with-toolbar::before {
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--doc-card-h);
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: var(--workspace);
+  box-shadow: none;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+/* 카드를 양옆 같은 여백으로 두고, 스크롤 막대는 카드 밑에서 시작한다 */
+.pane-doc .pdf-scrollbar { top: var(--doc-head-h); }
+/* 첫 쪽이 카드·이름에 가리지 않게 */
+.pane-doc .pdf-pane { top: var(--doc-head-h); padding-top: 10px; }
+
+.pane-doc .pane-doc-title {
+  top: var(--doc-card-top);
+  /* 왼쪽 도구 4개 뒤에서 시작해 오른쪽 형광펜 앞에서 끝난다 */
+  left: 160px;
+  right: 56px;
+  height: var(--doc-card-h);
+  padding: 0;
+  align-items: center;
+  padding-top: 0;
+}
+.pane-doc .pane-doc-title-main { font-size: 13px; }
+
+.pane-doc .pdf-search-floating-tool { top: var(--doc-row2-top); left: 8px; }
+.pane-doc .pane-toolbar { top: var(--doc-row2-top); left: 44px; }
+.pane-doc .pdf-highlighter-floating-tool { top: var(--doc-row2-top); right: 12px; }
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar { left: calc(26px + min(340px, 100% - 220px)); }
+/* 검색창을 펼쳐도 이름 줄은 1줄이라 가리지 않는다 */
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-doc-title { visibility: visible; }
+
+/* 도구줄 이름: 정식 이름은 진하게, 파일 이름은 흐리게. 탭(짧은 이름)과 겹치지 않는 정보를 둔다 */
+.pane-doc .pane-doc-title { gap: 10px; }
+.pane-doc .pane-doc-title-main { font-size: 12.5px; font-weight: 600; color: var(--text-strong); }
+.pane-doc .pane-doc-title-sub { font-size: 11.5px; color: var(--text-dim); }
+.pane-doc .pdf-compact-tool.toolbar-tool-btn-active,
+.pane-doc .pdf-search-trigger[aria-pressed="true"] { background: var(--chrome-hover); }
+
+/* 쪽 칸: 평소엔 쪽 번호만큼, 누르면 절·표 번호를 칠 만큼 넓어진다 */
+.pane-doc .bottombar-goto { width: 56px; text-align: center; transition: width 140ms ease; }
+.pane-doc .bottombar-goto:focus { width: 150px; text-align: left; }
+.pane-doc .bottombar-goto::placeholder { color: var(--text-dim); }
+
+/* ── 도구 배치(최종) ──────────────────────────────────────────
+   도구줄에는 검색과 문서 이름만. 선택·영역 캡처·전체 화면·형광펜은 도구줄 밖, 그 아래
+   오른쪽에 하나씩 떠 있는 단추로 둔다(하단바처럼 반투명). */
+.pane-doc .pdf-search-floating-tool { top: var(--doc-row2-top); left: 8px; }
+.pane-doc .pane-doc-title { left: 48px; right: 16px; }
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-doc-title { visibility: hidden; }
+.pane-doc .pdf-search-floating-tool-expanded { width: min(420px, calc(100% - 16px)); }
+
+.pane-doc {
+  --doc-chip: 34px;
+  --doc-chip-gap: 6px;
+  --doc-chip-top: calc(var(--doc-head-h) + 8px);
+}
+.pane-doc .pane-toolbar,
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar {
+  top: var(--doc-chip-top);
+  left: auto;
+  right: calc(14px + var(--doc-chip) + var(--doc-chip-gap));
+  gap: var(--doc-chip-gap);
+}
+.pane-doc .pdf-inline-tools,
+.pane-doc .pdf-mode-toggle-row { gap: var(--doc-chip-gap); }
+.pane-doc .pdf-highlighter-floating-tool {
+  top: var(--doc-chip-top);
+  right: 14px;
+  width: var(--doc-chip);
+  min-width: var(--doc-chip);
+  height: var(--doc-chip);
+}
+/* 단추 하나하나가 작은 반투명 칩 */
+.pane-doc .pane-toolbar .pdf-compact-tool,
+.pane-doc .pane-toolbar .pdf-compact-tool.pane-fullscreen-toggle,
+.pane-doc .pdf-highlighter-floating-tool .pdf-floating-control-trigger {
+  width: var(--doc-chip);
+  max-width: var(--doc-chip);
+  height: var(--doc-chip);
+  border: 1px solid var(--control-border-floating);
+  border-radius: 9px;
+  background: var(--control-surface-floating);
+  box-shadow: 0 3px 12px var(--shadow-floating);
+  backdrop-filter: blur(12px) saturate(120%);
+  pointer-events: auto;
+}
+.pane-doc .pane-toolbar .pdf-compact-tool:hover,
+.pane-doc .pdf-highlighter-floating-tool .pdf-floating-control-trigger:hover { background: var(--paper); }
+.pane-doc .pane-toolbar .pdf-compact-tool.toolbar-tool-btn-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+  color: var(--accent);
+}
+
+/* 1줄(검색·문서 이름)을 얇게: 40px → 30px */
+.pane-doc {
+  --doc-card-h: 30px;
+  --doc-head-h: 30px;
+  --doc-row2-top: 1px;
+}
+.pane-doc .pdf-search-floating-tool { left: 6px; height: 28px; min-width: 28px; }
+.pane-doc .pdf-search-floating-tool .pdf-floating-control-trigger { width: 28px; height: 28px; flex-basis: 28px; }
+.pane-doc .pdf-search-floating-tool .pdf-floating-control-trigger svg { width: 16px; height: 16px; }
+.pane-doc .pane-doc-title { left: 40px; }
+.pane-doc .pane-doc-title-main { font-size: 12px; }
+.pane-doc .pane-doc-title-sub { font-size: 11px; }
+.pane-doc .pdf-pane { padding-top: 8px; }
+/* 문서 이름은 도구줄 오른쪽에 붙인다(정식 이름 · 파일 이름 순, 넘치면 정식 이름이 줄어든다) */
+.pane-doc .pane-doc-title { justify-content: flex-end; text-align: right; }
+.pane-doc .pane-doc-title-sub { flex: 0 1 auto; }
+
+/* 하단바가 좁은 패널에서 오른쪽으로 밀려 잘리지 않게: 폭에 따라 덜 쓰는 조작부터 접는다 */
+.pane-doc .pdf-bottom-bar-surface { gap: 10px; }
+
+/* ── 문서 안 검색: 도구줄(30px) 안에 들어가는 검색칸 ─────────────────
+   펼쳐도 도구줄 높이를 넘지 않는다. 문서 이름은 검색칸 오른쪽에 남아 줄어든다.
+   결과 목록은 도구줄 아래 경계에 붙어 내려온다. */
+.pane-doc {
+  --doc-search-w: min(360px, calc(100% - 140px));
+}
+.pane-doc .pdf-search-floating-tool,
+.pane-doc .pdf-search-floating-tool-expanded {
+  top: 3px;
+  left: 6px;
+  height: 24px;
+  min-width: 24px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.pane-doc .pdf-search-floating-tool .pdf-floating-control-trigger {
+  width: 24px;
+  height: 22px;
+  flex-basis: 24px;
+  border-radius: 6px;
+}
+.pane-doc .pdf-search-floating-tool .pdf-floating-control-trigger svg { width: 15px; height: 15px; }
+.pane-doc .pdf-search-floating-tool-expanded {
+  width: var(--doc-search-w);
+  border-color: var(--divider);
+  background: var(--paper);
+  box-shadow: none;
+}
+.pane-doc .pdf-search-floating-tool-expanded:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--divider));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.pane-doc .pdf-search-floating-tool-expanded .pdf-floating-control-expansion { max-width: none; }
+.pane-doc .pdf-search-floating-tool .pdf-search-field {
+  height: 22px;
+  padding: 0 3px 0 0;
+  gap: 2px;
+}
+.pane-doc .pdf-search-floating-tool .pdf-search-field input {
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  box-shadow: none;
+  outline: none;
+}
+.pane-doc .pdf-search-floating-tool .pdf-search-field input::-webkit-search-cancel-button { display: none; }
+.pane-doc .pdf-search-floating-tool .pdf-search-position {
+  padding: 0 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pane-doc .pdf-search-floating-tool .pdf-search-option {
+  height: 20px;
+  min-width: 20px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.pane-doc .pdf-search-floating-tool .pdf-search-panel {
+  top: calc(100% + 4px);
+  left: -1px;
+  width: calc(100% + 2px);
+  border-radius: 0 0 8px 8px;
+}
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-doc-title {
+  visibility: visible;
+  left: calc(var(--doc-search-w) + 18px);
+}
+@container (max-width: 420px) {
+  .pane-doc:has(.pdf-search-floating-tool-expanded) .pane-doc-title { visibility: hidden; }
+  .pane-doc { --doc-search-w: calc(100% - 12px); }
+}
+/* 검색 단추의 흰 바탕(옛 규칙)은 다크 테마에서 튄다 — 테마 색으로 */
+.pane-doc .pdf-search-floating-tool .pdf-search-trigger:hover,
+.pane-doc .pdf-search-floating-tool .pdf-search-trigger:focus-visible { background: var(--chrome-hover); border-color: transparent; }
+
+/* 쪽 그림 겹(PageImage): 미리보기 → 기기 픽셀 그대로의 본 그림 → (큰 확대) 보이는 타일 */
+.pdf-page { overflow: hidden; user-select: none; }
+.pdf-page-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.pdf-page-tile {
+  position: absolute;
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+}
+.pdf-page-tile-ready { opacity: 1; transition: opacity 120ms ease-out; }
+
+/* 스크롤 번쩍임 줄이기
+   - 쪽마다 자기 합성 층을 갖게 해, 스크롤할 때 큰 그림을 다시 래스터하지 않고 층만 옮긴다
+     (다시 그리느라 한두 프레임 흰 종이가 비치던 것).
+   - 흐린 미리보기 → 또렷한 그림은 툭 바꾸지 않고 짧게 겹쳐 바꾼다. */
+.pdf-page { contain: strict; will-change: transform; }
+.pdf-page-full-fade { animation: pdf-page-sharpen 140ms ease-out both; }
+@keyframes pdf-page-sharpen { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .pdf-page-full-fade { animation: none; }
+  .pdf-page-tile-ready { transition: none; }
+}
+
+/* 앱 안 끌기(core/internalDrag): 따라다니는 그림·꼬리표와 받는 곳 표시 */
+.internal-drag-ghost {
+  position: fixed;
+  z-index: 2147483000;
+  pointer-events: none;
+  opacity: .92;
+}
+.internal-drag-chip {
+  max-width: 280px;
+  padding: 6px 10px;
+  overflow: hidden;
+  border: 1px solid var(--divider-strong, var(--divider));
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 8px 22px var(--shadow-floating, rgb(0 0 0 / 18%));
+}
+body.internal-dragging, body.internal-dragging * { cursor: copy !important; user-select: none !important; }
+[data-internal-drop].internal-drop-over { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent); }
+
+/* 하단바를 떠 있는 알약 대신 패널 아래에 붙인다(폭 전체, 위 경계선 하나) */
+.pane-doc .pane-bottom-bar {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  transform: none;
+  border-top: 1px solid var(--divider);
+  background: var(--chrome, var(--paper));
+}
+.pane-doc .pdf-bottom-bar-surface {
+  justify-content: center;
+  height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* ── 도구를 1줄 오른쪽으로, 문서 이름은 가운데(최종) ─────────────────
+   [검색]          문서 정식 이름 · 파일 이름          [선택·영역·전체 화면·형광펜] */
+.pane-doc {
+  --doc-card-h: 36px;
+  --doc-head-h: 36px;
+  --doc-row2-top: 4px;
+  --doc-chip: 28px;
+  --doc-chip-gap: 2px;
+  --doc-chip-top: 4px;
+}
+.pane-doc .pane-toolbar,
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar {
+  top: var(--doc-chip-top);
+  right: calc(8px + var(--doc-chip) + var(--doc-chip-gap));
+  height: var(--doc-chip);
+}
+.pane-doc .pdf-highlighter-floating-tool { top: var(--doc-chip-top); right: 8px; }
+.pane-doc .pane-toolbar .pdf-compact-tool,
+.pane-doc .pane-toolbar .pdf-compact-tool.pane-fullscreen-toggle,
+.pane-doc .pdf-highlighter-floating-tool .pdf-floating-control-trigger {
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.pane-doc .pane-toolbar .pdf-compact-tool:hover,
+.pane-doc .pdf-highlighter-floating-tool .pdf-floating-control-trigger:hover { background: var(--chrome-hover); }
+.pane-doc .pane-toolbar .pdf-compact-tool svg,
+.pane-doc .pdf-highlighter-floating-tool .pdf-floating-control-trigger svg { width: 17px; height: 17px; }
+/* 이름은 패널 가운데. 양옆 도구 자리만큼 같은 여백을 둬 가운데가 어긋나지 않는다 */
+.pane-doc .pane-doc-title {
+  left: 156px;
+  right: 156px;
+  justify-content: center;
+  text-align: center;
+}
+.pane-doc .pane-doc-title-main { font-size: 13px; }
+.pane-doc .pane-doc-title-sub { font-size: 12px; }
+
+/* 대비·경계: 문서 머리 줄과 쪽 영역을 또렷이 나누고, 쪽 가장자리에 얇은 선을 둔다 */
+.pane-doc .pane-frame-with-toolbar::before { border-bottom-color: var(--divider); }
+.pdf-page {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent),
+    0 2px 10px var(--shadow-soft);
+}
+/* 하단바 높이를 왼쪽 바·캔버스 하단바와 같은 공통 값으로 */
+.pane-doc .pane-bottom-bar { flex: 0 0 var(--bottom-bar-height); height: var(--bottom-bar-height); box-sizing: border-box; }
+.pane-doc .pdf-bottom-bar-surface { height: 100%; }
+/* 끄는 중인 탭: 손을 따라 자리를 바꾼다. 살짝 떠 보이게만 한다 */
+.pane-top-tab.pane-top-tab-dragging { z-index: 2; opacity: 0.88; box-shadow: 0 4px 14px var(--shadow-floating); }

@@ -1,0 +1,66 @@
+.highlight-popover-backdrop { position: fixed; inset: 0; z-index: 55; }
+
+.highlight-popover {
+  position: fixed;
+  z-index: 56;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--divider);
+  background: var(--paper);
+  box-shadow: 0 14px 34px var(--shadow-soft);
+  animation: highlight-popover-in 140ms var(--layout-ease, ease) both;
+}
+
+.highlight-popover-quote {
+  max-height: 4.6em;
+  margin: 0;
+  padding: 4px 8px;
+  overflow: hidden;
+  border-radius: 5px;
+  /* 형광펜 색은 왼쪽 테두리 대신 옅은 바탕으로 */
+  background: var(--highlight-yellow);
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.highlight-popover-quote[data-highlight-color='green'] { background: var(--highlight-green, #8fd19e); }
+.highlight-popover-quote[data-highlight-color='blue'] { background: var(--highlight-blue, #8cc4f5); }
+.highlight-popover-quote[data-highlight-color='pink'] { background: var(--highlight-pink, #f5a3c7); }
+
+.highlight-popover-colors { display: flex; gap: 6px; }
+
+.highlight-popover-note {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: 6px 8px;
+  border: 1px solid var(--divider);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.highlight-popover-actions { display: flex; justify-content: space-between; gap: 6px; }
+
+.highlight-popover-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--divider);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.highlight-popover-actions button:hover { background: var(--chrome-hover); }
+.highlight-popover-actions .highlight-popover-delete { margin-left: auto; color: var(--danger, #c0392b); }
+
+@keyframes highlight-popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .highlight-popover { animation: none; } }

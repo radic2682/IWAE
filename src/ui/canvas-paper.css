@@ -1,0 +1,242 @@
+/*
+ * 캔버스 블록 "종이 조각 + 맨글 메모" 디자인.
+ * 원문 발췌는 책상 위에 놓인 종이 조각(흰 바탕, 테두리 없이 얕은 그림자),
+ * 내 메모는 틀 없이 캔버스에 바로 쓴 글처럼 보인다. 형광펜과 메모를 잇는 선도 여기서 정한다.
+ */
+
+:root {
+  --hl-yellow: rgb(255 214 0 / 46%);
+  --hl-green: rgb(70 214 110 / 40%);
+  --hl-blue: rgb(80 165 255 / 38%);
+  --hl-pink: rgb(255 105 165 / 38%);
+  --hl-yellow-ink: #b8911a;
+  --hl-green-ink: #2f9358;
+  --hl-blue-ink: #2f78c4;
+  --hl-pink-ink: #c4467c;
+  --hl-yellow-solid: #ffd60a;
+  --hl-green-solid: #4cd47a;
+  --hl-blue-solid: #5aa9ff;
+  --hl-pink-solid: #ff6fa8;
+  --clip-paper: #ffffff;
+  --clip-shadow: 0 1px 2px rgb(60 45 20 / 18%), 0 6px 16px rgb(60 45 20 / 10%);
+}
+
+:root[data-theme='dark'] {
+  --clip-paper: #f4f1ea;
+  --clip-shadow: 0 1px 2px rgb(0 0 0 / 50%), 0 8px 20px rgb(0 0 0 / 35%);
+}
+
+/* ---------- 원문 발췌 = 종이 조각 ---------- */
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-pdfExcerpt,
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-image {
+  border-width: var(--canvas-block-border-width, 0px);
+  border-radius: 2px;
+  background: var(--clip-paper);
+  box-shadow: var(--clip-shadow);
+}
+
+.note-canvas .canvas-block-pdfExcerpt .canvas-block-body,
+.note-canvas .canvas-block-pdfExcerpt .pdf-excerpt-node-body,
+.note-canvas .canvas-block-pdfExcerpt .pdf-excerpt-visual {
+  border-radius: 2px;
+}
+
+:root[data-theme='dark'] .note-canvas .pdf-excerpt-node-body {
+  border: 0;
+  box-shadow: none;
+}
+
+/* 출처 표시는 종이 바깥 아래에 작게(원문을 가리지 않게) */
+.note-canvas .canvas-block-pdfExcerpt > .canvas-block-source-footer {
+  top: calc(100% + 6px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 0 !important;
+  max-width: 100%;
+}
+
+.note-canvas .canvas-block-pdfExcerpt .pdf-excerpt-source {
+  min-height: 22px;
+  height: 22px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  font-size: 11.5px;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.note-canvas .canvas-block-pdfExcerpt .pdf-excerpt-source span:first-child { font-size: 11px; }
+
+/* ---------- 메모 = 캔버스에 바로 쓴 글 ---------- */
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-paragraph,
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-title {
+  border-width: var(--canvas-block-border-width, 0px);
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-paragraph.canvas-block-affordances-visible,
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-title.canvas-block-affordances-visible {
+  outline: 1px dashed color-mix(in srgb, var(--ink) 28%, transparent);
+  outline-offset: 2px;
+}
+
+/* ---------- 선택: 테두리 없는 블록도 분명하게 ---------- */
+.note-canvas .react-flow__node.selected .canvas-block-shell.canvas-block-pdfExcerpt,
+.note-canvas .react-flow__node.selected .canvas-block-shell.canvas-block-image,
+.note-canvas .react-flow__node.selected .canvas-block-shell.canvas-block-paragraph,
+.note-canvas .react-flow__node.selected .canvas-block-shell.canvas-block-title {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.note-canvas .react-flow__node.selected .canvas-block-shell.canvas-block-pdfExcerpt,
+.note-canvas .react-flow__node.selected .canvas-block-shell.canvas-block-image {
+  box-shadow: var(--clip-shadow);
+}
+
+/* ---------- 형광펜 ---------- */
+.excerpt-highlight-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.excerpt-highlight-layer-drawing {
+  pointer-events: auto;
+  cursor: text;
+  touch-action: none;
+}
+
+.excerpt-highlight {
+  position: absolute;
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.excerpt-highlight-layer-drawing .excerpt-highlight { pointer-events: none; }
+.excerpt-highlight-yellow { background: var(--hl-yellow); }
+.excerpt-highlight-green { background: var(--hl-green); }
+.excerpt-highlight-blue { background: var(--hl-blue); }
+.excerpt-highlight-pink { background: var(--hl-pink); }
+.excerpt-highlight-draft { opacity: .75; }
+.excerpt-highlight-active { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--ink) 45%, transparent); }
+
+/* 형광펜 양옆의 선 시작점. 블록에 마우스를 올리면 보이고, 선이 이어진 쪽은 늘 작게 보인다 */
+.note-canvas .react-flow__handle.excerpt-highlight-port {
+  width: 10px;
+  min-width: 0;
+  height: 10px;
+  min-height: 0;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: auto;
+  cursor: crosshair;
+  transition: opacity 120ms ease;
+}
+
+.note-canvas .canvas-block-affordances-visible .react-flow__handle.excerpt-highlight-port { opacity: 1; }
+.note-canvas .react-flow__handle.excerpt-highlight-port-linked { opacity: 1; width: 7px; height: 7px; border-width: 1.5px; }
+.note-canvas .excerpt-highlight-layer-drawing .react-flow__handle.excerpt-highlight-port { pointer-events: none; }
+.note-canvas .react-flow__handle.excerpt-highlight-port-yellow { background: var(--hl-yellow-ink); }
+.note-canvas .react-flow__handle.excerpt-highlight-port-green { background: var(--hl-green-ink); }
+.note-canvas .react-flow__handle.excerpt-highlight-port-blue { background: var(--hl-blue-ink); }
+.note-canvas .react-flow__handle.excerpt-highlight-port-pink { background: var(--hl-pink-ink); }
+
+/* 형광펜에서 메모로 가는 선 */
+.note-canvas .react-flow__edge.canvas-edge-highlight .react-flow__edge-path { stroke-width: 1.6px; }
+.note-canvas .react-flow__edge.canvas-edge-highlight-yellow .react-flow__edge-path { stroke: var(--hl-yellow-ink); }
+.note-canvas .react-flow__edge.canvas-edge-highlight-green .react-flow__edge-path { stroke: var(--hl-green-ink); }
+.note-canvas .react-flow__edge.canvas-edge-highlight-blue .react-flow__edge-path { stroke: var(--hl-blue-ink); }
+.note-canvas .react-flow__edge.canvas-edge-highlight-pink .react-flow__edge-path { stroke: var(--hl-pink-ink); }
+
+/* 형광펜을 눌렀을 때 뜨는 작은 메뉴 */
+.excerpt-highlight-menu {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  transform-origin: left bottom;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 4px 14px var(--shadow-soft);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.excerpt-highlight-menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.excerpt-highlight-menu button:hover,
+.excerpt-highlight-menu button:focus-visible { background: var(--chrome-hover); outline: 0; }
+.excerpt-highlight-menu .excerpt-highlight-menu-note { font-weight: 600; }
+.excerpt-highlight-menu-divider { width: 1px; height: 16px; background: var(--divider); }
+
+.excerpt-highlight-menu button.excerpt-highlight-swatch,
+.canvas-highlight-hint button.excerpt-highlight-swatch {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 14%);
+  border-radius: 50%;
+}
+
+.excerpt-highlight-swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--accent); }
+.excerpt-highlight-menu button.excerpt-highlight-swatch-yellow,
+.canvas-highlight-hint button.excerpt-highlight-swatch-yellow { background: var(--hl-yellow-solid); }
+.excerpt-highlight-menu button.excerpt-highlight-swatch-green,
+.canvas-highlight-hint button.excerpt-highlight-swatch-green { background: var(--hl-green-solid); }
+.excerpt-highlight-menu button.excerpt-highlight-swatch-blue,
+.canvas-highlight-hint button.excerpt-highlight-swatch-blue { background: var(--hl-blue-solid); }
+.excerpt-highlight-menu button.excerpt-highlight-swatch-pink,
+.canvas-highlight-hint button.excerpt-highlight-swatch-pink { background: var(--hl-pink-solid); }
+
+/* 형광펜 도구가 켜져 있을 때 위에 뜨는 안내 */
+.canvas-highlight-hint {
+  position: absolute;
+  z-index: 33;
+  top: 12px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px 6px 12px;
+  transform: translateX(-50%);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 3px 12px var(--shadow-soft);
+  font-size: 12px;
+}
+
+.canvas-highlight-hint .canvas-highlight-hint-done {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--chrome-hover);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

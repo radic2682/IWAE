@@ -1,0 +1,41 @@
+# deps / build
+node_modules/
+dist/
+.tmp/
+playwright-report/
+test-results/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/tauri.updater.conf.json
+src-tauri/icons/64x64.png
+src-tauri/icons/android/
+src-tauri/icons/ios/
+
+# PDFium runtime library (프리빌드 바이너리, 빌드 시 내려받음)
+src-tauri/binaries/
+
+# vault cache (재생성 가능)
+.iwae/cache/
+
+# 개발 미리보기 fixture는 저장소에 포함한다.
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 에이전트 하네스 설정 (레포가 아니라 내 작업 환경의 것)
+.claude/
+.superpowers/
+
+# spec db 엔진의 DB·그림·백업(로컬 데이터)
+specdb/specdb.sqlite*
+specdb/figures/
+specdb/*.bak*
+
+# 개발용(이 PC 전용) Tauri 설정 — CDP 디버그 포트, 로컬 Vault 권한
+src-tauri/tauri.debug.conf.json
+scripts/__pycache__/
+tsconfig.tsbuildinfo
+
+# 배포 금지어 목록(이 목록 자체가 지울 정보)
+.release-denylist.txt

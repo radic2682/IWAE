@@ -1,0 +1,30 @@
+{
+  "models": [
+    {
+      "name": "translategemma:4b",
+      "model": "translategemma:4b",
+      "modified_at": "2026-09-20T08:15:00Z",
+      "size": 3300000000,
+      "digest": "sha256:four-billion",
+      "details": {
+        "format": "gguf",
+        "family": "gemma3",
+        "parameter_size": "4.3B",
+        "quantization_level": "Q4_K_M"
+      }
+    },
+    {
+      "name": "translategemma:12b",
+      "model": "translategemma:12b",
+      "modified_at": "2026-09-19T05:00:00Z",
+      "size": 8100000000,
+      "digest": "sha256:twelve-billion",
+      "details": {
+        "format": "gguf",
+        "family": "gemma3",
+        "parameter_size": "12.2B",
+        "quantization_level": "Q4_K_M"
+      }
+    }
+  ]
+}

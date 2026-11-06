@@ -1,0 +1,328 @@
+/**
+ * 메모 노트. PDF 와 따로 열리는 노트 한 장에 블록을 차례로 쌓는다:
+ * - memo: PDF 형광펜(+그 메모). 형광펜·메모 글·별점은 highlights.json 에 있고 노트는 id 로 가리킨다.
+ *   여러 PDF 의 형광펜이 한 노트에 섞일 수 있다.
+ * - text: 노트에 직접 쓴 글(서식 HTML + 같은 내용의 글)
+ * - 티켓: memo 블록에 ticket(제목)을 붙인 것. 제목(H2) · 내 글 · 원문(Req 문구) 차례로 보인다.
+ * - memo 블록의 refs: 한 메모가 가리키는 원문을 더 둘 때 그 형광펜 id 들(첫 원문은 highlightId)
+ *   kind 는 memo 그대로라 형광펜 연결·지우기가 메모와 같고, 티켓을 모르는 판도 메모로 읽는다.
+ *
+ * 파일은 Vault 의 「노트」 폴더에 `<제목>.iwnote`(JSON)로 둔다.
+ */
+
+import { t } from '../i18n'
+
+export const MEMO_NOTES_FOLDER = '노트'
+export const MEMO_NOTE_EXTENSION = '.iwnote'
+
+export type MemoNoteBlock =
+  | { readonly id: string; readonly kind: 'memo'; readonly highlightId: string; readonly ticket?: MemoTicket; readonly refs?: readonly string[] }
+  | { readonly id: string; readonly kind: 'text'; readonly text: string; readonly html?: string }
+  /** 소제목(구역): 다음 소제목 앞까지의 블록을 묶는다. 접으면 묶인 블록을 숨기고, 옮기면 함께 옮긴다 */
+  | { readonly id: string; readonly kind: 'section'; readonly title: string; readonly collapsed?: true }
+
+/** 티켓 블록의 머리(제목) */
+export interface MemoTicket {
+  readonly title: string
+}
+
+export interface MemoNote {
+  readonly version: 1
+  readonly blocks: readonly MemoNoteBlock[]
+}
+
+/** 노트 목록에 보일 것: Vault 안 상대 경로(=열쇠)와 제목 */
+export interface MemoNoteEntry {
+  readonly path: string
+  readonly title: string
+}
+
+export const EMPTY_MEMO_NOTE: MemoNote = { version: 1, blocks: [] }
+
+/**
+ * 사람이 정한 차례(경로 목록)대로 노트를 놓는다. 차례에 없는 노트(새로 만든 것 등)는
+ * 받은 차례(이름순) 그대로 뒤에 붙고, 이제 없는 경로는 건너뛴다.
+ */
+export function orderMemoNoteEntries<T extends MemoNoteEntry>(entries: readonly T[], order: readonly string[]): T[] {
+  const rank = new Map(order.map((path, index) => [path, index]))
+  const ranked = entries.filter((entry) => rank.has(entry.path)).sort((a, b) => (rank.get(a.path) ?? 0) - (rank.get(b.path) ?? 0))
+  return [...ranked, ...entries.filter((entry) => !rank.has(entry.path))]
+}
+
+/** `from` 자리의 노트를 `to` 자리(옮기기 전 목록 기준, 그 앞)로 옮긴 경로 차례 */
+export function moveMemoNote(paths: readonly string[], from: number, to: number): string[] {
+  const next = [...paths]
+  const [moved] = next.splice(from, 1)
+  if (moved === undefined) return next
+  next.splice(to > from ? to - 1 : to, 0, moved)
+  return next
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function parseMemoNote(value: unknown): MemoNote {
+  if (!isRecord(value) || !Array.isArray(value.blocks)) return EMPTY_MEMO_NOTE
+  const seen = new Set<string>()
+  const blocks = value.blocks.flatMap((item: unknown): MemoNoteBlock[] => {
+    if (!isRecord(item) || typeof item.id !== 'string' || seen.has(item.id)) return []
+    seen.add(item.id)
+    if (item.kind === 'memo' && typeof item.highlightId === 'string') {
+      const ticket = isRecord(item.ticket) && typeof item.ticket.title === 'string' ? { ticket: { title: item.ticket.title } } : {}
+      const refs = Array.isArray(item.refs) ? [...new Set(item.refs.filter((ref): ref is string => typeof ref === 'string' && ref !== item.highlightId))] : []
+      return [{ id: item.id, kind: 'memo', highlightId: item.highlightId, ...ticket, ...(refs.length > 0 ? { refs } : {}) }]
+    }
+    if (item.kind === 'section' && typeof item.title === 'string') {
+      return [{ id: item.id, kind: 'section', title: item.title, ...(item.collapsed === true ? { collapsed: true as const } : {}) }]
+    }
+    if (item.kind === 'text' && typeof item.text === 'string') {
+      return [{ id: item.id, kind: 'text', text: item.text, ...(typeof item.html === 'string' && item.html !== '' ? { html: item.html } : {}) }]
+    }
+    return []
+  })
+  return { version: 1, blocks }
+}
+
+export function serializeMemoNote(note: MemoNote): string {
+  return `${JSON.stringify({ version: 1, blocks: note.blocks }, null, 2)}\n`
+}
+
+let blockCounter = 0
+export function newBlockId(): string {
+  blockCounter += 1
+  return `b${Date.now().toString(36)}${blockCounter.toString(36)}${Math.random().toString(36).slice(2, 6)}`
+}
+
+export function memoBlock(highlightId: string, ticket?: MemoTicket): MemoNoteBlock {
+  return { id: newBlockId(), kind: 'memo', highlightId, ...(ticket === undefined ? {} : { ticket: { title: ticket.title } }) }
+}
+
+/** 메모 블록을 티켓으로(제목을 붙여) 바꾸거나, ticket 이 null 이면 다시 메모로 */
+export function setMemoTicket(note: MemoNote, blockId: string, ticket: MemoTicket | null): MemoNote {
+  return {
+    ...note,
+    blocks: note.blocks.map((block) => {
+      if (block.id !== blockId || block.kind !== 'memo') return block
+      const { ticket: _old, ...rest } = block
+      return ticket === null ? rest : { ...rest, ticket: { title: ticket.title } }
+    }),
+  }
+}
+
+/** 메모 블록이 가리키는 형광펜 모두(첫 원문 + 더한 원문) */
+export function memoHighlightIds(block: MemoNoteBlock): readonly string[] {
+  return block.kind === 'memo' ? [block.highlightId, ...(block.refs ?? [])] : []
+}
+
+/** 메모 블록에 원문(형광펜)을 하나 더 단다. 이미 있으면 그대로 */
+export function addMemoRef(note: MemoNote, blockId: string, highlightId: string): MemoNote {
+  return {
+    ...note,
+    blocks: note.blocks.map((block) => {
+      if (block.id !== blockId || block.kind !== 'memo' || memoHighlightIds(block).includes(highlightId)) return block
+      return { ...block, refs: [...(block.refs ?? []), highlightId] }
+    }),
+  }
+}
+
+/** 더한 원문 하나를 뗀다(첫 원문은 떼지 않는다) */
+export function removeMemoRef(note: MemoNote, blockId: string, highlightId: string): MemoNote {
+  return {
+    ...note,
+    blocks: note.blocks.map((block) => {
+      if (block.id !== blockId || block.kind !== 'memo' || !(block.refs ?? []).includes(highlightId)) return block
+      const refs = (block.refs ?? []).filter((ref) => ref !== highlightId)
+      const { refs: _old, ...rest } = block
+      return refs.length > 0 ? { ...rest, refs } : rest
+    }),
+  }
+}
+
+export function sectionBlock(title = t('새 소제목')): MemoNoteBlock {
+  return { id: newBlockId(), kind: 'section', title }
+}
+
+/** 소제목이 묶는 블록의 범위 [소제목 자리, 다음 소제목 자리) */
+export function sectionRange(note: MemoNote, sectionId: string): readonly [number, number] | null {
+  const start = note.blocks.findIndex((block) => block.id === sectionId && block.kind === 'section')
+  if (start < 0) return null
+  const next = note.blocks.findIndex((block, index) => index > start && block.kind === 'section')
+  return [start, next < 0 ? note.blocks.length : next]
+}
+
+export function updateSection(note: MemoNote, sectionId: string, change: { readonly title?: string; readonly collapsed?: boolean }): MemoNote {
+  return {
+    ...note,
+    blocks: note.blocks.map((block) => {
+      if (block.id !== sectionId || block.kind !== 'section') return block
+      const title = change.title === undefined ? block.title : change.title.trim() || block.title
+      const collapsed = change.collapsed === undefined ? block.collapsed === true : change.collapsed
+      return { id: block.id, kind: 'section', title, ...(collapsed ? { collapsed: true as const } : {}) }
+    }),
+  }
+}
+
+export function textBlock(text = '', html?: string): MemoNoteBlock {
+  return { id: newBlockId(), kind: 'text', text, ...(html === undefined || html === '' ? {} : { html }) }
+}
+
+/** index 자리에 끼운다(범위 밖이면 끝). 같은 형광펜이 이미 있으면 그대로 */
+export function insertBlock(note: MemoNote, block: MemoNoteBlock, index: number): MemoNote {
+  if (block.kind === 'memo' && note.blocks.some((item) => item.kind === 'memo' && item.highlightId === block.highlightId)) return note
+  const at = Math.min(Math.max(Math.trunc(index), 0), note.blocks.length)
+  return { ...note, blocks: [...note.blocks.slice(0, at), block, ...note.blocks.slice(at)] }
+}
+
+/** from 의 블록을 to 자리(빼기 전 기준, 그 앞에 끼운다)로 옮긴다 */
+export function moveBlock(note: MemoNote, blockId: string, beforeIndex: number): MemoNote {
+  const from = note.blocks.findIndex((block) => block.id === blockId)
+  if (from < 0) return note
+  const to = beforeIndex > from ? beforeIndex - 1 : beforeIndex
+  if (to === from) return note
+  const blocks = [...note.blocks]
+  const [moved] = blocks.splice(from, 1)
+  blocks.splice(Math.min(Math.max(to, 0), blocks.length), 0, moved!)
+  return { ...note, blocks }
+}
+
+/**
+ * blockId 블록을 beforeId 블록 앞으로(null 이면 맨 끝). 소제목이면 묶인 블록까지 함께 옮긴다
+ * (자기 묶음 안으로는 못 옮긴다)
+ */
+export function moveBlockBefore(note: MemoNote, blockId: string, beforeId: string | null): MemoNote {
+  if (blockId === beforeId) return note
+  const from = note.blocks.findIndex((block) => block.id === blockId)
+  if (from < 0) return note
+  const range = note.blocks[from]!.kind === 'section' ? sectionRange(note, blockId)! : [from, from + 1] as const
+  const moving = note.blocks.slice(range[0], range[1])
+  if (beforeId !== null && moving.some((block) => block.id === beforeId)) return note
+  const rest = [...note.blocks.slice(0, range[0]), ...note.blocks.slice(range[1])]
+  const at = beforeId === null ? rest.length : rest.findIndex((block) => block.id === beforeId)
+  if (at < 0) return note
+  return { ...note, blocks: [...rest.slice(0, at), ...moving, ...rest.slice(at)] }
+}
+
+export function removeBlock(note: MemoNote, blockId: string): MemoNote {
+  return { ...note, blocks: note.blocks.filter((block) => block.id !== blockId) }
+}
+
+/** 지운 형광펜을 가리키는 블록을 뺀다 */
+export function removeHighlightBlocks(note: MemoNote, highlightId: string): MemoNote {
+  let changed = false
+  const blocks = note.blocks.flatMap((block): MemoNoteBlock[] => {
+    if (block.kind !== 'memo') return [block]
+    if (block.highlightId === highlightId) {
+      changed = true
+      // 첫 원문이 지워지면 더한 원문 중 첫째가 그 자리를 잇는다(없으면 블록이 빠진다)
+      const [next, ...rest] = block.refs ?? []
+      if (next === undefined) return []
+      const { refs: _old, ...base } = block
+      return [{ ...base, highlightId: next, ...(rest.length > 0 ? { refs: rest } : {}) }]
+    }
+    if ((block.refs ?? []).includes(highlightId)) {
+      changed = true
+      const refs = (block.refs ?? []).filter((ref) => ref !== highlightId)
+      const { refs: _old, ...base } = block
+      return [refs.length > 0 ? { ...base, refs } : base]
+    }
+    return [block]
+  })
+  return changed ? { ...note, blocks } : note
+}
+
+export function updateTextBlock(note: MemoNote, blockId: string, text: string, html: string): MemoNote {
+  return {
+    ...note,
+    blocks: note.blocks.map((block) => block.id === blockId && block.kind === 'text'
+      ? { id: block.id, kind: 'text', text, ...(html === '' ? {} : { html }) }
+      : block),
+  }
+}
+
+/** 파일 이름으로 쓸 수 없는 글자를 바꾸고 다듬는다 */
+export function safeNoteTitle(title: string): string {
+  const cleaned = title.replace(/[\\/:*?"<>|]/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 80)
+  return cleaned === '' ? t('새 노트') : cleaned
+}
+
+/** 노트 파일 경로. folder 는 「노트」 또는 그 아래 하위 폴더(Vault 상대 경로) */
+export function memoNotePath(title: string, folder: string = MEMO_NOTES_FOLDER): string {
+  return `${folder}/${safeNoteTitle(title)}${MEMO_NOTE_EXTENSION}`
+}
+
+/** 노트(또는 폴더)가 든 폴더. 「노트/회의/A.iwnote」 → 「노트/회의」 */
+export function memoParentOf(path: string): string {
+  const parts = path.replaceAll('\\', '/').split('/')
+  return parts.slice(0, -1).join('/')
+}
+
+/** path 가 folder 안(하위 폴더 포함)에 있는가 */
+export function isInsideMemoFolder(path: string, folder: string): boolean {
+  return path.startsWith(`${folder}/`)
+}
+
+/**
+ * 폴더를 옮기거나 이름을 바꿀 때 바뀌는 경로들(폴더 자신, 안의 폴더·노트). 옛 경로 → 새 경로.
+ */
+export function movedMemoPaths(from: string, to: string, paths: readonly string[]): Map<string, string> {
+  const moved = new Map<string, string>()
+  for (const path of paths) {
+    if (path === from) moved.set(path, to)
+    else if (isInsideMemoFolder(path, from)) moved.set(path, `${to}${path.slice(from.length)}`)
+  }
+  return moved
+}
+
+export function memoNoteTitleOf(path: string): string {
+  const name = path.replaceAll('\\', '/').split('/').at(-1) ?? path
+  return name.endsWith(MEMO_NOTE_EXTENSION) ? name.slice(0, -MEMO_NOTE_EXTENSION.length) : name
+}
+
+/** 이미 있는 제목과 겹치지 않게: 「TODO」, 「TODO 2」… */
+export function uniqueNoteTitle(title: string, taken: readonly string[]): string {
+  const base = safeNoteTitle(title)
+  const lower = new Set(taken.map((item) => item.toLowerCase()))
+  if (!lower.has(base.toLowerCase())) return base
+  for (let n = 2; ; n++) {
+    const candidate = `${base} ${n}`
+    if (!lower.has(candidate.toLowerCase())) return candidate
+  }
+}
+
+/**
+ * 예전 「카테고리」를 노트로: 카테고리마다 노트 하나(여러 PDF 의 메모가 함께), 카테고리 없는 메모는 PDF 이름 노트.
+ * 메모 글이 있는 형광펜만 옮긴다. 노트 안 차례는 PDF 별로 모은 뒤 사용자가 정한 순서(없으면 문서 순서).
+ */
+export function notesFromCategories<T extends {
+  readonly id: string
+  readonly note?: string
+  readonly topic?: string
+  readonly order?: number
+  readonly anchor: { readonly docId: string; readonly page: number; readonly rects: readonly { readonly y: number }[] }
+}>(highlights: readonly T[], docTitle: (docId: string) => string): { title: string; note: MemoNote }[] {
+  const groups = new Map<string, T[]>()
+  for (const highlight of highlights) {
+    if ((highlight.note ?? '').trim() === '') continue
+    const title = highlight.topic ?? (docTitle(highlight.anchor.docId) || t('메모'))
+    groups.set(title, [...(groups.get(title) ?? []), highlight])
+  }
+  const top = (highlight: T) => Math.min(...highlight.anchor.rects.map((rect) => rect.y), Number.POSITIVE_INFINITY)
+  return [...groups].map(([title, items]) => {
+    const docs = [...new Set(items.map((item) => item.anchor.docId))]
+    const ordered = docs.flatMap((docId) => {
+      const inDoc = items.filter((item) => item.anchor.docId === docId)
+        .sort((a, b) => a.anchor.page - b.anchor.page || top(a) - top(b))
+      let previous = -1
+      return inDoc
+        .map((item, index) => {
+          const key = item.order ?? previous + 0.001
+          previous = key
+          return { item, key, index }
+        })
+        .sort((a, b) => a.key - b.key || a.index - b.index)
+        .map(({ item }) => item)
+    })
+    return { title, note: { version: 1 as const, blocks: ordered.map((item) => memoBlock(item.id)) } }
+  })
+}

@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible problem in IWAE.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for helping improve IWAE. Do not include private documents, API keys, or other sensitive data.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe what happened and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: IWAE version or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and hardware
+      placeholder: Windows 11, Intel Core i7, 16 GB RAM
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove document content and secrets before attaching files.

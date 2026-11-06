@@ -1,0 +1,3637 @@
+/* 레이아웃·사이드바·탭바 스타일. 토큰은 theme.css 에서만 온다.
+   Task 4~6 에서 규칙이 채워진다. */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 상단바 아래의 가로 줄. min-height:0 이 없으면 자식의 스크롤이
+   컨테이너를 밀어 늘려서 창 밖으로 나간다. */
+.app {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+/* 탭바는 종이색이다. 진짜로 이어져야 할 상대는 그 아래 떠 있는 PDF
+   카드(--chrome, .pdf-pane)이지 pane-body 의 흰 바탕이 아니다 — 활성
+   탭도 카드와 같은 --chrome 이어야 둘이 만나는 자리에 색이 안 바뀐다.
+   탭바를 흰색으로 두는 이유는 그래야 흰 바탕 위에서 활성 탭의 회색이
+   "여기서 아래로 이어진다"는 신호로 도드라지기 때문이다 — 탭바까지
+   회색이면 활성 탭이 그냥 바탕에 묻힌다. 아래쪽 경계선도 긋지 않는다:
+   그으면 활성 탭 밑에도 선이 지나가 이어짐이 끊겨 보인다. */
+.tabbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: var(--tabbar-h);
+  flex: 0 0 auto;
+  padding: 4px 4px 0;
+  background: var(--paper);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* 탭은 위쪽 모서리만 둥글고 아래는 각져서 탭바 바닥에 닿는다 — 서류철의
+   색인 탭과 같은 모양이다. 높이를 tabbar 에 꽉 채우는 이유도 그 밑변이
+   내용 영역의 윗변과 정확히 만나야 하기 때문이다(위쪽 padding 4px 만
+   남기고 stretch). */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--grid) / 2);
+  align-self: stretch;
+  padding: 0 4px 0 var(--grid);
+  max-width: 220px;
+  border: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.tab:hover { background: var(--chrome-hover); }
+
+/* 활성 탭만 카드와 같은 --chrome 이 된다 — .pdf-pane 이 탭바 바로 밑까지
+   올라와 있으므로(위쪽 여백을 없앴다), 그 경계에서 색이 안 바뀌면
+   탭과 카드가 한 덩어리로 보인다. 경계선도 그림자도 필요 없다. */
+.tab-active,
+.tab-active:hover {
+  background: var(--chrome);
+  font-weight: 500;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  line-height: 1;
+  padding: 0;
+  cursor: default;
+}
+
+.tab-close:hover { color: var(--ink); background: var(--chrome-hover); }
+
+/* 분할 — 구분선은 보기엔 1px 이지만 집을 수 있는 폭은 5px 이다.
+   1px 선을 마우스로 정확히 집게 하면 안 된다. background-clip 으로
+   패딩을 빼고 칠해서 "보이는 두께"와 "잡히는 두께"를 분리한다. */
+/* 사이드바는 세로 flex 다. 맨 위 vault 이름 줄은 고정 머리로 남고
+   그 아래 목록만 스크롤한다. overflow:hidden 이 스크롤을 .side-scroll 로
+   가둔다 — 창의 드래그 구역은 이제 상단바가 전담한다.
+   position: sticky 로도 화면에는 남길 수 있지만 그 경우 머리가 여전히
+   스크롤 컨테이너의 자식이라 스크롤바가 머리 옆을 지나가고, "스크롤될 수
+   있지만 되돌아오는" 요소가 된다. flex 로 빼면 드래그 구역이 스크롤
+   영역 바깥에 있다는 것이 구조로 보장된다. */
+.sidebar {
+  flex: 0 0 var(--sidebar-width);
+  width: var(--sidebar-width);
+  min-width: 0;
+  background: var(--chrome);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: flex-basis 230ms cubic-bezier(0.2, 0.8, 0.2, 1), width 230ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.shell-sidebar-collapsed .sidebar,
+.shell-note-focused .sidebar { pointer-events: none; }
+
+.divider.sidebar-divider {
+  flex-basis: var(--sidebar-divider-width);
+  width: var(--sidebar-divider-width);
+  transition: flex-basis 230ms cubic-bezier(0.2, 0.8, 0.2, 1), width 230ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.shell-sidebar-collapsed .sidebar-divider,
+.shell-note-focused .sidebar-divider { pointer-events: none; }
+
+.divider {
+  position: relative;
+  z-index: 4;
+  flex: 0 0 1px;
+  background: var(--divider-strong);
+  cursor: col-resize;
+}
+
+.divider:hover { background: var(--accent); }
+
+.divider::after {
+  content: '';
+  position: absolute;
+  inset: 0 -3px;
+}
+
+.panes {
+  flex: 1 1 auto;
+  display: flex;
+  min-width: 0;
+}
+
+.pane {
+  flex-basis: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+/* 탭바와 본문을 세로로 쌓기만 하는 순수 레이아웃 래퍼다 — 테두리도
+   배경도 둥근 모서리도 없다. 카드처럼 보이는 것은 이 래퍼가 아니라
+   .pdf-pane 자신이다(그 아래). 여백도 없다: 탭바는 이 래퍼에 꽉 차고,
+   래퍼는 .pane 에 꽉 찬다 — 이 래퍼가 시각적으로 존재를 드러내면
+   카드 속에 또 다른 테두리가 있는 것처럼 겹으로 보인다. */
+.pane-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--grid);
+  gap: var(--grid);
+}
+
+.pane-frame-with-toolbar {
+  position: relative;
+  padding: 0;
+  gap: 0;
+}
+
+.pane-frame:not(.pane-frame-with-toolbar) {
+  padding: 0;
+  gap: 0;
+}
+
+/* 사이드바 — 크롬은 물러나고 문서 제목이 주인공이다.
+   행 높이를 --row-h 로 조인 이유: 1000쪽짜리 스펙 여러 개를 훑는 게 일이라,
+   한 화면에 들어오는 줄 수가 편안한 여백보다 값지다. */
+.sidebar-inner {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 238px;
+  display: flex;
+  flex-direction: column;
+}
+
+.side-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 8px 6px 12px;
+}
+
+.side-head {
+  margin: 0;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+/* 구역 머리와 그 줄의 동작 버튼. 머리 자체는 여백을 갖고 있으므로
+   줄은 정렬만 한다. */
+.side-head-row {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  margin-bottom: 3px;
+}
+.side-head-row .side-head { flex: 1 1 auto; }
+.side-scroll > .side-head { margin-top: 12px; }
+
+/* 누르는 것이라 둥글다(--radius). 평소엔 구역 이름과 같은 무게로 물러나
+   있다가 호버에서만 잉크색으로 올라온다 — 사이드바에서 제일 눈에 띄는
+   것이 문서 제목이어야 한다. */
+.side-add {
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  height: 28px;
+  padding: 0 8px;
+  cursor: default;
+}
+
+.side-add:hover { background: var(--chrome-hover); color: var(--ink); }
+
+.side-attach-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.side-attach-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 18;
+  width: 226px;
+  display: grid;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 12px 32px var(--shadow-soft);
+}
+
+.side-attach-menu > button {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  padding: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+
+.side-attach-menu > button:hover { background: var(--chrome-hover); }
+.side-attach-menu strong,
+.side-attach-menu small { display: block; }
+.side-attach-menu strong { font-size: 12px; font-weight: 650; }
+.side-attach-menu small { margin-top: 2px; color: var(--text-dim); font-size: 10px; }
+.side-attach-menu > label { display: grid; gap: 3px; padding: 5px 6px; color: var(--text-dim); font-size: 10px; }
+.side-attach-menu select { width: 100%; min-width: 0; height: 28px; border: 1px solid var(--hairline); border-radius: 6px; background: var(--paper); color: var(--ink); }
+
+.side-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.side-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 8px 2px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* 항목은 사이드바 가장자리에서 6px 들여쓴다. 호버·선택이 창 끝까지
+   번지지 않고 조각으로 보이는 것이 참고 화면의 인상이다. */
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--grid) / 2);
+  width: 100%;
+  margin: 0;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  padding: 0 8px;
+  cursor: default;
+}
+
+.side-item-nested { padding-left: 24px; }
+.side-item:hover { background: var(--chrome-hover); }
+.side-item-open { background: var(--chrome-hover); font-weight: 500; }
+
+/* 점은 장식이 아니라 "지금 탭으로 열려 있음"이다. 닫힌 것은 자리만
+   차지해서 목록의 왼쪽 선이 흐트러지지 않게 한다. */
+.side-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.side-dot-open { background: var(--accent); }
+
+.side-item-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-item-meta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 상단바 — 창 맨 윗줄. 사이드바 위를 포함해 전체 폭을 가로지른다.
+   왼쪽 끝의 접기 버튼이 사이드바와 함께 사라지지 않게 하려는 배치다. */
+.topbar {
+  position: relative;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  height: var(--topbar-h);
+  flex: 0 0 auto;
+  padding: 0;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.side-folder-icon { flex: 0 0 auto; color: var(--text-dim); }
+
+.topbar-leftcluster {
+  position: relative;
+  flex: 0 0 calc(var(--sidebar-width) + var(--sidebar-divider-width));
+  width: calc(var(--sidebar-width) + var(--sidebar-divider-width));
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  overflow: visible;
+  border-right: 0;
+  transition: flex-basis 230ms cubic-bezier(0.2, 0.8, 0.2, 1), width 230ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.topbar-leftcluster::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--sidebar-divider-width);
+  background: var(--divider-strong);
+  content: '';
+  pointer-events: none;
+}
+
+.topbar-leftcluster-actions {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  background: var(--chrome);
+}
+
+.topbar-panetabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+}
+
+.topbar-panetab-zone {
+  flex-basis: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.topbar-panetab-zone .pane-tabs-menu { padding-inline: var(--grid); }
+.topbar-panetab-zone-right .pane-tabs-menu { padding-right: 146px; }
+.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: 146px; }
+
+.topbar-pane-divider {
+  flex: 0 0 1px;
+  align-self: stretch;
+  background: var(--divider-strong);
+}
+
+.pane-tabs-menu {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.pane-tabs-strip {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.pane-tabs-overflow {
+  flex: 0 0 29px;
+  width: 29px;
+  height: 28px;
+  margin: 0 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.pane-tabs-overflow:hover,
+.pane-tabs-overflow[aria-expanded="true"] { background: var(--chrome-hover); color: var(--ink); }
+
+.pane-tabs-strip::-webkit-scrollbar { display: none; }
+
+.pane-top-tab {
+  flex: 0 0 clamp(132px, 19vw, 210px);
+  min-width: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  margin-right: 3px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--chrome-hover);
+  color: var(--text-dim);
+}
+
+.pane-top-tab-active {
+  border-color: var(--divider);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.pane-top-tab-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 9px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.pane-top-tab-close {
+  flex: 0 0 auto;
+  width: 23px;
+  height: 23px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: default;
+}
+
+.pane-top-tab-close:hover { background: var(--chrome); color: var(--ink); }
+
+.pane-tabs-empty {
+  padding: 0 8px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-tabs-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  border: 0;
+  background: transparent;
+}
+
+.pane-tabs-popover {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 21;
+  width: min(320px, 70vw);
+  padding: 4px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.pane-tabs-row {
+  display: flex;
+  align-items: center;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.pane-tabs-row:hover,
+.pane-tabs-row-active { background: var(--chrome-hover); }
+
+.pane-tabs-item {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.pane-tabs-check { flex: 0 0 12px; color: var(--accent); }
+.pane-tabs-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pane-tabs-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: default;
+}
+
+.pane-tabs-close:hover { background: var(--paper); color: var(--ink); }
+
+.pane-toolbar {
+  position: relative;
+  z-index: 4;
+  top: auto;
+  left: auto;
+  right: auto;
+  flex: 0 0 36px;
+  width: auto;
+  height: 36px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px var(--grid);
+  padding: 3px;
+  background: var(--paper);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.toolbar-inline-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--chrome);
+  color: var(--text-dim);
+}
+
+.toolbar-inline-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.toolbar-inline-search input::-webkit-search-cancel-button { display: none; }
+
+.toolbar-tool-btn {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.toolbar-tool-btn:hover,
+.toolbar-tool-btn-active {
+  background: var(--chrome-hover);
+  color: var(--ink);
+}
+
+.pdf-search-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: min(440px, 58vh);
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding: 8px;
+  border: 1px solid var(--divider);
+  background: color-mix(in srgb, var(--paper) 97%, transparent);
+  box-shadow: 0 12px 30px var(--shadow-soft);
+}
+
+.pdf-search-panel-header,
+.pdf-search-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.pdf-search-options { justify-content: flex-start; }
+.pdf-search-option { display: inline-flex; align-items: center; gap: 4px; }
+.pdf-search-results { display: grid; gap: 2px; margin: 4px 0 0; padding: 0; list-style: none; }
+.pdf-search-result-row { width: 100%; display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit; text-align: left; }
+.pdf-search-result-row:hover,
+.pdf-search-result-row-active { background: var(--chrome-hover); }
+.pdf-search-result-page { color: var(--text-dim); font-size: 11px; }
+.pdf-search-result-snippet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; white-space: normal; overflow-wrap: anywhere; }
+.pdf-search-result-snippet mark { background: color-mix(in srgb, #ffe26a 72%, transparent); }
+.pdf-search-state { padding: 14px 8px; color: var(--text-dim); text-align: center; }
+.pdf-search-state-error { color: var(--danger); }
+
+.pane-bottom-bar {
+  position: relative;
+  z-index: 4;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex: 0 0 var(--bottom-bar-height);
+  min-width: 0;
+  height: var(--bottom-bar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  border: 0;
+  border-top: 1px solid var(--divider);
+  border-radius: 0;
+  box-shadow: 0 -2px 8px var(--shadow-soft);
+  backdrop-filter: blur(10px);
+}
+
+.pdf-bottom-page,
+.pdf-bottom-view {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pdf-bottom-page input {
+  width: 40px;
+  height: 28px;
+  padding: 0 5px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  appearance: textfield;
+}
+
+.pdf-bottom-page input::-webkit-inner-spin-button { display: none; }
+
+.bottombar-btn {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 15px;
+  cursor: default;
+}
+
+.bottombar-btn:hover:not(:disabled) { background: var(--chrome-hover); color: var(--ink); }
+.bottombar-btn:disabled { color: var(--divider); }
+
+.bottombar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--hairline);
+}
+
+.pdf-bottom-view input[type="range"] {
+  width: 120px;
+  accent-color: var(--accent);
+  cursor: grab;
+}
+
+.pdf-bottom-view input[type="range"]:active { cursor: grabbing; }
+
+.pdf-bottom-zoom {
+  width: 58px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--paper) 76%, transparent);
+}
+
+.pdf-bottom-zoom input {
+  width: var(--control-size-floating);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+  appearance: textfield;
+}
+
+.pdf-bottom-zoom input::-webkit-inner-spin-button { display: none; }
+
+/* 패널 내용을 담는 상자. 일부러 아무 성질도 갖지 않는다 — 크기만 정하고
+   장식도 정렬도 하지 않는다. M2 의 React Flow 와 M4 의 PDF 페이지가
+   이 안을 채우는데, 둘 다 "확정된 크기를 가진 부모" 위에서만 제대로
+   동작하고 스스로 내부 스크롤·뷰포트를 갖는다. 가운데 정렬이나
+   overflow: auto 를 여기 걸어 두면 캔버스가 세로로 가운데 떠 있고
+   상자 밖으로 넘칠 수 있어서, M2 가 제일 먼저 하는 일이 이 규칙을
+   걷어내는 것이 된다. position: relative 는 그때 올라올 오버레이
+   (선택 레이어·하이라이트)의 기준점 몫이다.
+   격자나 테두리도 넣지 않는다: 진짜 내용이 들어올 자리다. */
+.pane-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+/* 가운데 정렬은 M1 의 자리표시자 하나만의 사정이므로 여기에만 둔다.
+   상자를 꽉 채우고 스스로 가운데를 잡으므로 부모는 몰라도 된다. */
+.pane-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  color: var(--text-dim);
+  padding: var(--grid);
+  text-align: center;
+}
+
+.pane-placeholder-card {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--workspace);
+  overflow: hidden;
+}
+
+.note-canvas {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--workspace);
+}
+
+.note-toolbar {
+  flex: 0 0 36px;
+  height: 36px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 4px 8px;
+  padding: 3px 8px;
+  overflow-x: auto;
+  background: var(--paper);
+  border-bottom: 1px solid var(--hairline);
+  scrollbar-width: none;
+}
+
+.note-toolbar::-webkit-scrollbar { display: none; }
+
+.note-toolbar button,
+.note-toolbar select,
+.note-toolbar input[type="number"] {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.note-toolbar button:hover,
+.note-toolbar select:hover,
+.note-toolbar input[type="number"]:hover { background: var(--chrome-hover); color: var(--ink); }
+
+.note-toolbar .note-toolbar-add {
+  background: var(--chrome-hover);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.note-toolbar select {
+  min-width: 70px;
+  outline: 0;
+}
+
+.note-toolbar-divider {
+  flex: 0 0 1px;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--divider);
+}
+
+.note-flow {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.note-bottom-bar {
+  position: relative;
+  flex: 0 0 var(--bottom-bar-height);
+  height: var(--bottom-bar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  border-top: 1px solid var(--divider);
+  box-shadow: 0 -2px 8px var(--shadow-soft);
+  backdrop-filter: blur(10px);
+}
+
+.note-bottom-controls {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+}
+
+.note-bottom-bar input[type="range"] {
+  width: 120px;
+  accent-color: var(--accent);
+  cursor: grab;
+}
+
+.note-bottom-bar input[type="range"]:active { cursor: grabbing; }
+
+.note-bottom-zoom {
+  min-width: 46px;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.note-canvas .react-flow__node-default,
+.note-canvas-node {
+  min-width: 180px;
+  padding: 12px 14px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 2px 10px var(--shadow-soft);
+  font-size: 13px;
+  text-align: left;
+}
+
+.pane-frame-with-toolbar .pane-placeholder-card {
+  border: 0;
+  border-radius: 0;
+}
+
+/* PDF 뷰어 — .pane-body 안을 통째로 채우고 스스로 스크롤한다.
+   absolute + inset:0 인 이유는 clientWidth/clientHeight 다: PdfPane 이
+   그 두 값으로 페이지 폭과 보이는 범위를 계산하는데, flex 자식으로 두면
+   내용(전체 높이만큼의 빈 상자)이 부모를 밀어 늘려서 "보이는 높이"가
+   문서 전체 높이가 되어 버린다 — 그러면 1,000쪽이 전부 보인다고 계산한다.
+   바탕이 종이색이 아니라 크롬색인 것은 페이지가 흰 종이로 떠 보이게
+   하려는 것이다. 그림자 대신 실선 한 줄로 가장자리를 말한다. */
+/* 카드는 이 요소 하나다 — 래퍼(.pane-frame)는 테두리도 배경도 없는
+   순수 레이아웃 자리라, 실제로 보이는 테두리·둥근 모서리·여백은 전부
+   여기 있다. 사방으로 --grid 만큼 pane-body 가장자리에서 띄워 탭바와
+   사이에 숨 쉴 틈을 만든다. */
+.pdf-pane {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--workspace);
+  box-shadow: none;
+  scrollbar-width: none;
+}
+
+.pdf-pane-host {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pdf-pane::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+.pdf-scrollbar {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.pdf-scrollbar span {
+  display: block;
+  width: 5px;
+  margin-left: auto;
+  margin-right: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 46%, transparent);
+  transition: width 120ms ease, background-color 120ms ease;
+}
+
+.pdf-scrollbar:hover span {
+  width: 8px;
+  background: color-mix(in srgb, var(--ink) 64%, transparent);
+}
+
+.pdf-scrollbar:active { cursor: grabbing; }
+.pdf-scrollbar:active span { width: 8px; background: var(--ink); }
+
+/* 문서 전체 높이를 가진 빈 상자. 스크롤 막대의 길이는 이것 하나가 정하고,
+   페이지들은 이 안에 절대 위치로 얹힌다. */
+.pdf-spacer { position: relative; width: 100%; }
+
+.pdf-page-slot {
+  position: absolute;
+}
+
+/* 페이지는 구조물이라 각진 채로 둔다 — 누르는 것만 둥글다. */
+.pdf-page {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--paper);
+  border: 0;
+  box-shadow: 0 2px 10px var(--shadow-soft);
+}
+
+.selection-mark-layer,
+.selection-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 하이라이트 층은 쪽 그림에 곱하기로 섞는다: 종이(흰색)만 물들고 글자·그림의 검은 잉크는 그대로 위에 남는다
+   (형광펜이 글자 밑으로 들어간 것처럼). 그래서 칠은 투명도 없이 옅은 색으로 칠한다. */
+.selection-mark-layer {
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+/* 칠 하나하나도 곱하기라 겹친 형광펜·검색 자리가 서로 가리지 않고 섞인다. 테두리 선 대신 같은 색의 얇은 둥근 선으로
+   글자 위아래를 살짝 덮는다(상자가 아니라 형광펜 획처럼). */
+.selection-mark-layer :is(rect, path) {
+  mix-blend-mode: multiply;
+  fill: var(--hl-fill);
+  stroke: var(--hl-fill);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+.selection-mark-layer rect { rx: 2px; }
+
+.selection-layer {
+  z-index: 1;
+  touch-action: none;
+  cursor: text;
+}
+
+.selection-layer.selection-mode-lasso { cursor: crosshair; }
+.selection-layer.selection-mode-highlight { cursor: cell; }
+
+.selection-highlight {
+  --hl-fill: color-mix(in srgb, var(--accent) 26%, #fff);
+  pointer-events: none;
+}
+
+.selection-persistent-highlight {
+  --hl-fill: #ffe38c;
+  --hl-edge: #e3b43c;
+  pointer-events: none;
+}
+
+.selection-persistent-highlight[data-highlight-color="green"] { --hl-fill: #b9ebc6; --hl-edge: #4fb06c; }
+.selection-persistent-highlight[data-highlight-color="blue"] { --hl-fill: #c3defc; --hl-edge: #5d9be3; }
+.selection-persistent-highlight[data-highlight-color="pink"] { --hl-fill: #fcc6dc; --hl-edge: #de6f9c; }
+
+/* 메모 카드에서 눌러 찾아간 형광펜: 잠깐 진해졌다가 돌아온다 */
+.selection-persistent-highlight.selection-highlight-flash { animation: selection-highlight-flash 1.2s ease-out 1; }
+@keyframes selection-highlight-flash {
+  0%, 35% { stroke-width: 6px; }
+  100% { stroke-width: 1.5px; }
+}
+
+.note-save-status {
+  position: absolute;
+  right: 12px;
+}
+
+.note-toolbar input[type="number"] {
+  width: 54px;
+  outline: 0;
+}
+
+.note-toolbar-spacer { flex: 1 0 12px; }
+
+.note-toolbar .note-color-trigger {
+  position: relative;
+  width: 32px;
+  padding: 0;
+}
+
+.note-color-current {
+  position: absolute;
+  right: 6px;
+  bottom: 3px;
+  left: 6px;
+  height: 3px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgb(9 30 66 / 12%);
+}
+
+.note-color-popover {
+  position: fixed;
+  z-index: 120;
+  width: 244px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 10px 30px rgb(9 30 66 / 18%);
+}
+
+.note-color-swatches {
+  display: grid;
+  grid-template-columns: repeat(7, 28px);
+  gap: 5px;
+}
+
+.note-color-popover .note-color-swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgb(9 30 66 / 14%);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.note-color-popover .note-color-swatch:hover,
+.note-color-popover .note-color-swatch[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.note-color-popover .note-color-clear {
+  width: 100%;
+  height: 32px;
+  margin-top: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.note-color-popover .note-color-clear:hover { background: var(--chrome-hover); color: var(--ink); }
+
+.source-highlight {
+  --hl-fill: #cddfff;
+  fill: var(--hl-fill);
+  pointer-events: none;
+}
+
+.selection-search-highlight {
+  --hl-fill: #ffe6c2;
+  pointer-events: none;
+}
+
+.selection-search-highlight-active { --hl-fill: #ffbf73; }
+
+.pdf-source-target {
+  position: absolute;
+  pointer-events: none;
+}
+
+.note-save-status {
+  position: absolute;
+  right: 12px;
+  left: auto;
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-save-status-error { color: var(--danger, #b42318); }
+
+.note-canvas-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--workspace);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+
+.selection-actions-anchor {
+  position: absolute;
+  z-index: 4;
+}
+
+.selection-action-stack {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: 0 2px 8px var(--shadow-soft);
+}
+
+.selection-action {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.selection-action:hover:not(:disabled),
+.selection-action:focus-visible {
+  background: var(--chrome-hover);
+  outline: 0;
+}
+
+.selection-action:disabled {
+  color: var(--text-dim);
+  cursor: default;
+  opacity: 0.55;
+}
+
+.side-menu:has(.translation-settings) {
+  right: auto;
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(720px, calc(100vh - 72px));
+  overflow: auto;
+}
+
+.translation-settings {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  color: var(--text);
+}
+
+.translation-settings-header,
+.translation-settings-benchmark,
+.translation-settings-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.translation-settings-heading h2,
+.translation-settings-heading p,
+.translation-settings-selected-model,
+.translation-settings-license p,
+.translation-settings-status,
+.translation-settings-alert {
+  margin: 0;
+}
+
+.translation-settings-heading h2 { font-size: 15px; }
+
+.translation-settings-description,
+.translation-settings-license,
+.translation-settings-model-copy span,
+.translation-settings-version {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.translation-settings-status {
+  display: grid;
+  justify-items: end;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.translation-settings-status-online { color: #18794e; }
+.translation-settings-status-offline,
+.translation-settings-alert { color: var(--danger); }
+
+.translation-settings-alert,
+.translation-settings-license {
+  padding: 8px 10px;
+  border: 1px solid var(--divider);
+  background: var(--chrome);
+  font-size: 11px;
+}
+
+.translation-settings-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 8px;
+}
+
+.translation-settings-field {
+  display: grid;
+  gap: 4px;
+}
+
+.translation-settings-label {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.translation-settings-input,
+.translation-settings-select {
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--text);
+  font: inherit;
+}
+
+.translation-settings-models {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--divider);
+}
+
+.translation-settings-models legend {
+  padding: 0 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.translation-settings-model,
+.translation-settings-model-copy {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.translation-settings-model-copy {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0;
+}
+
+.translation-settings-model-row {
+  padding: 6px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.translation-settings-model-action {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.translation-settings button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.translation-settings button:hover:not(:disabled) { background: var(--chrome-hover); }
+.translation-settings button:disabled { color: var(--text-dim); opacity: 0.6; }
+.translation-settings-installed { color: #18794e; font-size: 11px; }
+.translation-settings-progress { display: grid; gap: 2px; color: var(--text-dim); font-size: 10px; }
+.translation-settings-progress progress { width: 120px; }
+.translation-settings-custom-field { margin-top: 4px; }
+
+.translation-block-meta {
+  display: block;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 영역(그림·표) 고르기: 옅게 물들이고 둥근 테두리 */
+.selection-mark-layer rect.selection-region {
+  fill: color-mix(in srgb, var(--accent) 10%, #fff);
+  stroke: color-mix(in srgb, var(--accent) 70%, #fff);
+  stroke-width: 1.5px;
+  rx: 6px;
+}
+
+.note-canvas .react-flow__node-pdfExcerpt,
+.note-canvas .react-flow__node-markdownExcerpt {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.note-canvas .react-flow__node-textBlock,
+.note-canvas .react-flow__node-translation,
+.note-canvas .react-flow__node.note-canvas-node {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.canvas-block-shell {
+  position: relative;
+  display: flex;
+  min-width: 180px;
+  min-height: 40px;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--ink) 30%, var(--divider));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.markdown-excerpt-node {
+  width: 100%;
+  height: 100%;
+}
+
+.markdown-excerpt-content {
+  height: 100%;
+  padding: 12px 14px 30px;
+  overflow: hidden;
+  color: var(--text-strong);
+  white-space: pre-wrap;
+  cursor: grab;
+}
+
+.markdown-excerpt-content-heading-1 { font-size: 28px; font-weight: 760; line-height: 1.2; }
+.markdown-excerpt-content-heading-2 { font-size: 22px; font-weight: 740; line-height: 1.25; }
+.markdown-excerpt-content-heading-3 { font-size: 18px; font-weight: 720; line-height: 1.3; }
+.markdown-excerpt-content-heading-4 { font-size: 15px; font-weight: 700; line-height: 1.35; }
+.markdown-excerpt-content-list { padding-left: 28px; }
+.markdown-excerpt-content-list::before { content: '•'; margin-right: 8px; color: var(--accent); }
+.markdown-excerpt-content-quote { border-left: 3px solid var(--divider-strong); color: var(--text-dim); }
+.markdown-excerpt-content-code {
+  background: var(--chrome);
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+}
+
+.markdown-excerpt-source {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--chrome) 92%, transparent);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.markdown-excerpt-source span:first-child {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.markdown-excerpt-source span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-block-snap-settle {
+  animation: canvas-snap-settle 180ms cubic-bezier(.2, .85, .25, 1);
+}
+
+@keyframes canvas-snap-settle {
+  0% { transform: scale(.985); }
+  62% { transform: scale(1.008); }
+  100% { transform: scale(1); }
+}
+
+.canvas-block-drag-handle {
+  width: 24px;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, var(--divider));
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  color: var(--text-dim);
+  cursor: grab;
+  box-shadow: -3px 3px 10px color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.canvas-block-drag-handle:active { cursor: grabbing; }
+
+.canvas-block-body {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+}
+
+.canvas-block-source-footer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-width: 0;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.canvas-text-editor {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+  padding: 8px 10px;
+  outline: none;
+  white-space: pre-wrap;
+  cursor: text;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.pdf-excerpt-node {
+  position: relative;
+  overflow: visible;
+  background: transparent;
+}
+
+.pdf-excerpt-node-body {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0 9px 9px 0;
+  background: var(--paper);
+  box-shadow: none;
+}
+
+.pdf-excerpt-visual {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--paper);
+}
+
+.pdf-excerpt-visual img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  max-width: none;
+  transform-origin: top left;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pdf-excerpt-text-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  padding: 2px;
+  color: transparent;
+  font: 12px/1.25 sans-serif;
+  white-space: pre-wrap;
+  cursor: text;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.pdf-excerpt-text-layer::selection {
+  color: transparent;
+  background: color-mix(in srgb, var(--selection) 76%, transparent);
+}
+
+.pdf-excerpt-source {
+  width: fit-content;
+  max-width: 100%;
+  height: 22px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, auto) auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, var(--divider));
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--chrome) 88%, transparent);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdf-excerpt-source span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-excerpt-source:hover,
+.pdf-excerpt-source:focus-visible {
+  color: var(--accent);
+  outline: 0;
+}
+
+.canvas-block-port {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--paper);
+  background: var(--accent);
+  opacity: 0;
+  z-index: 6;
+  transition: opacity 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.canvas-block-port-visible {
+  opacity: 1;
+  transform: scale(1.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.canvas-block-port-target {
+  background: var(--paper);
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-block-snap-settle {
+    animation: none;
+  }
+}
+
+.block-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  border: 0;
+  background: transparent;
+}
+
+.block-context-menu {
+  position: fixed;
+  z-index: 61;
+  display: grid;
+  min-width: 168px;
+  padding: 5px;
+  border: 1px solid var(--divider);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  box-shadow: 0 10px 30px var(--shadow-soft);
+}
+
+.block-context-menu button {
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+
+.block-context-menu button:hover:not(:disabled) { background: var(--chrome-hover); }
+.block-context-menu button:disabled { color: var(--text-dim); opacity: 0.5; }
+
+.source-trace-layer,
+.source-trace-layer svg {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.source-trace-layer path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 72%, transparent);
+  stroke-width: 3px;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.note-canvas .react-flow__edge-path {
+  stroke-width: 2.5px;
+}
+
+/* 스캔본 표시. 오른쪽 아래 구석에 둬서 첫 페이지의 머리를 가리지 않는다.
+   pointer-events 를 끈 이유는 아래 페이지를 긁어 선택하는 M5 의 동작을
+   이 라벨이 가로막지 않게 하려는 것이다. */
+.pdf-scan {
+  position: absolute;
+  /* .pdf-pane 자체가 --grid 만큼 안으로 들어가 있으니, 그 카드의 구석에
+     맞추려면 배지도 같은 만큼 더 들어가야 한다. */
+  right: var(--grid);
+  bottom: var(--grid);
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--chrome);
+  border: 1px solid var(--hairline);
+  pointer-events: none;
+}
+
+/* 창 컨트롤 — 네이티브 장식을 껐으므로(tauri.conf.json decorations:false)
+   최소화·최대화·닫기를 직접 그린다. 46×상단바높이는 Windows 관례다 —
+   다른 앱과 같은 자리·같은 크기여야 손이 먼저 찾아간다. */
+.topbar-spacer { flex: 1 1 auto; align-self: stretch; }
+
+.wincontrols {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--chrome);
+  z-index: 5;
+}
+
+.pane-frame-with-toolbar .pdf-scan { bottom: var(--grid); }
+
+.winbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.winbtn:hover { background: var(--chrome-hover); color: var(--ink); }
+
+/* 닫기만 색으로 경고한다. 되돌릴 수 없는 유일한 버튼이다. */
+.winbtn-close:hover { background: var(--danger); color: var(--paper); }
+
+/* 사이드바 접기 — 상단바 왼쪽 끝. 창 버튼과 같은 크기 규칙을 쓴다.
+   아이콘의 왼쪽 칸이 채워졌는지 비었는지가 곧 현재 상태다. */
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  margin: 5px 4px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: #e6e6e6;
+  cursor: default;
+}
+
+.sidebar-toggle:hover { background: var(--chrome-hover); color: var(--ink); }
+
+/* vault·설정 바닥 줄 — .side-scroll 밖(형제)에 둬서 목록 스크롤과 무관하게
+   항상 사이드바 맨 아래에 붙는다. */
+.side-footer {
+  position: relative;
+  flex: 0 0 var(--bottom-bar-height);
+  height: var(--bottom-bar-height);
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  margin: 0;
+  padding: 5px 6px;
+  border-top: 1px solid var(--hairline);
+}
+
+.side-vault-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--grid) / 2);
+  height: var(--control-size-floating);
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.side-vault-btn:hover { background: var(--chrome-hover); color: var(--ink); }
+
+.side-vault-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-settings-btn {
+  flex: 0 0 auto;
+  width: var(--control-size-floating);
+  height: var(--control-size-floating);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.side-settings-btn:hover { background: var(--chrome-hover); color: var(--ink); }
+
+/* 팝오버. 바닥 줄 위로 뜬다 — 사이드바가 위로 잘려도 메뉴가 잘리지 않도록
+   bottom: 100% 기준을 footer 자신으로 잡는다. */
+.side-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.side-menu {
+  position: absolute;
+  left: var(--grid);
+  right: var(--grid);
+  bottom: 100%;
+  margin-bottom: var(--grid);
+  z-index: 11;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 4px;
+}
+
+.side-menu-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 4px 6px 2px;
+}
+
+.side-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 6px;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: default;
+}
+
+.side-menu-item:hover { background: var(--chrome-hover); }
+
+.side-menu-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 4px 6px 6px;
+}
+
+/* 상단바 검색·뒤로/앞으로 — 참고 화면 위치(사이드바 토글 오른쪽). 아직
+   기능이 없어 disabled 로 두되, 자리와 위계는 미리 잡는다. */
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.topbar .topbar-navbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  appearance: none;
+  background: none;
+  color: #d5d5d5;
+  cursor: default;
+}
+
+.topbar .topbar-navbtn:hover:not(:disabled) { background: var(--chrome-hover); color: var(--ink); }
+.topbar .topbar-navbtn:disabled { color: var(--divider); cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .sidebar-divider, .topbar-leftcluster { transition: none; }
+}
+
+/* 상단바 검색 팝오버 — 검색 버튼 바로 아래. 입력은 잠가 둔다(v0.1 에
+   검색이 없다) — 누르면 되는 척하는 것보다 정직하게 막는 편이 낫다. */
+.topbar-search-wrap { position: relative; display: flex; }
+
+.topbar-search-backdrop { position: fixed; inset: 0; z-index: 10; }
+
+.topbar-search-box {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--grid);
+  z-index: 11;
+  width: 220px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 6px;
+}
+
+.topbar-search-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.topbar-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--chrome);
+}
+
+.topbar-search-icon { flex: 0 0 auto; color: var(--text-dim); }
+
+.topbar-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.topbar-search-input::placeholder { color: var(--text-dim); }
+.topbar-search-input:disabled { cursor: default; }
+
+.topbar-search-hint {
+  padding: 5px 4px 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.topbar-search-close {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.topbar-search-close:hover { background: var(--chrome-hover); color: var(--ink); }
+
+/* 눌린 모드 버튼 — 다른 활성 표시(탭·최대화 등)와 같은 언어로,
+   호버보다 확실히 진한 회색 칩. */
+.topbar .topbar-navbtn-active { background: var(--chrome-hover); color: var(--ink); }
+
+/* 축소판·목차·설정 패널의 빈 상태. side-menu-empty 와 같은 톤이지만
+   사이드바 전체를 채우는 자리라 가운데로 놓는다. */
+.side-panel-empty {
+  padding: calc(var(--grid) * 3) var(--grid);
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.side-panel-note {
+  grid-column: 1 / -1;
+  padding: var(--grid);
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* 축소판 격자 */
+.thumb-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--grid);
+  padding: var(--grid);
+}
+
+.thumb-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 4px;
+  border-radius: var(--radius);
+  cursor: default;
+}
+
+.thumb-item:hover { background: var(--chrome-hover); }
+
+.thumb-frame {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.thumb-item-current { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.thumb-item-current .thumb-frame { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.thumb-item-current .thumb-num { color: var(--accent); font-weight: 600; }
+
+.thumb-num { font-size: 10.5px; color: var(--text-dim); }
+
+.outline-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 4px 12px;
+}
+
+.outline-section + .outline-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+}
+
+.side-panel-section-title {
+  margin: 0;
+  padding: 4px 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.side-panel-empty-inline {
+  min-height: 44px;
+  padding: 10px;
+}
+
+.bookmark-list { padding-top: 2px; }
+.bookmark-item { font-weight: 500; }
+.bookmark-row { display: flex; align-items: center; gap: 3px; }
+.bookmark-row .bookmark-item { min-width: 0; flex: 1; }
+.bookmark-remove {
+  flex: 0 0 auto;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+}
+.bookmark-remove:hover,
+.bookmark-remove:focus-visible { background: var(--chrome-hover); color: var(--danger); }
+
+.side-document-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.side-document-row .side-item { min-width: 0; }
+.side-document-row .side-item:disabled { color: var(--text-dim); }
+
+.side-missing {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.side-relink {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 10.5px;
+}
+
+.side-relink:hover { background: var(--chrome-hover); }
+
+.side-notebook-head { margin-top: 12px; }
+
+.side-new-note {
+  display: grid;
+  gap: 6px;
+  margin: 0 6px 8px;
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.side-new-note label {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.side-new-note input {
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.side-new-note button {
+  justify-self: end;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--chrome-hover);
+  color: var(--ink);
+  font: inherit;
+}
+
+.side-new-note p { margin: 0; color: var(--danger); font-size: 11px; }
+
+.startup-shell {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--workspace);
+}
+
+.startup-titlebar {
+  position: relative;
+  z-index: 80;
+  flex: 0 0 var(--topbar-h);
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  padding: 0 138px 0 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--chrome);
+}
+
+.startup-titlebar-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.startup-titlebar-drag { flex: 1 1 auto; align-self: stretch; }
+
+.vault-picker,
+.vault-loading {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--grid) * 3);
+  background: var(--workspace);
+}
+
+.vault-picker-card {
+  width: min(520px, 100%);
+  padding: calc(var(--grid) * 4);
+  border: 1px solid var(--divider);
+  background: var(--paper);
+}
+
+.vault-picker-kicker {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.vault-picker-card h1 { margin: 0; font-size: 24px; }
+.vault-picker-copy { margin: 6px 0 20px; color: var(--text-dim); }
+
+.vault-picker-details {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 14px 16px 14px 34px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--chrome);
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.vault-picker-details code { color: var(--text-strong); }
+
+.vault-picker-primary,
+.vault-picker-recent button {
+  border: 0;
+  border-radius: var(--radius);
+  font: inherit;
+}
+
+.vault-picker-primary {
+  height: var(--control-size-floating);
+  padding: 0 14px;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.vault-picker-error { color: var(--danger); }
+.vault-picker-recent { margin-top: 24px; }
+.vault-picker-recent h2 { margin: 0 0 6px; font-size: 12px; }
+
+.vault-picker-recent button {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  margin-top: 3px;
+  padding: 5px 8px;
+  overflow: hidden;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-picker-recent button:hover { background: var(--chrome-hover); }
+
+.app-error {
+  position: fixed;
+  z-index: 50;
+  right: var(--grid);
+  bottom: var(--grid);
+  max-width: min(480px, calc(100vw - var(--grid) * 2));
+  padding: 8px 10px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--danger);
+}
+
+.outline-item {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px calc(8px + var(--outline-depth) * 14px);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: default;
+}
+
+.outline-item:hover:not(:disabled) { background: var(--chrome-hover); }
+.outline-item:disabled { color: var(--text-dim); }
+
+.outline-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-page {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(20 24 31 / 34%);
+  backdrop-filter: blur(3px);
+}
+
+.settings-modal {
+  width: min(920px, calc(100vw - 48px));
+  height: min(720px, calc(100vh - 48px));
+  max-height: min(720px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: 48px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--divider-strong);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--text-strong);
+  box-shadow: 0 24px 64px var(--shadow-soft);
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 18px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.settings-modal-header h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.settings-modal-close {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.settings-modal-close:hover,
+.settings-modal-close:focus-visible {
+  background: var(--chrome-hover);
+  color: var(--text-strong);
+  outline: none;
+}
+
+.settings-modal-body {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding: 24px;
+}
+
+.settings-modal-workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+}
+
+.settings-modal-nav {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 10px;
+  overflow-y: auto;
+  border-right: 1px solid var(--divider);
+  background: color-mix(in srgb, var(--chrome) 74%, var(--paper));
+}
+
+.settings-modal-nav button {
+  min-height: var(--control-size-floating);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.settings-modal-nav button:hover,
+.settings-modal-nav button:focus-visible {
+  background: var(--chrome-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.settings-modal-nav button[aria-current='page'] {
+  background: color-mix(in srgb, var(--accent) 13%, var(--paper));
+  color: var(--accent);
+}
+
+.settings-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.settings-section-heading h2,
+.settings-section-heading p { margin: 0; }
+.settings-section-heading h2 { font-size: 18px; }
+.settings-section-heading p { margin-top: 5px; color: var(--text-dim); font-size: 12px; }
+
+.settings-list { display: grid; }
+.settings-toggle-row {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+.settings-toggle-row > span { display: grid; gap: 3px; }
+.settings-toggle-row strong { font-size: 12px; }
+.settings-toggle-row small { color: var(--text-dim); font-size: 11px; }
+.settings-toggle-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.update-settings { display: grid; gap: 16px; color: var(--text-primary); }
+.update-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+.update-settings-status,
+.update-suppressed-version {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--chrome);
+  font-size: 11px;
+}
+.update-settings-status > span { color: var(--text-dim); }
+.update-settings-status > strong { margin-right: auto; font-weight: 600; }
+.update-suppressed-version span { margin-right: auto; }
+.update-settings button {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid var(--divider-strong);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+}
+.update-settings button:hover:not(:disabled) { background: var(--chrome-hover); }
+.settings-inline-error { margin: 0; color: var(--danger); font-size: 11px; }
+
+.update-banner {
+  position: fixed;
+  z-index: 96;
+  top: calc(var(--topbar-h) + 10px);
+  left: 50%;
+  width: min(680px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--control-border-floating);
+  border-radius: var(--radius-lg);
+  background: var(--control-surface-floating);
+  color: var(--text-primary);
+  box-shadow: 0 10px 30px var(--shadow-floating);
+  backdrop-filter: blur(14px);
+  transform: translateX(-50%);
+}
+.update-banner-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.update-banner-copy { min-width: 0; display: grid; gap: 2px; }
+.update-banner-copy strong { font-size: 12px; }
+.update-banner-copy span,
+.update-banner-copy em { overflow: hidden; color: var(--text-dim); font-size: 10.5px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.update-banner-copy em { color: var(--danger); }
+.update-banner-copy progress { width: 100%; height: 3px; accent-color: var(--accent); }
+.update-banner-actions { display: flex; align-items: center; gap: 4px; }
+.update-banner-actions button {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 10.5px;
+}
+.update-banner-actions button:hover { background: var(--chrome-hover); color: var(--text-primary); }
+.update-banner-actions .update-banner-primary { background: var(--accent); color: var(--paper); font-weight: 700; }
+.update-banner-actions .update-banner-primary:hover { background: color-mix(in srgb, var(--accent) 88%, black); color: var(--paper); }
+.update-banner-installing { padding: 0 8px; color: var(--text-muted); font-size: 10.5px; }
+
+@media (max-width: 680px) {
+  .settings-modal-workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .settings-modal-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--divider); }
+  .settings-modal-nav button { flex: 0 0 auto; }
+  .update-banner { grid-template-columns: auto minmax(0, 1fr); }
+  .update-banner-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+.vault-recovery {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+}
+
+.vault-recovery-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.vault-recovery-heading h2,
+.vault-recovery-heading p,
+.vault-recovery-group h3,
+.vault-recovery-group p { margin: 0; }
+.vault-recovery-heading h2 { font-size: 15px; }
+.vault-recovery-heading p { margin-top: 3px; color: var(--text-dim); font-size: 11px; }
+.vault-recovery-heading > button { width: 30px; height: 30px; border: 0; border-radius: 7px; background: var(--chrome); color: var(--text-dim); }
+.vault-recovery-group { display: grid; gap: 7px; padding: 10px; border: 1px solid var(--hairline); border-radius: 9px; }
+.vault-recovery-group h3 { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.vault-recovery-group h3 span { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.vault-recovery-group > p { color: var(--text-dim); font-size: 11px; }
+.vault-recovery-group article { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px; border-radius: 7px; background: var(--chrome); }
+.vault-recovery-group article strong { min-width: 0; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.vault-recovery-group article div { display: flex; gap: 4px; }
+.vault-recovery-group article button { min-height: 26px; border: 1px solid var(--divider-strong); border-radius: 6px; background: var(--paper); color: var(--text); font-size: 10px; }
+
+.theme-settings {
+  display: grid;
+  gap: 12px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text);
+}
+
+.theme-settings-heading h2,
+.theme-settings-heading p,
+.theme-settings-current {
+  margin: 0;
+}
+
+.theme-settings-heading h2 {
+  font-size: 15px;
+}
+
+.theme-settings-heading p,
+.theme-settings-current {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.theme-settings-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.theme-settings-option {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--chrome);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.theme-settings-option:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.theme-settings-option input { accent-color: var(--accent); }
+
+.theme-settings + .translation-settings { padding-top: 18px; }
+
+.translation-settings-runtime-action {
+  display: flex;
+  justify-content: flex-end;
+  margin: -2px 0 12px;
+}
+
+.translation-settings-runtime-action a.translation-settings-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.pdf-search-floating-tool {
+  position: absolute;
+  z-index: 14;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdf-search-trigger,
+.pdf-highlighter-trigger {
+  width: var(--control-size-floating);
+  height: var(--control-size-floating);
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--control-size-floating);
+  padding: 0;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 8px;
+  background: var(--control-surface-floating);
+  color: #343a43;
+  box-shadow: 0 4px 14px var(--shadow-floating);
+  backdrop-filter: blur(10px);
+}
+
+.pdf-search-trigger:hover,
+.pdf-search-trigger:focus-visible,
+.pdf-highlighter-trigger:hover,
+.pdf-highlighter-trigger:focus-visible,
+.pdf-highlighter-trigger[aria-pressed="true"] {
+  border-color: var(--control-border-floating-hover);
+  background: #fff;
+  color: var(--text-strong);
+  outline: none;
+}
+
+.pdf-search-field {
+  width: min(360px, calc(100vw - 160px));
+  height: var(--control-size-floating);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px 3px 10px;
+  border: 1px solid #b8c1cc;
+  border-radius: 8px;
+  background: var(--control-surface-expanded);
+  box-shadow: 0 4px 14px var(--shadow-floating);
+  backdrop-filter: blur(10px);
+}
+
+.pdf-search-field input {
+  flex: 1 1 auto;
+  min-width: 72px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12px;
+}
+
+.pdf-search-position {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pdf-search-option {
+  min-width: 25px;
+  height: 24px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 700 10px/1 inherit;
+}
+
+.pdf-search-option:hover,
+.pdf-search-option[aria-pressed="true"] {
+  background: #e7ecf2;
+  color: var(--text-strong);
+}
+
+.pdf-search-floating-tool .pdf-search-panel {
+  top: 40px;
+  right: auto;
+  left: 40px;
+  width: min(360px, calc(100vw - 160px));
+  max-height: min(230px, 36vh);
+  border-radius: 8px;
+}
+
+.pdf-search-recent {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 3px 4px 6px;
+}
+
+.pdf-search-recent-query {
+  flex: 0 0 auto;
+  max-width: 180px;
+  height: 24px;
+  overflow: hidden;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #edf1f5;
+  color: #49515b;
+  font: inherit;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-highlighter-floating-tool {
+  position: absolute;
+  z-index: 14;
+  top: 10px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdf-highlighter-palette {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid #b8c1cc;
+  border-radius: 8px;
+  background: var(--control-surface-expanded);
+  box-shadow: 0 4px 14px var(--shadow-floating);
+  backdrop-filter: blur(10px);
+}
+
+.pdf-highlighter-color {
+  width: 23px;
+  height: 23px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 9%);
+}
+
+.pdf-highlighter-color[aria-pressed="true"] { border-color: #2f6feb; }
+.pdf-highlighter-color-yellow { background: #f7db61; }
+.pdf-highlighter-color-green { background: #80d4a5; }
+.pdf-highlighter-color-blue { background: #8bbce8; }
+.pdf-highlighter-color-pink { background: #e9a3bc; }
+
+.side-tree,
+.side-tree-children {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.side-tree-node { min-width: 0; }
+
+.side-tree-row {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  padding-left: calc(var(--side-tree-depth) * 14px + 4px);
+}
+
+.side-tree-toggle,
+.side-tree-item {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.side-tree-toggle {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #2e343c;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+.side-tree-toggle:hover,
+.side-tree-item:hover { background: #e9edf2; }
+
+.side-tree-chevron {
+  width: 12px;
+  color: #727b86;
+  font-size: 10px;
+  text-align: center;
+}
+
+.side-tree-reorder {
+  display: none;
+  flex: 0 0 auto;
+  gap: 1px;
+}
+
+.side-tree-row:hover .side-tree-reorder,
+.side-tree-row:focus-within .side-tree-reorder { display: flex; }
+
+.side-tree-reorder-btn {
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+}
+
+.side-tree-reorder-btn:hover:not(:disabled) { background: #dfe5eb; color: var(--text-strong); }
+.side-tree-reorder-btn:disabled { opacity: 0.25; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-scrollbar span { transition: none; }
+}
+
+/* ── 상단바 다듬기 ──────────────────────────────────────────────
+   1) 왼쪽 위 단추 색이 어두운 사이드바 기준(#d5d5d5·#e6e6e6)으로 박혀 있어, 사이드바가 테마를
+      따르게 된 뒤 밝은 테마에서 거의 안 보였다(꺼진 단추처럼 보임). 테마 색을 쓴다.
+   2) 탭이 한 장에 210px 로 고정이라 두세 장만 열어도 칸이 꽉 차 창을 잡아 끌 빈 곳이 없었고,
+      넘친 탭은 창 단추 밑으로 잘려 들어갔다. 탭은 줄어들고, 탭 줄 끝에는 늘 끌 수 있는
+      빈 칸(44px)을 남긴다. */
+.sidebar-toggle,
+.topbar .topbar-navbtn { color: var(--text-muted); }
+.topbar .topbar-navbtn-active,
+.topbar .topbar-navbtn[aria-checked="true"] { background: var(--chrome-hover); color: var(--text-strong); }
+.topbar .topbar-docsearch-btn { color: var(--accent); }
+
+.pane-top-tab { flex: 0 1 clamp(120px, 16vw, 200px); min-width: 116px; }
+.pane-tabs-strip { flex: 0 1 auto; }
+.pane-tabs-overflow { margin: 0 44px 0 2px; }
+/* 지금 보는 탭만 이름을 넓게, 나머지는 짧은 이름으로 줄인다 */
+.pane-top-tab:not(.pane-top-tab-active) { flex: 0 1 auto; min-width: 104px; max-width: 150px; }
+.pane-top-tab.pane-top-tab-active { flex: 0 1 auto; min-width: 120px; max-width: 240px; }
+/* 오른쪽 칸 끝은 창 단추 앞이라 빈 칸을 조금만 남긴다 */
+.topbar-panetab-zone-right .pane-tabs-overflow { margin-right: 20px; }
+.pane-tabs-overflow {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 29px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 7px;
+}
+.pane-tabs-count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--chrome-hover);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 아이콘 크기 통일 ─────────────────────────────────────────────
+   부품마다 11~18px 로 제각각이던 아이콘을 세 단계로 맞춘다.
+   단추 아이콘 18px · 탭 안 작은 아이콘 14px · 창 단추 14px */
+.topbar-leftcluster-actions button svg,
+.pane-doc .pdf-floating-control-trigger svg,
+.pane-doc .pdf-compact-tool svg,
+.pane-bottom-bar button svg,
+.side-top-row button svg,
+.side-footer button svg {
+  width: 18px;
+  height: 18px;
+}
+.pane-top-tab svg,
+.pane-tabs-overflow svg,
+.wincontrols svg {
+  width: 14px;
+  height: 14px;
+}
+.topbar .topbar-navbtn,
+.sidebar-toggle { width: 32px; height: 30px; }
+
+/* ── 상단바: 브라우저형 탭 ─────────────────────────────────────────
+   상자 모양 탭(사방 테두리 + 회색 채움)이 단추처럼 보여, 어느 탭이 아래 문서와 이어지는지
+   읽히지 않았다. 활성 탭만 아래 패널과 같은 색으로 상단바 밑선을 덮어 문서와 한 면이 되고,
+   위에 파란 선을 둔다. 나머지 탭은 글자만, 사이는 얇은 구분선. */
+.topbar { border-bottom: 1px solid var(--divider); }
+.topbar-panetab-zone { align-items: flex-end; }
+.topbar-panetab-zone .pane-tabs-menu { align-self: stretch; align-items: flex-end; padding-inline: 6px 0; }
+.topbar-panetab-zone .pane-tabs-empty { align-self: center; padding-left: 12px; color: var(--text-dim); font-size: 12.5px; }
+.pane-tabs-strip { align-self: stretch; align-items: flex-end; }
+
+.pane-top-tab {
+  position: relative;
+  height: 32px;
+  margin: 0 0 -1px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+/* 비활성 탭 사이 구분선. 활성 탭이나 마우스를 올린 탭 옆에서는 지운다 */
+.pane-top-tab::after {
+  position: absolute;
+  top: 9px;
+  right: 0;
+  bottom: 9px;
+  width: 1px;
+  background: var(--divider);
+  content: '';
+}
+.pane-top-tab:last-child::after,
+.pane-top-tab-active::after,
+.pane-top-tab:hover::after,
+.pane-top-tab:has(+ .pane-top-tab-active)::after,
+.pane-top-tab:has(+ .pane-top-tab:hover)::after { display: none; }
+.pane-top-tab:not(.pane-top-tab-active):hover {
+  background: var(--chrome-hover);
+  color: var(--text);
+}
+.pane-top-tab.pane-top-tab-active {
+  z-index: 2;
+  border-color: var(--divider);
+  background: var(--workspace);
+  color: var(--text-strong);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+/* 캔버스는 흰 종이 위라 활성 탭도 종이색으로 잇는다 */
+.pane-top-tab.pane-top-tab-active.pane-top-tab-note { background: var(--paper); }
+.pane-top-tab-active .pane-top-tab-title { font-weight: 600; }
+/* 닫기 단추는 활성 탭과 마우스를 올린 탭에서만 */
+.pane-top-tab:not(.pane-top-tab-active):not(:hover) .pane-top-tab-close { opacity: 0; }
+.pane-top-tab-close { border-radius: 5px; }
+
+/* 탭 목록 단추: 알약 대신 글자처럼 가볍게 "▾ 2" */
+.pane-tabs-overflow {
+  align-self: center;
+  height: 26px;
+  background: transparent;
+  color: var(--text-dim);
+}
+.pane-tabs-overflow:hover,
+.pane-tabs-overflow[aria-expanded="true"] { background: var(--chrome-hover); color: var(--text); }
+.pane-tabs-count {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* ── 왼쪽 위: [사이드바][문서 검색] | [탐색기·목차·축소판·주석] ── */
+.topbar-leftcluster-actions { gap: 2px; padding-left: 4px; }
+.topbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--divider);
+}
+.topbar .topbar-nav {
+  display: flex;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--chrome-hover);
+}
+.topbar .topbar-nav .topbar-navbtn {
+  width: 30px;
+  height: 26px;
+  border-radius: 7px;
+}
+.topbar .topbar-nav .topbar-navbtn:hover:not(:disabled) { background: color-mix(in srgb, var(--paper) 60%, transparent); }
+.topbar .topbar-nav .topbar-navbtn-active,
+.topbar .topbar-nav .topbar-navbtn[aria-checked="true"] {
+  background: var(--paper);
+  color: var(--text-strong);
+  box-shadow: 0 1px 2px var(--shadow-soft);
+}
+/* 만지지 않는 패널의 활성 탭은 파란 선 대신 회색 선 — 단축키가 어느 패널에 듣는지 보인다 */
+.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active { box-shadow: inset 0 2px 0 var(--divider-strong); }
+
+/* 설정 › 화면 크기 */
+.ui-scale-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.ui-scale-row input[type="range"] { flex: 1 1 auto; accent-color: var(--accent); }
+.ui-scale-value { min-width: 44px; color: var(--text-strong); font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+.ui-scale-presets { display: flex; gap: 6px; margin-top: 10px; }
+.ui-scale-preset {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ui-scale-preset:hover { background: var(--chrome-hover); }
+.ui-scale-preset-active { border-color: var(--accent); color: var(--accent); font-weight: 650; }
+
+/* 1단 보기: 오른쪽 패널·구분선을 접고, 상단바 오른쪽 칸은 창 단추 자리만 남긴다 */
+.app-single-pane .pane-right,
+.app-single-pane .pane-divider { display: none; }
+.topbar-single .topbar-pane-divider { display: none; }
+.topbar-single .topbar-panetab-zone-right { flex: 0 0 146px !important; }
+.topbar-single .topbar-panetab-zone-right > * { display: none; }
+
+/* 활성 탭이 아래 도구줄과 끊김 없이 붙게: 상단바 밑선 위로 탭 줄을 1px 내린다.
+   (탭 줄이 가로 스크롤 상자라 탭의 음수 여백은 잘린다 — 그래서 줄 자체를 내린다) */
+.topbar-panetab-zone .pane-tabs-menu { position: relative; z-index: 1; margin-bottom: -1px; }
+.pane-tabs-strip { padding-bottom: 0; }
+.pane-top-tab { margin-bottom: 0; height: 33px; }
+
+/* 활성 탭: 위 파란 선 대신, 위·왼·오른쪽 테두리가 위에서 아래로 은은하게 사라지는 그라데이션 */
+.pane-top-tab.pane-top-tab-active,
+.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active {
+  border: 1px solid transparent;
+  border-bottom: 0;
+  box-shadow: none;
+  background:
+    linear-gradient(var(--workspace), var(--workspace)) padding-box,
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, transparent) 0%, color-mix(in srgb, var(--accent) 22%, transparent) 55%, transparent 100%) border-box;
+}
+.pane-top-tab.pane-top-tab-active.pane-top-tab-note {
+  background:
+    linear-gradient(var(--paper), var(--paper)) padding-box,
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, transparent) 0%, color-mix(in srgb, var(--accent) 22%, transparent) 55%, transparent 100%) border-box;
+}
+/* 만지지 않는 패널의 활성 탭은 같은 모양을 회색으로 */
+.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active {
+  background:
+    linear-gradient(var(--workspace), var(--workspace)) padding-box,
+    linear-gradient(180deg, var(--divider-strong) 0%, color-mix(in srgb, var(--divider-strong) 35%, transparent) 55%, transparent 100%) border-box;
+}
+.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
+  background:
+    linear-gradient(var(--paper), var(--paper)) padding-box,
+    linear-gradient(180deg, var(--divider-strong) 0%, color-mix(in srgb, var(--divider-strong) 35%, transparent) 55%, transparent 100%) border-box;
+}
+
+/* 탭 우클릭 메뉴 */
+.pane-tab-context {
+  position: fixed;
+  z-index: 400;
+  min-width: 210px;
+  padding: 4px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 10px 28px var(--shadow-floating);
+}
+.pane-tab-context button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.pane-tab-context button:hover:not(:disabled) { background: var(--chrome-hover); }
+.pane-tab-context button:disabled { color: var(--text-dim); cursor: default; }
+.pane-tab-context kbd { margin-left: auto; color: var(--text-dim); font: inherit; font-size: 11px; }
+.pane-tab-context-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
+
+/* ── 창 단추(최종): 앱의 다른 단추처럼 둥근 칩. 상단바 높이 가운데에 세운다 ── */
+.wincontrols {
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 0 6px;
+  background: var(--chrome);
+}
+.winbtn {
+  width: 36px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text-muted, var(--text-dim));
+  transition: background-color 110ms ease, color 110ms ease;
+}
+.wincontrols svg.winbtn-icon,
+.wincontrols .winbtn svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.winbtn:hover { background: var(--chrome-hover); color: var(--text-strong); }
+.winbtn:active { background: color-mix(in srgb, var(--chrome-hover) 70%, var(--text-strong) 8%); }
+.winbtn-close:hover { background: #e5484d; color: #fff; }
+.winbtn-close:active { background: #c93b40; color: #fff; }
+/* 오른쪽 탭이 창 단추 밑으로 들어가지 않게 그만큼 비운다 */
+.topbar-panetab-zone-right .pane-tabs-menu { padding-right: 128px; }
+.topbar-single .topbar-panetab-zone-right { flex: 0 0 128px !important; }
+
+/* ── 목차(최종): 접히는 나무, 지금 자리 칠하기 ──────────────────── */
+.outline-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.outline-expand-all {
+  height: 22px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.outline-expand-all:hover { background: var(--chrome-hover); color: var(--text); }
+.outline-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-left: calc(var(--outline-depth) * 14px);
+  border-radius: 6px;
+}
+.outline-row:hover { background: var(--chrome-hover); }
+.outline-row .outline-item {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px 5px 2px;
+  background: transparent;
+}
+.outline-row .outline-item:hover:not(:disabled) { background: transparent; }
+.outline-toggle,
+.outline-toggle-space {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 22px;
+}
+.outline-toggle {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.outline-toggle:hover { background: color-mix(in srgb, var(--text-dim) 16%, transparent); color: var(--text-strong); }
+.outline-row-current { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.outline-row-current:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.outline-row-current .outline-title { color: var(--accent); font-weight: 650; }
+.outline-row-current .outline-page { color: color-mix(in srgb, var(--accent) 75%, var(--text-dim)); }
+.outline-row-in-path .outline-title { color: var(--text-strong); font-weight: 600; }
+
+/* 목차 + 미리보기(SidePanels OutlinePreviewPanel) */
+.outline-preview { padding: 0 8px 12px; }
+.outline-preview-trail {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin: 0 -8px 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--chrome, var(--paper));
+  font-size: 12.5px;
+}
+.outline-preview-trail-empty { color: var(--text-dim); }
+.outline-preview-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-strong, var(--text));
+  font: inherit;
+  cursor: default;
+}
+.outline-preview-crumb:hover { background: var(--chrome-hover); }
+.outline-preview-crumb:last-child .outline-preview-crumb-title { color: var(--accent); font-weight: 600; }
+.outline-preview-crumb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outline-preview-crumb-sep { color: var(--text-dim); }
+
+.outline-preview-group + .outline-preview-group { margin-top: 6px; }
+.outline-preview-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink, var(--text));
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.outline-preview-heading:hover { background: var(--chrome-hover); }
+.outline-preview-depth-0 { font-size: 14px; font-weight: 700; }
+.outline-preview-depth-1 { padding-left: 18px; font-size: 13.5px; font-weight: 600; }
+.outline-preview-depth-2 { padding-left: 30px; font-size: 13px; font-weight: 500; color: var(--text); }
+.outline-preview-heading .outline-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outline-preview-heading .outline-page { flex: 0 0 auto; font-size: 11.5px; font-weight: 400; color: var(--text-dim); }
+.outline-preview-heading-current { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.outline-preview-heading-current .outline-title { color: var(--accent); }
+
+.outline-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px 2px 2px;
+}
+.outline-preview-grid .thumb-num { font-size: 10.5px; }
+
+/* PDF 스크롤 막대: 누른 자리로 바로 간다. 목차(장·절) 눈금이 막대 위에 보인다 */
+.pdf-scrollbar { width: 16px; cursor: default; }
+.pdf-scrollbar .pdf-scrollbar-thumb { position: relative; z-index: 1; cursor: grab; }
+.pdf-scrollbar:active .pdf-scrollbar-thumb { cursor: grabbing; }
+.pdf-scrollbar-mark {
+  position: absolute;
+  right: 2px;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+  cursor: pointer;
+}
+.pdf-scrollbar-mark-0 { width: 12px; }
+.pdf-scrollbar-mark-1 { width: 7px; background: color-mix(in srgb, var(--accent) 45%, transparent); }
+/* 잡기 쉽게 눈금 위아래로 보이지 않는 여유를 둔다 */
+.pdf-scrollbar-mark::before { content: ''; position: absolute; inset: -3px -2px; }
+.pdf-scrollbar-mark:hover { background: var(--accent); height: 3px; }
+
+/* 목차·미리보기: 위치 줄 + 1단/2단 선택, 글자 키움 */
+.outline-preview-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 -8px 4px;
+  padding: 8px 10px 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--chrome, var(--paper));
+}
+.outline-preview-bar .outline-preview-trail {
+  position: static;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13.5px;
+}
+.outline-preview-columns {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: 7px;
+  background: var(--paper);
+}
+.outline-preview-columns button {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: default;
+}
+.outline-preview-columns button:hover { color: var(--text); }
+.outline-preview-columns .outline-preview-column-on { background: var(--chrome-hover); color: var(--text-strong, var(--text)); font-weight: 600; }
+.outline-preview-grid { grid-template-columns: repeat(var(--preview-columns, 2), minmax(0, 1fr)); }
+.outline-preview-depth-0 { font-size: 15.5px; }
+.outline-preview-depth-1 { font-size: 14.5px; }
+.outline-preview-depth-2 { font-size: 14px; }
+.outline-preview-heading .outline-page { font-size: 12.5px; }
+.outline-preview-grid .thumb-num,
+.thumb-num { font-size: 12px; }
+/* 목록(목차) 패널도 한 단계 키운다 */
+.outline-item { font-size: 14.5px; }
+.outline-page { font-size: 12.5px; }
+.side-panel-section-title { font-size: 13px; }
+/* 목차·미리보기·목록 패널 글자: 앞서 키운 것을 왼쪽 바 기준에 맞춰 되돌린다 */
+.outline-preview-bar .outline-preview-trail { font-size: 12.5px; }
+.outline-preview-columns button { font-size: 12px; height: 22px; }
+.outline-preview-depth-0 { font-size: 13.5px; font-weight: 600; }
+.outline-preview-depth-1 { font-size: 13px; font-weight: 500; }
+.outline-preview-depth-2 { font-size: 12.5px; font-weight: 400; }
+.outline-preview-heading .outline-page { font-size: 11.5px; }
+.outline-preview-grid .thumb-num,
+.thumb-num { font-size: 11px; }
+.outline-item { font-size: 13px; }
+.outline-page { font-size: 11.5px; }
+.side-panel-section-title { font-size: 12px; }
+
+/* 스크롤 막대 목차: 평소엔 숨기고, 막대에 마우스를 올리면 눈금과 왼쪽 제목 칸이 펼쳐진다 */
+.pdf-scrollbar-mark { opacity: 0; transition: opacity 120ms ease; }
+.pdf-scrollbar:hover .pdf-scrollbar-mark,
+.pdf-scrollbar:active .pdf-scrollbar-mark { opacity: 1; }
+.pdf-scrollbar-mark-2 { width: 4px; background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.pdf-scrollbar-labels {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: min(300px, 46vw);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--paper) 94%, transparent) 28px);
+  transition: opacity 120ms ease, visibility 0s linear 120ms;
+}
+.pdf-scrollbar:hover .pdf-scrollbar-labels {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 120ms ease 80ms, visibility 0s;
+}
+/* 막대를 끄는 중엔 제목 칸이 손을 가리지 않게 보기만 한다 */
+.pdf-scrollbar:active .pdf-scrollbar-labels { pointer-events: none; }
+.pdf-scrollbar-label {
+  position: absolute;
+  right: 4px;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: calc(100% - 28px);
+  height: 18px;
+  margin-top: -9px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pdf-scrollbar-label-title { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pdf-scrollbar-label-page { flex: 0 0 auto; color: var(--text-dim); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.pdf-scrollbar-label-0 { color: var(--text-strong, var(--text)); font-weight: 600; font-size: 12.5px; }
+.pdf-scrollbar-label-2 { color: var(--text-dim); font-size: 11.5px; }
+.pdf-scrollbar-label:hover { background: var(--chrome-hover); color: var(--text-strong, var(--text)); }
+.pdf-scrollbar-label-current { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.pdf-scrollbar-label-current .pdf-scrollbar-label-page { color: inherit; }
+@media (prefers-reduced-motion: reduce) {
+  .pdf-scrollbar-labels, .pdf-scrollbar-mark { transition: none; }
+}
+
+/* 미리보기 패널: 위 줄(쪽 수 + 1단/2단) */
+.thumb-panel .thumb-grid { grid-template-columns: repeat(var(--preview-columns, 2), minmax(0, 1fr)); }
+.thumb-panel-bar { align-items: center; }
+.thumb-panel-count { flex: 1 1 auto; color: var(--text-dim); font-size: 12px; }
+/* 목차·미리보기: 접히는 목차 */
+.outline-preview-bar { align-items: center; }
+.outline-preview-expand-all {
+  flex: 0 0 auto;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: default;
+}
+.outline-preview-expand-all:hover { background: var(--chrome-hover); color: var(--text); }
+.outline-preview-heading-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  padding-left: calc(var(--outline-depth, 0) * 14px);
+}
+.outline-preview-heading-row .outline-preview-heading { flex: 1 1 auto; min-width: 0; margin-top: 0; padding-left: 6px; }
+.outline-preview-toggle {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: default;
+}
+.outline-preview-toggle:hover { background: var(--chrome-hover); color: var(--text); }
+.outline-preview-heading-front .outline-title { color: var(--text-dim); font-weight: 500; }
+.outline-preview-group + .outline-preview-group { margin-top: 0; }
+.outline-preview-heading-row + .outline-preview-grid,
+.outline-preview-group .outline-preview-grid { padding-left: calc(var(--outline-depth, 0) * 14px + 20px); }
+/* 막대 손잡이용 span 규칙이 제목 글자에 걸리지 않게 */
+.pdf-scrollbar .pdf-scrollbar-label span,
+.pdf-scrollbar:hover .pdf-scrollbar-label span,
+.pdf-scrollbar:active .pdf-scrollbar-label span {
+  display: inline;
+  width: auto;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  transition: none;
+}
+.pdf-scrollbar .pdf-scrollbar-label .pdf-scrollbar-label-title { display: block; }
+/* 미리보기 두 모드: 위 줄을 문서 선택 바로 아래에 붙인다(위 여백이 있으면 고정 줄 위로 축소판이 비친다) */
+.side-scroll.thumb-panel,
+.side-scroll.outline-preview { padding-top: 0; }
+/* 목차·미리보기: 펼친 구간을 훑는 동안 그 제목 줄이 위 줄 아래에 붙어 있다 */
+.outline-preview-group-head {
+  position: sticky;
+  top: var(--preview-bar-h, 0px);
+  z-index: 1;
+  margin: 0 -8px;
+  padding: 0 8px 2px;
+  background: var(--chrome, var(--paper));
+}
+.outline-preview-group:has(> .outline-preview-grid) > .outline-preview-group-head {
+  box-shadow: 0 1px 0 var(--hairline);
+}
+
+/* ── 상단 탭: 크롬 브라우저 모양 ─────────────────────────────────────
+   탭 줄(상단바)은 아래 도구줄보다 조금 진하고, 고른 탭만 도구줄과 같은 종이색으로 아래에 이어진다.
+   고른 탭 아래 양옆은 오목한 곡선(::before·::after)으로 도구줄과 붙는다. 다른 탭은 바탕 없이 글자만,
+   마우스를 올리면 둥근 옅은 바탕(::before). 탭은 모두 같은 폭으로 함께 줄어든다(최대 240px). */
+/* 탭 줄은 넘치면 가로로 밀리는 칸(overflow:auto)이라 그 밖은 잘린다. 고른 탭 양옆 곡선(10px)이 들어가도록 양쪽 다 10px 비운다
+   (오른쪽이 4px 이면 마지막 탭의 오른쪽 아래 곡선이 4px 에서 잘려 각져 보였다) */
+.topbar-panetab-zone .pane-tabs-strip { padding-inline: 10px; }
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab,
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active),
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active {
+  flex: 0 1 240px;
+  width: 240px;
+  min-width: 40px;
+  max-width: 240px;
+  height: 33px;
+  isolation: isolate;
+  container-type: inline-size;
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  box-shadow: none;
+}
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active) {
+  background: transparent;
+  color: var(--text-muted);
+}
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover { background: transparent; color: var(--text); }
+/* 마우스를 올린 탭: 위아래가 조금 떨어진 둥근 바탕 */
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active)::before {
+  position: absolute;
+  inset: 4px 2px 3px;
+  z-index: -1;
+  border-radius: 8px;
+  background: var(--chrome-hover);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  content: '';
+}
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover::before { opacity: 1; }
+/* 고른 탭: 아래 도구줄과 같은 종이색 */
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active,
+.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active,
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active.pane-top-tab-note,
+.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
+  z-index: 2;
+  background: var(--paper);
+  color: var(--text-strong);
+}
+/* 만지지 않는 패널의 고른 탭은 글자만 흐리게(단축키가 어느 패널에 듣는지) */
+.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active { color: var(--text-muted); }
+.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab-active .pane-top-tab-title { font-weight: 500; }
+/* 고른 탭 아래 양옆의 오목한 곡선 */
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::before,
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::after {
+  display: block;
+  position: absolute;
+  top: auto;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  content: '';
+}
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::before {
+  left: -10px;
+  right: auto;
+  background: radial-gradient(circle at 0 0, transparent 9.5px, var(--paper) 10px);
+}
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::after {
+  right: -10px;
+  left: auto;
+  background: radial-gradient(circle at 100% 0, transparent 9.5px, var(--paper) 10px);
+}
+/* 닫기 ×: 모든 탭 오른쪽 같은 자리, 둥근 바탕 */
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-close {
+  width: 20px;
+  height: 20px;
+  margin-right: 7px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  opacity: 1;
+}
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-close:hover { background: var(--chrome-hover); color: var(--text-strong); }
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-close svg { width: 12px; height: 12px; }
+/* 사이드바를 접으면 왼쪽 위 단추 묶음(사이드바·문서 검색·1단/2단·보기 단추들)이 탭 줄 위에 떠 있다.
+   예전 146px 은 단추가 늘기 전 값이라 앞쪽 탭이 단추 밑에 숨었다. 지금 묶음 폭(≈256px)만큼 민다(단추 수가 바뀌면 같이 고친다). */
+.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: 262px; }
+/* 탭이 아주 좁아지면(크롬처럼) 다른 탭은 아이콘만, 고른 탭은 아이콘 대신 × 만 남긴다 */
+@container (max-width: 76px) {
+  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-label { display: none; }
+  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-title { justify-content: center; padding: 0; }
+  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-close { display: none; }
+  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active .pane-top-tab-kind { display: none; }
+  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active .pane-top-tab-title { flex: 0 0 4px; }
+  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active .pane-top-tab-close { margin-inline: auto; }
+}

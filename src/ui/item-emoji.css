@@ -1,0 +1,19 @@
+/* 항목 이모지는 운영체제 글꼴(Segoe UI Emoji 등)이 아니라 번들한 Twemoji
+   COLR 글꼴로 그린다 — 어느 PC 에서 열어도 같은 모양이어야 한다. */
+@font-face {
+  font-family: 'IWAE Emoji';
+  src: url('twemoji-colr-font/twemoji.woff2') format('woff2');
+  font-display: block;
+}
+
+.item-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.15em;
+  font-family: 'IWAE Emoji', sans-serif;
+  font-size: 14px;
+  font-style: normal;
+  line-height: 1;
+}

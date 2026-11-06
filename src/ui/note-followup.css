@@ -1,0 +1,413 @@
+.note-canvas > .note-toolbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 36;
+  width: calc(100% - 16px);
+  height: auto;
+  margin: 0;
+  padding: 3px;
+  display: grid;
+  grid-template-rows: 30px 30px;
+  gap: 3px;
+  overflow: hidden;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 10px;
+  background: var(--control-surface-expanded);
+  box-shadow: 0 7px 24px var(--shadow-floating);
+  backdrop-filter: blur(12px) saturate(1.1);
+}
+
+.note-toolbar-primary,
+.note-toolbar-secondary {
+  display: flex;
+  min-width: 0;
+  height: 30px;
+  align-items: center;
+}
+
+.note-toolbar-controls,
+.note-toolbar-secondary-controls {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  opacity: 1;
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+.note-toolbar-controls::-webkit-scrollbar,
+.note-toolbar-secondary-controls::-webkit-scrollbar {
+  display: none;
+}
+
+.note-toolbar-controls > *,
+.note-toolbar-secondary-controls > * {
+  flex: 0 0 auto;
+}
+
+.note-toolbar-controls > button,
+.note-toolbar-secondary-controls > button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.note-toolbar-controls > select,
+.note-toolbar-secondary-controls > select {
+  min-width: 64px;
+  height: 28px;
+  padding: 0 4px;
+}
+
+.note-toolbar-controls > input[type="number"] {
+  width: 46px;
+  height: 28px;
+  padding: 0 4px;
+}
+
+.note-toolbar-controls > .note-toolbar-divider,
+.note-toolbar-secondary-controls > .note-toolbar-divider {
+  margin-inline: 2px;
+}
+
+.note-toolbar-controls > .note-color-trigger,
+.note-toolbar-secondary-controls > .note-color-trigger {
+  width: 28px;
+}
+
+.note-line-modes { display: flex; align-items: center; gap: 2px; }
+.note-line-modes > button { width: 28px; height: 28px; padding: 0; color: var(--text-strong, var(--ink)); }
+.note-toolbar-secondary-controls button[aria-pressed="true"] {
+  background: rgba(115, 183, 255, .24);
+  box-shadow: inset 0 0 0 1px rgba(147, 201, 255, .5);
+  border-radius: 6px;
+}
+
+.note-toolbar-primary > .note-toolbar-fullscreen {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 28px;
+  margin-left: 4px;
+  padding: 0;
+  border-left: 1px solid var(--divider);
+  color: var(--text-strong);
+}
+
+.note-toolbar-secondary > .note-toolbar-options-trigger {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  color: var(--text-strong);
+}
+
+.note-toolbar-options-trigger[aria-expanded="true"] {
+  background: var(--chrome-hover);
+  color: var(--text-strong);
+}
+
+/* 도구줄 글자·아이콘은 테마 색을 따른다(예전 어두운 도구줄 때의 흰색이 밝은 테마에서 안 보였다) */
+.note-canvas > .note-toolbar button,
+.note-canvas > .note-toolbar select,
+.note-canvas > .note-toolbar input[type="number"],
+.note-canvas > .note-toolbar .note-line-option {
+  color: var(--text-strong, var(--ink));
+}
+.note-canvas > .note-toolbar button:disabled,
+.note-canvas > .note-toolbar select:disabled,
+.note-canvas > .note-toolbar input[type="number"]:disabled { color: var(--text-dim); opacity: 0.55; }
+.note-canvas > .note-toolbar svg { color: currentColor; }
+
+.note-options-popover {
+  position: fixed;
+  z-index: 120;
+  width: min(310px, calc(100vw - 16px));
+  padding: 7px;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 10px;
+  background: var(--control-surface-expanded);
+  box-shadow: 0 10px 30px var(--shadow-floating);
+}
+
+.note-options-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.note-options-setting:hover { background: var(--chrome-hover); }
+.note-options-setting > span { display: grid; gap: 3px; }
+.note-options-setting strong { color: var(--text-strong); font-size: 12px; font-weight: 600; }
+.note-options-setting small { color: var(--text-dim); font-size: 11px; line-height: 1.45; }
+.note-options-setting input { flex: 0 0 auto; width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+
+.note-line-option {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+}
+
+.note-line-option select {
+  min-width: 56px;
+  height: 28px;
+  padding: 0 3px;
+}
+
+.canvas-block-shell {
+  border-color: var(--canvas-block-border-color, var(--divider));
+}
+
+.canvas-shape {
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--canvas-block-border-color, var(--divider));
+  background: transparent;
+  pointer-events: none;
+}
+
+.canvas-shape-rectangle,
+.canvas-shape-square {
+  border-radius: 8px;
+}
+
+.canvas-block-rectangle {
+  border-color: transparent;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+
+.canvas-block-square,
+.canvas-block-ellipse,
+.canvas-block-diamond {
+  border-color: transparent;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.canvas-shape-ellipse {
+  border-radius: 50%;
+}
+
+.canvas-shape-diamond {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.note-canvas .react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+}
+
+.note-canvas > .note-flow { flex: 1 1 auto; }
+
+.note-canvas .react-flow__attribution {
+  padding: 2px 5px;
+  background: transparent !important;
+  color: var(--text-dim);
+  opacity: .58;
+}
+
+.note-canvas .react-flow__attribution a { color: inherit; }
+
+.note-bottom-bar {
+  position: absolute;
+  right: auto;
+  bottom: 10px;
+  left: 50%;
+  z-index: 34;
+  width: max-content;
+  max-width: calc(100% - 20px);
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.note-bottom-bar-surface {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 5px 10px;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 10px;
+  background: var(--control-surface-floating);
+  box-shadow: 0 4px 18px var(--shadow-floating);
+  backdrop-filter: blur(12px) saturate(120%);
+  pointer-events: auto;
+}
+
+.note-bottom-bar .note-bottom-controls {
+  border: 0;
+  background: transparent;
+}
+
+.note-bottom-bar .note-save-status {
+  position: static;
+  flex: 0 0 auto;
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.note-bottom-bar .note-save-status-error { color: var(--danger); }
+
+.note-toolbar-primary > .note-toolbar-export + .note-toolbar-fullscreen { margin-left: 0; border-left: 0; }
+
+/* 캔버스 하단바도 아래에 붙인다(PDF 하단바와 같은 모양) */
+.note-bottom-bar {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  transform: none;
+  border-top: 1px solid var(--divider);
+  background: var(--chrome, var(--paper));
+  pointer-events: auto;
+}
+.note-bottom-bar-surface {
+  height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* 좁은 캔버스 패널에서 도구줄이 패널 밖으로 넘쳐 창 전체에 가로 스크롤이 생기던 것: 패널 안에서만 넘기게 */
+.note-canvas { overflow: hidden; }
+.note-toolbar { max-width: calc(100% - 16px); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.note-toolbar::-webkit-scrollbar { display: none; }
+
+/* 캔버스 도구줄을 탭 바로 아래에 폭 전체로 붙인다 — 활성 탭(종이색)과 한 면으로 이어진다(PDF 도구줄과 같은 방식) */
+.note-canvas > .note-toolbar {
+  top: 0;
+  left: 0;
+  right: 0;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: var(--paper);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.note-canvas > .note-toolbar { width: auto; max-width: none; }
+/* 대비·경계: 붙박이 도구줄 아래 선을 한 단계 진하게 */
+.note-canvas > .note-toolbar { border-bottom-color: var(--divider); }
+
+/* 네모는 각진 모서리. 테두리 두께는 블록마다 고를 수 있다(--canvas-block-border-width) */
+.canvas-shape-rectangle,
+.canvas-shape-square { border-radius: 0; }
+.canvas-shape { border-width: var(--canvas-block-border-width, 2px); }
+.react-flow__node .canvas-block-shell:not(.canvas-drawing-overlay) { border-width: var(--canvas-block-border-width, 1px); }
+.note-toolbar-border-width { min-width: 64px; }
+
+/* 도구줄 드롭다운: 기본 select 대신 앱 모양의 버튼 + 목록 */
+.note-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 28px;
+  min-width: 64px;
+  padding: 0 7px 0 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: default;
+}
+.note-select-trigger svg { flex: 0 0 auto; color: var(--text-dim); }
+.note-select-trigger:hover:not(:disabled),
+.note-select-trigger[aria-expanded='true'] { border-color: var(--divider); background: var(--paper); }
+.note-select-trigger:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
+.note-select-trigger:disabled { color: var(--text-dim); opacity: .55; }
+.note-select-value { white-space: nowrap; }
+.note-select-placeholder { color: var(--text-dim); }
+.note-select-level { min-width: 74px; }
+.note-select-border-width { min-width: 62px; }
+.note-select-menu {
+  position: fixed;
+  z-index: 120;
+  display: grid;
+  gap: 1px;
+  max-height: min(360px, 70vh);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 10px 28px var(--shadow-floating, rgb(0 0 0 / 16%));
+}
+.note-select-option {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: default;
+}
+.note-select-option:hover,
+.note-select-option:focus-visible { background: var(--chrome-hover); outline: 0; }
+.note-select-option[aria-selected='true'] { color: var(--accent); font-weight: 600; }
+.note-select-check { display: inline-grid; place-items: center; color: var(--accent); }
+.note-select-preview { display: inline-flex; align-items: center; justify-content: flex-end; min-width: 36px; color: var(--text-dim); font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 400; }
+.note-select-line { display: block; width: 36px; background: var(--text); border-radius: 0; }
+/* 글자 크기 입력: 화살표 없는 작은 칸 */
+.note-canvas > .note-toolbar input.note-font-size {
+  width: 44px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.note-canvas > .note-toolbar input.note-font-size::-webkit-inner-spin-button,
+.note-canvas > .note-toolbar input.note-font-size::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.note-canvas > .note-toolbar input.note-font-size:hover:not(:disabled),
+.note-canvas > .note-toolbar input.note-font-size:focus { border-color: var(--divider); background: var(--paper); outline: 0; }
+.note-canvas > .note-toolbar input.note-font-size:disabled { color: var(--text-dim); opacity: .55; }
+/* 캔버스 하단바도 공통 높이 */
+.note-bottom-bar { flex: 0 0 var(--bottom-bar-height); height: var(--bottom-bar-height); box-sizing: border-box; }
+.note-bottom-bar .note-bottom-bar-surface { height: 100%; }

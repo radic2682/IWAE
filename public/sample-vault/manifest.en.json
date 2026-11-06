@@ -1,0 +1,20 @@
+{
+  "pdf": { "file": "iwae-manual.en.pdf", "name": "IWAE User Guide.pdf" },
+  "markdown": { "file": "markdown-example.en.md", "name": "Markdown example.md" },
+  "note": {
+    "title": "Tour of IWAE",
+    "blocks": [
+      { "kind": "section", "title": "Getting started" },
+      { "kind": "text", "markdown": "An example note made while reading the guide. Click a **memo** to jump to that spot in the PDF, and drag a block by its left handle to reorder it." },
+      { "kind": "memo", "page": 2, "quote": "A Vault is a plain folder, so you can copy or back it up with your file manager.", "note": "Copying the whole Vault folder is a backup. App records live in `.iwae`." },
+      { "kind": "memo", "page": 3, "quote": "by dragging its edges and corners", "note": "If a captured table got cut off, drag the box to fit it again." },
+      { "kind": "memo", "page": 4, "quote": "Drag the handle on the left to change the order of blocks.", "note": "Dragging a section moves the blocks under it too." },
+      { "kind": "section", "title": "Requirements (ticket examples)" },
+      { "kind": "text", "markdown": "These are **ticket** blocks: title, your text, then the original quote. Make one with Convert to ticket in a memo block's menu (…)." },
+      { "kind": "memo", "page": 5, "quote": "Saved notes must still be there after the app restarts.", "note": "Write a note, restart the app and check. Note files live in `노트/*.iwnote`.", "ticket": "REQ-01 Notes survive a restart" },
+      { "kind": "memo", "page": 5, "quote": "Highlights must point to the same text after pages are reordered.", "note": "Reorder pages with Edit pages, then click this memo and check it lands on the same sentence.", "ticket": "REQ-03 Highlights follow moved pages" },
+      { "kind": "section", "title": "Translation" },
+      { "kind": "memo", "page": 6, "quote": "Cloud API keys are kept in this PC's credential store.", "note": "Enter a key once and it stays after a restart. Use local translation for confidential documents." }
+    ]
+  }
+}

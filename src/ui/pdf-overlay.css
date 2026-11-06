@@ -1,0 +1,100 @@
+/* PDF 편집 덮개: 글 상자·선. 보기만 할 때는 아래 글 선택을 막지 않고, 편집 모드에서만 눌린다 */
+.pdf-overlay-layer { position: absolute; top: 0; left: 0; z-index: 4; pointer-events: none; }
+.pdf-overlay-layer-edit { pointer-events: auto; cursor: crosshair; }
+.pdf-overlay-layer-edit[data-overlay-tool='text'] { cursor: text; }
+.pdf-overlay-lines { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.pdf-overlay-line-hit { stroke: transparent; stroke-width: 14px; stroke-linecap: round; pointer-events: stroke; cursor: move; }
+.pdf-overlay-line-selected line:not(.pdf-overlay-line-hit) { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent, #3b82f6) 80%, transparent)); }
+.pdf-overlay-line-preview { opacity: .75; }
+.pdf-overlay-handle { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 2px; pointer-events: all; cursor: grab; }
+
+.pdf-overlay-text { position: absolute; box-sizing: border-box; min-height: 1.2em; padding: 1px 3px; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
+.pdf-overlay-layer-edit .pdf-overlay-text { pointer-events: auto; cursor: move; }
+.pdf-overlay-text-border { border: 1px solid currentColor; border-radius: 2px; }
+.pdf-overlay-text-selected { outline: 1.5px dashed var(--accent, #3b82f6); outline-offset: 1px; }
+.pdf-overlay-text-editing { cursor: text !important; }
+.pdf-overlay-text-body { display: block; }
+.pdf-overlay-editor { min-height: 1.2em; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; caret-color: currentColor; }
+.pdf-overlay-resize { position: absolute; top: 0; right: -4px; bottom: 0; width: 8px; cursor: ew-resize; touch-action: none; }
+.pdf-overlay-resize::after { content: ''; position: absolute; top: 50%; right: 2px; width: 4px; height: 14px; border-radius: 2px; background: var(--accent, #3b82f6); transform: translateY(-50%); }
+
+/* 속성 막대(고른 덮개 위) */
+.pdf-overlay-bar {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  border: 1px solid var(--divider-strong);
+  border-radius: 8px;
+  background: var(--paper, #fff);
+  color: var(--text-strong, #111);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 30%);
+  pointer-events: auto;
+  cursor: default;
+}
+.pdf-overlay-colors { display: inline-flex; gap: 3px; margin-right: 4px; }
+.pdf-overlay-color { width: 14px; height: 14px; padding: 0; border: 1px solid rgb(128 128 128 / 55%); border-radius: 50%; cursor: pointer; }
+.pdf-overlay-color-on { box-shadow: 0 0 0 2px var(--accent, #3b82f6); }
+.pdf-overlay-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; min-width: 22px; height: 22px; padding: 0 4px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
+.pdf-overlay-btn:hover { background: var(--chrome-hover); }
+.pdf-overlay-btn-on { background: var(--selected-bg, var(--chrome-hover)); box-shadow: inset 0 0 0 1px var(--accent, #3b82f6); }
+.pdf-overlay-size { min-width: 18px; font-size: 11.5px; font-weight: 600; text-align: center; }
+.pdf-overlay-width i { display: block; width: 14px; background: currentColor; border-radius: 1px; }
+.pdf-overlay-delete { margin-left: 3px; }
+
+/* PDF 위 떠 있는 도구창(편집·박스 메모): 상단바와 같은 높이 */
+.pdf-overlay-palette {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  max-width: calc(100% - 24px);
+  padding: 0 8px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  scrollbar-width: none;
+  transform: translateX(-50%);
+  border: 1px solid var(--divider-strong);
+  border-radius: 10px;
+  background: var(--chrome);
+  color: var(--text-strong);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 32%);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.pdf-overlay-palette::-webkit-scrollbar { display: none; }
+.pdf-overlay-palette-sep { flex: 0 0 auto; width: 1px; height: 20px; margin: 0 4px; background: var(--divider-strong); }
+.pdf-overlay-group { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; }
+.pdf-overlay-palette .pdf-overlay-btn { min-width: 28px; height: 28px; border-radius: 7px; font-size: 12.5px; }
+.pdf-overlay-palette .pdf-overlay-colors { gap: 5px; margin: 0 2px; }
+.pdf-overlay-palette .pdf-overlay-color { width: 16px; height: 16px; flex: 0 0 auto; }
+.pdf-overlay-palette .pdf-overlay-size { min-width: 22px; font-size: 12.5px; }
+.pdf-overlay-palette .pdf-overlay-width i { width: 16px; }
+.pdf-overlay-done { gap: 4px; padding: 0 10px !important; font-weight: 600; }
+.pdf-overlay-fill { flex: 0 0 auto; width: 18px; height: 18px; padding: 0; border: 1px solid rgb(128 128 128 / 60%); border-radius: 4px; cursor: pointer; }
+.pdf-overlay-fill-none { background: linear-gradient(to top right, transparent calc(50% - 1px), #d9363e calc(50% - 1px), #d9363e calc(50% + 1px), transparent calc(50% + 1px)) !important; }
+.pdf-overlay-fills { gap: 4px; margin: 0 2px; }
+.pdf-overlay-border-icon { display: block; width: 13px; height: 13px; border: 1.6px solid currentColor; border-radius: 2px; }
+.pdf-overlay-dash-icon { display: block; width: 16px; height: 0; border-top: 2px dashed currentColor; }
+.pdf-overlay-delete:hover { color: var(--danger, #e5534b); }
+.pdf-box-palette-label { flex: 0 0 auto; padding: 0 2px; font-weight: 700; }
+.pdf-box-palette-hint { flex: 0 0 auto; padding: 0 4px; }
+.pdf-box-format-slot { display: flex; align-items: center; min-width: 0; }
+/* 박스 메모 서식 단추를 도구창 높이에 맞춘다 */
+.pdf-box-format-slot .pdf-memo-format-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.pdf-box-format-slot .pdf-memo-format-button { min-width: 28px; height: 28px; border-radius: 7px; }
+.pdf-overlay-layer-edit[data-overlay-tool='eraser'],
+.pdf-overlay-layer-edit[data-overlay-tool='eraser'] * { cursor: cell !important; }
+
+/* 글 상자 글꼴은 앱 글꼴 */
+.pdf-overlay-text, .pdf-overlay-editor { font-family: var(--font-ui); }
+
+/* 깨끗이 보기(눈 단추): 편집 덮개도 감춘다 */
+.pdf-clean-view .pdf-overlay-layer { display: none !important; }
+.pdf-overlay-layer-edit[data-overlay-tool='pen'] { cursor: crosshair; touch-action: none; }

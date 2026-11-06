@@ -1,0 +1,73 @@
+[package]
+name = "app"
+version = "0.1.5"
+description = "Local-first PDF reader that links highlights and memos into source-aware notes"
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.11.3", features = [] }
+tauri-plugin-log = "2"
+# 파일 선택 대화상자 — 문서 경로를 얻는 유일한 통로(UI 는 Task 3 에서 붙인다)
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = { version = "2", features = ["watch"] }
+tauri-plugin-persisted-scope = "2"
+tauri-plugin-updater = "=2.9.0"
+tauri-plugin-process = "=2.3.1"
+pdfium-render = "0.9.4"
+sha2 = "0.10"
+# 페이지 PNG 인코딩만 쓴다. 기본 기능을 끄면 쓰지도 않을 디코더 수십 개가 따라오지 않는다.
+encoding_rs = "0.8"
+image = { version = "0.25", default-features = false, features = ["png"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# 외부 번역 API key 를 OS 자격 증명 저장소에(Windows 자격 증명 관리자 · macOS 키체인 · Linux Secret Service)
+keyring = { version = "3", features = ["windows-native", "apple-native", "sync-secret-service"] }
+tauri-plugin-opener = "2"
+rusqlite = { version = "0.40", features = ["bundled"] }
+getrandom = "0.4"
+tiny_http = "0.12"
+# 전체 Vault 백업(zip). deflate 만 쓴다 — 다른 압축 방식은 의존성만 늘린다.
+zip = { version = "4.6", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-window-state = "2"
+
+# 쪽 그림을 압축 없이 공유 메모리로 웹뷰에 넘긴다(WebView2 SharedBuffer). tauri(wry) 와 같은 판이어야 한다.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows-core = "0.61"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+# 개발 빌드에서 **의존성만** 최적화한다. 우리 코드는 디버그로 남아 컴파일이
+# 빠르고 디버깅도 되는데, 계산이 무거운 크레이트는 릴리스처럼 돈다.
+#
+# 이 줄이 필요한 이유는 측정으로 나왔다. 같은 페이지의 PNG 인코딩이
+# 디버그 536.6ms / 릴리스 3.0ms — 179배다. PDF 렌더 자체는 PDFium 의
+# C++ 이고 우리가 받은 dll 이 이미 최적화 빌드라 프로필과 무관했다(17ms 동일).
+# 즉 개발 중 체감 지연은 전부 image 크레이트의 PNG 압축 루프였다.
+[profile.dev.package."*"]
+opt-level = 3
+
+# 배포 빌드. 링크 때 크레이트 경계를 넘어 인라인하고(lto) 한 덩어리로 최적화해(codegen-units=1)
+# 벡터 검색·PNG 인코딩이 조금 더 빠르고 실행 파일이 작아진다. 대신 릴리스 빌드가 느려진다.
+# panic 은 unwind 그대로 둔다 — PDFium 스레드가 catch_unwind 로 패닉을 잡아 오류로 돌려준다.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"

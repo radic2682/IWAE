@@ -1,0 +1,103 @@
+/* 레이아웃 전환. 시간과 곡선은 사이드바에 원래 있던 230ms 값을 그대로 쓴다.
+   패널 폭은 flex-grow 하나로만 정한다 — 숨김 규칙이 width·flex-basis 를
+   따로 건드리면 전환 도중에 두 값이 싸워서 패널이 한 번에 튄다. */
+:root {
+  --layout-duration: 230ms;
+  --layout-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.pane {
+  transition:
+    flex-grow var(--layout-duration) var(--layout-ease),
+    opacity var(--layout-duration) var(--layout-ease),
+    visibility 0s linear 0s;
+}
+
+/* 숨는 쪽은 줄어들며 흐려지고, visibility 는 전환이 끝난 뒤에 꺼진다.
+   그래야 줄어드는 동안에도 내용이 보이고, 끝나면 포커스가 들어가지 않는다. */
+.app-note-focused .pane-left,
+.app-reader-focused .pane-right {
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    flex-grow var(--layout-duration) var(--layout-ease),
+    opacity var(--layout-duration) var(--layout-ease),
+    visibility 0s linear var(--layout-duration);
+}
+
+.app-note-focused .pane-divider,
+.app-reader-focused .pane-divider { display: none; }
+
+.shell-reader-focused .sidebar,
+.shell-reader-focused .sidebar-divider { pointer-events: none; }
+
+.panes { transition: opacity var(--layout-duration) var(--layout-ease); }
+
+.shell-library-expanded .panes {
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 폭이 0 이 된 패널·탭 구역의 떠 있는 도구(절대 위치)가 창 오른쪽 밖으로
+   삐져나가 가로 스크롤바를 만들지 않도록 잘라 낸다. 보이는 동안에는 자르지
+   않는다 — 탭 목록 드롭다운이 구역 밖으로 펼쳐져야 하기 때문이다. */
+.topbar-panetab-zone { transition: opacity var(--layout-duration) var(--layout-ease); }
+.shell-library-expanded .topbar-panetab-zone,
+.shell-reader-focused .topbar-panetab-zone-right,
+.shell-note-focused .topbar-panetab-zone:not(.topbar-panetab-zone-right) {
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane,
+  .panes,
+  .topbar-panetab-zone,
+  .app-note-focused .pane-left,
+  .app-reader-focused .pane-right { transition: none; }
+}
+
+/* 패널 구분선을 끄는 동안: 글자 골라짐·커서 깜빡임 없이 */
+body.pane-resizing, body.pane-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+/* 3단의 세 번째 패널과 그 구분선은 3단일 때만 */
+.app:not(.app-three-pane) .pane-third,
+.app:not(.app-three-pane) .pane-divider-third { display: none; }
+
+/* 구분선을 끄는 동안은 폭 전환(230ms)을 끈다. 켜 두면 패널이 손보다 늦게 따라와 끌기가 굼떠 보인다 */
+body.pane-resizing .pane { transition: none !important; }
+
+/* 칸막이 「양쪽 바꾸기」 단추: 칸막이에 잠깐(0.25초) 올려 두면 가운데에 나온다. 끄는 중에는 숨긴다.
+   단추를 누른 채 끌면 칸막이 끌기다(누름이 칸막이로 올라간다) */
+.pane-swap-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--divider-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--text-strong, var(--ink));
+  box-shadow: 0 2px 8px rgb(0 0 0 / 28%);
+  cursor: col-resize;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease, visibility 0s linear 120ms;
+}
+.pane-divider:hover .pane-swap-btn {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 120ms ease 250ms, visibility 0s linear 250ms;
+}
+.pane-swap-btn:hover { border-color: var(--accent); color: var(--accent); cursor: pointer; }
+body.pane-resizing .pane-swap-btn { opacity: 0 !important; visibility: hidden !important; }

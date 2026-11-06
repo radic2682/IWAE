@@ -1,0 +1,81 @@
+:root {
+  --grid: 8px;
+
+  --paper: #ffffff;
+  --ink: #1a1a1a;
+  --hairline: #e0e0dc;
+  --divider: #d0d0cb;
+  --divider-strong: #b4b4ae;
+  --shadow-soft: rgba(26, 26, 26, 0.12);
+
+  --chrome: #f7f7f6;
+  --chrome-active: var(--paper);
+  --chrome-hover: #e4e4e2;
+  --workspace: #f1f2f3;
+
+  --text: var(--ink);
+  --text-dim: #6e6e68;
+  --text-strong: #171a1f;
+  --text-muted: #69727d;
+  --accent: #2f6fb0;
+  --selection: #79aee366;
+  --danger: #e81123;
+
+  --control-border-floating: rgb(177 186 197 / 88%);
+  --control-border-floating-hover: #8d99a8;
+  --control-surface-floating: rgb(252 252 251 / 91%);
+  --control-surface-expanded: rgb(252 252 251 / 96%);
+  --shadow-floating: rgb(18 24 33 / 10%);
+  --control-size-floating: 34px;
+
+  --surface-app: var(--workspace);
+  --surface-pane: var(--paper);
+  --surface-elevated: var(--control-surface-expanded);
+  --text-primary: var(--text-strong);
+  --border-subtle: var(--divider);
+  --source-edge: #357fbd;
+  --highlight-yellow: rgb(255 226 94 / 46%);
+  --highlight-green: rgb(111 220 146 / 42%);
+  --highlight-blue: rgb(93 177 255 / 40%);
+  --highlight-pink: rgb(255 126 181 / 40%);
+  --toolbar-height: 38px;
+  --radius-control: 6px;
+  --shadow-page: 0 1px 3px rgb(18 24 33 / 18%);
+
+  --topbar-h: var(--toolbar-height);
+  --tabbar-h: 36px;
+  --bottom-bar-height: 42px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --row-h: 28px;
+}
+
+:root[data-theme='dark'] {
+  --paper: #1d2024;
+  --ink: #e7e9ec;
+  --hairline: #363c43;
+  --divider: #464e57;
+  --divider-strong: #5f6975;
+  --shadow-soft: rgb(0 0 0 / 42%);
+
+  --chrome: #24282d;
+  --chrome-active: #30353b;
+  --chrome-hover: #3a4048;
+  --workspace: #171a1e;
+
+  --text: #e7e9ec;
+  --text-dim: #abb3bc;
+  --text-strong: #f5f6f7;
+  --text-muted: #b0b6bd;
+  --accent: #79addd;
+  --selection: #4a85bd66;
+  --danger: #ff6b76;
+
+  --control-border-floating: rgb(102 113 125 / 90%);
+  --control-border-floating-hover: #8793a0;
+  --control-surface-floating: rgb(38 43 49 / 92%);
+  --control-surface-expanded: rgb(42 47 54 / 97%);
+  --shadow-floating: rgb(0 0 0 / 36%);
+  --source-edge: #78b6e8;
+  --shadow-page: 0 1px 4px rgb(0 0 0 / 58%);
+}

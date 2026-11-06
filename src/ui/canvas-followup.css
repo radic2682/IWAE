@@ -1,0 +1,426 @@
+.note-canvas .react-flow__node.canvas-node-snap-settle .canvas-block-shell {
+  animation: canvas-block-magnetic-lock 360ms cubic-bezier(.16, 1.3, .3, 1);
+}
+
+.note-canvas .react-flow__node.canvas-node-attached .canvas-block-shell {
+  border-color: color-mix(in srgb, var(--accent) 78%, var(--divider));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent),
+    0 10px 24px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.note-canvas .react-flow__node.canvas-node-linked .canvas-block-shell { border-color: color-mix(in srgb, var(--accent) 60%, var(--divider)); }
+
+@keyframes canvas-block-magnetic-lock {
+  0% { transform: translate(var(--snap-offset-x, 0px), var(--snap-offset-y, 0px)) scale(1.012); }
+  68% { transform: translate(var(--snap-overshoot-x, 0px), var(--snap-overshoot-y, 0px)) scale(.993); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.note-canvas .react-flow__node.canvas-node-lifted .canvas-block-shell {
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--divider));
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--ink) 18%, transparent);
+  transform: translateY(-3px);
+}
+
+.note-canvas .react-flow__node.canvas-node-contact .canvas-block-shell {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 10px 24px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+.note-canvas .react-flow__node.canvas-node-contact .canvas-block-port-visible {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.note-canvas .react-flow__node.selected .canvas-block-shell {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.note-canvas .react-flow__edge.canvas-edge-joined {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.note-canvas .react-flow__edge:not(.canvas-edge-joined) {
+  cursor: pointer;
+}
+
+.note-canvas .canvas-edge-break {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease-out, stroke-dasharray 200ms cubic-bezier(.16, 1, .3, 1), transform 200ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.note-canvas .canvas-edge-break-start { stroke-dasharray: 49 51; }
+.note-canvas .canvas-edge-break-end { stroke-dasharray: 0 51 49 0; }
+
+.note-canvas .react-flow__edge:not(.canvas-edge-joined):is(:hover, :focus) .react-flow__edge-path {
+  opacity: 0;
+}
+
+.note-canvas .react-flow__edge:not(.canvas-edge-joined):is(:hover, :focus) .canvas-edge-break {
+  opacity: 1;
+}
+
+.note-canvas .react-flow__edge:not(.canvas-edge-joined):is(:hover, :focus) .canvas-edge-break-start {
+  stroke-dasharray: 44 56;
+  transform: translate(calc(-1 * var(--edge-break-x)), calc(-1 * var(--edge-break-y)));
+}
+
+.note-canvas .react-flow__edge:not(.canvas-edge-joined):is(:hover, :focus) .canvas-edge-break-end {
+  stroke-dasharray: 0 56 44 0;
+  transform: translate(var(--edge-break-x), var(--edge-break-y));
+}
+
+.note-canvas .react-flow__node.canvas-node-joined .canvas-block-shell,
+.note-canvas .react-flow__node.canvas-node-joined.selected .canvas-block-shell {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--divider));
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.note-canvas .react-flow__node.canvas-node-magnet .canvas-block-shell {
+  border-color: color-mix(in srgb, var(--accent) 76%, var(--divider));
+  transform: translate(var(--magnet-pull-x, 0px), var(--magnet-pull-y, 0px));
+  transition: transform 90ms linear, border-color 120ms ease;
+}
+
+.note-canvas .react-flow__node.canvas-node-joined-right .canvas-block-shell {
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+.note-canvas .react-flow__node.canvas-node-joined-left .canvas-block-shell {
+  border-top-left-radius: 2px;
+  border-bottom-left-radius: 2px;
+}
+.note-canvas .react-flow__node.canvas-node-joined-top .canvas-block-shell {
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+.note-canvas .react-flow__node.canvas-node-joined-bottom .canvas-block-shell {
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+.note-canvas .react-flow__node.canvas-node-joined-left .canvas-block-port-left,
+.note-canvas .react-flow__node.canvas-node-joined-right .canvas-block-port-right,
+.note-canvas .react-flow__node.canvas-node-joined-top .canvas-block-port-top,
+.note-canvas .react-flow__node.canvas-node-joined-bottom .canvas-block-port-bottom {
+  opacity: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.note-canvas .react-flow__resize-control.handle,
+.note-canvas .canvas-block-resize-handle {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--accent);
+  border-radius: 3px;
+  background: var(--paper);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.note-canvas .react-flow__resize-control.line,
+.note-canvas .canvas-block-resize-line {
+  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+  border-width: 1px;
+}
+
+.note-canvas .canvas-block-resize-line.left,
+.note-canvas .canvas-block-resize-line.right {
+  width: 10px;
+}
+
+.note-canvas .canvas-block-resize-line.top,
+.note-canvas .canvas-block-resize-line.bottom {
+  height: 10px;
+}
+
+.canvas-block-drag-handle {
+  position: absolute;
+  top: 8px;
+  right: calc(100% + 9px);
+  width: 28px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transform: none;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--text-dim);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.canvas-block-drag-handle:hover,
+.canvas-block-drag-handle:focus-visible { color: var(--ink); border-color: var(--accent); outline: 0; }
+.canvas-block-drag-handle[hidden] { display: none; }
+/* 도형의 이동 핸들·삭제 단추도 블록과 같은 자리(핸들은 왼쪽 바깥, 삭제는 오른쪽 위 모서리) */
+.canvas-drawing-overlay:not(.canvas-block-affordances-visible) { outline: 0; }
+/* React Flow 가 노드에 pointer-events: all 을 직접 넣으므로 !important 로 이긴다. 도형 안쪽은 아래 블록이 받는다 */
+.note-canvas .react-flow__node-presetBlock { pointer-events: none !important; }
+.note-canvas .react-flow__node-presetBlock .canvas-block-shell { pointer-events: none; }
+.note-canvas .react-flow__node-presetBlock .canvas-block-drag-handle { pointer-events: auto; }
+.note-canvas .react-flow__node-presetBlock .canvas-block-drag-handle:not([hidden]) { display: grid; }
+.canvas-shape-edge { position: absolute; z-index: 2; pointer-events: auto; cursor: move; }
+.canvas-shape-edge-top { top: -5px; right: -5px; left: -5px; height: 10px; }
+.canvas-shape-edge-bottom { right: -5px; bottom: -5px; left: -5px; height: 10px; }
+.canvas-shape-edge-left { top: -5px; bottom: -5px; left: -5px; width: 10px; }
+.canvas-shape-edge-right { top: -5px; right: -5px; bottom: -5px; width: 10px; }
+.note-canvas .react-flow__node-presetBlock .canvas-block-delete { pointer-events: auto; }
+.note-canvas .react-flow__node-presetBlock .react-flow__resize-control { pointer-events: auto; }
+
+.canvas-drawing-surface { position: absolute; inset: 0; z-index: 32; cursor: crosshair; touch-action: none; }
+.canvas-image-content { display: block; width: 100%; height: 100%; object-fit: fill; pointer-events: none; user-select: none; }
+.canvas-drawing-hint { position: absolute; top: 12px; left: 50%; display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; transform: translateX(-50%); background: var(--paper); color: var(--ink); box-shadow: 0 3px 12px var(--shadow-soft); font-size: 12px; }
+.canvas-drawing-hint button { border: 0; border-radius: 4px; padding: 3px 6px; background: var(--chrome-hover); color: inherit; font: inherit; cursor: pointer; }
+.canvas-drawing-preview { position: absolute; border: 2px solid #ef4444; background: rgb(239 68 68 / 8%); pointer-events: none; }
+.canvas-drawing-preview-ellipse { border-radius: 50%; }
+.canvas-drawing-preview-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+
+.app-action-toast {
+  position: fixed;
+  z-index: 100;
+  right: 18px;
+  bottom: 18px;
+  max-width: min(320px, calc(100vw - 36px));
+  padding: 9px 13px;
+  border-radius: 8px;
+  background: #242424;
+  color: #f2f2f2;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.app-action-toast-visible { opacity: 1; transform: translateY(0); }
+
+.canvas-block-delete {
+  position: absolute;
+  z-index: 8;
+  top: -13px;
+  right: -13px;
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, var(--divider));
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--text-dim);
+  cursor: pointer;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.canvas-block-delete[hidden] {
+  display: none;
+}
+
+.canvas-block-delete:hover,
+.canvas-block-delete:focus-visible {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--paper);
+  outline: 0;
+  transform: scale(1.08);
+}
+
+.canvas-block-body,
+.canvas-text-editor {
+  scrollbar-width: none;
+}
+
+.canvas-block-body::-webkit-scrollbar,
+.canvas-text-editor::-webkit-scrollbar {
+  display: none;
+}
+
+.canvas-block-visual-body {
+  min-height: 0;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.canvas-block-visual-body:active {
+  cursor: grabbing;
+}
+
+.canvas-text-editor {
+  min-height: 40px;
+  overflow: visible;
+}
+
+.canvas-text-editor-draggable {
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.canvas-text-editor-draggable:active {
+  cursor: grabbing;
+}
+
+.canvas-text-editor-editing {
+  cursor: text;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.canvas-text-highlight {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.canvas-arrow-block {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 4px 12px;
+  color: var(--ink);
+}
+
+.canvas-arrow-block svg {
+  width: 100%;
+  height: 100%;
+  min-height: 28px;
+}
+
+.canvas-block-pdfExcerpt .canvas-block-body,
+.pdf-excerpt-node-body,
+.pdf-excerpt-visual {
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.canvas-block-source-footer {
+  right: 8px !important;
+  bottom: 8px !important;
+  left: 8px !important;
+  max-width: calc(100% - 16px);
+}
+
+.pdf-excerpt-source {
+  min-height: 32px;
+  grid-template-columns: auto minmax(0, auto) auto;
+  gap: 7px;
+  padding: 0 9px;
+  border-color: color-mix(in srgb, var(--ink) 28%, var(--divider));
+  background: color-mix(in srgb, var(--paper) 96%, var(--chrome));
+  color: color-mix(in srgb, var(--ink) 76%, var(--text-dim));
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.pdf-excerpt-node,
+.pdf-excerpt-node-body,
+.pdf-excerpt-visual,
+.pdf-excerpt-text-layer {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pdf-excerpt-node {
+  cursor: grab;
+}
+
+.pdf-excerpt-node:active {
+  cursor: grabbing;
+}
+
+.pdf-excerpt-text-layer {
+  pointer-events: none;
+}
+
+.pdf-excerpt-source span:first-child {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+:root[data-theme='dark'] .pdf-excerpt-node-body {
+  border: 1px solid var(--divider-strong);
+  box-shadow: 0 8px 24px var(--shadow-soft);
+}
+
+.canvas-block-port {
+  /* 위치는 React Flow 가 absolute 로 잡는다. relative 로 덮으면 연결점이 블록 안에서 자리를 차지해 내용이 밀린다 */
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}
+
+.canvas-block-port::after {
+  position: absolute;
+  inset: -5px;
+  content: '';
+}
+
+.canvas-create-menu,
+.canvas-block-background-menu {
+  position: fixed;
+  z-index: 62;
+  min-width: 150px;
+  display: grid;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--paper);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+.canvas-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  border: 0;
+  background: transparent;
+}
+
+.canvas-create-menu button,
+.canvas-block-background-menu button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.canvas-create-menu button:hover,
+.canvas-create-menu button:focus-visible,
+.canvas-block-background-menu button:hover,
+.canvas-block-background-menu button:focus-visible {
+  background: var(--chrome-hover);
+  outline: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-canvas .react-flow__node.canvas-node-lifted .canvas-block-shell,
+  .canvas-block-delete {
+    transition: none;
+  }
+
+  .note-canvas .react-flow__node.canvas-node-snap-settle .canvas-block-shell {
+    animation: none;
+  }
+  .app-action-toast { animation: none; transition: none; }
+  .note-canvas .react-flow__node.canvas-node-magnet .canvas-block-shell { transform: none; transition: none; }
+}

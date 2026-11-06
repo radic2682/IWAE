@@ -1,0 +1,350 @@
+/*
+ * 설정 창 정리: 탭마다 따로 자란 모양(제목 크기, 구분선, 회색 상자 안의 회색 줄, fieldset 테두리에 걸친 글자)을
+ * 한 가지 규칙으로 맞춘다.
+ *  - 묶음 사이는 줄 대신 여백(32px)으로 나눈다.
+ *  - 제목 16px, 작은 제목 13.5px, 설명 12.5px. 회색 글자는 쓰지 않는다.
+ *  - 상자는 한 겹: 가는 테두리(둥근 10px) 하나에 줄들이 들어가고, 줄 사이만 가는 선. 상자 안에 다시 상자·회색 바탕을 두지 않는다.
+ * 각 칸의 원래 CSS 보다 앞서도록 모두 `.settings-modal .settings-modal-body` 아래에 둔다.
+ */
+
+.settings-modal .settings-modal-body {
+  --text-dim: var(--text);
+  --text-muted: var(--text);
+  --settings-line: var(--divider);
+  --settings-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 28px 32px 32px;
+  color: var(--text-strong);
+}
+.settings-modal .settings-modal-body > * { flex: 0 0 auto; min-width: 0; }
+
+/* ---------- 칸(탭 안의 큰 묶음): 위아래 줄·여백을 모두 걷어 내고 같은 간격으로 ---------- */
+.settings-modal .settings-modal-body :is(
+  .theme-settings, .translation-settings, .update-settings, .ai-settings, .markdown-theme-settings,
+  .default-app-settings, .vault-recovery, .index-settings, .vault-backup
+) {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.settings-modal .settings-modal-body .index-settings { gap: 32px; }
+.settings-modal .settings-modal-body .index-card { padding: 0; border: 0; }
+.settings-modal .settings-modal-body .index-card > header { margin: 0 0 12px; }
+
+/* ---------- 제목과 설명 ---------- */
+.settings-modal .settings-modal-body :is(.theme-settings-heading, .settings-section-heading, .translation-settings-header, .vault-recovery-heading) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-modal .settings-modal-body :is(
+  .theme-settings-heading h2, .settings-section-heading h2, .translation-settings-heading h2, .vault-recovery-heading h2,
+  .index-card > header h2, .markdown-theme-settings > h2
+) {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -.01em;
+}
+.settings-modal .settings-modal-body :is(.index-card > header h3, .index-card summary h3) {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+}
+.settings-modal .settings-modal-body :is(
+  .theme-settings-heading p, .settings-section-heading p, .translation-settings-description, .vault-recovery-heading p,
+  .index-card > header p, .markdown-theme-settings > p
+) {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.settings-modal .settings-modal-body .markdown-theme-settings { gap: 0; }
+.settings-modal .settings-modal-body .markdown-theme-grid { margin-top: 14px; }
+.settings-modal .settings-modal-body .theme-settings-current { margin: -4px 0 0; color: var(--text); font-size: 12px; }
+.settings-modal .settings-modal-body .theme-subsection { gap: 10px; margin-top: 8px; }
+.settings-modal .settings-modal-body :is(.theme-subsection h3, .vault-recovery-group h3) { color: var(--text-strong); font-size: 13.5px; font-weight: 700; }
+.settings-modal .settings-modal-body .index-card h4 { color: var(--text-strong); font-size: 12.5px; font-weight: 700; }
+.settings-modal .settings-modal-body :is(.index-hint, .vault-backup-note, .ai-settings-note, .settings-empty-copy) { color: var(--text); font-size: 12.5px; line-height: 1.55; }
+.settings-modal .settings-modal-body .settings-empty-copy { margin: 0; }
+
+/* ---------- 상자: 한 겹 테두리, 안은 줄로만 나눈다 ---------- */
+.settings-modal .settings-modal-body :is(
+  .settings-list, .vault-recovery-group, .translation-settings-models, .vault-backup-summary,
+  .vault-backup-progress, .update-settings-status, .ai-settings-index
+) {
+  margin: 0;
+  border: 1px solid var(--settings-line);
+  border-radius: var(--settings-radius);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 켜고 끄는 줄 목록 */
+.settings-modal .settings-modal-body .settings-list { display: flex; flex-direction: column; overflow: hidden; }
+.settings-modal .settings-modal-body .settings-list > * {
+  min-height: 56px;
+  margin: 0;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 0;
+}
+.settings-modal .settings-modal-body .settings-list > * + * { border-top: 1px solid var(--settings-line); }
+.settings-modal .settings-modal-body .settings-toggle-row strong { color: var(--text-strong); font-size: 13px; font-weight: 600; }
+.settings-modal .settings-modal-body .settings-toggle-row small { color: var(--text); font-size: 12px; }
+.settings-modal .settings-modal-body .settings-list > :is(.ai-settings-field, .ai-settings-model, .ai-settings-note) { display: flex; align-items: center; min-height: 48px; }
+.settings-modal .settings-modal-body .ai-settings-field { gap: 12px; color: var(--text-strong); font-size: 13px; }
+.settings-modal .settings-modal-body .ai-settings-field input { border-radius: 7px; }
+
+/* 체크 상자로 된 켜고 끄기(업데이트)도 다른 줄과 같은 스위치 모양으로 */
+.settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox'] {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--divider-strong);
+  border-radius: 999px;
+  background: var(--chrome-hover);
+  cursor: pointer;
+  appearance: none;
+  transition: background-color 160ms ease;
+}
+.settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 1px 3px var(--shadow-soft);
+  content: '';
+  transition: transform 160ms ease;
+}
+.settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']:checked { border-color: var(--accent); background: var(--accent); }
+.settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']:checked::before { transform: translateX(16px); }
+.settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+
+/* 한 줄짜리 상자(마지막 확인 · 지금 색인) */
+.settings-modal .settings-modal-body :is(.update-settings-status, .ai-settings-index) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 12px 10px 16px;
+  font-size: 13px;
+}
+.settings-modal .settings-modal-body .update-settings-status > strong { font-weight: 600; }
+.settings-modal .settings-modal-body .ai-settings-index strong { color: var(--text-strong); font-size: 13px; font-weight: 600; }
+.settings-modal .settings-modal-body .ai-settings-index small { color: var(--text); font-size: 12px; }
+.settings-modal .settings-modal-body .ai-settings-command { gap: 8px; color: var(--text-strong); font-size: 13px; }
+.settings-modal .settings-modal-body .ai-settings-command textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--settings-line);
+  border-radius: 8px;
+  background: var(--field, var(--chrome));
+  line-height: 1.5;
+}
+.settings-modal .settings-modal-body .ai-settings-note { gap: 8px; }
+.settings-modal .settings-modal-body .ai-settings-note svg { flex: 0 0 auto; margin-top: 3px; color: var(--accent); }
+
+/* 번역: fieldset 테두리에 걸치던 제목(legend)을 상자 안 첫 줄로 */
+.settings-modal .settings-modal-body .translation-settings-models {
+  display: block;
+  min-width: 0;
+  padding: 0 16px;
+}
+.settings-modal .settings-modal-body .translation-settings-models > legend {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 12px 0 6px;
+  color: var(--text-strong);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.settings-modal .settings-modal-body .translation-settings-models > legend + * { clear: both; }
+.settings-modal .settings-modal-body .translation-settings-model-list { display: flex; flex-direction: column; }
+.settings-modal .settings-modal-body :is(.translation-settings-models > .translation-settings-model, .translation-settings-model-list > .translation-settings-model, .translation-settings-model-row) {
+  min-height: 52px;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--settings-line);
+}
+.settings-modal .settings-modal-body .translation-settings-model { gap: 10px; }
+.settings-modal .settings-modal-body .translation-settings-model-row .translation-settings-model { min-height: 0; padding: 0; border: 0; }
+.settings-modal .settings-modal-body .translation-settings-model-copy strong { color: var(--text-strong); font-size: 13px; font-weight: 600; }
+.settings-modal .settings-modal-body .translation-settings-model-copy span { color: var(--text); font-size: 12px; }
+.settings-modal .settings-modal-body .translation-settings-label { color: var(--text-strong); font-size: 12.5px; font-weight: 600; }
+.settings-modal .settings-modal-body :is(.translation-settings-input, .translation-settings-select) { height: 32px; border-radius: 7px; }
+.settings-modal .settings-modal-body :is(.translation-settings-license, .translation-settings-alert) {
+  padding: 10px 14px;
+  border: 1px solid var(--settings-line);
+  border-radius: var(--settings-radius);
+  background: transparent;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.settings-modal .settings-modal-body .translation-settings-alert { border-color: color-mix(in srgb, var(--danger) 40%, var(--settings-line)); }
+.settings-modal .settings-modal-body .translation-settings-version { font-size: 12px; }
+
+/* 데이터 및 복구: 상자 하나 + 줄. 줄마다 회색 바탕을 두지 않는다 */
+.settings-modal .settings-modal-body .vault-backup-summary { padding: 12px 16px; }
+.settings-modal .settings-modal-body .vault-backup-summary span { color: var(--text); }
+.settings-modal .settings-modal-body .vault-backup-option small { color: var(--text); font-size: 12px; }
+.settings-modal .settings-modal-body .vault-recovery { gap: 14px; }
+.settings-modal .settings-modal-body .vault-recovery-heading > button {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--settings-line);
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+.settings-modal .settings-modal-body .vault-recovery-heading > button:hover { background: var(--chrome-hover); }
+.settings-modal .settings-modal-body .vault-recovery-group { display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden; }
+.settings-modal .settings-modal-body .vault-recovery-group > h3 { min-height: 46px; margin: 0; padding: 8px 12px 8px 16px; }
+.settings-modal .settings-modal-body .vault-recovery-group > h3 span { color: var(--text-strong); font-weight: 500; }
+.settings-modal .settings-modal-body .vault-recovery-group > p { margin: 0; padding: 0 16px 12px; color: var(--text); font-size: 12px; }
+.settings-modal .settings-modal-body .vault-recovery-group > article {
+  min-height: 46px;
+  padding: 6px 12px 6px 16px;
+  border-top: 1px solid var(--settings-line);
+  border-radius: 0;
+  background: transparent;
+}
+.settings-modal .settings-modal-body .vault-recovery-group > article strong { color: var(--text-strong); font-size: 12.5px; font-weight: 500; }
+.settings-modal .settings-modal-body .vault-recovery-group > article:hover { background: color-mix(in srgb, var(--chrome-hover) 50%, transparent); }
+.settings-modal .settings-modal-body .vault-history-item { padding: 0; border: 0; background: transparent; }
+
+/* 화면 및 문서: 고르는 상자들은 회색 바탕 없이 테두리만, 고른 것만 옅은 강조색 */
+.settings-modal .settings-modal-body :is(.theme-settings-option, .theme-palette-card) {
+  border: 1px solid var(--settings-line);
+  border-radius: var(--settings-radius);
+  background: transparent;
+  box-shadow: none;
+}
+.settings-modal .settings-modal-body :is(.theme-settings-option, .theme-palette-card):hover { border-color: var(--divider-strong); }
+.settings-modal .settings-modal-body :is(.theme-settings-option, .theme-palette-card):has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: none;
+}
+.settings-modal .settings-modal-body .theme-palette-copy small { color: var(--text); }
+.settings-modal .settings-modal-body .theme-accent-swatch small { color: var(--text); }
+.settings-modal .settings-modal-body .markdown-theme-grid label { border-radius: var(--settings-radius); }
+.settings-modal .settings-modal-body .ui-scale-row { margin-top: 0; }
+.settings-modal .settings-modal-body .ui-scale-presets { margin-top: 0; }
+.settings-modal .settings-modal-body .default-app-settings p { font-size: 13px; }
+
+/* 단추: 칸마다 달랐던 높이·모서리를 맞춘다(색은 각 칸 그대로) */
+.settings-modal .settings-modal-body :is(
+  .update-settings button, .ai-settings-actions button, .ai-settings-index button, .ai-settings-model button,
+  .translation-settings button:not(.translation-settings-engine-option), .vault-backup button, .trash-empty-button, .index-settings button:not(.index-link):not(.index-icon-button),
+  .vault-recovery-group article button
+) {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12.5px;
+}
+.settings-modal .settings-modal-body :is(.ai-settings-actions button, .ai-settings-index button, .ai-settings-model button, .translation-settings button:not(.translation-settings-engine-option)) {
+  border: 1px solid var(--divider-strong);
+  background: var(--paper);
+  color: var(--text-strong);
+}
+
+/* 어두운 화면에서 초록 상태 글자가 바탕에 묻히지 않게 */
+:root[data-theme='dark'] .settings-modal .settings-modal-body :is(.translation-settings-status-online, .translation-settings-installed) { color: #4ac26b; }
+
+/* 번역 모델 받기: 받는 중임이 바로 보이게 */
+.settings-modal .settings-modal-body .translation-settings-model-row { flex-wrap: wrap; row-gap: 8px; }
+.settings-modal .settings-modal-body .translation-settings-model-row > .translation-settings-model { flex: 1 1 260px; }
+.settings-modal .settings-modal-body :is(.translation-settings-progress, .translation-settings-model-hint) {
+  flex: 1 0 100%;
+  box-sizing: border-box;
+}
+.settings-modal .settings-modal-body .translation-settings-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 2px 28px;
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.settings-modal .settings-modal-body .translation-settings-progress progress {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 120px;
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  overflow: hidden;
+  appearance: none;
+}
+.settings-modal .settings-modal-body .translation-settings-progress progress::-webkit-progress-bar { background: transparent; }
+.settings-modal .settings-modal-body .translation-settings-progress progress::-webkit-progress-value { border-radius: 999px; background: var(--accent); transition: width 0.25s ease; }
+/* 크기를 아직 모를 때는 막대가 오간다 */
+.settings-modal .settings-modal-body .translation-settings-progress progress:indeterminate {
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+    color-mix(in srgb, var(--accent) 14%, transparent);
+  animation: translation-pull-sweep 1.2s linear infinite;
+}
+.settings-modal .settings-modal-body .translation-settings-progress progress:indeterminate::-webkit-progress-bar { background: transparent; }
+.settings-modal .settings-modal-body .translation-settings-progress > span { flex: 0 0 auto; white-space: nowrap; }
+@keyframes translation-pull-sweep {
+  from { background-position: -40% 0, 0 0; }
+  to { background-position: 140% 0, 0 0; }
+}
+.settings-modal .settings-modal-body .translation-settings-pulling {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.settings-modal .settings-modal-body .translation-settings-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: translation-pull-spin 0.8s linear infinite;
+}
+@keyframes translation-pull-spin { to { transform: rotate(360deg); } }
+.settings-modal .settings-modal-body .translation-settings-model-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-basis: calc(100% - 28px);
+  margin-left: 28px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-modal .settings-modal-body :is(.translation-settings-spinner, .translation-settings-progress progress) { animation: none; }
+}
+.settings-modal .settings-modal-body .ai-settings-model { flex-wrap: wrap; row-gap: 8px; }
+.settings-modal .settings-modal-body .ai-settings-model > .translation-settings-progress { flex: 1 0 100%; padding: 0 0 8px; }
+
+/* 언어: 바꾼 뒤 다시 시작 안내 */
+.language-settings-restart { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; color: var(--text-strong); font-size: 13px; }

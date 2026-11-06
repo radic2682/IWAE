@@ -1,0 +1,1182 @@
+/* 웨일 브라우저처럼: 탭 줄은 한 단 어둡게, 활성 탭·도구줄·옆 막대는 한 단 밝게,
+   검색 칸은 주소창처럼 둥글고 바탕보다 한 단 짙게(테두리 없이). 색은 app-themes.css 의 --tabstrip·--field */
+
+/* ── 맨 위 줄(탭 줄) ── */
+.topbar,
+.topbar .topbar-leftcluster,
+.topbar .wincontrols { background: var(--tabstrip); }
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active) { color: var(--text-dim); }
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover {
+  background: color-mix(in srgb, var(--paper) 45%, var(--tabstrip));
+  color: var(--text);
+}
+
+/* ── 주소창 모양 검색 칸 ── */
+:root .pdf-memo-search,
+:root .vault-search-trigger,
+:root .vault-search-input-row,
+:root .doc-search-bar,
+:root .pane-doc .pdf-search-floating-tool-expanded {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--text);
+  box-shadow: none;
+}
+:root .pdf-memo-search:hover,
+:root .vault-search-trigger:hover,
+:root .vault-search-input-row:hover,
+:root .doc-search-bar:hover,
+:root .pane-doc .pdf-search-floating-tool-expanded:hover { background: var(--field-hover); }
+:root .pdf-memo-search:focus-within,
+:root .vault-search-input-row:focus-within,
+:root .doc-search-bar:focus-within,
+:root .pane-doc .pdf-search-floating-tool-expanded:focus-within {
+  border-color: var(--accent);
+  background: var(--field);
+  box-shadow: none;
+}
+:root .pdf-memo-search { padding: 0 12px; }
+:root .vault-search-trigger,
+:root .vault-search-input-row { padding-inline: 12px; }
+:root .pdf-memo-search input::placeholder,
+:root .vault-search-input-row input::placeholder,
+:root .doc-search-bar input::placeholder,
+:root .pdf-search-field input::placeholder { color: var(--text-dim); }
+:root .vault-search-trigger { color: var(--text-dim); }
+
+/* ── 폴더 색 ── */
+.side-folder-icon-colored { opacity: 1; }
+.side-color-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 10px 8px; }
+.side-color-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.side-color-swatch[aria-checked='true'] { border-color: var(--text-strong); box-shadow: 0 0 0 1px var(--paper) inset; }
+.side-color-none { border-color: var(--divider-strong); background: linear-gradient(135deg, transparent 44%, var(--danger) 44% 56%, transparent 56%); }
+
+/* ── 최근 연 PDF(Vault 밖) — 바닥 줄 위 ── */
+.side-recent { flex: 0 0 auto; max-height: 30%; overflow-y: auto; padding: 8px 8px 6px; border-top: 1px solid var(--divider); }
+.side-recent-title { margin: 0 6px 4px; color: var(--text-strong); font-size: 12.5px; font-weight: 650; }
+.side-recent ul { margin: 0; padding: 0; list-style: none; }
+.side-recent li { position: relative; display: flex; align-items: center; border-radius: 6px; }
+.side-recent li:hover { background: var(--chrome-hover); }
+.side-recent-item {
+  display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; height: 28px; padding: 0 6px;
+  border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13.5px; text-align: left; cursor: grab;
+}
+.side-recent-item .side-item-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-recent-date { flex: 0 0 auto; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.side-recent-forget { display: grid; place-items: center; width: 22px; height: 22px; margin-right: 2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--text-muted); opacity: 0; }
+.side-recent li:hover .side-recent-forget, .side-recent-forget:focus-visible { opacity: 1; }
+.side-recent-forget:hover { background: var(--chrome-active, var(--chrome-hover)); color: var(--text-strong); }
+
+/* 설정 › 기본 PDF 앱 */
+.default-app-settings { display: grid; gap: 10px; }
+.default-app-settings p { margin: 0; color: var(--text); font-size: 13.5px; line-height: 1.6; }
+.default-app-settings button { justify-self: start; height: 32px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: var(--accent-contrast); font: inherit; font-weight: 600; cursor: pointer; }
+
+/* PDF 스크롤 막대에 올리면 나오는 목차: 바탕은 더 비치게, 글자 칸만 살짝 깔아 읽히게 */
+.pdf-scrollbar-labels {
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--paper) 22%, transparent) 64px);
+}
+.pdf-scrollbar-label { background: color-mix(in srgb, var(--paper) 84%, transparent); box-shadow: 0 1px 3px rgb(0 0 0 / 18%); }
+.pdf-scrollbar-label-2 { color: var(--text-muted); }
+.pdf-scrollbar-label:hover { background: color-mix(in srgb, var(--chrome-hover) 90%, transparent); }
+
+/* 메모 카테고리: 「#」 대신 색 점 */
+.memo-tag { display: inline-flex; align-items: center; gap: 5px; min-width: 0; vertical-align: middle; }
+.memo-tag-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--paper) 70%, transparent); }
+.memo-tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-memo-category .memo-tag-dot { margin-right: 2px; }
+.pdf-memo-topic:not(.pdf-memo-topic-empty) { background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-strong); font-weight: 600; }
+
+/* 탐색기에서 PDF 를 끌어 문서 자리 위에 올렸을 때: 놓으면 Vault 맨 위에 복사하고 연다 */
+body.reader-drop-active .pane .pane-frame::after {
+  content: '놓으면 Vault 맨 위에 복사하고 엽니다';
+  position: absolute;
+  inset: 8px;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* 오류 알림: 닫기 단추 */
+.app-error { display: flex; align-items: center; gap: 8px; }
+.app-error-close { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; cursor: pointer; }
+.app-error-close:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
+
+/* 탭 줄 왼쪽(사이드바 단추 칸)도 탭 줄과 같은 색 — 왼쪽으로 가며 색이 바뀌지 않게 */
+.topbar .topbar-leftcluster-actions { background: var(--tabstrip); }
+
+/* ---------- 메모 카드: 덜 답답하게 ----------
+   바는 한 단 어둡게(작업영역 색), 카드는 테두리 없이 바탕색만으로 떨어지게,
+   인용은 옅은 색만, 글자는 한 단 작게 */
+.pane-doc .pdf-memo-bar { background: var(--workspace); }
+.pane-doc .pdf-memo-bar-wide { background: var(--workspace); }
+.pdf-memo-card {
+  gap: 6px;
+  padding: 10px 12px 11px;
+  border-color: transparent;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.pdf-memo-card-head { font-size: 12px; }
+.pdf-memo-card-quote {
+  padding: 3px 8px;
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pdf-memo-card-quote-yellow { background: rgb(255 214 0 / 13%); }
+.pdf-memo-card-quote-green { background: rgb(70 214 110 / 12%); }
+.pdf-memo-card-quote-blue { background: rgb(80 165 255 / 12%); }
+.pdf-memo-card-quote-pink { background: rgb(255 105 165 / 11%); }
+.pdf-memo-card-text,
+.pane-doc .pdf-memo-card .pdf-memo-editor { font-size: 13px; line-height: 1.55; }
+.pdf-memo-bar-scroll { gap: 8px; }
+
+/* ---------- 메모 카드: 손잡이(순서), 접기, 별점 ---------- */
+.pdf-memo-grip {
+  display: grid; place-items: center; flex: 0 0 auto; width: 16px; height: 18px; margin-left: -6px;
+  border-radius: 4px; color: var(--text-muted); cursor: grab; touch-action: none; opacity: .55;
+}
+.pdf-memo-card:hover .pdf-memo-grip { opacity: 1; }
+.pdf-memo-grip:active { cursor: grabbing; }
+.pdf-memo-collapse {
+  display: grid; place-items: center; flex: 0 0 auto; width: 18px; height: 18px; padding: 0;
+  border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.pdf-memo-collapse:hover, .pdf-memo-grip:hover { background: var(--chrome-hover); color: var(--text-strong); }
+
+.pdf-memo-stars { display: inline-flex; flex: 0 0 auto; align-items: center; margin-left: auto; }
+.pdf-memo-star {
+  display: grid; place-items: center; width: 15px; height: 18px; padding: 0;
+  border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.pdf-memo-star-on { color: #f5b301; }
+.pdf-memo-star:hover { color: #f5b301; }
+/* 별점이 없으면 마우스를 올렸을 때만 빈 별을 보인다 */
+.pdf-memo-stars-empty { opacity: 0; }
+.pdf-memo-card:hover .pdf-memo-stars-empty, .pdf-memo-stars-empty:focus-within { opacity: .7; }
+.pdf-memo-stars + .pdf-memo-card-actions { margin-left: 6px; }
+
+.pdf-memo-card-collapsed { gap: 4px; padding-block: 7px 8px; }
+.pdf-memo-card-preview {
+  display: block; width: 100%; padding: 0; border: 0; background: transparent;
+  color: var(--text-muted); font: inherit; font-size: 12.5px; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.pdf-memo-card-preview:hover { color: var(--text-strong); }
+
+.pdf-memo-card-dragging { opacity: .45; }
+/* 놓을 자리: 카드 테두리 대신 카드 사이에 빈 자리 칸을 보인다 */
+.pdf-memo-card-drop-before { margin-top: 26px; }
+.pdf-memo-card-drop-after { margin-bottom: 26px; }
+.pdf-memo-card-drop-before::before,
+.pdf-memo-card-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  pointer-events: none;
+}
+.pdf-memo-card-drop-before::before { top: -23px; }
+.pdf-memo-card-drop-after::after { bottom: -23px; }
+
+/* ---------- 메모 카드 배경: 형광펜 색으로 물들이지 않고 모두 같은 바탕(테두리 강조 없음) ----------
+   가리키는·쓰는 카드는 한 단 밝게만 */
+.pdf-memo-card,
+.pdf-memo-card-active,
+.pdf-memo-card-editing,
+.pdf-memo-card-draft { border-color: transparent; box-shadow: none; }
+:root .pdf-memo-card-flow { background: var(--paper); }
+:root .pdf-memo-card-flow:is(.pdf-memo-card-active, .pdf-memo-card-editing) { background: color-mix(in srgb, var(--ink) 7%, var(--paper)); }
+/* PDF 에서 가져온 원문(인용)은 형광펜 색 바탕을 그대로 둔다 */
+.pdf-memo-card .pdf-memo-card-quote { padding: 3px 8px; color: var(--text-muted); }
+
+/* ---------- 메모 노트(오른쪽 바) ---------- */
+.note-title-bar {
+  position: sticky; top: -10px; z-index: 6;
+  display: flex; align-items: center; gap: 8px;
+  margin: -10px 0 0; padding: 10px 0 8px;
+  background: var(--workspace);
+}
+.note-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-strong); font-size: 14px; font-weight: 700; }
+.note-add-text {
+  display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; height: 26px; padding: 0 10px;
+  border: 0; border-radius: 999px; background: var(--field); color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.note-add-text:hover { background: var(--field-hover); }
+.note-empty, .note-empty-hint { margin: 8px 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.note-empty p { margin: 0 0 8px; color: var(--text-strong); }
+.note-empty button { height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-contrast); font: inherit; font-weight: 600; cursor: pointer; }
+.note-text-card { background: var(--paper); }
+.note-text-label { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 12px; }
+.note-doc-label { margin-right: 4px; padding: 0 5px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-strong); font-weight: 600; }
+.pdf-memo-list-text { display: block; }
+
+/* 왼쪽 바 「노트」 구역 */
+.side-memo-note-list { margin: 0; padding: 0; list-style: none; }
+.side-memo-note { display: flex; align-items: center; gap: 7px; width: 100%; }
+.side-memo-note-open { background: var(--chrome-hover); color: var(--text-strong); font-weight: 600; }
+
+/* ---------- 노트: 블록 끌기(손잡이 없이 블록 어디든), 소제목 ---------- */
+.pdf-memo-card-flow:not(.pdf-memo-card-editing) { cursor: grab; user-select: none; }
+.pdf-memo-card-flow .pdf-memo-card-text { cursor: text; }
+body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !important; user-select: none !important; }
+
+.note-section {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-top: 6px;
+  padding: 4px 6px 4px 2px;
+  border-bottom: 2px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--text-strong);
+  cursor: grab;
+  user-select: none;
+}
+.note-section:first-of-type { margin-top: 0; }
+.note-section-toggle {
+  display: grid; place-items: center; flex: 0 0 auto; width: 22px; height: 22px; padding: 0;
+  border: 0; border-radius: 5px; background: transparent; color: var(--text-strong); cursor: pointer;
+}
+.note-section-toggle:hover { background: var(--chrome-hover); }
+.note-section-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+.note-section-input { flex: 1 1 auto; min-width: 0; height: 26px; padding: 0 6px; border: 1px solid var(--accent); border-radius: 6px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 15px; font-weight: 700; }
+.note-section-count { flex: 0 0 auto; min-width: 20px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-muted); font-size: 11.5px; font-weight: 600; text-align: center; }
+.note-section .pdf-memo-card-actions { display: none; }
+.note-section:hover .pdf-memo-card-actions { display: inline-flex; }
+.note-section-collapsed { opacity: .92; }
+.pdf-memo-list-section { display: flex; align-items: center; gap: 8px; margin: 18px 0 6px; padding-bottom: 6px; border-bottom: 2px solid color-mix(in srgb, var(--ink) 18%, transparent); color: var(--text-strong); font-size: 17px; }
+
+/* PDF 위 줄의 검색 단추를 줄 높이의 가운데에 */
+.pane-doc .pdf-search-floating-tool { top: calc((var(--doc-card-h, 36px) - 24px) / 2); }
+
+/* ---------- 메모 바 머리: 노트 제목 + 돋보기 + 글 넣기 ---------- */
+.pane-doc .pdf-memo-header { gap: 4px; }
+.note-head-title {
+  flex: 1 1 auto; min-width: 0; padding-left: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-strong); font-size: 14px; font-weight: 700;
+}
+
+/* ---------- 작은 카드: 머리줄 없이 원문 + 메모 ---------- */
+.pdf-memo-card-flow { gap: 6px; padding: 8px 10px 9px; }
+.note-source { cursor: pointer; }
+.note-source-meta {
+  float: right;
+  display: inline-flex; align-items: center; gap: 4px;
+  margin: -1px -4px 2px 8px;
+  font-size: 11.5px; line-height: 18px;
+}
+.note-source-region { position: relative; cursor: pointer; }
+.note-source-region .note-source-meta { position: absolute; top: 4px; right: 6px; z-index: 1; float: none; margin: 0; padding: 0 4px; border-radius: 4px; background: color-mix(in srgb, var(--paper) 85%, transparent); }
+.note-source-page {
+  padding: 0 4px; border: 0; border-radius: 4px;
+  background: color-mix(in srgb, var(--paper) 55%, transparent);
+  color: var(--text-strong); font: inherit; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+button.note-source-page:hover { color: var(--accent); }
+.note-source-stars { color: #f5b301; letter-spacing: -1px; }
+.note-source-chip {
+  display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; height: 24px; padding: 0 8px;
+  border: 0; border-radius: 5px; color: var(--text-muted); font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+}
+.note-source-chip-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-source-chip .note-source-meta { float: none; margin: 0; }
+.pdf-memo-card-collapsed { gap: 4px; padding-block: 6px 8px; }
+
+/* ---------- 블록 우클릭 메뉴 ---------- */
+.note-menu-backdrop { position: fixed; inset: 0; z-index: 90; }
+.note-menu {
+  position: fixed; z-index: 91; min-width: 190px; padding: 6px;
+  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 28%); color: var(--text-strong); font-size: 13px;
+}
+.note-menu > button {
+  display: block; width: 100%; height: 30px; padding: 0 10px;
+  border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.note-menu > button:hover { background: var(--chrome-hover); }
+.note-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--divider); }
+.note-menu-row { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
+.note-menu-swatch { width: 18px; height: 18px; padding: 0; border: 2px solid transparent; border-radius: 50%; cursor: pointer; }
+.note-menu-swatch[aria-checked='true'] { border-color: var(--text-strong); }
+.note-menu .pdf-memo-star { width: 20px; height: 22px; }
+.note-menu-danger { color: var(--danger) !important; }
+
+/* 원문 앞의 (다른 PDF 이름)·쪽 번호·별점: 띄우지 않고 글 앞에 한 덩어리로(줄바꿈 없이) */
+.note-source-meta {
+  float: none;
+  display: inline-flex;
+  max-width: 100%;
+  margin: 0 6px 0 0;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.note-source-meta .note-doc-label {
+  display: inline-block;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-size: 11px;
+}
+.note-source-page { cursor: inherit; }
+.note-source, .note-source-region, .note-source-chip { cursor: pointer; }
+.note-source:hover, .note-source-chip:hover { filter: brightness(1.12); }
+.note-source-expand {
+  display: grid; place-items: center; flex: 0 0 auto; width: 18px; height: 18px; padding: 0;
+  border: 0; border-radius: 4px; background: transparent; color: var(--text-strong); cursor: pointer;
+}
+.note-source-expand:hover { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.note-source-chip { display: flex; }
+
+/* 메모 바 머리 밑선을 PDF 위 줄 밑선(36 + 1px)과 같은 높이에 */
+.pane-doc .pdf-memo-header { height: calc(var(--doc-card-h, 36px) + 1px); }
+
+/* 인쇄 단추: PDF 위 줄 왼쪽, 검색 단추 옆(검색 칸을 펼치면 숨는다) */
+.pane-doc .pdf-print-corner {
+  position: absolute; z-index: 18;
+  top: calc((var(--doc-card-h, 36px) - 26px) / 2); left: 34px;
+  display: grid; place-items: center; width: 28px; height: 26px; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); cursor: pointer;
+}
+.pane-doc .pdf-print-corner:hover { background: var(--chrome-hover); }
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pdf-print-corner { display: none; }
+
+/* ---------- 고른 것·켜진 것의 대비를 올린다: 강조색 바탕 + 밝은 글자 ---------- */
+:root { --selected-bg: color-mix(in srgb, var(--accent) 30%, transparent); --selected-bg-strong: color-mix(in srgb, var(--accent) 42%, transparent); }
+:root[data-theme='light'] { --selected-bg: color-mix(in srgb, var(--accent) 18%, transparent); --selected-bg-strong: color-mix(in srgb, var(--accent) 26%, transparent); }
+.sidebar .side-item.side-item-open,
+.sidebar .side-memo-note-open,
+.sidebar .side-memo-category-active { background: var(--selected-bg); color: var(--text-strong); }
+.sidebar .side-item.side-item-open:hover,
+.sidebar .side-memo-note-open:hover { background: var(--selected-bg-strong); }
+.topbar .topbar-navbtn.topbar-navbtn-active { background: var(--selected-bg); color: var(--text-strong); }
+.pane-doc .pdf-bottom-layout .bottombar-btn[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
+.pane-doc .reader-tool-button.reader-tool-button-active,
+.pane-doc .pane-toolbar .pdf-compact-tool.reader-tool-button-active { background: var(--selected-bg); color: var(--text-strong); }
+.pdf-memo-header-button[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
+:root .pdf-memo-card-flow:is(.pdf-memo-card-active, .pdf-memo-card-editing) { background: color-mix(in srgb, var(--accent) 16%, var(--paper)); }
+.pdf-view-menu-row button[aria-checked='true'] { background: var(--selected-bg); }
+
+/* ---------- 노트에는 형광펜 색을 쓰지 않는다(색 고르기를 없앴다) ----------
+   원문 바탕·접힌 원문 줄·메모만 보기의 원문/점·연결선 모두 한 가지 무채색 */
+:root { --note-quote-bg: color-mix(in srgb, var(--ink) 9%, transparent); --note-link: color-mix(in srgb, var(--ink) 55%, transparent); }
+.pdf-memo-bar :is(.pdf-memo-card-quote, .note-source-chip),
+.pdf-memo-list :is(.pdf-memo-list-quote) { background: var(--note-quote-bg) !important; }
+.pdf-memo-list .pdf-memo-dot { background: var(--text-muted) !important; }
+.pdf-memo-links-flow .pdf-memo-link path,
+.pdf-memo-links-page .pdf-memo-link path { stroke: var(--note-link) !important; }
+.pdf-memo-links-flow .pdf-memo-link circle,
+.pdf-memo-links-page .pdf-memo-link circle { fill: var(--note-link) !important; }
+.pdf-memo-links .pdf-memo-link-active path { stroke: var(--accent) !important; }
+.pdf-memo-links .pdf-memo-link-active circle { fill: var(--accent) !important; }
+
+
+/* 표·그림은 카드 폭에 꽉 맞춘다 */
+.note-source-region { padding: 0; }
+.note-source-region .region-crop-fill { border-radius: 5px; }
+
+/* 그림 크게 보기 */
+.note-zoom { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; background: rgb(0 0 0 / 72%); cursor: zoom-out; }
+.note-zoom-figure { max-width: 92vw; max-height: 86vh; border-radius: 8px; overflow: hidden; box-shadow: 0 20px 60px rgb(0 0 0 / 50%); background: #fff; }
+.note-zoom-figure .region-crop-fill { border-radius: 0; }
+
+/* 마우스 제스처: 그리는 동안 커서 옆에 할 일 */
+.mouse-gesture-hint {
+  position: fixed; left: 0; top: 0; z-index: 200; padding: 4px 10px; border-radius: 8px; will-change: transform;
+  background: rgb(20 20 20 / 88%); color: #f4f4f4; font-size: 13px; font-weight: 600;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 35%); pointer-events: none; white-space: nowrap;
+}
+.mouse-gesture-hint[data-known='false'] { font-weight: 500; }
+.note-zoom { z-index: 400; }
+
+/* 추출된 원문 글자는 회색으로 흐리게 쓰지 않는다 */
+.pdf-memo-bar :is(.pdf-memo-card-quote, .note-source-chip, .note-source-chip-text),
+.pdf-memo-list .pdf-memo-list-quote { color: var(--text-strong) !important; }
+
+.mouse-gesture-trail { position: fixed; inset: 0; z-index: 199; width: 100vw; height: 100vh; pointer-events: none; contain: strict; will-change: transform; }
+/* 제스처를 그리는 동안 아래 화면은 마우스에 반응하지 않는다(호버 계산으로 끊기지 않게) */
+.mouse-gesture-active body * { pointer-events: none !important; }
+.mouse-gesture-trail polyline { fill: none; stroke: var(--accent); stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+
+/* ---------- 메모 카드는 밝은 종이, 메모 바 바탕은 어둡게 둔다 ---------- */
+:root .pdf-memo-bar-body .pdf-memo-card-flow,
+:root .pdf-memo-only .pdf-memo-list-row {
+  --paper: #ffffff; --ink: #1d1d1f; --text: #1d1d1f; --text-strong: #111111; --text-muted: #45464a;
+  --divider: #dedcd6; --chrome-hover: #ebe9e3; --note-quote-bg: #efede6;
+  color-scheme: light;
+  color: var(--text-strong);
+}
+:root .pdf-memo-only .pdf-memo-list-row { background: var(--paper); }
+/* 어두운 테마에서 밝게 바꿔 보이던 메모 글자색을 종이 위에서는 원래 색으로 */
+:root[data-theme='dark'] :is(.pdf-memo-bar-body .pdf-memo-card-flow, .pdf-memo-only .pdf-memo-list-row) :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(31, 35, 40)'] { color: rgb(31, 35, 40) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body .pdf-memo-card-flow, .pdf-memo-only .pdf-memo-list-row) :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(207, 34, 46)'] { color: rgb(207, 34, 46) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body .pdf-memo-card-flow, .pdf-memo-only .pdf-memo-list-row) :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(188, 76, 0)'] { color: rgb(188, 76, 0) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body .pdf-memo-card-flow, .pdf-memo-only .pdf-memo-list-row) :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(26, 127, 55)'] { color: rgb(26, 127, 55) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body .pdf-memo-card-flow, .pdf-memo-only .pdf-memo-list-row) :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(9, 105, 218)'] { color: rgb(9, 105, 218) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body .pdf-memo-card-flow, .pdf-memo-only .pdf-memo-list-row) :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(130, 80, 223)'] { color: rgb(130, 80, 223) !important; }
+
+/* ---------- 이어지는 선을 잘 보이게: 파란 링크·보라 줄이 많은 PDF 와 어두운 바 양쪽에서 튀는 주황빨강 ---------- */
+:root { --memo-link: #ff6a2b; --memo-link-active: #ff3d00; }
+.pdf-memo-links .pdf-memo-link path {
+  stroke: var(--memo-link) !important;
+  stroke-width: 2px !important;
+  opacity: .92 !important;
+}
+.pdf-memo-links .pdf-memo-link circle { fill: var(--memo-link) !important; opacity: .9 !important; }
+.pdf-memo-links .pdf-memo-link-active path {
+  stroke: var(--memo-link-active) !important;
+  stroke-width: 2.8px !important;
+  opacity: 1 !important;
+}
+.pdf-memo-links .pdf-memo-link-active circle { fill: var(--memo-link-active) !important; opacity: 1 !important; }
+/* 페이지 안쪽 점선(형광펜 끝 → 페이지 가장자리)도 같이 */
+.pdf-memo-links .pdf-memo-link .pdf-memo-link-inner { stroke-width: 2px !important; opacity: .9 !important; }
+.pdf-memo-links .pdf-memo-link .pdf-memo-link-inner { stroke-width: 1.6px !important; stroke-dasharray: 3 3; opacity: .7 !important; }
+.pdf-memo-links .pdf-memo-link-active .pdf-memo-link-inner { stroke-width: 2.4px !important; opacity: 1 !important; }
+
+/* ---------- 왼쪽 바 「PDF 검색」 ---------- */
+.side-pdf-search { display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 10px 10px 0; }
+.side-pdf-search .side-section-empty { margin: 12px 4px; }
+.pdf-search-docked { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 8px; }
+.pdf-search-docked .pdf-search-field {
+  display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px 0 12px;
+  border: 1px solid transparent; border-radius: 999px; background: var(--field); color: var(--text-strong);
+}
+.pdf-search-docked .pdf-search-field:focus-within { border-color: var(--accent); }
+.pdf-search-docked .pdf-search-field input { flex: 1 1 auto; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text-strong); font: inherit; font-size: 14px; }
+.pdf-search-docked .pdf-search-field input::placeholder { color: var(--text-dim); }
+.pdf-search-docked .pdf-search-position { color: var(--text-strong); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pdf-search-docked .pdf-search-option { min-width: 26px; height: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.pdf-search-docked .pdf-search-option[aria-pressed='true'] { background: var(--selected-bg); }
+.pdf-search-docked .pdf-search-panel { position: static; flex: 1 1 auto; min-height: 0; overflow-y: auto; width: auto; max-height: none; border: 0; background: transparent; box-shadow: none; }
+.pdf-search-docked .pdf-search-result-row { color: var(--text-strong); }
+
+/* 맨 위 줄 인쇄 단추 */
+.topbar .topbar-print { color: var(--text-strong); }
+
+/* ---------- PDF 위 줄: 오른쪽 위 작은 단추 셋만(텍스트 선택 · 영역 · 넓게) ---------- */
+.pane-doc .pdf-highlighter-floating-tool { display: none !important; }
+.pane-doc .pane-toolbar,
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar {
+  right: calc(8px + var(--memo-bar-w, 0px));
+  left: auto;
+  top: calc((var(--doc-card-h, 36px) - 24px) / 2);
+  height: 24px;
+  gap: 2px;
+}
+.pane-doc .pane-toolbar .pdf-compact-tool,
+.pane-doc .pane-toolbar .pdf-compact-tool.pane-fullscreen-toggle {
+  width: 26px;
+  min-width: 26px;
+  height: 24px;
+  padding: 0;
+}
+.pane-doc .pane-toolbar .pdf-compact-tool svg { width: 14px; height: 14px; }
+
+/* ---------- 왼쪽 바: 회색 글자 없이 모두 흰(진한) 글자 ---------- */
+.sidebar,
+.topbar-leftcluster {
+  --text-dim: var(--text-strong);
+  --text-muted: var(--text-strong);
+  --side-soft: var(--text-strong);
+  --side-dim: var(--text-strong);
+  color: var(--text-strong);
+}
+.sidebar :is(.side-folder-icon, .side-file-icon, .side-section-icon, .side-tree-chevron) { color: var(--text-strong); }
+.topbar .topbar-navbtn { color: var(--text-strong); }
+
+/* 파일도 펼침 화살표 자리를 비워 둔다: 같은 깊이의 폴더 그림과 한 줄에 서고, 폴더 안 파일은 한 칸 더 들어간다 */
+.sidebar .side-section .side-tree-item:not(.side-tree-toggle) { padding-left: calc(var(--side-tree-depth) * 14px + 25px); }
+.sidebar .side-memo-note { padding-left: 25px; }
+/* 검색 결과의 찾은 글자: 노란색 대신 파란 강조 */
+.pdf-search-docked .pdf-search-result-snippet mark { background: color-mix(in srgb, var(--accent) 42%, transparent); color: var(--text-strong); border-radius: 2px; }
+/* 흰 메모 카드 안의 코드 글자는 pdf-memo.css 의 「메모 글의 서식」이 옅은 바탕 + 진한 글자로 그린다 */
+
+/* ---------- 왼쪽 바 PDF 검색 결과: 절별 묶음 ---------- */
+.pdf-search-docked .pdf-search-grouped { display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 0; }
+.pdf-search-summary { display: flex; flex-direction: column; gap: 5px; padding: 0 4px; color: var(--text-strong); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pdf-search-summary:empty { display: none; }
+.pdf-search-meter { display: block; height: 2px; border-radius: 2px; background: var(--field); overflow: hidden; }
+.pdf-search-meter > span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.pdf-search-groups { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 2px 12px 0; }
+.pdf-search-group + .pdf-search-group { margin-top: 6px; }
+.pdf-search-group-head {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 4px 6px;
+  border: 0; border-radius: 6px; background: var(--chrome); color: var(--text-strong);
+  font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.pdf-search-group-head:hover { background: var(--field-hover); }
+.pdf-search-group-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-search-group-meta { flex: 0 0 auto; font-size: 11px; font-weight: 400; font-variant-numeric: tabular-nums; opacity: .85; }
+.pdf-search-group-toc .pdf-search-group-head { font-weight: 400; }
+.pdf-search-grouped .pdf-search-results { gap: 1px; margin: 2px 0 0; }
+.pdf-search-grouped .pdf-search-result-row {
+  grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px;
+  padding: 5px 8px 5px 23px; border-radius: 6px; color: var(--text-strong); font-size: 12.5px; line-height: 1.45; cursor: pointer;
+}
+.pdf-search-grouped .pdf-search-result-row:hover { background: var(--field-hover); }
+.pdf-search-grouped .pdf-search-result-row-active { background: var(--selected-bg); }
+.pdf-search-grouped .pdf-search-result-snippet {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4;
+  overflow: hidden; white-space: normal; overflow-wrap: anywhere;
+}
+.pdf-search-grouped .pdf-search-result-snippet mark { padding: 0 1px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text-strong); }
+.pdf-search-grouped .pdf-search-result-page { padding-top: 1px; color: var(--text-strong); font-size: 11px; font-variant-numeric: tabular-nums; opacity: .8; }
+.pdf-search-recent-docked { flex-wrap: wrap; align-items: center; overflow: visible; padding: 2px 4px; }
+.pdf-search-recent-label { flex: 0 0 100%; margin-bottom: 2px; color: var(--text-strong); font-size: 11.5px; }
+.pdf-search-docked .pdf-search-recent-query { background: var(--field); color: var(--text-strong); font-size: 11.5px; }
+.pdf-search-docked .pdf-search-recent-query:hover { background: var(--field-hover); }
+/* 좁은 왼쪽 바에서도 검색 칸이 넘치지 않게: 입력이 줄어들고 Aa·W 는 늘 보인다 */
+.pdf-search-docked .pdf-search-field { box-sizing: border-box; width: 100%; min-width: 0; }
+.pdf-search-docked .pdf-search-field input { flex: 1 1 0; width: 0; }
+.pdf-search-docked .pdf-search-field > :not(input) { flex: 0 0 auto; }
+
+/* ---------- 왼쪽 바 「노트」 끌어서 차례 바꾸기 ---------- */
+.side-memo-note-list > li { position: relative; }
+.side-memo-note-list-dragging, .side-memo-note-list-dragging .side-memo-note { cursor: grabbing; user-select: none; }
+.side-memo-note-dragging > .side-memo-note { opacity: .45; }
+.side-memo-drop-before::before,
+.side-memo-drop-after::after {
+  position: absolute; left: 8px; right: 8px; height: 2px; border-radius: 2px;
+  background: var(--accent); content: ''; pointer-events: none; z-index: 1;
+}
+.side-memo-drop-before::before { top: -1px; }
+.side-memo-drop-after::after { bottom: -1px; }
+
+/* ---------- 우클릭 메뉴: 글자를 또렷하게, 한 줄로 ----------
+   폭을 고정하지 않고 가장 긴 항목에 맞춘다(줄바꿈 없음). 글자는 진하게, 줄 높이는 넉넉하게. */
+:root :is(.side-context-menu, .note-menu, .block-context-menu, .canvas-create-menu, .canvas-block-background-menu) {
+  width: max-content; min-width: 176px; max-width: min(360px, calc(100vw - 16px));
+  padding: 5px; gap: 1px;
+  border: 1px solid var(--divider-strong); border-radius: 9px;
+  background: var(--paper); color: var(--text-strong);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
+  font-size: 13px; line-height: 1.3;
+}
+:root :is(.side-context-menu, .note-menu, .block-context-menu, .canvas-create-menu, .canvas-block-background-menu) > button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 30px; height: auto; padding: 0 12px 0 10px;
+  color: var(--text-strong); font-size: 13px; font-weight: 500;
+  white-space: nowrap; text-align: left;
+}
+:root :is(.side-context-menu, .note-menu, .block-context-menu, .canvas-create-menu, .canvas-block-background-menu) > button:hover:not(:disabled),
+:root :is(.side-context-menu, .note-menu, .block-context-menu, .canvas-create-menu, .canvas-block-background-menu) > button:focus-visible {
+  background: var(--selected-bg); color: var(--text-strong); outline: 0;
+}
+:root :is(.side-context-menu, .note-menu, .canvas-create-menu) > :is(.side-context-danger, .note-menu-danger, .canvas-menu-danger) { color: var(--danger) !important; }
+:root .side-context-menu .side-color-row { flex-wrap: nowrap; }
+
+/* 왼쪽 바 아이콘(PDF·노트·폴더 그림)을 누르면 바로 이모지를 고른다 */
+.item-emoji-pick {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  margin: -2px -3px; padding: 2px 3px; border-radius: 5px; cursor: pointer;
+}
+.item-emoji-pick:hover { background: var(--chrome-hover); box-shadow: 0 0 0 1px var(--divider-strong); }
+.item-emoji-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+
+/* ---------- 왼쪽 바: Ctrl·Shift 로 여러 개 고르기 ---------- */
+.sidebar .side-tree-node-selected > .side-tree-row > :is(.side-item, .side-tree-toggle),
+.sidebar .side-tree-node-selected > .side-tree-row > :is(.side-item, .side-tree-toggle):hover {
+  background: var(--selected-bg-strong); color: var(--text-strong); border-radius: 6px;
+}
+.side-tree :is(.side-item, .side-tree-toggle) { user-select: none; }
+
+/* ---------- 탐색기에서 파일 끌어 오기: 목록을 가리지 않고, 들어갈 폴더를 칠한다 ---------- */
+.sidebar-inner .side-document-drop-target {
+  display: flex; align-items: flex-end; justify-content: center; padding: 0 10px 14px;
+  border: 2px dashed var(--accent); border-radius: 8px; background: transparent;
+}
+.side-document-drop-banner {
+  max-width: 100%; padding: 7px 12px; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 700;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 30%); text-align: center;
+}
+.sidebar .side-tree-drop-inside > .side-tree-row > :is(.side-item, .side-tree-toggle) {
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.library-items-drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.library-collection-draft { cursor: default; }
+.library-collection .library-cell-input { flex: 1 1 auto; min-width: 0; }
+
+/* ---------- 상단 탭 줄 ----------
+   라이트 모드에서 웨일이 아닌 색 구성은 탭 줄이 도구줄·고른 탭과 거의 같은 색이라, 고른 탭이 떠 보이지 않고
+   탭 아래 선만 곡선에서 끊겨 보였다. 탭 줄을 한 단 짙게 해 고른 탭이 아래 도구줄로 이어져 보이게 한다 */
+:root[data-theme='light']:not([data-palette='whale']) { --tabstrip: color-mix(in srgb, var(--chrome) 89%, var(--ink, #000)); }
+/* 왼쪽 위 단추 묶음이 사이드바보다 넓으면 첫 탭을 덮지 않게 민다(묶음 폭은 TopBar 가 잰다) */
+.topbar:not(.topbar-sidebar-unreserved) .topbar-panetab-zone:first-child .pane-tabs-menu {
+  padding-left: max(var(--grid), calc(var(--topbar-actions-w, 0px) - var(--sidebar-width, 0px) - var(--sidebar-divider-width, 0px)));
+}
+.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: calc(var(--topbar-actions-w, 256px) + 6px); }
+
+/* ---------- PDF 손 도구 ---------- */
+.pane-doc .pdf-pane.pdf-pane-hand { cursor: grab; }
+body.pdf-panning, body.pdf-panning * { cursor: grabbing !important; user-select: none !important; }
+
+/* ---------- 선택 작업: 번역 결과·실패 ---------- */
+.selection-translation-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.selection-translation-result p { user-select: text; }
+.selection-action-status {
+  display: grid; justify-items: start; gap: 6px;
+  min-width: 260px; max-width: min(420px, 70vw);
+  font-size: 12px; font-weight: 600; line-height: 1.45;
+}
+.selection-action-status .selection-action {
+  border: 1px solid var(--divider-strong); background: var(--paper); color: var(--text-strong); font-weight: 600;
+}
+.selection-action-status .selection-action:hover { background: var(--chrome-hover); }
+
+/* ---------- 노트: 흰 종이 한 장 위에 한 편의 글처럼(컨플루언스) ----------
+   오른쪽 바 전체가 흰 종이다(어두운 테마에서도 노트 칸만 밝게). 블록은 바탕·테두리 없이 문단 간격으로 이어지고,
+   마우스를 올린(또는 PDF 형광펜과 이어진) 블록만 옅은 테두리 + 왼쪽 손잡이 + 오른쪽 위 메뉴가 보인다. */
+.pane-doc .pdf-memo-bar,
+.pane-doc .pdf-memo-bar-wide {
+  --paper: #ffffff;
+  --workspace: #ffffff;
+  --ink: #1f2328;
+  --text: #1f2328;
+  --text-strong: #1f2328;
+  --text-muted: #3a434e;
+  --divider: #e2e5e9;
+  --divider-strong: #d3d8de;
+  --chrome-hover: #eef1f4;
+  --field: #f1f3f5;
+  --field-hover: #e6e9ed;
+  --accent: var(--accent-light, #1f7ae0);
+  --accent-contrast: #ffffff;
+  --danger: #cf222e;
+  color-scheme: light;
+  background: #ffffff;
+  color: #1f2328;
+}
+/* 오른쪽 바 맨 위 줄(노트 제목·단추)은 흰 종이가 아니라 앱 테마를 따른다(옆 문서 도구줄과 같은 색).
+   흰 종이 변수로 덮기 전의 테마 값을 .pane-doc 에서 받아 둔다 */
+.pane-doc {
+  --app-paper: var(--paper);
+  --app-ink: var(--ink);
+  --app-text: var(--text);
+  --app-text-strong: var(--text-strong);
+  --app-text-muted: var(--text-muted);
+  --app-divider: var(--divider);
+  --app-divider-strong: var(--divider-strong);
+  --app-chrome-hover: var(--chrome-hover);
+  --app-field: var(--field);
+  --app-field-hover: var(--field-hover);
+  --app-selected-bg: var(--selected-bg);
+  --app-accent: var(--accent);
+}
+.pane-doc .pdf-memo-bar .pdf-memo-header {
+  --paper: var(--app-paper);
+  --ink: var(--app-ink);
+  --text: var(--app-text);
+  --text-strong: var(--app-text-strong);
+  --text-muted: var(--app-text-muted);
+  --divider: var(--app-divider);
+  --divider-strong: var(--app-divider-strong);
+  --chrome-hover: var(--app-chrome-hover);
+  --field: var(--app-field);
+  --field-hover: var(--app-field-hover);
+  --selected-bg: var(--app-selected-bg);
+  --accent: var(--app-accent);
+  color-scheme: normal;
+  background: var(--app-paper);
+  color: var(--app-text-strong);
+  border-bottom-color: var(--app-divider);
+}
+:root[data-theme='dark'] .pane-doc .pdf-memo-bar .pdf-memo-header { color-scheme: dark; }
+/* 좌우 여백을 같게: 왼쪽은 손잡이·이어지는 선 자리(20px), 오른쪽은 얇은 스크롤 막대 자리(10px) + 10px */
+.pane-doc .pdf-memo-bar-scroll {
+  gap: 0;
+  padding-top: 10px;
+  padding-right: var(--note-side-gap-right, 10px);
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+:root .pane-doc .pdf-memo-card.pdf-memo-card-flow,
+:root .pane-doc .pdf-memo-card-flow:is(.pdf-memo-card-active, .pdf-memo-card-editing, .pdf-memo-card-draft),
+.pane-doc .note-section.note-block {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+.pane-doc .pdf-memo-card.pdf-memo-card-flow { gap: 6px; padding: 6px 10px; }
+:root .pane-doc .note-block.note-block:hover,
+:root .pane-doc .pdf-memo-card.pdf-memo-card-flow.pdf-memo-card-active { border-color: var(--divider-strong); }
+:root .pane-doc .pdf-memo-card.pdf-memo-card-flow.pdf-memo-card-editing { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.pane-doc .pdf-memo-card-flow .pdf-memo-card-text,
+.pane-doc .pdf-memo-card-flow .pdf-memo-editor { color: var(--text-strong); font-size: 14px; line-height: 1.65; }
+
+/* 손잡이(왼쪽 밖)와 메뉴(오른쪽 위): 마우스를 올렸을 때만 */
+.note-block-grip {
+  position: absolute; top: 7px; left: -19px;
+  display: grid; place-items: center; width: 18px; height: 22px;
+  border-radius: 5px; color: var(--text-muted); cursor: grab; opacity: 0;
+  transition: opacity 100ms ease;
+}
+.note-block-grip:hover { background: var(--chrome-hover); color: var(--text-strong); }
+.note-block-menu {
+  position: absolute; z-index: 3; top: 4px; right: 4px;
+  display: grid; place-items: center; width: 26px; height: 22px; padding: 0;
+  border: 0; border-radius: 6px; background: var(--paper); box-shadow: 0 0 0 1px var(--divider-strong);
+  color: var(--text-strong); cursor: pointer; opacity: 0; pointer-events: none;
+  transition: opacity 100ms ease;
+}
+.note-block-menu:hover { background: var(--chrome-hover); }
+.note-block:hover > :is(.note-block-grip, .note-block-menu),
+.note-block.pdf-memo-card-active > :is(.note-block-grip, .note-block-menu),
+.note-block-menu:focus-visible { opacity: 1; pointer-events: auto; }
+.pdf-memo-card-editing > :is(.note-block-grip, .note-block-menu) { display: none; }
+
+
+/* 블록 사이: 문단 간격. 마우스를 올리면 가는 선과 + */
+.note-gap { position: relative; z-index: 2; flex: 0 0 auto; height: 16px; margin-block: -3px; }
+.note-gap-add {
+  position: absolute; top: 50%; left: 50%; z-index: 1;
+  display: grid; place-items: center; width: 20px; height: 20px; padding: 0;
+  border: 1px solid var(--divider-strong); border-radius: 50%; background: var(--paper);
+  color: var(--text-strong); cursor: pointer; opacity: 0; transform: translate(-50%, -50%);
+  transition: opacity 100ms ease;
+}
+.note-gap:hover .note-gap-add, .note-gap-add:focus-visible { opacity: 1; }
+.note-gap-add:hover { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.note-gap:hover::before {
+  position: absolute; top: 50%; right: 10px; left: 10px; height: 1px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent); content: '';
+}
+body.note-block-dragging .note-gap { pointer-events: none; }
+
+/* 맨 아래 빈 곳: 누르면 끝에 새 글 */
+.note-tail { flex: 1 0 96px; display: flex; align-items: flex-start; padding: 8px 11px; cursor: text; }
+.note-tail span { color: var(--text-muted); font-size: 13px; opacity: 0; transition: opacity 120ms ease; }
+.note-tail:hover span { opacity: 1; }
+.pane-doc .pdf-memo-bar-scroll { padding-bottom: 0; }
+
+/* 메모 블록: 메모가 먼저, 원문은 형광펜 색 한 줄 칩(펼치면 전부). 위의 「노트에는 형광펜 색을 쓰지 않는다」를 노트 블록에서는 되돌린다 */
+.pane-doc .note-block .pdf-memo-card-quote-yellow { background: color-mix(in srgb, #ffe38c 55%, #fff) !important; }
+.pane-doc .note-block .pdf-memo-card-quote-green { background: color-mix(in srgb, #b9ebc6 60%, #fff) !important; }
+.pane-doc .note-block .pdf-memo-card-quote-blue { background: color-mix(in srgb, #c3defc 65%, #fff) !important; }
+.pane-doc .note-block .pdf-memo-card-quote-pink { background: color-mix(in srgb, #fcc6dc 60%, #fff) !important; }
+.pane-doc .note-block .note-source-chip { height: 26px; color: var(--text-muted); font-size: 12.5px; }
+.pane-doc .note-block .pdf-memo-card-quote { margin-top: 0; padding: 5px 9px; color: var(--text-muted); font-size: 12.5px; line-height: 1.55; -webkit-line-clamp: unset; }
+.pane-doc .note-block .pdf-memo-card-quote .note-source-expand { display: inline-grid; vertical-align: -3px; margin: 0 4px 0 -3px; }
+.pane-doc .note-block .note-source-page { flex: 0 0 auto; margin-left: 6px; padding: 0 5px; background: color-mix(in srgb, #fff 60%, transparent); color: var(--text-strong); font-size: 11.5px; font-weight: 700; }
+/* 메모 없는 형광펜: 자리를 차지하지 않고, 마우스를 올리면 오른쪽 위(메뉴 옆)에 「메모 쓰기」 */
+.note-memo-add {
+  position: absolute; z-index: 3; top: 4px; right: 36px; height: 22px; padding: 0 8px;
+  border: 0; border-radius: 6px; background: var(--paper); box-shadow: 0 0 0 1px var(--divider-strong);
+  color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity 100ms ease;
+}
+.note-block:hover .note-memo-add, .note-memo-add:focus-visible { opacity: 1; pointer-events: auto; }
+/* 표·그림 메모: 바 폭에 꽉 맞춘 그림, 설명은 그 아래 */
+.pane-doc .note-memo-region .pdf-memo-card-source { margin-top: 0; width: 100%; }
+
+/* 소제목: 문서 제목처럼 크게. 접기·개수는 마우스를 올렸을 때(접혀 있으면 늘) 오른쪽에 */
+.pane-doc .note-section.note-block {
+  min-height: 36px; margin-top: 10px; padding: 4px 64px 4px 10px;
+  border-bottom: 1px solid transparent; cursor: grab;
+}
+.pane-doc .note-section.note-block:first-child { margin-top: 0; }
+.pane-doc .note-section .note-section-title { order: 0; font-size: 18px; font-weight: 750; letter-spacing: -.015em; }
+.pane-doc .note-section .note-section-toggle { order: 1; opacity: 0; }
+.pane-doc .note-section .note-section-count { order: 2; opacity: 0; }
+.pane-doc .note-section:hover :is(.note-section-toggle, .note-section-count),
+.pane-doc .note-section-collapsed :is(.note-section-toggle, .note-section-count) { opacity: 1; }
+.pane-doc .note-section .note-section-input { font-size: 18px; }
+
+/* 어두운 테마에서 빈 노트 안내·제목 줄도 종이 위 글자색 */
+.pane-doc .pdf-memo-bar :is(.note-empty, .note-empty-hint, .note-empty p) { color: var(--text-strong); }
+
+/* ---------- 노트 바 맨 위의 서식 도구(칸마다 띄우지 않고 한 줄에 붙인다) ----------
+   목록과 함께 스크롤되지 않고 맨 위에 붙어 있다. 쓰는 칸이 없으면 꺼진 단추가 보인다 */
+.pane-doc .note-format-dock {
+  position: sticky; top: -10px; z-index: 6;
+  flex: 0 0 auto;
+  display: flex; align-items: center;
+  min-height: 36px;
+  /* 아래 여백: 맨 위 블록까지 좌우와 같은 20px(블록 자체의 위 여백 10px 포함) */
+  margin: -10px calc(-1 * var(--note-side-gap-right, 10px)) 10px -20px;
+  padding: 4px var(--note-side-gap-right, 10px) 4px 20px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--paper);
+}
+.pane-doc .note-format-slot { display: contents; }
+.pane-doc .note-format-dock .pdf-memo-format-bar {
+  /* 글자색·배경색 고르개가 아래로 펼쳐지므로 잘라 내지(overflow) 않는다 */
+  flex-wrap: wrap; padding: 0; border: 0; background: transparent;
+}
+.pane-doc .note-format-dock .pdf-memo-format-bar-idle .pdf-memo-format-button:disabled { opacity: .35; cursor: default; }
+
+/* ---------- 왼쪽 바 PDF 검색: 최근 검색(30개까지, 줄마다 하나) ---------- */
+.pdf-search-recent-docked { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 4px; min-height: 0; overflow: hidden; padding: 2px 0; }
+.pdf-search-recent-head { display: flex; align-items: center; gap: 6px; padding: 0 4px; }
+.pdf-search-recent-docked .pdf-search-recent-label { flex: 1 1 auto; margin: 0; color: var(--text-strong); font-size: 12px; font-weight: 600; }
+.pdf-search-recent-count { margin-left: 2px; color: var(--text-strong); font-weight: 500; font-variant-numeric: tabular-nums; }
+.pdf-search-recent-clear { height: 22px; padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: var(--text-strong); font: inherit; font-size: 11.5px; cursor: pointer; }
+.pdf-search-recent-clear:hover { background: var(--field-hover); }
+.pdf-search-recent-list { display: flex; flex-direction: column; gap: 1px; min-height: 0; max-height: min(60vh, 560px); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.pdf-search-recent-row { position: relative; display: flex; align-items: center; }
+.pdf-search-docked .pdf-search-recent-row .pdf-search-recent-query {
+  display: flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 28px 0 8px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+}
+.pdf-search-docked .pdf-search-recent-row .pdf-search-recent-query:hover { background: var(--field-hover); }
+.pdf-search-recent-row .pdf-search-recent-query span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-search-recent-remove {
+  position: absolute; right: 4px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0;
+  border: 0; border-radius: 5px; background: transparent; color: var(--text-strong); opacity: 0; cursor: pointer;
+}
+.pdf-search-recent-row:hover .pdf-search-recent-remove,
+.pdf-search-recent-remove:focus-visible { opacity: 1; }
+.pdf-search-recent-remove:hover { background: var(--chrome-hover); }
+
+/* 2단에서 탭 줄이 좁아지면(사이드바를 접어 왼쪽 단추 묶음이 탭 자리를 차지할 때) 보고 있는 탭은 이름이 보이게 폭을 지킨다.
+   나머지 탭이 먼저 줄어든다 */
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active { min-width: 128px; flex-shrink: 0; }
+
+/* 3단의 가운데 탭 줄은 양옆을 보통 여백만 둔다(창 단추 자리는 맨 오른쪽 줄이 비워 둔다) */
+.topbar-panetab-zone-middle .pane-tabs-menu { padding-right: var(--grid); }
+
+/* 노트의 메모 카드: 아주 옅은 테두리로만 서로 나눈다(마우스를 올리거나 고칠 때는 위의 진한 테두리) */
+:root .pane-doc .pdf-memo-card.pdf-memo-card-flow:not(.pdf-memo-card-active):not(.pdf-memo-card-editing):not(:hover) {
+  border-color: color-mix(in srgb, var(--ink) 11%, transparent);
+}
+
+/* 검색 결과: [쪽 미리보기] [문장] [쪽 번호]. 미리보기에 찾은 자리를 칠한다 */
+.pdf-search-grouped .pdf-search-result-row { grid-template-columns: 46px minmax(0, 1fr) auto; align-items: start; }
+.pdf-search-thumb {
+  position: relative;
+  display: block;
+  width: 46px;
+  overflow: hidden;
+  border: 1px solid var(--divider-strong);
+  border-radius: 3px;
+  background: #fff;
+}
+.pdf-search-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pdf-search-thumb-hit { position: absolute; border-radius: 1px; background: color-mix(in srgb, var(--accent) 55%, transparent); outline: 1px solid var(--accent); }
+.pdf-search-result-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---------- PDF 위 도구줄: 읽기·쓰기 도구는 왼쪽, 나머지는 오른쪽. 모자라면 「⋯」 안으로 ---------- */
+.pane-doc .pane-toolbar,
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar {
+  left: 8px;
+  right: calc(8px + var(--memo-bar-w, 0px));
+  justify-content: space-between;
+  overflow: hidden;
+}
+.pane-doc .pane-toolbar-left,
+.pane-doc .pane-toolbar-right {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  pointer-events: auto;
+}
+.pane-doc .pane-toolbar-more { display: flex; align-items: center; }
+.pane-toolbar-more-panel {
+  position: fixed;
+  z-index: 140;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--divider-strong);
+  border-radius: 10px;
+  background: var(--chrome);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 30%);
+}
+.pane-toolbar-more-row { display: flex; align-items: center; gap: 2px; }
+.pane-toolbar-more-panel .pdf-compact-tool { width: 28px; min-width: 28px; height: 26px; }
+
+/* ---------- 앱 창 격자 나누기(위아래·2×2 …): 패널마다 바로 위에 탭 줄 ---------- */
+.panes.panes-grid {
+  position: relative;
+  display: grid;
+  flex: 1 1 auto;
+  gap: 1px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--divider-strong, var(--hairline));
+}
+.panes-grid > .pane-grid-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--paper);
+  transition: none;
+}
+.pane-grid-tabs {
+  display: flex;
+  flex: 0 0 34px;
+  align-items: stretch;
+  min-width: 0;
+  padding: 0 6px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--divider);
+}
+.pane-grid-tabs > * { flex: 1 1 auto; min-width: 0; }
+.pane-grid-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.pane-grid-body > * { flex: 1 1 auto; min-height: 0; }
+.pane-grid-divider { position: absolute; z-index: 20; touch-action: none; }
+.pane-grid-divider-col { width: 8px; margin-left: -4px; cursor: col-resize; }
+.pane-grid-divider-row { height: 8px; margin-top: -4px; cursor: row-resize; }
+.pane-grid-divider:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* ---------- Markdown 뷰어: PDF 와 같은 읽기 틀(작업 바탕 위 종이, 같은 스크롤바, 배율) ---------- */
+.pane-doc .markdown-pane-host { background: var(--workspace); }
+.pane-doc .markdown-pane {
+  --md-paper-w: min(calc(820px * var(--md-zoom, 1)), calc(100% - 28px));
+  padding: 18px 0 40px;
+  scrollbar-width: none;
+  /* 종이: 가운데 흰 기둥(내용과 함께 스크롤된다) */
+  background:
+    linear-gradient(to right,
+      transparent calc(50% - var(--md-paper-w) / 2 - 1px),
+      color-mix(in srgb, #000 14%, transparent) calc(50% - var(--md-paper-w) / 2 - 1px),
+      var(--md-background, var(--paper)) calc(50% - var(--md-paper-w) / 2),
+      var(--md-background, var(--paper)) calc(50% + var(--md-paper-w) / 2),
+      color-mix(in srgb, #000 14%, transparent) calc(50% + var(--md-paper-w) / 2),
+      transparent calc(50% + var(--md-paper-w) / 2 + 1px));
+  background-attachment: local;
+}
+.pane-doc .markdown-pane::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.pane-doc .markdown-pane > * {
+  zoom: var(--md-zoom, 1);
+  max-width: calc((min(820px * var(--md-zoom, 1), 100% - 28px) - 112px * var(--md-zoom, 1)) / var(--md-zoom, 1));
+  margin-inline: auto;
+}
+.pane-doc .markdown-pane > :first-child { margin-top: 36px; }
+.pane-doc .markdown-scrollbar { top: 0; right: 0; bottom: 0; z-index: 5; }
+.pane-doc .markdown-scrollbar .markdown-scrollbar-thumb { position: absolute; right: 2px; top: 0; }
+.pane-doc .markdown-scrollbar .pdf-scrollbar-mark { cursor: pointer; }
+
+/* Markdown 쓰기 층(박스 메모·편집): 글 위에 겹쳐 함께 스크롤된다 */
+.markdown-write-host { position: absolute; inset: 0; z-index: 3; overflow: hidden; pointer-events: none; }
+.markdown-write-surface { position: absolute; top: 0; left: 0; will-change: transform; }
+.markdown-write-host .pdf-box-layer, .markdown-write-host .pdf-overlay-layer { position: absolute; top: 0; left: 0; }
+.markdown-write-host[data-markdown-edit] .pdf-overlay-layer { pointer-events: auto; }
+.markdown-box-marks { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; }
+.markdown-box-mark { fill: #ffd84d; opacity: .38; }
+.markdown-box-mark-green { fill: #b9ebc6; }
+.markdown-box-mark-blue { fill: #c3defc; }
+.markdown-box-mark-pink { fill: #fcc6dc; }
+.pane-doc .markdown-pane-host[data-reader-mode='hand'] .markdown-pane { cursor: grab; user-select: none; }
+.pane-doc .markdown-pane-host .pdf-overlay-palette { top: 8px; }
+
+/* Markdown 목차(왼쪽 바) */
+.markdown-outline ul { margin: 0; padding: 4px 6px; list-style: none; }
+.markdown-outline-item { display: block; width: 100%; min-height: 26px; padding: 3px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.markdown-outline-item:hover { background: var(--chrome-hover); }
+.markdown-outline-current { background: var(--selected-bg); font-weight: 600; }
+
+/* Markdown 메모 바(오른쪽, PDF 메모 바와 같은 바탕) */
+.pane-doc .markdown-pane-host-memo { --md-memo-w: 360px; }
+.pane-doc .markdown-pane-host-memo .markdown-pane,
+.pane-doc .markdown-pane-host-memo .markdown-write-host { right: var(--md-memo-w); width: auto; }
+.pane-doc .markdown-pane-host-memo .markdown-pane { position: absolute; inset: 0 var(--md-memo-w) 0 0; height: auto; }
+.pane-doc .markdown-pane-host-memo .markdown-scrollbar { right: var(--md-memo-w); }
+.pane-doc .markdown-memo-bar { width: var(--md-memo-w, 360px); display: flex; flex-direction: column; overflow: hidden; }
+/* 머리·본문은 PDF 메모 바와 같은 부품·클래스. 바가 세로 flex 라 머리는 흐름 안에 두고, 본문은 PDF 처럼 스크롤 칸을 꽉 채운다 */
+.pane-doc .markdown-memo-bar .pdf-memo-header.markdown-memo-bar-head { position: relative; flex: 0 0 auto; }
+.markdown-memo-bar-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+/* 메모만 보기: 바가 문서 자리를 덮는다 */
+.pane-doc .markdown-memo-bar.markdown-memo-bar-full { left: 0; width: auto; border-left: 0; z-index: 25; }
+.markdown-memo-only { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 6px 24px 40px; }
+
+/* Markdown 검색(왼쪽 바 「검색」 보기) */
+.markdown-search-panel { display: flex; flex-direction: column; gap: 6px; padding: 8px; color: var(--text-strong); }
+.markdown-search-row { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid var(--divider-strong); border-radius: 8px; background: var(--paper); }
+.markdown-search-row input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; font-size: 13px; }
+.markdown-search-status { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; }
+.markdown-search-status span { margin-right: auto; }
+.markdown-search-icon { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.markdown-search-icon:hover { background: var(--chrome-hover); }
+.markdown-search-results { margin: 0; padding: 0; list-style: none; overflow-y: auto; }
+.markdown-search-result { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12px; line-height: 1.45; text-align: left; cursor: pointer; }
+.markdown-search-result:hover { background: var(--chrome-hover); }
+.markdown-search-result-active { background: var(--selected-bg); }
+.markdown-search-result mark { background: #ffd84d; color: #111; border-radius: 2px; }
+.markdown-pane mark.markdown-search-hit-active { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Markdown 화면 나누기: 칸마다 Markdown 뷰어 */
+.pane-doc .pdf-split.markdown-split { position: absolute; inset: 0; top: 0; right: 0; display: grid; }
+.pane-doc .markdown-split-cell { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.pane-doc .markdown-split-cell .pdf-overlay-palette { top: 40px; }
+
+/* Markdown 절 미리보기(왼쪽 바 「미리보기」) */
+.markdown-section-preview { display: grid; gap: 10px; padding: 10px 14px 24px; }
+.markdown-section-card { display: grid; gap: 4px; justify-items: center; padding: 0; border: 0; background: transparent; color: var(--text-strong); font: inherit; cursor: pointer; }
+.markdown-section-card-paper { display: grid; gap: 4px; width: 100%; max-width: 220px; min-height: 92px; padding: 10px 12px; box-sizing: border-box; border: 2px solid transparent; border-radius: 3px; background: #fff; color: #1d1d1f; box-shadow: 0 2px 8px rgb(0 0 0 / 25%); text-align: left; }
+.markdown-section-card:hover .markdown-section-card-paper { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.markdown-section-card-current .markdown-section-card-paper { border-color: var(--accent); }
+.markdown-section-card-title { font-size: 11px; line-height: 1.3; }
+.markdown-section-card-h1 { font-size: 12.5px; }
+.markdown-section-card-text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font-size: 9.5px; line-height: 1.45; }
+.markdown-section-card-number { font-size: 11px; font-weight: 600; }
+
+/* 티켓 블록: 메모 블록과 같은 모양에 제목 한 줄을 얹는다(제목 · 내 글 · 원문) */
+.note-ticket-title {
+  display: flex; align-items: flex-start; gap: 6px;
+  color: var(--text-strong); font-size: 14px; font-weight: 700; line-height: 1.65; overflow-wrap: anywhere;
+}
+/* 아이콘은 첫 줄 높이 가운데(14px × 1.65 = 23px 줄) */
+.note-ticket-title svg { flex: 0 0 auto; margin-top: 4.5px; color: var(--accent); }
+.note-ticket-title-input {
+  width: 100%; box-sizing: border-box; padding: 2px 6px;
+  border: 1px solid var(--accent); border-radius: 6px; outline: none;
+  background: var(--paper); color: var(--text-strong); font: inherit; font-size: 14px; font-weight: 700;
+}
+.note-sources { display: flex; flex-direction: column; gap: 3px; }
+
+/* 새 메모의 「티켓」 단추: 쓰는 동안 늘 보인다 */
+.note-draft-ticket {
+  position: absolute; z-index: 4; top: 4px; right: 6px;
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px;
+  border: 1px solid var(--divider-strong); border-radius: 6px; background: var(--paper);
+  color: var(--text-strong); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer;
+}
+.note-draft-ticket:hover { border-color: var(--accent); }
+.note-draft-ticket-on { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.pdf-memo-card-draft:not(.note-ticket):has(.note-draft-ticket) .note-source-chip { margin-right: 66px; }
+
+/* 더한 원문 떼기 */
+.note-source-remove {
+  flex: 0 0 auto; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 4px; padding: 0;
+  border: 0; border-radius: 4px; background: transparent; color: var(--text-strong); cursor: pointer; opacity: 0;
+}
+.note-block:hover .note-source-remove, .note-source-remove:focus-visible { opacity: .75; }
+.note-source-remove:hover { opacity: 1; background: color-mix(in srgb, #fff 55%, transparent); }
+.note-source-region { position: relative; }
+.note-source-region .note-source-remove { position: absolute; top: 4px; right: 4px; background: var(--paper); }
+
+/* 원문 더하는 중 */
+:root .pane-doc .note-block.note-block-attaching { border-color: var(--accent); border-style: dashed; }
+.note-source-attach { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text-strong); font-size: 12.5px; }
+.note-source-attach button { margin-left: auto; padding: 0 8px; height: 22px; border: 1px solid var(--divider-strong); border-radius: 6px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+
+/* 여러 블록 고르기 */
+:root .pane-doc .note-block.note-block.note-block-selected { box-shadow: 0 0 0 1.5px var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.note-selection-bar {
+  position: sticky; top: 30px; z-index: 7; flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 5px 8px;
+  border: 1px solid var(--accent); border-radius: 8px; background: var(--paper);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%); color: var(--text-strong); font-size: 12.5px; font-weight: 600;
+}
+.note-selection-bar span { flex: 1 1 auto; }
+.note-selection-bar button { height: 24px; padding: 0 10px; border: 1px solid var(--divider-strong); border-radius: 6px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.note-selection-bar .note-selection-danger { border-color: var(--danger, #d1242f); background: var(--danger, #d1242f); color: #fff; }
+
+/* 블록에 마우스를 올리면 뜨는 출처(PDF 이름 · 쪽): 바 밖에 띄워 맨 위 블록은 머리줄 위로 올라온다 */
+.note-source-float {
+  position: fixed; z-index: 400; transform: translate(-100%, calc(-100% - 3px));
+  max-width: 360px; padding: 2px 8px; overflow: hidden;
+  border-radius: 6px; background: #20242b; box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+  color: #f4f6fa; font-size: 11.5px; font-weight: 600; line-height: 18px;
+  text-overflow: ellipsis; white-space: nowrap; pointer-events: none;
+}
+
+/* 표·그림 네모 크기 바꾸기(텍스트·영역 캡처 도구): 마우스를 올리면 테두리와 손잡이 */
+.selection-mark-layer .selection-region-resize { pointer-events: none; }
+.selection-mark-layer .selection-region-resize-frame { fill: none; stroke: var(--accent, #3b82f6); stroke-width: 1.5; stroke-dasharray: 5 3; }
+.selection-mark-layer .selection-region-resize-handle { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 1.5; }
+
+/* 노트 블록은 바 폭을 넘지 않는다: 긴 한 줄(원문 칩·제목)이 카드를 바 밖으로 밀지 않게 열을 바 폭에 맞춘다 */
+.pdf-memo-card.pdf-memo-card-flow { grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; box-sizing: border-box; }
+.pdf-memo-card-flow > *, .note-sources, .note-sources > *, .note-ticket-title > span { min-width: 0; }
+.note-ticket-title > span { flex: 1 1 auto; }
+
+/* 노트 이름 바꾸기(머리에서 두 번 누르기) */
+.note-head-title-input {
+  flex: 1 1 auto; min-width: 0; height: 26px; box-sizing: border-box; padding: 0 6px;
+  border: 1px solid var(--accent); border-radius: 6px; outline: none;
+  background: var(--paper); color: var(--text-strong); font: inherit; font-size: 13.5px; font-weight: 700;
+}
+/* 노트가 없을 때 안내: PDF 메모 바와 같은 자리(왼쪽 20px, 위 10px) */
+.pane-doc .markdown-memo-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 20px; }
+
+/* 깨끗이 보기(Markdown): PDF 와 같이 내 표시를 감춘다 — 형광펜·메모 칠·박스 메모·쓴 글·책갈피. 검색 칠과 지금 고르는 글은 남긴다 */
+.pdf-clean-view :is(.markdown-persistent-highlight, .markdown-box-mark) { background: transparent !important; fill: transparent !important; }
+.pdf-clean-view :is(.markdown-box-marks, .markdown-highlight-delete) { display: none !important; }
+
+/* 도구줄 형광펜: 형광펜 모드일 때 옆에 색 넷과 지우개 */
+.pane-highlighter { display: inline-flex; align-items: center; gap: 4px; }
+.pane-highlighter-palette { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; border-radius: 8px; background: var(--chrome-hover); }
+.pane-highlighter-color {
+  width: 16px; height: 16px; padding: 0; border: 2px solid transparent; border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 18%) inset;
+}
+.pane-highlighter-color[aria-pressed='true'] { border-color: var(--text-strong); }
+.pane-highlighter-color-yellow { background: #ffd84d; }
+.pane-highlighter-color-green { background: #7ed69a; }
+.pane-highlighter-color-blue { background: #8ec5ff; }
+.pane-highlighter-color-pink { background: #ff9fc6; }
+
+/* 번역 설정의 클라우드 API 칸: 두 열 격자(넓은 칸 + 120px)에 넣으면 주소·키 칸이 눌린다. 한 줄에 하나씩 넓게 */
+.translation-settings-fields.translation-settings-external-fields { grid-template-columns: minmax(0, 1fr); }
+.translation-settings-external-fields .translation-settings-input { width: 100%; box-sizing: border-box; }
+
+/* 번역 설정: 번역 방식(로컬 Ollama / 클라우드 API)을 먼저 고른다 */
+.translation-settings-engine { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.translation-settings-engine-option {
+  display: grid; align-content: start; gap: 5px; padding: 14px 16px; text-align: left; cursor: pointer;
+  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper);
+  color: var(--text-strong); font: inherit;
+}
+.translation-settings-engine-option strong { font-size: 13.5px; }
+.translation-settings-engine-option span { font-size: 12px; line-height: 1.45; }
+.translation-settings-engine-option:hover { border-color: var(--accent); }
+.translation-settings-engine-on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: color-mix(in srgb, var(--accent) 8%, var(--paper)); }
+
+/* 설정 창의 고르는 카드들: 글이 테두리에 붙지 않게 안쪽 여백을 넉넉히(모두 같은 결) */
+.settings-modal .settings-modal-body .theme-settings-option { padding: 0 16px; }
+.settings-modal .settings-modal-body .theme-palette-card { padding: 10px 10px 14px; gap: 8px; }
+.settings-modal .settings-modal-body .theme-palette-card > :not(.theme-palette-preview) { padding-inline: 4px; }
+.settings-modal .settings-modal-body .markdown-theme-grid > label { padding: 14px 16px; }
+.settings-modal .settings-modal-body button.translation-settings-engine-option { height: auto; min-height: 76px; padding: 14px 16px; border-radius: 10px; font-size: inherit; }
+.settings-modal .settings-modal-body :is(.translation-settings-input, .translation-settings-select) { padding: 0 10px; }
+.settings-modal .settings-modal-body :is(.translation-settings-download, .translation-settings-benchmark-button) { padding: 0 14px; }
+
+/* 연결 시험 */
+.translation-settings-test { display: grid; gap: 6px; margin: 4px 0 12px; justify-items: start; }
+.translation-settings-test-result { display: grid; gap: 2px; margin: 0; color: var(--text-strong); font-size: 12.5px; }
+.translation-settings-test-result span { font-weight: 650; }
+.translation-settings-test-result q { font-size: 13px; }
+.translation-settings-test-error { margin: 0; color: var(--danger-solid); font-size: 12.5px; }

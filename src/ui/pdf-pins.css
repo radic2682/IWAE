@@ -1,0 +1,164 @@
+/* ---------- PDF 스크롤 막대 옆 책갈피 핀 ---------- */
+/* 핀 줄은 스크롤 막대 바로 왼쪽. 막대와 같은 높이를 쓴다(막대 위 높이 = 핀 높이) */
+.pdf-pins {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  right: 12px;
+  width: 0;
+  transition: opacity 140ms ease;
+}
+.pane-doc .pdf-pins { top: var(--doc-head-h); }
+.pane-doc .pdf-split .pdf-pins { top: 0; right: 12px; }
+/* 막대에 마우스를 올린 동안은 꽂힌 핀이 잠깐 숨는다(목차 제목·새 핀 자리를 가리지 않게). 고치는 중이면 그대로 */
+.pdf-scrollbar:hover ~ .pdf-pins:not(.pdf-pins-editing),
+.pdf-scrollbar:active ~ .pdf-pins:not(.pdf-pins-editing) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pdf-pin {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 150px;
+  height: 22px;
+  padding: 0 3px 0 8px;
+  transform: translateY(-50%);
+  border: 1px solid var(--divider-strong, var(--hairline));
+  border-radius: 11px 4px 4px 11px;
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  color: var(--text-strong);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pdf-pin:hover {
+  max-width: 260px;
+  border-color: var(--accent);
+  z-index: 1;
+}
+.pdf-pin-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pdf-pin-head {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* 막대에 올리면 마우스 높이에 따라오는 흐린 새 핀. 그 위에 올리면 뚜렷해지고, 누르면 그 자리에 꽂힌다 */
+/* 막대에 딱 붙인다. 예전에는 4px 떨어져 있어, 목차 제목 칸이 없는 PDF 에서는 핀 쪽으로 손을 옮기는 순간
+   막대를 벗어나 핀이 사라졌다(눌러지지 않았다) */
+.pdf-pin-ghost {
+  position: absolute;
+  right: calc(100% - 1px);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 11px 4px 4px 11px;
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+  opacity: 0.45;
+  cursor: copy;
+  transition: opacity 100ms ease;
+}
+/* 핀과 막대 사이에 보이지 않는 다리를 둬 손이 지나가도 막대 안에 있는 것으로 친다 */
+.pdf-pin-ghost::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: -10px;
+  right: 0;
+}
+.pdf-pin-ghost:hover {
+  opacity: 1;
+  border-style: solid;
+  background: var(--paper);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 24%);
+}
+/* 막대를 끄는 동안은 새 핀을 감춘다 */
+.pdf-scrollbar:active .pdf-pin-ghost { display: none; }
+/* 목차 제목은 새 핀 자리만큼 왼쪽으로 비켜 선다 */
+.pdf-scrollbar .pdf-scrollbar-label { right: 32px; }
+
+/* 핀 자리에서 바로 고치기: [이모지][이름][빼기] */
+.pdf-pin-editor {
+  position: absolute;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 230px;
+  height: 30px;
+  padding: 0 4px;
+  transform: translateY(-50%);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--text-strong);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 28%);
+}
+.pdf-pin-editor-emoji,
+.pdf-pin-editor-remove {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+.pdf-pin-editor-emoji:hover,
+.pdf-pin-editor-remove:hover { background: var(--chrome-hover); }
+.pdf-pin-editor-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--divider-strong, var(--hairline));
+  border-radius: 5px;
+  background: var(--field, var(--paper));
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12px;
+}
+.pdf-pin-editor-name:focus { outline: none; border-color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-pins, .pdf-pin-ghost { transition: none; }
+}
+
+/* 꾹 눌러 끄는 중인 핀: 살짝 떠서 손을 따라온다. 그동안 핀 줄이 숨지 않게 한다 */
+.pdf-pin.pdf-pin-dragging { z-index: 3; border-color: var(--accent); box-shadow: 0 6px 16px rgb(0 0 0 / 32%); cursor: grabbing; transform: translateY(-50%) scale(1.06); }
+body.pdf-pin-moving, body.pdf-pin-moving * { cursor: grabbing !important; user-select: none !important; }
+body.pdf-pin-moving .pdf-pins { opacity: 1 !important; pointer-events: auto !important; }
+
+/* 깨끗이 보기(눈 단추): 내가 단 표시를 PDF 위에서 모두 감춘다 — 형광펜·메모 칠·메모 잇는 줄·책갈피 핀·출처 표시.
+   검색 결과 칠과 지금 고르는 글자는 남긴다(찾고 고르는 일은 계속한다) */
+.pdf-clean-view :is(
+  .selection-persistent-highlight,
+  .selection-source-highlight,
+  .pdf-memo-links,
+  .pdf-pins,
+  .pdf-pin-ghost
+) { display: none !important; }

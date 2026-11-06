@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IWAE User Guide</title>
+<style>
+  @page { size: A4; margin: 22mm 20mm 22mm 20mm; }
+  :root { --ink: #1f2328; --line: #d0d7de; --soft: #f3f5f8; --accent: #2f6fde; }
+  html { font-family: "Noto Sans KR", sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.7; }
+  body { margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 6pt; letter-spacing: -.02em; }
+  h2 { font-size: 16pt; margin: 0 0 10pt; padding-bottom: 6pt; border-bottom: 1.5pt solid var(--ink); letter-spacing: -.01em; }
+  h3 { font-size: 12pt; margin: 16pt 0 6pt; }
+  p { margin: 0 0 8pt; }
+  section { break-before: page; }
+  section:first-of-type { break-before: auto; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10pt; }
+  th, td { border: 0.75pt solid var(--line); padding: 5pt 8pt; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-weight: 700; }
+  code, kbd { font-family: "Cascadia Mono", Consolas, monospace; font-size: 9.5pt; background: var(--soft); border: 0.5pt solid var(--line); border-radius: 3pt; padding: 0 3pt; }
+  .cover { height: 230mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .sub { font-size: 13pt; margin-bottom: 28pt; }
+  .cover .box { border: 1pt solid var(--line); border-radius: 6pt; padding: 12pt 16pt; background: var(--soft); }
+  .req { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; margin: 0 0 8pt; }
+  .req b { display: inline-block; min-width: 60pt; }
+  .note { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; background: var(--soft); margin: 8pt 0; }
+  ol, ul { margin: 0 0 8pt; padding-left: 18pt; }
+  li { margin: 2pt 0; }
+</style>
+<body>
+
+<section class="cover">
+  <h1>IWAE User Guide</h1>
+  <p class="sub">A desktop app for reading long PDFs, marking them up, and weaving your notes together</p>
+  <div class="box">
+    <p>This guide ships as an example in every new Vault. Try highlighting and adding memos while you read it.</p>
+    <p>The <b>Tour of IWAE</b> note in the Notes list on the left already holds memos and tickets made on this guide.</p>
+  </div>
+</section>
+
+<section>
+  <h2>1. Vault and screen</h2>
+  <p>IWAE opens one folder called a Vault. Your PDFs and Markdown files stay in that folder as they are, and the app keeps its own records in a separate .iwae folder inside it.</p>
+  <p>A Vault is a plain folder, so you can copy or back it up with your file manager.</p>
+  <h3>Screen layout</h3>
+  <table>
+    <tr><th>Area</th><th>What it does</th></tr>
+    <tr><td>Left bar</td><td>Document list and note list. Group items into folders and drag to reorder.</td></tr>
+    <tr><td>Center</td><td>PDF and Markdown viewer. Open several documents in tabs, or split the view to read two side by side.</td></tr>
+    <tr><td>Right bar</td><td>The open note. It scrolls separately from the PDF, and lines connect each memo to its highlight.</td></tr>
+  </table>
+  <h3>Folder layout</h3>
+  <table>
+    <tr><th>Path</th><th>Contents</th></tr>
+    <tr><td><code>*.pdf</code>, <code>*.md</code></td><td>Your documents</td></tr>
+    <tr><td><code>노트/*.iwnote</code></td><td>Note files</td></tr>
+    <tr><td><code>.iwae/</code></td><td>App records such as highlights, bookmarks and indexes</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>2. PDF tools</h2>
+  <p>Switch tools with the buttons in the toolbar above the document.</p>
+  <table>
+    <tr><th>Tool</th><th>What it does</th></tr>
+    <tr><td>Hand</td><td>Drag empty space to move the page. Dragging over text only selects it for copying.</td></tr>
+    <tr><td>Text select</td><td>Drag over text to highlight it and open a memo in the note on the right.</td></tr>
+    <tr><td>Region capture</td><td>Draw a box around a table or figure to add it to the note as an image.</td></tr>
+    <tr><td>Box memo</td><td>Attach a memo box in the PDF margin, connected by a line.</td></tr>
+    <tr><td>Text box · Pen · Eraser · Line</td><td>Write and draw directly on the PDF. Pick color and width in the floating format bar.</td></tr>
+    <tr><td>Edit pages</td><td>Reorder pages in a thumbnail view, insert pages from another PDF, remove or rotate them.</td></tr>
+  </table>
+  <div class="note">
+    <p>You can resize a captured table or figure box by dragging its edges and corners with the text select or region capture tool.</p>
+  </div>
+  <h3>Find and navigate</h3>
+  <p>Press Ctrl+F to search inside the PDF, and use the outline and page thumbnails to jump around. Click a link in the document to follow it, or hover to preview it.</p>
+</section>
+
+<section>
+  <h2>3. Memos and notes</h2>
+  <p>A note is a document built from blocks. One note can mix memos from several PDFs.</p>
+  <table>
+    <tr><th>Block</th><th>Description</th></tr>
+    <tr><td>Section</td><td>Groups the blocks below it. Collapse to hide them, drag to move them together.</td></tr>
+    <tr><td>Text</td><td>Text you write in the note, with bold, lists, tables and code.</td></tr>
+    <tr><td>Memo</td><td>A PDF highlight with your memo. Click it to jump to that spot in the PDF.</td></tr>
+    <tr><td>Ticket</td><td>A memo shown as title, your text and the original quote. Handy for tracking requirements.</td></tr>
+  </table>
+  <p>Hover over a block to see its source at the top right of the block.</p>
+  <p>Drag the handle on the left to change the order of blocks.</p>
+  <p>Choose Convert to ticket in a memo block's menu to make it a ticket.</p>
+</section>
+
+<section>
+  <h2>4. Practice: tracking requirements</h2>
+  <p>Below are practice requirements. Drag over one line with the text select tool to make a memo, then turn it into a ticket from the memo menu.</p>
+  <div class="req"><b>REQ-01</b> Saved notes must still be there after the app restarts.</div>
+  <div class="req"><b>REQ-02</b> Deleting a highlight must also remove its memo block from the note.</div>
+  <div class="req"><b>REQ-03</b> Highlights must point to the same text after pages are reordered.</div>
+  <div class="req"><b>REQ-04</b> Text to translate must only be sent where the user chose.</div>
+  <p>The example note in this Vault already has REQ-01 and REQ-03 as tickets.</p>
+</section>
+
+<section>
+  <h2>5. Translation</h2>
+  <p>You can translate selected text right away. Choose how in Settings, under Translation.</p>
+  <table>
+    <tr><th>Method</th><th>Notes</th></tr>
+    <tr><td>Local (Ollama)</td><td>Text never leaves your PC. Can be slow depending on the model size.</td></tr>
+    <tr><td>Cloud API</td><td>Fast translation with Claude, OpenAI, Gemini and others. Selected text is sent to that service.</td></tr>
+  </table>
+  <p>Cloud API keys are kept in this PC's credential store.</p>
+</section>
+
+<section>
+  <h2>6. Shortcuts</h2>
+  <table>
+    <tr><th>Keys</th><th>What it does</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Search the PDF</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copy selected PDF text</td></tr>
+    <tr><td>Right-drag</td><td>Mouse gestures (close tab, jump to top or bottom)</td></tr>
+  </table>
+  <p>IWAE is open source. To report a problem or suggest a feature, open an issue in the repository.</p>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,63 @@
+/* 앱 안 확인 창 — 설정 창(z 100) 위에도 뜬다 */
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(12 16 22 / 30%);
+}
+
+.confirm-dialog {
+  width: min(400px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--divider-strong);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--text);
+  box-shadow: 0 22px 56px var(--shadow-soft);
+  animation: confirm-dialog-in 140ms var(--layout-ease, ease) both;
+}
+
+.confirm-dialog-head { display: flex; align-items: center; gap: 9px; }
+.confirm-dialog-head h2 { margin: 0; color: var(--text-strong); font-size: 14px; font-weight: 700; }
+.confirm-dialog-mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--danger) 14%, var(--paper));
+  color: var(--danger);
+}
+.confirm-dialog-body { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.confirm-dialog-body p { margin: 0; }
+.confirm-dialog-body p + p { margin-top: 6px; }
+.confirm-dialog-body strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.confirm-dialog-actions button {
+  min-width: 72px;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--divider-strong);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.confirm-dialog-actions button:hover:not(:disabled) { background: var(--chrome-hover); }
+.confirm-dialog-actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
+.confirm-dialog-actions button:disabled { opacity: .6; cursor: default; }
+.confirm-dialog-actions .confirm-dialog-confirm { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
+.confirm-dialog-actions .confirm-dialog-confirm:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, black); }
+.confirm-dialog-danger .confirm-dialog-confirm { border-color: var(--danger-solid, var(--danger)); background: var(--danger-solid, var(--danger)); color: #fff; }
+.confirm-dialog-danger .confirm-dialog-confirm:hover:not(:disabled) { background: color-mix(in srgb, var(--danger-solid, var(--danger)) 86%, black); }
+
+@keyframes confirm-dialog-in { from { opacity: 0; transform: translateY(4px) scale(.99); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .confirm-dialog { animation: none; } }

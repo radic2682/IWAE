@@ -1,0 +1,99 @@
+/* 설정 › 데이터 및 복구 — 전체 Vault 백업, 휴지통 비우기 */
+.vault-backup { gap: 14px; }
+
+.vault-backup-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  background: var(--chrome);
+  color: var(--accent);
+}
+.vault-backup-summary > div { min-width: 0; display: grid; gap: 2px; }
+.vault-backup-summary strong { overflow: hidden; color: var(--text-strong); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.vault-backup-summary span { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.vault-backup-option { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.vault-backup-option input { width: 16px; height: 16px; flex: 0 0 16px; margin: 2px 0 0; accent-color: var(--accent); }
+.vault-backup-option > span { display: grid; gap: 3px; }
+.vault-backup-option strong { color: var(--text-strong); font-size: 12.5px; font-weight: 600; }
+.vault-backup-option small { color: var(--text-dim); font-size: 11.5px; line-height: 1.5; }
+
+.vault-backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.vault-backup button,
+.trash-empty-button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-strong);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vault-backup button:hover:not(:disabled),
+.trash-empty-button:hover:not(:disabled) { background: var(--chrome-hover); }
+.vault-backup button:disabled,
+.trash-empty-button:disabled { opacity: .5; cursor: default; }
+.vault-backup .vault-backup-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
+.vault-backup .vault-backup-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, black); }
+
+.vault-backup-progress { display: grid; gap: 7px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 9px; }
+.vault-backup-progress-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--text-strong); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.vault-backup-progress small { overflow: hidden; color: var(--text-dim); font-size: 11.5px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.vault-backup-bar { height: 6px; overflow: hidden; border-radius: 999px; background: var(--chrome-hover); }
+.vault-backup-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 160ms ease; }
+
+.vault-backup-done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--success, #1f8a4c) 30%, var(--hairline));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--success, #1f8a4c) 8%, var(--paper));
+}
+.vault-backup-done > svg { flex: 0 0 auto; color: var(--success, #1f8a4c); }
+.vault-backup-done > div { min-width: 0; flex: 1 1 auto; display: grid; gap: 2px; }
+.vault-backup-done strong { color: var(--text-strong); font-size: 12.5px; }
+.vault-backup-done span { overflow: hidden; color: var(--text-muted); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.vault-backup-note { margin: 0; color: var(--text-dim); font-size: 11.5px; }
+
+/* 백업 칸 바로 아래 오는 복구 칸은 구분선을 겹쳐 긋지 않는다 */
+.vault-backup + .vault-recovery { margin-top: 0; border-top: 0; }
+
+/* 휴지통 머리: 제목 · 개수 … 크기 [비우기] */
+.vault-recovery-group .vault-trash-heading { min-height: 30px; }
+.trash-empty-size { margin-left: auto; color: var(--text-dim); font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.vault-recovery-group .vault-trash-heading .trash-empty-size:empty { display: none; }
+.vault-recovery-group .vault-trash-heading .trash-empty-size:empty + .trash-empty-button { margin-left: auto; }
+.trash-empty-button { min-height: 28px; padding: 0 10px; font-size: 11.5px; font-weight: 500; }
+.trash-empty-button:not(:disabled) { color: var(--danger); }
+.trash-empty-button:not(:disabled):hover { border-color: color-mix(in srgb, var(--danger) 45%, var(--divider-strong)); background: color-mix(in srgb, var(--danger) 8%, var(--paper)); }
+
+/* 복구 칸 글자가 너무 작아(10–11px) 다른 설정 칸과 맞춘다 */
+.vault-recovery-heading p { font-size: 11.5px; }
+.vault-recovery-group { padding: 12px; }
+.vault-recovery-group h3 { font-size: 12.5px; }
+.vault-recovery-group > p { font-size: 11.5px; }
+.vault-recovery-group article strong { font-size: 12px; font-weight: 500; }
+.vault-recovery-group article button { min-height: 26px; padding: 0 10px; font: inherit; font-size: 11.5px; cursor: pointer; }
+.vault-recovery-group article button:hover { background: var(--chrome-hover); }
+
+/* 자동 백업 */
+.auto-backup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.auto-backup-grid label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.auto-backup-grid select { height: 30px; padding: 0 8px; border: 1px solid var(--divider); border-radius: 6px; background: var(--paper); color: var(--text-strong, var(--ink)); font: inherit; font-weight: 400; }
+.auto-backup-folder { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.auto-backup-path { flex: 1 1 auto; min-width: 0; padding: 6px 8px; overflow: hidden; border: 1px solid var(--divider); border-radius: 6px; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.auto-backup-status { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 12px; }
+.auto-backup-status dt { font-weight: 600; }
+.auto-backup-status dd { margin: 0; }
+.auto-backup-error { color: var(--danger, #e5534b); overflow-wrap: anywhere; }

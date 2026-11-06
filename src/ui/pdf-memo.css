@@ -1,0 +1,882 @@
+/* PDF 오른쪽 메모 카드 열: 형광펜 메모를 페이지 옆에 붙이고 선으로 잇는다 */
+
+.pdf-memo-links {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pdf-memo-link path {
+  fill: none;
+  stroke-width: 1.2px;
+  opacity: .38;
+  transition: opacity 120ms ease, stroke-width 120ms ease;
+}
+
+.pdf-memo-link .pdf-memo-link-inner {
+  stroke-dasharray: 2 3;
+  opacity: .55;
+}
+
+.pdf-memo-link circle { opacity: .9; }
+.pdf-memo-link-active path { stroke-width: 2px; opacity: 1; }
+.pdf-memo-link-active .pdf-memo-link-inner { opacity: .9; }
+
+.pdf-memo-link-yellow path { stroke: #b8911a; }
+.pdf-memo-link-yellow circle { fill: #b8911a; }
+.pdf-memo-link-green path { stroke: #2f9358; }
+.pdf-memo-link-green circle { fill: #2f9358; }
+.pdf-memo-link-blue path { stroke: #2f78c4; }
+.pdf-memo-link-blue circle { fill: #2f78c4; }
+.pdf-memo-link-pink path { stroke: #c4467c; }
+.pdf-memo-link-pink circle { fill: #c4467c; }
+
+.pdf-memo-card {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px 9px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--text-strong);
+  box-shadow: 0 1px 3px var(--shadow-floating);
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.pdf-memo-card-active {
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--divider));
+  box-shadow: 0 4px 14px rgb(18 24 33 / 16%);
+}
+
+.pdf-memo-card-editing { border-color: var(--accent); }
+
+.pdf-memo-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 18px;
+  color: var(--text-strong);
+  font-size: 12.5px;
+}
+
+.pdf-memo-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.pdf-memo-dot-yellow { background: #f2c418; }
+.pdf-memo-dot-green { background: #3fc06f; }
+.pdf-memo-dot-blue { background: #4b9cf0; }
+.pdf-memo-dot-pink { background: #f0609e; }
+
+.pdf-memo-card-page { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.pdf-memo-card-quote {
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--text-strong);
+  font-size: 13px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pdf-memo-card-quote-yellow { background: rgb(255 214 0 / 26%); }
+.pdf-memo-card-quote-green { background: rgb(70 214 110 / 22%); }
+.pdf-memo-card-quote-blue { background: rgb(80 165 255 / 20%); }
+.pdf-memo-card-quote-pink { background: rgb(255 105 165 / 18%); }
+.pdf-memo-card-source { margin-top: 6px; }
+.pdf-memo-card-source .pdf-memo-list-crop { border-radius: 4px; }
+
+.pdf-memo-card-actions {
+  display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.pdf-memo-card:hover .pdf-memo-card-actions,
+.pdf-memo-card-editing .pdf-memo-card-actions { display: inline-flex; }
+
+.pdf-memo-swatch {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 14%);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.pdf-memo-swatch[aria-pressed='true'] { box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--accent); }
+
+.pdf-memo-delete {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.pdf-memo-delete:hover,
+.pdf-memo-delete:focus-visible { background: var(--danger); color: #fff; outline: 0; }
+
+.pdf-memo-card-text {
+  display: block;
+  width: 100%;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+}
+
+.pdf-memo-editor {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  resize: none;
+  overflow: hidden;
+  padding: 2px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- 카테고리(카드 머리) ---------- */
+.pdf-memo-category { position: relative; display: inline-flex; flex: 0 1 auto; min-width: 0; }
+
+.pdf-memo-topic {
+  display: inline-flex;
+  align-items: center;
+  max-width: 140px;
+  height: 19px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pdf-memo-topic-empty { border: 1px dashed var(--divider); background: transparent; color: var(--text-strong); font-weight: 500; opacity: 0; }
+.pdf-memo-card:hover .pdf-memo-topic-empty,
+.pdf-memo-card-editing .pdf-memo-topic-empty,
+.pdf-memo-list-row .pdf-memo-topic-empty { opacity: 1; }
+
+.pdf-memo-category-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 8px 22px var(--shadow-soft);
+  font-size: 12.5px;
+}
+
+.pdf-memo-category-head { padding: 4px 8px 2px; color: var(--text-strong); font-size: 12.5px; }
+
+.pdf-memo-category-menu button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdf-memo-category-menu button:hover { background: var(--chrome-hover); }
+.pdf-memo-category-check { display: inline-grid; width: 14px; color: var(--accent); }
+.pdf-memo-category-clear { color: var(--text-strong) !important; }
+
+.pdf-memo-category-menu input {
+  margin-top: 4px;
+  padding: 5px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* ---------- 카드 상태 ---------- */
+.pdf-memo-card-draft { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.pdf-memo-card-page em { color: var(--accent); font-style: normal; }
+.pdf-memo-card-dim { opacity: .35; }
+
+/* 영역(표·그림) 메모: 그림을 아주 옅게 물들이고 같은 색 둥근 테두리(곱하기라 그림 선은 그대로 보인다) */
+.selection-mark-layer rect.selection-persistent-highlight.selection-persistent-region {
+  fill: color-mix(in srgb, var(--hl-fill) 38%, #fff);
+  stroke: var(--hl-edge);
+  stroke-width: 1.5px;
+  rx: 6px;
+}
+
+/* ---------- 메모 열 머리: 노트 검색 · 닫기 · 메모만 보기 ---------- */
+/* ---------- 오른쪽 메모 바: PDF 창과 따로 떨어진 칸 ---------- */
+.pane-doc .pdf-memo-bar {
+  position: absolute;
+  /* PDF 창 틀 전체(제목줄 ~ 하단바)를 위아래로 다 쓴다. 도구·하단바(16)보다 위 */
+  z-index: 18;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* 카드로 가는 곡선이 바 왼쪽 밖(페이지 가장자리)에서 시작하므로 옆으로는 자르지 않는다 */
+  overflow: visible;
+  border-left: 1px solid var(--divider-strong);
+  background: color-mix(in srgb, var(--paper) 55%, var(--workspace));
+}
+
+.pane-doc .pdf-memo-bar-wide { left: 0; border-left: 0; background: var(--workspace); }
+
+.pdf-memo-header {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--divider);
+  background: inherit;
+}
+
+.pdf-memo-bar-wide .pdf-memo-header { padding: 8px 24px; }
+.pdf-memo-bar-body { position: absolute; top: 0; right: 0; bottom: 0; left: 0; clip-path: inset(0 0 0 -4000px); }
+.pdf-memo-bar-wide .pdf-memo-bar-body { clip-path: none; overflow: hidden; }
+.pdf-memo-bar-inner { position: absolute; top: 0; left: 0; width: 100%; will-change: transform; }
+.pdf-memo-bar-nav {
+  position: absolute; z-index: 1; top: 40%; left: 18px; right: 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  transform: translateY(-50%);
+}
+.pdf-memo-bar-nav p { margin: 0 0 2px; color: var(--text-strong); font-size: 14px; }
+.pdf-memo-bar-nav button {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px;
+  border: 1px solid var(--divider); border-radius: 8px; background: var(--paper);
+  color: var(--ink); font: inherit; font-size: 13.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.pdf-memo-bar-nav button:hover { background: var(--chrome-hover); }
+.pdf-memo-bar-empty { position: absolute; z-index: 1; top: 64px; left: 18px; right: 18px; margin: 0; color: var(--text-strong); font-size: 14px; line-height: 1.6; }
+
+.pdf-memo-search {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--text-strong);
+}
+
+.pdf-memo-search:focus-within { border-color: var(--accent); }
+
+.pdf-memo-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  margin-left: 6px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+.pdf-memo-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 320px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 8px 22px var(--shadow-soft);
+}
+
+.pdf-memo-results p { margin: 6px 8px; color: var(--text-strong); font-size: 13px; }
+
+.pdf-memo-results button {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdf-memo-results button:hover { background: var(--chrome-hover); }
+.pdf-memo-results-meta { color: var(--text-strong); font-size: 12.5px; }
+.pdf-memo-results-note { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pdf-memo-header-button,
+.pane-doc .pdf-memo-reopen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.pdf-memo-header-button:hover,
+.pdf-memo-header-button[aria-pressed='true'],
+.pane-doc .pdf-memo-reopen:hover { border-color: var(--accent); color: var(--accent); }
+
+.pane-doc .pdf-memo-reopen { position: absolute; z-index: 14; top: 44px; right: 14px; }
+
+/* ---------- 메모만 보기 ---------- */
+.pdf-pane-memo-hidden { visibility: hidden; }
+
+.pane-doc .pdf-memo-only {
+  position: absolute;
+  inset: 47px 0 0;
+  overflow: auto;
+  padding: 6px 24px 40px;
+}
+
+.pdf-memo-list { display: grid; gap: 10px; max-width: 1100px; margin: 0 auto; }
+.pdf-memo-list-scope { color: var(--text-strong); font-size: 13px; }
+.pdf-memo-list-empty { margin: 40px 0; color: var(--text-strong); text-align: center; }
+
+.pdf-memo-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  overflow: hidden;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.pdf-memo-list-source { min-width: 0; padding: 12px 14px; border-right: 1px solid var(--divider); }
+
+.pdf-memo-list-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--text-strong);
+  font-size: 12.5px;
+}
+
+.pdf-memo-list-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.pdf-memo-list-quote { padding: 2px 6px; border-radius: 3px; color: var(--text-strong); font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+.pdf-memo-list-quote-yellow { background: rgb(255 214 0 / 22%); }
+.pdf-memo-list-quote-green { background: rgb(70 214 110 / 18%); }
+.pdf-memo-list-quote-blue { background: rgb(80 165 255 / 16%); }
+.pdf-memo-list-quote-pink { background: rgb(255 105 165 / 15%); }
+
+.pdf-memo-list-crop { position: relative; max-width: 100%; overflow: hidden; border: 1px solid var(--divider); border-radius: 4px; background: #fff; }
+.pdf-memo-list-crop img { position: absolute; max-width: none; user-select: none; }
+
+.pdf-memo-list-note { display: grid; align-content: start; gap: 4px; padding: 12px 14px; background: color-mix(in srgb, var(--paper) 92%, var(--workspace)); }
+
+/* ---------- 메모 바 너비 조절(왼쪽 가장자리를 끈다) ---------- */
+.pdf-memo-bar-resize {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pdf-memo-bar-resize::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+
+.pdf-memo-bar-resize:hover::after,
+.pdf-memo-bar-resize:active::after { background: var(--accent); }
+
+/* ---------- PDF 의 제목줄·도구·하단바는 메모 바 왼쪽만 쓴다 ---------- */
+/* 제목은 오른쪽 위 도구 단추 넷(선택·영역·전체 화면·형광펜) 앞에서 끝난다 */
+.pane-doc .pane-doc-title { right: calc(14px + 4 * (var(--doc-chip) + var(--doc-chip-gap)) + var(--memo-bar-w, 0px)); }
+.pane-doc .pane-toolbar,
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar { right: calc(14px + var(--doc-chip) + var(--doc-chip-gap) + var(--memo-bar-w, 0px)); }
+.pane-doc .pdf-highlighter-floating-tool { right: calc(14px + var(--memo-bar-w, 0px)); }
+.pane-doc .pane-frame-with-toolbar::before { right: var(--memo-bar-w, 0px); }
+.pane-doc .pane-bottom-bar { margin-right: var(--memo-bar-w, 0px); }
+
+/* ---------- 메모 서식 ---------- */
+.pdf-memo-editor-wrap { display: grid; gap: 4px; margin-top: 4px; }
+
+.pdf-memo-format-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--paper);
+}
+
+.pdf-memo-format-button {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.pdf-memo-format-button:hover { background: var(--chrome-hover); }
+.pdf-memo-format-divider { width: 1px; height: 16px; margin: 0 3px; background: var(--divider); }
+.pdf-memo-format-group { position: relative; display: inline-flex; }
+
+.pdf-memo-format-palette {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--paper);
+  box-shadow: 0 6px 18px var(--shadow-soft);
+}
+
+.pdf-memo-format-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--divider);
+  border-radius: 5px;
+  background: var(--paper);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pdf-memo-format-swatch:hover { border-color: var(--accent); }
+.pdf-memo-format-swatch-back[style*='transparent'] { background-image: linear-gradient(135deg, transparent 45%, var(--danger) 45% 55%, transparent 55%) !important; }
+
+.pdf-memo-editor {
+  min-height: 48px;
+  padding: 4px 2px;
+  border: 0;
+  outline: 0;
+  color: var(--text-strong);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.pdf-memo-editor-empty::before { content: attr(data-placeholder); color: var(--text-strong); opacity: .45; pointer-events: none; }
+
+.pdf-memo-card-text,
+.pdf-memo-editor { white-space: normal; }
+.pdf-memo-card-text ul,
+.pdf-memo-card-text ol,
+.pdf-memo-editor ul,
+.pdf-memo-editor ol { margin: 2px 0; padding-left: 20px; }
+.pdf-memo-card-text p,
+.pdf-memo-editor p { margin: 0; }
+
+/* 하단바: 넘치면 앞에서부터 보인다(접기는 PdfBottomBar 가 실제 폭을 재서 「…」 메뉴로 옮긴다) */
+.pane-doc .pdf-bottom-bar-surface { justify-content: safe center; }
+
+/* 크롬처럼 활성 탭 = PDF 도구줄 = 메모 바 머리: 같은 색, 같은 높이(--doc-card-h), 같은 밑선 */
+.pane-doc .pane-frame-with-toolbar::before { background: var(--paper); border-bottom: 1px solid var(--divider); }
+.pane-top-tab.pane-top-tab-active,
+.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active {
+  background:
+    linear-gradient(var(--paper), var(--paper)) padding-box,
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, transparent) 0%, color-mix(in srgb, var(--accent) 22%, transparent) 55%, transparent 100%) border-box;
+}
+.pane-doc .pdf-memo-header {
+  box-sizing: border-box;
+  height: var(--doc-card-h, 36px);
+  padding: 0 8px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--paper);
+}
+.pane-doc .pdf-memo-bar-wide .pdf-memo-header { padding: 0 24px; }
+.pane-doc .pdf-memo-header .pdf-memo-search { height: 28px; }
+.pane-doc .pdf-memo-header .pdf-memo-header-button { width: 28px; height: 28px; }
+
+/* 맨 위 줄의 메모 바 단추(창 조작 단추 왼쪽) */
+.wincontrols .topbar-memo-toggle { flex: 0 0 auto; margin-right: 6px; }
+.topbar .topbar-memo-toggle { color: var(--text-strong); }
+
+/* ---------- 페이지 배경 색조(양피지·눈 보호): 종이 흰색에만 색을 곱한다 ---------- */
+.pdf-pane-tone-sepia .pdf-page::after,
+.pdf-pane-tone-green .pdf-page::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+.pdf-pane-tone-sepia .pdf-page::after { background: #f4e7c8; }
+.pdf-pane-tone-green .pdf-page::after { background: #cfe8cf; }
+
+/* ---------- 하단 막대: 쪽 배치 단추, 실제 크기 ---------- */
+.pane-doc .pdf-bottom-layout { display: flex; align-items: center; gap: 2px; padding: 0 4px; border-inline: 1px solid var(--divider); }
+.pane-doc .pdf-bottom-layout .bottombar-btn[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--ink); }
+.pane-doc .bottombar-actual { width: auto; padding: 0 6px; font-size: 12px; font-weight: 700; letter-spacing: -.02em; }
+
+.pdf-view-menu-backgrounds { grid-template-columns: 1fr 1fr; }
+.pdf-view-menu-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border: 1px solid var(--divider-strong); border-radius: 3px; vertical-align: -1px; }
+.pdf-view-menu-swatch-normal { background: #fff; }
+.pdf-view-menu-swatch-night { background: #1e1e1e; }
+.pdf-view-menu-swatch-sepia { background: #f4e7c8; }
+.pdf-view-menu-swatch-green { background: #cfe8cf; }
+
+/* 좁으면 덜 쓰는 것부터 접는다(하단 막대 자신의 폭 기준) */
+
+/* ---------- 인쇄 ---------- */
+.pdf-print-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgb(0 0 0 / .4); }
+.pdf-print-dialog { width: min(600px, calc(100vw - 32px)); padding: 18px 20px 16px; border: 1px solid var(--divider-strong); border-radius: 12px; background: var(--paper); color: var(--ink); box-shadow: 0 18px 48px rgb(0 0 0 / .32); }
+.pdf-print-dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.pdf-print-dialog h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.pdf-print-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); }
+.pdf-print-close:hover { background: var(--chrome-hover); }
+.pdf-print-body { display: flex; gap: 20px; align-items: flex-start; }
+/* 미리보기: 용지(흰 종이) 위에 여백 안쪽 칸, 그 가운데 쪽 그림 */
+.pdf-print-preview { flex: 0 0 auto; display: grid; justify-items: center; gap: 8px; margin: 0; padding: 12px; border-radius: 10px; background: var(--chrome, rgb(0 0 0 / .08)); }
+.pdf-print-paper { box-sizing: border-box; background: #fff; box-shadow: 0 2px 10px rgb(0 0 0 / .3); transition: width 160ms ease, height 160ms ease, padding 160ms ease; }
+.pdf-print-area { display: grid; place-items: center; width: 100%; height: 100%; outline: 1px dashed rgb(64 128 255 / .55); }
+.pdf-print-area img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+.pdf-print-preview figcaption { max-width: 200px; color: var(--ink); font-size: 12px; text-align: center; }
+.pdf-print-options { flex: 1 1 auto; display: grid; gap: 16px; min-width: 0; }
+.pdf-print-field { display: grid; gap: 7px; }
+.pdf-print-label { color: var(--ink); font-size: 12.5px; font-weight: 600; }
+.pdf-print-segments { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border: 1px solid var(--divider); border-radius: 8px; }
+.pdf-print-segments > button { flex: 1 1 auto; height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; white-space: nowrap; }
+.pdf-print-segments > button:hover { background: var(--chrome-hover); }
+.pdf-print-segments > button[aria-checked='true'] { background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
+.pdf-print-mm { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; color: var(--ink); font-size: 13px; }
+.pdf-print-mm input { width: 52px; height: 26px; padding: 0 6px; border: 1px solid var(--divider); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+.pdf-print-range { height: 30px; padding: 0 10px; border: 1px solid var(--divider); border-radius: 7px; background: var(--paper); color: var(--ink); font: inherit; }
+.pdf-print-range:focus, .pdf-print-mm input:focus { outline: none; border-color: var(--accent); }
+.pdf-print-error { margin: 0; color: var(--danger); font-size: 12.5px; }
+.pdf-print-dialog footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.pdf-print-hint { margin-right: auto; color: var(--ink); font-size: 12px; opacity: .8; }
+.pdf-print-dialog footer button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
+.pdf-print-dialog footer .pdf-print-go { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
+.pdf-print-dialog footer .pdf-print-go:disabled { opacity: .5; }
+
+.iwae-print-root { display: none; }
+@media print {
+  /* 앱 화면은 html·body 를 창 높이로 묶고 넘치는 것을 숨긴다. 그대로 두면 첫 쪽만 찍힌다 */
+  html.iwae-printing, body.iwae-printing { height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; }
+  body.iwae-printing > :not(.iwae-print-root) { display: none !important; }
+  body.iwae-printing .iwae-print-root { display: block; }
+  /* 용지 한 장 = 쪽 하나. 여백(@page) 안을 꽉 채우고 그 가운데 비율 그대로 */
+  .iwae-print-sheet { display: flex; align-items: center; justify-content: center; overflow: hidden; break-after: page; break-inside: avoid; }
+  .iwae-print-sheet:last-child { break-after: auto; }
+  .iwae-print-sheet img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+  /* PDF 위 편집(글 상자·선)이 있는 쪽: 그림과 같은 크기의 상자 위에 비율대로 얹는다 */
+  .iwae-print-page { position: relative; flex: 0 0 auto; }
+  .iwae-print-sheet .iwae-print-page-image { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: fill; }
+  .iwae-print-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .iwae-print-text { position: absolute; box-sizing: border-box; padding: 0.2em 0.3em; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .iwae-print-text-border { border: 0.2mm solid currentColor; }
+  .iwae-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* ---------- 메모 바: PDF 와 따로 스크롤하는 목록 ---------- */
+.pdf-memo-bar-scroll {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 48px 0;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+}
+.pdf-memo-card.pdf-memo-card-flow { position: relative; flex: 0 0 auto; top: auto; left: auto; width: auto; }
+.pdf-memo-links-flow { position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none; }
+.pdf-memo-card-jump { padding: 0 4px; margin-left: -4px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.pdf-memo-card-jump:hover { background: var(--chrome-hover); color: var(--accent); }
+
+/* 어두운 테마: 메모 서식의 글자색(밝은 바탕용 진한 색)을 같은 계열의 밝은 색으로. 오른쪽 노트 바는 늘 흰 종이라 빼 둔다 */
+:root[data-theme='dark'] :is(.pdf-memo-card-text, .pdf-memo-editor):not(.pdf-memo-bar *) [style*='color: rgb(31, 35, 40)'] { color: var(--text-strong) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-card-text, .pdf-memo-editor):not(.pdf-memo-bar *) [style*='color: rgb(207, 34, 46)'] { color: #ff7b72 !important; }
+:root[data-theme='dark'] :is(.pdf-memo-card-text, .pdf-memo-editor):not(.pdf-memo-bar *) [style*='color: rgb(188, 76, 0)'] { color: #ffa657 !important; }
+:root[data-theme='dark'] :is(.pdf-memo-card-text, .pdf-memo-editor):not(.pdf-memo-bar *) [style*='color: rgb(26, 127, 55)'] { color: #56d364 !important; }
+:root[data-theme='dark'] :is(.pdf-memo-card-text, .pdf-memo-editor):not(.pdf-memo-bar *) [style*='color: rgb(9, 105, 218)'] { color: #79c0ff !important; }
+:root[data-theme='dark'] :is(.pdf-memo-card-text, .pdf-memo-editor):not(.pdf-memo-bar *) [style*='color: rgb(130, 80, 223)'] { color: #d2a8ff !important; }
+/* 배경색(형광 칠)은 어두운 바탕에서 글자가 묻히지 않게 진한 글자로 */
+:root[data-theme='dark'] :is(.pdf-memo-card-text, .pdf-memo-editor):not(.pdf-memo-bar *) [style*='background-color'] { color: #1f1f1f; }
+
+/* ---------- PDF 하단 막대 오른쪽 끝: IWAE 가 쓰는 CPU·메모리 (설정에서 끈다) ---------- */
+.pdf-usage-meter {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  margin-left: 2px;
+  padding-left: 10px;
+  border-left: 1px solid var(--divider);
+  color: var(--text-strong);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.pdf-usage-meter b { font-weight: 700; }
+/* ---------- 하단 막대 「…」: 자리가 모자라 접어 둔 단추 ---------- */
+.pane-doc .pdf-bottom-more { flex: 0 0 auto; }
+.pdf-usage-slot { display: flex; flex: 0 0 auto; }
+.pdf-bottom-more-backdrop { position: fixed; inset: 0; z-index: 90; }
+.pdf-bottom-more-menu {
+  position: fixed; z-index: 91; min-width: 200px; padding: 6px;
+  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 28%); color: var(--text-strong); font-size: 13px;
+}
+.pdf-bottom-more-menu > button {
+  display: flex; align-items: center; gap: 9px; width: 100%; height: 30px; padding: 0 10px;
+  border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.pdf-bottom-more-menu > button:hover:not(:disabled) { background: var(--chrome-hover); }
+.pdf-bottom-more-menu > button:disabled { opacity: .45; cursor: default; }
+.pdf-bottom-more-menu kbd { margin-left: auto; font: inherit; font-size: 11.5px; color: var(--text-strong); opacity: .7; }
+.pdf-bottom-more-check { margin-left: auto; color: var(--accent); }
+.pdf-bottom-more-glyph { width: 16px; font-size: 11px; font-weight: 700; text-align: center; }
+.pdf-bottom-more-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--divider); }
+.pdf-bottom-more-menu hr:first-child { display: none; }
+.pdf-bottom-more-range { display: grid; gap: 4px; padding: 6px 10px; font-size: 12.5px; }
+.pdf-bottom-more-range input { width: 100%; accent-color: var(--accent); }
+.pdf-bottom-more-usage { padding: 4px 10px 2px; }
+.pdf-bottom-more-usage .pdf-usage-meter { margin: 0; padding: 0; border: 0; }
+
+/* ---------- 메모 글의 서식: 제목·인용·코드·코드 블록·할 일·구분선 ---------- */
+:is(.pdf-memo-card-text, .pdf-memo-editor) {
+  --memo-code-bg: color-mix(in srgb, var(--text-strong) 7%, transparent);
+  --memo-code-line: color-mix(in srgb, var(--text-strong) 13%, transparent);
+  --memo-mono: 'Cascadia Code', 'Cascadia Mono', 'D2Coding', Consolas, monospace;
+}
+:is(.pdf-memo-card-text, .pdf-memo-editor) :is(h2, h3, h4) { margin: .75em 0 .2em; color: var(--text-strong); font-weight: 750; letter-spacing: -.01em; line-height: 1.35; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) h2 { font-size: 1.28em; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) h3 { font-size: 1.13em; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) h4 { font-size: 1em; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) > :is(h2, h3, h4, pre, blockquote, ul, ol, hr):first-child { margin-top: 0; }
+
+/* `코드`: 옅은 바탕, 가는 테두리, 고정폭 글자 */
+:is(.pdf-memo-card-text, .pdf-memo-editor) code:not(pre *) {
+  padding: .08em .38em;
+  border: 1px solid var(--memo-code-line);
+  border-radius: 5px;
+  background: var(--memo-code-bg);
+  color: var(--text-strong);
+  font-family: var(--memo-mono);
+  font-size: .86em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* ``` 코드 블록 */
+:is(.pdf-memo-card-text, .pdf-memo-editor) pre {
+  margin: .5em 0;
+  padding: 9px 12px;
+  border: 1px solid var(--memo-code-line);
+  border-radius: 8px;
+  background: var(--memo-code-bg);
+  color: var(--text-strong);
+  font-family: var(--memo-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
+:is(.pdf-memo-card-text, .pdf-memo-editor) pre code { padding: 0; border: 0; background: none; font-size: inherit; }
+
+/* > 인용: 옅은 파란 바탕과 앞의 큰 따옴표(왼쪽 줄은 쓰지 않는다) */
+:is(.pdf-memo-card-text, .pdf-memo-editor) blockquote {
+  position: relative;
+  margin: .5em 0;
+  padding: 7px 12px 7px 32px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-strong);
+}
+:is(.pdf-memo-card-text, .pdf-memo-editor) blockquote::before {
+  position: absolute; top: 2px; left: 10px;
+  color: var(--accent); content: '\201C';
+  font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 700; line-height: 1;
+}
+
+/* --- 구분선 */
+:is(.pdf-memo-card-text, .pdf-memo-editor) hr { height: 1px; margin: .9em 0; border: 0; background: var(--divider-strong, var(--divider)); }
+
+/* 목록 */
+:is(.pdf-memo-card-text, .pdf-memo-editor) :is(ul, ol) { margin: .3em 0; padding-left: 22px; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) li { margin: .12em 0; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) li::marker { color: var(--accent); font-weight: 700; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) ul ul { list-style-type: circle; }
+
+/* [ ] 할 일: 글 왼쪽의 네모를 누르면 체크 */
+:is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] { padding-left: 2px; list-style: none; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] > li { position: relative; padding-left: 25px; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] > li::before {
+  position: absolute; top: .32em; left: 1px;
+  box-sizing: border-box; width: 15px; height: 15px;
+  border: 1.5px solid color-mix(in srgb, var(--text-strong) 45%, transparent); border-radius: 4px;
+  background: var(--paper); content: ''; cursor: pointer;
+}
+:is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] > li[data-checked='true']::before { border-color: var(--accent); background: var(--accent); }
+:is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] > li[data-checked='true']::after {
+  position: absolute; top: calc(.32em + 3px); left: 6px;
+  width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0;
+  content: ''; transform: rotate(45deg); pointer-events: none;
+}
+:is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] > li[data-checked='true'] {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-strong) 55%, transparent);
+}
+
+/* 서식 도구: 문단 모양 고르개 */
+.pdf-memo-format-button.pdf-memo-format-block {
+  display: inline-flex; gap: 3px; width: auto; min-width: 54px; padding: 0 6px 0 8px;
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+}
+.pdf-memo-format-menu {
+  position: absolute; z-index: 41; top: calc(100% + 4px); left: 0;
+  display: grid; min-width: 196px; padding: 4px;
+  border: 1px solid var(--divider); border-radius: 8px;
+  background: var(--paper); box-shadow: 0 8px 24px var(--shadow-soft);
+}
+.pdf-memo-format-menu-item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  min-height: 30px; padding: 4px 9px;
+  border: 0; border-radius: 5px; background: transparent;
+  color: var(--text-strong); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.pdf-memo-format-menu-item:hover { background: var(--chrome-hover); }
+.pdf-memo-format-menu-item[aria-checked='true'] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.pdf-memo-format-menu-hint { padding: 0 5px; border-radius: 4px; background: var(--field); color: var(--text-strong); font-family: 'Cascadia Mono', Consolas, monospace; font-size: 10.5px; line-height: 18px; white-space: nowrap; }
+.pdf-memo-format-menu-h2 .pdf-memo-format-menu-name { font-size: 16px; font-weight: 750; }
+.pdf-memo-format-menu-h3 .pdf-memo-format-menu-name { font-size: 14.5px; font-weight: 750; }
+.pdf-memo-format-menu-h4 .pdf-memo-format-menu-name { font-weight: 750; }
+.pdf-memo-format-menu-pre .pdf-memo-format-menu-name { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; }
+
+/* ---------- 메모·노트 글의 표 ---------- */
+:is(.pdf-memo-card-text, .pdf-memo-editor) table {
+  display: block;
+  max-width: 100%;
+  margin: 6px 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+:is(.pdf-memo-card-text, .pdf-memo-editor) th,
+:is(.pdf-memo-card-text, .pdf-memo-editor) td {
+  min-width: 36px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+:is(.pdf-memo-card-text, .pdf-memo-editor) th { background: color-mix(in srgb, currentColor 8%, transparent); font-weight: 650; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) :is(th, td)[align="center"] { text-align: center; }
+:is(.pdf-memo-card-text, .pdf-memo-editor) :is(th, td)[align="right"] { text-align: right; }
+.pdf-memo-editor td:focus-within, .pdf-memo-editor th:focus-within { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -2px; }
+.pdf-memo-format-table-menu .pdf-memo-format-menu-item:disabled { opacity: .45; cursor: default; }

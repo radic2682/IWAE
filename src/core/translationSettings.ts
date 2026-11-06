@@ -1,0 +1,159 @@
+import type { ExternalTranslationProvider, TranslationExecutionMode, TranslationModelMode } from './translation'
+import { t } from '../i18n'
+
+export type { TranslationExecutionMode } from './translation'
+
+export interface TranslationSettings {
+  readonly executionMode: TranslationExecutionMode
+  readonly mode: TranslationModelMode
+  readonly targetLanguage: string
+  readonly endpoint: string
+  readonly customModel: string
+  readonly externalProvider: ExternalTranslationProvider
+  readonly externalEndpoint: string
+  readonly externalModel: string
+}
+
+/** 외부 번역 제공자별 기본 주소와 고를 수 있는 모델(비워 두면 직접 쓴다) */
+export const EXTERNAL_PROVIDERS: readonly {
+  readonly id: ExternalTranslationProvider
+  readonly label: string
+  readonly endpoint: string
+  readonly models: readonly string[]
+  readonly keyHint: string
+}[] = [
+  { id: 'anthropic', label: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'], get keyHint() { return t('console.anthropic.com 에서 만든 API key') } },
+  { id: 'openai', label: 'OpenAI', endpoint: 'https://api.openai.com/v1', models: [], get keyHint() { return t('platform.openai.com 에서 만든 API key') } },
+  { id: 'gemini', label: 'Google Gemini', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', models: [], get keyHint() { return t('Google AI Studio 에서 만든 API key') } },
+  { id: 'azure', get label() { return t('Azure Translator (번역 전용)') }, endpoint: 'https://api.cognitive.microsofttranslator.com', models: ['global', 'koreacentral', 'eastasia', 'japaneast'], get keyHint() { return t('Azure 포털 「번역기」 리소스의 키 1') } },
+  { id: 'deepl', get label() { return t('DeepL (번역 전용)') }, endpoint: 'https://api-free.deepl.com', models: [], get keyHint() { return t('DeepL 계정의 API key (무료 키는 :fx 로 끝남)') } },
+  { id: 'compatible', get label() { return t('OpenAI 호환 (OpenRouter · Groq · LM Studio 등)') }, endpoint: '', models: [], get keyHint() { return t('그 서비스의 API key') } },
+]
+
+export function externalProviderInfo(id: ExternalTranslationProvider) {
+  return EXTERNAL_PROVIDERS.find((item) => item.id === id) ?? EXTERNAL_PROVIDERS[0]!
+}
+
+export interface TranslationSettingsStorage {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+}
+
+export const TRANSLATION_SETTINGS_KEY = 'iwae:translation-settings:v1'
+
+export const DEFAULT_TRANSLATION_SETTINGS: TranslationSettings = {
+  executionMode: 'auto',
+  mode: 'auto',
+  targetLanguage: 'ko',
+  endpoint: 'http://127.0.0.1:11434',
+  customModel: '',
+  externalProvider: 'anthropic',
+  externalEndpoint: 'https://api.anthropic.com',
+  externalModel: 'claude-opus-5-5',
+}
+
+const EXTERNAL_PROVIDER_IDS = new Set<ExternalTranslationProvider>(['anthropic', 'openai', 'gemini', 'compatible', 'azure', 'deepl'])
+
+const MODES = new Set<TranslationModelMode>(['auto', '4b', '12b', '27b', 'custom'])
+const EXECUTION_MODES = new Set<TranslationExecutionMode>(['auto', 'cpu', 'gpu', 'external-api'])
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function nonEmptyString(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : fallback
+}
+
+function validEndpoint(value: unknown): string {
+  if (typeof value !== 'string') return DEFAULT_TRANSLATION_SETTINGS.endpoint
+  const endpoint = value.trim()
+  try {
+    const parsed = new URL(endpoint)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      ? endpoint
+      : DEFAULT_TRANSLATION_SETTINGS.endpoint
+  } catch {
+    return DEFAULT_TRANSLATION_SETTINGS.endpoint
+  }
+}
+
+export function parseTranslationSettings(raw: unknown): TranslationSettings {
+  if (!isRecord(raw)) return { ...DEFAULT_TRANSLATION_SETTINGS }
+
+  const mode = typeof raw.mode === 'string' && MODES.has(raw.mode as TranslationModelMode)
+    ? raw.mode as TranslationModelMode
+    : DEFAULT_TRANSLATION_SETTINGS.mode
+
+  const executionMode = typeof raw.executionMode === 'string'
+    && EXECUTION_MODES.has(raw.executionMode as TranslationExecutionMode)
+    ? raw.executionMode as TranslationExecutionMode
+    : DEFAULT_TRANSLATION_SETTINGS.executionMode
+
+  return {
+    executionMode,
+    mode,
+    targetLanguage: nonEmptyString(raw.targetLanguage, DEFAULT_TRANSLATION_SETTINGS.targetLanguage),
+    endpoint: validEndpoint(raw.endpoint),
+    customModel: typeof raw.customModel === 'string' ? raw.customModel.trim() : '',
+    // 예전 설정(제공자 없음)은 OpenAI 호환으로 읽는다(그때는 그것만 있었다)
+    externalProvider: typeof raw.externalProvider === 'string' && EXTERNAL_PROVIDER_IDS.has(raw.externalProvider as ExternalTranslationProvider)
+      ? raw.externalProvider as ExternalTranslationProvider
+      : raw.externalEndpoint === undefined ? DEFAULT_TRANSLATION_SETTINGS.externalProvider : 'compatible',
+    externalEndpoint: validExternalEndpoint(raw.externalEndpoint),
+    externalModel: typeof raw.externalModel === 'string' ? raw.externalModel.trim() : raw.externalEndpoint === undefined ? DEFAULT_TRANSLATION_SETTINGS.externalModel : '',
+  }
+}
+
+function validExternalEndpoint(value: unknown): string {
+  if (typeof value !== 'string') return DEFAULT_TRANSLATION_SETTINGS.externalEndpoint
+  const endpoint = value.trim()
+  try {
+    const parsed = new URL(endpoint)
+    const loopback = parsed.hostname === 'localhost'
+      || parsed.hostname === '127.0.0.1'
+      || parsed.hostname === '[::1]'
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' && loopback
+      ? endpoint.replace(/\/$/, '')
+      : DEFAULT_TRANSLATION_SETTINGS.externalEndpoint
+  } catch {
+    return DEFAULT_TRANSLATION_SETTINGS.externalEndpoint
+  }
+}
+
+function browserStorage(): TranslationSettingsStorage | undefined {
+  try {
+    return globalThis.localStorage
+  } catch {
+    return undefined
+  }
+}
+
+export function loadTranslationSettings(
+  storage: TranslationSettingsStorage | undefined = browserStorage(),
+): TranslationSettings {
+  if (storage === undefined) return { ...DEFAULT_TRANSLATION_SETTINGS }
+  try {
+    const saved = storage.getItem(TRANSLATION_SETTINGS_KEY)
+    return saved === null
+      ? { ...DEFAULT_TRANSLATION_SETTINGS }
+      : parseTranslationSettings(JSON.parse(saved))
+  } catch {
+    return { ...DEFAULT_TRANSLATION_SETTINGS }
+  }
+}
+
+export function saveTranslationSettings(
+  settings: unknown,
+  storage: TranslationSettingsStorage | undefined = browserStorage(),
+): void {
+  if (storage === undefined) return
+  const safeSettings = parseTranslationSettings(settings)
+  try {
+    storage.setItem(TRANSLATION_SETTINGS_KEY, JSON.stringify(safeSettings))
+  } catch {
+    return
+  }
+}

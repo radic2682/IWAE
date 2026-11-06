@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+/* NSIS 환영·완료 쪽 왼쪽 그림. 164×314 (2배로 그려 고해상도 화면에서도 선명하게). 설치기는 두 언어라 문장은 넣지 않는다 */
+html, body { margin: 0; width: 164px; height: 314px; overflow: hidden; }
+body {
+  position: relative;
+  background:
+    radial-gradient(110px 110px at 82px 118px, rgba(79, 140, 255, .32), rgba(79, 140, 255, 0) 70%),
+    linear-gradient(165deg, #1d3f86 0%, #13295a 46%, #0b1733 100%);
+  font-family: 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+  color: #fff;
+}
+/* 은은한 점 무늬 */
+body::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, .07) 1px, transparent 1.2px);
+  background-size: 12px 12px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,.9), rgba(0,0,0,.15));
+}
+img.logo { position: absolute; left: 37px; top: 72px; width: 90px; height: 90px; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, .45)); }
+.name { position: absolute; top: 172px; width: 100%; text-align: center; font-size: 26px; font-weight: 700; letter-spacing: 5px; text-indent: 5px; }
+.rule { position: absolute; top: 210px; left: 66px; width: 32px; height: 2px; border-radius: 2px; background: #39c2b3; }
+.foot { position: absolute; bottom: 12px; width: 100%; text-align: center; font-size: 8.5px; letter-spacing: 1.6px; color: rgba(214, 226, 255, .75); }
+</style></head>
+<body>
+  <img class="logo" src="../icons/128x128@2x.png" alt="">
+  <div class="name">IWAE</div>
+  <div class="rule"></div>
+  <div class="foot">PDF · MARKDOWN · NOTES</div>
+</body></html>

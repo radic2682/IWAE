@@ -1,0 +1,37 @@
+/* 상호참조 미리보기 — 본문의 "Table 52" 위에 마우스를 올리면 뜨는 작은 창 */
+.crossref-preview {
+  position: fixed;
+  z-index: 300;
+  overflow: hidden;
+  border: 1px solid var(--control-border-floating);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 12px 32px var(--shadow-floating);
+  animation: crossref-in 120ms ease both;
+}
+@keyframes crossref-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.crossref-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--chrome);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.crossref-preview-label { color: var(--text-strong); font-weight: 650; }
+.crossref-preview-page { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.crossref-preview-go { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; color: var(--accent); font-weight: 600; }
+.crossref-preview-body { overflow: hidden; background: #fff; cursor: pointer; }
+.crossref-preview-body img { display: block; height: auto; }
+:root[data-theme='dark'] .crossref-preview-body img { filter: none; }
+@media (prefers-reduced-motion: reduce) { .crossref-preview { animation: none; } }

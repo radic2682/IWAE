@@ -1,0 +1,58 @@
+.bib-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.bib-dialog {
+  display: grid;
+  gap: 10px;
+  width: min(480px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--divider);
+  background: var(--paper);
+  box-shadow: 0 18px 40px var(--shadow-soft);
+  animation: bib-dialog-in 140ms var(--layout-ease, ease) both;
+}
+
+.bib-dialog-title { margin: 0; color: var(--ink); font-size: 15px; }
+.bib-dialog-title small { margin-left: 6px; color: var(--text-dim); font-size: 12px; font-weight: 400; }
+.bib-dialog label { display: grid; gap: 4px; color: var(--text-dim); font-size: 12px; }
+
+.bib-dialog input,
+.bib-dialog textarea {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--divider);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.bib-dialog-row { display: flex; gap: 8px; }
+.bib-dialog-row label:first-child { width: 96px; }
+.bib-dialog-grow { flex: 1 1 auto; }
+.bib-dialog-error { margin: 0; color: var(--danger, #c0392b); font-size: 12px; }
+.bib-dialog-actions { display: flex; align-items: center; gap: 8px; }
+.bib-dialog-spacer { flex: 1 1 auto; }
+
+.bib-dialog-actions button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--divider);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.bib-dialog-actions button:disabled { opacity: 0.45; cursor: default; }
+.bib-dialog-actions .bib-dialog-primary { border-color: var(--accent); background: var(--accent); color: var(--paper); }
+
+@keyframes bib-dialog-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .bib-dialog { animation: none; } }

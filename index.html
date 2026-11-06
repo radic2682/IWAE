@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#171a1e" />
+    <link rel="icon" type="image/png" href="/iwae-logo.png" />
+    <title>IWAE</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+      body { background: #f1f2f3; }
+      .app-boot {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #f1f2f3;
+        color: #171a1f;
+        font: 13px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      }
+      .app-boot-titlebar {
+        position: relative;
+        flex: 0 0 38px;
+        display: flex;
+        align-items: center;
+        padding-left: 12px;
+        border-bottom: 1px solid #d8dade;
+        background: #f4f5f6;
+      }
+      .app-boot-titlebar-label { color: #69727d; font-size: 11px; font-weight: 650; letter-spacing: .04em; }
+      .app-boot-titlebar-drag { flex: 1 1 auto; align-self: stretch; }
+      .app-boot-window-controls { align-self: stretch; display: flex; }
+      .app-boot-window-controls button {
+        width: 46px;
+        height: 100%;
+        border: 0;
+        background: transparent;
+        color: #69727d;
+        font: 16px/1 "Segoe UI Symbol", sans-serif;
+      }
+      .app-boot-window-controls button:hover { background: #e4e6e8; color: #171a1f; }
+      .app-boot-window-controls button:last-child:hover { background: #c42b1c; color: #fff; }
+      .app-boot-content { min-height: 0; flex: 1 1 auto; display: grid; place-items: center; }
+      .app-boot-card { display: grid; justify-items: center; gap: 14px; }
+      .app-boot-mark { width: 58px; height: 58px; filter: drop-shadow(0 10px 22px rgb(20 31 44 / 18%)); }
+      .app-boot-title { font-size: 17px; font-weight: 720; letter-spacing: .08em; }
+      .app-boot-copy { color: #69727d; font-size: 12px; }
+      .app-boot-progress { width: 132px; height: 2px; overflow: hidden; border-radius: 999px; background: #dcdfe3; }
+      .app-boot-progress::after {
+        content: "";
+        display: block;
+        width: 46%;
+        height: 100%;
+        border-radius: inherit;
+        background: #2f8fbd;
+        animation: app-boot-progress 1.15s ease-in-out infinite alternate;
+      }
+      @keyframes app-boot-progress { to { transform: translateX(118%); } }
+      @media (prefers-color-scheme: dark) {
+        body, .app-boot { background: #171a1e; color: #f5f6f7; }
+        .app-boot-titlebar { border-bottom-color: #2d3238; background: #1c2025; }
+        .app-boot-titlebar-label, .app-boot-window-controls button { color: #9ca4ad; }
+        .app-boot-window-controls button:hover { background: #2b3036; color: #f5f6f7; }
+        .app-boot-window-controls button:last-child:hover { background: #c42b1c; color: #fff; }
+        .app-boot-copy { color: #9ca4ad; }
+        .app-boot-progress { background: #343a41; }
+        .app-boot-progress::after { background: #62c7e9; }
+      }
+      @media (prefers-reduced-motion: reduce) { .app-boot-progress::after { animation: none; margin-inline: auto; } }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="app-boot">
+        <header class="app-boot-titlebar" data-tauri-drag-region="deep">
+          <span class="app-boot-titlebar-label">IWAE</span>
+          <span class="app-boot-titlebar-drag" data-tauri-drag-region aria-hidden="true"></span>
+          <div class="app-boot-window-controls">
+            <button type="button" aria-label="최소화" data-window-action="minimize">−</button>
+            <button type="button" aria-label="최대화" data-window-action="maximize">□</button>
+            <button type="button" aria-label="닫기" data-window-action="close">×</button>
+          </div>
+        </header>
+        <div class="app-boot-content" role="status" aria-live="polite" aria-label="IWAE를 여는 중">
+          <div class="app-boot-card">
+            <img class="app-boot-mark" src="/iwae-logo.png" alt="" aria-hidden="true" />
+            <div class="app-boot-title">IWAE</div>
+            <div class="app-boot-copy">IWAE를 여는 중…</div>
+            <div class="app-boot-progress" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script defer src="/startup-window.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

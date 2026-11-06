@@ -1,0 +1,20 @@
+{
+  "pdf": { "file": "iwae-manual.pdf", "name": "IWAE 사용 설명서.pdf" },
+  "markdown": { "file": "markdown-example.md", "name": "Markdown 예시.md" },
+  "note": {
+    "title": "IWAE 둘러보기",
+    "blocks": [
+      { "kind": "section", "title": "시작" },
+      { "kind": "text", "markdown": "설명서를 읽으며 남긴 예시 노트입니다. **메모**를 누르면 PDF 의 그 자리로 가고, 블록은 왼쪽 손잡이로 끌어 차례를 바꿀 수 있습니다." },
+      { "kind": "memo", "page": 2, "quote": "Vault 는 평범한 폴더라서 탐색기로 복사하거나 백업할 수 있습니다.", "note": "Vault 폴더를 통째로 복사하면 백업이 된다. 앱 기록은 `.iwae` 안에 있다." },
+      { "kind": "memo", "page": 3, "quote": "변과 모서리를 끌어 크기를 바꿀 수 있습니다.", "note": "영역 캡처로 잡은 표가 잘렸으면 네모를 끌어 다시 맞춘다." },
+      { "kind": "memo", "page": 4, "quote": "왼쪽 손잡이를 잡고 끌면 블록 차례를 바꿀 수 있습니다.", "note": "소제목을 끌면 묶인 블록이 함께 옮겨진다." },
+      { "kind": "section", "title": "요구사항 (티켓 예시)" },
+      { "kind": "text", "markdown": "아래는 **티켓** 블록입니다. 제목 · 내 글 · 원문 순서로 보입니다. 메모 블록의 메뉴(…)에서 「티켓으로 바꾸기」로 만듭니다." },
+      { "kind": "memo", "page": 5, "quote": "저장한 노트는 앱을 다시 켜도 그대로 남아야 한다.", "note": "노트를 쓰고 앱을 껐다 켜서 확인한다. 노트 파일은 `노트/*.iwnote` 에 있다.", "ticket": "REQ-01 노트는 다시 켜도 남는다" },
+      { "kind": "memo", "page": 5, "quote": "쪽 순서를 바꿔도 형광펜은 같은 글을 가리켜야 한다.", "note": "쪽 편집으로 순서를 바꾼 뒤 이 메모를 눌러 같은 문장으로 가는지 본다.", "ticket": "REQ-03 쪽을 옮겨도 형광펜은 그 글에" },
+      { "kind": "section", "title": "번역" },
+      { "kind": "memo", "page": 6, "quote": "클라우드 API 키는 이 PC 의 자격 증명 저장소에 보관됩니다.", "note": "키를 한 번 넣으면 다시 켜도 남는다. 회사 문서는 로컬 번역을 쓴다." }
+    ]
+  }
+}

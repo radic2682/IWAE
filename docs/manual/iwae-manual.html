@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>IWAE 사용 설명서</title>
+<style>
+  @page { size: A4; margin: 22mm 20mm 22mm 20mm; }
+  :root { --ink: #1f2328; --line: #d0d7de; --soft: #f3f5f8; --accent: #2f6fde; }
+  html { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.7; word-break: keep-all; }
+  body { margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 6pt; letter-spacing: -.02em; }
+  h2 { font-size: 16pt; margin: 0 0 10pt; padding-bottom: 6pt; border-bottom: 1.5pt solid var(--ink); letter-spacing: -.01em; }
+  h3 { font-size: 12pt; margin: 16pt 0 6pt; }
+  p { margin: 0 0 8pt; }
+  section { break-before: page; }
+  section:first-of-type { break-before: auto; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10pt; }
+  th, td { border: 0.75pt solid var(--line); padding: 5pt 8pt; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-weight: 700; }
+  code, kbd { font-family: "Cascadia Mono", Consolas, monospace; font-size: 9.5pt; background: var(--soft); border: 0.5pt solid var(--line); border-radius: 3pt; padding: 0 3pt; }
+  .cover { height: 230mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .sub { font-size: 13pt; margin-bottom: 28pt; }
+  .cover .box { border: 1pt solid var(--line); border-radius: 6pt; padding: 12pt 16pt; background: var(--soft); }
+  .req { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; margin: 0 0 8pt; }
+  .req b { display: inline-block; min-width: 60pt; }
+  .note { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; background: var(--soft); margin: 8pt 0; }
+  ol, ul { margin: 0 0 8pt; padding-left: 18pt; }
+  li { margin: 2pt 0; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <h1>IWAE 사용 설명서</h1>
+  <p class="sub">긴 PDF 를 읽고, 표시하고, 메모를 노트로 엮는 데스크톱 앱</p>
+  <div class="box">
+    <p>이 설명서는 새 Vault 에 예시로 들어 있습니다. 직접 형광펜을 칠하고 메모를 달아 보면서 읽어 보세요.</p>
+    <p>왼쪽 「노트」의 <b>IWAE 둘러보기</b> 노트에는 이 설명서에 단 메모와 티켓이 들어 있습니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>1. Vault 와 화면</h2>
+  <p>IWAE 는 Vault 라는 폴더 하나를 엽니다. PDF 와 Markdown 은 이 폴더에 그대로 두고, 앱이 쓰는 기록은 폴더 안의 .iwae 에 따로 둡니다.</p>
+  <p>Vault 는 평범한 폴더라서 탐색기로 복사하거나 백업할 수 있습니다.</p>
+  <h3>화면 구성</h3>
+  <table>
+    <tr><th>자리</th><th>하는 일</th></tr>
+    <tr><td>왼쪽 바</td><td>문서 목록과 노트 목록. 폴더로 묶고 끌어서 차례를 바꿉니다.</td></tr>
+    <tr><td>가운데</td><td>PDF·Markdown 보기. 탭으로 여러 문서를 열고, 둘로 나눠 나란히 볼 수 있습니다.</td></tr>
+    <tr><td>오른쪽 바</td><td>열린 노트. PDF 와 따로 스크롤하며, 메모와 PDF 형광펜이 선으로 이어집니다.</td></tr>
+  </table>
+  <h3>폴더 구조</h3>
+  <table>
+    <tr><th>경로</th><th>내용</th></tr>
+    <tr><td><code>*.pdf</code>, <code>*.md</code></td><td>내 문서</td></tr>
+    <tr><td><code>노트/*.iwnote</code></td><td>노트 파일</td></tr>
+    <tr><td><code>.iwae/</code></td><td>형광펜, 책갈피, 색인 같은 앱 기록</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>2. PDF 도구</h2>
+  <p>문서 위 도구줄의 단추로 도구를 바꿉니다.</p>
+  <table>
+    <tr><th>도구</th><th>하는 일</th></tr>
+    <tr><td>손 도구</td><td>빈 곳을 잡고 끌어 화면을 옮깁니다. 글자 위에서 끌면 글을 골라 복사만 합니다.</td></tr>
+    <tr><td>텍스트 선택</td><td>글을 끌면 형광펜이 칠해지고 오른쪽 노트에 메모 칸이 열립니다.</td></tr>
+    <tr><td>영역 캡처</td><td>표나 그림을 네모로 잡아 노트에 그림으로 넣습니다.</td></tr>
+    <tr><td>박스 메모</td><td>PDF 여백에 선으로 이어진 메모 상자를 붙입니다.</td></tr>
+    <tr><td>글 상자 · 펜 · 지우개 · 선</td><td>PDF 위에 직접 쓰고 그립니다. 떠 있는 서식 창에서 색과 굵기를 고릅니다.</td></tr>
+    <tr><td>쪽 편집</td><td>쪽 미리보기에서 순서를 바꾸고, 다른 PDF 의 쪽을 끼우고, 빼고, 돌립니다.</td></tr>
+  </table>
+  <div class="note">
+    <p>잡아 둔 표·그림 네모는 텍스트 선택이나 영역 캡처 도구에서 변과 모서리를 끌어 크기를 바꿀 수 있습니다.</p>
+  </div>
+  <h3>찾기와 이동</h3>
+  <p>Ctrl+F 로 PDF 안을 찾고, 목차와 쪽 미리보기로 원하는 곳에 갑니다. 문서 안의 링크를 누르면 그 자리로 가고, 마우스를 올리면 미리 보입니다.</p>
+</section>
+
+<section>
+  <h2>3. 메모와 노트</h2>
+  <p>노트는 블록을 쌓아 만드는 문서입니다. 한 노트에 여러 PDF 의 메모를 섞어 담을 수 있습니다.</p>
+  <table>
+    <tr><th>블록</th><th>설명</th></tr>
+    <tr><td>소제목</td><td>아래 블록을 묶습니다. 접으면 숨고, 끌면 묶인 블록과 함께 옮겨집니다.</td></tr>
+    <tr><td>글</td><td>노트에 직접 쓰는 글입니다. 굵게, 목록, 표, 코드를 쓸 수 있습니다.</td></tr>
+    <tr><td>메모</td><td>PDF 형광펜과 그 메모입니다. 누르면 PDF 의 그 자리로 갑니다.</td></tr>
+    <tr><td>티켓</td><td>제목, 내 글, 원문 순서로 보이는 메모입니다. 요구사항을 정리할 때 씁니다.</td></tr>
+  </table>
+  <p>블록에 마우스를 올리면 블록 오른쪽 위에 출처가 보입니다.</p>
+  <p>왼쪽 손잡이를 잡고 끌면 블록 차례를 바꿀 수 있습니다.</p>
+  <p>메모 블록의 메뉴에서 티켓으로 바꾸기를 누르면 티켓이 됩니다.</p>
+</section>
+
+<section>
+  <h2>4. 연습: 요구사항 정리하기</h2>
+  <p>아래는 연습용 요구사항입니다. 텍스트 선택 도구로 한 줄을 끌어 메모를 만든 뒤, 메모 메뉴에서 티켓으로 바꿔 보세요.</p>
+  <div class="req"><b>REQ-01</b> 저장한 노트는 앱을 다시 켜도 그대로 남아야 한다.</div>
+  <div class="req"><b>REQ-02</b> 형광펜을 지우면 그 메모 블록도 노트에서 빠져야 한다.</div>
+  <div class="req"><b>REQ-03</b> 쪽 순서를 바꿔도 형광펜은 같은 글을 가리켜야 한다.</div>
+  <div class="req"><b>REQ-04</b> 번역할 글은 사용자가 고른 곳으로만 보내야 한다.</div>
+  <p>이 Vault 의 예시 노트에는 REQ-01 과 REQ-03 이 이미 티켓으로 들어 있습니다.</p>
+</section>
+
+<section>
+  <h2>5. 번역</h2>
+  <p>고른 글을 바로 번역할 수 있습니다. 설정의 번역에서 방식을 고릅니다.</p>
+  <table>
+    <tr><th>방식</th><th>특징</th></tr>
+    <tr><td>로컬 (Ollama)</td><td>글이 PC 밖으로 나가지 않습니다. 모델 크기에 따라 느릴 수 있습니다.</td></tr>
+    <tr><td>클라우드 API</td><td>Claude, OpenAI, Gemini 등으로 빠르게 번역합니다. 고른 글이 그 서비스로 전송됩니다.</td></tr>
+  </table>
+  <p>클라우드 API 키는 이 PC 의 자격 증명 저장소에 보관됩니다.</p>
+</section>
+
+<section>
+  <h2>6. 단축키</h2>
+  <table>
+    <tr><th>키</th><th>하는 일</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>PDF 검색</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>인쇄</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>고른 PDF 글 복사</td></tr>
+    <tr><td>오른쪽 단추로 끌기</td><td>마우스 제스처 (탭 닫기, 맨 위·맨 아래로)</td></tr>
+  </table>
+  <p>IWAE 는 오픈 소스입니다. 문제를 찾거나 기능을 제안하려면 저장소의 이슈에 남겨 주세요.</p>
+</section>
+
+</body>
+</html>

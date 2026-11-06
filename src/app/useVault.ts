@@ -1,0 +1,1642 @@
+import type { FolderColor } from '../core/folderColors'
+import { seedSampleVaultInto } from './sampleVaultDesktop'
+import { addRecentPdf, readRecentPdfs, removeRecentPdf, samePath, writeRecentPdfs, type RecentPdf } from '../core/recentPdfs'
+import { CANVAS_ENABLED } from '../core/features'
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react'
+import type {
+  LibraryDoc,
+  NotebookGroup,
+  NotebookNote,
+  PdfAttachmentPolicy,
+  VaultTreeEntry,
+  VaultTreeNode,
+  VaultTreeOrder,
+  VaultTreePlaceRequest,
+  VaultTreeReorderRequest,
+  VaultMarkdownNode,
+} from '../core/vaultTree'
+import { editPdfPages, openPdf, pageTextIndex, pickPdfFile, type PdfDocMeta, type PdfPageEditOp } from '../bridge/pdf'
+import {
+  attachPdfToLibrary,
+  attachMarkdownReference,
+  createMarkdownFile,
+  createNote,
+  isMissingPathError,
+  isOwnLatestWrite,
+  listVaultTree,
+  openVault,
+  pickVaultFolder,
+  readCanvas,
+  readLibrary,
+  readMarkdown,
+  registerUnlistedVaultPdfs,
+  readSession,
+  readVaultTreeOrder,
+  readVaultIndex,
+  readVaultMetadata,
+  readVaultSearchTextCache,
+  recentVaults,
+  rememberVault,
+  relinkDocument,
+  writeCanvas,
+  writeLibrary,
+  writeSession,
+  writeVaultIndex,
+  writeVaultTreeOrder,
+  writeVaultMetadata,
+  writeVaultSearchTextCache,
+  type VaultHandle,
+  type VaultLibraryEntry,
+} from '../bridge/vault'
+import type { VaultIndexEntry } from '../core/vaultIndex'
+import { partitionDroppedDocumentPaths } from '../core/documentDrop'
+import { reconcileLibraryPdfEntries, reconcileVaultIndexFiles } from '../core/vaultIndex'
+import { errorText } from '../core/errorText'
+import { t } from '../i18n'
+import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
+import { captureSession, emptySession, parseSession, type SessionState } from '../core/session'
+import {
+  buildLegacyWorkspaceTree,
+  buildNotebookTree,
+  buildVaultWorkspaceTree,
+  placeInTreeOrder,
+  renameFolderInTreeOrder,
+  reorderVaultTreeNode,
+  vaultTreeOrder,
+} from '../core/vaultTree'
+import {
+  closeTabEverywhere,
+  emptyTabs,
+  mapPaneTabs,
+  moveTabToPane,
+  openTabInPanes,
+  type PaneId,
+  type PanesState,
+  type Tab,
+  type TabsState,
+} from './tabs'
+import { useVaultWatcher } from './useVaultWatcher'
+import {
+  convertReferenceToCopy,
+  copyVaultEntryPath,
+  createVaultFolder,
+  duplicateVaultEntry,
+  moveVaultEntry,
+  moveVaultFolder,
+  renameVaultEntry,
+  renameVaultFolder,
+  trashVaultEntry,
+  trashVaultFolder,
+} from '../bridge/vaultFiles'
+import { githubMoveTarget } from '../bridge/github'
+import { markdownToPdf } from '../bridge/pdf'
+import { isDesktop } from '../bridge/window'
+import { MARKDOWN_AS_PDF } from '../core/features'
+import { markdownPdfHtml, markdownPdfKey } from '../core/markdownPdf'
+import { buildSearchRecords, type VaultSearchPage, type VaultSearchRecord } from '../core/vaultSearch'
+import {
+  parseVaultMetadata,
+  recordFileOpened as updateFileOpened,
+  setFileFavorite as updateFileFavorite,
+  setItemIcon as updateItemIcon,
+  setItemColor as updateItemColor,
+  setFileReadingPosition,
+  setMarkdownTheme as updateMarkdownTheme,
+  setNoteOrder as updateNoteOrder,
+  type VaultFileActivity,
+  type VaultMetadata,
+} from '../core/vaultMetadata'
+import type { MarkdownThemeId } from '../core/markdownTheme'
+import { extractPdfDocumentPages } from '../core/pdfTextExtraction'
+import { recognizePdfPageText } from '../pdf/pdfOcrText'
+import {
+  matchingCachedSearchPages,
+  updateVaultSearchTextCache,
+} from '../core/vaultSearchCache'
+
+interface UseVaultOptions {
+  /** 밖에서 가져온 PDF 의 원래 경로를 문서 출처로 적어 둔다(복사하면 원래 자리 정보가 사라지므로) */
+  onImportedFrom?: (docId: string, sourcePath: string) => void
+  library?: LibraryDoc[]
+  notebooks?: NotebookGroup[]
+  openedDocs?: readonly PdfDocMeta[]
+  pdfTabs?: TabsState
+  noteTabs?: TabsState
+  markdownSources?: Readonly<Record<string, string>>
+}
+
+function restoredTabs(
+  tabs: readonly Tab[],
+  requestedActiveId: string | null,
+): TabsState {
+  const activeId = requestedActiveId !== null && tabs.some((tab) => tab.id === requestedActiveId)
+    ? requestedActiveId
+    : tabs[0]?.id ?? null
+  return { tabs: [...tabs], activeId }
+}
+
+/**
+ * 세션에 패널 배치가 있으면 그대로, 없으면 문서는 왼쪽·캔버스는 오른쪽에 둔다.
+ * 사라진 파일의 탭은 위에서 이미 걸러졌으므로 여기서는 순서와 활성 탭만 맞춘다.
+ */
+function restoredPanes(
+  docs: TabsState,
+  notes: TabsState,
+  saved: SessionState['panes'],
+): PanesState {
+  if (saved === undefined) return { left: docs, right: notes, third: emptyTabs, fourth: emptyTabs }
+  const byId = new Map([...docs.tabs, ...notes.tabs].map((tab) => [tab.id, tab]))
+  const placed = new Set([...saved.left, ...saved.right, ...(saved.third ?? []), ...(saved.fourth ?? [])])
+  const pick = (ids: readonly string[]) => ids.flatMap((id) => byId.get(id) ?? [])
+  const left = [...pick(saved.left), ...docs.tabs.filter((tab) => !placed.has(tab.id))]
+  const right = [...pick(saved.right), ...notes.tabs.filter((tab) => !placed.has(tab.id))]
+  return {
+    left: restoredTabs(left, saved.activeLeft),
+    right: restoredTabs(right, saved.activeRight),
+    third: restoredTabs(pick(saved.third ?? []), saved.activeThird ?? null),
+    fourth: restoredTabs(pick(saved.fourth ?? []), saved.activeFourth ?? null),
+  }
+}
+
+function isPdfDocMeta(value: PdfDocMeta | null): value is PdfDocMeta {
+  return value !== null
+}
+
+function isMarkdownPath(path: string): boolean {
+  return /\.(?:md|markdown)$/iu.test(path)
+}
+
+function displayEntries(
+  entries: readonly VaultLibraryEntry[],
+  indexEntries: readonly VaultIndexEntry[],
+): LibraryDoc[] {
+  const displayNames = new Map(indexEntries.map((entry) => [entry.id, entry.displayName]))
+  return entries.map((entry) => ({
+    docId: entry.docId,
+    title: displayNames.get(entry.docId) ?? entry.title,
+    pages: entry.pages,
+    folderPath: entry.folderPath,
+  }))
+}
+
+function indexedDisplayNames(entries: readonly VaultIndexEntry[]): ReadonlyMap<string, string> {
+  return new Map(entries
+    .filter((entry) => entry.storage === 'vault')
+    .map((entry) => [entry.path, entry.displayName]))
+}
+
+/** 읽던 쪽을 파일에 쓰기 전에 기다리는 시간. 그사이 쪽이 또 바뀌면 다시 센다 */
+const READING_POSITION_WRITE_DELAY_MS = 1500
+
+export function useVault(options: UseVaultOptions = {}) {
+  const injected = options.library !== undefined && options.notebooks !== undefined
+  const [initializing, setInitializing] = useState(!injected)
+  const [vault, setVault] = useState<VaultHandle | null>(null)
+  const [entries, setEntries] = useState<readonly VaultLibraryEntry[]>([])
+  // 최근에 연 Vault 밖 PDF(탐색기에서 IWAE 로 연 것)
+  const [recentPdfs, setRecentPdfs] = useState<readonly RecentPdf[]>(readRecentPdfs)
+  const [injectedLibrary, setInjectedLibrary] = useState<readonly LibraryDoc[]>(options.library ?? [])
+  const [notebooks, setNotebooks] = useState<NotebookGroup[]>(options.notebooks ?? [])
+  const [treeEntries, setTreeEntries] = useState<readonly VaultTreeEntry[]>([])
+  const [treeOrder, setTreeOrder] = useState<VaultTreeOrder>({})
+  const [vaultIndex, setVaultIndex] = useState<readonly VaultIndexEntry[]>([])
+  const [dirtyFileIds, setDirtyFileIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [conflictFileIds, setConflictFileIds] = useState<readonly string[]>([])
+  const [tree, setTree] = useState<readonly VaultTreeNode[]>(() => injected
+    ? buildLegacyWorkspaceTree(options.library ?? [], options.notebooks ?? [])
+    : [])
+  const [openedDocs, setOpenedDocs] = useState<readonly PdfDocMeta[]>(options.openedDocs ?? [])
+  // 좌우 패널의 탭. 두 패널을 한 상태에 둬야 "이미 반대편에 열려 있으면 거기서 활성화"를
+  // 한 번의 갱신으로 판단할 수 있다. pdfTabs/noteTabs 는 예전 이름 그대로 왼쪽/오른쪽 패널이다.
+  const [panes, setPanes] = useState<PanesState>(() => ({
+    left: options.pdfTabs === undefined
+      ? emptyTabs
+      : { tabs: [...options.pdfTabs.tabs], activeId: options.pdfTabs.activeId },
+    right: options.noteTabs === undefined
+      ? emptyTabs
+      : { tabs: [...options.noteTabs.tabs], activeId: options.noteTabs.activeId },
+    third: emptyTabs,
+    fourth: emptyTabs,
+  }))
+  const pdfTabs = panes.left
+  const noteTabs = panes.right
+  const setPdfTabs = useCallback((update: SetStateAction<TabsState>) => {
+    setPanes((current) => ({ ...current, left: typeof update === 'function' ? update(current.left) : update }))
+  }, [])
+  const setNoteTabs = useCallback((update: SetStateAction<TabsState>) => {
+    setPanes((current) => ({ ...current, right: typeof update === 'function' ? update(current.right) : update }))
+  }, [])
+  // 새 탭을 어느 패널에 열지. 문서·캔버스 각각 마지막으로 쓴 패널을 따른다.
+  const paneRouteRef = useRef<Record<'doc' | 'note', PaneId>>({ doc: 'left', note: 'right' })
+  const setPaneRoute = useCallback((kind: 'doc' | 'note', pane: PaneId) => {
+    paneRouteRef.current = { ...paneRouteRef.current, [kind]: pane }
+  }, [])
+  const openInPane = useCallback((tab: Tab, pane?: PaneId) => {
+    setPanes((current) => openTabInPanes(current, tab, pane ?? paneRouteRef.current[tab.kind === 'note' ? 'note' : 'doc']))
+  }, [])
+  const moveTab = useCallback((id: string, target: PaneId) => {
+    setPanes((current) => moveTabToPane(current, id, target))
+  }, [])
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(emptySession.sidebarCollapsed)
+  const [layout, setLayout] = useState({
+    sidebarPx: emptySession.sidebarPx,
+    leftFrac: emptySession.leftFrac,
+  })
+  const [missingDocIds, setMissingDocIds] = useState<readonly string[]>([])
+  const [markdownSources, setMarkdownSources] = useState<Readonly<Record<string, string>>>(options.markdownSources ?? {})
+  const onImportedFromRef = useRef(options.onImportedFrom)
+  onImportedFromRef.current = options.onImportedFrom
+  const markdownSourcesRef = useRef(markdownSources)
+  markdownSourcesRef.current = markdownSources
+  const [error, setError] = useState<string | null>(null)
+  const [markdownTheme, setMarkdownThemeState] = useState<MarkdownThemeId>('light')
+  const [fileActivity, setFileActivity] = useState<Readonly<Record<string, VaultFileActivity>>>({})
+  const [itemIcons, setItemIcons] = useState<Readonly<Record<string, string>>>({})
+  const [noteOrder, setNoteOrderState] = useState<readonly string[]>([])
+  const [itemColors, setItemColors] = useState<Readonly<Record<string, FolderColor>>>({})
+  const [recentVaultPaths, setRecentVaultPaths] = useState<readonly string[]>([])
+  const [extractedSearchText, setExtractedSearchText] = useState<Readonly<Record<string, string>>>({})
+  const [extractedSearchPages, setExtractedSearchPages] = useState<Readonly<Record<string, readonly VaultSearchPage[]>>>({})
+  const [searchIndexProgress, setSearchIndexProgress] = useState({ indexed: 0, total: 0 })
+  const searchGenerationRef = useRef(0)
+  const metadataWriteQueueRef = useRef<Promise<void>>(Promise.resolve())
+
+  useEffect(() => {
+    if (!injected) return
+    setTree(buildLegacyWorkspaceTree(injectedLibrary, notebooks))
+  }, [injected, injectedLibrary, notebooks])
+  const [sessionReady, setSessionReady] = useState(false)
+
+  const loadVault = useCallback(async (handle: VaultHandle) => {
+    const searchGeneration = searchGenerationRef.current + 1
+    searchGenerationRef.current = searchGeneration
+    setInitializing(true)
+    setSessionReady(false)
+    setError(null)
+    try {
+      const [
+        libraryEntries,
+        nextTreeEntries,
+        rawSession,
+        savedTreeOrder,
+        savedIndex,
+        metadata,
+        searchTextCache,
+      ] = await Promise.all([
+        readLibrary(handle),
+        listVaultTree(handle),
+        readSession(handle),
+        readVaultTreeOrder(handle),
+        readVaultIndex(handle),
+        readVaultMetadata(handle),
+        readVaultSearchTextCache(handle),
+      ])
+      const groups = buildNotebookTree(nextTreeEntries)
+      const reconciledIndex = reconcileVaultIndexFiles(
+        reconcileLibraryPdfEntries(savedIndex, libraryEntries, new Date().toISOString()),
+        nextTreeEntries,
+        new Date().toISOString(),
+      )
+      if (JSON.stringify(reconciledIndex) !== JSON.stringify(savedIndex)) {
+        await writeVaultIndex(handle, reconciledIndex)
+      }
+      const session = parseSession(rawSession)
+      const missing: string[] = []
+      const notes = new Map<string, NotebookNote>()
+      for (const group of groups) {
+        for (const note of group.notes) notes.set(note.path, note)
+      }
+      const markdownTitles = new Map<string, string>()
+      for (const entry of nextTreeEntries) {
+        if (entry.isDirectory) continue
+        const path = entry.path.replaceAll('\\', '/')
+        const filename = path.split('/').at(-1)
+        if (filename === undefined || !isMarkdownPath(filename)) continue
+        markdownTitles.set(path, filename.replace(/\.(?:md|markdown)$/iu, ''))
+      }
+      const externalMarkdownByPath = new Map(reconciledIndex.entries
+        .filter((entry) => entry.kind === 'markdown' && entry.storage === 'reference' && !entry.missing)
+        .map((entry) => [entry.path.replaceAll('\\', '/').toLocaleLowerCase(), entry]))
+      const legacyMarkdownIds = session.noteTabIds.filter(isMarkdownPath)
+      const documentTabIds = [...new Set([...session.pdfTabIds, ...legacyMarkdownIds])]
+      const restoredDocumentRecords = await Promise.all(documentTabIds.map(async (id) => {
+        if (isMarkdownPath(id)) {
+          const external = externalMarkdownByPath.get(id.replaceAll('\\', '/').toLocaleLowerCase())
+          const title = external?.displayName ?? markdownTitles.get(id)
+          if (title === undefined) return null
+          try {
+            const source = await readMarkdown(handle, external?.id ?? id)
+            // 예전 세션의 Markdown 탭도 PDF 화면으로 연다(탭 id 가 색인 id 로 바뀐다)
+            const indexed = external ?? reconciledIndex.entries.find((entry) => entry.kind === 'markdown' && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
+            if (indexed !== undefined) {
+              const document = await markdownAsPdf(handle, indexed.id, indexed.path, indexed.storage === 'reference' ? 'reference' : 'vault', title, source)
+              if (document !== null) return { tab: { id: indexed.id, title, kind: 'pdf' as const }, document, source: null }
+            }
+            return {
+              tab: { id, title, kind: 'markdown' as const },
+              document: null,
+              source,
+            }
+          } catch {
+            return null
+          }
+        }
+        // 같은 PDF 의 두 번째 보기("docId#2")도 원래 문서로 연다
+        const baseId = id.replace(/#\d+$/u, '')
+        const entry = libraryEntries.find((candidate) => candidate.docId === baseId)
+        // PDF 화면으로 연 Markdown(탭 id = 색인 id)
+        const markdownEntry = entry === undefined ? reconciledIndex.entries.find((indexed) => indexed.id === baseId && indexed.kind === 'markdown' && !indexed.missing) : undefined
+        if (markdownEntry !== undefined) {
+          try {
+            const source = await readMarkdown(handle, markdownEntry.storage === 'reference' ? markdownEntry.id : markdownEntry.path)
+            const title = markdownEntry.displayName ?? (markdownEntry.path.split('/').at(-1) ?? markdownEntry.path).replace(/\.(?:md|markdown)$/iu, '')
+            const document = await markdownAsPdf(handle, markdownEntry.id, markdownEntry.path, markdownEntry.storage === 'reference' ? 'reference' : 'vault', title, source)
+            // PDF 화면을 쓰지 않으면 Markdown 뷰어 탭으로(탭 id 는 경로)
+            if (document === null) return { tab: { id: markdownEntry.path, title, kind: 'markdown' as const }, document: null, source }
+            return { tab: { id, title, kind: 'pdf' as const }, document, source: null }
+          } catch {
+            missing.push(id)
+            return null
+          }
+        }
+        if (entry === undefined) return null
+        try {
+          const document = await openPdf(entry.path, entry.docId)
+          return {
+            // 탭 제목은 사이드바와 같은 표시 이름이다. 파일 이름은 표시 이름이 없을 때만 쓴다.
+            tab: { id: id === baseId ? document.docId : id, title: reconciledIndex.entries.find((indexed) => indexed.id === document.docId)?.displayName ?? document.title, kind: 'pdf' as const },
+            document,
+            source: null,
+          }
+        } catch {
+          missing.push(id)
+          return null
+        }
+      }))
+      const availableDocumentRecords = restoredDocumentRecords.filter((record) => record !== null)
+      const documents = availableDocumentRecords
+        .map((record) => record.document)
+        .filter(isPdfDocMeta)
+      const restoredNotes = session.noteTabIds.flatMap((path) => {
+        if (isMarkdownPath(path)) return []
+        if (!CANVAS_ENABLED) return []
+        const note = notes.get(path)
+        return note === undefined ? [] : [note]
+      })
+      const restoredMarkdownSources = Object.fromEntries(availableDocumentRecords.flatMap((record) => (
+        record.source === null ? [] : [[record.tab.id, record.source]]
+      )))
+      const migratedActiveMarkdownId = session.activeNoteTabId !== null && isMarkdownPath(session.activeNoteTabId)
+        ? session.activeNoteTabId
+        : null
+      const searchablePdfEntries = reconciledIndex.entries.filter((entry) => (
+        entry.kind === 'pdf' && !entry.missing
+      ))
+      const cachedPdfSearchPages = matchingCachedSearchPages(searchablePdfEntries, searchTextCache)
+      const cachedPdfSearchText = Object.fromEntries(Object.entries(cachedPdfSearchPages)
+        .map(([id, pages]) => [id, pages.map(({ text }) => text).filter(Boolean).join('\n\n')]))
+
+      setVault(handle)
+      setEntries(libraryEntries)
+      setNotebooks(groups)
+      setTreeEntries(nextTreeEntries)
+      setTreeOrder(savedTreeOrder)
+      setVaultIndex(reconciledIndex.entries)
+      setMarkdownThemeState(metadata.markdownTheme)
+      setFileActivity(metadata.fileActivity)
+      setItemIcons(metadata.itemIcons)
+      setItemColors(metadata.itemColors ?? {})
+      setNoteOrderState(metadata.noteOrder ?? [])
+      setExtractedSearchText(cachedPdfSearchText)
+      setExtractedSearchPages(cachedPdfSearchPages)
+      setSearchIndexProgress({
+        indexed: searchablePdfEntries.filter((entry) => {
+          const cached = searchTextCache.documents[entry.id]
+          return cached !== undefined && cached.contentHash === entry.contentHash && cached.complete
+        }).length,
+        total: searchablePdfEntries.length,
+      })
+      setTree(buildVaultWorkspaceTree(
+        nextTreeEntries,
+        displayEntries(libraryEntries, reconciledIndex.entries),
+        savedTreeOrder,
+        indexedDisplayNames(reconciledIndex.entries),
+        reconciledIndex.entries,
+      ))
+      setOpenedDocs(documents)
+      setPanes(restoredPanes(
+        restoredTabs(
+          availableDocumentRecords.map((record) => record.tab),
+          migratedActiveMarkdownId ?? session.activePdfTabId,
+        ),
+        restoredTabs(
+          restoredNotes.map((note) => ({ id: note.path, title: note.title, kind: 'note' })),
+          migratedActiveMarkdownId === null ? session.activeNoteTabId : null,
+        ),
+        session.panes,
+      ))
+      setMarkdownSources(restoredMarkdownSources)
+      setMissingDocIds(missing)
+      setSidebarCollapsed(session.sidebarCollapsed)
+      setLayout({ sidebarPx: session.sidebarPx, leftFrac: session.leftFrac })
+      setSessionReady(true)
+      const markdownEntries = reconciledIndex.entries.filter((entry) => (
+        entry.kind === 'markdown' && entry.storage === 'vault' && !entry.missing
+      ))
+      void Promise.all(markdownEntries.map(async (entry) => {
+        try {
+          return [entry.id, await readMarkdown(handle, entry.path)] as const
+        } catch {
+          return null
+        }
+      })).then((records) => {
+        if (searchGenerationRef.current !== searchGeneration) return
+        setExtractedSearchText((current) => ({
+          ...current,
+          ...Object.fromEntries(records.filter((record) => record !== null)),
+        }))
+      })
+      void (async () => {
+        let nextCache = searchTextCache
+        for (const indexEntry of searchablePdfEntries) {
+          const cached = nextCache.documents[indexEntry.id]
+          if (cached !== undefined && cached.contentHash === indexEntry.contentHash && cached.complete) continue
+          const libraryEntry = libraryEntries.find((candidate) => candidate.docId === indexEntry.id)
+          if (libraryEntry === undefined) continue
+          try {
+            const document = documents.find((candidate) => candidate.docId === indexEntry.id)
+              ?? await openPdf(libraryEntry.path)
+            let extractionIncomplete = false
+            const pages = await extractPdfDocumentPages(
+              document.pageCount,
+              async (page) => {
+                try {
+                  return document.hasText
+                    ? await pageTextIndex(document.docId, page)
+                    : { text: '', chars: [] }
+                } catch (err) {
+                  extractionIncomplete = true
+                  throw err
+                }
+              },
+              4,
+              async (page) => {
+                try {
+                  return await recognizePdfPageText(document.docId, page)
+                } catch (err) {
+                  extractionIncomplete = true
+                  throw err
+                }
+              },
+              (page) => {
+                if (searchGenerationRef.current !== searchGeneration) return
+                setExtractedSearchPages((current) => {
+                  const nextPages = [...(current[indexEntry.id] ?? []).filter((candidate) => candidate.page !== page.page), page]
+                    .sort((left, right) => left.page - right.page)
+                  return { ...current, [indexEntry.id]: nextPages }
+                })
+              },
+            )
+            if (searchGenerationRef.current !== searchGeneration) return
+            if (extractionIncomplete) continue
+            nextCache = updateVaultSearchTextCache(
+              nextCache,
+              indexEntry.id,
+              indexEntry.contentHash,
+              pages,
+            )
+            setExtractedSearchPages((current) => ({ ...current, [indexEntry.id]: pages }))
+            setExtractedSearchText((current) => ({
+              ...current,
+              [indexEntry.id]: pages.map(({ text }) => text).filter(Boolean).join('\n\n'),
+            }))
+            await writeVaultSearchTextCache(handle, nextCache)
+          } catch {
+          } finally {
+            if (searchGenerationRef.current === searchGeneration) {
+              setSearchIndexProgress((current) => ({ ...current, indexed: Math.min(current.total, current.indexed + 1) }))
+            }
+          }
+        }
+      })()
+    } catch (err) {
+      setVault(null)
+      setError(errorText(err))
+    } finally {
+      setInitializing(false)
+    }
+  }, [])
+
+  const persistMetadataUpdate = useCallback((update: (metadata: VaultMetadata) => VaultMetadata) => {
+    if (vault === null) return
+    const handle = vault
+    metadataWriteQueueRef.current = metadataWriteQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const current = await readVaultMetadata(handle)
+        await writeVaultMetadata(handle, update(current))
+      })
+      .catch((err: unknown) => setError(errorText(err)))
+  }, [vault])
+
+  const recordFileOpened = useCallback((id: string) => {
+    const openedAt = new Date().toISOString()
+    setFileActivity((current) => ({
+      ...current,
+      [id]: { ...(current[id] ?? { favorite: false, lastOpenedAt: null }), lastOpenedAt: openedAt },
+    }))
+    persistMetadataUpdate((metadata) => updateFileOpened(metadata, id, openedAt))
+  }, [persistMetadataUpdate])
+
+  const setFileFavorite = useCallback((id: string, favorite: boolean) => {
+    setFileActivity((current) => ({
+      ...current,
+      [id]: { ...(current[id] ?? { favorite: false, lastOpenedAt: null }), favorite },
+    }))
+    persistMetadataUpdate((metadata) => updateFileFavorite(metadata, id, favorite))
+  }, [persistMetadataUpdate])
+
+  /**
+   * 읽던 쪽. 스크롤할 때마다 불리므로 화면 상태는 바로 바꾸고 파일 쓰기는 파일마다
+   * 1.5초 동안 몰아서 한 번만 한다 — 쪽을 넘길 때마다 메타데이터 파일을 다시 쓰면
+   * 동기화 폴더(Google Drive)가 쉬지 않고 업로드한다.
+   */
+  const readingWriteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const recordReadingPosition = useCallback((id: string, page: number) => {
+    if (!Number.isInteger(page) || page < 1) return
+    setFileActivity((current) => {
+      const previous = current[id] ?? { favorite: false, lastOpenedAt: null }
+      if (previous.lastPage === page) return current
+      return { ...current, [id]: { ...previous, lastPage: page } }
+    })
+    const timers = readingWriteTimersRef.current
+    const pending = timers.get(id)
+    if (pending !== undefined) clearTimeout(pending)
+    timers.set(id, setTimeout(() => {
+      timers.delete(id)
+      persistMetadataUpdate((metadata) => setFileReadingPosition(metadata, id, page))
+    }, READING_POSITION_WRITE_DELAY_MS))
+  }, [persistMetadataUpdate])
+  const readingPositions = useMemo(() => Object.fromEntries(
+    Object.entries(fileActivity)
+      .filter((entry): entry is [string, VaultFileActivity & { lastPage: number }] => entry[1].lastPage !== undefined)
+      .map(([id, activity]) => [id, activity.lastPage]),
+  ) as Readonly<Record<string, number>>, [fileActivity])
+
+  /** 항목 이모지. vault 가 없으면(미리보기) 화면 상태에만 남는다 */
+  const setItemIcon = useCallback((key: string, emoji: string | null) => {
+    setItemIcons((current) => {
+      const next = { ...current }
+      if (emoji === null) delete next[key]
+      else next[key] = emoji
+      return next
+    })
+    persistMetadataUpdate((metadata) => updateItemIcon(metadata, key, emoji))
+  }, [persistMetadataUpdate])
+
+  /** 왼쪽 바 「노트」의 차례(노트 경로) */
+  const setNoteOrder = useCallback((order: readonly string[]) => {
+    setNoteOrderState(order)
+    persistMetadataUpdate((metadata) => updateNoteOrder(metadata, order))
+  }, [persistMetadataUpdate])
+
+  const setItemColor = useCallback((key: string, color: FolderColor | null) => {
+    setItemColors((current) => {
+      const next = { ...current }
+      if (color === null) delete next[key]
+      else next[key] = color
+      return next
+    })
+    persistMetadataUpdate((metadata) => updateItemColor(metadata, key, color))
+  }, [persistMetadataUpdate])
+
+  const openVaultPath = useCallback(async (root: string) => {
+    let handle: VaultHandle
+    try {
+      handle = await openVault(root)
+    } catch (err) {
+      // 이 앱이 아직 허락받지 않은 폴더(새로 설치한 앱 등): 그 폴더가 잡힌 선택 창으로 한 번 고르게 한다
+      if (!isFolderAccessDenied(err)) throw err
+      const picked = await pickVaultFolder(root)
+      if (picked === null) return
+      handle = await openVault(picked)
+    }
+    await rememberVault(handle.root)
+    setRecentVaultPaths((current) => [handle.root, ...current.filter((candidate) => candidate !== handle.root)].slice(0, 10))
+    // 처음 고른 빈 폴더면 예시(PDF·Markdown·노트)를 넣는다. 실패해도 Vault 는 연다
+    await seedSampleVaultInto(handle).catch(() => false)
+    await loadVault(handle)
+  }, [loadVault])
+
+  useEffect(() => {
+    if (injected) return
+    let alive = true
+    void (async () => {
+      let root: string | undefined
+      try {
+        const roots = await recentVaults()
+        if (alive) setRecentVaultPaths(roots)
+        root = roots[0]
+        if (root === undefined) {
+          if (alive) setInitializing(false)
+          return
+        }
+        const handle = await openVault(root)
+        if (alive) await loadVault(handle)
+      } catch (err) {
+        if (alive) {
+          setError(root !== undefined && isFolderAccessDenied(err) ? folderAccessText(root) : errorText(err))
+          setInitializing(false)
+        }
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [injected, loadVault])
+
+  useEffect(() => {
+    if (vault === null || !sessionReady) return
+    const timer = window.setTimeout(() => {
+      const session = captureSession(pdfTabs, noteTabs, {
+        sidebarCollapsed,
+        sidebarPx: layout.sidebarPx,
+        leftFrac: layout.leftFrac,
+      }, panes.third, panes.fourth)
+      void writeSession(vault, session).catch((err: unknown) => setError(errorText(err)))
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [layout, noteTabs, panes.third, panes.fourth, pdfTabs, sessionReady, sidebarCollapsed, vault])
+
+  /** PDF 를 열어 탭에 띄운다. 연 문서의 메타를 돌려주고, 열지 못하면 null */
+  /** openTab 이 false 면 PDF 를 열어 두기만 하고 탭은 만들지 않는다(탭 안에서 판을 바꿀 때) */
+  const openDocument = useCallback(async (doc: LibraryDoc, openTab = true): Promise<PdfDocMeta | null> => {
+    const entry = entries.find((candidate) => candidate.docId === doc.docId)
+    if (entry === undefined) {
+      if (openTab) openInPane({ id: doc.docId, title: doc.title, kind: 'pdf' })
+      return null
+    }
+    try {
+      const meta = await openPdf(entry.path, entry.docId)
+      setOpenedDocs((current) => current.some((item) => item.docId === meta.docId)
+        ? current
+        : [...current, meta])
+      setMissingDocIds((current) => current.filter((docId) => docId !== entry.docId))
+      if (openTab) openInPane({ id: meta.docId, title: doc.title, kind: 'pdf' })
+      recordFileOpened(entry.docId)
+      return meta
+    } catch (err) {
+      setMissingDocIds((current) => current.includes(entry.docId) ? current : [...current, entry.docId])
+      setError(errorText(err))
+      return null
+    }
+  }, [entries, recordFileOpened])
+
+  /**
+   * Vault 밖 PDF 를 연다(탐색기에서 IWAE 로 연 것). Vault 에 같은 파일이 있으면 그것을 열고,
+   * 없으면 가져오지 않고 탭으로만 연 뒤 「최근 연 PDF」에 남긴다.
+   */
+  const openExternalPdf = useCallback(async (path: string) => {
+    try {
+      const meta = await openPdf(path)
+      const entry = entries.find((candidate) => candidate.docId === meta.docId || candidate.sha256 === meta.sha256)
+      if (entry !== undefined) {
+        await openDocument({ docId: entry.docId, title: entry.title, pages: entry.pages })
+        return
+      }
+      setOpenedDocs((current) => current.some((item) => item.docId === meta.docId) ? current : [...current, meta])
+      openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
+      setRecentPdfs((current) => {
+        const next = addRecentPdf(current, { path, title: meta.title, openedAt: new Date().toISOString() })
+        writeRecentPdfs(next)
+        return next
+      })
+    } catch (err) {
+      setError(errorText(err))
+    }
+  }, [entries, openDocument])
+
+  const forgetRecentPdf = useCallback((path: string) => {
+    setRecentPdfs((current) => {
+      const next = removeRecentPdf(current, path)
+      writeRecentPdfs(next)
+      return next
+    })
+  }, [])
+
+  const addDocument = useCallback(async (
+    policy: PdfAttachmentPolicy = { kind: 'reference' },
+  ) => {
+    if (vault === null && !injected) return
+    setError(null)
+    try {
+      const path = await pickPdfFile()
+      if (path === null) return
+      const meta = await openPdf(path)
+      if (vault === null) {
+        setInjectedLibrary((current) => {
+          const next = current.some((item) => item.docId === meta.docId)
+            ? current
+            : [...current, { docId: meta.docId, title: meta.title, pages: meta.pageCount }]
+          setTree(buildLegacyWorkspaceTree(next, notebooks))
+          return next
+        })
+        setOpenedDocs((current) => current.some((item) => item.docId === meta.docId)
+          ? current
+          : [...current, meta])
+        openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
+        return
+      }
+      const entry = await attachPdfToLibrary(vault, {
+        sourcePath: path,
+        title: meta.title,
+        pages: meta.pageCount,
+        policy,
+      })
+      setEntries((current) => {
+        const next = current.some((item) => item.docId === entry.docId)
+          ? current
+          : [...current, entry]
+        setTree(buildVaultWorkspaceTree(treeEntries, displayEntries(next, vaultIndex), treeOrder, indexedDisplayNames(vaultIndex), vaultIndex))
+        return next
+      })
+      setOpenedDocs((current) => current.some((item) => item.docId === meta.docId)
+        ? current
+        : [...current, meta])
+      openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
+    } catch (err) {
+      setError(errorText(err))
+    }
+  }, [injected, notebooks, treeEntries, treeOrder, vault, vaultIndex])
+
+  // addNote 가 아래에서 정의되는 refreshVaultFiles 를 쓰도록 ref 로 잇는다
+  const refreshVaultFilesRef = useRef<(handle: VaultHandle) => Promise<void>>(async () => undefined)
+  const addNote = useCallback(async (notebookName: string, noteName: string) => {
+    if (vault === null) return
+    const path = await createNote(vault, notebookName, noteName)
+    // 새 노트도 바로 Vault 목록(index)에 올린다 — 안 그러면 다시 열기 전까지 이름 바꾸기·휴지통이
+    // "Vault 파일을 찾지 못했습니다" 로 실패한다
+    await refreshVaultFilesRef.current(vault)
+    const title = path.split('/').at(-1)?.replace(/\.canvas$/iu, '') ?? noteName
+    openInPane({ id: path, title, kind: 'note' })
+  }, [vault])
+
+  const reorderTreeNode = useCallback(async (request: VaultTreeReorderRequest) => {
+    const next = reorderVaultTreeNode(tree, request)
+    const nextOrder = vaultTreeOrder(next)
+    setTree(next)
+    setTreeOrder(nextOrder)
+    if (vault !== null) await writeVaultTreeOrder(vault, nextOrder)
+  }, [tree, vault])
+
+  const renameEntry = useCallback(async (id: string, displayName: string) => {
+    const trimmedName = displayName.trim()
+    if (trimmedName === '') throw new Error(t('표시 이름을 입력해 주세요.'))
+    if (vault === null) {
+      if (!injected) throw new Error(t('Vault가 열려 있지 않습니다.'))
+      setInjectedLibrary((current) => current.map((entry) => (
+        entry.docId === id ? { ...entry, title: trimmedName } : entry
+      )))
+      setPanes((current) => mapPaneTabs(current, (tab) => tab.id === id ? { ...tab, title: trimmedName } : tab))
+      return
+    }
+    const stableId = vaultIndex.find((entry) => entry.path.toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())?.id ?? id
+    const updated = await renameVaultEntry(vault, stableId, trimmedName, 'display')
+    const nextIndex = vaultIndex.map((entry) => entry.id === stableId ? updated : entry)
+    setVaultIndex(nextIndex)
+    setTree(buildVaultWorkspaceTree(treeEntries, displayEntries(entries, nextIndex), treeOrder, indexedDisplayNames(nextIndex), nextIndex))
+    setPanes((current) => mapPaneTabs(current, (tab) => (
+      tab.id === updated.path || (tab.kind !== 'note' && tab.id === id) ? { ...tab, title: updated.displayName } : tab
+    )))
+  }, [entries, injected, treeEntries, treeOrder, vault, vaultIndex])
+
+  /**
+   * PDF 쪽 편집을 원본에 덮어쓴다. 문서 id 는 그대로 두고(형광펜·책갈피·노트 출처가 따라오게)
+   * 목록·색인의 해시·크기·쪽 수만 고친다. 노트(.canvas) 안의 이 문서 출처는 remapNote 로 옮긴다.
+   * 덮기 전 원본은 .iwae/history/pdf-edits 에 남는다.
+   */
+  const editDocumentPages = useCallback(async (
+    docId: string,
+    plan: readonly PdfPageEditOp[],
+    remapNote: (document: unknown) => unknown | null,
+  ): Promise<PdfDocMeta> => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const entry = entries.find((candidate) => candidate.docId === docId)
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 는 편집할 수 없습니다.'))
+    const { join } = await import('@tauri-apps/api/path')
+    const stamp = new Date().toISOString().replace(/[:.]/gu, '-')
+    const backup = await join(vault.root, '.iwae', 'history', 'pdf-edits', `${entry.title}-${stamp}.pdf`)
+    const meta = await editPdfPages(docId, entry.path, backup, plan)
+    const updated = entries.map((candidate) => candidate.docId === docId
+      ? { ...candidate, sha256: meta.sha256, size: meta.size, pages: meta.pageCount }
+      : candidate)
+    await writeLibrary(vault, updated)
+    const index = await readVaultIndex(vault)
+    const nextIndex = index.entries.map((item) => item.id === docId ? { ...item, contentHash: meta.sha256, size: meta.size } : item)
+    await writeVaultIndex(vault, { version: 1, entries: nextIndex })
+    setEntries(updated)
+    setVaultIndex(nextIndex)
+    setOpenedDocs((current) => current.map((doc) => doc.docId === docId ? meta : doc))
+    for (const note of notebooks.flatMap((group) => group.notes)) {
+      try {
+        const document = await readCanvas(vault, note.path)
+        if (document === null) continue
+        const next = remapNote(document)
+        if (next !== null) await writeCanvas(vault, note.path, next as Parameters<typeof writeCanvas>[2])
+      } catch {
+        // 노트 하나를 못 고쳐도 PDF 편집은 끝났다. 그 노트의 출처만 예전 쪽을 가리킨다.
+      }
+    }
+    return meta
+  }, [entries, notebooks, vault])
+
+  const setMarkdownTheme = useCallback(async (nextTheme: MarkdownThemeId) => {
+    setMarkdownThemeState(nextTheme)
+    if (vault === null) return
+    try {
+      const metadata = await readVaultMetadata(vault)
+      await writeVaultMetadata(vault, updateMarkdownTheme(metadata, nextTheme))
+    } catch (err) {
+      setError(errorText(err))
+      setMarkdownThemeState(parseVaultMetadata(null).markdownTheme)
+    }
+  }, [vault])
+
+  const refreshVaultFiles = useCallback(async (handle: VaultHandle, orderOverride?: VaultTreeOrder) => {
+    // 탐색기로 Vault 폴더에 바로 넣은 PDF 도 목록에 올린다(예전에는 「색인」을 눌러야 보였다)
+    await registerUnlistedVaultPdfs(handle).catch(() => [])
+    const [libraryEntries, nextTreeEntries, savedIndex] = await Promise.all([
+      readLibrary(handle),
+      listVaultTree(handle),
+      readVaultIndex(handle),
+    ])
+    const nextIndex = reconcileVaultIndexFiles(
+      reconcileLibraryPdfEntries(savedIndex, libraryEntries, new Date().toISOString()),
+      nextTreeEntries,
+      new Date().toISOString(),
+    )
+    if (JSON.stringify(nextIndex) !== JSON.stringify(savedIndex)) {
+      await writeVaultIndex(handle, nextIndex)
+    }
+    const groups = buildNotebookTree(nextTreeEntries)
+    setEntries(libraryEntries)
+    setTreeEntries(nextTreeEntries)
+    setNotebooks(groups)
+    setVaultIndex(nextIndex.entries)
+    setTree(buildVaultWorkspaceTree(
+      nextTreeEntries,
+      displayEntries(libraryEntries, nextIndex.entries),
+      orderOverride ?? treeOrder,
+      indexedDisplayNames(nextIndex.entries),
+      nextIndex.entries,
+    ))
+  }, [treeOrder])
+  refreshVaultFilesRef.current = refreshVaultFiles
+
+  /** 최근 연 PDF 를 Vault 의 폴더로 가져온다(그 폴더에 복사). 목록에서는 빠진다 */
+  const importExternalPdf = useCallback(async (path: string, folderPath: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const meta = await openPdf(path)
+    await attachPdfToLibrary(vault, {
+      sourcePath: path,
+      title: meta.title,
+      pages: meta.pageCount,
+      policy: { kind: 'copy-another-folder', folderPath },
+    })
+    onImportedFromRef.current?.(meta.docId, path)
+    await refreshVaultFiles(vault)
+    setRecentPdfs((current) => {
+      const next = removeRecentPdf(current, path)
+      writeRecentPdfs(next)
+      return next
+    })
+  }, [refreshVaultFiles, vault])
+
+  const importDroppedDocuments = useCallback(async (paths: readonly string[]) => {
+    const { accepted, rejected } = partitionDroppedDocumentPaths(paths)
+    if (vault === null) {
+      setError(t('파일을 가져오려면 먼저 Vault를 열어 주세요.'))
+      return { imported: 0, rejected: rejected.length, failed: accepted.length }
+    }
+
+    setError(null)
+    let imported = 0
+    let failed = 0
+    let firstImported: { kind: 'pdf'; meta: PdfDocMeta } | { kind: 'markdown'; entry: VaultIndexEntry } | null = null
+
+    for (const path of accepted) {
+      try {
+        if (/\.pdf$/iu.test(path)) {
+          const meta = await openPdf(path)
+          await attachPdfToLibrary(vault, {
+            sourcePath: path,
+            title: meta.title,
+            pages: meta.pageCount,
+            // 끌어 넣은 PDF 는 Vault 맨 위로 복사한다(참조만 하면 원본을 옮기거나 지울 때 Vault 에서 사라진다)
+            policy: { kind: 'copy-another-folder', folderPath: '' },
+          })
+          firstImported ??= { kind: 'pdf', meta }
+        } else {
+          const entry = await attachMarkdownReference(vault, path)
+          firstImported ??= { kind: 'markdown', entry }
+        }
+        imported += 1
+      } catch {
+        failed += 1
+      }
+    }
+
+    if (imported > 0) {
+      await refreshVaultFiles(vault)
+      if (firstImported?.kind === 'pdf') {
+        const { meta } = firstImported
+        setOpenedDocs((current) => current.some((item) => item.docId === meta.docId)
+          ? current
+          : [...current, meta])
+        openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
+      } else if (firstImported?.kind === 'markdown') {
+        const { entry } = firstImported
+        const source = await readMarkdown(vault, entry.id)
+        setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
+        openInPane({
+          id: entry.path,
+          title: entry.displayName,
+          kind: 'markdown',
+        })
+      }
+    }
+
+    if (rejected.length > 0 || failed > 0) {
+      setError(t('가져오기 완료: {imported}개, 지원하지 않음 {rejected}개, 실패 {failed}개', { imported, rejected: rejected.length, failed }))
+    }
+    return { imported, rejected: rejected.length, failed }
+  }, [refreshVaultFiles, vault])
+
+  /**
+   * 탐색기에서 왼쪽 바로 끌어 온 PDF·Markdown 을 Vault 로 복사해 가져온다(기본은 복사 — 원본을 참조만 하지 않는다).
+   * folderPath 폴더에 복사하고, place 가 있으면 트리의 그 자리(줄 앞·뒤)에 순서를 둔다. 여러 개면 놓은 차례대로 이어 붙인다.
+   * 이미 참조로만 올라 있던 같은 PDF 면 그 폴더로 복사해 Vault 파일로 바꾼다. 첫 문서를 연다.
+   */
+  const importPdfsAt = useCallback(async (
+    paths: readonly string[],
+    folderPath: string,
+    place?: { readonly nodeId: string; readonly position: 'before' | 'after' | 'inside' },
+  ) => {
+    if (vault === null) {
+      setError(t('파일을 가져오려면 먼저 Vault를 열어 주세요.'))
+      return [] as string[]
+    }
+    setError(null)
+    // 가져온(또는 이미 있던) PDF 의 docId, 놓은 차례대로 — 판으로 겹치기에 쓴다
+    const pdfDocIds: string[] = []
+    // 놓은 차례. PDF 는 트리 id 를 바로 알고, Markdown 은 목록을 새로 읽어 id 가 정해진 뒤에 안다
+    const placed: ({ readonly kind: 'pdf'; readonly nodeId: string } | { readonly kind: 'markdown'; readonly relativePath: string })[] = []
+    let first: { readonly kind: 'pdf'; readonly meta: PdfDocMeta } | { readonly kind: 'markdown'; readonly relativePath: string } | null = null
+    const failures: string[] = []
+    const { join } = await import('@tauri-apps/api/path')
+    const { copyFile, exists, mkdir } = await import('@tauri-apps/plugin-fs')
+    for (const path of paths) {
+      const fileName = path.split(/[\\/]/u).at(-1) ?? path
+      try {
+        if (/\.(?:md|markdown)$/iu.test(path)) {
+          const relativePath = [folderPath, fileName].filter(Boolean).join('/')
+          const directory = folderPath === '' ? vault.root : await join(vault.root, ...folderPath.split('/'))
+          const target = await join(directory, fileName)
+          if (await exists(target)) throw new Error(t('대상 폴더에 같은 이름의 파일이 이미 있습니다.'))
+          await mkdir(directory, { recursive: true })
+          await copyFile(path, target)
+          placed.push({ kind: 'markdown', relativePath })
+          first ??= { kind: 'markdown', relativePath }
+          continue
+        }
+        const meta = await openPdf(path)
+        const known = (await readLibrary(vault)).find((entry) => entry.sha256 === meta.sha256)
+        if (known !== undefined) {
+          // 이미 있다: 참조로만 올라 있으면 이 폴더로 복사해 Vault 파일로 바꾼다. 자리는 그대로 둔다
+          if (known.attachmentPolicy?.kind === 'reference' || known.folderPath === undefined) {
+            const indexed = (await readVaultIndex(vault)).entries.find((entry) => entry.id === known.docId)
+            if (indexed?.storage === 'reference') await convertReferenceToCopy(vault, known.docId, folderPath)
+          }
+          first ??= { kind: 'pdf', meta }
+          pdfDocIds.push(meta.docId)
+          continue
+        }
+        await attachPdfToLibrary(vault, {
+          sourcePath: path,
+          title: meta.title,
+          pages: meta.pageCount,
+          policy: { kind: 'copy-another-folder', folderPath },
+        })
+        onImportedFromRef.current?.(meta.docId, path)
+        placed.push({ kind: 'pdf', nodeId: `pdf:${meta.docId}` })
+        pdfDocIds.push(meta.docId)
+        first ??= { kind: 'pdf', meta }
+      } catch (err) {
+        failures.push(`${fileName}: ${errorText(err)}`)
+      }
+    }
+    // Markdown 은 목록에 올라야(색인 id 가 생겨야) 트리 자리를 정할 수 있다
+    const hasMarkdown = placed.some((item) => item.kind === 'markdown')
+    if (hasMarkdown) await refreshVaultFiles(vault)
+    const indexEntries = hasMarkdown ? (await readVaultIndex(vault)).entries : []
+    const markdownNodeId = (relativePath: string) => {
+      const indexed = indexEntries.find((entry) => entry.storage === 'vault' && entry.path.toLocaleLowerCase() === relativePath.toLocaleLowerCase())
+      return `markdown:${indexed?.id ?? relativePath}`
+    }
+    let order: VaultTreeOrder = vaultTreeOrder(tree)
+    let target = place === undefined || place.position === 'inside' ? null : place.nodeId
+    let position: 'before' | 'after' = place?.position === 'before' ? 'before' : 'after'
+    for (const item of placed) {
+      const nodeId = item.kind === 'pdf' ? item.nodeId : markdownNodeId(item.relativePath)
+      order = placeInTreeOrder(order, { nodeId, fromParent: folderPath, toParent: folderPath, targetNodeId: target, position: target === null ? 'inside' : position })
+      target = nodeId
+      position = 'after'
+    }
+    setTreeOrder(order)
+    await writeVaultTreeOrder(vault, order).catch(() => {})
+    await refreshVaultFiles(vault, order)
+    if (first?.kind === 'pdf') {
+      const { meta } = first
+      setOpenedDocs((current) => current.some((item) => item.docId === meta.docId) ? current : [...current, meta])
+      openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
+    } else if (first?.kind === 'markdown') {
+      const { relativePath } = first
+      try {
+        const source = await readMarkdown(vault, relativePath)
+        setMarkdownSources((current) => ({ ...current, [relativePath]: source }))
+        openInPane({ id: relativePath, title: (relativePath.split('/').at(-1) ?? relativePath).replace(/\.(?:md|markdown)$/iu, ''), kind: 'markdown' })
+      } catch {
+        // 열지 못해도 가져오기는 끝났다. 왼쪽 바에서 열면 된다
+      }
+    }
+    if (failures.length > 0) setError(t('{count}개를 가져오지 못했습니다: {names}', { count: failures.length, names: failures.join(', ') }))
+    return pdfDocIds
+  }, [refreshVaultFiles, tree, vault])
+
+  /**
+   * 왼쪽 바 「새로고침」: Vault 폴더를 다시 훑어 목록을 맞추고(탐색기로 넣은 PDF 등록 포함),
+   * 열린 Markdown 은 파일에서 다시 읽는다(GitHub 「최신으로」 뒤에도 쓴다).
+   */
+  const refreshVault = useCallback(async () => {
+    if (vault === null) return
+    await refreshVaultFiles(vault)
+    const paths = Object.keys(markdownSourcesRef.current)
+    const reloaded = await Promise.all(paths.map(async (path) => {
+      try {
+        return [path, await readMarkdown(vault, path)] as const
+      } catch {
+        return null
+      }
+    }))
+    const fresh = reloaded.filter((item): item is readonly [string, string] => item !== null)
+    if (fresh.length > 0) setMarkdownSources((current) => ({ ...current, ...Object.fromEntries(fresh) }))
+  }, [refreshVaultFiles, vault])
+
+  const stableFileId = useCallback((idOrPath: string) => (
+    vaultIndex.find((entry) => entry.id === idOrPath || entry.path === idOrPath)?.id ?? idOrPath
+  ), [vaultIndex])
+
+  const createFolder = useCallback(async (parentPath: string, name: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    await createVaultFolder(vault, parentPath, name)
+    await refreshVaultFiles(vault)
+  }, [refreshVaultFiles, vault])
+
+  /** 파일을 옮기고 열린 탭 경로를 따라 고친다(목록 새로고침은 부르는 쪽이 한다) */
+  const moveEntryFile = useCallback(async (idOrPath: string, destinationFolder: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const id = stableFileId(idOrPath)
+    const previous = vaultIndex.find((entry) => entry.id === id)
+    const updated = await moveVaultEntry(vault, id, destinationFolder)
+    if (previous !== undefined && previous.path !== updated.path) {
+      setPanes((current) => {
+        const renamed = mapPaneTabs(current, (tab) => tab.id === previous.path ? { ...tab, id: updated.path } : tab)
+        const activeId = (state: TabsState) => state.activeId === previous.path ? updated.path : state.activeId
+        return {
+          left: { ...renamed.left, activeId: activeId(renamed.left) },
+          right: { ...renamed.right, activeId: activeId(renamed.right) },
+          third: { ...renamed.third, activeId: activeId(renamed.third) },
+          fourth: { ...renamed.fourth, activeId: activeId(renamed.fourth) },
+        }
+      })
+      setMarkdownSources((current) => {
+        const source = current[previous.path]
+        if (source === undefined) return current
+        const next = { ...current, [updated.path]: source }
+        delete next[previous.path]
+        return next
+      })
+    }
+    return updated
+  }, [stableFileId, vault, vaultIndex])
+
+  const moveEntry = useCallback(async (idOrPath: string, destinationFolder: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    await moveEntryFile(idOrPath, destinationFolder)
+    await refreshVaultFiles(vault)
+  }, [moveEntryFile, refreshVaultFiles, vault])
+
+  /** Vault 안에 Markdown 파일을 새로 만든다. 같은 이름이면 번호를 붙인다. 상대 경로를 돌려준다 */
+  const saveMarkdownFile = useCallback(async (folder: string, name: string, content: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const path = await createMarkdownFile(vault, folder, name, content)
+    await refreshVaultFiles(vault)
+    return path
+  }, [refreshVaultFiles, vault])
+
+  const duplicateEntry = useCallback(async (idOrPath: string, destinationFolder = '') => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    await duplicateVaultEntry(vault, stableFileId(idOrPath), destinationFolder)
+    await refreshVaultFiles(vault)
+  }, [refreshVaultFiles, stableFileId, vault])
+
+  const trashEntry = useCallback(async (idOrPath: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const id = stableFileId(idOrPath)
+    const entry = vaultIndex.find((candidate) => candidate.id === id)
+    await trashVaultEntry(vault, id)
+    if (itemIcons[id] !== undefined) setItemIcon(id, null)
+    if (entry !== undefined) {
+      setPanes((current) => closeTabEverywhere(closeTabEverywhere(current, id), entry.path))
+      setOpenedDocs((current) => current.filter((document) => document.docId !== id))
+      setMarkdownSources((current) => Object.fromEntries(
+        Object.entries(current).filter(([path]) => path !== entry.path),
+      ))
+    }
+    await refreshVaultFiles(vault)
+  }, [itemIcons, refreshVaultFiles, setItemIcon, stableFileId, vault, vaultIndex])
+
+  /** 폴더 이모지 키(folder:경로)를 폴더 이동에 맞춰 옮기거나(next) 지운다(null) */
+  const remapFolderIcons = useCallback((folder: string, next: string | null, extraRemovals: readonly string[] = []) => {
+    const prefix = `folder:${folder}`
+    const changes: [string, string | null][] = []
+    for (const [key, emoji] of Object.entries(itemIcons)) {
+      if (key !== prefix && !key.startsWith(`${prefix}/`)) continue
+      changes.push([key, null])
+      if (next !== null) changes.push([`folder:${next}${key.slice(prefix.length)}`, emoji])
+    }
+    for (const id of extraRemovals) {
+      if (itemIcons[id] !== undefined) changes.push([id, null])
+    }
+    for (const [key, emoji] of changes) setItemIcon(key, emoji)
+    // 폴더 색도 같이 옮긴다
+    for (const [key, color] of Object.entries(itemColors)) {
+      if (key !== prefix && !key.startsWith(`${prefix}/`)) continue
+      setItemColor(key, null)
+      if (next !== null) setItemColor(`folder:${next}${key.slice(prefix.length)}`, color)
+    }
+  }, [itemColors, itemIcons, setItemColor, setItemIcon])
+
+  /** 폴더를 통째로 Vault 휴지통으로 옮긴다. 안의 문서 탭은 닫는다 */
+  const trashFolder = useCallback(async (folderPath: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const folder = folderPath.replaceAll('\\', '/')
+    const inside = (path: string) => path === folder || path.startsWith(`${folder}/`)
+    const removedIds = await trashVaultFolder(vault, folder)
+    const removed = new Set(removedIds)
+    const removedPaths = vaultIndex.filter((entry) => removed.has(entry.id)).map((entry) => entry.path)
+    remapFolderIcons(folder, null, removedIds)
+    setPanes((current) => {
+      let next = current
+      for (const id of removedIds) next = closeTabEverywhere(next, id)
+      for (const path of removedPaths) next = closeTabEverywhere(next, path)
+      return next
+    })
+    setOpenedDocs((current) => current.filter((document) => !removed.has(document.docId)))
+    setMarkdownSources((current) => Object.fromEntries(
+      Object.entries(current).filter(([path]) => !inside(path)),
+    ))
+    await refreshVaultFiles(vault)
+  }, [refreshVaultFiles, remapFolderIcons, vault, vaultIndex])
+
+  /** 폴더 이름을 바꾼다. 열린 노트·Markdown 탭의 경로와 폴더 이모지도 따라간다 */
+  const followFolder = useCallback((folder: string, nextFolder: string, order: VaultTreeOrder): VaultTreeOrder => {
+    const movePath = (path: string) => path === folder || path.startsWith(`${folder}/`)
+      ? `${nextFolder}${path.slice(folder.length)}`
+      : path
+    remapFolderIcons(folder, nextFolder)
+    // 폴더 판 묶음도 따라간다
+    window.dispatchEvent(new CustomEvent('iwae:folder-moved', { detail: { from: folder, to: nextFolder } }))
+    // GitHub 에서 받은 폴더(또는 그 안)를 옮기면 연결도 따라간다
+    if (vault !== null) {
+      void githubMoveTarget(vault.root, folder, nextFolder)
+        .then(() => window.dispatchEvent(new Event('iwae:github-links-changed')))
+        .catch(() => undefined)
+    }
+    setPanes((current) => {
+      const renamed = mapPaneTabs(current, (tab) => ({ ...tab, id: movePath(tab.id) }))
+      return {
+        left: { ...renamed.left, activeId: renamed.left.activeId === null ? null : movePath(renamed.left.activeId) },
+        right: { ...renamed.right, activeId: renamed.right.activeId === null ? null : movePath(renamed.right.activeId) },
+        third: { ...renamed.third, activeId: renamed.third.activeId === null ? null : movePath(renamed.third.activeId) },
+        fourth: { ...renamed.fourth, activeId: renamed.fourth.activeId === null ? null : movePath(renamed.fourth.activeId) },
+      }
+    })
+    setMarkdownSources((current) => Object.fromEntries(
+      Object.entries(current).map(([path, source]) => [movePath(path), source]),
+    ))
+    return renameFolderInTreeOrder(order, folder, nextFolder)
+  }, [remapFolderIcons, vault])
+
+  const renameFolder = useCallback(async (folderPath: string, name: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const folder = folderPath.replaceAll('\\', '/')
+    const nextFolder = await renameVaultFolder(vault, folder, name)
+    if (nextFolder === folder) return
+    const nextOrder = followFolder(folder, nextFolder, treeOrder)
+    setTreeOrder(nextOrder)
+    await writeVaultTreeOrder(vault, nextOrder).catch(() => {})
+    await refreshVaultFiles(vault, nextOrder)
+  }, [followFolder, refreshVaultFiles, treeOrder, vault])
+
+  /**
+   * 왼쪽 트리에서 항목(여러 개면 고른 차례대로)을 아무 자리에 놓는다. 부모 폴더가 바뀌면 실제 파일·폴더를
+   * 옮기고, 놓은 자리에 순서를 둔다(이름순이 아니라 놓은 위치가 그대로 남는다). 둘째부터는 앞 항목 바로 뒤에 붙는다.
+   * 하나가 실패해도 나머지는 옮기고, 실패한 것을 모아 알린다.
+   */
+  const placeTreeNodes = useCallback(async (
+    nodes: readonly { readonly nodeId: string; readonly fromParent: string }[],
+    place: Pick<VaultTreePlaceRequest, 'toParent' | 'targetNodeId' | 'position'>,
+  ) => {
+    if (nodes.length === 0) return
+    if (vault === null) {
+      let target = place.targetNodeId
+      let position = place.position
+      for (const node of nodes) {
+        const targetNodeId = target
+        if (node.fromParent === place.toParent && targetNodeId !== null && position !== 'inside') {
+          const at = position === 'before' ? 'before' : 'after'
+          setTree((current) => reorderVaultTreeNode(current, { parentPath: place.toParent, nodeId: node.nodeId, targetNodeId, position: at }))
+          target = node.nodeId
+          position = 'after'
+        }
+      }
+      return
+    }
+    let order: VaultTreeOrder = vaultTreeOrder(tree)
+    let target = place.targetNodeId
+    let position = place.position
+    const failures: string[] = []
+    for (const node of nodes) {
+      let newNodeId = node.nodeId
+      try {
+        if (node.fromParent !== place.toParent) {
+          const separator = node.nodeId.indexOf(':')
+          const kind = node.nodeId.slice(0, separator)
+          const key = node.nodeId.slice(separator + 1)
+          if (kind === 'folder') {
+            const nextFolder = await moveVaultFolder(vault, key, place.toParent)
+            order = followFolder(key, nextFolder, order)
+            newNodeId = `folder:${nextFolder}`
+          } else {
+            const updated = await moveEntryFile(key, place.toParent)
+            if (kind === 'note') newNodeId = `note:${updated.path}`
+            else if (kind === 'markdown') newNodeId = `markdown:${updated.id}`
+          }
+        }
+      } catch (err) {
+        failures.push(errorText(err))
+        continue
+      }
+      order = placeInTreeOrder(order, { nodeId: node.nodeId, fromParent: node.fromParent, toParent: place.toParent, targetNodeId: target, position }, newNodeId)
+      if (position !== 'inside') {
+        target = newNodeId
+        position = 'after'
+      }
+    }
+    setTreeOrder(order)
+    await writeVaultTreeOrder(vault, order).catch(() => {})
+    await refreshVaultFiles(vault, order)
+    if (failures.length > 0) throw new Error(t('{count}개를 옮기지 못했습니다: {names}', { count: failures.length, names: failures.join(', ') }))
+  }, [followFolder, moveEntryFile, refreshVaultFiles, tree, vault])
+
+  const placeTreeNode = useCallback(
+    (request: VaultTreePlaceRequest) => placeTreeNodes([{ nodeId: request.nodeId, fromParent: request.fromParent }], request),
+    [placeTreeNodes],
+  )
+
+  const convertEntryToCopy = useCallback(async (idOrPath: string, destinationFolder = '') => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    await convertReferenceToCopy(vault, stableFileId(idOrPath), destinationFolder)
+    await refreshVaultFiles(vault)
+  }, [refreshVaultFiles, stableFileId, vault])
+
+  const copyEntryPath = useCallback(async (idOrPath: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    return copyVaultEntryPath(vault, stableFileId(idOrPath))
+  }, [stableFileId, vault])
+
+  /**
+   * Markdown 을 PDF 로 바꿔 PDF 리더로 연다(PDF 와 같은 화면·메모·편집·검색·판 관리). 문서 id 는 색인 id 그대로라
+   * 형광펜·메모·출처·판 묶음이 그 Markdown 에 붙는다. 바꾸지 못하면(Edge 없음 등) null
+   */
+  const markdownAsPdf = useCallback(async (handle: VaultHandle, indexId: string, path: string, storage: 'vault' | 'reference', title: string, source: string): Promise<PdfDocMeta | null> => {
+    if (!isDesktop() || !MARKDOWN_AS_PDF) return null
+    try {
+      const { join } = await import('@tauri-apps/api/path')
+      const absolute = storage === 'reference' ? path : await join(handle.root, ...path.split('/'))
+      const pdfPath = await markdownToPdf(handle.root, markdownPdfKey(indexId, source), markdownPdfHtml(source, title, absolute))
+      const meta = await openPdf(pdfPath, indexId)
+      return { ...meta, title }
+    } catch (err) {
+      setError(t('Markdown 을 리더 화면으로 열지 못해 간단 보기로 엽니다: {error}', { error: errorText(err) }))
+      return null
+    }
+  }, [])
+
+  /** Markdown 을 연다(가능하면 PDF 화면으로). openTab 이 false 면 열어 두기만 한다(탭 안에서 판을 바꿀 때). PDF 로 연 메타를 돌려준다 */
+  const openMarkdown = useCallback(async (markdown: VaultMarkdownNode, openTab = true): Promise<PdfDocMeta | null> => {
+    setError(null)
+    if (vault === null) {
+      if (markdownSources[markdown.path] === undefined) return null
+      openInPane({
+        id: markdown.path,
+        title: markdown.name,
+        kind: 'markdown',
+      })
+      return null
+    }
+    try {
+      const source = await readMarkdown(vault, markdown.storage === 'reference' ? markdown.indexId : markdown.path)
+      const fileId = vaultIndex.find((entry) => entry.path === markdown.path)?.id
+      if (fileId !== undefined) {
+        setExtractedSearchText((current) => ({ ...current, [fileId]: source }))
+        recordFileOpened(fileId)
+      }
+      setMarkdownSources((current) => ({ ...current, [markdown.path]: source }))
+      const meta = await markdownAsPdf(vault, markdown.indexId, markdown.storage === 'reference' ? (vaultIndex.find((entry) => entry.id === markdown.indexId)?.path ?? markdown.path) : markdown.path, markdown.storage === 'reference' ? 'reference' : 'vault', markdown.name, source)
+      if (meta !== null) {
+        setOpenedDocs((current) => [...current.filter((item) => item.docId !== meta.docId), meta])
+        if (openTab) openInPane({ id: meta.docId, title: markdown.name, kind: 'pdf' })
+        return meta
+      }
+      if (openTab) {
+        openInPane({
+          id: markdown.path,
+          title: markdown.name,
+          kind: 'markdown',
+        })
+      }
+      return null
+    } catch (err) {
+      setError(errorText(err))
+      return null
+    }
+  }, [markdownAsPdf, markdownSources, recordFileOpened, vault, vaultIndex])
+
+  const relink = useCallback(async (docId: string) => {
+    if (vault === null) return
+    setError(null)
+    try {
+      const path = await pickPdfFile()
+      if (path === null) return
+      const updated = await relinkDocument(vault, docId, path)
+      const meta = await openPdf(updated.path)
+      setEntries((current) => current.map((entry) => entry.docId === docId ? updated : entry))
+      setOpenedDocs((current) => [
+        ...current.filter((doc) => doc.docId !== docId),
+        meta,
+      ])
+      setMissingDocIds((current) => current.filter((id) => id !== docId))
+      openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
+    } catch (err) {
+      setError(errorText(err))
+    }
+  }, [vault])
+
+  const closeVault = useCallback(() => {
+    searchGenerationRef.current += 1
+    setVault(null)
+    setEntries([])
+    setNotebooks([])
+    setTreeEntries([])
+    setTreeOrder({})
+    setVaultIndex([])
+    setDirtyFileIds(new Set())
+    setConflictFileIds([])
+    setTree([])
+    setOpenedDocs([])
+    setPanes({ left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs })
+    setMarkdownSources({})
+    setMissingDocIds([])
+    setSessionReady(false)
+    setMarkdownThemeState('light')
+    setFileActivity({})
+    setItemIcons({})
+    setNoteOrderState([])
+    setExtractedSearchText({})
+    setExtractedSearchPages({})
+    setSearchIndexProgress({ indexed: 0, total: 0 })
+    setError(null)
+  }, [])
+
+  const reloadWatchedFile = useCallback((id: string) => {
+    if (vault === null) return
+    // 폴더 이름을 바꾸거나 파일을 옮긴 직후에는 감시자가 옛 경로로 다시 읽으려 한다.
+    // 그때 색인은 아직 옛 경로라 "경로를 찾을 수 없습니다" 가 나는데, 곧 목록을 새로 읽으며 맞춰지므로 알리지 않는다.
+    const reportReloadError = (err: unknown) => {
+      if (!isMissingPathError(err)) setError(errorText(err))
+    }
+    const entry = vaultIndex.find((candidate) => candidate.id === id)
+    if (entry === undefined) return
+    if (entry.kind === 'markdown' && entry.storage === 'vault') {
+      void readMarkdown(vault, entry.path).then((source) => {
+        setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
+        setExtractedSearchText((current) => ({ ...current, [entry.id]: source }))
+      }).catch(reportReloadError)
+      return
+    }
+    if (entry.kind === 'pdf') {
+      // 색인의 Vault PDF 경로는 Vault 기준 상대 경로다. 그대로 넘기면 PDF 엔진이 앱 폴더 기준으로 찾다
+      // "경로를 찾을 수 없습니다" 가 난다(파일을 옮긴 직후 감시자가 다시 읽을 때). 절대 경로로 바꾼다.
+      const absolutePath = async () => {
+        const known = entries.find((doc) => doc.docId === entry.id)?.path
+        if (known !== undefined && entry.storage !== 'vault') return known
+        if (entry.storage !== 'vault') return entry.path
+        const { join } = await import('@tauri-apps/api/path')
+        return join(vault.root, ...entry.path.split('/'))
+      }
+      void absolutePath().then((path) => openPdf(path, entry.id)).then((document) => {
+        setOpenedDocs((current) => [
+          ...current.filter((candidate) => candidate.docId !== document.docId),
+          document,
+        ])
+      }).catch(reportReloadError)
+    }
+  }, [entries, vault, vaultIndex])
+
+  /**
+   * 문서 id(색인 id = MCP 의 doc_id)로 PDF 를 열어 메타와 표시 이름을 준다. 탭은 열지 않는다.
+   * 바깥 AI 가 캔버스에 발췌를 넣을 때 쪽 크기·글자 상자를 얻으려고 쓴다.
+   */
+  const loadPdfById = useCallback(async (docId: string): Promise<{ meta: PdfDocMeta; title: string }> => {
+    if (vault === null) throw new Error(t('열린 Vault 가 없습니다.'))
+    const entry = vaultIndex.find((candidate) => candidate.id === docId && candidate.kind === 'pdf')
+    if (entry === undefined) throw new Error(t('그 PDF 를 찾지 못했습니다: {docId}', { docId }))
+    const known = entries.find((doc) => doc.docId === entry.id)?.path
+    let path = entry.path
+    if (entry.storage === 'vault') {
+      const { join } = await import('@tauri-apps/api/path')
+      path = await join(vault.root, ...entry.path.split('/'))
+    } else if (known !== undefined) {
+      path = known
+    }
+    const meta = await openPdf(path, entry.id)
+    return { meta, title: entry.displayName || meta.title }
+  }, [entries, vault, vaultIndex])
+
+  const reportWatchedConflict = useCallback((id: string) => {
+    const report = () => {
+      setConflictFileIds((current) => current.includes(id) ? current : [...current, id])
+      setError(t('외부 변경과 저장되지 않은 변경이 충돌했습니다.'))
+    }
+    const entry = vaultIndex.find((candidate) => candidate.id === id)
+    if (vault === null || entry === undefined || entry.storage !== 'vault') {
+      report()
+      return
+    }
+    // 감시는 앱 자신의 저장도 알린다. 디스크 내용이 앱이 마지막으로 쓴 것과 같으면 충돌이 아니다
+    void isOwnLatestWrite(vault, entry.path).then((own) => {
+      if (!own) report()
+    })
+  }, [vault, vaultIndex])
+
+  const setFileDirty = useCallback((path: string, dirty: boolean) => {
+    const normalized = path.replaceAll('\\', '/').toLocaleLowerCase()
+    const id = vaultIndex.find((entry) => (
+      entry.storage === 'vault' && entry.path.toLocaleLowerCase() === normalized
+    ))?.id
+    if (id === undefined) return
+    setDirtyFileIds((current) => {
+      const next = new Set(current)
+      if (dirty) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [vaultIndex])
+
+  const reindexWatchedFiles = useCallback(() => {
+    if (vault === null) return
+    void Promise.all([readLibrary(vault), listVaultTree(vault), readVaultIndex(vault)])
+      .then(([libraryEntries, nextTreeEntries, nextIndex]) => {
+        setEntries(libraryEntries)
+        setTreeEntries(nextTreeEntries)
+        setNotebooks(buildNotebookTree(nextTreeEntries))
+        setVaultIndex(nextIndex.entries)
+        setTree(buildVaultWorkspaceTree(
+          nextTreeEntries,
+          displayEntries(libraryEntries, nextIndex.entries),
+          treeOrder,
+          indexedDisplayNames(nextIndex.entries),
+          nextIndex.entries,
+        ))
+      })
+      .catch((err: unknown) => setError(errorText(err)))
+  }, [treeOrder, vault])
+
+  useVaultWatcher({
+    vaultPath: vault?.root ?? null,
+    index: vaultIndex,
+    dirtyIds: dirtyFileIds,
+    onReload: reloadWatchedFile,
+    onConflict: reportWatchedConflict,
+    onReindex: reindexWatchedFiles,
+  })
+
+  const displayedLibrary = useMemo(
+    () => injected ? injectedLibrary : displayEntries(entries, vaultIndex),
+    [entries, injected, injectedLibrary, vaultIndex],
+  )
+  const searchRecords = useMemo<readonly VaultSearchRecord[]>(() => {
+    if (!injected) return buildSearchRecords(vaultIndex, extractedSearchText, fileActivity, extractedSearchPages)
+    return injectedLibrary.map((entry) => ({
+      id: entry.docId,
+      kind: 'pdf',
+      storage: 'reference',
+      path: entry.folderPath === undefined ? entry.title : `${entry.folderPath}/${entry.title}`,
+      folder: entry.folderPath ?? '',
+      filename: entry.title,
+      displayName: entry.title,
+      extractedText: '',
+      pages: [],
+      missing: false,
+      favorite: false,
+      lastOpenedAt: null,
+      addedAt: '',
+    }))
+  }, [extractedSearchPages, extractedSearchText, fileActivity, injected, injectedLibrary, vaultIndex])
+
+  return {
+    initializing,
+    vault,
+    library: displayedLibrary,
+    notebooks,
+    tree,
+    openedDocs,
+    pdfTabs,
+    setPdfTabs,
+    noteTabs,
+    setNoteTabs,
+    panes,
+    setPanes,
+    openInPane,
+    moveTab,
+    setPaneRoute,
+    paneRouteRef,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    layout,
+    setLayout,
+    missingDocIds,
+    conflictFileIds,
+    searchRecords,
+    searchIndexProgress,
+    setDirtyFileIds,
+    setFileDirty,
+    setFileFavorite,
+    itemIcons,
+    noteOrder,
+    setNoteOrder,
+    itemColors,
+    recentPdfs: recentPdfs.filter((recent) => !entries.some((entry) => samePath(entry.path, recent.path))),
+    openExternalPdf,
+    importExternalPdf,
+    forgetRecentPdf,
+    setItemColor,
+    setItemIcon,
+    readingPositions,
+    recordReadingPosition,
+    markdownSources,
+    markdownTheme,
+    recentVaultPaths,
+    setMarkdownTheme,
+    error,
+    dismissError: () => setError(null),
+    loadVault,
+    openVaultPath,
+    closeVault,
+    openDocument,
+    addDocument,
+    importDroppedDocuments,
+    importPdfsAt,
+    refreshVault,
+    addNote,
+    createFolder,
+    saveMarkdownFile,
+    moveEntry,
+    placeTreeNode,
+    placeTreeNodes,
+    duplicateEntry,
+    trashEntry,
+    trashFolder,
+    renameFolder,
+    convertEntryToCopy,
+    copyEntryPath,
+    reorderTreeNode,
+    renameEntry,
+    openMarkdown,
+    relink,
+    editDocumentPages,
+    loadPdfById,
+  }
+}

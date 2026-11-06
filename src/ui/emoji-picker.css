@@ -1,0 +1,100 @@
+.emoji-picker-backdrop { position: fixed; inset: 0; z-index: 60; }
+
+.emoji-picker {
+  position: fixed;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--divider);
+  background: var(--paper);
+  box-shadow: 0 14px 34px var(--shadow-soft);
+  animation: emoji-picker-in 140ms var(--layout-ease, ease) both;
+}
+
+.emoji-picker-head {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.emoji-picker-head input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--divider);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.emoji-picker-remove {
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border: 1px solid var(--divider);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.emoji-picker-remove:hover { color: var(--ink); background: var(--chrome-hover); }
+
+.emoji-picker-section { padding: 6px 8px 2px; }
+.emoji-picker-scroll { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+.emoji-picker-label { margin: 2px 2px 4px; color: var(--text-dim); font-size: 11px; }
+
+.emoji-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.emoji-picker-cell {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.emoji-picker-cell:hover,
+.emoji-picker-cell:focus-visible { background: var(--chrome-hover); outline: none; }
+
+.emoji-picker-tabs {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-top: 1px solid var(--hairline);
+}
+
+.emoji-picker-tab {
+  width: 28px;
+  padding: 0;
+  height: 28px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 16px;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.emoji-picker-tab[aria-selected='true'],
+.emoji-picker-tab:hover { opacity: 1; background: var(--chrome-hover); }
+
+@keyframes emoji-picker-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emoji-picker { animation: none; }
+}
