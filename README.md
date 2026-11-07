@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Interwoven Writing and Evidence</strong><br>
-  Keep your PDFs in folders on the left, click to open them in tabs, read them side by side,<br>
+  Keep your PDFs and Markdown files in folders on the left, click to open them in tabs, read them side by side,<br>
   and turn your highlights into notes that always point back to the source.
 </p>
 
@@ -14,7 +14,7 @@
   <img alt="Version 0.1.6" src="https://img.shields.io/badge/version-0.1.6-2563eb">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca">
-  <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows-0078d4">
+  <img alt="Platform: Windows and macOS" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078d4">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
 </p>
 
@@ -31,7 +31,7 @@
 Most PDF readers open one file at a time and leave the organizing to your file manager. Reference managers organize well, but they want metadata and keep your files inside their own library. IWAE sits in between:
 
 - **Your folder is the library.** Open any folder (a **Vault**). Its subfolders and PDFs appear as a tree on the left, exactly as they are on disk. Create folders, rename, and drag files around right there.
-- **One click to read.** Click a PDF and it opens in a tab. Open as many as you like and switch between them like browser tabs.
+- **One click to read.** Click a PDF or Markdown file and it opens in a tab. Open as many as you like and switch between them like browser tabs.
 - **Read side by side.** Split the window into two or three columns, two rows, or a 2×2 grid, and drag tabs between the panes.
 - **Mark up as you go.** Highlight a passage and write a memo next to it. Memos collect into **notes** on the right, and each memo stays linked to the exact spot it came from. Click it and the PDF jumps back there.
 
@@ -51,6 +51,9 @@ Your documents stay ordinary files in an ordinary folder. IWAE keeps its own rec
 - Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump, and go back with the mouse back button.
 - Single page or two-page spreads, page rotation, dark-mode color inversion, light and dark app themes.
 - Resumes where you left off.
+- A **library view** lists every document in a table with its paper details (title, authors, year). Edit them in place, sort, star and group documents into collections.
+- **Paper details** are filled from the PDF or Crossref, and you can copy a BibTeX citation.
+- **Versions:** group several files of the same document (draft, revised, final) and switch between them.
 
 ### Marking up
 
@@ -58,30 +61,67 @@ Your documents stay ordinary files in an ordinary folder. IWAE keeps its own rec
 | --- | --- |
 | Text select | Highlight text and open a memo for it in the note. |
 | Region capture | Box a table or figure and add it to the note as an image. |
+| Highlighter | Paint passages in one of several colors without writing a memo. |
 | Box memo | Attach a memo box in the page margin, connected by a line. |
-| Text box, pen, eraser, line | Write and draw directly on the page. |
+| Text box, pen, line, eraser | Write and draw directly on the page. The eraser also removes highlights and box memos. |
 | Edit pages | Reorder, rotate, remove, or insert pages from another PDF. Highlights follow the pages they belong to, and the original file is backed up first. |
+
+Select text and a memo opens in the note right away. Write your comment, and click the memo later to jump back to the exact spot:
+
+<p align="center">
+  <img src="docs/images/memo.gif" width="900" alt="Selecting a sentence in a PDF, writing a memo for it in the note, scrolling away, then clicking the memo to jump back to the highlighted sentence">
+</p>
+
+Box a chart or table to add it to the note as an image, with your description:
+
+<p align="center">
+  <img src="docs/images/region.gif" width="900" alt="Choosing region capture, boxing a bar chart in the PDF, and the chart appearing in the note with a description">
+</p>
 
 ### Notes
 
-A note is built from blocks, and one note can mix memos from several PDFs.
+A note is built from blocks, and one note can mix memos from several PDFs and Markdown files.
 
+- **Memo** is your comment with its sources underneath; click a source to jump to it. A memo can hold several sources, including captured regions.
+- **ID and title:** give any memo a free-form ID such as `REQ-01` and a title, which is handy for tracking requirements. IWAE suggests the next number and warns about an ID already used in the note. Type an ID at the start of a memo and it turns into the ID badge.
 - **Section** groups the blocks under it; collapse it or drag it as one unit.
 - **Text** is free writing with bold, lists, tables and code.
-- **Memo** is a highlight plus your comment; click it to jump to the source.
-- **Ticket** shows a memo as title, comment and original quote, which is handy for tracking requirements.
+- Select several blocks (Ctrl+click or Shift+click) and drag them together.
+
+<p align="center">
+  <img src="docs/images/ticket.gif" width="900" alt="Adding the ID SLEEP-01 and a title to a memo, then giving the next memo the suggested ID SLEEP-02 and a title">
+</p>
 
 ### Translation
 
-Translate a selection without replacing the original text.
+Translate a selection without replacing the original text. Each source line in a note also has a small translate button that shows the translation right under it.
+
+<p align="center">
+  <img src="docs/images/translate.gif" width="900" alt="Translating a selected sentence into Korean, then pressing the translate button on a memo to show the translation under its source">
+</p>
 
 - **Local:** Ollama on your own PC. Nothing leaves the machine.
 - **Cloud:** OpenAI, Anthropic, Gemini, Azure Translator or DeepL. The selected text is sent to the service you choose. API keys are kept in the operating system's credential store.
+- **Translation cache:** a text translated once into the same language is reused instantly, without another request. Turn it off or clear it in **Settings → Translation**. Translations stay in the Vault's `.iwae` folder.
+
+### Markdown
+
+Markdown files open in tabs next to your PDFs, with headings, tables, code, task lists and an outline. Highlights, memos and region captures work the same way as in a PDF.
+
+<p align="center">
+  <img src="docs/images/markdown.gif" width="900" alt="Selecting a list item in a Markdown file and writing a memo for it in the note">
+</p>
+
+- **From GitHub:** import a folder of Markdown documents from a GitHub repository. The toolbar shows when there are new commits; pull the latest, or open an older version from a branch, tag or commit.
 
 ### Search and OCR
 
-- Search file names, folders, PDF text and Markdown content from one place.
+- Search file names, folders, PDF text and Markdown content from one place. Click a result and the document opens at that spot.
 - Pages without a text layer are recognized locally with the bundled PaddleOCR models. Results are cached per file, so unchanged documents are not processed again.
+
+<p align="center">
+  <img src="docs/images/search.gif" width="900" alt="Searching the whole Vault for the word canopy and opening the first result at the matching passage">
+</p>
 
 ### Working with AI agents
 
@@ -111,10 +151,17 @@ your-vault/
 
 ## Install
 
-Windows installers are published on the [Releases](https://github.com/radic2682/IWAE/releases) page:
+Installers are published on the [Releases](https://github.com/radic2682/IWAE/releases) page.
+
+**Windows**
 
 - `IWAE_<version>_x64-setup.exe`: recommended. Installs for the current user.
 - `IWAE_<version>_x64_en-US.msi`: for managed deployment.
+
+**macOS** (12 or newer, Apple silicon and Intel)
+
+- `IWAE_<version>_universal.dmg`: open it and drag IWAE to Applications.
+- The app is not notarized by Apple yet, so the first launch shows a warning. Open **System Settings → Privacy & Security** and click **Open Anyway** once.
 
 Release builds check for updates, verify their signature, and install only after you confirm.
 
