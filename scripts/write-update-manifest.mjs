@@ -19,6 +19,8 @@ export function createUpdateManifest({
   repository,
   bundleName,
   signature,
+  macBundleName,
+  macSignature,
   notes,
   pubDate,
 }) {
@@ -38,17 +40,24 @@ export function createUpdateManifest({
   const publishedAt = required(pubDate, 'publication date')
   if (Number.isNaN(Date.parse(publishedAt))) throw new Error('Publication date must be RFC 3339 compatible.')
   const releaseTag = required(tag, 'release tag')
+  const assetUrl = (name) => `https://github.com/${repo}/releases/download/${encodeURIComponent(releaseTag)}/${encodeURIComponent(name)}`
+  const platforms = {
+    'windows-x86_64': { signature: inlineSignature, url: assetUrl(asset) },
+  }
+  // macOS: 하나의 universal .app.tar.gz 가 Apple Silicon·Intel 둘 다 맡는다
+  if ((macBundleName?.trim() ?? '') !== '') {
+    const macAsset = macBundleName.trim()
+    if (!macAsset.endsWith('.app.tar.gz')) throw new Error('macOS updater bundle must be the .app.tar.gz archive.')
+    const mac = { signature: required(macSignature, 'macOS updater signature'), url: assetUrl(macAsset) }
+    platforms['darwin-aarch64'] = mac
+    platforms['darwin-x86_64'] = mac
+  }
 
   return {
     version: releaseVersion,
     notes: notes?.trim() ?? '',
     pub_date: publishedAt,
-    platforms: {
-      'windows-x86_64': {
-        signature: inlineSignature,
-        url: `https://github.com/${repo}/releases/download/${encodeURIComponent(releaseTag)}/${encodeURIComponent(asset)}`,
-      },
-    },
+    platforms,
   }
 }
 
@@ -57,6 +66,7 @@ async function main() {
   const packageMetadata = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'))
   const bundlePath = required(process.env.IWAE_UPDATER_BUNDLE, 'IWAE_UPDATER_BUNDLE')
   const signaturePath = process.env.IWAE_UPDATER_SIGNATURE?.trim() || `${bundlePath}.sig`
+  const macBundlePath = process.env.IWAE_UPDATER_MAC_BUNDLE?.trim() ?? ''
   const outputPath = resolve(process.env.IWAE_UPDATE_MANIFEST?.trim() || resolve(root, 'latest.json'))
   const manifest = createUpdateManifest({
     version: packageMetadata.version,
@@ -65,6 +75,10 @@ async function main() {
     repository: required(process.env.GITHUB_REPOSITORY, 'GITHUB_REPOSITORY'),
     bundleName: basename(bundlePath),
     signature: await readFile(signaturePath, 'utf8'),
+    ...(macBundlePath === '' ? {} : {
+      macBundleName: basename(macBundlePath),
+      macSignature: await readFile(`${macBundlePath}.sig`, 'utf8'),
+    }),
     notes: process.env.IWAE_UPDATE_NOTES ?? 'IWAE stability and feature update.',
     pubDate: process.env.IWAE_UPDATE_PUB_DATE ?? new Date().toISOString(),
   })

@@ -35,3 +35,20 @@ test('rejects version drift and missing updater signatures', () => {
   assert.throws(() => createUpdateManifest({ ...input, signature: '  ' }), /signature/i)
   assert.throws(() => createUpdateManifest({ ...input, bundleName: 'IWAE_0.1.3_x64_en-US.msi' }), /NSIS/i)
 })
+
+test('adds macOS platforms from one universal updater archive', () => {
+  const manifest = createUpdateManifest({
+    version: '0.1.7', packageVersion: '0.1.7', tag: 'v0.1.7', repository: 'radic2682/IWAE',
+    bundleName: 'IWAE_0.1.7_x64-setup.exe', signature: 'win-sig',
+    macBundleName: 'IWAE_0.1.7_universal.app.tar.gz', macSignature: 'mac-sig\n',
+    notes: '', pubDate: '2026-11-08T00:00:00.000Z',
+  })
+  const mac = { signature: 'mac-sig', url: 'https://github.com/radic2682/IWAE/releases/download/v0.1.7/IWAE_0.1.7_universal.app.tar.gz' }
+  assert.deepEqual(manifest.platforms['darwin-aarch64'], mac)
+  assert.deepEqual(manifest.platforms['darwin-x86_64'], mac)
+  assert.throws(() => createUpdateManifest({
+    version: '0.1.7', packageVersion: '0.1.7', tag: 'v0.1.7', repository: 'radic2682/IWAE',
+    bundleName: 'IWAE_0.1.7_x64-setup.exe', signature: 'win-sig',
+    macBundleName: 'IWAE_0.1.7_universal.dmg', macSignature: 'mac-sig', notes: '', pubDate: '2026-11-08T00:00:00.000Z',
+  }), /app\.tar\.gz/)
+})
