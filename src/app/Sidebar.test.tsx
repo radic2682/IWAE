@@ -774,18 +774,25 @@ describe('Sidebar — 폴더 작업', () => {
     },
   ]
 
-  it('폴더 메뉴에 하위 폴더·이름 바꾸기·이모지·삭제가 있다', async () => {
+  it('폴더 메뉴는 만들기 / 정리 / 휴지통 묶음으로 나뉘고, 첫 항목에 초점이 가며 Escape 로 닫힌다', async () => {
     await renderSidebar({ tree: folderTree, onCreateFolder: vi.fn(), onRenameFolder: vi.fn(), onTrashFolder: vi.fn(), onItemIconChange: vi.fn() })
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Specs 접기' }))
-    const names = screen.getAllByRole('menuitem').map((item) => item.textContent)
-    expect(names).toEqual(['새 하위 폴더…', '이름 바꾸기', '이모지 설정…', '삭제…'])
+    const items = screen.getAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['새 하위 폴더…', '이름 바꾸기', '이모지 설정…', '휴지통으로 이동…'])
+    expect(screen.getAllByRole('separator')).toHaveLength(2)
+    expect(document.activeElement).toBe(items[0])
+    const menu = screen.getByRole('menu')
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[1])
+    fireEvent.keyDown(menu, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('폴더 삭제는 문서 수를 알리는 확인 뒤에 휴지통 콜백을 부른다', async () => {
     const onTrashFolder = vi.fn().mockResolvedValue(undefined)
     await renderSidebar({ tree: folderTree, onTrashFolder })
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Specs 접기' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '삭제…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '휴지통으로 이동…' }))
     const dialog = screen.getByRole('dialog', { name: '폴더 삭제' })
     expect(dialog.textContent).toContain('문서 2개')
     expect(dialog.textContent).toContain('하위 폴더 1개')
@@ -799,7 +806,7 @@ describe('Sidebar — 폴더 작업', () => {
     const onTrashFolder = vi.fn()
     await renderSidebar({ tree: folderTree, onTrashFolder })
     fireEvent.contextMenu(screen.getByRole('button', { name: 'HTTP 접기' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '삭제…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '휴지통으로 이동…' }))
     fireEvent.keyDown(screen.getByRole('dialog', { name: '폴더 삭제' }), { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: '폴더 삭제' })).toBeNull()
     expect(onTrashFolder).not.toHaveBeenCalled()

@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
-import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle } from '@phosphor-icons/react'
+import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, MagnifyingGlassPlus, PencilSimple, Quotes, Smiley, Stack, Star, Trash } from '@phosphor-icons/react'
 import {
   buildLegacyWorkspaceTree,
   projectVaultTree,
@@ -1622,95 +1622,62 @@ export function Sidebar({
         {actionError !== null && <p className="side-action-error" role="alert">{actionError}</p>}
       </div>
 
-      {contextMenu !== null && (
-        <>
-          <div className="side-menu-backdrop" onClick={() => setContextMenu(null)} />
-          <div
-            className="side-context-menu"
-            role="menu"
-            aria-label={t('{name} 작업', { name: contextMenu.name })}
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-            // 창 아래·오른쪽 끝에서 열면 메뉴가 창 밖으로 나간다. 창 안으로 들어오게 옮긴다.
-            ref={(element) => {
-              if (element === null) return
-              const rect = element.getBoundingClientRect()
-              if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
-              if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
-            }}
-          >
-            {contextMenu.kind === 'folder' && onGithubAction !== undefined && githubSources?.get(contextMenu.id) !== undefined ? (() => {
-              const source = githubSources.get(contextMenu.id)!
-              const act = (action: 'fetch' | 'pull' | 'versions' | 'open') => () => {
-                setContextMenu(null)
-                onGithubAction(action, source.name)
-              }
-              return (
-                <>
-                  <button type="button" role="menuitem" onClick={act('fetch')}>{t('새 소식 확인')}</button>
-                  <button type="button" role="menuitem" onClick={act('pull')}>{source.behind > 0 ? t('최신으로 (새 커밋 {count}개)', { count: source.behind }) : t('최신으로')}</button>
-                  <button type="button" role="menuitem" onClick={act('versions')}>{t('다른 버전 보기…')}</button>
-                  <button type="button" role="menuitem" onClick={act('open')}>{t('GitHub에서 열기')}</button>
-                  <div className="side-context-sep" role="separator" />
-                </>
-              )
-            })() : null}
-            {contextMenu.kind === 'folder' && onCreateFolder !== undefined && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  startDraft('folder', sectionOfFolder(contextMenu.id), contextMenu.id)
-                  setContextMenu(null)
-                }}
-              >
-                {t('새 하위 폴더…')}
-              </button>
-            )}
-            {contextMenu.kind === 'folder' && onRevealFolder !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onRevealFolder(contextMenu.id))}>
-                {t('파일 탐색기에서 열기')}
-              </button>
-            )}
-            {contextMenu.kind === 'folder' && onRenameFolder !== undefined && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  startFolderRenaming({ id: `folder:${contextMenu.id}`, name: contextMenu.name })
-                  setContextMenu(null)
-                }}
-              >
-                {t('이름 바꾸기')}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && onRenameEntry !== undefined && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
+      {contextMenu !== null && (() => {
+        const close = () => setContextMenu(null)
+        const mac = isMacPlatform()
+        const revealLabel = mac ? t('Finder 에서 보기') : t('탐색기에서 보기')
+        const isEntry = contextMenu.kind === 'entry'
+        const isFolder = contextMenu.kind === 'folder'
+        const item = (key: string, icon: ReactNode, label: string, onClick: () => void, danger = false) => (
+          <button key={key} type="button" role="menuitem" className={danger ? 'side-context-danger' : undefined} onClick={onClick}>
+            <span className="side-context-icon" aria-hidden="true">{icon}</span>
+            <span className="side-context-label">{label}</span>
+          </button>
+        )
+        const docId = contextMenu.versionDocId
+        const versionGroup = docId === undefined ? undefined : Object.values(versionGroups ?? {}).find((group) => group.versions.some((version) => version.docId === docId))
+        const sourceCount = sourceCounts?.[contextMenu.id] ?? 0
+        const folderFullPath = isFolder && vaultRoot !== undefined
+          ? [vaultRoot.replace(/[\\/]+$/u, ''), ...contextMenu.id.split('/')].join(vaultRoot.includes('\\') ? '\\' : '/')
+          : undefined
+        // 묶음마다 선을 긋는다. 빈 묶음은 건너뛴다
+        const groups: ReactNode[][] = [
+          // GitHub 에서 가져온 폴더
+          isFolder && onGithubAction !== undefined && githubSources?.get(contextMenu.id) !== undefined ? (() => {
+            const source = githubSources.get(contextMenu.id)!
+            const act = (action: 'fetch' | 'pull' | 'versions' | 'open') => () => { close(); onGithubAction(action, source.name) }
+            return [
+              item('gh-fetch', <ArrowClockwise size={15} />, t('새 소식 확인'), act('fetch')),
+              item('gh-pull', <DownloadSimple size={15} />, source.behind > 0 ? t('최신으로 (새 커밋 {count}개)', { count: source.behind }) : t('최신으로'), act('pull')),
+              item('gh-versions', <GitBranch size={15} />, t('다른 버전 보기…'), act('versions')),
+              item('gh-open', <GithubLogo size={15} />, t('GitHub에서 열기'), act('open')),
+            ]
+          })() : [],
+          // 만들기
+          isFolder && onCreateFolder !== undefined ? [
+            item('new-folder', <FolderPlus size={15} />, t('새 하위 폴더…'), () => { startDraft('folder', sectionOfFolder(contextMenu.id), contextMenu.id); close() }),
+          ] : [],
+          // 정리: 이름·이모지·색·즐겨찾기·복제
+          [
+            isFolder && onRenameFolder !== undefined
+              ? item('rename', <PencilSimple size={15} />, t('이름 바꾸기'), () => { startFolderRenaming({ id: `folder:${contextMenu.id}`, name: contextMenu.name }); close() })
+              : null,
+            isEntry && onRenameEntry !== undefined
+              ? item('rename', <PencilSimple size={15} />, t('이름 바꾸기'), () => {
                   // 펼친 라이브러리에서는 표의 이름 칸을 그 자리에서 고친다
                   if (libraryExpanded) setLibraryRenameRequest({ id: contextMenu.id, nonce: Date.now() })
                   else startRenaming(contextMenu.id, contextMenu.name)
-                  setContextMenu(null)
-                }}
-              >
-                {t('이름 바꾸기')}
-              </button>
-            )}
-            {onItemIconChange !== undefined && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setEmojiTarget({ key: contextMenu.iconKey, x: contextMenu.x, y: contextMenu.y })
-                  setContextMenu(null)
-                }}
-              >
-                {itemIcons[contextMenu.iconKey] === undefined ? t('이모지 설정…') : t('이모지 바꾸기…')}
-              </button>
-            )}
-            {onItemColorChange !== undefined && contextMenu.iconKey.startsWith('folder:') ? (
-              <div className="side-color-row" role="group" aria-label={t('폴더 색')}>
+                  close()
+                })
+              : null,
+            onItemIconChange !== undefined
+              ? item('emoji', <Smiley size={15} />, itemIcons[contextMenu.iconKey] === undefined ? t('이모지 설정…') : t('이모지 바꾸기…'), () => { setEmojiTarget({ key: contextMenu.iconKey, x: contextMenu.x, y: contextMenu.y }); close() })
+              : null,
+            onItemIconChange !== undefined && itemIcons[contextMenu.iconKey] !== undefined
+              ? item('emoji-clear', <Eraser size={15} />, t('이모지 지우기'), () => void runEntryAction(() => onItemIconChange(contextMenu.iconKey, null)))
+              : null,
+            onItemColorChange !== undefined && contextMenu.iconKey.startsWith('folder:') ? (
+              <div key="colors" className="side-color-row" role="group" aria-label={t('폴더 색')}>
                 {FOLDER_COLORS.map((color) => (
                   <button
                     key={color.id}
@@ -1734,106 +1701,124 @@ export function Sidebar({
                   onClick={() => void runEntryAction(() => onItemColorChange(contextMenu.iconKey, null))}
                 />
               </div>
-            ) : null}
-            {onItemIconChange !== undefined && itemIcons[contextMenu.iconKey] !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onItemIconChange(contextMenu.iconKey, null))}>
-                {t('이모지 지우기')}
-              </button>
-            )}
-            {contextMenu.pdf && onEditBibliography !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onEditBibliography(contextMenu.id))}>
-                {t('서지 정보…')}
-              </button>
-            )}
-            {contextMenu.pdf && onCopyBibtex !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onCopyBibtex(contextMenu.id))}>
-                {t('BibTeX 복사')}
-              </button>
-            )}
-            {contextMenu.pdf && onMakeSearchable !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onMakeSearchable(contextMenu.id))}>
-                {t('검색 가능한 PDF 사본 만들기')}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && onDuplicateEntry !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onDuplicateEntry(contextMenu.id, contextMenu.parentPath))}>
-                {t('복제')}
-              </button>
-            )}
-            {contextMenu.versionDocId !== undefined && (() => {
-              const docId = contextMenu.versionDocId
-              const group = Object.values(versionGroups ?? {}).find((item) => item.versions.some((version) => version.docId === docId))
-              return (
-                <>
-                  {group === undefined && onStartVersions !== undefined ? (
-                    <button type="button" role="menuitem" onClick={() => { onStartVersions(docId); setContextMenu(null) }}>{t('판 관리 시작')}</button>
-                  ) : null}
-                  {onStackRequest !== undefined ? (
-                    <button type="button" role="menuitem" onClick={() => { onStackRequest(docId); setContextMenu(null) }}>{group === undefined ? t('판으로 겹치기…') : t('판 추가…')}</button>
-                  ) : null}
-                  {group !== undefined && versionActions !== undefined ? (
-                    <button type="button" role="menuitem" onClick={() => { versionActions.onDissolve(group.id); setContextMenu(null) }}>{t('판 관리 끝내기 (파일은 그대로)')}</button>
-                  ) : null}
-                </>
-              )
-            })()}
-            {contextMenu.kind === 'entry' && contextMenu.pdf && onOpenFirstSource !== undefined && (sourceCounts?.[contextMenu.id] ?? 0) > 0 && (
-              <button type="button" role="menuitem" onClick={() => { onOpenFirstSource(contextMenu.id); setContextMenu(null) }}>
-                {t('원본 열기')}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && contextMenu.pdf && onOpenSources !== undefined && (
-              <button type="button" role="menuitem" onClick={() => { onOpenSources(contextMenu.id); setContextMenu(null) }}>
-                {t('원본 출처…')}{(sourceCounts?.[contextMenu.id] ?? 0) > 0 ? ` (${sourceCounts?.[contextMenu.id]})` : ''}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && onRevealEntry !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onRevealEntry(contextMenu.id))}>
-                {t('파일 탐색기에서 열기')}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && onCopyEntryPath !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(async () => {
-                const path = await onCopyEntryPath(contextMenu.id)
-                await navigator.clipboard.writeText(path)
-              })}>
-                {t('경로 복사')}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && contextMenu.storage === 'reference' && onConvertEntryToCopy !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onConvertEntryToCopy(contextMenu.id, contextMenu.parentPath))}>
-                {t('Vault에 복사')}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && onFavoriteChange !== undefined && (
-              <button type="button" role="menuitem" onClick={() => void runEntryAction(() => onFavoriteChange(contextMenu.id, !contextMenu.favorite))}>
-                {contextMenu.favorite ? t('즐겨찾기 해제') : t('즐겨찾기 추가')}
-              </button>
-            )}
-            {contextMenu.kind === 'entry' && onTrashEntry !== undefined && (
-              <button type="button" role="menuitem" className="side-context-danger" onClick={() => void runEntryAction(() => onTrashEntry(contextMenu.id))}>
-                {t('휴지통으로 이동')}
-              </button>
-            )}
-            {contextMenu.kind === 'folder' && onTrashFolder !== undefined && (
-              <>
-                <hr className="side-context-sep" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="side-context-danger"
-                  onClick={() => {
-                    setDeleteFolderTarget({ path: contextMenu.id, name: contextMenu.name })
-                    setContextMenu(null)
-                  }}
-                >
-                  {t('삭제…')}
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
+            ) : null,
+            isEntry && onFavoriteChange !== undefined
+              ? item('favorite', <Star size={15} weight={contextMenu.favorite ? 'fill' : 'regular'} />, contextMenu.favorite ? t('즐겨찾기 해제') : t('즐겨찾기 추가'), () => void runEntryAction(() => onFavoriteChange(contextMenu.id, !contextMenu.favorite)))
+              : null,
+            isEntry && onDuplicateEntry !== undefined
+              ? item('duplicate', <CopySimple size={15} />, t('복제'), () => void runEntryAction(() => onDuplicateEntry(contextMenu.id, contextMenu.parentPath)))
+              : null,
+          ].filter((node): node is ReactElement => node !== null),
+          // 문헌: 서지·출처
+          [
+            contextMenu.pdf && onEditBibliography !== undefined
+              ? item('bib', <BookOpenText size={15} />, t('서지 정보…'), () => void runEntryAction(() => onEditBibliography(contextMenu.id)))
+              : null,
+            contextMenu.pdf && onCopyBibtex !== undefined
+              ? item('bibtex', <Quotes size={15} />, t('BibTeX 복사'), () => void runEntryAction(() => onCopyBibtex(contextMenu.id)))
+              : null,
+            isEntry && contextMenu.pdf && onOpenFirstSource !== undefined && sourceCount > 0
+              ? item('source-open', <LinkSimple size={15} />, t('원본 열기'), () => { onOpenFirstSource(contextMenu.id); close() })
+              : null,
+            isEntry && contextMenu.pdf && onOpenSources !== undefined
+              ? item('sources', <ListBullets size={15} />, `${t('원본 출처…')}${sourceCount > 0 ? ` (${sourceCount})` : ''}`, () => { onOpenSources(contextMenu.id); close() })
+              : null,
+          ].filter((node): node is ReactElement => node !== null),
+          // 도구: 검색 사본·판 관리·Vault 로 복사
+          [
+            contextMenu.pdf && onMakeSearchable !== undefined
+              ? item('searchable', <MagnifyingGlassPlus size={15} />, t('검색 가능한 PDF 사본 만들기'), () => void runEntryAction(() => onMakeSearchable(contextMenu.id)))
+              : null,
+            docId !== undefined && versionGroup === undefined && onStartVersions !== undefined
+              ? item('versions-start', <Stack size={15} />, t('판 관리 시작'), () => { onStartVersions(docId); close() })
+              : null,
+            docId !== undefined && onStackRequest !== undefined
+              ? item('versions-stack', <Stack size={15} />, versionGroup === undefined ? t('판으로 겹치기…') : t('판 추가…'), () => { onStackRequest(docId); close() })
+              : null,
+            versionGroup !== undefined && versionActions !== undefined
+              ? item('versions-end', <Stack size={15} />, t('판 관리 끝내기 (파일은 그대로)'), () => { versionActions.onDissolve(versionGroup.id); close() })
+              : null,
+            isEntry && contextMenu.storage === 'reference' && onConvertEntryToCopy !== undefined
+              ? item('to-vault', <DownloadSimple size={15} />, t('Vault에 복사'), () => void runEntryAction(() => onConvertEntryToCopy(contextMenu.id, contextMenu.parentPath)))
+              : null,
+          ].filter((node): node is ReactElement => node !== null),
+          // 위치: 탐색기에서 보기·경로 복사
+          [
+            isFolder && onRevealFolder !== undefined
+              ? item('reveal', <ArrowSquareOut size={15} />, revealLabel, () => void runEntryAction(() => onRevealFolder(contextMenu.id)))
+              : null,
+            isEntry && onRevealEntry !== undefined
+              ? item('reveal', <ArrowSquareOut size={15} />, revealLabel, () => void runEntryAction(() => onRevealEntry(contextMenu.id)))
+              : null,
+            isEntry && onCopyEntryPath !== undefined
+              ? item('copy-path', <ClipboardText size={15} />, t('경로 복사'), () => void runEntryAction(async () => {
+                  const path = await onCopyEntryPath(contextMenu.id)
+                  await navigator.clipboard.writeText(path)
+                  announceAction(t('경로를 복사했습니다'))
+                }))
+              : null,
+            folderFullPath !== undefined
+              ? item('copy-path', <ClipboardText size={15} />, t('경로 복사'), () => void runEntryAction(async () => {
+                  await navigator.clipboard.writeText(folderFullPath)
+                  announceAction(t('경로를 복사했습니다'))
+                }))
+              : null,
+          ].filter((node): node is ReactElement => node !== null),
+          // 지우기(휴지통으로)
+          [
+            isEntry && onTrashEntry !== undefined
+              ? item('trash', <Trash size={15} />, t('휴지통으로 이동'), () => void runEntryAction(() => onTrashEntry(contextMenu.id)), true)
+              : null,
+            isFolder && onTrashFolder !== undefined
+              ? item('trash', <Trash size={15} />, t('휴지통으로 이동…'), () => { setDeleteFolderTarget({ path: contextMenu.id, name: contextMenu.name }); close() }, true)
+              : null,
+          ].filter((node): node is ReactElement => node !== null),
+        ].filter((group) => group.length > 0)
+        return (
+          <>
+            <div className="side-menu-backdrop" onClick={close} />
+            <div
+              className="side-context-menu"
+              role="menu"
+              aria-label={t('{name} 작업', { name: contextMenu.name })}
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              // 창 아래·오른쪽 끝에서 열면 메뉴가 창 밖으로 나간다. 창 안으로 들어오게 옮긴다. 열리면 첫 항목에 초점을 둔다(Escape·화살표가 듣게)
+              ref={(element) => {
+                if (element === null) return
+                const rect = element.getBoundingClientRect()
+                if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
+                if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
+                if (!element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]')?.focus({ preventScroll: true })
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  close()
+                  return
+                }
+                const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem]'))
+                const index = items.indexOf(document.activeElement as HTMLButtonElement)
+                const next = event.key === 'ArrowDown' ? (index + 1) % items.length
+                  : event.key === 'ArrowUp' ? (index <= 0 ? items.length - 1 : index - 1)
+                    : event.key === 'Home' ? 0
+                      : event.key === 'End' ? items.length - 1
+                        : null
+                if (next === null || items.length === 0) return
+                event.preventDefault()
+                items[next]?.focus()
+              }}
+            >
+              {groups.map((group, index) => (
+                <Fragment key={index}>
+                  {index === 0 ? null : <div className="side-context-sep" role="separator" />}
+                  {group}
+                </Fragment>
+              ))}
+            </div>
+          </>
+        )
+      })()}
 
       {attachmentMenuOpen ? (
         <AddPdfDialog
