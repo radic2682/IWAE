@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
-import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, DotsSixVertical, FileMd, FilePdf, FilePlus, Files, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle } from '@phosphor-icons/react'
+import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Files, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle } from '@phosphor-icons/react'
 import {
   buildLegacyWorkspaceTree,
   projectVaultTree,
@@ -40,6 +40,7 @@ import { revealInFolder } from '../bridge/vaultBackup'
 import { isMacPlatform } from '../core/platform'
 import { announceAction } from './actionFeedback'
 import '../ui/vault-menu.css'
+import '../ui/sidebar-buttons.css'
 
 // 선택창과 이모지 데이터는 처음 열 때만 불러온다 — 시작 번들을 키우지 않는다.
 const LazyEmojiPicker = lazy(async () => {
@@ -460,7 +461,6 @@ export function Sidebar({
     nodeId: string
     position: 'before' | 'after' | 'inside'
   } | null>(null)
-  const [keyboardGrabbedKey, setKeyboardGrabbedKey] = useState<string | null>(null)
   /** Ctrl·Shift 로 고른 트리 항목(노드 id). 고른 것 중 하나를 끌면 함께 옮긴다 */
   const [selectedNodes, setSelectedNodes] = useState<ReadonlySet<string>>(() => new Set())
   const selectionAnchorRef = useRef<string | null>(null)
@@ -1037,24 +1037,14 @@ export function Sidebar({
             : documentDropPlace.nodeId === node.id ? `side-tree-drop-${documentDropPlace.position}` : ''),
         ].filter(Boolean).join(' ')
 
-        const moveWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
-          if (event.key === 'Escape') {
-            setKeyboardGrabbedKey(null)
-            setReorderAnnouncement(t('{name} 이동을 취소했습니다.', { name: node.name }))
-            return
-          }
-          if (event.key === ' ' || event.key === 'Enter') {
-            event.preventDefault()
-            const nextKey = keyboardGrabbedKey === sectionNodeKey ? null : sectionNodeKey
-            setKeyboardGrabbedKey(nextKey)
-            setReorderAnnouncement(nextKey === null
-              ? t('{name} 이동을 마쳤습니다.', { name: node.name })
-              : t('{name}을 집었습니다. 위아래 화살표로 이동하세요.', { name: node.name }))
-            return
-          }
-          if (keyboardGrabbedKey !== sectionNodeKey || onReorderNode === undefined) return
+        // 줄을 끌어 옮기는 것 말고, 키보드로는 그 줄에 초점을 두고 Alt+↑/↓ 로 형제 사이를 옮긴다
+        const moveWithKeyboard = (event: KeyboardEvent<HTMLLIElement>) => {
+          if (!event.altKey || onReorderNode === undefined) return
           if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+          if ((event.target as Element).closest('input, textarea') !== null) return
           event.preventDefault()
+          // 안쪽(하위 폴더) 줄에서 눌렀으면 그 줄만 옮긴다
+          event.stopPropagation()
           const targetIndex = event.key === 'ArrowUp' ? index - 1 : index + 1
           const target = nodes[targetIndex]
           if (target === undefined) return
@@ -1076,6 +1066,7 @@ export function Sidebar({
             data-kind={node.kind}
             data-path={node.kind === 'folder' ? node.path : undefined}
             onPointerDown={editingEntryId === node.id ? undefined : (event) => startTreeDrag(event, { section, parentPath, nodeId: node.id }, node.name)}
+            onKeyDown={moveWithKeyboard}
           >
             <div className="side-tree-row" style={{ '--side-tree-depth': depth } as CSSProperties}>
               {node.kind === 'folder' && editingEntryId === node.id ? (
@@ -1412,24 +1403,6 @@ export function Sidebar({
                   <Plus size={12} weight="bold" aria-hidden="true" />
                 </button>
               ) : null}
-              {onReorderNode !== undefined && (
-                <button
-                  type="button"
-                  className="side-tree-drag-handle"
-                  aria-label={t('{name} 순서 변경', { name: node.name })}
-                  aria-pressed={keyboardGrabbedKey === sectionNodeKey}
-                  title={t('끌어서 순서 바꾸기')}
-                  // 마우스로 누르기만 하면 아무 일도 없다(끌어야 옮겨진다). 예전에는 눌린 상태로 남아 강조가 안 풀렸다.
-                  // 키보드 집기(Space·Enter → 화살표)는 onKeyDown 이 맡는다
-                  onClick={(event) => {
-                    if (event.detail > 0) event.currentTarget.blur()
-                  }}
-                  onBlur={() => setKeyboardGrabbedKey((current) => current === sectionNodeKey ? null : current)}
-                  onKeyDown={moveWithKeyboard}
-                >
-                  <DotsSixVertical size={14} weight="bold" aria-hidden="true" />
-                </button>
-              )}
             </div>
             {node.kind === 'folder' && versionGroup !== undefined ? versionRows(versionGroup, depth) : null}
             {node.kind === 'folder' && shownFolder.kind === 'folder' && (open || (draft !== null && draft.section === section && draft.parentPath === shownFolder.path))

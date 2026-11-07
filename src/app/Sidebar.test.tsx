@@ -521,15 +521,17 @@ describe('Sidebar — 폴더 우선 트리', () => {
     expect(onOpenNote).not.toHaveBeenCalled()
   })
 
-  it('순서 버튼 없이 키보드 드래그로 형제 이동 요청을 전달한다', async () => {
+  it('순서 손잡이 없이, 줄에서 Alt+↑/↓ 로 형제 이동 요청을 전달한다', async () => {
     const onReorderNode = vi.fn()
     await renderSidebar({ tree, onReorderNode })
 
     expect(screen.queryByRole('button', { name: '위로 이동' })).toBeNull()
-    expect(screen.queryByRole('button', { name: '아래로 이동' })).toBeNull()
-    const handle = screen.getByRole('button', { name: 'HTTP Advanced 순서 변경' })
-    fireEvent.keyDown(handle, { key: ' ' })
-    fireEvent.keyDown(handle, { key: 'ArrowUp' })
+    expect(screen.queryByRole('button', { name: 'HTTP Advanced 순서 변경' })).toBeNull()
+    const row = screen.getByRole('button', { name: 'HTTP Advanced' })
+    // Alt 없이 화살표만 누르면 옮기지 않는다
+    fireEvent.keyDown(row, { key: 'ArrowUp' })
+    expect(onReorderNode).not.toHaveBeenCalled()
+    fireEvent.keyDown(row, { key: 'ArrowUp', altKey: true })
     expect(onReorderNode).toHaveBeenCalledWith({
       parentPath: 'Specs/Bus',
       nodeId: 'pdf:doc-http-advanced',

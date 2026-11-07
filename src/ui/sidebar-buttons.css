@@ -1,0 +1,60 @@
+/* ---------- 왼쪽 바 단추 한 벌로 맞추기 ----------
+   - 아이콘 단추(문서·노트 머리 줄, 줄 안의 +)는 모두 22×22 정사각, 모서리 6px,
+     마우스를 올리면 바탕만 칠한다(테두리 없음).
+   - 줄에 마우스를 올리면 줄 전체(+ 자리까지)가 칠해진다. + 는 줄 오른쪽 끝에 떠 있고,
+     그동안만 이름이 그만큼 줄어 「…」로 끝난다 — 단추가 글자를 덮지 않는다.
+   전역 스타일(whale-theme 등)이 이 파일보다 늦게 실리므로 선택자를 한 단계 더 구체적으로 쓴다. */
+
+/* 머리 줄 아이콘 단추 */
+.sidebar .side-section .side-head-row .side-top-action,
+.sidebar .side-top-row .side-top-action {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+}
+.sidebar .side-section .side-head-row .side-top-action svg,
+.sidebar .side-top-row .side-top-action svg { width: 16px; height: 16px; }
+.sidebar .side-section .side-head-row .side-top-action:is(:hover, :focus-visible),
+.sidebar .side-section .side-head-row .side-top-action[aria-expanded="true"],
+.sidebar .side-top-row .side-top-action:is(:hover, :focus-visible),
+.sidebar .side-top-row .side-top-action[aria-expanded="true"] {
+  border-color: transparent;
+  background: var(--chrome-hover);
+  color: var(--text-strong);
+}
+.sidebar .side-section .side-head-row { gap: 0; }
+
+/* 줄 안의 + : 줄 오른쪽 끝에 세로 가운데로 뜬다(순서는 줄을 끌어서, 키보드는 Alt+↑/↓) */
+.sidebar .side-section .side-tree-row > .side-tree-add {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border-radius: 6px;
+  transform: translateY(-50%);
+}
+.sidebar .side-section .side-tree-row > .side-tree-add { right: 4px; }
+.sidebar .side-section .side-tree-row > .side-tree-add:hover {
+  background: color-mix(in srgb, var(--text-strong) 14%, transparent);
+  color: var(--text-strong);
+}
+
+/* 줄 전체를 칠한다: 폴더 줄은 이름 단추가 줄 끝까지 늘고, 파일 줄은 원래 끝까지다 */
+.sidebar .side-section .side-tree-row > .side-tree-toggle { flex: 1 1 auto; min-width: 0; }
+.sidebar .side-section .side-tree-row:hover > .side-tree-toggle,
+.sidebar .side-section .side-tree-row:hover .side-tree-item:not(.side-item-open) {
+  background: var(--chrome-hover);
+}
+/* 마우스를 올린 동안 + 자리만큼 폴더 이름을 비켜 준다 */
+.sidebar .side-section .side-tree-row:is(:hover, :focus-within) > .side-tree-toggle:not(:only-child) { padding-right: 30px; }
+.sidebar .side-section .side-tree-row .side-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
