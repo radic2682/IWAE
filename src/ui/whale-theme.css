@@ -977,7 +977,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* ---------- Markdown 뷰어: PDF 와 같은 읽기 틀(작업 바탕 위 종이, 같은 스크롤바, 배율) ---------- */
 .pane-doc .markdown-pane-host { background: var(--workspace); }
 .pane-doc .markdown-pane {
-  --md-paper-w: min(calc(820px * var(--md-zoom, 1)), calc(100% - 24px));
+  --md-paper-w: calc(820px * var(--md-zoom, 1));
   padding: 18px 0 40px;
   scrollbar-width: none;
   /* 종이: 가운데 흰 기둥(내용과 함께 스크롤된다) */
@@ -994,7 +994,8 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .markdown-pane::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .pane-doc .markdown-pane > * {
   zoom: var(--md-zoom, 1);
-  max-width: calc((min(820px * var(--md-zoom, 1), 100% - 24px) - 112px * var(--md-zoom, 1)) / var(--md-zoom, 1));
+  /* 글 칸은 늘 종이 820 의 가운데 708(배율만큼 커진다) — 창 폭이 바뀌어도 종이 좌표가 같아 저장한 네모가 같은 글 위에 온다 */
+  max-width: 708px;
   margin-inline: auto;
 }
 .pane-doc .markdown-pane > :first-child { margin-top: 36px; }
@@ -1015,7 +1016,8 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-mark[data-highlight-color='blue'] { --hl-fill: #c3defc; }
 .markdown-mark[data-highlight-color='pink'] { --hl-fill: #fcc6dc; }
 .pane-doc .markdown-pane-host[data-reader-mode='hand'] .markdown-pane { cursor: grab; user-select: none; }
-.pane-doc .markdown-pane-host .pdf-overlay-palette { top: 8px; }
+.pane-doc .markdown-pane-host .pdf-overlay-palette { top: calc(var(--doc-head-h, 36px) + 12px); left: calc((100% - var(--memo-bar-w, 0px)) / 2); }
+.pane-doc .pdf-split .markdown-pane-host .pdf-overlay-palette { left: 50%; }
 
 /* Markdown 목차(왼쪽 바) */
 .markdown-outline ul { margin: 0; padding: 4px 6px; list-style: none; }
