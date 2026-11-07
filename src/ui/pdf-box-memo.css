@@ -66,3 +66,18 @@
 .pdf-box-resize-corner { position: absolute; right: -4px; bottom: -4px; width: 12px; height: 12px; cursor: nwse-resize; touch-action: none; }
 .pdf-box-resize-corner::after { content: ''; position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px; border-right: 2px solid color-mix(in srgb, var(--box-tint, #e3b43c) 80%, #555); border-bottom: 2px solid color-mix(in srgb, var(--box-tint, #e3b43c) 80%, #555); border-radius: 0 0 2px 0; opacity: .55; }
 .pdf-box-card:hover .pdf-box-resize-corner::after { opacity: 1; }
+
+/* ---------- 박스 메모: 머리줄 없이 글만. 옮기기·색·지우기는 박스 위 오른쪽 바깥에 떠 있다 ---------- */
+.pdf-box-card .pdf-box-head.pdf-box-tools {
+  position: absolute; z-index: 2; right: 0; bottom: calc(100% + 4px);
+  display: flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px;
+  border: 0; border-radius: 8px; background: #fff;
+  box-shadow: 0 0 0 1px #dedcd6, 0 2px 8px rgb(0 0 0 / 14%);
+  opacity: 0; pointer-events: none; transition: opacity 120ms ease;
+}
+.pdf-box-card:is(:hover, :focus-within, .pdf-box-card-editing, .pdf-box-card-dragging) .pdf-box-head.pdf-box-tools { opacity: 1; pointer-events: auto; }
+.pdf-box-tools .pdf-box-grip, .pdf-box-tools .pdf-box-btn { width: 22px; height: 22px; border-radius: 6px; opacity: 1; color: #111; }
+.pdf-box-tools .pdf-box-colors { margin: 0 2px; gap: 4px; }
+.pdf-box-tools .pdf-box-color { width: 14px; height: 14px; opacity: 1; }
+.pdf-box-body.pdf-box-body { padding: 7px 10px 9px; }
+.pdf-box-card .pdf-box-body .pdf-memo-card-text, .pdf-box-card .pdf-box-body .pdf-memo-editor { font-size: inherit; }

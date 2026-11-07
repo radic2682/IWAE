@@ -172,14 +172,15 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
               if (element === null) cardRefs.current.delete(memo.id)
               else cardRefs.current.set(memo.id, element)
             }}
-            className={`pdf-box-card pdf-box-card-${memo.color}${editing ? ' pdf-box-card-editing' : ''}${collapsed ? ' pdf-box-card-collapsed' : ''}${drag?.id === memo.id ? ' pdf-box-card-dragging' : ''}`}
+            className={`pdf-box-card pdf-box-card-${memo.color}${editing ? ' pdf-box-card-editing' : ''}${drag?.id === memo.id ? ' pdf-box-card-dragging' : ''}`}
             data-box-memo={memo.id}
             style={{
               left: layout.left + box.x * scale,
               top: layout.top + box.y * scale,
               width: box.w * scale,
               minHeight: box.h === undefined ? undefined : box.h * scale,
-              fontSize: `${Math.min(Math.max(7.5 * scale, 9), 14)}px`,
+              // 글은 읽을 만한 크기로(쪽 배율을 따르되 12–16px)
+              fontSize: `${Math.min(Math.max(10.5 * scale, 12), 16)}px`,
             }}
             onPointerDown={(event) => event.stopPropagation()}
             onContextMenu={(event) => {
@@ -190,8 +191,9 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
               setMenu({ id: memo.id, x: event.clientX, y: event.clientY })
             }}
           >
+            {/* 옮기기·색·지우기: 박스 위 오른쪽 바깥에 떠 있다(박스 안에는 글만) */}
             <div
-              className="pdf-box-head"
+              className="pdf-box-head pdf-box-tools"
               onPointerDown={(event) => {
                 if (event.target instanceof Element && event.target.closest('button') !== null) return
                 startDrag(event, memo, 'move', scale, pageSize)
@@ -203,7 +205,7 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
                 aria-label={t('박스 옮기기')}
                 title={t('끌어서 옮기기')}
               >
-                <DotsSixVertical size={13} weight="bold" aria-hidden="true" />
+                <DotsSixVertical size={14} weight="bold" aria-hidden="true" />
               </span>
               <span className="pdf-box-colors" role="group" aria-label={t('색')}>
                 {COLORS.map((color) => (
@@ -217,11 +219,8 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
                   />
                 ))}
               </span>
-              <button type="button" className="pdf-box-btn" aria-label={collapsed ? t('박스 펼치기') : t('박스 접기')} title={collapsed ? t('펼치기') : t('접기')} onClick={() => onChange(memo.id, { collapsed: !collapsed })}>
-                {collapsed ? <CaretRight size={12} weight="bold" aria-hidden="true" /> : <CaretDown size={12} weight="bold" aria-hidden="true" />}
-              </button>
               <button type="button" className="pdf-box-btn" aria-label={t('박스 메모 지우기')} title={t('지우기')} onClick={() => (memo.id === draftId ? onCancelDraft() : onDelete(memo.id))}>
-                <Trash size={12} aria-hidden="true" />
+                <Trash size={14} aria-hidden="true" />
               </button>
             </div>
             <div className="pdf-box-body">
