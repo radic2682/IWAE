@@ -1022,17 +1022,11 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-outline-current { background: var(--selected-bg); font-weight: 600; }
 
 /* Markdown 메모 바(오른쪽, PDF 메모 바와 같은 바탕) */
-.pane-doc .markdown-pane-host-memo { --md-memo-w: 360px; }
-.pane-doc .markdown-pane-host-memo .markdown-pane,
-.pane-doc .markdown-pane-host-memo .markdown-write-host { right: var(--md-memo-w); width: auto; }
-.pane-doc .markdown-pane-host-memo .markdown-pane { position: absolute; inset: 0 var(--md-memo-w) 0 0; height: auto; }
-.pane-doc .markdown-pane-host-memo .markdown-scrollbar { right: var(--md-memo-w); }
-/* PDF 와 같은 틀: 노트 바는 창 맨 아래까지, 아래 막대·위 도구줄은 노트 바 왼쪽까지만 */
-.pane-doc:has(.markdown-pane-host-memo) { --memo-bar-w: 360px; }
-.pane-doc .markdown-pane-host-memo { bottom: calc(-1 * var(--bottom-bar-height, 42px)); }
-.pane-doc .markdown-pane-host-memo .markdown-pane { bottom: var(--bottom-bar-height, 42px); }
-.pane-doc .markdown-pane-host-memo :is(.markdown-write-host, .markdown-scrollbar) { bottom: var(--bottom-bar-height, 42px); }
-.pane-doc .markdown-memo-bar { width: var(--md-memo-w, 360px); display: flex; flex-direction: column; overflow: hidden; }
+/* 메모 바는 창 틀 오른쪽(PDF 와 같은 자리, PdfPane 처럼 .pane-frame 에 붙는다). 글은 --memo-bar-w 만큼 비운 왼쪽 */
+.pane-doc .markdown-pane-host-memo .markdown-write-host { right: var(--memo-bar-w, 0px); width: auto; }
+.pane-doc .markdown-pane-host-memo .markdown-pane { position: absolute; inset: 0 var(--memo-bar-w, 0px) 0 0; height: auto; }
+.pane-doc .markdown-pane-host-memo .markdown-scrollbar { right: var(--memo-bar-w, 0px); }
+.pane-doc .markdown-memo-bar { width: var(--memo-bar-w, 360px); display: flex; flex-direction: column; overflow: hidden; }
 /* 머리·본문은 PDF 메모 바와 같은 부품·클래스. 바가 세로 flex 라 머리는 흐름 안에 두고, 본문은 PDF 처럼 스크롤 칸을 꽉 채운다 */
 .pane-doc .markdown-memo-bar .pdf-memo-header.markdown-memo-bar-head { position: relative; flex: 0 0 auto; }
 .markdown-memo-bar-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }

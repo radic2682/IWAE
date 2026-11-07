@@ -10,9 +10,13 @@ import {
   type CSSProperties,
   type DragEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { announceAction } from './actionFeedback'
 import { MarkdownWriteLayer, markdownFitWidthZoom, markdownPaper, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
 import { MarkdownMemoBar } from './MarkdownMemoBar'
+
+/** Markdown 메모 바 폭(px). 창 틀에서 이만큼을 메모 바에 내준다 */
+const MARKDOWN_MEMO_BAR_WIDTH = 360
 import type { MarkdownSearchHit } from './MarkdownSearchPanel'
 import { PdfPins, PinHead, type PdfPinPatchInput, type PlacedPin } from '../pdf/PdfPins'
 import type { PdfBookmark } from '../core/pdfBookmarks'
@@ -518,6 +522,20 @@ export function MarkdownPane({
 
   // ---------- 메모 바(노트) ----------
   const memoBarVisible = useMemoBarVisible() && primary
+  // PDF 와 같은 틀: 메모 바는 창 틀(.pane-frame) 전체(위 제목줄 ~ 아래 하단바)를 차지하고,
+  // 글·도구줄·하단바는 --memo-bar-w 만큼 비운 왼쪽만 쓴다(PdfPane 과 같은 방식)
+  const [paneFrame, setPaneFrame] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    const frame = hostRef.current?.closest<HTMLElement>('.pane-frame') ?? null
+    if (frame !== paneFrame) setPaneFrame(frame)
+  })
+  useLayoutEffect(() => {
+    if (!memoBarVisible) return undefined
+    const paneDoc = hostRef.current?.closest<HTMLElement>('.pane-doc')
+    if (paneDoc === null || paneDoc === undefined) return undefined
+    paneDoc.style.setProperty('--memo-bar-w', `${MARKDOWN_MEMO_BAR_WIDTH}px`)
+    return () => { paneDoc.style.removeProperty('--memo-bar-w') }
+  }, [memoBarVisible])
   const [draftMemo, setDraftMemo] = useState<PersistentPdfHighlight | null>(null)
   const jumpToMemo = (highlight: PersistentPdfHighlight) => {
     if (highlight.anchor.docId !== path) {
@@ -1071,7 +1089,7 @@ export function MarkdownPane({
         onModeChange={(mode) => onInteractionModeChange?.(mode)}
         draftMemo={draftMemo}
       />
-      {memoBarVisible ? (
+      {memoBarVisible && paneFrame !== null ? createPortal(
         <MarkdownMemoBar
           docId={path}
           title={title}
@@ -1090,7 +1108,8 @@ export function MarkdownPane({
           }}
           memoOnly={memoOnly}
           onMemoOnlyChange={setMemoOnly}
-        />
+        />,
+        paneFrame,
       ) : null}
       {scrollBox.height > scrollBox.client + 1 ? (
         <div
@@ -1191,7 +1210,7 @@ export function MarkdownPane({
           track={{ top: 0, bottom: trackHeight }}
           onMove={onMovePin === undefined ? undefined : (id, barY) => onMovePin(id, 0, pinRatioAt(barY))}
           onRemove={onRemovePin}
-          style={memoBarVisible ? { right: 'calc(var(--md-memo-w, 360px) + 12px)' } : undefined}
+          style={memoBarVisible ? { right: 'calc(var(--memo-bar-w, 0px) + 12px)' } : undefined}
         />
       ) : null}
       {searchQuery.trim() === '' ? null : (
