@@ -62,18 +62,18 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
 
   return createPortal(
     <div className="stack-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section className="stack-dialog" role="dialog" aria-modal="true" aria-label={t('판으로 겹치기')}>
+      <section className="stack-dialog" role="dialog" aria-modal="true" aria-label={t('다른 파일과 버전으로 묶기')}>
         <header className="stack-head">
           <span className="stack-icon" aria-hidden="true"><StackSimple size={17} /></span>
           <div className="stack-titles">
-            <h2>{t('판으로 겹치기')}</h2>
-            <p title={base.title}>{alreadyGroup ? t('「{title}」에 판 추가', { title: groupTitle }) : t('「{title}」 위에 겹칩니다', { title: base.title })}</p>
+            <h2>{t('다른 파일과 버전으로 묶기')}</h2>
+            <p title={base.title}>{alreadyGroup ? t('「{title}」에 버전 추가', { title: groupTitle }) : t('「{title}」 위에 겹칩니다', { title: base.title })}</p>
           </div>
           <button type="button" className="stack-close" aria-label={t('닫기')} onClick={onClose}><X size={15} aria-hidden="true" /></button>
         </header>
 
         <div className="stack-body">
-          {suggested ? <p className="stack-suggested">{t('가져온 파일이 이 문서의 다른 판 같습니다. 겹치지 않으려면 취소하세요(파일은 그대로 들어와 있습니다).')}</p> : null}
+          {suggested ? <p className="stack-suggested">{t('가져온 파일이 이 문서의 다른 버전 같습니다. 묶지 않으려면 취소하세요(파일은 그대로 들어와 있습니다).')}</p> : null}
           {given === null ? (
             <div className="stack-picker">
               <input aria-label={t('겹칠 문서 찾기')} placeholder={t('겹칠 문서 이름')} value={query} autoFocus onChange={(event) => setQuery(event.target.value)} />
@@ -93,19 +93,19 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
             <div className="stack-labels">
               {alreadyGroup ? null : (
                 <label>
-                  <span>{t('아래 판 이름')}</span>
-                  <input aria-label={t('아래 판 이름')} value={baseLabel} onChange={(event) => setBaseLabel(event.target.value)} />
+                  <span>{t('아래 버전 이름')}</span>
+                  <input aria-label={t('아래 버전 이름')} value={baseLabel} onChange={(event) => setBaseLabel(event.target.value)} />
                 </label>
               )}
               <label>
-                <span>{t('겹치는 판 이름')}</span>
-                <input aria-label={t('겹치는 판 이름')} value={addedLabel} autoFocus={given !== null} onChange={(event) => setAddedLabel(event.target.value)} />
+                <span>{t('묶을 버전 이름')}</span>
+                <input aria-label={t('묶을 버전 이름')} value={addedLabel} autoFocus={given !== null} onChange={(event) => setAddedLabel(event.target.value)} />
               </label>
               <label className="stack-check">
                 <input type="checkbox" checked={makeDefault} onChange={(event) => setMakeDefault(event.target.checked)} />
-                <span>{t('겹치는 판을 문서 기본 판으로 (핀)')}</span>
+                <span>{t('묶을 버전을 문서 기본 버전으로 (핀)')}</span>
               </label>
-              {sameLabels ? <p className="stack-error" role="alert">{t('두 판 이름이 같습니다. 구분되게 적어 주세요.')}</p> : null}
+              {sameLabels ? <p className="stack-error" role="alert">{t('두 버전 이름이 같습니다. 구분되게 적어 주세요.')}</p> : null}
             </div>
           )}
         </div>

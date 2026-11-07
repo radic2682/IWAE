@@ -206,8 +206,8 @@ export function PaneToolbar({
         <button
           type="button"
           className="toolbar-tool-btn pdf-compact-tool pane-version-chip"
-          aria-label={t('판 고르기: 지금 {label}', { label: versionLabel })}
-          title={t('판 고르기 (이 탭만 바뀜)')}
+          aria-label={t('버전 고르기: 지금 {label}', { label: versionLabel })}
+          title={t('버전 고르기 (이 탭만 바뀜)')}
           aria-haspopup="menu"
           onClick={(event) => onOpenVersions(event.currentTarget.getBoundingClientRect())}
         >

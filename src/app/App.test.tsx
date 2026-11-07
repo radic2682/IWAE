@@ -870,7 +870,7 @@ describe('App — 서지 정보', () => {
     const documents = screen.getByRole('region', { name: '문서' })
     const pdfButton = within(documents).getAllByRole('button').find((button) => button.textContent?.includes(SAMPLE_TITLE))!
     fireEvent.contextMenu(pdfButton)
-    fireEvent.click(screen.getByRole('menuitem', { name: '서지 정보…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '논문 정보…' }))
     const dialog = await screen.findByRole('dialog', { name: `서지 정보 — ${SAMPLE_TITLE}` })
     fireEvent.change(within(dialog).getByRole('textbox', { name: '저자 (한 줄에 한 명)' }), { target: { value: 'Ada Lovelace' } })
     fireEvent.change(within(dialog).getByRole('spinbutton', { name: '연도' }), { target: { value: '1843' } })
@@ -878,7 +878,7 @@ describe('App — 서지 정보', () => {
     expect(screen.queryByRole('dialog', { name: `서지 정보 — ${SAMPLE_TITLE}` })).toBeNull()
 
     fireEvent.contextMenu(pdfButton)
-    fireEvent.click(screen.getByRole('menuitem', { name: 'BibTeX 복사' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '인용 정보 복사 (BibTeX)' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('author = {Ada Lovelace}')))
     expect(writeText.mock.calls[0]?.[0]).toContain('year = {1843}')
   })

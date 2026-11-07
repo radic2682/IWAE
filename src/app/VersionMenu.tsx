@@ -74,7 +74,7 @@ export function VersionMenu({ group, openDocIds, currentDocId, anchor, onClose, 
   }
 
   return createPortal(
-    <div ref={ref} className="version-menu" role="menu" aria-label={t('{title} 판', { title: group.title })} style={{ left, top }}>
+    <div ref={ref} className="version-menu" role="menu" aria-label={t('{title} 버전', { title: group.title })} style={{ left, top }}>
       <ul className="version-menu-list">
         {group.versions.map((version) => {
           const isDefault = version.docId === group.defaultDocId
@@ -84,9 +84,9 @@ export function VersionMenu({ group, openDocIds, currentDocId, anchor, onClose, 
               <button
                 type="button"
                 className={`version-menu-pin${isDefault ? ' version-menu-pin-on' : ''}`}
-                aria-label={isDefault ? t('{label} 기본 판', { label: version.label }) : t('{label} 기본 판으로', { label: version.label })}
+                aria-label={isDefault ? t('{label} 기본 버전', { label: version.label }) : t('{label} 기본 버전으로', { label: version.label })}
                 aria-pressed={isDefault}
-                title={isDefault ? t('문서 기본 판') : t('문서 기본 판으로')}
+                title={isDefault ? t('문서 기본 버전') : t('문서 기본 버전으로')}
                 onClick={() => onPin(version.docId)}
               >
                 <PushPin size={13} weight={isDefault ? 'fill' : 'regular'} aria-hidden="true" />
@@ -94,7 +94,7 @@ export function VersionMenu({ group, openDocIds, currentDocId, anchor, onClose, 
               {editing === version.docId ? (
                 <input
                   className="version-menu-input"
-                  aria-label={t('판 이름')}
+                  aria-label={t('버전 이름')}
                   value={draft}
                   autoFocus
                   onChange={(event) => setDraft(event.target.value)}
@@ -112,7 +112,7 @@ export function VersionMenu({ group, openDocIds, currentDocId, anchor, onClose, 
                   onClick={() => { onOpen(version.docId); onClose() }}
                   onDoubleClick={(event) => { event.preventDefault(); setDraft(version.label); setEditing(version.docId) }}
                 >
-                  {currentDocId === version.docId ? <Check size={12} weight="bold" aria-label={t('지금 보는 판')} /> : null}
+                  {currentDocId === version.docId ? <Check size={12} weight="bold" aria-label={t('지금 보는 버전')} /> : null}
                   <span>{version.label}</span>
                   {open ? <i className="version-menu-open" aria-label={t('열려 있음')} /> : null}
                 </button>
@@ -157,8 +157,8 @@ export function DefaultVersionMenu({ group, anchor, onPick, onClose }: {
   const left = Math.min(Math.max(8, anchor.left), window.innerWidth - 188)
   const top = Math.min(anchor.bottom + 4, window.innerHeight - 40)
   return createPortal(
-    <div ref={ref} className="version-menu version-default-menu" role="menu" aria-label={t('{title} 기본 판', { title: group.title })} style={{ left, top }}>
-      <div className="version-default-head">{t('기본 판')}</div>
+    <div ref={ref} className="version-menu version-default-menu" role="menu" aria-label={t('{title} 기본 버전', { title: group.title })} style={{ left, top }}>
+      <div className="version-default-head">{t('기본 버전')}</div>
       {group.versions.map((version) => {
         const isDefault = version.docId === group.defaultDocId
         return (

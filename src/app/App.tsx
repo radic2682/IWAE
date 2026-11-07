@@ -2088,7 +2088,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               const shownTitle = folderName ?? docTitles[docId] ?? searchRecords.find((record) => record.id === docId)?.displayName ?? docId
               const label = guessVersionLabel(fileName, folderName ?? docTitles[docId])
               const ok = versionGroups.start({ docId, title: groupTitleFromDocTitle(shownTitle, label), label })
-              announceAction(ok ? t('판 관리를 시작했습니다({label}). 새 판은 이 문서 위로 끌어 놓거나 우클릭 「판 추가…」로 넣습니다', { label }) : t('이미 판 묶음에 있는 문서입니다'))
+              announceAction(ok ? t('버전 묶음을 만들었습니다({label}). 새 버전은 이 문서 위로 끌어 놓거나 우클릭 「이 묶음에 버전 추가…」로 넣습니다', { label }) : t('이미 버전 묶음에 있는 문서입니다'))
             }}
             onOpenSources={setSourcesDocId}
             onOpenFirstSource={(docId: string) => { const first = docSources.sources[docId]?.[0]; if (first !== undefined) openDocSource(first) }}
@@ -2354,10 +2354,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               { docId: baseDocId, title: groupTitleFromDocTitle(docTitles[baseDocId] ?? baseDocId, baseLabel ?? addedLabel), label: baseLabel ?? addedLabel },
               { docId: added.docId, label: addedLabel },
             )
-            if (!ok) announceAction(t('판으로 겹칠 수 없습니다(이미 다른 묶음에 있는 문서입니다)'))
+            if (!ok) announceAction(t('버전으로 묶을 수 없습니다(이미 다른 묶음에 있는 문서입니다)'))
             else {
               if (makeDefault) versionGroups.setDefault(added.docId)
-              announceAction(t('「{title}」를 {label} 판으로 겹쳤습니다', { title: docTitles[added.docId] ?? added.docId, label: addedLabel }))
+              announceAction(t('「{title}」를 {label} 버전으로 묶었습니다', { title: docTitles[added.docId] ?? added.docId, label: addedLabel }))
             }
             setStackRequest(null)
           }}

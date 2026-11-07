@@ -372,9 +372,9 @@ export function Sidebar({
                         <button
                           type="button"
                           className="side-version-chip"
-                          aria-label={t('{title} 기본 판 고르기: 지금 {label}', { title: versionGroup.title, label: defaultVersion(versionGroup).label })}
+                          aria-label={t('{title} 기본 버전 고르기: 지금 {label}', { title: versionGroup.title, label: defaultVersion(versionGroup).label })}
                           aria-haspopup="menu"
-                          title={t('기본 판 고르기')}
+                          title={t('기본 버전 고르기')}
                           onClick={(event) => {
                             event.stopPropagation()
                             setDefaultMenu({ groupId: versionGroup.id, anchor: event.currentTarget.getBoundingClientRect() })
@@ -387,9 +387,9 @@ export function Sidebar({
                         <button
                           type="button"
                           className="side-version-expand"
-                          aria-label={expandedVersionGroups.has(versionGroup.id) ? t('{title} 판 접기', { title: versionGroup.title }) : t('{title} 판 펼치기', { title: versionGroup.title })}
+                          aria-label={expandedVersionGroups.has(versionGroup.id) ? t('{title} 버전 접기', { title: versionGroup.title }) : t('{title} 버전 펼치기', { title: versionGroup.title })}
                           aria-expanded={expandedVersionGroups.has(versionGroup.id)}
-                          title={expandedVersionGroups.has(versionGroup.id) ? t('판 접기') : t('판 펼치기')}
+                          title={expandedVersionGroups.has(versionGroup.id) ? t('버전 접기') : t('버전 펼치기')}
                           onClick={(event) => {
                             event.stopPropagation()
                             setExpandedVersionGroups((current) => {
@@ -406,7 +406,7 @@ export function Sidebar({
                       )
   /** 펼친 판 줄들(켜진 판 하이라이팅, 누르면 열기, 끌어서 묶음 밖에 놓으면 빼기) */
   const versionRows = (versionGroup: VersionGroup, depth: number) => (!expandedVersionGroups.has(versionGroup.id) || versionActions === undefined ? null : (
-                    <div className="side-version-rows" role="group" aria-label={t('{title} 판', { title: versionGroup.title })} style={{ '--side-tree-depth': depth } as CSSProperties}>
+                    <div className="side-version-rows" role="group" aria-label={t('{title} 버전', { title: versionGroup.title })} style={{ '--side-tree-depth': depth } as CSSProperties}>
                       {versionGroup.versions.map((version) => {
                         const isDefault = version.docId === versionGroup.defaultDocId
                         const isOpen = openDocIds.includes(version.docId)
@@ -416,7 +416,7 @@ export function Sidebar({
                             type="button"
                             className={`side-version-row${isOpen ? ' side-version-row-open' : ''}${isDefault ? ' side-version-row-default' : ''}${versionDrag?.docId === version.docId ? ' side-version-row-dragging' : ''}`}
                             aria-current={isOpen ? 'true' : undefined}
-                            aria-label={isDefault ? t('{label} 열기 (기본 판)', { label: version.label }) : t('{label} 열기', { label: version.label })}
+                            aria-label={isDefault ? t('{label} 열기 (기본 버전)', { label: version.label }) : t('{label} 열기', { label: version.label })}
                             title={t('열기 · 끌어서 묶음 밖에 놓으면 빼기')}
                             onPointerDown={(event) => startVersionDrag(event, version.docId, versionActions.onRemove)}
                             onClick={() => {
@@ -1712,10 +1712,10 @@ export function Sidebar({
           // 문헌: 서지·출처
           [
             contextMenu.pdf && onEditBibliography !== undefined
-              ? item('bib', <BookOpenText size={15} />, t('서지 정보…'), () => void runEntryAction(() => onEditBibliography(contextMenu.id)))
+              ? item('bib', <BookOpenText size={15} />, t('논문 정보…'), () => void runEntryAction(() => onEditBibliography(contextMenu.id)))
               : null,
             contextMenu.pdf && onCopyBibtex !== undefined
-              ? item('bibtex', <Quotes size={15} />, t('BibTeX 복사'), () => void runEntryAction(() => onCopyBibtex(contextMenu.id)))
+              ? item('bibtex', <Quotes size={15} />, t('인용 정보 복사 (BibTeX)'), () => void runEntryAction(() => onCopyBibtex(contextMenu.id)))
               : null,
             isEntry && contextMenu.pdf && onOpenFirstSource !== undefined && sourceCount > 0
               ? item('source-open', <LinkSimple size={15} />, t('원본 열기'), () => { onOpenFirstSource(contextMenu.id); close() })
@@ -1730,13 +1730,13 @@ export function Sidebar({
               ? item('searchable', <MagnifyingGlassPlus size={15} />, t('검색 가능한 PDF 사본 만들기'), () => void runEntryAction(() => onMakeSearchable(contextMenu.id)))
               : null,
             docId !== undefined && versionGroup === undefined && onStartVersions !== undefined
-              ? item('versions-start', <Stack size={15} />, t('판 관리 시작'), () => { onStartVersions(docId); close() })
+              ? item('versions-start', <Stack size={15} />, t('버전으로 묶기'), () => { onStartVersions(docId); close() })
               : null,
             docId !== undefined && onStackRequest !== undefined
-              ? item('versions-stack', <Stack size={15} />, versionGroup === undefined ? t('판으로 겹치기…') : t('판 추가…'), () => { onStackRequest(docId); close() })
+              ? item('versions-stack', <Stack size={15} />, versionGroup === undefined ? t('다른 파일과 버전으로 묶기…') : t('이 묶음에 버전 추가…'), () => { onStackRequest(docId); close() })
               : null,
             versionGroup !== undefined && versionActions !== undefined
-              ? item('versions-end', <Stack size={15} />, t('판 관리 끝내기 (파일은 그대로)'), () => { versionActions.onDissolve(versionGroup.id); close() })
+              ? item('versions-end', <Stack size={15} />, t('버전 묶음 풀기 (파일은 그대로)'), () => { versionActions.onDissolve(versionGroup.id); close() })
               : null,
             isEntry && contextMenu.storage === 'reference' && onConvertEntryToCopy !== undefined
               ? item('to-vault', <DownloadSimple size={15} />, t('Vault에 복사'), () => void runEntryAction(() => onConvertEntryToCopy(contextMenu.id, contextMenu.parentPath)))

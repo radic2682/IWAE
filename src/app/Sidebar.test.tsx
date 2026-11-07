@@ -886,17 +886,17 @@ describe('Sidebar — 서지 정보 메뉴', () => {
     const onCopyBibtex = vi.fn()
     await renderSidebar({ tree: emojiTree, onEditBibliography, onCopyBibtex })
     fireEvent.contextMenu(screen.getByRole('button', { name: /첫 논문/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '서지 정보…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '논문 정보…' }))
     expect(onEditBibliography).toHaveBeenCalledWith('doc-1')
     fireEvent.contextMenu(screen.getByRole('button', { name: /첫 논문/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'BibTeX 복사' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '인용 정보 복사 (BibTeX)' }))
     expect(onCopyBibtex).toHaveBeenCalledWith('doc-1')
   })
 
   it('폴더 메뉴에는 서지 항목이 없다', async () => {
     await renderSidebar({ tree: emojiTree, onItemIconChange: vi.fn(), onEditBibliography: vi.fn() })
     fireEvent.contextMenu(screen.getByRole('button', { name: '논문 접기' }))
-    expect(screen.queryByRole('menuitem', { name: '서지 정보…' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '논문 정보…' })).toBeNull()
   })
 })
 

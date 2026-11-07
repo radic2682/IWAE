@@ -92,4 +92,10 @@ export const COMMON: Readonly<Record<string, string>> = {
   '시작 화면으로': 'Back to start screen',
   '최근에 연 다른 Vault 가 없습니다': 'No other recent Vaults',
   '설정 (Ctrl+,)': 'Settings (Ctrl+,)',
+  '버전으로 묶기': 'Group as versions',
+  '다른 파일과 버전으로 묶기…': 'Group with another file as versions…',
+  '이 묶음에 버전 추가…': 'Add a version to this group…',
+  '버전 묶음 풀기 (파일은 그대로)': 'Ungroup versions (files stay)',
+  '논문 정보…': 'Paper details…',
+  '인용 정보 복사 (BibTeX)': 'Copy citation (BibTeX)',
 }

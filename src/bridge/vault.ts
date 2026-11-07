@@ -737,7 +737,7 @@ export async function readVersionGroups(vault: VaultHandle): Promise<VersionGrou
   try {
     return parseVersionGroups(JSON.parse(await readTextFile(path)) as unknown)
   } catch (err) {
-    throw new Error(t('문서 판 묶음을 읽지 못했습니다: {error}', { error: errorText(err) }))
+    throw new Error(t('문서 버전 묶음을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
