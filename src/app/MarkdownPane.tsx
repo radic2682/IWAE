@@ -1,4 +1,5 @@
 import { t } from '../i18n'
+import { useIsNoteHostPane } from './noteHostPane'
 import { startInternalDrag } from '../core/internalDrag'
 import {
   useCallback,
@@ -546,7 +547,9 @@ export function MarkdownPane({
 
   // ---------- 메모 바(노트) ----------
   const memoBarOpen = useMemoBarVisible()
-  const memoBarVisible = memoBarOpen && primary
+  // 창을 여러 칸으로 나눴으면 노트 바는 맨 오른쪽 위 칸에만
+  const noteHost = useIsNoteHostPane(hostRef)
+  const memoBarVisible = memoBarOpen && primary && noteHost
   // PDF 와 같은 틀: 메모 바는 창 틀(.pane-frame) 전체(위 제목줄 ~ 아래 하단바)를 차지하고,
   // 글·도구줄·하단바는 --memo-bar-w 만큼 비운 왼쪽만 쓴다(PdfPane 과 같은 방식)
   const [paneFrame, setPaneFrame] = useState<HTMLElement | null>(null)

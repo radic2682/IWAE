@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { useIsNoteHostPane } from '../app/noteHostPane'
 import { MEMO_BAR_WIDTH, useMemoBarWidth } from './memoBarWidth'
 import { NoteBarHeader } from './NoteBarHeader'
 import { useHighlightTool } from './highlightToolStore'
@@ -450,7 +451,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   })
   if (draftMemo !== null && draftIndex >= noteBlocks.length) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true })
   const noteMemos = noteItems.flatMap((item) => item.kind === 'memo' && item.draft !== true ? [item.highlight] : [])
-  const memoColumn = primary && memoAvailable && memoColumnVisible && !memoOnly
+  // 창을 여러 칸으로 나눴으면 노트 바는 맨 오른쪽 위 칸에만
+  const noteHost = useIsNoteHostPane(scrollerRef)
+  const memoColumn = primary && noteHost && memoAvailable && memoColumnVisible && !memoOnly
   // 다른 칸을 고르면 이 칸은 메모 바를 내려놓는다(메모만 보기도 끝낸다)
   useEffect(() => {
     if (!primary) setMemoOnly(false)
@@ -1499,7 +1502,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
 
   return (
     <>
-      {primary && memoAvailable && (memoColumn || memoOnly) ? (() => {
+      {primary && noteHost && memoAvailable && (memoColumn || memoOnly) ? (() => {
         const bar = (
         <aside
           className={`pdf-memo-bar${memoOnly ? ' pdf-memo-bar-wide' : ''}`}
