@@ -1014,3 +1014,11 @@ body.internal-dragging, body.internal-dragging * { cursor: copy !important; user
 .pane-doc .pdf-bottom-bar-surface { height: 100%; }
 /* 끄는 중인 탭: 손을 따라 자리를 바꾼다. 살짝 떠 보이게만 한다 */
 .pane-top-tab.pane-top-tab-dragging { z-index: 2; opacity: 0.88; box-shadow: 0 4px 14px var(--shadow-floating); }
+
+/* 키보드로 들어오면 어디에 있는지 보이게: 쪽 번호·배율 입력칸 */
+.pane-bottom-bar .bottombar-goto:focus-visible,
+.pane-bottom-bar .pdf-bottom-zoom input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--accent);
+}
