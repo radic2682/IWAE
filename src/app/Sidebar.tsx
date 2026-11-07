@@ -729,6 +729,17 @@ export function Sidebar({
     })
   }
 
+  // 위쪽 바는 메뉴 바탕막보다 위에 그려져 거기를 눌러도 메뉴가 안 닫혔다. 창 어디를 누르든 메뉴 밖이면 닫는다
+  useEffect(() => {
+    if (contextMenu === null) return undefined
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Element | null
+      if (target?.closest?.('.side-context-menu') == null) setContextMenu(null)
+    }
+    document.addEventListener('pointerdown', closeOutside, true)
+    return () => document.removeEventListener('pointerdown', closeOutside, true)
+  }, [contextMenu])
+
   const runEntryAction = async (action: () => Promise<void> | void) => {
     setContextMenu(null)
     setActionError(null)
@@ -1730,7 +1741,7 @@ export function Sidebar({
               ? item('searchable', <MagnifyingGlassPlus size={15} />, t('검색 가능한 PDF 사본 만들기'), () => void runEntryAction(() => onMakeSearchable(contextMenu.id)))
               : null,
             docId !== undefined && versionGroup === undefined && onStartVersions !== undefined
-              ? item('versions-start', <Stack size={15} />, t('버전으로 묶기'), () => { onStartVersions(docId); close() })
+              ? item('versions-start', <Stack size={15} />, t('버전 관리 시작'), () => { onStartVersions(docId); close() })
               : null,
             docId !== undefined && onStackRequest !== undefined
               ? item('versions-stack', <Stack size={15} />, versionGroup === undefined ? t('다른 파일과 버전으로 묶기…') : t('이 묶음에 버전 추가…'), () => { onStackRequest(docId); close() })
