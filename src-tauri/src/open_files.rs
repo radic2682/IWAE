@@ -15,6 +15,40 @@ pub const EVENT: &str = "iwae:open-files";
 #[derive(Default)]
 pub struct PendingOpenFiles(pub Mutex<Vec<String>>);
 
+/// 화면이 처음 경로를 가져갔는가(`take_open_files`). 그 뒤에 온 파일은 이벤트로 보낸다
+#[derive(Default)]
+pub struct OpenFilesTaken(pub std::sync::atomic::AtomicBool);
+
+/// macOS: Finder 에서 연 PDF 는 명령줄 인자가 아니라 Apple Event(`RunEvent::Opened`)로 온다.
+/// 화면이 아직 준비되지 않았으면 처음 경로에 쌓고, 이미 켜져 있으면 바로 보낸다
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn on_opened_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
+    let files: Vec<String> = paths
+        .into_iter()
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("pdf")))
+        .filter(|path| path.is_file())
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect();
+    if files.is_empty() {
+        return;
+    }
+    let taken = app
+        .try_state::<OpenFilesTaken>()
+        .is_some_and(|state| state.0.load(std::sync::atomic::Ordering::SeqCst));
+    if !taken {
+        if let Some(pending) = app.try_state::<PendingOpenFiles>() {
+            pending.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).extend(files);
+            return;
+        }
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    allow_in_scope(app, &files);
+    let _ = app.emit(EVENT, files);
+}
+
 /// 인자 가운데 실제로 있는 PDF 파일만. 첫 인자(실행 파일)는 뺀다. 상대 경로는 cwd 기준
 pub fn pdf_args<I: IntoIterator<Item = String>>(args: I, cwd: Option<&Path>) -> Vec<String> {
     args.into_iter()
@@ -55,7 +89,13 @@ pub fn on_second_instance<R: Runtime>(app: &AppHandle<R>, argv: Vec<String>, cwd
 /// 처음 켜질 때 받은 PDF 경로(한 번만 준다)
 #[tauri::command]
 pub fn take_open_files<R: Runtime>(app: AppHandle<R>, state: tauri::State<'_, PendingOpenFiles>) -> Vec<String> {
-    let files = std::mem::take(&mut *state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
+    let mut pending = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let files = std::mem::take(&mut *pending);
+    // 잠근 채로 깃발을 세운다 — 그 사이 macOS 가 보낸 파일이 쌓이기만 하고 사라지는 일이 없게
+    if let Some(taken) = app.try_state::<OpenFilesTaken>() {
+        taken.0.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    drop(pending);
     allow_in_scope(&app, &files);
     files
 }

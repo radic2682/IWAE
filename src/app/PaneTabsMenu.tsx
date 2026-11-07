@@ -174,6 +174,18 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   const label = t(rawLabel)
   const [menuOpen, setMenuOpen] = useState(false)
   const stripRef = useRef<HTMLDivElement>(null)
+  // 탭이 줄에 다 들어가면 개수 단추(⌄ n)를 숨긴다. 넘칠 때만 보여 상단바를 조용하게 둔다
+  const [overflowing, setOverflowing] = useState(false)
+  useLayoutEffect(() => {
+    const strip = stripRef.current
+    if (strip === null) return
+    const measure = () => setOverflowing(strip.scrollWidth > strip.clientWidth + 1)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(strip)
+    return () => observer.disconnect()
+  }, [state.tabs.length])
   // 끌기를 마친 직후 따라오는 click 은 탭 전환이 아니다.
   const suppressClickRef = useRef(false)
   const otherPane: PaneId | null = paneId === undefined ? null : paneId === 'left' ? 'right' : 'left'
@@ -324,7 +336,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
       </div>
       <button
         type="button"
-        className="pane-tabs-overflow"
+        className={`pane-tabs-overflow${overflowing || menuOpen ? '' : ' pane-tabs-overflow-idle'}`}
         aria-label={t('열린 {label} 탭 목록 ({count}개)', { label, count: state.tabs.length })}
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((open) => !open)}

@@ -634,6 +634,11 @@ button.note-source-page:hover { color: var(--accent); }
   padding-left: max(var(--grid), calc(var(--topbar-actions-w, 0px) - var(--sidebar-width, 0px) - var(--sidebar-divider-width, 0px)));
 }
 .topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: calc(var(--topbar-actions-w, 256px) + 6px); }
+/* 탭이 하나도 없을 때의 「열린 탭 없음」 글자도 같은 만큼 민다(탭 줄과 같은 왼쪽 선에서 시작) */
+.topbar:not(.topbar-sidebar-unreserved) .topbar-panetab-zone:first-child .pane-tabs-empty {
+  padding-left: calc(12px + max(0px, var(--topbar-actions-w, 0px) - var(--sidebar-width, 0px) - var(--sidebar-divider-width, 0px)));
+}
+.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-empty { padding-left: calc(var(--topbar-actions-w, 256px) + 12px); }
 
 /* ---------- PDF 손 도구 ---------- */
 .pane-doc .pdf-pane.pdf-pane-hand { cursor: grab; }
@@ -1189,3 +1194,113 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .translation-settings-test-result span { font-weight: 650; }
 .translation-settings-test-result q { font-size: 13px; }
 .translation-settings-test-error { margin: 0; color: var(--danger-solid); font-size: 12.5px; }
+
+/* ---------- 상단바: 로고 메뉴 · 사이드바 보기 탭 · 창 전체 단추 ---------- */
+/* 로고 메뉴 단추(맨 왼쪽). 앱 전체에 관한 일을 모은다 */
+.topbar-app-menu {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  margin: 0 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.topbar-app-menu:hover,
+.topbar-app-menu-open { background: var(--chrome-hover); }
+.topbar-app-menu img { width: 19px; height: 19px; object-fit: contain; pointer-events: none; }
+.app-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  padding: 5px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 12px 32px var(--shadow-soft, rgb(0 0 0 / 30%));
+  color: var(--text-strong);
+}
+.app-menu-group + .app-menu-group { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--hairline); }
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.app-menu-item:hover,
+.app-menu-item:focus-visible { background: var(--chrome-hover); outline: none; }
+.app-menu-hint { font-size: 12px; }
+
+/* 사이드바 보기: 사이드바 위의 탭. 고른 탭은 사이드바와 같은 바탕으로 아래로 이어진다 */
+.topbar .topbar-leftcluster-actions { align-items: stretch; }
+.topbar .topbar-leftcluster-actions > .topbar-app-menu,
+.topbar .topbar-leftcluster-actions > .sidebar-toggle { align-self: center; }
+.topbar .topbar-nav.topbar-side-tabs {
+  align-self: flex-end;
+  gap: 2px;
+  height: 32px;
+  margin: 0 0 0 4px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.topbar .topbar-side-tabs .topbar-navbtn {
+  position: relative;
+  width: 36px;
+  height: 32px;
+  margin: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  box-shadow: none;
+}
+.topbar .topbar-side-tabs .topbar-navbtn:hover:not(:disabled) { background: color-mix(in srgb, var(--chrome) 55%, transparent); }
+.topbar .topbar-side-tabs .topbar-navbtn-active,
+.topbar .topbar-side-tabs .topbar-navbtn[aria-checked="true"] {
+  z-index: 3;
+  height: 33px;
+  margin-bottom: -1px;
+  background: var(--chrome);
+  box-shadow: none;
+}
+.topbar .topbar-side-tabs .topbar-navbtn-active:hover:not(:disabled) { background: var(--chrome); }
+
+/* 창 전체 단추(문서 검색·창 나누기)는 창 단추 곁에 */
+.topbar-window-tools { display: flex; align-items: center; gap: 2px; margin-right: 6px; }
+.topbar-window-tools .topbar-navbtn { margin: 0; }
+.wincontrols .topbar-window-tools .topbar-memo-toggle { margin: 0; }
+/* 맨 오른쪽 탭 줄은 창 단추 묶음의 실제 폭만큼 비운다(묶음 폭은 TopBar 가 잰다) */
+.topbar-panetab-zone-right .pane-tabs-menu { padding-right: var(--topbar-wincontrols-w, 128px); }
+.topbar-single .topbar-panetab-zone-right { flex: 0 0 var(--topbar-wincontrols-w, 128px) !important; }
+
+/* 「문서」 제목 줄 오른쪽의 머리 단추 */
+.sidebar .side-documents-head { display: flex; align-items: center; gap: 0; }
+.sidebar .side-documents-head .side-head { flex: 1 1 auto; min-width: 0; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar .side-documents-head .side-top-action { flex: 0 0 22px; width: 22px; height: 26px; padding: 0; }
+.sidebar .side-documents-head .side-top-action svg { width: 16px; height: 16px; }
+
+/* 탭이 줄에 다 들어가면 개수 단추(⌄ n)는 숨긴다 */
+.pane-tabs-overflow.pane-tabs-overflow-idle { display: none; }
+/* 밝은 화면에서는 로고의 흰 종이가 바탕에 묻힌다 — 가는 윤곽과 옅은 그림자로 떼어 낸다 */
+:root[data-theme='light'] .topbar-app-menu img {
+  filter: drop-shadow(0 0 0.6px rgb(0 0 0 / 55%)) drop-shadow(0 1px 1.5px rgb(0 0 0 / 22%));
+}
+
+/* ---------- macOS: 왼쪽 위 신호등 단추(시스템) 자리를 비운다 ---------- */
+/* 창 설정(tauri.macos.conf.json)의 trafficLightPosition 과 맞춘다: 단추 셋이 x 14~66px 에 선다 */
+.topbar-mac .topbar-leftcluster-actions { padding-left: 76px; }
+.topbar-mac.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: calc(var(--topbar-actions-w, 256px) + 6px); }
+.wincontrols.wincontrols-mac { padding-right: 10px; }

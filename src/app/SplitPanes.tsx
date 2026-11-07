@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { SIDEBAR_DEFAULT, clampLeftFrac, clampSidebar, fracFromPointer } from './splitLayout'
 import { evenFractions, fractionOffset, moveSplitBoundary, splitDividers, type PdfSplitLayout } from '../core/pdfSplit'
 import '../ui/layout-transitions.css'
@@ -112,7 +112,14 @@ export function SplitPanes({
   grid,
   onSwapPanes,
 }: SplitPanesProps) {
-  const [sidebarPx, setSidebarPx] = useState(() => clampSidebar(layout?.sidebarPx ?? SIDEBAR_DEFAULT))
+  const [storedSidebarPx, setSidebarPx] = useState(() => clampSidebar(layout?.sidebarPx ?? SIDEBAR_DEFAULT))
+  // 사용자가 사이드바 폭을 한 번도 끌어 조절하지 않았으면, 사이드바 오른쪽 선을 상단바 왼쪽 단추 묶음
+  // (로고 메뉴·사이드바 접기·보기 탭)의 오른쪽 끝에 맞춘다. 첫 탭이 사이드바 경계에서 바로 시작한다.
+  // 한 번 끌면 그 뒤로는 사용자가 정한 폭을 그대로 쓴다.
+  const [sidebarUserSized, setSidebarUserSized] = useState(readSidebarUserSized)
+  const [fitSidebarPx, setFitSidebarPx] = useState<number | null>(null)
+  const shellRef = useRef<HTMLDivElement | null>(null)
+  const sidebarPx = sidebarUserSized || fitSidebarPx === null ? storedSidebarPx : fitSidebarPx
   const [leftFrac, setLeftFrac] = useState(() => clampLeftFrac(layout?.leftFrac ?? 0.5))
   const panesRef = useRef<HTMLDivElement>(null)
   const dragController = useRef<AbortController | null>(null)
@@ -141,6 +148,24 @@ export function SplitPanes({
   const dragMovedRef = useRef(false)
   const onSwapPanesRef = useRef(onSwapPanes)
   onSwapPanesRef.current = onSwapPanes
+  useLayoutEffect(() => {
+    if (sidebarUserSized) return
+    const actions = shellRef.current?.querySelector('.topbar-leftcluster-actions')
+    if (actions == null) return
+    // 사이드바 칸(폭 + 구분선 1px)이 단추 묶음과 같은 폭이 되게 한다
+    const measure = () => {
+      // 사이드바를 접어 보기 탭이 숨은 동안의 폭으로는 맞추지 않는다
+      if (actions.querySelector('.topbar-side-tabs') === null) return
+      const width = Math.ceil(actions.getBoundingClientRect().width)
+      if (width > 0) setFitSidebarPx(clampSidebar(width - 1))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(actions)
+    return () => observer.disconnect()
+  }, [sidebarUserSized])
+
   const layoutRef = useRef({ sidebarPx, leftFrac })
   layoutRef.current = { sidebarPx, leftFrac }
   const [threeFracs, setThreeFracs] = useState(readThreeFracs)
@@ -214,6 +239,8 @@ export function SplitPanes({
         const nextSidebarPx = clampSidebar(clientX)
         layoutRef.current = { ...layoutRef.current, sidebarPx: nextSidebarPx }
         setSidebarPx(nextSidebarPx)
+        setSidebarUserSized(true)
+        writeSidebarUserSized()
       })
     },
     [startDrag],
@@ -309,6 +336,7 @@ export function SplitPanes({
 
   return (
     <div
+      ref={shellRef}
       className={shellClassName}
       style={{
         '--sidebar-width': libraryExpanded ? '100%' : sidebarHidden ? '0px' : `${sidebarPx}px`,
@@ -502,3 +530,13 @@ function GridPanes({ layout, fractions, onFractionsChange, tabs, cells, hidden }
   )
 }
 
+const SIDEBAR_USER_SIZED_KEY = 'iwae:sidebar-user-sized:v1'
+
+/** 사용자가 사이드바 폭을 직접 조절한 적이 있는가(한 번 조절하면 그 폭을 계속 쓴다) */
+function readSidebarUserSized(): boolean {
+  try { return window.localStorage.getItem(SIDEBAR_USER_SIZED_KEY) === '1' } catch { return false }
+}
+
+function writeSidebarUserSized(): void {
+  try { window.localStorage.setItem(SIDEBAR_USER_SIZED_KEY, '1') } catch { /* 이번 실행에만 */ }
+}

@@ -12,6 +12,7 @@ pub mod github;
 pub mod locale;
 pub mod window_state;
 pub mod open_files;
+pub mod example_vault;
 pub mod pdf;
 pub mod protocol;
 pub mod rag;
@@ -41,6 +42,7 @@ pub fn run() {
         .manage(pdf.clone())
         // 처음 켜질 때 받은 PDF 경로(기본 PDF 앱으로 열었을 때)
         .manage(open_files::PendingOpenFiles(std::sync::Mutex::new(open_files::pdf_args(std::env::args(), None))))
+        .manage(open_files::OpenFilesTaken::default())
         // 전체 Vault 백업·복원 진행 상태(취소용)
         .manage(vault_backup::BackupState::default())
         // 동기 버전은 렌더(13–29ms) 동안 웹뷰를 멈춰 세운다.
@@ -65,6 +67,7 @@ pub fn run() {
             pdf::pdf_open,
             pdf::pdf_file_hash,
             open_files::take_open_files,
+            example_vault::create_example_vault,
             office::office_to_pdf,
             github::github_list,
             github::github_clone,
@@ -134,6 +137,14 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // macOS: Finder 에서 연 PDF(기본 앱·다음으로 열기)는 Apple Event 로 온다
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                let paths = urls.into_iter().filter_map(|url| url.to_file_path().ok()).collect();
+                open_files::on_opened_paths(_app, paths);
+            }
+        });
 }

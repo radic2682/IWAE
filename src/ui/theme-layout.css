@@ -2264,8 +2264,7 @@
 
 .vault-picker-details code { color: var(--text-strong); }
 
-.vault-picker-primary,
-.vault-picker-recent button {
+.vault-picker-primary {
   border: 0;
   border-radius: var(--radius);
   font: inherit;
@@ -2279,24 +2278,7 @@
 }
 
 .vault-picker-error { color: var(--danger); }
-.vault-picker-recent { margin-top: 24px; }
-.vault-picker-recent h2 { margin: 0 0 6px; font-size: 12px; }
 
-.vault-picker-recent button {
-  display: block;
-  width: 100%;
-  min-height: 32px;
-  margin-top: 3px;
-  padding: 5px 8px;
-  overflow: hidden;
-  background: none;
-  color: var(--ink);
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.vault-picker-recent button:hover { background: var(--chrome-hover); }
 
 .app-error {
   position: fixed;

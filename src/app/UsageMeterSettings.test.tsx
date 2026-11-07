@@ -16,18 +16,18 @@ describe('CPU·메모리 표시 설정', () => {
     reloadUsageMeterPref()
   })
 
-  it('기본은 켬이고, 스위치로 끄면 저장되고 쓰는 곳에도 바로 반영된다', () => {
+  it('기본은 끔이고, 스위치로 켜면 저장되고 쓰는 곳에도 바로 반영된다', () => {
     render(<><UsageMeterSettings /><Probe /></>)
     const toggle = screen.getByRole('switch', { name: '하단 막대에 CPU·메모리 보이기' })
-    expect(toggle.getAttribute('aria-checked')).toBe('true')
-    expect(screen.getByTestId('probe').textContent).toBe('on')
-    fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(screen.getByTestId('probe').textContent).toBe('off')
-    expect(localStorage.getItem('iwae:usage-meter:v1')).toBe('off')
-    // 다시 켜도 그대로 기억한다
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByTestId('probe').textContent).toBe('on')
+    expect(localStorage.getItem('iwae:usage-meter:v1')).toBe('on')
+    // 다시 읽어도 그대로 기억한다
     act(() => reloadUsageMeterPref())
-    expect(screen.getByTestId('probe').textContent).toBe('off')
+    expect(screen.getByTestId('probe').textContent).toBe('on')
   })
 
   it('영어 화면에서는 영어 이름을 보인다', () => {

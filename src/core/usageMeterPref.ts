@@ -1,20 +1,20 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * PDF 하단 막대 오른쪽 끝의 CPU·메모리 표시를 켤까. 이 PC 의 취향이라 브라우저 저장소에 둔다(기본: 켬).
+ * PDF 하단 막대 오른쪽 끝의 CPU·메모리 표시를 켤까. 이 PC 의 취향이라 브라우저 저장소에 둔다(기본: 끔 — 처음 쓰는 사람에게는 개발용 정보로 보인다).
  * 설정 창에서 바꾸면 열려 있는 하단 막대에도 바로 반영된다.
  */
 const KEY = 'iwae:usage-meter:v1'
 
 function read(): boolean {
   try {
-    return window.localStorage.getItem(KEY) !== 'off'
+    return window.localStorage.getItem(KEY) === 'on'
   } catch {
-    return true
+    return false
   }
 }
 
-let enabled = typeof window === 'undefined' ? true : read()
+let enabled = typeof window === 'undefined' ? false : read()
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void) {
@@ -35,7 +35,7 @@ export function setUsageMeterEnabled(next: boolean): void {
 }
 
 export function useUsageMeterEnabled(): boolean {
-  return useSyncExternalStore(subscribe, () => enabled, () => true)
+  return useSyncExternalStore(subscribe, () => enabled, () => false)
 }
 
 /** 테스트용: 저장소에서 다시 읽는다 */

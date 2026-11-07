@@ -19,6 +19,7 @@ fn validate(path: &Path) -> Result<(), String> {
 }
 
 /// PowerShell 작은따옴표 문자열: 안의 ' 는 '' 로
+#[cfg_attr(not(windows), allow(dead_code))]
 fn ps_quote(text: &str) -> String {
     format!("'{}'", text.replace('\'', "''"))
 }
@@ -46,15 +47,62 @@ pub fn copy_file_to_clipboard(path: String) -> Result<(), String> {
         }
         Ok(())
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
-        Err(tr!("이 기능은 Windows 에서만 됩니다.", "This feature is only available on Windows."))
+        // JavaScript for Automation 으로 NSPasteboard 에 파일 URL 을 올린다(Finder·메일에서 ⌘V 하면 파일이 붙는다)
+        let script = format!(
+            "ObjC.import('AppKit'); var pb = $.NSPasteboard.generalPasteboard; pb.clearContents; \
+             if (!pb.writeObjects($([$.NSURL.fileURLWithPath({})]))) {{ throw new Error('pasteboard') }}",
+            js_quote(&path)
+        );
+        let output = std::process::Command::new("osascript")
+            .args(["-l", "JavaScript", "-e", &script])
+            .output()
+            .map_err(|err| tr!("클립보드에 넣지 못했습니다: {err}", "Could not copy to the clipboard: {err}"))?;
+        if !output.status.success() {
+            return Err(tr!(
+                "클립보드에 넣지 못했습니다: {}",
+                "Could not copy to the clipboard: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ));
+        }
+        Ok(())
     }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        Err(tr!("이 기능은 Windows·macOS 에서만 됩니다.", "This feature is only available on Windows and macOS."))
+    }
+}
+
+/// JavaScript 큰따옴표 문자열(osascript -l JavaScript 에 넘긴다). 역슬래시·따옴표·줄바꿈을 막는다
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn js_quote(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 2);
+    out.push('"');
+    for ch in text.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\u{2028}' => out.push_str("\\u2028"),
+            '\u{2029}' => out.push_str("\\u2029"),
+            _ => out.push(ch),
+        }
+    }
+    out.push('"');
+    out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quotes_paths_for_javascript() {
+        assert_eq!(js_quote(r#"/Users/me/"a"\b.pdf"#), r#""/Users/me/\"a\"\\b.pdf""#);
+        assert_eq!(js_quote("a\nb"), r#""a\nb""#);
+    }
 
     #[test]
     fn quotes_single_quotes_for_powershell() {

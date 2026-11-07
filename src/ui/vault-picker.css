@@ -1,0 +1,150 @@
+/* 첫 화면: 왼쪽은 무슨 앱인지, 오른쪽은 처음 설정(언어 → 화면) 또는 시작하기. 앱 테마를 따른다(회색 글자 없음) */
+.vault-picker-card.vault-picker-two {
+  width: min(880px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--text-strong);
+  box-shadow: 0 24px 60px var(--shadow-floating, rgb(0 0 0 / 25%));
+}
+
+.vault-picker-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 36px 32px 28px;
+  border-right: 1px solid var(--divider);
+  background: var(--chrome);
+}
+.vault-picker-logo.about-logo { width: 112px; height: 112px; margin: 0 0 4px; }
+.vault-picker-name { margin: 0; font-size: 28px; font-weight: 760; letter-spacing: 0.02em; }
+.vault-picker-tagline { margin: 0; font-size: 14px; line-height: 1.6; }
+.vault-picker-features { display: grid; gap: 10px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; }
+.vault-picker-features li { display: flex; align-items: center; gap: 10px; }
+.vault-picker-features svg { flex: 0 0 auto; color: var(--accent); }
+.vault-picker-version { margin: auto 0 0; padding-top: 18px; font-size: 12px; }
+
+.vault-picker-main { display: flex; flex-direction: column; gap: 16px; min-height: 460px; padding: 32px 32px 28px; }
+.vault-picker-pane { display: flex; flex-direction: column; gap: 12px; }
+.vault-picker-pane h2 { margin: 0; font-size: 19px; font-weight: 700; }
+.vault-picker-pane h3 { margin: 6px 0 2px; font-size: 13px; font-weight: 650; }
+.vault-picker-note { margin: 0; font-size: 12.5px; }
+
+/* 단계 표시 */
+.vault-picker-steps { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.vault-picker-steps li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 5px; border: 1px solid var(--divider); border-radius: 999px; }
+.vault-picker-steps li span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--chrome-hover); font-size: 11px; font-weight: 700; }
+.vault-picker-steps li.vault-picker-step-current { border-color: var(--accent); font-weight: 650; }
+.vault-picker-steps li.vault-picker-step-current span { background: var(--accent); color: var(--accent-contrast, #fff); }
+.vault-picker-steps li.vault-picker-step-done span { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* 언어 고르기 */
+.vault-picker-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.vault-picker-choice {
+  display: grid;
+  place-items: center;
+  height: 84px;
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  background: var(--chrome);
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+.vault-picker-choice:hover { background: var(--chrome-hover); }
+.vault-picker-choice-active { border: 2px solid var(--accent); }
+
+/* 화면 고르기: 설정 화면의 테마 고르기를 그대로 쓰되 안쪽 제목은 숨긴다 */
+.vault-picker-look .theme-settings-heading { display: none; }
+.vault-picker-look .theme-settings { padding: 0; }
+
+/* 아래 단추 줄 */
+.vault-picker-nav { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 8px; }
+.vault-picker-nav > span { display: inline-flex; gap: 8px; }
+.vault-picker-card .vault-picker-primary,
+.vault-picker-secondary,
+.vault-picker-ghost {
+  height: var(--control-size-floating);
+  padding: 0 16px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.vault-picker-card .vault-picker-primary { border: 0; background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
+.vault-picker-secondary { border: 1px solid var(--divider); background: transparent; color: inherit; }
+.vault-picker-ghost { border: 0; background: transparent; color: inherit; }
+.vault-picker-secondary:hover,
+.vault-picker-ghost:hover { background: var(--chrome-hover); }
+
+/* 시작하기: 큰 두 단추 */
+.vault-picker-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vault-picker-action:hover:not(:disabled) { background: var(--chrome-hover); }
+.vault-picker-action:disabled { opacity: 0.6; cursor: default; }
+.vault-picker-action span { display: grid; gap: 2px; min-width: 0; }
+.vault-picker-action strong { font-size: 14px; font-weight: 650; }
+.vault-picker-action small { font-size: 12px; }
+.vault-picker-action-primary { border: 0; background: var(--accent); color: var(--accent-contrast, #fff); }
+.vault-picker-action-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--paper)); }
+
+/* 최근 Vault: 이름을 크게, 경로는 작게(회색 대신 크기로 구분) */
+.vault-picker-recent ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--divider); border-radius: 10px; overflow: hidden; }
+.vault-picker-recent li { display: flex; align-items: center; }
+.vault-picker-recent li + li { border-top: 1px solid var(--divider); }
+.vault-picker-recent-open {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vault-picker-recent-open:hover:not(:disabled) { background: var(--chrome-hover); }
+.vault-picker-recent-open span { display: grid; min-width: 0; }
+.vault-picker-recent-open strong { font-size: 13px; font-weight: 650; }
+.vault-picker-recent-open small { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.vault-picker-recent-remove {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.vault-picker-recent-remove:hover { background: var(--chrome-hover); }
+
+.vault-picker-drop { margin: auto 0 0; padding: 10px 12px; border: 1px dashed var(--divider); border-radius: 10px; font-size: 12px; line-height: 1.5; }
+
+@media (max-width: 760px) {
+  .vault-picker-card.vault-picker-two { grid-template-columns: 1fr; }
+  .vault-picker-brand { border-right: 0; border-bottom: 1px solid var(--divider); }
+}

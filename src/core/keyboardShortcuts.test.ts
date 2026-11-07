@@ -25,6 +25,12 @@ describe('resolveAppShortcut', () => {
     expect(resolveAppShortcut(key(pressed, { metaKey: true }))).toBe(action)
   })
 
+  it('Ctrl+, 는 설정을 연다(글 칸에 커서가 있어도)', () => {
+    expect(resolveAppShortcut(key(',', { ctrlKey: true }))).toBe('openSettings')
+    expect(resolveAppShortcut(key(',', { ctrlKey: true, target: document.createElement('textarea') }))).toBe('openSettings')
+    expect(resolveAppShortcut(key(',', { ctrlKey: true, shiftKey: true }))).not.toBe('openSettings')
+  })
+
   it('글 칸에 커서가 있어도 Ctrl+F 는 앱 검색이다(WebView 기본 찾기창이 뜨지 않게)', () => {
     const input = document.createElement('input')
     expect(resolveAppShortcut(key('f', { ctrlKey: true, target: input }))).toBe('search')

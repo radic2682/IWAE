@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import type { ComponentProps } from 'react'
 import { sidebarDefaults } from './sidebarDefaults'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { Sidebar } from './Sidebar'
+import { Sidebar, vaultFolderName } from './Sidebar'
 import { loadLibrary, loadNotebooks } from '../bridge/fake'
 import type { VaultTreeNode, VaultTreePlaceRequest, VaultTreeReorderRequest } from '../core/vaultTree'
 import type { PdfAttachmentPolicy } from '../core/vaultTree'
@@ -119,14 +119,15 @@ async function renderSidebar(
 }
 
 describe('Sidebar', () => {
-  it('선택한 IWAE 로고와 주요 작업을 한 줄 헤더에 표시한다', async () => {
+  it('주요 작업은 「문서」 제목 줄 오른쪽에 두고, 로고는 사이드바에 두지 않는다(상단바 로고 메뉴)', async () => {
     const view = await renderSidebar({ onCreateFolder: vi.fn() })
 
-    const topRow = view.container.querySelector('.side-top-row')
-    expect(topRow?.querySelector('img.side-brand-mark')).not.toBeNull()
-    expect(within(topRow as HTMLElement).getByRole('button', { name: 'Vault 검색' })).toBeDefined()
-    expect(within(topRow as HTMLElement).getByRole('button', { name: '새 폴더' })).toBeDefined()
-    expect(within(topRow as HTMLElement).getByRole('button', { name: '문서 추가' })).toBeDefined()
+    expect(view.container.querySelector('.side-brand-mark')).toBeNull()
+    const head = view.container.querySelector('.side-documents-head') as HTMLElement
+    expect(within(head).getByRole('heading', { name: '문서' })).toBeDefined()
+    expect(within(head).getByRole('button', { name: 'Vault 검색' })).toBeDefined()
+    expect(within(head).getByRole('button', { name: '새 폴더' })).toBeDefined()
+    expect(within(head).getByRole('button', { name: '문서 추가' })).toBeDefined()
   })
 
   it('운영체제 문서 드래그 중에는 전체 높이 드롭 대상을 한 번만 보여준다', async () => {
@@ -912,3 +913,11 @@ function dragTreeNode(source: HTMLElement, target: HTMLElement) {
     document.elementFromPoint = original
   }
 }
+
+describe('vaultFolderName', () => {
+  it('Vault 경로에서 마지막 폴더 이름만 꺼낸다', () => {
+    expect(vaultFolderName('C:/Workspace/IWAE_Vault')).toBe('IWAE_Vault')
+    expect(vaultFolderName('C:\\Users\\me\\Notes\\')).toBe('Notes')
+    expect(vaultFolderName('/home/me/vault')).toBe('vault')
+  })
+})

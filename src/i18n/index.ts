@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { EN } from './en'
+import { platformShortcut } from '../core/platform'
 
 /**
  * 화면 글의 언어(한국어 · 영어).
@@ -73,10 +74,10 @@ function fill(template: string, vars?: Vars): string {
   return template.replace(/\{(\w+)\}/gu, (whole, name: string) => (name in vars ? String(vars[name]) : whole))
 }
 
-/** 한국어 문장 → 지금 언어의 문장 */
+/** 한국어 문장 → 지금 언어의 문장. 글 안의 단축키(`Ctrl+F` 등)는 맥에서 `⌘F` 처럼 바꿔 보인다 */
 export function t(korean: string, vars?: Vars): string {
-  if (current === 'ko') return fill(korean, vars)
-  return fill(EN[korean] ?? korean, vars)
+  if (current === 'ko') return platformShortcut(fill(korean, vars))
+  return platformShortcut(fill(EN[korean] ?? korean, vars))
 }
 
 /** 날짜·시각을 보일 때 쓰는 지역 이름(정렬은 이것과 상관없이 ko-KR 로 둔다) */

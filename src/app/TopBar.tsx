@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  ImagesSquare, Newspaper, MagnifyingGlass, Printer,
+  ImagesSquare, Newspaper, MagnifyingGlass,
   ListMagnifyingGlass,
   ListBullets,
   SidebarSimple,
@@ -10,7 +10,9 @@ import { closeWindow } from '../bridge/window'
 import { WindowControls } from './WindowControls'
 import { PdfSplitPicker } from './PdfLayoutControls'
 import type { PdfSplitLayoutId } from '../core/pdfSplit'
+import { AppMenu, type AppMenuGroups } from './AppMenu'
 import { MemoPanelIcon } from '../pdf/MemoPanelIcon'
+import { isMacPlatform } from '../core/platform'
 import { t } from '../i18n'
 
 export type SidebarMode = 'library' | 'thumbnails' | 'outlinePreview' | 'outline' | 'search'
@@ -42,9 +44,9 @@ interface TopBarProps {
   /** 3단일 때 세 번째(맨 오른쪽) 패널의 탭 줄과 세 패널의 폭 비율 */
   thirdTabs?: ReactNode
   paneGrows?: readonly [number, number, number]
-  /** 인쇄(지금 PDF). 주면 맨 위 줄 왼쪽에 인쇄 단추가 나온다 */
-  onPrint?: () => void
-  /** 오른쪽 메모 바 펼침/접기. PDF 를 보고 있을 때만 준다 */
+  /** 로고 메뉴의 항목들(인쇄·화면·설정 …). 주면 맨 왼쪽에 로고 메뉴 단추가 나온다 */
+  appMenu?: AppMenuGroups
+  /** 오른쪽 메모 바 열기·닫기. 모든 칸의 메모 바가 함께 열리므로 상단바에 하나만 둔다. PDF·Markdown 을 볼 때만 준다 */
   memoBar?: { readonly visible: boolean; readonly onToggle: () => void }
 }
 
@@ -67,8 +69,8 @@ export function TopBar({
   gridZones,
   thirdTabs,
   paneGrows,
+  appMenu,
   memoBar,
-  onPrint,
 }: TopBarProps) {
   // 왼쪽 위 단추 묶음의 실제 폭. 사이드바가 이보다 좁으면 묶음이 첫 탭(왼쪽 모서리·곡선)을 덮었다 — 그만큼 탭을 민다
   const actionsRef = useRef<HTMLDivElement | null>(null)
@@ -83,14 +85,32 @@ export function TopBar({
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
+  // 오른쪽 창 단추 묶음(문서 검색·창 나누기·창 단추)의 폭. 맨 오른쪽 탭 줄이 그만큼 비워 둔다
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [windowToolsWidth, setWindowToolsWidth] = useState<number | null>(null)
+  useEffect(() => {
+    const element = rootRef.current?.querySelector('.wincontrols')
+    if (element == null) return
+    const measure = () => setWindowToolsWidth(Math.ceil(element.getBoundingClientRect().width))
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const widthVars: Record<string, string> = {}
+  if (actionsWidth !== null && actionsWidth > 0) widthVars['--topbar-actions-w'] = `${actionsWidth}px`
+  if (windowToolsWidth !== null && windowToolsWidth > 0) widthVars['--topbar-wincontrols-w'] = `${windowToolsWidth}px`
   return (
     <div
-      className={`topbar${singlePane ? ' topbar-single' : ''}${sidebarCollapsed ? ' topbar-sidebar-collapsed' : ''}${sidebarCollapsed || !sidebarVisible ? ' topbar-sidebar-unreserved' : ''}`}
-      style={actionsWidth === null || actionsWidth <= 0 ? undefined : { '--topbar-actions-w': `${actionsWidth}px` } as CSSProperties}
+      ref={rootRef}
+      className={`topbar${singlePane ? ' topbar-single' : ''}${sidebarCollapsed ? ' topbar-sidebar-collapsed' : ''}${sidebarCollapsed || !sidebarVisible ? ' topbar-sidebar-unreserved' : ''}${isMacPlatform() ? ' topbar-mac' : ''}`}
+      style={Object.keys(widthVars).length === 0 ? undefined : widthVars as CSSProperties}
       data-tauri-drag-region="deep"
     >
       <div className="topbar-leftcluster">
         <div className="topbar-leftcluster-actions" ref={actionsRef}>
+        {appMenu === undefined ? null : <AppMenu groups={appMenu} />}
         <button
           type="button"
           className="sidebar-toggle"
@@ -101,56 +121,26 @@ export function TopBar({
           <SidebarSimple size={15} weight={sidebarCollapsed ? 'regular' : 'fill'} aria-hidden="true" />
         </button>
 
-        {onToggleDocSearch === undefined ? null : (
-          <button
-            type="button"
-            className={`topbar-navbtn topbar-docsearch-btn${docSearchActive ? ' topbar-navbtn-active' : ''}`}
-            aria-label={t('문서 검색')}
-            aria-pressed={docSearchActive}
-            title={t('문서 검색 (Ctrl+Shift+F)')}
-            onClick={onToggleDocSearch}
-          >
-            <ListMagnifyingGlass size={16} weight={docSearchActive ? 'bold' : 'regular'} aria-hidden="true" />
-          </button>
+        {sidebarCollapsed || !sidebarVisible ? null : (
+          // 사이드바 보기는 사이드바 바로 위에 탭으로 단다. 고른 탭이 아래 사이드바와 이어진다
+          <div className="topbar-nav topbar-side-tabs" role="radiogroup" aria-label={t('사이드바 보기')}>
+            <button type="button" className={`topbar-navbtn${sidebarMode === 'library' ? ' topbar-navbtn-active' : ''}`} aria-label={t('탐색기')} title={t('탐색기')} role="radio" aria-checked={sidebarMode === 'library'} onClick={() => onSidebarModeChange('library')}>
+              <TreeStructure size={15} weight="regular" aria-hidden="true" />
+            </button>
+            <button type="button" className={`topbar-navbtn${sidebarMode === 'outline' ? ' topbar-navbtn-active' : ''}`} aria-label={t('목록')} title={t('목록')} role="radio" aria-checked={sidebarMode === 'outline'} onClick={() => onSidebarModeChange('outline')}>
+              <ListBullets size={15} weight="regular" aria-hidden="true" />
+            </button>
+            <button type="button" className={`topbar-navbtn${sidebarMode === 'thumbnails' ? ' topbar-navbtn-active' : ''}`} aria-label={t('미리보기')} title={t('미리보기')} role="radio" aria-checked={sidebarMode === 'thumbnails'} onClick={() => onSidebarModeChange('thumbnails')}>
+              <ImagesSquare size={15} weight="regular" aria-hidden="true" />
+            </button>
+            <button type="button" className={`topbar-navbtn${sidebarMode === 'outlinePreview' ? ' topbar-navbtn-active' : ''}`} aria-label={t('목차·미리보기')} title={t('목차·미리보기')} role="radio" aria-checked={sidebarMode === 'outlinePreview'} onClick={() => onSidebarModeChange('outlinePreview')}>
+              <Newspaper size={15} weight="regular" aria-hidden="true" />
+            </button>
+            <button type="button" className={`topbar-navbtn${sidebarMode === 'search' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 검색')} title={t('PDF 검색 (Ctrl+F)')} role="radio" aria-checked={sidebarMode === 'search'} onClick={() => onSidebarModeChange('search')}>
+              <MagnifyingGlass size={15} weight="regular" aria-hidden="true" />
+            </button>
+          </div>
         )}
-
-        {onPaneLayoutChange === undefined ? null : (
-          // 창 나누기: PDF 안 화면 나누기와 같은 배치 고르기. 앱 창은 좌우로만 나눈다(탭 줄이 패널 위에 나란히 있다)
-          <PdfSplitPicker
-            value={paneLayout}
-            onChange={onPaneLayoutChange}
-            label={t('창 나누기')}
-            head={t('창 나누기 · 다른 문서를 나란히 봅니다')}
-            align="left"
-            buttonClassName="topbar-navbtn topbar-panecount-cycle"
-            activeClassName="topbar-navbtn-active"
-            shortcut={t('(Ctrl+\\ 로 차례로)')}
-          />
-        )}
-        <span className="topbar-sep" aria-hidden="true" />
-        <div className="topbar-nav" role="radiogroup" aria-label={t('사이드바 보기')}>
-          <button type="button" className={`topbar-navbtn${sidebarMode === 'library' ? ' topbar-navbtn-active' : ''}`} aria-label={t('탐색기')} role="radio" aria-checked={sidebarMode === 'library'} onClick={() => onSidebarModeChange('library')}>
-            <TreeStructure size={15} weight="regular" aria-hidden="true" />
-          </button>
-          <button type="button" className={`topbar-navbtn${sidebarMode === 'outline' ? ' topbar-navbtn-active' : ''}`} aria-label={t('목록')} role="radio" aria-checked={sidebarMode === 'outline'} onClick={() => onSidebarModeChange('outline')}>
-            <ListBullets size={15} weight="regular" aria-hidden="true" />
-          </button>
-          <button type="button" className={`topbar-navbtn${sidebarMode === 'thumbnails' ? ' topbar-navbtn-active' : ''}`} aria-label={t('미리보기')} role="radio" aria-checked={sidebarMode === 'thumbnails'} onClick={() => onSidebarModeChange('thumbnails')}>
-            <ImagesSquare size={15} weight="regular" aria-hidden="true" />
-          </button>
-          <button type="button" className={`topbar-navbtn${sidebarMode === 'outlinePreview' ? ' topbar-navbtn-active' : ''}`} aria-label={t('목차·미리보기')} role="radio" aria-checked={sidebarMode === 'outlinePreview'} onClick={() => onSidebarModeChange('outlinePreview')}>
-            <Newspaper size={15} weight="regular" aria-hidden="true" />
-          </button>
-          <button type="button" className={`topbar-navbtn${sidebarMode === 'search' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 검색')} title={t('PDF 검색 (Ctrl+F)')} role="radio" aria-checked={sidebarMode === 'search'} onClick={() => onSidebarModeChange('search')}>
-            <MagnifyingGlass size={15} weight="regular" aria-hidden="true" />
-          </button>
-        </div>
-        {onPrint === undefined ? null : (
-          <button type="button" className="topbar-navbtn topbar-print" aria-label={t('인쇄')} title={t('인쇄 (Ctrl+P)')} onClick={onPrint}>
-            <Printer size={15} weight="regular" aria-hidden="true" />
-          </button>
-        )}
-
         </div>
       </div>
 
@@ -189,35 +179,48 @@ export function TopBar({
 
       <WindowControls
         onCloseWindow={onCloseWindow}
-        leading={memoBar === undefined ? null : (
-          <button
-            type="button"
-            className={`topbar-navbtn topbar-memo-toggle${memoBar.visible ? ' topbar-navbtn-active' : ''}`}
-            aria-label={memoBar.visible ? t('메모 바 닫기') : t('메모 바 열기')}
-            aria-pressed={memoBar.visible}
-            title={memoBar.visible ? t('메모 바 닫기') : t('메모 바 열기')}
-            onClick={memoBar.onToggle}
-          >
-            <MemoPanelIcon />
-          </button>
+        leading={(
+          // 창 전체에 관한 단추(문서 검색·창 나누기)는 창 단추 곁에 둔다
+          <div className="topbar-window-tools">
+            {onToggleDocSearch === undefined ? null : (
+              <button
+                type="button"
+                className={`topbar-navbtn topbar-docsearch-btn${docSearchActive ? ' topbar-navbtn-active' : ''}`}
+                aria-label={t('문서 검색')}
+                aria-pressed={docSearchActive}
+                title={t('문서 검색 (Ctrl+Shift+F)')}
+                onClick={onToggleDocSearch}
+              >
+                <ListMagnifyingGlass size={16} weight={docSearchActive ? 'bold' : 'regular'} aria-hidden="true" />
+              </button>
+            )}
+            {onPaneLayoutChange === undefined ? null : (
+              <PdfSplitPicker
+                value={paneLayout}
+                onChange={onPaneLayoutChange}
+                label={t('창 나누기')}
+                head={t('창 나누기 · 다른 문서를 나란히 봅니다')}
+                align="right"
+                buttonClassName="topbar-navbtn topbar-panecount-cycle"
+                activeClassName="topbar-navbtn-active"
+                shortcut={t('(Ctrl+\\ 로 차례로)')}
+              />
+            )}
+            {memoBar === undefined ? null : (
+              <button
+                type="button"
+                className={`topbar-navbtn topbar-memo-toggle${memoBar.visible ? ' topbar-navbtn-active' : ''}`}
+                aria-label={memoBar.visible ? t('메모 바 닫기') : t('메모 바 열기')}
+                aria-pressed={memoBar.visible}
+                title={memoBar.visible ? t('메모 바 닫기') : t('메모 바 열기')}
+                onClick={memoBar.onToggle}
+              >
+                <MemoPanelIcon />
+              </button>
+            )}
+          </div>
         )}
       />
     </div>
-  )
-}
-
-/** 단 수 아이콘: 둥근 틀 안의 세로 칸(1단 = 통짜, 2·3단 = 칸 사이에 틈). 위쪽 탭 막대 하나로 창처럼 보이게 한다 */
-function PaneCountIcon({ count }: { readonly count: 1 | 2 | 3 }) {
-  const gap = 1.6
-  const left = 2.5
-  const total = 13
-  const width = (total - gap * (count - 1)) / count
-  return (
-    <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true" focusable="false">
-      <rect x="1" y="1.5" width="16" height="13" rx="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      {Array.from({ length: count }, (_, index) => (
-        <rect key={index} x={left + index * (width + gap)} y="4" width={width} height="8.5" rx="1" fill="currentColor" opacity={0.85} />
-      ))}
-    </svg>
   )
 }

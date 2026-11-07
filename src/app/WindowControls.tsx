@@ -1,6 +1,7 @@
 import { t } from '../i18n'
 import { useEffect, useState, type ReactNode } from 'react'
 import { closeWindow, minimizeWindow, toggleMaximizeWindow, watchMaximized } from '../bridge/window'
+import { isMacPlatform } from '../core/platform'
 
 interface WindowControlsProps {
   onCloseWindow?: () => void
@@ -14,19 +15,31 @@ export function WindowControls({ onCloseWindow = closeWindow, leading }: WindowC
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
+    // 맥은 확대 단추를 시스템이 그리므로 창 크기를 지켜볼 필요가 없다
+    if (isMacPlatform()) return
     let dispose: (() => void) | undefined
     let alive = true
+    // 구독 해제는 한 번만, 실패해도 조용히. Tauri 는 이미 풀린(예: 화면을 다시 불러온 뒤) 구독을 또 풀면 예외를 던진다
+    const stopOnce = (stop: () => void) => {
+      try { stop() } catch { /* 이미 풀린 구독 */ }
+    }
     void watchMaximized((value) => {
       if (alive) setMaximized(value)
     }).then((stop) => {
       if (alive) dispose = stop
-      else stop()
-    })
+      else stopOnce(stop)
+    }, () => undefined)
     return () => {
       alive = false
-      dispose?.()
+      if (dispose !== undefined) stopOnce(dispose)
+      dispose = undefined
     }
   }, [])
+
+  // 맥은 왼쪽 위의 시스템 신호등 단추(닫기·최소화·확대)를 쓴다. 오른쪽에는 앱 단추만 남긴다
+  if (isMacPlatform()) {
+    return <div className="wincontrols wincontrols-mac">{leading}</div>
+  }
 
   return (
     <div className="wincontrols">

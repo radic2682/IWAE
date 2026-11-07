@@ -262,7 +262,7 @@ describe('App — 껍데기 배선', () => {
   it('처음에는 양쪽 패널이 비어 있다', () => {
     renderApp()
     expect(screen.getByText('사이드바에서 PDF 문서를 여세요')).toBeDefined()
-    expect(screen.getAllByText('사이드바에서 노트를 여세요').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('탭을 여기로 끌어 오거나 사이드바에서 문서를 여세요').length).toBeGreaterThan(0)
   })
 
   it('사이드바의 문서를 누르면 왼쪽 상단에 현재 문서명이 나온다', () => {
@@ -310,10 +310,13 @@ describe('App — bridge 로부터의 읽기', () => {
    * 있는지 확인하는 유일한 자리다 — 나머지 테스트는 주입으로 이 경로를
    * 건너뛴다. 목록의 내용이 아니라 "결국 항목이 그려진다"만 본다.
    */
-  it('props 가 없고 최근 vault도 없으면 폴더 선택 화면을 보여준다', async () => {
+  it('props 가 없고 최근 vault도 없으면 첫 실행 안내(언어)부터 보이고, 건너뛰면 폴더 선택 화면이다', async () => {
+    localStorage.removeItem('iwae:onboarded:v1')
     render(<App developmentPreview={false} />)
-    expect(await screen.findByRole('heading', { name: '작업 폴더를 선택하세요' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Vault 폴더 선택' })).toBeDefined()
+    expect(await screen.findByRole('radio', { name: '한국어' })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: '건너뛰기' }))
+    expect(screen.getByRole('heading', { name: '시작하기' })).toBeDefined()
+    expect(screen.getByRole('button', { name: /내 폴더 열기/ })).toBeDefined()
   })
 
   it('개발 미리보기에서는 vault 선택 없이 샘플 PDF와 노트를 연다', () => {
@@ -416,9 +419,11 @@ describe('App — bridge 로부터의 읽기', () => {
     })
   })
 
-  it('설정은 사이드바 내부가 아닌 모달로 열리고 Escape로 닫힌다', async () => {
+  it('설정은 상단바 로고 메뉴에서 모달로 열리고 Escape로 닫힌다', async () => {
     const view = render(<App developmentPreview />)
-    fireEvent.click(screen.getByRole('button', { name: '설정' }))
+    expect(screen.queryByRole('button', { name: '설정' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'IWAE 메뉴' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /^설정/ }))
     const dialog = await screen.findByRole('dialog', { name: '설정' })
     expect(screen.getByRole('heading', { name: '화면 테마' })).toBeDefined()
     // 기본은 웨일 어두운 테마

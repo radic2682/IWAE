@@ -1804,6 +1804,13 @@ fn library_candidates() -> Vec<PathBuf> {
         if let Some(dir) = exe.parent() {
             paths.push(dir.join("binaries").join(&name));
             paths.push(dir.join(&name));
+            // macOS 앱 묶음: 실행 파일은 `IWAE.app/Contents/MacOS/`, `bundle.resources` 는
+            // `IWAE.app/Contents/Resources/` 아래에 들어간다
+            #[cfg(target_os = "macos")]
+            if let Some(contents) = dir.parent() {
+                paths.push(contents.join("Resources").join("binaries").join(&name));
+                paths.push(contents.join("Resources").join(&name));
+            }
         }
     }
 

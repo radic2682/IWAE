@@ -576,6 +576,23 @@ export async function rememberVault(root: string): Promise<void> {
   )
 }
 
+/** 최근 Vault 목록에서 뺀다(폴더와 그 안의 파일은 그대로) */
+export async function forgetVault(root: string): Promise<void> {
+  if (!isDesktop()) return
+  const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
+  const path = await recentVaultsPath()
+  if (!(await exists(path))) return
+  const remaining = (await recentVaults()).filter((candidate) => candidate !== root)
+  await writeTextFile(path, `${JSON.stringify(remaining, null, 2)}
+`)
+}
+
+/** 첫 화면 「예시로 시작하기」: 문서 폴더에 빈 예시 Vault 폴더를 만들고 그 경로를 돌려준다(Rust create_example_vault) */
+export async function createExampleVaultFolder(name: string): Promise<string> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke<string>('create_example_vault', { name })
+}
+
 export async function readSession(vault: VaultHandle): Promise<unknown> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'session.json')

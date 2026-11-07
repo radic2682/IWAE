@@ -66,6 +66,12 @@
         .app-boot-progress::after { background: #62c7e9; }
       }
       @media (prefers-reduced-motion: reduce) { .app-boot-progress::after { animation: none; margin-inline: auto; } }
+      /* 여는 장면(LaunchSplash)이 곧 덮는다: 스크립트를 읽는 그 짧은 동안도 같은 밤하늘 바탕만 보인다.
+         움직임 줄이기를 켠 사람에게는 여는 장면이 없으므로 위의 불러오기 화면을 그대로 둔다 */
+      @media (prefers-reduced-motion: no-preference) {
+        body, .app-boot { background: radial-gradient(ellipse at 50% 45%, #1b2230 0%, #11141a 55%, #0b0d11 100%); }
+        .app-boot > * { visibility: hidden; }
+      }
     </style>
   </head>
   <body>

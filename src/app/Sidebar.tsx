@@ -1437,65 +1437,9 @@ export function Sidebar({
 
 
 
-  return (
-    <nav
-      ref={sidebarRef}
-      className={`sidebar-inner${libraryExpanded ? ' sidebar-inner-library' : ''}`}
-      onKeyDown={(event) => {
-        // 메뉴·이름 바꾸기가 열려 있을 때의 Escape 는 그것만 닫는다.
-        // 라이브러리 모드를 접는 앱 단축키까지 가면 정리하던 화면이 사라진다.
-        if (event.key !== 'Escape') return
-        if (selectedNodes.size > 0 && contextMenu === null && editingEntryId === null) {
-          event.preventDefault()
-          event.stopPropagation()
-          setSelectedNodes(new Set())
-          return
-        }
-        if (contextMenu === null && recentMenu === null && editingEntryId === null && !attachmentMenuOpen) return
-        event.preventDefault()
-        event.stopPropagation()
-        setContextMenu(null)
-        setRecentMenu(null)
-        setAttachmentMenuOpen(false)
-      }}
-    >
-      {defaultMenu !== null && versionActions !== undefined && versionGroups?.[defaultMenu.groupId] !== undefined ? (
-        <DefaultVersionMenu
-          group={versionGroups[defaultMenu.groupId]!}
-          anchor={defaultMenu.anchor}
-          onPick={(docId) => versionActions.onPin(docId)}
-          onClose={() => setDefaultMenu(null)}
-        />
-      ) : null}
-      {versionDrag !== null ? (
-        <div className={`side-version-drag-ghost${versionDrag.outside ? ' side-version-drag-ghost-out' : ''}`} style={{ left: versionDrag.x + 12, top: versionDrag.y + 8 }} aria-hidden="true">
-          {versionDrag.outside ? t('놓으면 묶음에서 빼기') : t('묶음 밖으로 끌어 놓기')}
-        </div>
-      ) : null}
-      {documentDropActive ? (
-        // 목록을 가리지 않는다 — 어느 폴더 위인지 보이고, 그 폴더가 칠해진다
-        <div className="side-document-drop-target" role="status">
-          <span className="side-document-drop-banner">
-            {documentDropFolder === null || documentDropFolder === ''
-              ? documentDropPlace === null
-                ? t('놓으면 Vault 에 복사 · 줄 사이에 놓으면 그 자리, 폴더 위면 그 폴더 안')
-                : t('놓으면 Vault 맨 위의 선 자리에 복사')
-              : documentDropPlace === null || documentDropPlace.position === 'inside'
-                ? t('놓으면 「{folder}」 폴더에 복사', { folder: documentDropFolder.split('/').at(-1) ?? documentDropFolder })
-                : t('놓으면 「{folder}」 폴더의 선 자리에 복사', { folder: documentDropFolder.split('/').at(-1) ?? documentDropFolder })}
-          </span>
-        </div>
-      ) : null}
-      <div className="side-scroll">
-        <div className="side-top-row">
-          <div
-            className="side-brand"
-            tabIndex={0}
-            aria-label="IWAE — Interwoven Writing and Evidence"
-          >
-            <img className="side-brand-mark" src="/iwae-logo.png" alt="" aria-hidden="true" />
-            <span className="side-brand-short" aria-hidden="true">IWAE</span>
-          </div>
+  // 문서 머리 단추(라이브러리·폴더 펼치기·새로고침·가져오기·새 폴더·문서 추가). 「문서」 제목 줄 오른쪽에 단다
+  const headActions = (
+    <>
           {showVaultSearch ? <VaultSearch
             compact
             records={searchRecords}
@@ -1575,7 +1519,62 @@ export function Sidebar({
               <FilePlus size={16} aria-hidden="true" />
             </button>
           </div>
+    </>
+  )
+  return (
+    <nav
+      ref={sidebarRef}
+      className={`sidebar-inner${libraryExpanded ? ' sidebar-inner-library' : ''}`}
+      onKeyDown={(event) => {
+        // 메뉴·이름 바꾸기가 열려 있을 때의 Escape 는 그것만 닫는다.
+        // 라이브러리 모드를 접는 앱 단축키까지 가면 정리하던 화면이 사라진다.
+        if (event.key !== 'Escape') return
+        if (selectedNodes.size > 0 && contextMenu === null && editingEntryId === null) {
+          event.preventDefault()
+          event.stopPropagation()
+          setSelectedNodes(new Set())
+          return
+        }
+        if (contextMenu === null && recentMenu === null && editingEntryId === null && !attachmentMenuOpen) return
+        event.preventDefault()
+        event.stopPropagation()
+        setContextMenu(null)
+        setRecentMenu(null)
+        setAttachmentMenuOpen(false)
+      }}
+    >
+      {defaultMenu !== null && versionActions !== undefined && versionGroups?.[defaultMenu.groupId] !== undefined ? (
+        <DefaultVersionMenu
+          group={versionGroups[defaultMenu.groupId]!}
+          anchor={defaultMenu.anchor}
+          onPick={(docId) => versionActions.onPin(docId)}
+          onClose={() => setDefaultMenu(null)}
+        />
+      ) : null}
+      {versionDrag !== null ? (
+        <div className={`side-version-drag-ghost${versionDrag.outside ? ' side-version-drag-ghost-out' : ''}`} style={{ left: versionDrag.x + 12, top: versionDrag.y + 8 }} aria-hidden="true">
+          {versionDrag.outside ? t('놓으면 묶음에서 빼기') : t('묶음 밖으로 끌어 놓기')}
         </div>
+      ) : null}
+      {documentDropActive ? (
+        // 목록을 가리지 않는다 — 어느 폴더 위인지 보이고, 그 폴더가 칠해진다
+        <div className="side-document-drop-target" role="status">
+          <span className="side-document-drop-banner">
+            {documentDropFolder === null || documentDropFolder === ''
+              ? documentDropPlace === null
+                ? t('놓으면 Vault 에 복사 · 줄 사이에 놓으면 그 자리, 폴더 위면 그 폴더 안')
+                : t('놓으면 Vault 맨 위의 선 자리에 복사')
+              : documentDropPlace === null || documentDropPlace.position === 'inside'
+                ? t('놓으면 「{folder}」 폴더에 복사', { folder: documentDropFolder.split('/').at(-1) ?? documentDropFolder })
+                : t('놓으면 「{folder}」 폴더의 선 자리에 복사', { folder: documentDropFolder.split('/').at(-1) ?? documentDropFolder })}
+          </span>
+        </div>
+      ) : null}
+      <div className="side-scroll">
+        {libraryExpanded ? (
+          // 라이브러리 화면에는 「문서」 제목 줄이 없으므로 단추 줄을 따로 둔다
+          <div className="side-top-row">{headActions}</div>
+        ) : null}
         {libraryExpanded ? (
           <>
             <LibraryView
@@ -1606,8 +1605,9 @@ export function Sidebar({
         ) : (
         <>
         <section className={`side-section side-documents-section${sectionDropClass('documents')}`} aria-labelledby="side-documents-heading" {...sectionDropProps('documents')}>
-          <div className="side-head-row">
+          <div className="side-head-row side-documents-head">
             <h2 id="side-documents-heading" className="side-head"><Files className="side-section-icon" size={15} aria-hidden="true" />{t('문서')}</h2>
+            {headActions}
           </div>
           {projectedTree.documents.length > 0 || draft?.section === 'documents'
             ? renderTree(projectedTree.documents, '', 0, 'documents')
@@ -2014,13 +2014,16 @@ export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOp
   const others = recentVaultPaths.filter((root) => root !== vaultRoot)
   return (
     <div className="side-footer">
-      <button type="button" className="side-vault-btn" onClick={() => setOpen((shown) => !shown)}>
+      <button type="button" className="side-vault-btn" title={vaultRoot} onClick={() => setOpen((shown) => !shown)}>
         <Folder size={14} aria-hidden="true" />
-        <span className="side-vault-label">{vaultRoot ?? t('폴더를 선택하세요')}</span>
+        {/* 폴더 이름만 보인다. 전체 경로는 마우스를 올리면 나온다 */}
+        <span className="side-vault-label">{vaultRoot === undefined ? t('폴더를 선택하세요') : vaultFolderName(vaultRoot)}</span>
       </button>
-      <button type="button" className="side-settings-btn" aria-label={t('설정')} onClick={onOpenSettings}>
-        <GearSix size={15} aria-hidden="true" />
-      </button>
+      {onOpenSettings === undefined ? null : (
+        <button type="button" className="side-settings-btn" aria-label={t('설정')} onClick={onOpenSettings}>
+          <GearSix size={15} aria-hidden="true" />
+        </button>
+      )}
       {open && (
         <>
           {/* 바깥을 누르면 닫힌다. 메뉴 자체보다 먼저 그려서 z-index 로만 가른다 */}
@@ -2061,4 +2064,9 @@ function readExpandedFolders(key: string): ReadonlySet<string> {
   } catch {
     return new Set()
   }
+}
+
+/** Vault 경로의 마지막 폴더 이름. 드라이브 루트(C:/)처럼 이름이 없으면 경로를 그대로 쓴다 */
+export function vaultFolderName(root: string): string {
+  return root.split(/[\\/]/u).filter((part) => part !== '').at(-1) ?? root
 }

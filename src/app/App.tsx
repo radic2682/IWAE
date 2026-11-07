@@ -50,6 +50,7 @@ import { SourceTrace } from './SourceTrace'
 import { useWorkspaceSources, type WorkspaceSourceState } from './useWorkspaceSources'
 import { TranslationSettings } from './TranslationSettings'
 import { SettingsModal } from './SettingsModal'
+import { AboutDialog } from './AboutDialog'
 import { ThemeSettings } from './ThemeSettings'
 import { UiScaleSettings, useUiScale } from './UiScaleSettings'
 import { LanguageSettings } from './LanguageSettings'
@@ -84,6 +85,7 @@ import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePreviewPanel, OutlinePanel, ThumbnailPanel } from './SidePanels'
 import { MarkdownOutline, MarkdownSectionPreview } from './MarkdownOutline'
 import { VaultPicker } from './VaultPicker'
+import { seedSampleVaultInto } from './sampleVaultDesktop'
 import { StartupShell } from './StartupShell'
 import { useVault } from './useVault'
 import {
@@ -136,6 +138,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { GithubChangesDialog, GithubImportDialog, GithubVersionsDialog } from './GithubDialogs'
 import { githubCheckout, githubClone, githubFetch, githubList, githubPull, githubRefs, type GithubSource } from '../bridge/github'
 import { isPowerPointPath, officeToPdf } from '../bridge/office'
+import { isMacPlatform } from '../core/platform'
 import { BibliographyDialog } from './BibliographyDialog'
 import { useBibliography } from './useBibliography'
 import { toBibtex } from '../core/bibliography'
@@ -168,6 +171,8 @@ import { pick, t } from '../i18n'
 
 const PDF_EMPTY = '사이드바에서 PDF 문서를 여세요'
 const NOTE_EMPTY = '사이드바에서 노트를 여세요'
+/** 나눈 창의 빈 칸. 탭을 끌어 오거나 사이드바에서 문서를 열면 된다 */
+const SPLIT_PANE_EMPTY = '탭을 여기로 끌어 오거나 사이드바에서 문서를 여세요'
 /** 좌우로만 나누는 배치(탭이 상단바에 놓인다) */
 const COLUMN_LAYOUTS: ReadonlySet<string> = new Set(['single', 'cols2', 'cols3'])
 
@@ -418,7 +423,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   routeDropRef.current = (allPaths, zone) => {
     // PowerPoint 는 바로 넣지 않고 「PDF 로 바꿔 넣을까요?」 묻는다. 어디에 놓았든 왼쪽 바에 놓은 것처럼 Vault 로 넣는다
     const slides = allPaths.filter(isPowerPointPath)
-    if (slides.length > 0) setPendingSlides({ paths: slides, folderPath: zone.kind === 'vault' ? zone.folderPath ?? '' : '', place: zone.kind === 'vault' ? zone.place : undefined })
+    // PowerPoint 변환은 PC 의 PowerPoint(COM)를 쓰므로 Windows 에서만 된다
+    if (slides.length > 0 && isMacPlatform()) announceAction(t('PowerPoint 를 PDF 로 바꾸는 기능은 Windows 에서만 됩니다. PDF 로 저장해서 넣어 주세요.'))
+    else if (slides.length > 0) setPendingSlides({ paths: slides, folderPath: zone.kind === 'vault' ? zone.folderPath ?? '' : '', place: zone.kind === 'vault' ? zone.place : undefined })
     const paths = allPaths.filter((path) => !isPowerPointPath(path))
     if (paths.length === 0) return
     const pdfs = paths.filter((path) => /\.pdf$/iu.test(path))
@@ -555,6 +562,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 알아야 하는데 그 값이 pdfTabs 에 있고, pdfTabs 는 여기서만 본다.
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('library')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   // 저절로 열 때 먼저 보일 설정 항목. 사용자가 열면 지난번 항목 그대로
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined)
   const [draftPdfHighlight, setDraftPdfHighlight] = useState<Anchor | null>(null)
@@ -893,6 +901,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     focusRightPane: () => { if (SPLIT_PANES_ENABLED) paneShortcutsRef.current.focus('right') },
     goTo: () => window.dispatchEvent(new CustomEvent('iwae:goto')),
     print: () => window.dispatchEvent(new CustomEvent('iwae:print')),
+    openSettings: () => { setSettingsSection(undefined); setSettingsOpen(true) },
     toggleSinglePane: () => { if (SPLIT_PANES_ENABLED) toggleSinglePaneRef.current() },
   })
   // 마우스 옆 단추(뒤로=3, 앞으로=4)는 어디서 누르든 문서 점프 기록을 오간다.
@@ -1156,8 +1165,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     exists: (location) => openedDocs.some((doc) => doc.docId === location.docId)
       || shownLibrary.some((doc) => doc.docId === location.docId),
   })
-  const memoBarVisible = useMemoBarVisible()
   // 왼쪽 바 「PDF 검색」 보기의 칸. 지금 문서의 검색 칸·결과가 여기에 붙는다
+  const memoBarVisible = useMemoBarVisible()
   const [pdfSearchSlot, setPdfSearchSlot] = useState<HTMLElement | null>(null)
   // 메모 노트: 오른쪽 바에 PDF 와 따로 여는 노트(여러 PDF 의 메모 + 글 블록). 처음 한 번 예전 카테고리를 노트로 옮긴다
   const memoNoteDocTitle = useCallback((docId: string) => docTitles[docId] ?? '', [docTitles])
@@ -1801,7 +1810,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const state = panes[pane]
     const tab = activeTab(state)
     if (tab === null) {
-      return <PaneShell state={state} emptyHint={pane === 'left' ? t(PDF_EMPTY) : t(NOTE_EMPTY)} placeholder="" />
+      return <PaneShell state={state} emptyHint={pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)} placeholder="" />
     }
     if (tab.kind === 'note') {
       return (
@@ -1934,7 +1943,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   if (!injected && vault === null) {
     return (
       <>
-        <VaultPicker onOpened={(handle) => void loadVault(handle)} />
+        {/* 첫 화면에서 고른 폴더도 비어 있으면 예시(사용 안내서·노트)를 넣는다. 실패해도 Vault 는 연다 */}
+        <VaultPicker
+          onOpened={(handle) => void seedSampleVaultInto(handle).catch(() => false).then(() => loadVault(handle))}
+          theme={{
+            preference: theme.preference,
+            resolvedTheme: theme.resolvedTheme,
+            setPreference: theme.setPreference,
+            palette: theme.palette,
+            setPalette: theme.setPalette,
+            accent: theme.accent,
+            setAccent: theme.setAccent,
+          }}
+          version={packageMetadata.version}
+        />
         {error !== null && (
           <div className="app-error" role="alert">
             <span>{error}</span>
@@ -2092,7 +2114,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             searchIndexProgress={searchIndexProgress}
             onOpenSearchResult={openVaultSearchResult}
             onFavoriteChange={setFileFavorite}
-            onOpenSettings={() => setSettingsOpen(true)}
             documentDropActive={documentDropActive}
             documentDropFolder={documentDropFolder}
             documentDropPlace={documentDropPlace}
@@ -2168,7 +2189,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             recentVaultPaths={recentVaultPaths}
             onSwitchVault={closeVaultSafely}
             onOpenRecentVault={openRecentVaultSafely}
-            onOpenSettings={() => setSettingsOpen(true)}
           />
           </div>
         )
@@ -2188,7 +2208,21 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
           sidebarMode={sidebarMode}
           onSidebarModeChange={setSidebarMode}
-          onPrint={activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown' ? () => window.dispatchEvent(new CustomEvent('iwae:print')) : undefined}
+          appMenu={[
+            activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown'
+              ? [{ id: 'print', label: t('인쇄'), hint: 'Ctrl+P', onSelect: () => window.dispatchEvent(new CustomEvent('iwae:print')) }]
+              : [],
+            [{
+              id: 'theme',
+              label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'),
+              onSelect: () => theme.setPreference(theme.resolvedTheme === 'dark' ? 'light' : 'dark'),
+            }],
+            [
+              { id: 'updates', label: t('업데이트 확인'), onSelect: () => { setSettingsSection('updates'); setSettingsOpen(true) } },
+              { id: 'about', label: t('정보 보기'), onSelect: () => setAboutOpen(true) },
+              { id: 'settings', label: t('설정'), hint: 'Ctrl+,', onSelect: () => { setSettingsSection(undefined); setSettingsOpen(true) } },
+            ],
+          ]}
           sidebarPx={sidebarPx}
           leftFrac={leftFrac}
           leftTabs={docSearchMode ? <span className="topbar-docsearch-label">{t('문서 검색')}</span> : gridLayout !== null ? null : renderPaneTabs('left')}
@@ -2410,6 +2444,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         }}
       />
     ) : null}
+    {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} /> : null}
     <SettingsModal
       open={settingsOpen}
       initialSectionId={settingsSection}
@@ -2455,6 +2490,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           label: t('기본 PDF 앱'),
           content: (
             <section className="default-app-settings" aria-label={t('기본 PDF 앱')}>
+              {isMacPlatform() ? (
+                <p>
+                  {pick({
+                    ko: <>Finder 에서 PDF 하나를 고르고 <b>정보 가져오기</b>(⌘I)를 연 뒤, <b>다음으로 열기</b>에서 IWAE 를 고르고 <b>모두 변경…</b>을 누르면
+                      모든 PDF 가 IWAE 로 열립니다.</>,
+                    en: <>In Finder, select a PDF and choose <b>Get Info</b> (⌘I). Under <b>Open with</b>, pick IWAE and click <b>Change All…</b> to open every PDF with IWAE.</>,
+                  })}
+                </p>
+              ) : (
               <p>
                 {pick({
                   ko: <>IWAE 를 설치하면 PDF 를 여는 앱 목록에 IWAE 가 들어갑니다. Windows 는 앱이 스스로 기본 앱을 바꾸지 못하게 하므로,
@@ -2463,10 +2507,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                     so use the button below to open Default apps and choose IWAE for <b>.pdf</b>.</>,
                 })}
               </p>
-              <p>{t('탐색기에서 연 PDF 는 Vault 로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 남습니다. 끌어서 Vault 폴더에 놓으면 그 폴더로 가져옵니다.')}</p>
-              <button type="button" onClick={() => void openDefaultAppsSettings().catch((cause: unknown) => window.alert(errorText(cause)))}>
-                {t('Windows 기본 앱 설정 열기')}
-              </button>
+              )}
+              <p>{isMacPlatform()
+                ? t('Finder 에서 연 PDF 는 Vault 로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 남습니다. 끌어서 Vault 폴더에 놓으면 그 폴더로 가져옵니다.')
+                : t('탐색기에서 연 PDF 는 Vault 로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 남습니다. 끌어서 Vault 폴더에 놓으면 그 폴더로 가져옵니다.')}</p>
+              {isMacPlatform() ? null : (
+                <button type="button" onClick={() => void openDefaultAppsSettings().catch((cause: unknown) => window.alert(errorText(cause)))}>
+                  {t('Windows 기본 앱 설정 열기')}
+                </button>
+              )}
             </section>
           ),
         },

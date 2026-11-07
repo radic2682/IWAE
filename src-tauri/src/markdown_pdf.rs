@@ -17,13 +17,48 @@ const CACHE_DIR: &str = ".iwae/cache/md-pdf";
 /// (앱을 켤 때 지난번 Markdown 탭 여럿을 한꺼번에 바꾸다 실패했다). 한 번에 하나씩 바꾼다
 static EDGE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// 헤드리스 인쇄에 쓸 Chromium 계열 브라우저. Windows 는 늘 있는 Edge, macOS 는 깔린 것 가운데 먼저 찾은 것
 fn edge_path() -> Option<PathBuf> {
-    let candidates = [
+    browser_candidates().into_iter().find(|path| path.exists())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn browser_candidates() -> Vec<PathBuf> {
+    [
         std::env::var("ProgramFiles(x86)").ok().map(|base| PathBuf::from(base).join("Microsoft/Edge/Application/msedge.exe")),
         std::env::var("ProgramFiles").ok().map(|base| PathBuf::from(base).join("Microsoft/Edge/Application/msedge.exe")),
         std::env::var("LOCALAPPDATA").ok().map(|base| PathBuf::from(base).join("Microsoft/Edge/Application/msedge.exe")),
+        std::env::var("ProgramFiles").ok().map(|base| PathBuf::from(base).join("Google/Chrome/Application/chrome.exe")),
+        std::env::var("LOCALAPPDATA").ok().map(|base| PathBuf::from(base).join("Google/Chrome/Application/chrome.exe")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn browser_candidates() -> Vec<PathBuf> {
+    const APPS: [&str; 4] = [
+        "Google Chrome.app/Contents/MacOS/Google Chrome",
+        "Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "Chromium.app/Contents/MacOS/Chromium",
+        "Brave Browser.app/Contents/MacOS/Brave Browser",
     ];
-    candidates.into_iter().flatten().find(|path| path.exists())
+    let mut roots = vec![PathBuf::from("/Applications")];
+    if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join("Applications"));
+    }
+    roots.iter().flat_map(|root| APPS.iter().map(move |app| root.join(app))).collect()
+}
+
+/// 로컬 파일 경로 → file:// 주소. Windows(`C:\…`)와 macOS(`/Users/…`) 둘 다
+fn file_url(path: &Path) -> String {
+    let text = path.to_string_lossy().replace('\\', "/");
+    if text.starts_with('/') {
+        format!("file://{text}")
+    } else {
+        format!("file:///{text}")
+    }
 }
 
 /// key 는 파일 이름에 쓴다: 영숫자·-·_ 만
@@ -60,11 +95,20 @@ pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, Strin
     if pdf.exists() {
         return Ok(pdf);
     }
-    let edge = edge_path().ok_or_else(|| tr!("Microsoft Edge 를 찾지 못해 Markdown 을 PDF 로 바꿀 수 없습니다.", "Microsoft Edge was not found, so Markdown cannot be converted to PDF."))?;
+    let edge = edge_path().ok_or_else(|| {
+        if cfg!(target_os = "macos") {
+            tr!(
+                "Chrome·Edge 같은 Chromium 브라우저를 찾지 못해 Markdown 을 PDF 로 바꿀 수 없습니다. /Applications 에 Google Chrome 을 설치해 주세요.",
+                "No Chromium browser (Chrome, Edge) was found, so Markdown cannot be converted to PDF. Install Google Chrome in /Applications."
+            )
+        } else {
+            tr!("Microsoft Edge 를 찾지 못해 Markdown 을 PDF 로 바꿀 수 없습니다.", "Microsoft Edge was not found, so Markdown cannot be converted to PDF.")
+        }
+    })?;
     let page = dir.join(format!("{key}.html"));
     std::fs::write(&page, html).map_err(|err| tr!("HTML 을 쓰지 못했습니다: {err}", "Could not write the HTML: {err}"))?;
     let profile = dir.join("edge-profile");
-    let page_url = format!("file:///{}", page.to_string_lossy().replace('\\', "/"));
+    let page_url = file_url(&page);
     let mut command = Command::new(edge);
     command.args([
         "--headless=new",
@@ -107,6 +151,12 @@ pub async fn markdown_to_pdf(vault_root: String, key: String, html: String) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_urls_work_for_windows_and_macos_paths() {
+        assert_eq!(file_url(Path::new(r"C:\vault\.iwae\a.html")), "file:///C:/vault/.iwae/a.html");
+        assert_eq!(file_url(Path::new("/Users/me/vault/a.html")), "file:///Users/me/vault/a.html");
+    }
 
     #[test]
     fn keys_are_file_safe_and_stale_files_go() {
