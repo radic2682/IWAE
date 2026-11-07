@@ -143,3 +143,13 @@
 
 /* 맨 아래 빈 곳 안내: 회색 대신 같은 글자색 */
 .pane-doc .note-tail span { color: var(--text-strong); }
+
+/* ---------- 서식 도구는 노트 목록(스크롤) 밖 맨 위: 스크롤 막대는 그 아래에서 시작한다 ---------- */
+.pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) { display: flex; flex-direction: column; }
+.pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .note-format-dock {
+  position: relative; top: auto; z-index: 4; flex: 0 0 auto;
+  margin: 0; padding: 4px 12px;
+}
+.pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .pdf-memo-bar-scroll {
+  position: relative; inset: auto; flex: 1 1 auto; min-height: 0;
+}

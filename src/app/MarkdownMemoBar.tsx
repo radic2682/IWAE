@@ -154,11 +154,11 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
         </div>
       ) : (
         <div className="markdown-memo-bar-body">
-          <div className="pdf-memo-bar-scroll" style={{ paddingLeft: 12 }}>
           <div className="note-format-dock">
             <div className="note-format-slot" ref={setFormatSlot} />
             {draft === null && editingKey === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
           </div>
+          <div className="pdf-memo-bar-scroll" style={{ paddingLeft: 12 }}>
           {items.length === 0 ? <p className="note-empty-hint">{t('Markdown 에서 글을 고르면 이 노트에 메모가 생깁니다.')}</p> : null}
           <MemoFormatSlotContext.Provider value={formatSlot}>
             <NoteFlow

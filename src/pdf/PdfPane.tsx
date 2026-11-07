@@ -628,9 +628,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (element.clientHeight !== memoBarScroll.height || element.scrollTop !== memoBarScroll.top) {
       setMemoBarScroll({ top: element.scrollTop, height: element.clientHeight })
     }
-    // 맨 위에 붙은 서식 도구 아래까지만 잇는 선을 그린다(선이 서식 도구 위로 지나가지 않게)
-    const dock = element.querySelector<HTMLElement>('.note-format-dock')
-    const bottom = dock === null ? 0 : Math.max(0, Math.round(dock.getBoundingClientRect().bottom - element.getBoundingClientRect().top))
+    // 노트 목록은 맨 위 서식 도구 아래에서 시작한다. 선은 그 아래에만 그린다
+    const bottom = element.offsetTop
     if (bottom !== dockBottom) setDockBottom(bottom)
   })
   // 쓰기 시작한 카드(새 메모·PDF 에서 누른 형광펜)는 메모 바에서 보이게 굴린다
@@ -671,8 +670,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (unit !== null && (target.highlight.anchor.page < unit.first || target.highlight.anchor.page > unit.last)) return []
     const inCellY = target.anchorY - scrollTop + paneInsetTop
     const anchorY = inCellY + cellPlace.top
-    const cardY = box.top - memoBarScroll.top + 18
-    if (inCellY < 0 || inCellY > measured.height || cardY < 0 || cardY > memoBarScroll.height) return []
+    const cardY = box.top - memoBarScroll.top + 18 + dockBottom
+    if (inCellY < 0 || inCellY > measured.height || cardY < dockBottom || cardY > dockBottom + memoBarScroll.height) return []
     const active = target.key === activeMemoId || target.key === editingMemoId || target.draft === true
     return [{ target, anchorY, cardY, active }]
   }).sort((a, b) => Number(a.active) - Number(b.active))
@@ -1629,7 +1628,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               const bend = pageEdge + (MEMO_CARD_INSET - pageEdge) / 2
               const lines = memoLinkLines
               return (
-                <svg className="pdf-memo-links pdf-memo-links-flow" width={memoBarSize} height={Math.max(memoBarScroll.height, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
+                <svg className="pdf-memo-links pdf-memo-links-flow" width={memoBarSize} height={Math.max(memoBarScroll.height + dockBottom, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
                   {lines.map(({ target, anchorY, cardY, active }) => (
                     <g key={target.key} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
                       <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${MEMO_CARD_INSET} ${cardY}`} />
@@ -1638,6 +1637,13 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 </svg>
               )
             })()}
+            {noteApi === null || noteApi.openPath !== null ? (
+              // 서식 도구: 노트 목록(스크롤) 밖, 바 맨 위에 따로 둔다. 쓰는 칸이 없으면 꺼진 채로 보인다
+              <div className="note-format-dock">
+                <div className="note-format-slot" ref={setFormatSlot} />
+                {draftMemo === null && editingMemoId === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
+              </div>
+            ) : null}
             <div
               ref={memoBarScrollRef}
               className="pdf-memo-bar-scroll"
@@ -1647,13 +1653,6 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 setMemoBarScroll({ top: element.scrollTop, height: element.clientHeight })
               }}
             >
-              {noteApi === null || noteApi.openPath !== null ? (
-                // 서식 도구는 칸마다 띄우지 않고 맨 위 한 줄에 붙인다. 쓰는 칸이 없으면 꺼진 채로 보인다
-                <div className="note-format-dock">
-                  <div className="note-format-slot" ref={setFormatSlot} />
-                  {draftMemo === null && editingMemoId === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
-                </div>
-              ) : null}
               {noteApi !== null && noteApi.openPath === null ? (
                 <div className="note-empty">
                   <p>{t('열린 노트가 없습니다.')}</p>
