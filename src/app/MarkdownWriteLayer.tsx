@@ -38,6 +38,8 @@ interface MarkdownWriteLayerProps {
   readonly scrollTop: number
   readonly scrollHeight: number
   readonly zoom: number
+  /** 글 배치가 바뀔 때마다 바뀌는 값(창 폭·화면 나누기). 형광펜 자리를 다시 잰다 */
+  readonly layoutKey?: number
   readonly mode: 'text' | 'lasso' | 'highlight' | 'hand' | 'box' | 'edit'
   readonly rectsOf: MarkdownRectsOf
   readonly boxRequest: MarkdownBoxRequest | null
@@ -55,6 +57,22 @@ interface MarkdownWriteLayerProps {
 }
 
 /** 종이 자리: 글 영역 폭 안에서 가운데, 배율에 따라 커진다(창이 좁으면 창에 맞춘다) */
+/** 종이 안 글 칸의 왼쪽 여백(종이 좌표). 글 칸 폭은 820 - 56 × 2 = 708 */
+export const MARKDOWN_PAPER_SIDE = 56
+
+/**
+ * 글 영역의 「종이」 좌표계: 실제 글 칸(첫 블록)의 자리를 재어, 글 칸 왼쪽이 늘 종이 x = 56 이 되게 맞춘다.
+ * 창 폭·배율·화면 나누기에 따라 CSS 가 글 칸을 어디에 두든, 저장한 네모(영역 메모 등)가 같은 글 위에 온다.
+ */
+export function markdownPaperOf(article: HTMLElement | null, zoom: number): { left: number; width: number; scale: number } {
+  const fallback = markdownPaper(article?.clientWidth ?? 0, zoom)
+  const first = article?.firstElementChild
+  if (article === null || first === null || first === undefined) return fallback
+  const scale = zoom / 100
+  const left = first.getBoundingClientRect().left - article.getBoundingClientRect().left - MARKDOWN_PAPER_SIDE * scale
+  return Number.isFinite(left) ? { left, width: MARKDOWN_PAPER_WIDTH * scale, scale } : fallback
+}
+
 export function markdownPaper(articleWidth: number, zoom: number): { left: number; width: number; scale: number } {
   const width = Math.max(Math.min(MARKDOWN_PAPER_WIDTH * (zoom / 100), articleWidth - MARKDOWN_PAPER_GUTTER * 2), 120)
   return { left: (articleWidth - width) / 2, width, scale: width / MARKDOWN_PAPER_WIDTH }
@@ -93,7 +111,7 @@ function roundedRectsPath(rects: readonly { x: number; y: number; w: number; h: 
 export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
   const { path, articleRef, scrollTop, scrollHeight, zoom, mode, rectsOf, boxRequest, highlights, overlays } = props
   const articleWidth = articleRef.current?.clientWidth ?? 0
-  const paper = markdownPaper(articleWidth, zoom)
+  const paper = markdownPaperOf(articleRef.current, zoom)
   const pageHeight = Math.max(scrollHeight / paper.scale, 1)
   const pageSizes = useMemo(() => [[MARKDOWN_PAPER_WIDTH, pageHeight] as const], [pageHeight])
   const layoutOf = (page: number) => (page === 0 ? { top: 0, left: paper.left, width: paper.width } : undefined)
@@ -109,13 +127,13 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
     })
     // 스크롤·배율이 바뀌면 사각형도 다시
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlights, draftBox, path, rectsOf, zoom, articleWidth])
+  }, [highlights, draftBox, path, rectsOf, zoom, articleWidth, props.layoutKey])
 
   // 노트 메모의 형광펜(박스가 아닌 것): 글자 위치에서 다시 얻는다
   const memoMarks = useMemo(() => [...highlights.filter((item) => item.anchor.docId === path && item.box === undefined && item.kind !== 'region'), ...(props.draftMemo == null ? [] : [props.draftMemo])]
     .map((item) => ({ id: item.id, color: item.color, rects: rectsOf(item.anchor.charRange) })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [highlights, props.draftMemo, path, rectsOf, zoom, articleWidth])
+  [highlights, props.draftMemo, path, rectsOf, zoom, articleWidth, props.layoutKey])
 
   // 영역(표·그림) 메모: 끈 네모 그대로(종이 좌표)
   const regionMarks = useMemo(() => [...highlights.filter((item) => item.anchor.docId === path && item.kind === 'region' && item.box === undefined), ...(props.draftMemo?.kind === 'region' ? [props.draftMemo] : [])]

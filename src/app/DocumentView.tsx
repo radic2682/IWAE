@@ -700,7 +700,7 @@ export function DocumentView(props: DocumentViewProps) {
                 onJumpHandled={props.onMarkdownJumpHandled}
                 zoom={markdownZoom}
                 onZoomChange={setMarkdownZoom}
-                fitWidth={markdownFit}
+                fitWidth={markdownFit && index === 0}
                 onFitZoom={onMarkdownFitZoom}
                 onSectionsChange={onMarkdownSectionsChange}
                 sectionRequest={markdownSectionRequest}

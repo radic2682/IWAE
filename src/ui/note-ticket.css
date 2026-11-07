@@ -176,3 +176,7 @@
 }
 .pane-doc .markdown-region-crop .markdown-pane.markdown-region-crop-paper > * { zoom: 1; max-width: none; margin: 0; }
 .markdown-region-crop-body > :first-child { margin-top: 0 !important; }
+
+/* 화면 나누기(칸 여럿): 칸 상자(.pdf-split)가 이미 메모 바 자리를 비운다. 칸 안의 글은 메모 바만큼 또 비우지 않는다 */
+.pane-doc .pdf-split .markdown-pane-host-memo :is(.markdown-write-host, .markdown-mark-host, .markdown-scrollbar) { right: 0; }
+.pane-doc .pdf-split .markdown-pane-host-memo .markdown-pane { inset: 0; }

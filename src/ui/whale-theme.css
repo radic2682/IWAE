@@ -1052,7 +1052,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-pane mark.markdown-search-hit-active { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Markdown 화면 나누기: 칸마다 Markdown 뷰어 */
-.pane-doc .pdf-split.markdown-split { position: absolute; inset: 0; top: 0; right: 0; display: grid; }
+.pane-doc .pdf-split.markdown-split { position: absolute; inset: 0; top: 0; right: var(--memo-bar-w, 0px); display: grid; }
 .pane-doc .markdown-split-cell { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .pane-doc .markdown-split-cell .pdf-overlay-palette { top: 40px; }
 

@@ -12,7 +12,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { announceAction } from './actionFeedback'
-import { MarkdownWriteLayer, markdownFitWidthZoom, markdownPaper, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
+import { MarkdownWriteLayer, markdownFitWidthZoom, markdownPaperOf, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
 import { MarkdownMemoBar } from './MarkdownMemoBar'
 import { useMemoBarWidth } from '../pdf/memoBarWidth'
 
@@ -508,6 +508,20 @@ export function MarkdownPane({
   })
   const [markers, setMarkers] = useState<readonly SourceMarker[]>([])
   const [layoutRevision, setLayoutRevision] = useState(0)
+  // 글 영역의 크기가 바뀌면(창 폭·화면 나누기·배율) 다음 그림에서 형광펜 자리를 다시 잰다
+  const [articleLayoutKey, setArticleLayoutKey] = useState(0)
+  useEffect(() => {
+    const article = articleRef.current
+    if (article === null) return undefined
+    let frame = 0
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => setArticleLayoutKey((value) => value + 1))
+    })
+    observer.observe(article)
+    if (article.firstElementChild !== null) observer.observe(article.firstElementChild)
+    return () => { observer.disconnect(); window.cancelAnimationFrame(frame) }
+  }, [search.html])
   const [lassoRect, setLassoRect] = useState<LassoRect | null>(null)
   const [highlightAction, setHighlightAction] = useState<HighlightAction | null>(null)
   // 떠 있는 형광펜 도구(PDF 와 같다): 색, 지우개
@@ -531,7 +545,8 @@ export function MarkdownPane({
   }, [])
 
   // ---------- 메모 바(노트) ----------
-  const memoBarVisible = useMemoBarVisible() && primary
+  const memoBarOpen = useMemoBarVisible()
+  const memoBarVisible = memoBarOpen && primary
   // PDF 와 같은 틀: 메모 바는 창 틀(.pane-frame) 전체(위 제목줄 ~ 아래 하단바)를 차지하고,
   // 글·도구줄·하단바는 --memo-bar-w 만큼 비운 왼쪽만 쓴다(PdfPane 과 같은 방식)
   const [paneFrame, setPaneFrame] = useState<HTMLElement | null>(null)
@@ -566,7 +581,7 @@ export function MarkdownPane({
     const rect = rectsOf(highlight.anchor.charRange)[0]
     const article = articleRef.current
     if (rect === undefined || article === null) return
-    const paper = markdownPaper(article.clientWidth, zoom)
+    const paper = markdownPaperOf(article, zoom)
     article.scrollTo({ top: Math.max(rect.y * paper.scale - article.clientHeight / 3, 0), behavior: 'smooth' })
   }
 
@@ -592,7 +607,7 @@ export function MarkdownPane({
     const range = rangeFromOffsets(article, charRange[0], charRange[1])
     if (range === null) return []
     const box = article.getBoundingClientRect()
-    const paper = markdownPaper(article.clientWidth, zoom)
+    const paper = markdownPaperOf(article, zoom)
     return [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5).map((rect) => ({
       x: (rect.left - box.left - paper.left) / paper.scale,
       y: (rect.top - box.top + article.scrollTop) / paper.scale,
@@ -614,12 +629,14 @@ export function MarkdownPane({
     const bar = frame?.querySelector<HTMLElement>('.markdown-memo-bar') ?? null
     const scroller = bar?.querySelector<HTMLElement>('.pdf-memo-bar-scroll') ?? null
     const next: MemoLink[] = []
-    if (memoBarVisible && !memoOnly && frame !== null && article !== null && bar !== null && scroller !== null) {
+    // 화면을 나눴으면 메모 바에 붙은 칸에서만 잇는다(다른 칸 위를 가로지르지 않게, PDF 와 같다)
+    const adjacent = article !== null && bar !== null && Math.abs(article.getBoundingClientRect().right - bar.getBoundingClientRect().left) < 40
+    if (memoBarOpen && !memoOnly && adjacent && frame !== null && article !== null && bar !== null && scroller !== null) {
       const fr = frame.getBoundingClientRect()
       const ar = article.getBoundingClientRect()
       const br = bar.getBoundingClientRect()
       const sr = scroller.getBoundingClientRect()
-      const paper = markdownPaper(article.clientWidth, zoom)
+      const paper = markdownPaperOf(article, zoom)
       const edge = ar.left + paper.left + paper.width - fr.left
       for (const highlight of boxHighlights) {
         if (highlight.anchor.docId !== path || highlight.box !== undefined) continue
@@ -800,7 +817,7 @@ export function MarkdownPane({
     if (memoBarVisible && onBoxHighlightCreated !== undefined) {
       const offsets = rangeOffsets(root, range)
       const box = root.getBoundingClientRect()
-      const paper = markdownPaper(root.clientWidth, zoom)
+      const paper = markdownPaperOf(root, zoom)
       const toPaperX = (clientX: number) => (clientX - box.left - paper.left) / paper.scale
       const toPaperY = (clientY: number) => (clientY - box.top + root.scrollTop) / paper.scale
       if (offsets !== null) {
@@ -1192,6 +1209,7 @@ export function MarkdownPane({
         scrollTop={scrollBox.top}
         scrollHeight={scrollBox.height}
         zoom={zoom}
+        layoutKey={articleLayoutKey}
         mode={interactionMode}
         rectsOf={rectsOf}
         boxRequest={boxRequest}
