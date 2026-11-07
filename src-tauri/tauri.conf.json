@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "IWAE",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "identifier": "dev.iwae.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -34,7 +34,7 @@
       {
         "ext": ["pdf"],
         "name": "IWAE.PDF",
-        "description": "PDF 문서",
+        "description": "PDF document",
         "mimeType": "application/pdf",
         "role": "Viewer"
       }
