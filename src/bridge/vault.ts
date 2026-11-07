@@ -3,6 +3,7 @@ import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'
 import { EMPTY_BIBLIOGRAPHY, parseBibliographyFile, type BibliographyFile } from '../core/bibliography'
 import { errorText } from '../core/errorText'
+import { parseTranslationCache, serializeTranslationCache, type TranslationCacheEntry } from '../core/translationCache'
 import { createSerialByKey } from '../core/serialByKey'
 import { emptyCanvasDoc, serializeCanvasDoc } from '../core/canvasSerialize'
 import { parseCanvasDocument, type CanvasDocument, type CanvasDocumentV2 } from '../core/canvasDocument'
@@ -1097,4 +1098,22 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
   await writeLibrary(vault, [...library, ...added])
   await writeVaultIndex(vault, { version: 1, entries: indexEntries })
   return added.map((entry) => `${entry.folderPath ? `${entry.folderPath}/` : ''}${entry.title}.pdf`)
+}
+
+/** 번역 캐시(번역 기록): `.iwae/translations.json`. 없거나 깨졌으면 빈 목록 */
+export async function readTranslationCache(vault: VaultHandle): Promise<TranslationCacheEntry[]> {
+  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  const path = await iwaePath(vault, 'translations.json')
+  if (!(await exists(path))) return []
+  try {
+    return parseTranslationCache(JSON.parse(await readTextFile(path)))
+  } catch {
+    return []
+  }
+}
+
+export async function writeTranslationCache(vault: VaultHandle, entries: readonly TranslationCacheEntry[]): Promise<void> {
+  const { mkdir } = await import('@tauri-apps/plugin-fs')
+  await mkdir(await iwaePath(vault, ''), { recursive: true })
+  await writeVaultFile(vault, await iwaePath(vault, 'translations.json'), serializeTranslationCache(entries), 'metadata:translations.json')
 }

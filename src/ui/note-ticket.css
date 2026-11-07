@@ -187,3 +187,17 @@
 
 /* 고르기 막대: 목록을 밀어내지 않고 위에 떠 있는다(고르는 동안 블록 자리가 움직이지 않게) */
 .pane-doc .note-selection-bar.note-selection-bar { position: sticky; top: auto; bottom: 10px; order: 9999; margin: -38px 0 0; height: 32px; box-sizing: border-box; }
+
+/* 출처 줄 끝 「번역」 단추와 그 아래 번역 줄 */
+.note-block .note-source-translate {
+  display: inline-grid; place-items: center; flex: 0 0 auto; width: 22px; height: 22px; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); cursor: pointer;
+}
+.note-block .note-source-translate:is(:hover, :focus-visible) { background: var(--memo-chip-bg, var(--chrome-hover)); outline: none; }
+.note-block .note-source-translate-on { color: var(--accent); }
+.note-block .note-source-translation {
+  margin: 2px 0 2px 17px; padding: 6px 9px; border-radius: 8px;
+  background: var(--memo-chip-bg, var(--paper)); color: var(--text-strong);
+  font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere;
+}
+.note-block .note-source-translation-error { color: var(--danger, #d1242f); }

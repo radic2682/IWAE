@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { onOpenFiles, openDefaultAppsSettings, takeOpenFiles } from '../bridge/openFiles'
 import { dropZoneAt, type DropZone, type TreeDropPlace } from './dropZone'
@@ -790,6 +791,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     [],
   )
   const translation = useTranslation({ provider: translationProvider })
+  // 번역 캐시(번역 기록): 같은 글·언어·번역기면 다시 묻지 않는다. 노트 카드·글 고르기·설정이 함께 쓴다
+  const translateText = translation.translate
+  const translateForCache = useCallback(async (text: string) => {
+    const result = await translateText(text)
+    return result === null ? null : { text: result.translatedText }
+  }, [translateText])
+  const translationProviderKey = translation.settings.executionMode === 'external-api'
+    ? translation.settings.externalProvider
+    : `local:${translation.selectedModel ?? ''}`
+  useTranslationCacheBridge(vault, translateForCache, translation.settings.targetLanguage, translationProviderKey)
   // 창을 닫을 때 쓰던 번역 모델을 내린다(닫기 갈고리는 한 번만 걸려 최신 함수를 ref 로 부른다)
   const releaseTranslationModelRef = useRef(translation.releaseLocalModel)
   releaseTranslationModelRef.current = translation.releaseLocalModel
@@ -1424,14 +1435,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [documentSearch])
   const translatePdfSelection = useCallback(async (selection: PdfExcerptSelection) => {
     if (selection.anchor.quote.trim() === '') return null
-    const result = await translation.translate(selection.anchor.quote)
-    if (result === null) return null
-    return {
-      text: result.translatedText,
-      targetLanguage: translation.settings.targetLanguage,
-      model: result.model,
-    }
-  }, [translation])
+    const text = await translateWithCacheUsing(translateForCache, selection.anchor.quote, { docId: selection.anchor.docId, page: selection.anchor.page })
+    if (text === null) return null
+    return { text, targetLanguage: translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
+  }, [translation, translateForCache])
 
   const sendTranslatedPdfSelectionToCanvas = useCallback((
     selection: PdfExcerptSelection,
@@ -1449,14 +1456,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
 
   const translateMarkdownSelection = useCallback(async (text: string) => {
     if (text.trim() === '') return null
-    const result = await translation.translate(text)
-    if (result === null) return null
-    return {
-      text: result.translatedText,
-      targetLanguage: translation.settings.targetLanguage,
-      model: result.model,
-    }
-  }, [translation])
+    const translated = await translateWithCacheUsing(translateForCache, text, { docId: activeMarkdownPath ?? undefined })
+    if (translated === null) return null
+    return { text: translated, targetLanguage: translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
+  }, [translation, translateForCache, activeMarkdownPath])
 
   const sendTranslatedMarkdownSelectionToCanvas = useCallback((
     payload: MarkdownExcerptDragPayload,

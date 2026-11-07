@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Trash, X, XCircle } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
 import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
+import { cachedTranslation, translateWithCache, useTranslationCache } from '../app/translationCacheStore'
 import { t } from '../i18n'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { splitLeadingTicketId, suggestTicketIds, type MemoTicket } from '../core/memoNote'
@@ -370,6 +371,25 @@ export function NoteFlow({
     }
   }, [selected])
 
+  // 출처 번역(형광펜 id → 번역 줄). 캐시(번역 기록)를 함께 쓴다
+  const translationCache = useTranslationCache()
+  const [translations, setTranslations] = useState<ReadonlyMap<string, { readonly status: 'loading' | 'done' | 'error'; readonly text: string }>>(() => new Map())
+  const setTranslation = (id: string, value: { readonly status: 'loading' | 'done' | 'error'; readonly text: string } | null) => setTranslations((current) => {
+    const next = new Map(current)
+    if (value === null) next.delete(id)
+    else next.set(id, value)
+    return next
+  })
+  const toggleTranslation = (source: PersistentPdfHighlight) => {
+    if (translations.has(source.id)) { setTranslation(source.id, null); return }
+    const quote = source.anchor.quote
+    const hit = cachedTranslation(quote)
+    if (hit !== undefined) { setTranslation(source.id, { status: 'done', text: hit }); return }
+    setTranslation(source.id, { status: 'loading', text: '' })
+    translateWithCache(quote, { docId: source.anchor.docId, page: source.anchor.page })
+      .then((text) => setTranslation(source.id, text === null ? { status: 'error', text: t('번역하지 못했습니다. 설정 → 번역을 확인해 주세요') } : { status: 'done', text }))
+      .catch((error: unknown) => setTranslation(source.id, { status: 'error', text: error instanceof Error ? error.message : String(error) }))
+  }
   // ID 나 제목을 고치는 중인 블록과 칸
   const [headEdit, setHeadEdit] = useState<{ readonly key: string; readonly field: 'id' | 'title' } | null>(null)
   // 이 노트에서 쓴 ID 들(다음 번호 제안·겹침 알림)
@@ -548,9 +568,32 @@ export function NoteFlow({
               <X size={11} weight="bold" aria-hidden="true" />
             </button>
           ) : null
+          // 원문 번역: 출처 줄 끝의 작은 단추. 캐시에 있으면 바로, 없으면 번역기에 묻는다
+          const shown = translations.get(source.id)
+          const translateButton = translationCache.ready && source.kind !== 'region' && source.anchor.quote.trim() !== '' ? (
+            <button
+              type="button"
+              className={`note-source-translate${shown !== undefined ? ' note-source-translate-on' : ''}`}
+              aria-label={shown !== undefined ? t('번역 숨기기') : t('번역 보기')}
+              aria-pressed={shown !== undefined}
+              title={shown !== undefined ? t('번역 숨기기') : t('번역 보기')}
+              onClick={(event) => {
+                event.stopPropagation()
+                toggleTranslation(source)
+              }}
+            >
+              <Translate size={13} aria-hidden="true" />
+            </button>
+          ) : null
+          const translationLine = shown === undefined ? null : (
+            <div key={`${source.id}:translation`} className={`note-source-translation${shown.status === 'error' ? ' note-source-translation-error' : ''}`} role="status">
+              {shown.status === 'loading' ? t('번역 중…') : shown.text}
+            </div>
+          )
           if (collapsed) {
             return (
-              <div key={source.id} className={`note-source-chip pdf-memo-card-quote-${source.color}`} title={t('PDF 에서 보기')} onClick={draft ? undefined : () => onJump(source)}>
+              <Fragment key={source.id}>
+              <div className={`note-source-chip pdf-memo-card-quote-${source.color}`} title={t('PDF 에서 보기')} onClick={draft ? undefined : () => onJump(source)}>
                 <button type="button" className="note-source-expand" aria-label={t('원문 펼치기')} title={t('원문 펼치기')} onClick={(event) => {
                   event.stopPropagation()
                   onToggleCollapse(source.id, false)
@@ -560,8 +603,11 @@ export function NoteFlow({
                 {meta}
                 <span className="note-source-chip-text">{source.kind === 'region' ? t('표·그림') : source.anchor.quote.replace(/\s+/gu, ' ').trim()}</span>
                 {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
+                {translateButton}
                 {remove}
               </div>
+              {translationLine}
+              </Fragment>
             )
           }
           if (source.kind === 'region' && source.snapshot !== undefined) {

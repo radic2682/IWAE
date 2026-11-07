@@ -135,4 +135,10 @@ export const COMMON: Readonly<Record<string, string>> = {
   '최신으로 받기': 'Pull latest',
   '버전 보기': 'Versions',
   'GitHub 에서 열기': 'Open on GitHub',
+  '번역 보기': 'Show translation',
+  '번역 숨기기': 'Hide translation',
+  '번역하지 못했습니다. 설정 → 번역을 확인해 주세요': 'Could not translate. Check Settings → Translation',
+  '번역 캐시 사용': 'Use translation cache',
+  '같은 글을 같은 언어로 다시 번역하면 저장해 둔 번역을 바로 씁니다(요청·사용량 없음). 번역은 이 Vault 의 .iwae 안에만 남습니다.': 'When the same text is translated into the same language again, the saved translation is used right away (no request, no usage). Translations stay only in the .iwae folder of this Vault.',
+  '캐시 지우기 ({count}개)': 'Clear cache ({count})',
 }

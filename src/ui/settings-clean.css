@@ -348,3 +348,13 @@
 
 /* 언어: 바꾼 뒤 다시 시작 안내 */
 .language-settings-restart { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; color: var(--text-strong); font-size: 13px; }
+
+/* 번역 캐시: 켜기·끄기 + 지우기 */
+.translation-cache-settings { display: flex; align-items: center; gap: 16px; margin-top: 18px; padding: 14px 16px; border: 1px solid var(--divider); border-radius: 10px; }
+.translation-cache-toggle { display: flex; flex: 1 1 auto; align-items: flex-start; gap: 10px; cursor: pointer; }
+.translation-cache-toggle input { margin-top: 3px; accent-color: var(--accent); }
+.translation-cache-toggle > span { display: grid; gap: 3px; color: var(--text-strong); font-size: 12.5px; line-height: 1.5; }
+.translation-cache-toggle strong { font-size: 13.5px; }
+.translation-cache-clear { flex: 0 0 auto; height: 32px; padding: 0 12px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: 8px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer; }
+.translation-cache-clear:hover:not(:disabled) { background: var(--chrome-hover); }
+.translation-cache-clear:disabled { cursor: default; opacity: .45; }

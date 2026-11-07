@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { clearTranslationCache, setTranslationCacheEnabled, useTranslationCache } from './translationCacheStore'
 import { Select } from '../ui/Select'
 import type { ExternalTranslationProvider, PullProgress, TranslationExecutionMode, TranslationStatus } from '../core/translation'
 import { EXTERNAL_PROVIDERS, externalProviderInfo } from '../core/translationSettings'
@@ -428,6 +429,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
           </p>,
         })}
       </aside>}
+      <TranslationCacheSettings />
     </section>
   )
 }
@@ -505,3 +507,23 @@ export function DownloadProgress({
     </div>
   )
 }
+
+/** 번역 캐시: 같은 글은 다시 묻지 않는다(기본 켜짐). 끄기·지우기 */
+function TranslationCacheSettings() {
+  const cache = useTranslationCache()
+  return (
+    <div className="translation-cache-settings">
+      <label className="translation-cache-toggle">
+        <input type="checkbox" checked={cache.enabled} onChange={(event) => setTranslationCacheEnabled(event.currentTarget.checked)} />
+        <span>
+          <strong>{t('번역 캐시 사용')}</strong>
+          <span>{t('같은 글을 같은 언어로 다시 번역하면 저장해 둔 번역을 바로 씁니다(요청·사용량 없음). 번역은 이 Vault 의 .iwae 안에만 남습니다.')}</span>
+        </span>
+      </label>
+      <button type="button" className="translation-cache-clear" disabled={cache.count === 0} onClick={() => clearTranslationCache()}>
+        {t('캐시 지우기 ({count}개)', { count: cache.count })}
+      </button>
+    </div>
+  )
+}
+
