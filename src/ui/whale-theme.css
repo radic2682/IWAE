@@ -1305,3 +1305,12 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .topbar-mac .topbar-leftcluster-actions { padding-left: 76px; }
 .topbar-mac.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: calc(var(--topbar-actions-w, 256px) + 6px); }
 .wincontrols.wincontrols-mac { padding-right: 10px; }
+
+/* 형광펜 색: 도구줄 바로 아래 가운데에 떠 있는 작은 판(앱 메뉴와 같은 바탕·그림자) */
+.pane-highlighter-palette.pane-highlighter-floating {
+  position: fixed; z-index: 60; transform: translateX(-50%);
+  gap: 6px; height: 36px; padding: 0 8px; box-sizing: border-box;
+  border: 1px solid var(--divider); border-radius: 10px; background: var(--paper);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
+}
+.pane-highlighter-floating .pane-highlighter-color { width: 20px; height: 20px; }
