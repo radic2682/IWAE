@@ -274,6 +274,8 @@ export function useVault(options: UseVaultOptions = {}) {
     setSessionReady(false)
     setError(null)
     try {
+      // 처음 여는 폴더(또는 탐색기로 PDF 를 넣은 뒤)도 PDF 가 목록·검색에 바로 오르게, 새로 고침과 같이 먼저 등록한다
+      await registerUnlistedVaultPdfs(handle).catch(() => [])
       const [
         libraryEntries,
         nextTreeEntries,

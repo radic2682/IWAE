@@ -125,3 +125,5 @@
 
 /* 문서 검색 화면일 때 상단바 왼쪽에 보이는 이름 */
 .topbar-docsearch-label { display: flex; align-items: center; gap: 6px; padding-left: 12px; color: var(--text-strong); font-size: 13px; font-weight: 650; }
+/* 왼쪽 바를 접은 상단바: 떠 있는 로고·단추 뒤에 가리지 않게 그만큼 띄운다(빈 탭 줄과 같은 규칙) */
+.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .topbar-docsearch-label { height: 100%; padding-left: calc(var(--topbar-actions-w, 256px) + 12px); }

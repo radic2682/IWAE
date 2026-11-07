@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { githubSlug, renderMarkdown, resolveMarkdownLink, resolveRelativePath } from './markdown'
 
 describe('renderMarkdown', () => {
+  it('GitHub 할 일 목록을 그린 네모로 보인다', () => {
+    const html = renderMarkdown('- [ ] 할 일\n- [x] 끝낸 일\n- 보통 항목')
+    expect(html).toContain('<li class="md-task"><span class="md-task-box" role="img" aria-label="to do"></span>할 일</li>')
+    expect(html).toContain('<li class="md-task md-task-checked"><span class="md-task-box md-task-done" role="img" aria-label="done"></span>끝낸 일</li>')
+    expect(html).toContain('<li>보통 항목</li>')
+    expect(html).not.toContain('[ ]')
+  })
+
   it('제목·강조·목록·인용·코드를 HTML 로 바꾸고 제목에 GitHub 식 id 를 붙인다', () => {
     const html = renderMarkdown([
       '# 제목',

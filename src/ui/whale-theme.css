@@ -1040,6 +1040,8 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 
 /* Markdown 검색(왼쪽 바 「검색」 보기) */
 .markdown-search-panel { display: flex; flex-direction: column; gap: 6px; padding: 8px; color: var(--text-strong); }
+/* 왼쪽 바에 붙을 때: PDF 검색처럼 바 안에 놓는다(공용 .pdf-search-panel 의 떠 있는 자리 잡기를 끈다) */
+.side-pdf-search .markdown-search-panel { position: static; inset: auto; z-index: auto; flex: 1 1 auto; min-height: 0; width: auto; max-height: none; padding: 0; overflow-y: auto; border: 0; background: transparent; box-shadow: none; }
 .markdown-search-row { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid var(--divider-strong); border-radius: 8px; background: var(--paper); }
 .markdown-search-row input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; font-size: 13px; }
 .markdown-search-status { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; }

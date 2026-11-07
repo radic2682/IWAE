@@ -55,6 +55,23 @@ parser.renderer.rules.link_open = (tokens, index, options, env, self) => {
   return defaultLinkOpen === undefined ? self.renderToken(tokens, index, options) : defaultLinkOpen(tokens, index, options, env, self)
 }
 
+// GitHub 할 일 목록: `- [ ] 할 일`, `- [x] 끝낸 일`. 입력 칸 대신 그린 네모(문서는 읽기용)
+parser.core.ruler.push('github_task_lists', (state) => {
+  const tokens = state.tokens
+  tokens.forEach((token, index) => {
+    if (token.type !== 'inline' || tokens[index - 1]?.type !== 'paragraph_open' || tokens[index - 2]?.type !== 'list_item_open') return
+    const first = token.children?.[0]
+    const match = first?.type === 'text' ? /^\[([ xX])\]\s+/u.exec(first.content) : null
+    if (first === undefined || match === null) return
+    const done = match[1] !== ' '
+    first.content = first.content.slice(match[0].length)
+    const box = new state.Token('html_inline', '', 0)
+    box.content = `<span class="md-task-box${done ? ' md-task-done' : ''}" role="img" aria-label="${done ? 'done' : 'to do'}"></span>`
+    token.children!.unshift(box)
+    tokens[index - 2]!.attrJoin('class', `md-task${done ? ' md-task-checked' : ''}`)
+  })
+})
+
 // 표는 넓으면 가로로 스크롤되게 감싼다
 parser.renderer.rules.table_open = () => '<div class="markdown-table-wrap"><table>'
 parser.renderer.rules.table_close = () => '</table></div>'
