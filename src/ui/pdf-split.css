@@ -139,3 +139,12 @@
 .pdf-split-menu-item .split-preview { display: block; transition: transform .12s ease; }
 .pdf-split-menu-item:hover .split-preview { transform: translateY(-1px); }
 .pdf-split-menu-item span { word-break: keep-all; }
+
+/* 칸 닫기: 늘 떠 있지 않고 칸에 마우스를 올리거나 키보드로 들어왔을 때만. 노트 블록 단추와 같은 모양(빨간 칠 없이) */
+.pdf-split-cell > .pdf-split-cell-close {
+  top: 8px; right: 20px; width: 24px; height: 24px;
+  border: 0; box-shadow: 0 0 0 1px var(--divider-strong), 0 2px 6px rgb(0 0 0 / 12%);
+  opacity: 0; pointer-events: none; transition: opacity 120ms ease;
+}
+.pdf-split-cell:is(:hover, :focus-within) > .pdf-split-cell-close { opacity: 1; pointer-events: auto; }
+.pdf-split-cell > .pdf-split-cell-close:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--text-strong); outline: none; }
