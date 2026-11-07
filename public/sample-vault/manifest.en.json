@@ -5,7 +5,7 @@
     "title": "Tour of IWAE",
     "blocks": [
       { "kind": "section", "title": "Getting started" },
-      { "kind": "text", "markdown": "An example note made while reading the guide. Click a **memo** to jump to that spot in the PDF, and drag a block by its left handle to reorder it." },
+      { "kind": "text", "markdown": "An example note made while reading the guide. Click a **memo** to jump to that spot in the PDF, and drag a block from anywhere to reorder it." },
       { "kind": "memo", "page": 2, "quote": "A Vault is a plain folder, so you can copy or back it up with your file manager.", "note": "Copying the whole Vault folder is a backup. App records live in `.iwae`." },
       { "kind": "memo", "page": 3, "quote": "by dragging its edges and corners", "note": "If a captured table got cut off, drag the box to fit it again." },
       { "kind": "memo", "page": 4, "quote": "Drag the handle on the left to change the order of blocks.", "note": "Dragging a section moves the blocks under it too." },

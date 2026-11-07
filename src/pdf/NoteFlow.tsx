@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { CaretDown, CaretRight, CaretUp, Crosshair, DotsSixVertical, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Trash, X, XCircle } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Trash, X, XCircle } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
 import { RegionCrop } from './RegionCrop'
 import { t } from '../i18n'
@@ -32,7 +32,7 @@ export type NoteFlowItem =
 
 /**
  * 노트 한 장을 한 편의 글처럼 잇는다(메모 바가 PDF 와 따로 스크롤한다). 블록은 바탕·테두리 없이 이어지고,
- * 마우스를 올린 블록만 테두리와 왼쪽 손잡이(⋮⋮), 오른쪽 위 메뉴(…)가 보인다.
+ * 마우스를 올린 블록만 오른쪽 위 메뉴(…)가 보인다. 블록 어디든 잡고 끌어 차례를 바꾼다.
  * - 메모 블록: 내 메모가 먼저, 원문은 형광펜 색 한 줄 출처 칩으로 접혀 있다가 펼친다. 표·그림 메모는 그림을 폭에 맞춰 크게.
  * - 블록 사이에 마우스를 올리면 + (그 자리에 글 넣기), 맨 아래 빈 곳을 누르면 끝에 새 글.
  * - 글 블록 끝에서 Enter 두 번(또는 Ctrl+Enter)이면 그 아래 새 글 블록.
@@ -246,9 +246,6 @@ export function NoteFlow({
       <DotsThree size={16} weight="bold" aria-hidden="true" />
     </button>
   )
-  const grip = (key: string) => key === 'draft' ? null : (
-    <span className="note-block-grip" aria-hidden="true" title={t('끌어 옮기기')}><DotsSixVertical size={14} weight="bold" /></span>
-  )
   /** 블록 사이: 마우스를 올리면 + 가 나타나 그 자리(key 블록 아래)에 글을 넣는다 */
   const gapAfter = (key: string) => key === 'draft' || onInsertText === undefined ? <div className="note-gap" aria-hidden="true" /> : (
     <div className="note-gap">
@@ -440,7 +437,6 @@ export function NoteFlow({
                 <span className="note-section-title" title={t('두 번 눌러 이름 바꾸기')} onDoubleClick={() => onEdit(item.key)}>{item.title}</span>
               )}
               <span className="note-section-count">{item.count}</span>
-              {grip(item.key)}
               {menuButton(item.key)}
             </div>
             {gapAfter(item.key)}
@@ -478,7 +474,6 @@ export function NoteFlow({
               ) : (
                 <MemoNoteView note={item.text} noteHtml={item.html} onEdit={() => onEdit(item.key)} onChange={(content) => onSaveText(item.key, content)} />
               )}
-              {grip(item.key)}
               {menuButton(item.key)}
             </div>
             {gapAfter(item.key)}
@@ -696,7 +691,6 @@ export function NoteFlow({
             {memo}
             {sourceList}
             {ghosts}
-            {grip(item.key)}
             {menuButton(item.key)}
           </div>
           {gapAfter(item.key)}

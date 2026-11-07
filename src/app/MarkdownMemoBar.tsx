@@ -154,7 +154,7 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
         </div>
       ) : (
         <div className="markdown-memo-bar-body">
-          <div className="pdf-memo-bar-scroll" style={{ paddingLeft: 20 }}>
+          <div className="pdf-memo-bar-scroll" style={{ paddingLeft: 12 }}>
           <div className="note-format-dock">
             <div className="note-format-slot" ref={setFormatSlot} />
             {draft === null && editingKey === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}

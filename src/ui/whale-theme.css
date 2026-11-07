@@ -828,8 +828,8 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   display: flex; align-items: center;
   min-height: 36px;
   /* 아래 여백: 맨 위 블록까지 좌우와 같은 20px(블록 자체의 위 여백 10px 포함) */
-  margin: -10px calc(-1 * var(--note-side-gap-right, 10px)) 10px -20px;
-  padding: 4px var(--note-side-gap-right, 10px) 4px 20px;
+  margin: -10px calc(-1 * var(--note-side-gap-right, 10px)) 10px -12px;
+  padding: 4px var(--note-side-gap-right, 10px) 4px 12px;
   border-bottom: 1px solid var(--divider);
   background: var(--paper);
 }
@@ -1144,7 +1144,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   background: var(--paper); color: var(--text-strong); font: inherit; font-size: 13.5px; font-weight: 700;
 }
 /* 노트가 없을 때 안내: PDF 메모 바와 같은 자리(왼쪽 20px, 위 10px) */
-.pane-doc .markdown-memo-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 20px; }
+.pane-doc .markdown-memo-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 12px; }
 
 /* 깨끗이 보기(Markdown): PDF 와 같이 내 표시를 감춘다 — 형광펜·메모 칠·박스 메모·쓴 글·책갈피. 검색 칠과 지금 고르는 글은 남긴다 */
 .pdf-clean-view :is(.markdown-persistent-highlight, .markdown-box-mark) { background: transparent !important; fill: transparent !important; }

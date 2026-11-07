@@ -135,6 +135,7 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
   )
   return (
     <div className={`pdf-memo-format-bar${disabled ? ' pdf-memo-format-bar-idle' : ''}`} role="toolbar" aria-label={t('메모 서식')} aria-disabled={disabled || undefined}>
+      <span className="pdf-memo-format-cluster">
       <span className="pdf-memo-format-group">
         <button
           type="button"
@@ -189,13 +190,15 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
           </span>
         ) : null}
       </span>
-      <span className="pdf-memo-format-divider" aria-hidden="true" />
+      </span>
+      <span className="pdf-memo-format-cluster">
       {button(t('굵게 (Ctrl+B · **글**)'), <TextB size={15} weight="bold" aria-hidden="true" />, () => run('bold'))}
       {button(t('기울임 (Ctrl+I · *글*)'), <TextItalic size={15} aria-hidden="true" />, () => run('italic'))}
       {button(t('밑줄 (Ctrl+U)'), <TextUnderline size={15} aria-hidden="true" />, () => run('underline'))}
       {button(t('취소선 (~~글~~)'), <TextStrikethrough size={15} aria-hidden="true" />, () => run('strikeThrough'))}
       {button(t('코드 (Ctrl+E · `글`)'), <Code size={15} weight="bold" aria-hidden="true" />, withEditor(toggleInlineCode))}
-      <span className="pdf-memo-format-divider" aria-hidden="true" />
+      </span>
+      <span className="pdf-memo-format-cluster">
       <span className="pdf-memo-format-group">
         {button(t('글자색'), <TextAa size={15} aria-hidden="true" />, () => setPalette((current) => current === 'fore' ? null : 'fore'))}
         {palette === 'fore' ? (
@@ -242,7 +245,8 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
           </span>
         ) : null}
       </span>
-      <span className="pdf-memo-format-divider" aria-hidden="true" />
+      </span>
+      <span className="pdf-memo-format-cluster">
       {button(t('글머리 목록 (- 띄어쓰기)'), <ListBullets size={15} aria-hidden="true" />, () => run('insertUnorderedList'))}
       {button(t('번호 목록 (1. 띄어쓰기)'), <ListNumbers size={15} aria-hidden="true" />, () => run('insertOrderedList'))}
       {button(t('할 일 목록 ([ ] 띄어쓰기)'), <ListChecks size={15} aria-hidden="true" />, withEditor(toggleChecklist))}
@@ -279,6 +283,7 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
         ) : null}
       </span>
       {button(t('서식 지우기'), <TextTSlash size={15} aria-hidden="true" />, () => run('removeFormat'))}
+      </span>
     </div>
   )
 }

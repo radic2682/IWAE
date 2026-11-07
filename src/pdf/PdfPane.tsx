@@ -85,7 +85,7 @@ function readMemoBarWidth(): number | null {
   }
 }
 /** 메모 바 안에서 카드가 시작하는 자리(왼쪽 끝에서 선이 굽어 들어올 틈) */
-const MEMO_CARD_INSET = 20
+const MEMO_CARD_INSET = 12
 
 /**
  * 보기마다 마지막 스크롤 자리. 탭을 바꾸면 PdfPane 이 내려갔다 다시 올라오므로 컴포넌트 밖에 둔다.
