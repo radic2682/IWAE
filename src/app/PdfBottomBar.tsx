@@ -2,7 +2,7 @@ import { t } from '../i18n'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { clampZoom, ZOOM_MAX, ZOOM_MIN } from '../core/pdfZoom'
-import { ArrowUUpLeft, ArrowUUpRight, ArrowsHorizontal, ArrowsVertical, CaretDoubleLeft, CaretDoubleRight, CaretLeft, CaretRight, CornersOut, DotsThree, Minus, Plus } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, ArrowsHorizontal, ArrowsVertical, CaretDoubleLeft, CaretDoubleRight, CaretLeft, CaretRight, CornersOut, DotsThree, Minus, Plus } from '@phosphor-icons/react'
 import '../ui/pdf-followup.css'
 import { scrollHorizontalStrip } from './horizontalScroll'
 import { useUsageMeterEnabled } from '../core/usageMeterPref'
@@ -165,20 +165,22 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
       <div className="pdf-bottom-page">
         {onBack !== undefined && shown('history') ? (
           <button type="button" data-collapse="history" className="bottombar-btn pdf-bottom-history" aria-label={t('뒤로')} title={t('뒤로 (Alt+←)')} disabled={!canGoBack} onClick={onBack}>
-            <ArrowUUpLeft size={16} aria-hidden="true" />
+            <ArrowLeft size={16} aria-hidden="true" />
           </button>
         ) : null}
         {onForward !== undefined && shown('history') ? (
           <button type="button" data-collapse="history" className="bottombar-btn pdf-bottom-history" aria-label={t('앞으로')} title={t('앞으로 (Alt+→)')} disabled={!canGoForward} onClick={onForward}>
-            <ArrowUUpRight size={16} aria-hidden="true" />
+            <ArrowRight size={16} aria-hidden="true" />
           </button>
         ) : null}
+        {/* 묶음 사이 선: 읽던 자리 오가기 | 쪽 넘기기 | (배경) | 맞춤 | 배율 */}
+        {(onBack !== undefined || onForward !== undefined) && shown('history') ? <span className="bottombar-divider" /> : null}
         {shown('edge') ? (
           <button type="button" data-collapse="edge" className="bottombar-btn pdf-bottom-edge" aria-label={t('첫 페이지')} title={t('첫 페이지 (Home)')} disabled={page <= 1} onClick={() => onPageChange(1)}>
             <CaretDoubleLeft size={16} aria-hidden="true" />
           </button>
         ) : null}
-        <button type="button" className="bottombar-btn" aria-label={t('이전 페이지')} disabled={page <= 1} onClick={() => onPageChange(Math.max(page - 1, 1))}>
+        <button type="button" className="bottombar-btn" aria-label={t('이전 페이지')} title={t('이전 페이지')} disabled={page <= 1} onClick={() => onPageChange(Math.max(page - 1, 1))}>
           <CaretLeft size={16} aria-hidden="true" />
         </button>
         <input
@@ -203,7 +205,7 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
           }}
         />
         <span>/ {pageCount}</span>
-        <button type="button" className="bottombar-btn" aria-label={t('다음 페이지')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(Math.min(page + 1, pageCount))}>
+        <button type="button" className="bottombar-btn" aria-label={t('다음 페이지')} title={t('다음 페이지')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(Math.min(page + 1, pageCount))}>
           <CaretRight size={16} aria-hidden="true" />
         </button>
         {shown('edge') ? (
@@ -215,6 +217,7 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
 
 
       <div className="pdf-bottom-view">
+        <span className="bottombar-divider" />
         {extraControls !== undefined ? <>{extraControls}<span className="bottombar-divider" /></> : null}
         {shown('fit') ? (
           <>
@@ -225,9 +228,9 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
         {onFitHeight !== undefined && shown('fitExtra') ? <button type="button" data-collapse="fitExtra" className="bottombar-btn bottombar-fit bottombar-fit-extra" aria-label={t('높이 맞춤')} title={t('높이 맞춤')} onClick={onFitHeight}><ArrowsVertical size={16} aria-hidden="true" /></button> : null}
         {onActualSize !== undefined && shown('fitExtra') ? <button type="button" data-collapse="fitExtra" className="bottombar-btn bottombar-fit bottombar-fit-extra bottombar-actual" aria-label={t('실제 크기')} title={t('실제 크기 (100%)')} onClick={onActualSize}>1:1</button> : null}
         {shown('fit') || (shown('fitExtra') && (onFitHeight !== undefined || onActualSize !== undefined)) ? <span className="bottombar-divider" /> : null}
-        <button type="button" className="bottombar-btn" aria-label={t('축소')} onClick={onZoomOut}><Minus size={16} aria-hidden="true" /></button>
+        <button type="button" className="bottombar-btn" aria-label={t('축소')} title={t('축소 (Ctrl+-)')} onClick={onZoomOut}><Minus size={16} aria-hidden="true" /></button>
         {shown('zoomRange') ? <input aria-label={t('배율')} data-collapse="zoomRange" className="pdf-bottom-zoom-range" type="range" min={ZOOM_MIN} max={ZOOM_MAX} step="5" value={zoomPercent} onChange={(event) => onZoomChange(Number(event.target.value))} /> : null}
-        <button type="button" className="bottombar-btn" aria-label={t('확대')} onClick={onZoomIn}><Plus size={16} aria-hidden="true" /></button>
+        <button type="button" className="bottombar-btn" aria-label={t('확대')} title={t('확대 (Ctrl+=)')} onClick={onZoomIn}><Plus size={16} aria-hidden="true" /></button>
         <label className="pdf-bottom-zoom">
           <input aria-label={t('배율 직접 입력')} type="number" min={ZOOM_MIN} max={ZOOM_MAX} value={zoomInput} onChange={(event) => setZoomInput(event.target.value)} onBlur={commitZoom} onKeyDown={(event) => { if (event.key === 'Enter') commitZoom() }} />
           <span>%</span>
@@ -260,8 +263,8 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
           <div className="pdf-bottom-more-menu" role="menu" aria-label={t('접어 둔 단추')} style={{ right: moreOpen.right, bottom: moreOpen.bottom }}>
             {collapsed.has('history') ? (
               <>
-                {onBack !== undefined ? <button type="button" role="menuitem" disabled={!canGoBack} onClick={runMore(onBack)}><ArrowUUpLeft size={16} aria-hidden="true" />{t('뒤로')} <kbd>Alt+←</kbd></button> : null}
-                {onForward !== undefined ? <button type="button" role="menuitem" disabled={!canGoForward} onClick={runMore(onForward)}><ArrowUUpRight size={16} aria-hidden="true" />{t('앞으로')} <kbd>Alt+→</kbd></button> : null}
+                {onBack !== undefined ? <button type="button" role="menuitem" disabled={!canGoBack} onClick={runMore(onBack)}><ArrowLeft size={16} aria-hidden="true" />{t('뒤로')} <kbd>Alt+←</kbd></button> : null}
+                {onForward !== undefined ? <button type="button" role="menuitem" disabled={!canGoForward} onClick={runMore(onForward)}><ArrowRight size={16} aria-hidden="true" />{t('앞으로')} <kbd>Alt+→</kbd></button> : null}
               </>
             ) : null}
             {collapsed.has('edge') ? (
