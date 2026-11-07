@@ -408,6 +408,8 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
           // 같은 카드 안(서식 도구·카테고리 고르기 등)으로 옮겨 간 것은 쓰기를 끝낸 게 아니다
           const card = event.currentTarget.closest('.pdf-memo-card, .pdf-memo-list-row, .pdf-box-card')
           if (event.relatedTarget instanceof Node && card?.contains(event.relatedTarget)) return
+          // 다른 앱으로 갔다 오는 것(창 전체가 포커스를 잃음)은 쓰기를 끝낸 게 아니다 — 돌아오면 그대로 이어 쓴다
+          if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
           finish(!(discardEmptyOnBlur && memoPlainText(event.currentTarget).trim() === ''))
         }}
         onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
