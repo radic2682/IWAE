@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Trash, X, XCircle } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
 import { RegionCrop } from './RegionCrop'
+import { MarkdownRegionCrop } from './MarkdownRegionCrop'
 import { t } from '../i18n'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { splitLeadingTicketId, suggestTicketIds, type MemoTicket } from '../core/memoNote'
@@ -522,6 +523,15 @@ export function NoteFlow({
                 {meta}
                 <span className="note-source-chip-text">{source.kind === 'region' ? t('표·그림') : source.anchor.quote.replace(/\s+/gu, ' ').trim()}</span>
                 {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
+                {remove}
+              </div>
+            )
+          }
+          if (source.kind === 'region' && source.snapshot !== undefined) {
+            return (
+              <div key={source.id} className="pdf-memo-card-source note-source-region" onClick={draft ? undefined : () => onJump(source)}>
+                {meta}
+                <MarkdownRegionCrop highlight={source} />
                 {remove}
               </div>
             )

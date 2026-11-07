@@ -156,3 +156,23 @@
 
 /* Markdown 형광펜 → 노트 카드 선: 창 틀 전체를 덮는 층(메모 바보다 위, 누르기는 통과) */
 .pane-doc .markdown-memo-links { position: absolute; inset: 0; z-index: 19; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+
+/* ---------- Markdown 영역 메모 ---------- */
+/* 문서 위: PDF 영역 메모와 같은 옅은 바탕 + 얇은 선 + 귀퉁이 꺾쇠(곱하기 층 안이라 글자는 그대로) */
+.markdown-mark-region-group { --hl-fill: #ffe38c; --hl-edge: #e3b43c; }
+.markdown-mark-region-group[data-highlight-color='green'] { --hl-fill: #b9ebc6; --hl-edge: #4fb06c; }
+.markdown-mark-region-group[data-highlight-color='blue'] { --hl-fill: #c3defc; --hl-edge: #5d9be3; }
+.markdown-mark-region-group[data-highlight-color='pink'] { --hl-fill: #fcc6dc; --hl-edge: #de6f9c; }
+.markdown-mark-region { fill: color-mix(in srgb, var(--hl-fill) 14%, #fff); stroke: color-mix(in srgb, var(--hl-edge) 45%, #fff); stroke-width: 1px; }
+.markdown-mark-corners { fill: none; stroke: var(--hl-edge); stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; }
+/* 노트 카드: 잡아 둔 블록을 같은 종이 폭으로 놓고 네모만큼 잘라 카드 폭에 맞춘다 */
+.markdown-region-crop {
+  --md-background: #ffffff; --md-foreground: #202124; --md-muted: #6b7280; --md-border: #e5e7eb; --md-link: #2563eb; --md-code-background: #f4f5f7; --md-quote-border: #a8b0bb;
+  position: relative; width: 100%; overflow: hidden; border-radius: 6px; background: var(--md-background); color: var(--md-foreground); box-shadow: 0 0 0 1px var(--divider);
+}
+.pane-doc .markdown-region-crop .markdown-pane.markdown-region-crop-paper {
+  position: absolute; z-index: auto; height: auto; overflow: visible; padding: 0; margin: 0;
+  background: var(--md-background, #fff); transform-origin: 0 0; pointer-events: none; user-select: none;
+}
+.pane-doc .markdown-region-crop .markdown-pane.markdown-region-crop-paper > * { zoom: 1; max-width: none; margin: 0; }
+.markdown-region-crop-body > :first-child { margin-top: 0 !important; }

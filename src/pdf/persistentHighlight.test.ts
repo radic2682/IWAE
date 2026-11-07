@@ -70,3 +70,18 @@ describe('persistentHighlight — 메모와 출처', () => {
     expect(updatePersistentPdfHighlight(highlight, { note: '   ' })).not.toHaveProperty('note')
   })
 })
+
+describe('persistentHighlight — Markdown 영역 메모의 모습', () => {
+  it('영역 메모의 모습(HTML·자리)은 저장했다 읽어도, 메모를 고쳐도 남는다', async () => {
+    const { createPersistentPdfHighlight, parsePersistentPdfHighlights, persistentPdfHighlightFile, updatePersistentPdfHighlight } = await import('./persistentHighlight')
+    const anchor: Anchor = { docId: 'a.md', page: 0, coordSpace: 'pdfium-page', rects: [{ x: 50, y: 400, w: 300, h: 140 }], charRange: [10, 80], quote: '표', prefix: '', suffix: '' }
+    const snapshot = { html: '<table><tr><td>칸</td></tr></table>', top: 410, left: 120, width: 700 }
+    const made = createPersistentPdfHighlight(anchor, 'yellow', { kind: 'region', snapshot })
+    expect(made.snapshot).toEqual(snapshot)
+    const [read] = parsePersistentPdfHighlights(JSON.parse(JSON.stringify(persistentPdfHighlightFile([made]))))
+    expect(read?.snapshot).toEqual(snapshot)
+    expect(updatePersistentPdfHighlight(made, { note: '설명' }).snapshot).toEqual(snapshot)
+    // 글자 메모에는 붙지 않는다
+    expect(createPersistentPdfHighlight(anchor, 'yellow', { snapshot }).snapshot).toBeUndefined()
+  })
+})

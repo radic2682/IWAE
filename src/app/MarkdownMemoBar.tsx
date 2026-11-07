@@ -82,7 +82,7 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
     const patch = { note: content.text, noteHtml: content.html }
     if (draft !== null && id === draft.id) {
       onDraftDone()
-      if (content.text.trim() === '') return
+      if (content.text.trim() === '' && draft.kind !== 'region') return
       onHighlightCreated?.(updatePersistentPdfHighlight(draft, patch))
       updateNote((note) => insertBlock(note, memoBlock(draft.id, ticket), note.blocks.length))
       return

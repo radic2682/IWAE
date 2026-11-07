@@ -23,7 +23,7 @@ import { useMemoBarVisible } from '../pdf/memoStore'
 import { useMemoNoteApi } from '../pdf/memoNoteContext'
 import { useHighlightTool } from '../pdf/highlightToolStore'
 import { addMemoRef } from '../core/memoNote'
-import { createPersistentPdfHighlight } from '../pdf/persistentHighlight'
+import { createPersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../pdf/persistentHighlight'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import type { OverlayPatch, PdfOverlay } from '../core/pdfOverlays'
 
@@ -622,18 +622,22 @@ export function MarkdownPane({
       const paper = markdownPaper(article.clientWidth, zoom)
       const edge = ar.left + paper.left + paper.width - fr.left
       for (const highlight of boxHighlights) {
-        if (highlight.anchor.docId !== path || highlight.box !== undefined || highlight.kind === 'region') continue
+        if (highlight.anchor.docId !== path || highlight.box !== undefined) continue
         const card = scroller.querySelector<HTMLElement>(`[data-memo-id="${CSS.escape(highlight.id)}"]`)
         if (card === null) continue
         const cardY = card.getBoundingClientRect().top + 18
         if (cardY < sr.top || cardY > sr.bottom) continue
-        const rects = rectsOf(highlight.anchor.charRange)
+        const region = highlight.kind === 'region' ? highlight.anchor.rects[0] : undefined
+        const rects = region === undefined ? rectsOf(highlight.anchor.charRange) : [region]
         if (rects.length === 0) continue
         const top = Math.min(...rects.map((rect) => rect.y))
         const line = rects.filter((rect) => rect.y < top + 2)
-        const right = Math.max(...line.map((rect) => rect.x + rect.w))
+        // 영역 메모: 네모는 바깥 4px 에 그린다 — 선은 오른쪽 위 꺾쇠에서(PDF 와 같다)
+        const right = Math.max(...line.map((rect) => rect.x + rect.w)) + (region === undefined ? 0 : 4 / paper.scale)
         const lineHeight = Math.max(...line.map((rect) => rect.h))
-        const anchorY = ar.top - article.scrollTop + (top + lineHeight / 2) * paper.scale
+        const anchorY = region === undefined
+          ? ar.top - article.scrollTop + (top + lineHeight / 2) * paper.scale
+          : ar.top - article.scrollTop + top * paper.scale + 8
         if (anchorY < ar.top || anchorY > ar.bottom) continue
         next.push({
           id: highlight.id,
@@ -792,6 +796,40 @@ export function MarkdownPane({
     const range = document.createRange()
     range.setStartBefore(first)
     range.setEndAfter(last)
+    // 메모 바가 열려 있으면 PDF 처럼 영역 메모: 끈 네모(종이 좌표)와 그 자리 블록들의 모습을 남긴다
+    if (memoBarVisible && onBoxHighlightCreated !== undefined) {
+      const offsets = rangeOffsets(root, range)
+      const box = root.getBoundingClientRect()
+      const paper = markdownPaper(root.clientWidth, zoom)
+      const toPaperX = (clientX: number) => (clientX - box.left - paper.left) / paper.scale
+      const toPaperY = (clientY: number) => (clientY - box.top + root.scrollTop) / paper.scale
+      if (offsets !== null) {
+        const html = selected.map((element) => element.outerHTML).join('')
+        const anchor = {
+          docId: path,
+          page: 0,
+          coordSpace: 'pdfium-page' as const,
+          rects: [{ x: toPaperX(rect.left), y: toPaperY(rect.top), w: rect.width / paper.scale, h: rect.height / paper.scale }],
+          charRange: [offsets.startOffset, offsets.endOffset] as const,
+          quote: range.toString().replace(/\s+/gu, ' ').trim().slice(0, 2000),
+          prefix: '',
+          suffix: '',
+        }
+        setDraftMemo(createPersistentPdfHighlight(anchor, 'yellow', {
+          kind: 'region',
+          // 글 칸의 자리·폭도 잰다(종이 안 글 칸 위치는 배율·창 폭에 따라 다르다)
+          snapshot: html.length <= REGION_SNAPSHOT_LIMIT ? {
+            html,
+            top: toPaperY(first.getBoundingClientRect().top),
+            left: toPaperX(first.getBoundingClientRect().left),
+            width: first.getBoundingClientRect().width / paper.scale,
+          } : undefined,
+          createdAt: new Date().toISOString(),
+          source: 'iwae',
+        }))
+        return
+      }
+    }
     const payload = selectionPayload(root, path, sourceFileId, title, range, sourceHash, {
       left: rect.left,
       top: rect.top,
@@ -807,7 +845,7 @@ export function MarkdownPane({
       top: Math.max(8, rect.top + rect.height - hostRect.top + 8),
     })
     setTranslationState({ status: 'idle' })
-  }, [path, sourceFileId, sourceHash, title])
+  }, [memoBarVisible, onBoxHighlightCreated, path, sourceFileId, sourceHash, title, zoom])
 
   const translateSelection = useCallback(async () => {
     if (action === null || onTranslateSelection === undefined || translationState.status === 'pending') return

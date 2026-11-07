@@ -60,6 +60,19 @@ export function markdownPaper(articleWidth: number, zoom: number): { left: numbe
   return { left: (articleWidth - width) / 2, width, scale: width / MARKDOWN_PAPER_WIDTH }
 }
 
+/** 영역 네모의 네 귀퉁이 꺾쇠(PDF 영역 메모와 같은 모양) */
+function regionCornersPath(x: number, y: number, w: number, h: number): string {
+  const n = (value: number) => Math.round(value * 100) / 100
+  const r = Math.min(6, w / 2, h / 2)
+  const len = Math.max(r + 2, Math.min(18, w / 4, h / 4))
+  return [
+    `M${n(x)} ${n(y + len)}V${n(y + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + r)} ${n(y)}H${n(x + len)}`,
+    `M${n(x + w - len)} ${n(y)}H${n(x + w - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w)} ${n(y + r)}V${n(y + len)}`,
+    `M${n(x + w)} ${n(y + h - len)}V${n(y + h - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w - r)} ${n(y + h)}H${n(x + w - len)}`,
+    `M${n(x + len)} ${n(y + h)}H${n(x + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x)} ${n(y + h - r)}V${n(y + h - len)}`,
+  ].join('')
+}
+
 /** 둥근 네모 여럿을 한 경로로(PDF 형광펜과 같은 2px 둥글기) */
 function roundedRectsPath(rects: readonly { x: number; y: number; w: number; h: number }[]): string {
   const n = (value: number) => Math.round(value * 100) / 100
@@ -103,6 +116,11 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
     .map((item) => ({ id: item.id, color: item.color, rects: rectsOf(item.anchor.charRange) })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [highlights, props.draftMemo, path, rectsOf, zoom, articleWidth])
+
+  // 영역(표·그림) 메모: 끈 네모 그대로(종이 좌표)
+  const regionMarks = useMemo(() => [...highlights.filter((item) => item.anchor.docId === path && item.kind === 'region' && item.box === undefined), ...(props.draftMemo?.kind === 'region' ? [props.draftMemo] : [])]
+    .flatMap((item) => (item.anchor.rects[0] === undefined ? [] : [{ id: item.id, color: item.color, rect: item.anchor.rects[0] }])),
+  [highlights, props.draftMemo, path])
 
   // 고른 글로 새 박스(여백 자동)
   useEffect(() => {
@@ -166,6 +184,18 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
                 d={roundedRectsPath(coalesceHighlightRects(mark.rects).map((rect) => ({ x: paper.left + rect.x * paper.scale, y: rect.y * paper.scale, w: rect.w * paper.scale, h: rect.h * paper.scale })))}
               />
             ))}
+          {regionMarks.map((mark) => {
+            const x = paper.left + mark.rect.x * paper.scale - 4
+            const y = mark.rect.y * paper.scale - 4
+            const w = mark.rect.w * paper.scale + 8
+            const h = mark.rect.h * paper.scale + 8
+            return (
+              <g key={`region:${mark.id}`} data-highlight-color={mark.color} className="markdown-mark-region-group">
+                <rect className="markdown-mark-region" x={x} y={y} width={w} height={h} rx={6} />
+                <path className="markdown-mark-corners" d={regionCornersPath(x, y, w, h)} />
+              </g>
+            )
+          })}
         </svg>
       </div>
       <div className="markdown-write-host" onWheel={forwardWheel} data-markdown-edit={mode === 'edit' || undefined}>

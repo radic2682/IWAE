@@ -33,6 +33,28 @@ export interface PersistentPdfHighlight {
   readonly order?: number
   /** 있으면 박스 메모: 메모 바·노트가 아니라 PDF 쪽 위의 박스(선으로 이어짐)로 보인다. 쪽 좌표(points) */
   readonly box?: MemoBox
+  /** Markdown 영역 메모: 잡을 때의 그 자리 블록들(HTML)과 첫 블록의 위 끝(종이 좌표). 노트에서 이것을 잘라 보인다 */
+  readonly snapshot?: RegionSnapshot
+}
+
+/** Markdown 영역 메모의 모습: 겹친 블록들의 HTML, 첫 블록 위 끝의 종이 y */
+export interface RegionSnapshot {
+  readonly html: string
+  readonly top: number
+  /** 글 칸의 왼쪽 끝과 폭(종이 좌표). 없으면 종이 양옆 56 */
+  readonly left?: number
+  readonly width?: number
+}
+
+/** 영역 모습 HTML 상한(글자 수). 큰 표 몇 개 정도 */
+export const REGION_SNAPSHOT_LIMIT = 200_000
+
+function parseSnapshot(value: unknown): RegionSnapshot | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const { html, top, left, width } = value as { html?: unknown; top?: unknown; left?: unknown; width?: unknown }
+  if (typeof html !== 'string' || html === '' || html.length > REGION_SNAPSHOT_LIMIT || typeof top !== 'number' || !Number.isFinite(top)) return undefined
+  const column = typeof left === 'number' && Number.isFinite(left) && typeof width === 'number' && Number.isFinite(width) && width > 0 ? { left, width } : {}
+  return { html, top, ...column }
 }
 
 /** 메모 길이 상한. 형광펜 메모는 짧은 생각이고, 긴 글은 노트 캔버스의 몫이다 */
@@ -50,6 +72,7 @@ export interface HighlightExtras {
   readonly rating?: number
   readonly order?: number
   readonly box?: MemoBox
+  readonly snapshot?: RegionSnapshot
 }
 
 function normalizedRating(rating: number | undefined): number | undefined {
@@ -91,6 +114,7 @@ function withExtras(base: PersistentPdfHighlight, extras: HighlightExtras): Pers
     ...(normalizedRating(extras.rating) === undefined ? {} : { rating: normalizedRating(extras.rating) }),
     ...(extras.order !== undefined && Number.isFinite(extras.order) ? { order: extras.order } : {}),
     ...(extras.box === undefined ? {} : { box: extras.box }),
+    ...(extras.kind === 'region' && parseSnapshot(extras.snapshot) !== undefined ? { snapshot: parseSnapshot(extras.snapshot) } : {}),
   }
 }
 
@@ -142,7 +166,7 @@ export function updatePersistentPdfHighlight(
   highlight: PersistentPdfHighlight,
   patch: PersistentPdfHighlightPatch,
 ): PersistentPdfHighlight {
-  const { note: _note, noteHtml: _noteHtml, topic: _topic, kind: _kind, pageSize: _pageSize, collapsed: _collapsed, rating: _rating, order: _order, box: _box, ...rest } = highlight
+  const { note: _note, noteHtml: _noteHtml, topic: _topic, kind: _kind, pageSize: _pageSize, collapsed: _collapsed, rating: _rating, order: _order, box: _box, snapshot: _snapshot, ...rest } = highlight
   return withExtras({ ...rest, ...(patch.anchor === undefined ? {} : { anchor: patch.anchor }), color: patch.color ?? highlight.color }, {
     note: patch.note === undefined ? highlight.note : patch.note,
     // 글만 고치고 서식을 안 주면(MCP 등) 예전 서식은 버린다(글과 어긋나지 않게)
@@ -156,6 +180,7 @@ export function updatePersistentPdfHighlight(
     rating: patch.rating === undefined ? highlight.rating : patch.rating,
     order: patch.order === undefined ? highlight.order : patch.order ?? undefined,
     box: patch.box === undefined ? highlight.box : patch.box ?? undefined,
+    snapshot: highlight.snapshot,
   })
 }
 
@@ -252,6 +277,7 @@ export function parsePersistentPdfHighlights(value: unknown): PersistentPdfHighl
       rating: typeof item.rating === 'number' ? item.rating : undefined,
       order: typeof item.order === 'number' ? item.order : undefined,
       box: parseMemoBox(item.box),
+      snapshot: parseSnapshot(item.snapshot),
     }))
   }
   return highlights
