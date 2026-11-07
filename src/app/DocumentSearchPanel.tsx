@@ -180,7 +180,6 @@ export function DocumentSearchPanel({ state, onClose, records, indexProgress, on
         {submitted !== '' && hits.length === 0 ? <p className="doc-results-empty">{t('결과가 없습니다')}</p> : null}
         {submitted === '' ? (
           <div className="doc-results-help">
-            <p>{t('Vault 의 모든 PDF 본문에서 낱말을 글자 그대로 찾습니다.')}</p>
             <p>{pick({
               ko: <>카드를 누르면 오른쪽에 원본 PDF 가 그 쪽으로 열리고 찾은 자리가 칠해집니다. <kbd>↑</kbd> <kbd>↓</kbd> 로 옮겨 다니고 <kbd>/</kbd> 로 검색창에 갑니다.</>,
               en: <>Click a card to open the source PDF at that page on the right, with the match highlighted. Use <kbd>↑</kbd> <kbd>↓</kbd> to move between results and <kbd>/</kbd> to jump to the search box.</>,

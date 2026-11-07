@@ -110,9 +110,10 @@
 .doc-card-doc { min-width: 0; overflow: hidden; color: var(--text-strong); font-weight: 650; white-space: nowrap; text-overflow: ellipsis; }
 .doc-card-page { flex: 0 0 auto; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .doc-card-text { font-size: 13px; line-height: 1.5; }
-.doc-card-text mark { padding: 0 1px; border-radius: 2px; background: var(--highlight-yellow); color: inherit; }
-.doc-results-empty { margin: 24px 0; color: var(--text-dim); text-align: center; }
-.doc-results-help { margin: 18px 8px; color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+/* 찾은 글자: 노란 강조 대신 강조색을 옅게 깐다 */
+.doc-card-text mark { padding: 0 1px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--text-strong); }
+.doc-results-empty { margin: 24px 0; color: var(--text-strong); text-align: center; }
+.doc-results-help { margin: 18px 8px; color: var(--text-strong); font-size: 13px; line-height: 1.7; }
 .doc-results-help kbd {
   padding: 0 4px;
   border: 1px solid var(--divider);

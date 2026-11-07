@@ -101,4 +101,5 @@ export const COMMON: Readonly<Record<string, string>> = {
   '같은 PDF 하나 더 열기': 'Open this PDF once more',
   '축소 (Ctrl+-)': 'Zoom out (Ctrl+-)',
   '확대 (Ctrl+=)': 'Zoom in (Ctrl+=)',
+  '왼쪽 결과를 누르면 원본 PDF 가 여기에 열립니다': 'Click a result on the left to open the source PDF here',
 }

@@ -1810,7 +1810,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const state = panes[pane]
     const tab = activeTab(state)
     if (tab === null) {
-      return <PaneShell state={state} emptyHint={pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)} placeholder="" />
+      // 문서 검색 화면의 오른쪽 칸은 결과를 누르면 원본이 열리는 자리다
+      const hint = docSearchMode && pane !== 'left' ? t('왼쪽 결과를 누르면 원본 PDF 가 여기에 열립니다') : pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
+      return <PaneShell state={state} emptyHint={hint} placeholder="" />
     }
     if (tab.kind === 'note') {
       return (
