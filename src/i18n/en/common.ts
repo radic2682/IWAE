@@ -104,4 +104,9 @@ export const COMMON: Readonly<Record<string, string>> = {
   '왼쪽 결과를 누르면 원본 PDF 가 여기에 열립니다': 'Click a result on the left to open the source PDF here',
   '논문 정보': 'Paper details',
   '논문 정보 — {title}': 'Paper details — {title}',
+  '다른 앱이 이 파일을 쓰고 있습니다. 그 앱에서 파일을 닫은 뒤 다시 해 보세요': 'Another app is using this file. Close it there and try again',
+  '이 위치에 쓸 권한이 없습니다. 다른 폴더를 고르거나 권한을 확인해 보세요': 'No permission to write here. Pick another folder or check permissions',
+  '파일이나 폴더를 찾을 수 없습니다. 옮겨졌거나 지워졌을 수 있습니다': 'File or folder not found. It may have been moved or deleted',
+  '디스크 공간이 모자랍니다. 공간을 비운 뒤 다시 해 보세요': 'Not enough disk space. Free up space and try again',
+  '같은 이름의 파일이 이미 있습니다': 'A file with this name already exists',
 }

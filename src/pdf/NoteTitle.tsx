@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { announceAction } from '../app/actionFeedback'
 import { t } from '../i18n'
 import type { MemoNoteApi } from './memoNoteContext'
+import { errorText } from '../core/errorText'
 
 /** 오른쪽 바 머리의 노트 이름. 두 번 누르면 그 자리에서 이름을 바꾼다 */
 export function NoteTitle({ api, fallback, className, as = 'span' }: {
@@ -21,7 +22,7 @@ export function NoteTitle({ api, fallback, className, as = 'span' }: {
       const next = value.trim()
       if (next === '' || next === title) return
       void api.rename!(path, next).catch((error: unknown) => {
-        announceAction(t('노트 이름을 바꾸지 못했습니다: {reason}', { reason: error instanceof Error ? error.message : String(error) }))
+        announceAction(t('노트 이름을 바꾸지 못했습니다: {reason}', { reason: errorText(error) }))
       })
     }
     return (
