@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.5"
+version = "0.1.6"
 description = "Local-first PDF reader that links highlights and memos into source-aware notes"
 license = "MIT"
 edition = "2021"
