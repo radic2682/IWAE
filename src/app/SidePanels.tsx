@@ -128,7 +128,7 @@ function readPreviewColumns(): 1 | 2 {
   }
 }
 
-function usePreviewColumns(): [1 | 2, (next: 1 | 2) => void] {
+export function usePreviewColumns(): [1 | 2, (next: 1 | 2) => void] {
   const [columns, setColumns] = useState<1 | 2>(readPreviewColumns)
   const changeColumns = (next: 1 | 2) => {
     setColumns(next)
@@ -141,7 +141,7 @@ function usePreviewColumns(): [1 | 2, (next: 1 | 2) => void] {
   return [columns, changeColumns]
 }
 
-function PreviewColumnsSwitch({ columns, onChange }: { readonly columns: 1 | 2; readonly onChange: (next: 1 | 2) => void }) {
+export function PreviewColumnsSwitch({ columns, onChange }: { readonly columns: 1 | 2; readonly onChange: (next: 1 | 2) => void }) {
   return (
     <div className="outline-preview-columns" role="radiogroup" aria-label={t('미리보기 줄 수')}>
       {([1, 2] as const).map((count) => (

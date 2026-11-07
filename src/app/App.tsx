@@ -83,7 +83,7 @@ import { PaneTabsMenu } from './PaneTabsMenu'
 import { closeSplitCell, isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePreviewPanel, OutlinePanel, ThumbnailPanel } from './SidePanels'
-import { MarkdownOutline, MarkdownSectionPreview } from './MarkdownOutline'
+import { MarkdownOutline, MarkdownOutlinePreview, MarkdownSectionPreview } from './MarkdownOutline'
 import { VaultPicker } from './VaultPicker'
 import { seedSampleVaultInto } from './sampleVaultDesktop'
 import { StartupShell } from './StartupShell'
@@ -2182,7 +2182,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             onSelectPage={(page) => jumpToPage(page + 1)}
           />
         ) : sidebarMode === 'outlinePreview' && activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
-          <MarkdownOutline
+          <MarkdownOutlinePreview
             source={markdownSources[activeDocumentTab.id]!}
             currentSection={markdownSectionState[activeDocumentTab.id] ?? 0}
             onSelectSection={(index) => window.dispatchEvent(new CustomEvent('iwae:md-section-go', { detail: { path: activeDocumentTab.id, index } }))}
@@ -2199,6 +2199,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               source={markdownSources[activeDocumentTab.id]!}
               currentSection={markdownSectionState[activeDocumentTab.id] ?? 0}
               onSelectSection={(index) => window.dispatchEvent(new CustomEvent('iwae:md-section-go', { detail: { path: activeDocumentTab.id, index } }))}
+              bookmarks={pdfBookmarks.bookmarks.filter((bookmark) => bookmark.docId === activeDocumentTab.id)}
+              onSelectBookmark={(bookmark) => window.dispatchEvent(new CustomEvent('iwae:md-pin-go', { detail: { path: activeDocumentTab.id, y: bookmark.y ?? 0 } }))}
+              onRemoveBookmark={(bookmark) => pdfBookmarks.remove(bookmark.id)}
             />
           ) : <OutlinePanel
             activeDoc={activePdfDoc}

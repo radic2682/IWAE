@@ -124,4 +124,8 @@ export const COMMON: Readonly<Record<string, string>> = {
   '이 창 닫기': 'Close this pane',
   '끌어서 함께 옮기기': 'Drag to move together',
   '설명을 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다 · 그림만 남기려면 Ctrl+Enter)': 'Add a description (click elsewhere to discard · Ctrl+Enter to keep the image only)',
+  '{count}절': '§{count}',
+  '이 문서에는 제목이 없습니다': 'This document has no headings',
+  '{count}절 {title}': 'Section {count}: {title}',
+  '{title} 책갈피 지우기': 'Remove bookmark {title}',
 }

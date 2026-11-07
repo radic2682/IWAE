@@ -511,6 +511,18 @@ export function MarkdownPane({
   const [layoutRevision, setLayoutRevision] = useState(0)
   // 글 영역의 크기가 바뀌면(창 폭·화면 나누기·배율) 다음 그림에서 형광펜 자리를 다시 잰다
   const [articleLayoutKey, setArticleLayoutKey] = useState(0)
+  // 왼쪽 바 책갈피를 누르면 그 자리로(스크롤 막대 핀과 같은 비율)
+  useEffect(() => {
+    if (!primary) return undefined
+    const go = (event: Event) => {
+      const detail = (event as CustomEvent<{ path: string; y: number }>).detail
+      const article = articleRef.current
+      if (detail?.path !== path || article === null) return
+      article.scrollTo({ top: Math.max(detail.y * article.scrollHeight - article.clientHeight / 3, 0), behavior: 'smooth' })
+    }
+    window.addEventListener('iwae:md-pin-go', go)
+    return () => window.removeEventListener('iwae:md-pin-go', go)
+  }, [path, primary])
   useEffect(() => {
     const article = articleRef.current
     if (article === null) return undefined
