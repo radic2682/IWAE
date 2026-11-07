@@ -10,7 +10,7 @@
       { "kind": "memo", "page": 3, "quote": "by dragging its edges and corners", "note": "If a captured table got cut off, drag the box to fit it again." },
       { "kind": "memo", "page": 4, "quote": "Drag the handle on the left to change the order of blocks.", "note": "Dragging a section moves the blocks under it too." },
       { "kind": "section", "title": "Requirements (ticket examples)" },
-      { "kind": "text", "markdown": "These are **ticket** blocks: title, your text, then the original quote. Make one with Convert to ticket in a memo block's menu (…)." },
+      { "kind": "text", "markdown": "Memos can carry an **ID** and a title. Hover a memo to see + ID and + Title at the top right, or start the memo with something like `REQ-04 ` to turn it into an ID." },
       { "kind": "memo", "page": 5, "quote": "Saved notes must still be there after the app restarts.", "note": "Write a note, restart the app and check. Note files live in `노트/*.iwnote`.", "ticket": "REQ-01 Notes survive a restart" },
       { "kind": "memo", "page": 5, "quote": "Highlights must point to the same text after pages are reordered.", "note": "Reorder pages with Edit pages, then click this memo and check it lands on the same sentence.", "ticket": "REQ-03 Highlights follow moved pages" },
       { "kind": "section", "title": "Translation" },

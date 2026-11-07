@@ -118,7 +118,7 @@ describe('티켓 블록', () => {
     const block = memoBlock('h1')
     const note = { version: 1 as const, blocks: [block] }
     const ticket = setMemoTicket(note, block.id, { title: 'REQ-1' })
-    expect(ticket.blocks[0]).toEqual({ id: block.id, kind: 'memo', highlightId: 'h1', ticket: { title: 'REQ-1' } })
+    expect(ticket.blocks[0]).toEqual({ id: block.id, kind: 'memo', highlightId: 'h1', ticket: { id: 'REQ-1' } })
     expect(parseMemoNote(JSON.parse(serializeMemoNote(ticket))).blocks[0]).toEqual(ticket.blocks[0])
     expect(setMemoTicket(ticket, block.id, null).blocks[0]).toEqual({ id: block.id, kind: 'memo', highlightId: 'h1' })
   })
@@ -139,5 +139,19 @@ describe('메모 블록의 여러 원문', () => {
     const promoted = removeHighlightBlocks(note, 'h1').blocks[0]!
     expect(memoHighlightIds(promoted)).toEqual(['h2'])
     expect(removeHighlightBlocks(removeHighlightBlocks(note, 'h1'), 'h2').blocks).toHaveLength(0)
+  })
+})
+
+describe('memoNote — 자유 ID', () => {
+  it('예전 「REQ-01 제목」 한 줄을 ID 와 제목으로 나누고, 둘 다 비면 그냥 메모다', async () => {
+    const { normalizeTicket, splitLeadingTicketId, suggestTicketIds, ticketLabel } = await import('./memoNote')
+    expect(normalizeTicket({ title: 'REQ-01 노트는 남는다' })).toEqual({ id: 'REQ-01', title: '노트는 남는다' })
+    expect(normalizeTicket({ title: 'Vault 폴더' })).toEqual({ title: 'Vault 폴더' })
+    expect(normalizeTicket({ id: ' ', title: '' })).toBeNull()
+    expect(normalizeTicket({ id: 'TODO' })).toEqual({ id: 'TODO' })
+    expect(ticketLabel({ id: 'Q-1', title: '왜?' })).toBe('Q-1 왜?')
+    expect(splitLeadingTicketId('REQ-04 할 일')).toEqual({ id: 'REQ-04', rest: '할 일' })
+    expect(splitLeadingTicketId('Vault 는 폴더')).toBeNull()
+    expect(suggestTicketIds(['REQ-01', 'REQ-03', 'BUG-2', 'REQ-02'])).toEqual(['REQ-04', 'BUG-3'])
   })
 })

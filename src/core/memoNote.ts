@@ -3,7 +3,8 @@
  * - memo: PDF 형광펜(+그 메모). 형광펜·메모 글·별점은 highlights.json 에 있고 노트는 id 로 가리킨다.
  *   여러 PDF 의 형광펜이 한 노트에 섞일 수 있다.
  * - text: 노트에 직접 쓴 글(서식 HTML + 같은 내용의 글)
- * - 티켓: memo 블록에 ticket(제목)을 붙인 것. 제목(H2) · 내 글 · 원문(Req 문구) 차례로 보인다.
+ * - memo 블록의 ticket: 사용자가 자유롭게 붙이는 ID(REQ-01, TODO, Q1 …)와 제목. 둘 다 없으면 그냥 메모.
+ *   차례는 늘 ID·제목 → 내 글 → 원문(출처).
  * - memo 블록의 refs: 한 메모가 가리키는 원문을 더 둘 때 그 형광펜 id 들(첫 원문은 highlightId)
  *   kind 는 memo 그대로라 형광펜 연결·지우기가 메모와 같고, 티켓을 모르는 판도 메모로 읽는다.
  *
@@ -21,9 +22,73 @@ export type MemoNoteBlock =
   /** 소제목(구역): 다음 소제목 앞까지의 블록을 묶는다. 접으면 묶인 블록을 숨기고, 옮기면 함께 옮긴다 */
   | { readonly id: string; readonly kind: 'section'; readonly title: string; readonly collapsed?: true }
 
-/** 티켓 블록의 머리(제목) */
+/** 메모 블록의 머리: 자유 ID 와 제목(둘 중 하나만 있어도 된다) */
 export interface MemoTicket {
-  readonly title: string
+  readonly id?: string
+  readonly title?: string
+}
+
+/** 글 맨 앞의 ID 모양: 글자로 시작하고 「-숫자」로 끝나는 한 낱말(REQ-01, BUG-2, Q-1) */
+const LEADING_TICKET_ID = /^([A-Za-z][A-Za-z0-9]*-\d+)[ \u00a0]+/u
+const WHOLE_TICKET_ID = /^[A-Za-z][A-Za-z0-9]*-\d+$/u
+
+/**
+ * ID·제목을 다듬는다. 둘 다 비면 null(그냥 메모).
+ * 예전 파일은 제목 하나에 「REQ-01 노트는 …」처럼 ID 가 붙어 있었다 — 앞의 ID 를 떼어 id 로 옮긴다.
+ */
+export function normalizeTicket(ticket: MemoTicket | null | undefined): MemoTicket | null {
+  if (ticket === null || ticket === undefined) return null
+  let id = (ticket.id ?? '').trim()
+  let title = (ticket.title ?? '').replace(/\s+/gu, ' ').trim()
+  if (id === '' && title !== '') {
+    if (WHOLE_TICKET_ID.test(title)) {
+      id = title
+      title = ''
+    } else {
+      const leading = LEADING_TICKET_ID.exec(title)
+      if (leading !== null) {
+        id = leading[1] ?? ''
+        title = title.slice(leading[0].length).trim()
+      }
+    }
+  }
+  if (id === '' && title === '') return null
+  return { ...(id === '' ? {} : { id }), ...(title === '' ? {} : { title }) }
+}
+
+/** ID 와 제목을 한 줄로(검색·바깥 도구용) */
+export function ticketLabel(ticket: MemoTicket | null | undefined): string {
+  return [ticket?.id ?? '', ticket?.title ?? ''].filter((part) => part !== '').join(' ')
+}
+
+/** 글 맨 앞에 ID 모양이 있으면 그 ID 와 나머지 글. 없으면 null */
+export function splitLeadingTicketId(text: string): { readonly id: string; readonly rest: string } | null {
+  const leading = LEADING_TICKET_ID.exec(text.replace(/^\s+/u, ''))
+  if (leading === null) return null
+  return { id: leading[1] ?? '', rest: text.replace(/^\s+/u, '').slice(leading[0].length) }
+}
+
+/**
+ * 다음에 쓸 ID 제안: 이 노트에서 쓴 앞부분(REQ, BUG …)마다 가장 큰 번호 + 1.
+ * 자릿수는 쓰던 대로(REQ-03 다음은 REQ-04). 많이 쓴 앞부분이 먼저.
+ */
+export function suggestTicketIds(used: readonly string[]): string[] {
+  const groups = new Map<string, { count: number; max: number; width: number; label: string }>()
+  for (const id of used) {
+    const match = /^(.*?)(\d+)$/u.exec(id.trim())
+    if (match === null) continue
+    const prefix = match[1] ?? ''
+    const digits = match[2] ?? ''
+    const key = prefix.toLowerCase()
+    const group = groups.get(key) ?? { count: 0, max: 0, width: 0, label: prefix }
+    group.count += 1
+    group.max = Math.max(group.max, Number(digits))
+    group.width = Math.max(group.width, digits.length)
+    groups.set(key, group)
+  }
+  return [...groups.values()]
+    .sort((a, b) => b.count - a.count)
+    .map((group) => `${group.label}${String(group.max + 1).padStart(group.width, '0')}`)
 }
 
 export interface MemoNote {
@@ -69,7 +134,13 @@ export function parseMemoNote(value: unknown): MemoNote {
     if (!isRecord(item) || typeof item.id !== 'string' || seen.has(item.id)) return []
     seen.add(item.id)
     if (item.kind === 'memo' && typeof item.highlightId === 'string') {
-      const ticket = isRecord(item.ticket) && typeof item.ticket.title === 'string' ? { ticket: { title: item.ticket.title } } : {}
+      const parsed = isRecord(item.ticket)
+        ? normalizeTicket({
+          ...(typeof item.ticket.id === 'string' ? { id: item.ticket.id } : {}),
+          ...(typeof item.ticket.title === 'string' ? { title: item.ticket.title } : {}),
+        })
+        : null
+      const ticket = parsed === null ? {} : { ticket: parsed }
       const refs = Array.isArray(item.refs) ? [...new Set(item.refs.filter((ref): ref is string => typeof ref === 'string' && ref !== item.highlightId))] : []
       return [{ id: item.id, kind: 'memo', highlightId: item.highlightId, ...ticket, ...(refs.length > 0 ? { refs } : {}) }]
     }
@@ -95,17 +166,19 @@ export function newBlockId(): string {
 }
 
 export function memoBlock(highlightId: string, ticket?: MemoTicket): MemoNoteBlock {
-  return { id: newBlockId(), kind: 'memo', highlightId, ...(ticket === undefined ? {} : { ticket: { title: ticket.title } }) }
+  const normalized = normalizeTicket(ticket)
+  return { id: newBlockId(), kind: 'memo', highlightId, ...(normalized === null ? {} : { ticket: normalized }) }
 }
 
-/** 메모 블록을 티켓으로(제목을 붙여) 바꾸거나, ticket 이 null 이면 다시 메모로 */
+/** 메모 블록의 ID·제목을 바꾼다. 둘 다 비거나 null 이면 그냥 메모로 */
 export function setMemoTicket(note: MemoNote, blockId: string, ticket: MemoTicket | null): MemoNote {
+  const normalized = normalizeTicket(ticket)
   return {
     ...note,
     blocks: note.blocks.map((block) => {
       if (block.id !== blockId || block.kind !== 'memo') return block
       const { ticket: _old, ...rest } = block
-      return ticket === null ? rest : { ...rest, ticket: { title: ticket.title } }
+      return normalized === null ? rest : { ...rest, ticket: normalized }
     }),
   }
 }

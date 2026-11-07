@@ -4,7 +4,7 @@ import { isDesktop } from '../bridge/window'
 import { buildAnchor } from '../core/anchor'
 import { findTextRange, findTextRegion } from '../core/canvasOps'
 import { createRegionExcerptSelection } from '../core/pdfExcerpt'
-import { insertBlock, memoBlock, removeBlock, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock } from '../core/memoNote'
+import { insertBlock, memoBlock, removeBlock, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, ticketLabel, type MemoNote, type MemoNoteBlock } from '../core/memoNote'
 import { markdownToMemoHtml, sanitizeMemoHtml } from '../pdf/memoRichText'
 import { isValidSourceTarget, normalizeSourceTarget, type DocSource } from '../core/docSources'
 import {
@@ -184,7 +184,7 @@ function describeBlock(block: MemoNoteBlock, deps: McpMemoBridgeDeps): Record<st
         kind: block.ticket === undefined ? 'memo' : 'ticket',
         highlight_id: block.highlightId,
         memo_kind: highlight.kind === 'region' ? 'region' : 'text',
-        ...(block.ticket === undefined ? {} : { ticket_title: block.ticket.title }),
+        ...(block.ticket === undefined ? {} : { ticket_title: ticketLabel(block.ticket), ...(block.ticket.id === undefined ? {} : { ticket_id: block.ticket.id }) }),
       }
 }
 
@@ -329,11 +329,15 @@ export async function handleMcpMemoRequest(op: string, args: Record<string, unkn
           const { text, html } = textContent(args)
           return updateTextBlock(note, id, text, html)
         }
-        if (typeof args.ticket_title === 'string') {
-          const ticketTitle = args.ticket_title.trim()
-          return setMemoTicket(note, id, ticketTitle === '' ? null : { title: ticketTitle })
+        if (typeof args.ticket_title === 'string' || typeof args.ticket_id === 'string') {
+          // ticket_title 만 오면 예전처럼 「REQ-01 제목」 한 줄로 보고 앞의 ID 를 뗀다. ticket_id 만 오면 제목은 그대로
+          const keepTitle = typeof args.ticket_title !== 'string' ? block.ticket?.title : undefined
+          return setMemoTicket(note, id, {
+            ...(typeof args.ticket_id === 'string' ? { id: args.ticket_id } : {}),
+            ...(typeof args.ticket_title === 'string' ? { title: args.ticket_title } : keepTitle === undefined ? {} : { title: keepTitle }),
+          })
         }
-        throw new Error('메모·티켓 블록의 글은 memo_update 로 고칩니다(티켓 제목은 ticket_title, 빈 값이면 메모로).')
+        throw new Error('메모·티켓 블록의 글은 memo_update 로 고칩니다(ID 는 ticket_id, 제목은 ticket_title. 둘 다 비우면 그냥 메모).')
       }, false)
       return { updated: id }
     }

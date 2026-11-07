@@ -45,7 +45,7 @@ describe('예시 Vault', () => {
     expect(highlights.map((item) => [item.anchor.quote, item.note])).toEqual([['sequence of tokens', 'Tokens!'], ['MUST be UTF-8', 'Encoding']])
     const note = JSON.parse(files.get('노트/Getting Started.iwnote') as string) as { blocks: { kind: string; ticket?: { title: string } }[] }
     expect(note.blocks.map((block) => block.kind)).toEqual(['section', 'text', 'memo', 'memo'])
-    expect(note.blocks[3]?.ticket).toEqual({ title: 'REQ-1' })
+    expect(note.blocks[3]?.ticket).toEqual({ id: 'REQ-1' })
     // 이미 파일이 있으면 아무것도 하지 않는다
     expect(await seedSampleVault(io, manifest)).toBe(false)
   })

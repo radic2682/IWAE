@@ -5,7 +5,7 @@ import { NoteFlow, type NoteFlowItem } from '../pdf/NoteFlow'
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from '../pdf/MemoColumn'
 import { useMemoNoteApi } from '../pdf/memoNoteContext'
 import { t } from '../i18n'
-import { insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock } from '../core/memoNote'
+import { insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import '../ui/pdf-memo.css'
 
@@ -68,19 +68,19 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
       highlight,
       ...(highlight.anchor.docId === docId ? {} : { docLabel: (docTitles?.[highlight.anchor.docId] ?? t('다른 문서')).split(' · ')[0]! }),
       sourceLabel: docTitles?.[highlight.anchor.docId] ?? (highlight.anchor.docId === docId ? title : t('다른 문서')),
-      ...(block.ticket === undefined ? {} : { ticketTitle: block.ticket.title }),
+      ...(block.ticket === undefined ? {} : { ticket: block.ticket }),
       ...((block.refs ?? []).length === 0 ? {} : { extraHighlights: (block.refs ?? []).flatMap((ref) => { const found = highlightById.get(ref); return found === undefined ? [] : [found] }) }),
     })
   })
   if (draft !== null) items.push({ kind: 'memo', key: 'draft', highlight: draft, draft: true })
 
-  const saveMemo = (id: string, content: MemoContent, ticketTitle?: string) => {
+  const saveMemo = (id: string, content: MemoContent, ticket?: MemoTicket) => {
     const patch = { note: content.text, noteHtml: content.html }
     if (draft !== null && id === draft.id) {
       onDraftDone()
       if (content.text.trim() === '') return
       onHighlightCreated?.(updatePersistentPdfHighlight(draft, patch))
-      updateNote((note) => insertBlock(note, memoBlock(draft.id, ticketTitle === undefined ? undefined : { title: ticketTitle }), note.blocks.length))
+      updateNote((note) => insertBlock(note, memoBlock(draft.id, ticket), note.blocks.length))
       return
     }
     onHighlightUpdated?.(id, patch)
@@ -202,7 +202,7 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
               onCardLayout={() => undefined}
               onRenameSection={(key, sectionTitle) => updateNote((note) => updateSection(note, key, { title: sectionTitle }))}
               onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
-              onSetTicket={(key, ticketTitle) => updateNote((note) => setMemoTicket(note, key, ticketTitle === null ? null : { title: ticketTitle }))}
+              onSetTicket={(key, ticket) => updateNote((note) => setMemoTicket(note, key, ticket))}
               onRemoveSection={(key) => updateNote((note) => removeBlock(note, key))}
               onInsertSection={(key) => insertNear(key, sectionBlock(), false)}
               onInsertText={(key) => insertNear(key, textBlock(), true)}

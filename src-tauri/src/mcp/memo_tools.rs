@@ -90,11 +90,12 @@ pub fn tool_schemas() -> Vec<Value> {
                     "highlight_id": {"type": "string", "description": "memo or ticket block: id of an existing memo (memo_list / memo_add)"}
                 }, "required": ["kind"]}}
             }, "required": ["title", "blocks"]}}),
-        json!({"name": "note_update_block", "description": "Change one block of a note: a section's title, a text block's content (markdown or html), or a memo/ticket block's ticket_title (empty turns a ticket back into a memo).",
+        json!({"name": "note_update_block", "description": "Change one block of a note: a section's title, a text block's content (markdown or html), or a memo/ticket block's ticket_id (free-form badge) and ticket_title (both empty turns it back into a plain memo).",
             "inputSchema": {"type": "object", "properties": {
                 "title": {"type": "string", "description": "Note title"},
                 "id": {"type": "string", "description": "Block id (from note_read / note_append)"},
                 "section_title": {"type": "string"},
+                "ticket_id": {"type": "string", "description": "free-form ID shown as a badge (REQ-01, TODO, Q1 ...); empty removes it"},
                 "ticket_title": {"type": "string"},
                 "markdown": {"type": "string"},
                 "html": {"type": "string"}

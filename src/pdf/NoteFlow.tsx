@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowCounterClockwise, CaretDown, CaretRight, CaretUp, Crosshair, DotsSixVertical, DotsThree, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Ticket, Trash, X } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, CaretUp, Crosshair, DotsSixVertical, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Trash, X, XCircle } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
 import { RegionCrop } from './RegionCrop'
 import { t } from '../i18n'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
+import { splitLeadingTicketId, suggestTicketIds, type MemoTicket } from '../core/memoNote'
+import '../ui/note-ticket.css'
 
 /** 노트 한 장의 카드: PDF 형광펜 메모, 노트에 직접 쓴 글, 소제목 */
 export type NoteFlowItem =
@@ -18,8 +20,8 @@ export type NoteFlowItem =
       readonly docLabel?: string
       /** 출처 PDF 의 이름(마우스를 올리면 쪽 번호와 함께 보인다) */
       readonly sourceLabel?: string
-      /** 티켓 블록이면 그 제목. 제목(H2) · 내 글 · 원문(Req 문구) 차례로 보인다 */
-      readonly ticketTitle?: string
+      /** 사용자가 붙인 자유 ID(REQ-01, TODO …)와 제목. 차례는 늘 ID·제목 → 내 글 → 원문 */
+      readonly ticket?: MemoTicket
       /** 이 메모에 더 단 원문(형광펜). 첫 원문은 highlight */
       readonly extraHighlights?: readonly PersistentPdfHighlight[]
     }
@@ -88,8 +90,8 @@ export function NoteFlow({
   readonly pageSizeOf: (highlight: PersistentPdfHighlight) => readonly [number, number] | undefined
   readonly onEdit: (key: string | null) => void
   readonly onActivate: (key: string | null) => void
-  /** 메모 글 저장. 새 메모(draft)를 티켓으로 저장할 때는 ticketTitle 도 준다 */
-  readonly onSaveMemo: (highlightId: string, content: MemoContent, ticketTitle?: string) => void
+  /** 메모 글 저장. 새 메모(draft) 글 맨 앞에 ID 를 썼으면 ticket 도 준다 */
+  readonly onSaveMemo: (highlightId: string, content: MemoContent, ticket?: MemoTicket) => void
   readonly onCancelDraft: () => void
   readonly onSaveText: (key: string, content: MemoContent) => void
   readonly onRemoveText: (key: string) => void
@@ -111,8 +113,8 @@ export function NoteFlow({
   readonly onInsertText?: (key: string) => void
   /** 노트 맨 끝에 글 블록을 넣는다(맨 아래 빈 곳을 눌렀을 때) */
   readonly onAppendText?: () => void
-  /** 메모 블록을 티켓으로(제목) 바꾸거나 제목을 고친다. null 이면 다시 메모로 */
-  readonly onSetTicket?: (key: string, title: string | null) => void
+  /** 메모 블록의 ID·제목을 바꾼다. 둘 다 비거나 null 이면 그냥 메모 */
+  readonly onSetTicket?: (key: string, ticket: MemoTicket | null) => void
   /** key 메모 블록에 원문을 더하기 시작한다(다음에 PDF 에서 고른 글이 그 블록의 원문이 된다). null 이면 그만둔다 */
   readonly onAddRef?: (key: string | null) => void
   /** 더한 원문 하나를 뗀다 */
@@ -345,12 +347,17 @@ export function NoteFlow({
     }
   }, [selected])
 
-  // 새 메모를 티켓으로 쓰는 중이면 그 제목(저장할 때 블록이 티켓으로 만들어진다)
-  const [draftTicket, setDraftTicket] = useState<string | null>(null)
-  const hasDraft = items.some((item) => item.key === 'draft')
-  useEffect(() => { if (!hasDraft) setDraftTicket(null) }, [hasDraft])
-  // 제목을 고치는 중인 티켓(item.key)
-  const [renamingTicket, setRenamingTicket] = useState<string | null>(null)
+  // ID 나 제목을 고치는 중인 블록과 칸
+  const [headEdit, setHeadEdit] = useState<{ readonly key: string; readonly field: 'id' | 'title' } | null>(null)
+  // 이 노트에서 쓴 ID 들(다음 번호 제안·겹침 알림)
+  const usedIds = items.flatMap((item) => (item.kind === 'memo' && item.ticket?.id !== undefined ? [{ key: item.key, id: item.ticket.id }] : []))
+  // ID·제목 저장: 비운 칸은 지운다(둘 다 비면 그냥 메모)
+  const saveHead = (key: string, current: MemoTicket | undefined, field: 'id' | 'title', value: string) => {
+    setHeadEdit(null)
+    const next = { ...current, [field]: value.trim() }
+    if ((next.id ?? '') === (current?.id ?? '') && (next.title ?? '') === (current?.title ?? '')) return
+    onSetTicket?.(key, next)
+  }
   // 그림(표·그림 메모) 크게 보기
   const [zoomed, setZoomed] = useState<PersistentPdfHighlight | null>(null)
   useEffect(() => {
@@ -488,9 +495,9 @@ export function NoteFlow({
         const matches = needle === ''
           || (highlight.note ?? '').toLowerCase().includes(needle)
           || sources.some((source) => source.anchor.quote.toLowerCase().includes(needle))
-          || (item.ticketTitle ?? '').toLowerCase().includes(needle)
-        const ticketTitleValue = draft ? draftTicket ?? undefined : item.ticketTitle
-        const ticket = ticketTitleValue !== undefined
+          || `${item.ticket?.id ?? ''} ${item.ticket?.title ?? ''}`.toLowerCase().includes(needle)
+        const ticket = item.ticket
+        const hasHead = ticket !== undefined
         // 출처(PDF 이름 · 쪽)는 블록에 마우스를 올렸을 때 블록 바깥 오른쪽 위에 뜬다
         const tipLabel = `${item.sourceLabel ?? item.docLabel ?? 'PDF'} · ${[...new Set(sources.map((source) => `p.${source.anchor.page + 1}`))].join(', ')}${draft ? ` · ${t('새 메모')}` : ''}`
         // 원문 하나: 한 줄 출처 칩으로 접혀 있고 펼치면 전부. 표·그림은 그림이 곧 내용이라 늘 크게. 더한 원문에는 떼기 단추
@@ -571,7 +578,18 @@ export function NoteFlow({
               : highlight.kind === 'region' ? t('설명을 쓰세요 (안 써도 그림은 노트에 남습니다 · Esc 로 취소)')
                 : t('메모를 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다)')}
             onSave={(content) => {
-              onSaveMemo(highlight.id, content, draft ? draftTicket ?? undefined : undefined)
+              // 아직 ID 가 없는데 글 맨 앞에 「REQ-04 」처럼 썼으면 그 낱말을 ID 배지로 옮긴다
+              const leading = ticket?.id === undefined && onSetTicket !== undefined ? splitLeadingTicketId(content.text) : null
+              if (leading === null) {
+                onSaveMemo(highlight.id, content)
+              } else {
+                const stripped = { text: leading.rest, html: stripLeadingWord(content.html, leading.id) }
+                if (draft) onSaveMemo(highlight.id, stripped, { id: leading.id })
+                else {
+                  onSaveMemo(highlight.id, stripped)
+                  onSetTicket?.(item.key, { ...ticket, id: leading.id })
+                }
+              }
               onEdit(null)
             }}
             onCancel={() => {
@@ -580,48 +598,62 @@ export function NoteFlow({
             }}
           />
         ) : (highlight.note ?? '').trim() === '' && (highlight.noteHtml ?? '') === '' ? (
-          // 메모 없는 형광펜: 빈 줄 대신, 마우스를 올렸을 때만 「메모 쓰기」가 보인다
-          <button type="button" className="note-memo-add" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button>
+          // 메모 없는 형광펜: 빈 줄 대신, 마우스를 올렸을 때만 오른쪽 위 「메모 쓰기」(ghosts)
+          onSetTicket === undefined || draft ? <button type="button" className="note-memo-add" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button> : null
         ) : (
           <MemoNoteView note={highlight.note} noteHtml={highlight.noteHtml} onEdit={() => onEdit(item.key)} onChange={(content) => onSaveMemo(highlight.id, content)} />
         )
-        // 티켓 제목: 두 번 눌러 바꾼다(새 메모는 저장한 뒤에)
-        const ticketTitle = !ticket ? null : renamingTicket === item.key ? (
+        // 머리: ID 배지와 제목. 비어 있는 칸은 마우스를 올렸을 때 오른쪽 위에 「+ ID」「+ 제목」으로만 보인다
+        const editingId = headEdit?.key === item.key && headEdit.field === 'id'
+        const editingTitle = headEdit?.key === item.key && headEdit.field === 'title'
+        const canHead = onSetTicket !== undefined && !draft
+        const idInput = editingId ? (
+          <TicketIdInput
+            initial={ticket?.id ?? ''}
+            suggestions={suggestTicketIds(usedIds.map((used) => used.id))}
+            taken={usedIds.filter((used) => used.key !== item.key).map((used) => used.id)}
+            onDone={(value) => saveHead(item.key, ticket, 'id', value)}
+            onCancel={() => setHeadEdit(null)}
+          />
+        ) : null
+        const titleInput = editingTitle ? (
           <input
             className="note-ticket-title-input"
-            aria-label={t('티켓 제목')}
-            defaultValue={ticketTitleValue}
+            aria-label={t('제목')}
+            placeholder={t('제목')}
+            defaultValue={ticket?.title ?? ''}
             autoFocus
             onFocus={(event) => event.currentTarget.select()}
-            onBlur={(event) => {
-              const next = event.currentTarget.value.trim()
-              if (next !== '' && next !== ticketTitleValue) onSetTicket?.(item.key, next)
-              setRenamingTicket(null)
-            }}
+            onBlur={(event) => saveHead(item.key, ticket, 'title', event.currentTarget.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') event.currentTarget.blur()
-              else if (event.key === 'Escape') setRenamingTicket(null)
+              else if (event.key === 'Escape') { event.stopPropagation(); setHeadEdit(null) }
             }}
           />
-        ) : (
-          <div className="note-ticket-title" title={draft ? undefined : t('두 번 눌러 제목 바꾸기')} onDoubleClick={draft ? undefined : () => setRenamingTicket(item.key)}>
-            <Ticket size={14} weight="bold" aria-hidden="true" />
-            <span>{ticketTitleValue}</span>
+        ) : null
+        const head = hasHead || editingId || editingTitle ? (
+          <div className="note-ticket-head">
+            {(ticket?.id !== undefined || editingId) ? (
+              <div className="note-ticket-id-row">
+                {idInput ?? (
+                  <button type="button" className="note-ticket-id" title={t('ID 바꾸기')} onClick={canHead ? () => setHeadEdit({ key: item.key, field: 'id' }) : undefined}>{ticket?.id}</button>
+                )}
+              </div>
+            ) : null}
+            {titleInput ?? (ticket?.title !== undefined ? (
+              <div className="note-ticket-title" title={canHead ? t('두 번 눌러 제목 바꾸기') : undefined} onDoubleClick={canHead ? () => setHeadEdit({ key: item.key, field: 'title' }) : undefined}>
+                <span>{ticket.title}</span>
+              </div>
+            ) : null)}
           </div>
-        )
-        // 새 메모: 바로 「티켓으로」 단추(누르는 동안 편집기 포커스를 뺏지 않는다)
-        const draftTicketButton = draft && onSetTicket !== undefined ? (
-          <button
-            type="button"
-            className={`note-draft-ticket${ticket ? ' note-draft-ticket-on' : ''}`}
-            aria-pressed={ticket}
-            title={ticket ? t('메모로 쓰기') : t('티켓으로 쓰기')}
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={() => setDraftTicket((current) => (current === null ? t('새 티켓') : null))}
-          >
-            <Ticket size={13} weight={ticket ? 'fill' : 'bold'} aria-hidden="true" />
-            <span>{t('티켓')}</span>
-          </button>
+        ) : null
+        const memoEmpty = !editing && (highlight.note ?? '').trim() === '' && (highlight.noteHtml ?? '') === ''
+        const ghosts = canHead && !editingId && !editingTitle && !editing ? (
+          <div className="note-ticket-ghosts">
+            {memoEmpty ? <button type="button" className="note-ticket-ghost" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button> : null}
+            {ticket?.id === undefined ? <button type="button" className="note-ticket-ghost" onClick={() => setHeadEdit({ key: item.key, field: 'id' })}>{t('+ ID')}</button> : null}
+            {ticket?.title === undefined ? <button type="button" className="note-ticket-ghost" onClick={() => setHeadEdit({ key: item.key, field: 'title' })}>{t('+ 제목')}</button> : null}
+          </div>
         ) : null
         const region = highlight.kind === 'region'
         const collapsedFirst = highlight.kind !== 'region' && openQuotes?.has(highlight.id) !== true
@@ -633,7 +665,7 @@ export function NoteFlow({
               'pdf-memo-card',
               'pdf-memo-card-flow',
               'note-block',
-              ticket ? 'note-ticket' : '',
+              hasHead ? 'note-ticket' : '',
               region ? 'note-memo-region' : '',
               `pdf-memo-card-${highlight.color}`,
               active ? 'pdf-memo-card-active' : '',
@@ -647,7 +679,7 @@ export function NoteFlow({
             ].filter(Boolean).join(' ')}
             data-memo-id={highlight.id}
             data-note-block={item.key}
-            onPointerDown={renamingTicket === item.key ? undefined : startBlockDrag(item.key)}
+            onPointerDown={headEdit?.key === item.key ? undefined : startBlockDrag(item.key)}
             onClickCapture={pickBlock(item.key)}
             onPointerEnter={(event) => {
               onActivate(item.key)
@@ -659,12 +691,11 @@ export function NoteFlow({
             }}
             onContextMenu={openMenu(item.key)}
           >
-            {draftTicketButton}
-            {/* 메모: 원문 → 내 글. 티켓: 제목 → 내 글 → 원문(Req 문구) */}
-            {ticketTitle}
-            {ticket ? null : sourceList}
+            {/* 늘 같은 차례: ID·제목 → 내 글 → 원문(출처) */}
+            {head}
             {memo}
-            {ticket ? sourceList : null}
+            {sourceList}
+            {ghosts}
             {grip(item.key)}
             {menuButton(item.key)}
           </div>
@@ -748,19 +779,16 @@ export function NoteFlow({
                 {onAddRef !== undefined ? (
                   <button type="button" role="menuitem" onClick={run(() => onAddRef(menuItem.key))}>{menuLabel(<LinkSimple size={15} />, t('원문 더하기'))}</button>
                 ) : null}
-                {onSetTicket !== undefined && menuItem.ticketTitle === undefined ? (
-                  <button type="button" role="menuitem" onClick={run(() => {
-                    onSetTicket(menuItem.key, t('새 티켓'))
-                    setRenamingTicket(menuItem.key)
-                  })}>{menuLabel(<Ticket size={15} />, t('티켓으로 바꾸기'))}</button>
-                ) : null}
-                {onSetTicket !== undefined && menuItem.ticketTitle !== undefined ? (
+                {onSetTicket !== undefined && menuItem.draft !== true ? (
                   <>
-                    <button type="button" role="menuitem" onClick={run(() => setRenamingTicket(menuItem.key))}>{menuLabel(<PencilSimple size={15} />, t('티켓 제목 바꾸기'))}</button>
-                    <button type="button" role="menuitem" onClick={run(() => onSetTicket(menuItem.key, null))}>{menuLabel(<ArrowCounterClockwise size={15} />, t('메모로 되돌리기'))}</button>
+                    <button type="button" role="menuitem" onClick={run(() => setHeadEdit({ key: menuItem.key, field: 'id' }))}>{menuLabel(<Hash size={15} />, menuItem.ticket?.id === undefined ? t('ID 붙이기') : t('ID 바꾸기'))}</button>
+                    <button type="button" role="menuitem" onClick={run(() => setHeadEdit({ key: menuItem.key, field: 'title' }))}>{menuLabel(<PencilSimple size={15} />, menuItem.ticket?.title === undefined ? t('제목 붙이기') : t('제목 바꾸기'))}</button>
+                    {menuItem.ticket !== undefined ? (
+                      <button type="button" role="menuitem" onClick={run(() => onSetTicket(menuItem.key, null))}>{menuLabel(<XCircle size={15} />, t('ID·제목 지우기'))}</button>
+                    ) : null}
                   </>
                 ) : null}
-                {menuItem.highlight.kind === 'region' || menuItem.ticketTitle !== undefined ? null : (
+                {menuItem.highlight.kind === 'region' ? null : (
                   <button type="button" role="menuitem" onClick={run(() => onToggleCollapse(menuItem.highlight.id, openQuotes?.has(menuItem.highlight.id) === true))}>
                     {openQuotes?.has(menuItem.highlight.id) === true ? menuLabel(<CaretUp size={15} />, t('원문 접기')) : menuLabel(<CaretDown size={15} />, t('원문 펼치기'))}
                   </button>
@@ -796,3 +824,71 @@ export function NoteFlow({
     </>
   )
 }
+
+/** html 맨 앞(태그 사이)의 낱말 하나와 뒤따르는 빈칸을 뗀다 */
+function stripLeadingWord(html: string, word: string): string {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  return html.replace(new RegExp(`^((?:\\s|<[^>]+>)*)${escaped}(?:\\s|&nbsp;|\u00a0)+`, 'u'), '$1')
+}
+
+/** ID 입력칸: 아무 글이나 되고, 이 노트에서 쓴 ID 의 다음 번호를 제안하며, 이미 쓴 ID 면 알려 준다 */
+function TicketIdInput({ initial, suggestions, taken, onDone, onCancel }: {
+  readonly initial: string
+  readonly suggestions: readonly string[]
+  readonly taken: readonly string[]
+  readonly onDone: (value: string) => void
+  readonly onCancel: () => void
+}) {
+  const [value, setValue] = useState(initial)
+  const [pick, setPick] = useState(-1)
+  const done = useRef(false)
+  const needle = value.trim().toLowerCase()
+  const shown = suggestions.filter((suggestion) => needle === '' || suggestion.toLowerCase().startsWith(needle)).filter((suggestion) => suggestion.toLowerCase() !== needle).slice(0, 5)
+  const duplicate = needle !== '' && taken.some((id) => id.toLowerCase() === needle)
+  const finish = (next: string) => {
+    if (done.current) return
+    done.current = true
+    onDone(next)
+  }
+  return (
+    <div className="note-ticket-id-edit">
+      <input
+        className="note-ticket-id-input"
+        aria-label={t('ID')}
+        placeholder={suggestions[0] ?? 'REQ-01'}
+        value={value}
+        autoFocus
+        size={Math.max(6, value.length + 1)}
+        aria-invalid={duplicate}
+        onFocus={(event) => event.currentTarget.select()}
+        onChange={(event) => { setValue(event.target.value); setPick(-1) }}
+        onBlur={() => finish(value)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' && shown.length > 0) { event.preventDefault(); setPick((at) => (at + 1) % shown.length) }
+          else if (event.key === 'ArrowUp' && shown.length > 0) { event.preventDefault(); setPick((at) => (at <= 0 ? shown.length - 1 : at - 1)) }
+          else if (event.key === 'Tab' && shown.length > 0 && pick < 0 && value.trim() === '') { event.preventDefault(); setValue(shown[0] ?? '') }
+          else if (event.key === 'Enter') { event.preventDefault(); finish(pick >= 0 ? shown[pick] ?? value : value) }
+          else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); done.current = true; onCancel() }
+        }}
+      />
+      {shown.length > 0 ? (
+        <div className="note-ticket-id-suggest" role="listbox" aria-label={t('ID 제안')}>
+          {shown.map((suggestion, at) => (
+            <button
+              key={suggestion}
+              type="button"
+              role="option"
+              aria-selected={at === pick}
+              className={at === pick ? 'note-ticket-id-suggest-on' : undefined}
+              onPointerDown={(event) => { event.preventDefault(); finish(suggestion) }}
+            >
+              {suggestion}{at === 0 && suggestions[0] === suggestion ? <span>{t('다음 번호')}</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {duplicate ? <p className="note-ticket-id-warn" role="status">{t('이 노트에 이미 있는 ID 입니다')}</p> : null}
+    </div>
+  )
+}
+

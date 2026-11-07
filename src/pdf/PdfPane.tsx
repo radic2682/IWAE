@@ -33,7 +33,7 @@ import { MemoListView } from './MemoListView'
 import { useMemoBarVisible, setMemoBarVisible } from './memoStore'
 import { useMemoNoteApi } from './memoNoteContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
-import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock } from '../core/memoNote'
+import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
 import type { PdfSelectionTranslation } from './SelectionActions'
@@ -454,7 +454,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       // 다른 PDF 의 메모: 그 PDF 이름(「·」 앞의 짧은 이름)을 카드 머리에
       ...(highlight.anchor.docId === docId ? {} : { docLabel: (docTitles?.[highlight.anchor.docId] ?? t('다른 PDF')).split(' · ')[0]! }),
       sourceLabel: docTitles?.[highlight.anchor.docId] ?? (highlight.anchor.docId === docId ? title : t('다른 PDF')),
-      ...(block.ticket === undefined ? {} : { ticketTitle: block.ticket.title }),
+      ...(block.ticket === undefined ? {} : { ticket: block.ticket }),
       ...((block.refs ?? []).length === 0 ? {} : { extraHighlights: (block.refs ?? []).flatMap((ref) => { const found = highlightById.get(ref); return found === undefined ? [] : [found] }) }),
     })
   })
@@ -852,7 +852,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     onAnchorCreated?.(null)
   }
 
-  const saveMemo = (id: string, content: MemoContent, ticketTitle?: string) => {
+  const saveMemo = (id: string, content: MemoContent, ticket?: MemoTicket) => {
     const patch = { note: content.text, noteHtml: content.html }
     if (draftMemo !== null && id === draftMemo.id) {
       const draft = draftMemo
@@ -862,7 +862,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       if (content.text.trim() === '' && draft.kind !== 'region') return
       onPersistentHighlightCreated?.(updatePersistentPdfHighlight(draft, patch))
       const at = draftIndex
-      updateNote((note) => insertBlock(note, memoBlock(draft.id, ticketTitle === undefined ? undefined : { title: ticketTitle }), at))
+      updateNote((note) => insertBlock(note, memoBlock(draft.id, ticket), at))
       return
     }
     onPersistentHighlightUpdated?.(id, patch)
@@ -1664,7 +1664,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 pageSizeOf={(highlight) => highlight.anchor.docId === docId ? pageSizes[highlight.anchor.page] : highlight.pageSize}
                 onEdit={setEditingMemoId}
                 onActivate={setActiveMemoId}
-                onSaveMemo={(highlightId, content, ticketTitle) => saveMemo(highlightId, content, ticketTitle)}
+                onSaveMemo={(highlightId, content, ticket) => saveMemo(highlightId, content, ticket)}
                 onAddRef={noteApi === null ? undefined : (key) => {
                   setAttachKey(key)
                   if (key !== null) announceAction(t('PDF 에서 더할 원문을 고르세요'))
@@ -1688,7 +1688,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 onCardLayout={setMemoCardLayout}
                 onRenameSection={(key, title) => updateNote((note) => updateSection(note, key, { title }))}
                 onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
-                onSetTicket={noteApi === null ? undefined : (key, ticketTitle) => updateNote((note) => setMemoTicket(note, key, ticketTitle === null ? null : { title: ticketTitle }))}
+                onSetTicket={noteApi === null ? undefined : (key, ticket) => updateNote((note) => setMemoTicket(note, key, ticket))}
                 onRemoveSection={(key) => updateNote((note) => removeBlock(note, key))}
                 onInsertSection={noteApi === null ? undefined : (key) => insertNearBlock(key, sectionBlock(), false)}
                 onInsertText={noteApi === null ? undefined : (key) => insertNearBlock(key, textBlock(), true)}

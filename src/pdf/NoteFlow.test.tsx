@@ -49,7 +49,7 @@ describe('NoteFlow — 소제목', () => {
     expect(props.onRemoveSection).toHaveBeenCalledWith('s1')
   })
 
-  it('메모 블록은 출처(원문)가 먼저, 내 메모는 그 아래. 원문은 형광펜 색 한 줄 칩으로 접혀 있다. 칩을 누르면 PDF 로, 펼치면 원문 전체', () => {
+  it('메모 블록은 내 메모가 먼저, 출처(원문)는 맨 아래. 원문은 형광펜 색 한 줄 칩으로 접혀 있다. 칩을 누르면 PDF 로, 펼치면 원문 전체', () => {
     const props = { ...handlers(), onInsertSection: vi.fn(), onInsertText: vi.fn() }
     const highlight = {
       id: 'h1', color: 'green' as const, note: '쓴 메모', rating: 2,
@@ -70,8 +70,8 @@ describe('NoteFlow — 소제목', () => {
     expect(chip.textContent).toContain('원문 글')
     expect(chip.textContent).toContain('p.31')
     expect(chip.querySelector('.note-source-stars')?.textContent).toBe('★★')
-    // 출처 칩이 메모보다 먼저
-    expect(chip.compareDocumentPosition(memoText) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // 출처 칩은 늘 맨 아래(메모 다음)
+    expect(chip.compareDocumentPosition(memoText) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
     expect(container.querySelector('.pdf-memo-card-quote')).toBeNull()
     fireEvent.click(chip)
     expect(props.onJump).toHaveBeenCalledWith(highlight)
@@ -164,13 +164,44 @@ describe('NoteFlow — 티켓 · 여러 원문 · 여러 블록 고르기', () =
   const h1 = { id: 'h1', color: 'yellow' as const, note: '내 글', anchor: anchor(2, '첫 원문') }
   const h2 = { id: 'h2', color: 'yellow' as const, anchor: anchor(5, '둘째 원문') }
 
-  it('티켓은 메모와 같은 원문 칩(접힘)을 쓰고, 제목 · 내 글 · 원문 차례다', () => {
-    const items: NoteFlowItem[] = [{ kind: 'memo', key: 'b1', highlight: h1, ticketTitle: 'REQ-1' }]
+  it('ID·제목이 있으면 늘 ID·제목 → 내 글 → 원문 차례다', () => {
+    const items: NoteFlowItem[] = [{ kind: 'memo', key: 'b1', highlight: h1, ticket: { id: 'REQ-1', title: '저장' } }]
     const { container } = render(<NoteFlow {...handlers()} items={items} />)
     const card = container.querySelector('.note-ticket')!
     const order = [...card.children].map((child) => child.className)
-    expect(order.findIndex((name) => name.includes('note-ticket-title'))).toBeLessThan(order.findIndex((name) => name.includes('note-sources')))
+    expect(order.findIndex((name) => name.includes('note-ticket-head'))).toBeLessThan(order.findIndex((name) => name.includes('pdf-memo-card-text') || name.includes('pdf-memo-note')))
+    expect(order.findIndex((name) => name.includes('note-ticket-head'))).toBeLessThan(order.findIndex((name) => name.includes('note-sources')))
+    expect(card.querySelector('.note-ticket-id')?.textContent).toBe('REQ-1')
+    expect(card.querySelector('.note-ticket-title')?.textContent).toBe('저장')
     expect(card.querySelector('.note-source-chip')?.textContent).toContain('첫 원문')
+  })
+
+  it('그냥 메모도 원문은 맨 아래이고, 「+ ID」로 ID 를 붙이면 다음 번호를 제안한다', () => {
+    const onSetTicket = vi.fn()
+    const items: NoteFlowItem[] = [
+      { kind: 'memo', key: 'b0', highlight: h2, ticket: { id: 'REQ-03' } },
+      { kind: 'memo', key: 'b1', highlight: h1 },
+    ]
+    const { container } = render(<NoteFlow {...handlers()} items={items} onSetTicket={onSetTicket} />)
+    const card = container.querySelector('[data-note-block="b1"]')!
+    const order = [...card.children].map((child) => child.className)
+    expect(order.findIndex((name) => name.includes('note-sources'))).toBeGreaterThan(0)
+    expect(card.querySelector('.note-ticket-head')).toBeNull()
+    fireEvent.click(screen.getAllByRole('button', { name: '+ ID' })[0]!)
+    expect(screen.getByRole('option', { name: /REQ-04/u })).toBeTruthy()
+    fireEvent.pointerDown(screen.getByRole('option', { name: /REQ-04/u }))
+    expect(onSetTicket).toHaveBeenCalledWith('b1', { id: 'REQ-04' })
+  })
+
+  it('이미 쓴 ID 를 넣으면 알려 준다', () => {
+    const items: NoteFlowItem[] = [
+      { kind: 'memo', key: 'b0', highlight: h2, ticket: { id: 'REQ-03' } },
+      { kind: 'memo', key: 'b1', highlight: h1 },
+    ]
+    render(<NoteFlow {...handlers()} items={items} onSetTicket={vi.fn()} />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ ID' })[0]!)
+    fireEvent.change(screen.getByRole('textbox', { name: 'ID' }), { target: { value: 'req-03' } })
+    expect(screen.getByRole('status').textContent).toContain('이미 있는 ID')
   })
 
   it('한 메모에 원문을 여럿 보이고, 더한 원문만 뗄 수 있다', () => {
@@ -184,19 +215,16 @@ describe('NoteFlow — 티켓 · 여러 원문 · 여러 블록 고르기', () =
     expect(onRemoveRef).toHaveBeenCalledWith('b1', 'h2')
   })
 
-  it('새 메모에는 「티켓」 단추가 바로 있고, 누르고 저장하면 티켓 제목과 함께 저장한다', () => {
+  it('새 메모 글 맨 앞에 「REQ-04 」처럼 쓰면 그 낱말이 ID 가 되어 저장된다', () => {
     const props = handlers()
     const draft = { id: 'hd', color: 'yellow' as const, anchor: anchor(1, '새 원문') }
     const items: NoteFlowItem[] = [{ kind: 'memo', key: 'draft', highlight: draft, draft: true }]
     render(<MemoFormatSlotContext.Provider value={null}><NoteFlow {...props} items={items} onSetTicket={vi.fn()} /></MemoFormatSlotContext.Provider>)
-    const button = screen.getByRole('button', { name: '티켓' })
-    fireEvent.click(button)
-    expect(button.getAttribute('aria-pressed')).toBe('true')
     const editor = screen.getAllByRole('textbox').at(-1)!
-    editor.textContent = '요구사항'
+    editor.textContent = 'REQ-04 요구사항'
     fireEvent.input(editor)
     fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
-    expect(props.onSaveMemo).toHaveBeenCalledWith('hd', expect.anything(), '새 티켓')
+    expect(props.onSaveMemo).toHaveBeenCalledWith('hd', expect.objectContaining({ text: '요구사항' }), { id: 'REQ-04' })
   })
 
   it('Ctrl+누르기로 여러 블록을 고르고 한꺼번에 지운다', () => {
