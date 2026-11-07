@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>Interwoven Writing and Evidence</strong><br>
-  A local-first desktop app for reading long PDFs, marking them up, and weaving your memos into notes that always point back to the source.
+  Keep your PDFs in folders on the left, click to open them in tabs, read them side by side,<br>
+  and turn your highlights into notes that always point back to the source.
 </p>
 
 <p align="center">
@@ -19,19 +20,33 @@
 
 <p align="center"><a href="README.ko.md">한국어</a></p>
 
+<p align="center">
+  <img src="docs/images/open-and-split.gif" width="900" alt="Opening PDFs from the folder tree into tabs, then splitting the window to read two side by side">
+</p>
+
 > **Status:** alpha. The core reading, memo, note and storage features work, but the interface and file formats may still change.
 
-## What it does
+## Why IWAE
 
-You open a folder (a **Vault**) of PDFs and Markdown files. While you read, you highlight a passage and write a memo next to it. Memos collect into **notes** on the right side of the screen, and each memo stays linked to the exact spot in the PDF it came from. Click a memo and the PDF jumps to it.
+Most PDF readers open one file at a time and leave the organizing to your file manager. Reference managers organize well, but they want metadata and keep your files inside their own library. IWAE sits in between:
+
+- **Your folder is the library.** Open any folder (a **Vault**). Its subfolders and PDFs appear as a tree on the left, exactly as they are on disk. Create folders, rename, and drag files around right there.
+- **One click to read.** Click a PDF and it opens in a tab. Open as many as you like and switch between them like browser tabs.
+- **Read side by side.** Split the window into two or three columns, two rows, or a 2×2 grid, and drag tabs between the panes.
+- **Mark up as you go.** Highlight a passage and write a memo next to it. Memos collect into **notes** on the right, and each memo stays linked to the exact spot it came from. Click it and the PDF jumps back there.
 
 Your documents stay ordinary files in an ordinary folder. IWAE keeps its own records (highlights, bookmarks, notes, indexes) in a `.iwae` folder inside the Vault, so you can copy, back up or sync the whole thing with any tool.
 
+<p align="center">
+  <img src="docs/images/split-view.png" width="900" alt="IWAE with a folder tree on the left and two PDFs open side by side">
+</p>
+
 ## Features
 
-### Reading
+### Organizing and reading
 
-- PDF and Markdown viewer with tabs and a split view for reading two documents side by side.
+- A folder tree of the Vault on the left: PDFs and Markdown files in their real folders, with new folder, rename, move and refresh.
+- Tabs for every open document, and a window split into columns, rows or a grid. Drag a tab to move it to another pane.
 - Outline, page thumbnails, in-document search (Ctrl+F) and a search across every document in the Vault.
 - Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump, and go back with the mouse back button.
 - Single page or two-page spreads, page rotation, dark-mode color inversion, light and dark app themes.
