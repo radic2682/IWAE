@@ -155,7 +155,7 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '오른쪽 탭 모두 닫기': 'Close tabs to the right',
   '모두 닫기': 'Close all',
   '같은 PDF 한 군데 더 열기': 'Open same PDF again',
-  '쪽 편집 (순서·회전·끼워 넣기)…': 'Edit pages (order, rotate, insert)…',
+  '쪽 편집 (순서·회전·끼워 넣기)…': 'Edit pages…',
   '이름을 복사했습니다': 'Copied name',
   '이름 복사': 'Copy name',
 

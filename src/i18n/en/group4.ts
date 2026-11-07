@@ -263,7 +263,7 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '{name}: 최신으로 받는 중…': '{name}: pulling latest…',
   '{index}번 패널로 옮기기': 'Move to pane {index}',
   '{pane} 패널로 옮기기': 'Move to {pane} pane',
-  '새 오른쪽 패널로 옮기기 ({count}단)': 'Move to new right pane ({count} columns)',
+  '새 오른쪽 패널로 옮기기 ({count}단)': 'Move to new pane on the right',
   '탭': 'Tabs',
   '노트를 불러올 수 없습니다': 'Cannot load the note',
   '문서를 불러올 수 없습니다. 사이드바에서 문서를 다시 연결해 주세요': 'Cannot load the document. Relink it from the sidebar',

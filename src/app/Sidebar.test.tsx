@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import type { ComponentProps } from 'react'
 import { sidebarDefaults } from './sidebarDefaults'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { Sidebar, vaultFolderName } from './Sidebar'
+import { shownPath, Sidebar, vaultFolderName } from './Sidebar'
 import { loadLibrary, loadNotebooks } from '../bridge/fake'
 import type { VaultTreeNode, VaultTreePlaceRequest, VaultTreeReorderRequest } from '../core/vaultTree'
 import type { PdfAttachmentPolicy } from '../core/vaultTree'
@@ -942,7 +942,7 @@ describe('SidebarFooter — Vault 메뉴', () => {
     expect(onOpenSettings).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: /Research/ }))
     const menu = screen.getByRole('menu', { name: 'Vault 메뉴' })
-    expect(menu.textContent).toContain('C:/Work/Research')
+    expect(menu.textContent).toContain(shownPath('C:/Work/Research'))
     expect(screen.getByRole('menuitem', { name: '다른 폴더 열기…' })).toBeDefined()
     expect(screen.getByRole('menuitem', { name: '예시 Vault 만들기' })).toBeDefined()
     // 지금 Vault 는 최근 목록에 다시 나오지 않는다

@@ -1990,7 +1990,8 @@ export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOp
     window.addEventListener('keydown', escape)
     return () => window.removeEventListener('keydown', escape)
   }, [open])
-  const others = recentVaultPaths.filter((root) => root !== vaultRoot && !forgotten.includes(root))
+  const sameVault = (a: string, b: string | null | undefined) => b != null && shownPath(a).toLowerCase() === shownPath(b).toLowerCase()
+  const others = recentVaultPaths.filter((root, index, all) => !sameVault(root, vaultRoot) && !forgotten.includes(root) && all.findIndex((other) => sameVault(other, root)) === index)
   const close = () => setOpen(false)
   const run = (action: () => Promise<void>) => {
     setBusy(true)
@@ -2029,7 +2030,7 @@ export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOp
                 <Folder size={18} weight="fill" className="vault-menu-current-icon" aria-hidden="true" />
                 <div className="vault-menu-current-text">
                   <strong>{vaultFolderName(vaultRoot)}</strong>
-                  <small>{vaultRoot}</small>
+                  <small>{shownPath(vaultRoot)}</small>
                 </div>
                 <div className="vault-menu-current-tools">
                   <button
@@ -2110,7 +2111,7 @@ export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOp
                         <Folder size={15} aria-hidden="true" />
                         <span>
                           <strong>{vaultFolderName(root)}</strong>
-                          <small>{root}</small>
+                          <small>{shownPath(root)}</small>
                         </span>
                       </button>
                       <button
@@ -2150,4 +2151,9 @@ function readExpandedFolders(key: string): ReadonlySet<string> {
 /** Vault 경로의 마지막 폴더 이름. 드라이브 루트(C:/)처럼 이름이 없으면 경로를 그대로 쓴다 */
 export function vaultFolderName(root: string): string {
   return root.split(/[\\/]/u).filter((part) => part !== '').at(-1) ?? root
+}
+
+/** 화면에 보일 경로: Windows 에서는 \ 로, macOS 에서는 / 로 맞춘다(저장된 경로는 / 와 \ 가 섞여 있을 수 있다) */
+export function shownPath(path: string): string {
+  return isMacPlatform() ? path.replace(/\\/gu, '/') : path.replace(/\//gu, '\\')
 }
