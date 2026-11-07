@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { MEMO_BAR_WIDTH, useMemoBarWidth } from './memoBarWidth'
 import { NoteBarHeader } from './NoteBarHeader'
 import { useHighlightTool } from './highlightToolStore'
 import { useOverlayTool } from './overlayToolStore'
@@ -71,19 +72,6 @@ const OVERSCAN = 2
 const RESIZE_THROTTLE_MS = 120
 /** 화면 앞뒤로 미리보기를 미리 받아 둘 쪽 수 */
 const PREVIEW_PREFETCH = 8
-/** 오른쪽 메모 바의 폭(px): 자동일 때 최대, 끌어서 줄일 수 있는 최소 */
-const MEMO_BAR_WIDTH = 330
-const MEMO_BAR_MIN = 220
-const MEMO_BAR_WIDTH_KEY = 'iwae:memo-bar-width:v1'
-
-function readMemoBarWidth(): number | null {
-  try {
-    const value = Number(window.localStorage.getItem(MEMO_BAR_WIDTH_KEY))
-    return Number.isFinite(value) && value >= MEMO_BAR_MIN ? value : null
-  } catch {
-    return null
-  }
-}
 /** 메모 바 안에서 카드가 시작하는 자리(왼쪽 끝에서 선이 굽어 들어올 틈) */
 const MEMO_CARD_INSET = 12
 
@@ -469,48 +457,12 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   }, [primary])
   // 좁은 창에서는 메모 열도 좁힌다(창의 30%, 180–300px)
   // 메모는 PDF 오른쪽의 따로 떨어진 바에 둔다. PDF 창(스크롤 상자)은 그 왼쪽만 쓴다
-  // 바 폭은 PDF 창 전체(바 포함) 폭의 38%, 220–330px. 전체 폭은 바 폭과 상관없이 같으니 한 번에 자리 잡는다
-  const [autoMemoBarSize, setAutoMemoBarSize] = useState(MEMO_BAR_WIDTH)
-  // 바 왼쪽 가장자리를 끌어 정한 폭(이 PC 에 기억한다). 없으면 창 폭에 맞춘 자동 폭
-  const [userMemoBarSize, setUserMemoBarSize] = useState<number | null>(readMemoBarWidth)
-  // 전체 폭은 창 틀을 직접 잰다. 「PDF 폭 + 바 폭」으로 셈하면, 끌어 넓힌 바가 창에 다 안 들어갈 때
-  // 바를 줄이면 PDF 가 넓어지고, 그러면 다시 바를 넓히는 것을 프레임마다 되풀이해 화면이 떨렸다
-  const autoBarShown = memoColumn ? (userMemoBarSize ?? autoMemoBarSize) : 0
-  const paneTotalWidth = frameWidth > 0 ? frameWidth : measured.width + autoBarShown
-  const memoBarSize = userMemoBarSize === null
-    ? autoMemoBarSize
-    : Math.round(Math.min(userMemoBarSize, Math.max(MEMO_BAR_MIN, paneTotalWidth - 240)))
+  // 메모 바 폭: Markdown 과 같은 값(src/pdf/memoBarWidth). 전체 폭은 창 틀을 직접 잰다 — 「PDF 폭 + 바 폭」으로 셈하면
+  // 끌어 넓힌 바가 창에 다 안 들어갈 때 바를 줄이면 PDF 가 넓어지고, 다시 바를 넓히는 것을 프레임마다 되풀이해 화면이 떨렸다
+  const paneTotalWidth = frameWidth > 0 ? frameWidth : measured.width + (memoColumn ? MEMO_BAR_WIDTH : 0)
+  const memoBar = useMemoBarWidth(paneTotalWidth, memoColumn && measured.width > 0)
+  const memoBarSize = memoBar.size
   const memoBarWidth = memoColumn ? memoBarSize : 0
-  const wantedMemoBarSize = Math.round(Math.min(MEMO_BAR_WIDTH, Math.max(MEMO_BAR_MIN, paneTotalWidth * 0.38)))
-  useEffect(() => {
-    if (memoColumn && measured.width > 0 && wantedMemoBarSize !== autoMemoBarSize) setAutoMemoBarSize(wantedMemoBarSize)
-  }, [autoMemoBarSize, memoColumn, measured.width, wantedMemoBarSize])
-  const startMemoBarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    const startX = event.clientX
-    const startWidth = memoBarSize
-    const target = event.currentTarget
-    target.setPointerCapture?.(event.pointerId)
-    const move = (moveEvent: PointerEvent) => {
-      const next = Math.round(Math.min(Math.max(startWidth + (startX - moveEvent.clientX), MEMO_BAR_MIN), Math.max(MEMO_BAR_MIN, paneTotalWidth - 240)))
-      setUserMemoBarSize(next)
-    }
-    const up = (upEvent: PointerEvent) => {
-      target.removeEventListener('pointermove', move)
-      target.removeEventListener('pointerup', up)
-      target.removeEventListener('pointercancel', up)
-      const next = Math.round(Math.min(Math.max(startWidth + (startX - upEvent.clientX), MEMO_BAR_MIN), Math.max(MEMO_BAR_MIN, paneTotalWidth - 240)))
-      try {
-        window.localStorage.setItem(MEMO_BAR_WIDTH_KEY, String(next))
-      } catch {
-        // 저장 못 해도 이번 화면에서는 바뀐다
-      }
-    }
-    target.addEventListener('pointermove', move)
-    target.addEventListener('pointerup', up)
-    target.addEventListener('pointercancel', up)
-  }
 
   // 메모 바는 PDF 창 틀 전체(위 제목줄 ~ 아래 하단바)를 차지한다. PDF 의 제목·도구·하단바는 그 왼쪽만 쓴다
   const [paneFrame, setPaneFrame] = useState<HTMLElement | null>(null)
@@ -1562,15 +1514,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
             aria-orientation="vertical"
             aria-label={t('메모 바 너비 조절')}
             title={t('끌어서 너비 조절')}
-            onPointerDown={startMemoBarResize}
-            onDoubleClick={() => {
-              setUserMemoBarSize(null)
-              try {
-                window.localStorage.removeItem(MEMO_BAR_WIDTH_KEY)
-              } catch {
-                // 저장 못 해도 이번 화면에서는 바뀐다
-              }
-            }}
+            onPointerDown={memoBar.startResize}
+            onDoubleClick={memoBar.resetSize}
           />
         )}
         <NoteBarHeader

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NoteBarHeader } from '../pdf/NoteBarHeader'
 import { MemoListView } from '../pdf/MemoListView'
 import { NoteFlow, type NoteFlowItem } from '../pdf/NoteFlow'
@@ -29,13 +29,17 @@ interface MarkdownMemoBarProps {
   /** 메모만 보기(바가 문서 자리를 덮는다) */
   readonly memoOnly?: boolean
   readonly onMemoOnlyChange?: (memoOnly: boolean) => void
+  /** 바 폭(px)과 왼쪽 가장자리 끌기·두 번 누르기(PDF 메모 바와 같은 폭을 쓴다) */
+  readonly width?: number
+  readonly onResizeStart?: (event: ReactPointerEvent<HTMLElement>) => void
+  readonly onResizeReset?: () => void
 }
 
 /**
  * Markdown 의 메모 바(PDF 메모 바와 같은 노트 카드): 열린 노트의 블록을 그대로 보이고, 고른 글로 만든 새 메모는
  * 노트 끝에 들어간다. 노트가 없으면 만들기 단추.
  */
-export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, onHighlightCreated, onHighlightUpdated, onHighlightRemoved, onJump, docTitles, attachingKey = null, onAddRef, memoOnly = false, onMemoOnlyChange }: MarkdownMemoBarProps) {
+export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, onHighlightCreated, onHighlightUpdated, onHighlightRemoved, onJump, docTitles, attachingKey = null, onAddRef, memoOnly = false, onMemoOnlyChange, width, onResizeStart, onResizeReset }: MarkdownMemoBarProps) {
   const noteApi = useMemoNoteApi()
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [activeKey, setActiveKey] = useState<string | null>(null)
@@ -103,7 +107,18 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
 
   // PDF 메모 바와 같은 머리·같은 구조(맨 위 서식 줄 고정, 왼쪽 손잡이 자리)
   return (
-    <aside className={`pdf-memo-bar markdown-memo-bar${memoOnly ? ' markdown-memo-bar-full' : ''}`} aria-label={t('메모 바')}>
+    <aside className={`pdf-memo-bar markdown-memo-bar${memoOnly ? ' markdown-memo-bar-full' : ''}`} aria-label={t('메모 바')} style={memoOnly || width === undefined ? undefined : { width: `${width}px` }}>
+      {memoOnly || onResizeStart === undefined ? null : (
+        <div
+          className="pdf-memo-bar-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t('메모 바 너비 조절')}
+          title={t('끌어서 너비 조절')}
+          onPointerDown={onResizeStart}
+          onDoubleClick={onResizeReset}
+        />
+      )}
       <NoteBarHeader
         api={noteApi}
         className="pdf-memo-header markdown-memo-bar-head"

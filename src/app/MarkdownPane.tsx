@@ -14,9 +14,8 @@ import { createPortal } from 'react-dom'
 import { announceAction } from './actionFeedback'
 import { MarkdownWriteLayer, markdownFitWidthZoom, markdownPaper, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
 import { MarkdownMemoBar } from './MarkdownMemoBar'
+import { useMemoBarWidth } from '../pdf/memoBarWidth'
 
-/** Markdown 메모 바 폭(px). 창 틀에서 이만큼을 메모 바에 내준다 */
-const MARKDOWN_MEMO_BAR_WIDTH = 360
 import type { MarkdownSearchHit } from './MarkdownSearchPanel'
 import { PdfPins, PinHead, type PdfPinPatchInput, type PlacedPin } from '../pdf/PdfPins'
 import type { PdfBookmark } from '../core/pdfBookmarks'
@@ -525,17 +524,28 @@ export function MarkdownPane({
   // PDF 와 같은 틀: 메모 바는 창 틀(.pane-frame) 전체(위 제목줄 ~ 아래 하단바)를 차지하고,
   // 글·도구줄·하단바는 --memo-bar-w 만큼 비운 왼쪽만 쓴다(PdfPane 과 같은 방식)
   const [paneFrame, setPaneFrame] = useState<HTMLElement | null>(null)
+  const [frameWidth, setFrameWidth] = useState(0)
   useLayoutEffect(() => {
     const frame = hostRef.current?.closest<HTMLElement>('.pane-frame') ?? null
     if (frame !== paneFrame) setPaneFrame(frame)
   })
+  useEffect(() => {
+    if (paneFrame === null) return undefined
+    const measure = () => setFrameWidth(paneFrame.clientWidth)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(paneFrame)
+    return () => observer.disconnect()
+  }, [paneFrame])
+  // 바 폭은 PDF 메모 바와 같은 값(끌어 바꾸면 양쪽이 같이 바뀐다)
+  const memoBar = useMemoBarWidth(frameWidth, memoBarVisible && frameWidth > 0)
   useLayoutEffect(() => {
     if (!memoBarVisible) return undefined
     const paneDoc = hostRef.current?.closest<HTMLElement>('.pane-doc')
     if (paneDoc === null || paneDoc === undefined) return undefined
-    paneDoc.style.setProperty('--memo-bar-w', `${MARKDOWN_MEMO_BAR_WIDTH}px`)
+    paneDoc.style.setProperty('--memo-bar-w', `${memoBar.size}px`)
     return () => { paneDoc.style.removeProperty('--memo-bar-w') }
-  }, [memoBarVisible])
+  }, [memoBarVisible, memoBar.size])
   const [draftMemo, setDraftMemo] = useState<PersistentPdfHighlight | null>(null)
   const jumpToMemo = (highlight: PersistentPdfHighlight) => {
     if (highlight.anchor.docId !== path) {
@@ -1108,6 +1118,9 @@ export function MarkdownPane({
           }}
           memoOnly={memoOnly}
           onMemoOnlyChange={setMemoOnly}
+          width={memoBar.size}
+          onResizeStart={memoBar.startResize}
+          onResizeReset={memoBar.resetSize}
         />,
         paneFrame,
       ) : null}
