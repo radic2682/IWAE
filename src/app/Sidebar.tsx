@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
-import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, DotsSixVertical, FileMd, FilePdf, FilePlus, Files, Folder, FolderPlus, GearSix, NotePencil, Plus, X } from '@phosphor-icons/react'
+import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, DotsSixVertical, FileMd, FilePdf, FilePlus, Files, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle } from '@phosphor-icons/react'
 import {
   buildLegacyWorkspaceTree,
   projectVaultTree,
@@ -35,6 +35,11 @@ import '../ui/version-groups.css'
 import { cleanEntryName } from '../bridge/vaultFiles'
 import '../ui/sidebar-followup.css'
 import { t } from '../i18n'
+import { createExampleVaultFolder, forgetVault, pickVaultFolder } from '../bridge/vault'
+import { revealInFolder } from '../bridge/vaultBackup'
+import { isMacPlatform } from '../core/platform'
+import { announceAction } from './actionFeedback'
+import '../ui/vault-menu.css'
 
 // 선택창과 이모지 데이터는 처음 열 때만 불러온다 — 시작 번들을 키우지 않는다.
 const LazyEmojiPicker = lazy(async () => {
@@ -1995,60 +2000,167 @@ export function Sidebar({
 }
 
 /**
- * 왼쪽 바 바닥 줄(Vault 전환·설정). 탐색기뿐 아니라 목차·미리보기·검색 보기에서도 같은 자리에 둔다
+ * 왼쪽 바 바닥 줄: 왼쪽은 지금 Vault(누르면 Vault 메뉴), 오른쪽은 설정.
+ * 탐색기뿐 아니라 목차·미리보기·검색 보기에서도 같은 자리에 둔다
  */
 export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOpenRecentVault, onOpenSettings }: {
   readonly vaultRoot?: string | undefined
   readonly recentVaultPaths: readonly string[]
+  /** 시작 화면으로(지금 Vault 닫기) */
   readonly onSwitchVault?: (() => void) | undefined
+  /** 경로로 Vault 열기(최근 목록·고른 폴더·예시 Vault) */
   readonly onOpenRecentVault?: ((root: string) => void) | undefined
   readonly onOpenSettings?: (() => void) | undefined
 }) {
   const [open, setOpen] = useState(false)
+  const [forgotten, setForgotten] = useState<readonly string[]>([])
+  const [busy, setBusy] = useState(false)
   useEffect(() => {
     if (!open) return
     const escape = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', escape)
     return () => window.removeEventListener('keydown', escape)
   }, [open])
-  const others = recentVaultPaths.filter((root) => root !== vaultRoot)
+  const others = recentVaultPaths.filter((root) => root !== vaultRoot && !forgotten.includes(root))
+  const close = () => setOpen(false)
+  const run = (action: () => Promise<void>) => {
+    setBusy(true)
+    void action()
+      .catch((cause: unknown) => window.alert(errorText(cause)))
+      .finally(() => setBusy(false))
+  }
+  const mac = isMacPlatform()
   return (
     <div className="side-footer">
-      <button type="button" className="side-vault-btn" title={vaultRoot} onClick={() => setOpen((shown) => !shown)}>
+      <button
+        type="button"
+        className={`side-vault-btn${open ? ' side-vault-btn-open' : ''}`}
+        title={vaultRoot}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((shown) => !shown)}
+      >
         <Folder size={14} aria-hidden="true" />
-        {/* 폴더 이름만 보인다. 전체 경로는 마우스를 올리면 나온다 */}
+        {/* 폴더 이름만 보인다. 전체 경로는 마우스를 올리면, 그리고 메뉴 맨 위에 나온다 */}
         <span className="side-vault-label">{vaultRoot === undefined ? t('폴더를 선택하세요') : vaultFolderName(vaultRoot)}</span>
+        <CaretUpDown size={12} className="side-vault-caret" aria-hidden="true" />
       </button>
       {onOpenSettings === undefined ? null : (
-        <button type="button" className="side-settings-btn" aria-label={t('설정')} onClick={onOpenSettings}>
+        <button type="button" className="side-settings-btn" aria-label={t('설정')} title={t('설정 (Ctrl+,)')} onClick={onOpenSettings}>
           <GearSix size={15} aria-hidden="true" />
         </button>
       )}
       {open && (
         <>
           {/* 바깥을 누르면 닫힌다. 메뉴 자체보다 먼저 그려서 z-index 로만 가른다 */}
-          <div className="side-menu-backdrop" onClick={() => setOpen(false)} />
-          <div className="side-menu" role="menu">
-            <div className="side-menu-title">Vault</div>
-            <button type="button" role="menuitem" className="side-menu-item" onClick={() => { setOpen(false); onSwitchVault?.() }}>
-              {t('다른 폴더 열기…')}
-            </button>
-            {others.map((root) => (
+          <div className="side-menu-backdrop" onClick={close} />
+          <div className="vault-menu" role="menu" aria-label={t('Vault 메뉴')}>
+            {vaultRoot === undefined ? null : (
+              <div className="vault-menu-current">
+                <Folder size={18} weight="fill" className="vault-menu-current-icon" aria-hidden="true" />
+                <div className="vault-menu-current-text">
+                  <strong>{vaultFolderName(vaultRoot)}</strong>
+                  <small>{vaultRoot}</small>
+                </div>
+                <div className="vault-menu-current-tools">
+                  <button
+                    type="button"
+                    className="vault-menu-icon-btn"
+                    aria-label={mac ? t('Finder 에서 보기') : t('탐색기에서 보기')}
+                    title={mac ? t('Finder 에서 보기') : t('탐색기에서 보기')}
+                    onClick={() => run(() => revealInFolder(vaultRoot))}
+                  >
+                    <ArrowSquareOut size={15} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="vault-menu-icon-btn"
+                    aria-label={t('경로 복사')}
+                    title={t('경로 복사')}
+                    onClick={() => run(async () => {
+                      await navigator.clipboard.writeText(vaultRoot)
+                      announceAction(t('경로를 복사했습니다'))
+                    })}
+                  >
+                    <Copy size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="vault-menu-actions">
               <button
-                key={root}
                 type="button"
                 role="menuitem"
-                className="side-menu-item"
-                title={root}
-                onClick={() => {
-                  setOpen(false)
+                className="vault-menu-item"
+                disabled={busy}
+                onClick={() => run(async () => {
+                  const root = await pickVaultFolder(vaultRoot)
+                  if (root === null) return
+                  close()
                   onOpenRecentVault?.(root)
-                }}
+                })}
               >
-                {root.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? root}
+                <FolderOpen size={16} aria-hidden="true" />
+                <span>{t('다른 폴더 열기…')}</span>
               </button>
-            ))}
-            {others.length === 0 && <div className="side-menu-empty">{t('최근에 연 vault 없음')}</div>}
+              <button
+                type="button"
+                role="menuitem"
+                className="vault-menu-item"
+                disabled={busy}
+                onClick={() => run(async () => {
+                  const root = await createExampleVaultFolder(t('IWAE 예시'))
+                  close()
+                  onOpenRecentVault?.(root)
+                })}
+              >
+                <Sparkle size={16} aria-hidden="true" />
+                <span>{t('예시 Vault 만들기')}</span>
+              </button>
+              {onSwitchVault === undefined ? null : (
+                <button type="button" role="menuitem" className="vault-menu-item" disabled={busy} onClick={() => { close(); onSwitchVault() }}>
+                  <House size={16} aria-hidden="true" />
+                  <span>{t('시작 화면으로')}</span>
+                </button>
+              )}
+            </div>
+            <div className="vault-menu-recent">
+              <div className="vault-menu-heading">{t('최근 Vault')}</div>
+              {others.length === 0 ? <div className="vault-menu-empty">{t('최근에 연 다른 Vault 가 없습니다')}</div> : (
+                <ul>
+                  {others.map((root) => (
+                    <li key={root}>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="vault-menu-recent-open"
+                        title={root}
+                        disabled={busy}
+                        onClick={() => { close(); onOpenRecentVault?.(root) }}
+                      >
+                        <Folder size={15} aria-hidden="true" />
+                        <span>
+                          <strong>{vaultFolderName(root)}</strong>
+                          <small>{root}</small>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="vault-menu-recent-remove"
+                        aria-label={t('{name} 를 목록에서 빼기', { name: vaultFolderName(root) })}
+                        title={t('목록에서 빼기 (폴더는 그대로)')}
+                        onClick={() => {
+                          setForgotten((current) => [...current, root])
+                          void forgetVault(root).catch(() => undefined)
+                        }}
+                      >
+                        <X size={12} aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </>
       )}

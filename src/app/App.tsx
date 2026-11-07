@@ -2104,6 +2104,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             onSwitchVault={closeVaultSafely}
             recentVaultPaths={recentVaultPaths}
             onOpenRecentVault={openRecentVaultSafely}
+            onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true) }}
             openDocIds={openTabIds.filter((tab) => tab.kind !== 'note').map(tabDocId)}
             openNotePaths={openTabIds.filter((tab) => tab.kind === 'note').map((tab) => tab.id)}
             tree={tree}
@@ -2189,6 +2190,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             recentVaultPaths={recentVaultPaths}
             onSwitchVault={closeVaultSafely}
             onOpenRecentVault={openRecentVaultSafely}
+            onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true) }}
           />
           </div>
         )

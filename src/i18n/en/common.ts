@@ -83,4 +83,13 @@ export const COMMON: Readonly<Record<string, string>> = {
   '{name} 를 목록에서 빼기': 'Remove {name} from the list',
   '목록에서 빼기 (폴더는 그대로)': 'Remove from the list (the folder stays)',
   '폴더를 이 창에 끌어 놓아도 열립니다. 원본 문서는 옮기거나 고치지 않고, 앱의 기록은 그 폴더 안 .iwae 에 둡니다.': 'You can also drop a folder onto this window. Your documents are never moved or changed; IWAE keeps its own records in a .iwae folder inside.',
+  'Vault 메뉴': 'Vault menu',
+  '탐색기에서 보기': 'Show in File Explorer',
+  'Finder 에서 보기': 'Show in Finder',
+  '경로 복사': 'Copy path',
+  '경로를 복사했습니다': 'Path copied',
+  '예시 Vault 만들기': 'Create an example Vault',
+  '시작 화면으로': 'Back to start screen',
+  '최근에 연 다른 Vault 가 없습니다': 'No other recent Vaults',
+  '설정 (Ctrl+,)': 'Settings (Ctrl+,)',
 }

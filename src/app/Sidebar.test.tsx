@@ -193,7 +193,7 @@ describe('Sidebar — 문서 추가', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: '폴더를 선택하세요' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Protocol' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Protocol/ }))
     expect(onOpenRecentVault).toHaveBeenCalledWith('C:/Vaults/Protocol')
   })
 
@@ -919,5 +919,28 @@ describe('vaultFolderName', () => {
     expect(vaultFolderName('C:/Workspace/IWAE_Vault')).toBe('IWAE_Vault')
     expect(vaultFolderName('C:\\Users\\me\\Notes\\')).toBe('Notes')
     expect(vaultFolderName('/home/me/vault')).toBe('vault')
+  })
+})
+
+describe('SidebarFooter — Vault 메뉴', () => {
+  it('지금 Vault 의 이름·경로와 할 일을 보이고, 설정 단추를 둔다', async () => {
+    const { SidebarFooter } = await import('./Sidebar')
+    const onOpenSettings = vi.fn()
+    const onSwitchVault = vi.fn()
+    render(<SidebarFooter vaultRoot="C:/Work/Research" recentVaultPaths={['C:/Work/Research', 'D:/Old']} onOpenSettings={onOpenSettings} onSwitchVault={onSwitchVault} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '설정' }))
+    expect(onOpenSettings).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: /Research/ }))
+    const menu = screen.getByRole('menu', { name: 'Vault 메뉴' })
+    expect(menu.textContent).toContain('C:/Work/Research')
+    expect(screen.getByRole('menuitem', { name: '다른 폴더 열기…' })).toBeDefined()
+    expect(screen.getByRole('menuitem', { name: '예시 Vault 만들기' })).toBeDefined()
+    // 지금 Vault 는 최근 목록에 다시 나오지 않는다
+    expect(screen.queryAllByRole('menuitem', { name: /Research/ })).toHaveLength(0)
+    expect(screen.getByRole('menuitem', { name: /^Old/ })).toBeDefined()
+    fireEvent.click(screen.getByRole('menuitem', { name: '시작 화면으로' }))
+    expect(onSwitchVault).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })

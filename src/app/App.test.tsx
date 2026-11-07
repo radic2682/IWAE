@@ -419,9 +419,9 @@ describe('App — bridge 로부터의 읽기', () => {
     })
   })
 
-  it('설정은 상단바 로고 메뉴에서 모달로 열리고 Escape로 닫힌다', async () => {
+  it('설정은 왼쪽 바 아래 톱니바퀴와 상단바 로고 메뉴에서 모달로 열리고 Escape로 닫힌다', async () => {
     const view = render(<App developmentPreview />)
-    expect(screen.queryByRole('button', { name: '설정' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: '설정' }).length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('button', { name: 'IWAE 메뉴' }))
     fireEvent.click(screen.getByRole('menuitem', { name: /^설정/ }))
     const dialog = await screen.findByRole('dialog', { name: '설정' })
