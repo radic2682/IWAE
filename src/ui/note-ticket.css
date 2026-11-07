@@ -1,7 +1,7 @@
 /* 노트의 메모 블록(ID·제목 → 내 글 → 원문). 테두리 없이 옅은 바탕과 둥근 모서리로만 나눈다 */
 .note-block.pdf-memo-card-flow:not(.note-text-card) {
   --memo-card-bg: color-mix(in srgb, var(--ink) 4%, var(--paper));
-  --memo-chip-bg: color-mix(in srgb, var(--ink) 7%, var(--paper));
+  --memo-chip-bg: var(--paper);
   gap: 7px !important;
   padding: 11px 13px !important;
   border-color: transparent !important;
@@ -28,11 +28,11 @@
 .note-ticket-head { display: grid; gap: 3px; min-width: 0; }
 .note-ticket-id-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .note-ticket-id {
-  max-width: 100%; height: 22px; padding: 0 8px; overflow: hidden;
+  display: inline-flex; align-items: center; max-width: 100%; height: 20px; padding: 0 7px; overflow: hidden;
   border: 0; border-radius: 6px;
   background: color-mix(in srgb, var(--accent) 16%, var(--paper));
   color: color-mix(in srgb, var(--accent) 62%, var(--ink));
-  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .01em;
+  font: inherit; font-size: 11.5px; font-weight: 700; line-height: 20px; letter-spacing: .01em;
   text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
 }
 .note-ticket-id:is(:hover, :focus-visible) { outline: none; box-shadow: 0 0 0 1.5px var(--accent); }
@@ -42,14 +42,14 @@
 /* ID 입력칸·제안·겹침 알림 */
 .note-ticket-id-edit { position: relative; display: grid; justify-items: start; gap: 4px; }
 .note-ticket-id-input {
-  height: 24px; padding: 0 8px; box-sizing: border-box;
+  height: 20px; padding: 0 7px; box-sizing: border-box;
   border: 1.5px solid var(--accent); border-radius: 6px; outline: none;
   background: var(--paper); color: var(--text-strong);
-  font: inherit; font-size: 12px; font-weight: 700;
+  font: inherit; font-size: 11.5px; font-weight: 700;
 }
 .note-ticket-id-input[aria-invalid='true'] { border-color: var(--danger, #d1242f); }
 .note-ticket-id-suggest {
-  position: absolute; z-index: 20; top: 28px; left: 0; display: grid; min-width: 160px; padding: 4px;
+  position: absolute; z-index: 20; top: 24px; left: 0; display: grid; min-width: 160px; padding: 4px;
   border: 1px solid var(--divider); border-radius: 8px; background: var(--paper);
   box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
 }
@@ -65,17 +65,17 @@
 
 /* 비어 있는 칸: 자리를 차지하지 않고, 마우스를 올리거나 키보드로 들어오면 오른쪽 위(메뉴 옆)에만 */
 .note-ticket-ghosts {
-  position: absolute; z-index: 3; top: 6px; right: 36px;
+  position: absolute; z-index: 3; top: 4px; right: 36px;
   display: flex; gap: 4px;
   opacity: 0; pointer-events: none; transition: opacity 100ms ease;
 }
 .note-block:is(:hover, :focus-within) > .note-ticket-ghosts { opacity: 1; pointer-events: auto; }
 .note-ticket-ghost {
   height: 22px; padding: 0 8px;
-  border: 1px dashed var(--divider-strong); border-radius: 6px; background: var(--paper);
+  border: 0; border-radius: 6px; background: var(--paper); box-shadow: 0 0 0 1px var(--divider-strong);
   color: var(--text-strong); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
 }
-.note-ticket-ghost:is(:hover, :focus-visible) { outline: none; border-style: solid; border-color: var(--accent); }
+.note-ticket-ghost:is(:hover, :focus-visible) { outline: none; background: var(--chrome-hover); }
 
 /* 원문(출처): 맨 아래. 형광펜 색 점 + 따옴표 한 줄 + 쪽 번호. 색 띠 없이 */
 .note-block .note-sources { gap: 4px; }
@@ -94,11 +94,9 @@
 .note-block .note-source-chip .note-source-expand { display: none; }
 .note-block .note-source-chip:hover .note-source-expand,
 .note-block .note-source-chip .note-source-expand:focus-visible { display: inline-grid; }
-.note-block .note-source-chip-text::before { content: '“'; }
-.note-block .note-source-chip-text::after { content: '”'; }
 .note-block .note-source-chip .note-source-page,
 .note-block .pdf-memo-card-quote .note-source-page {
-  flex: 0 0 auto; margin-left: auto; padding: 1px 7px; border-radius: 6px;
+  display: inline-flex; align-items: center; flex: 0 0 auto; height: 20px; margin-left: auto; padding: 0 7px; border-radius: 6px; line-height: 20px;
   background: var(--memo-chip-bg) !important; color: var(--text-strong); font-size: 11.5px; font-weight: 700;
 }
 /* 펼친 원문: 색 띠 대신 옅은 바탕 + 같은 색 점 */
