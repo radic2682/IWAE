@@ -629,7 +629,7 @@
 .pdf-print-dialog { width: min(600px, calc(100vw - 32px)); padding: 18px 20px 16px; border: 1px solid var(--divider-strong); border-radius: 12px; background: var(--paper); color: var(--ink); box-shadow: 0 18px 48px rgb(0 0 0 / .32); }
 .pdf-print-dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .pdf-print-dialog h2 { margin: 0; font-size: 16px; font-weight: 700; }
-.pdf-print-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); }
+.pdf-print-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); }
 .pdf-print-close:hover { background: var(--chrome-hover); }
 .pdf-print-body { display: flex; gap: 20px; align-items: flex-start; }
 /* 미리보기: 용지(흰 종이) 위에 여백 안쪽 칸, 그 가운데 쪽 그림 */
@@ -652,7 +652,7 @@
 .pdf-print-error { margin: 0; color: var(--danger); font-size: 12.5px; }
 .pdf-print-dialog footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .pdf-print-hint { margin-right: auto; color: var(--ink); font-size: 12px; opacity: .8; }
-.pdf-print-dialog footer button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
+.pdf-print-dialog footer button { display: inline-flex; align-items: center; gap: 6px; height: var(--control-size-floating, 34px); padding: 0 14px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
 .pdf-print-dialog footer .pdf-print-go { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
 .pdf-print-dialog footer .pdf-print-go:disabled { opacity: .5; }
 

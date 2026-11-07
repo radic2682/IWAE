@@ -27,7 +27,7 @@
 }
 .page-edit-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 auto; }
 .page-edit-title strong { color: var(--text-strong); font-size: 15px; }
-.page-edit-title span { overflow: hidden; color: var(--text-dim); font-size: 12.5px; white-space: nowrap; text-overflow: ellipsis; }
+.page-edit-title span { overflow: hidden; color: var(--text-strong); font-size: 12.5px; white-space: nowrap; text-overflow: ellipsis; }
 .page-edit-icon {
   width: 30px;
   height: 30px;
@@ -36,7 +36,7 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-strong);
   cursor: pointer;
 }
 .page-edit-icon:hover { background: var(--chrome-hover); }
@@ -64,9 +64,9 @@
   cursor: pointer;
 }
 .page-edit-tools button:hover:not(:disabled) { border-color: var(--divider-strong); }
-.page-edit-tools button:disabled { color: var(--text-dim); cursor: default; opacity: .6; }
+.page-edit-tools button:disabled { color: var(--text-strong); cursor: default; opacity: .6; }
 .page-edit-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--divider); }
-.page-edit-count { margin-left: auto; color: var(--text-dim); font-size: 12px; }
+.page-edit-count { margin-left: auto; color: var(--text-strong); font-size: 12px; }
 .page-edit-grid {
   flex: 1 1 auto;
   min-height: 0;
@@ -118,9 +118,9 @@
   box-shadow: var(--shadow-page);
   transition: transform 140ms ease;
 }
-.page-edit-label { display: flex; align-items: baseline; gap: 6px; color: var(--text-muted); font-size: 12px; }
+.page-edit-label { display: flex; align-items: baseline; gap: 6px; color: var(--text-strong); font-size: 12px; }
 .page-edit-label b { color: var(--text-strong); }
-.page-edit-label small { color: var(--text-dim); font-size: 11px; }
+.page-edit-label small { color: var(--text-strong); font-size: 11px; }
 .page-edit-foot {
   display: flex;
   align-items: center;
@@ -128,7 +128,7 @@
   padding: 10px 14px;
   border-top: 1px solid var(--hairline);
 }
-.page-edit-message { flex: 1 1 auto; min-width: 0; color: var(--text-muted); font-size: 12px; }
+.page-edit-message { flex: 1 1 auto; min-width: 0; color: var(--text-strong); font-size: 12px; }
 .page-edit-cancel,
 .page-edit-save {
   height: 32px;

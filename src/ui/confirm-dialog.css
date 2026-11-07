@@ -34,7 +34,7 @@
   background: color-mix(in srgb, var(--danger) 14%, var(--paper));
   color: var(--danger);
 }
-.confirm-dialog-body { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.confirm-dialog-body { color: var(--text-strong); font-size: 12px; line-height: 1.6; }
 .confirm-dialog-body p { margin: 0; }
 .confirm-dialog-body p + p { margin-top: 6px; }
 .confirm-dialog-body strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }

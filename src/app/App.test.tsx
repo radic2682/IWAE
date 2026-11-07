@@ -871,11 +871,11 @@ describe('App — 서지 정보', () => {
     const pdfButton = within(documents).getAllByRole('button').find((button) => button.textContent?.includes(SAMPLE_TITLE))!
     fireEvent.contextMenu(pdfButton)
     fireEvent.click(screen.getByRole('menuitem', { name: '논문 정보…' }))
-    const dialog = await screen.findByRole('dialog', { name: `서지 정보 — ${SAMPLE_TITLE}` })
+    const dialog = await screen.findByRole('dialog', { name: `논문 정보 — ${SAMPLE_TITLE}` })
     fireEvent.change(within(dialog).getByRole('textbox', { name: '저자 (한 줄에 한 명)' }), { target: { value: 'Ada Lovelace' } })
     fireEvent.change(within(dialog).getByRole('spinbutton', { name: '연도' }), { target: { value: '1843' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '저장' }))
-    expect(screen.queryByRole('dialog', { name: `서지 정보 — ${SAMPLE_TITLE}` })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: `논문 정보 — ${SAMPLE_TITLE}` })).toBeNull()
 
     fireEvent.contextMenu(pdfButton)
     fireEvent.click(screen.getByRole('menuitem', { name: '인용 정보 복사 (BibTeX)' }))

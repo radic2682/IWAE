@@ -76,9 +76,9 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
           {suggested ? <p className="stack-suggested">{t('가져온 파일이 이 문서의 다른 버전 같습니다. 묶지 않으려면 취소하세요(파일은 그대로 들어와 있습니다).')}</p> : null}
           {given === null ? (
             <div className="stack-picker">
-              <input aria-label={t('겹칠 문서 찾기')} placeholder={t('겹칠 문서 이름')} value={query} autoFocus onChange={(event) => setQuery(event.target.value)} />
-              <div className="stack-candidates" role="radiogroup" aria-label={t('겹칠 문서')}>
-                {filtered.length === 0 ? <p className="stack-empty">{t('겹칠 수 있는 문서가 없습니다.')}</p> : filtered.map((doc) => (
+              <input aria-label={t('묶을 문서 찾기')} placeholder={t('묶을 문서 이름')} value={query} autoFocus onChange={(event) => setQuery(event.target.value)} />
+              <div className="stack-candidates" role="radiogroup" aria-label={t('묶을 문서')}>
+                {filtered.length === 0 ? <p className="stack-empty">{t('묶을 수 있는 다른 PDF 가 없습니다.')}</p> : filtered.map((doc) => (
                   <button key={doc.docId} type="button" role="radio" aria-checked={picked?.docId === doc.docId} className={`stack-candidate${picked?.docId === doc.docId ? ' stack-candidate-on' : ''}`} onClick={() => choose(doc)}>
                     {doc.title}
                   </button>
@@ -86,7 +86,7 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
               </div>
             </div>
           ) : (
-            <p className="stack-moving" title={given.title}>{t('겹칠 문서:')} <strong>{given.title}</strong></p>
+            <p className="stack-moving" title={given.title}>{t('묶을 문서:')} <strong>{given.title}</strong></p>
           )}
 
           {picked === null ? null : (
@@ -118,7 +118,7 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
             disabled={!ready}
             onClick={() => { if (picked !== null && ready) onConfirm({ added: picked, baseLabel: alreadyGroup ? null : baseLabel.trim(), addedLabel: addedLabel.trim(), makeDefault }) }}
           >
-            {t('겹치기')}
+            {t('묶기')}
           </button>
         </footer>
       </section>

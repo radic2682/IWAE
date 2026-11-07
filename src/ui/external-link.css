@@ -27,7 +27,7 @@
 
 .external-link-url {
   margin: 0 0 14px;
-  color: var(--text-dim);
+  color: var(--text-strong);
   font-size: 12px;
   overflow-wrap: anywhere;
 }

@@ -102,4 +102,6 @@ export const COMMON: Readonly<Record<string, string>> = {
   '축소 (Ctrl+-)': 'Zoom out (Ctrl+-)',
   '확대 (Ctrl+=)': 'Zoom in (Ctrl+=)',
   '왼쪽 결과를 누르면 원본 PDF 가 여기에 열립니다': 'Click a result on the left to open the source PDF here',
+  '논문 정보': 'Paper details',
+  '논문 정보 — {title}': 'Paper details — {title}',
 }

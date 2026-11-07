@@ -19,8 +19,8 @@
 }
 
 .bib-dialog-title { margin: 0; color: var(--ink); font-size: 15px; }
-.bib-dialog-title small { margin-left: 6px; color: var(--text-dim); font-size: 12px; font-weight: 400; }
-.bib-dialog label { display: grid; gap: 4px; color: var(--text-dim); font-size: 12px; }
+.bib-dialog-title small { margin-left: 6px; color: var(--text-strong); font-size: 12px; font-weight: 400; }
+.bib-dialog label { display: grid; gap: 4px; color: var(--text-strong); font-size: 12px; }
 
 .bib-dialog input,
 .bib-dialog textarea {
@@ -56,3 +56,23 @@
 
 @keyframes bib-dialog-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .bib-dialog { animation: none; } }
+
+/* ---------- 다른 대화상자(.side-dialog)와 같은 판 ----------
+   둥근 모서리·어두운 바탕·닫기 단추·같은 입력칸과 단추 모양, 회색 글자 없음 */
+.bib-dialog-backdrop { padding: 16px; background: rgb(0 0 0 / 28%); }
+.bib-dialog.bib-dialog { gap: 12px; padding: 18px 20px 18px; border-radius: 12px; box-shadow: 0 24px 60px var(--shadow-floating, rgb(0 0 0 / 30%)); color: var(--text-strong); }
+.bib-dialog-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.bib-dialog-head .bib-dialog-title { flex: 1 1 auto; min-width: 0; color: var(--text-strong); font-size: 15px; font-weight: 700; }
+.bib-dialog-head .bib-dialog-title small { color: var(--text-strong); font-weight: 500; }
+.bib-dialog-close { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--text-strong); cursor: pointer; }
+.bib-dialog-close:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
+.bib-dialog.bib-dialog label { color: var(--text-strong); font-size: 12px; font-weight: 600; }
+.bib-dialog.bib-dialog input,
+.bib-dialog.bib-dialog textarea { padding: 7px 10px; border-radius: 8px; background: var(--chrome); color: var(--text-strong); font-weight: 400; }
+.bib-dialog.bib-dialog input:focus,
+.bib-dialog.bib-dialog textarea:focus { border-color: var(--accent); outline: none; }
+.bib-dialog-actions { margin-top: 4px; }
+.bib-dialog.bib-dialog .bib-dialog-actions button { height: var(--control-size-floating, 34px); padding: 0 14px; border-radius: 8px; color: var(--text-strong); }
+.bib-dialog.bib-dialog .bib-dialog-actions button:hover:not(:disabled) { background: var(--chrome-hover); }
+.bib-dialog.bib-dialog .bib-dialog-actions .bib-dialog-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
+.bib-dialog.bib-dialog .bib-dialog-actions .bib-dialog-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--paper)); }

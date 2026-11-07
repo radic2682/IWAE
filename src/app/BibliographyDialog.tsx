@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { X } from '@phosphor-icons/react'
 import { errorText } from '../core/errorText'
 import type { BibEntry } from '../core/bibliography'
 import '../ui/bibliography-dialog.css'
@@ -65,13 +66,16 @@ export function BibliographyDialog({ documentTitle, entry, onSave, onClose, onFe
     })
   }
 
+  const firstFieldRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => { firstFieldRef.current?.focus() }, [])
+
   return (
     <div className="bib-dialog-backdrop" onClick={onClose}>
       <div
         className="bib-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={t('서지 정보 — {title}', { title: documentTitle })}
+        aria-label={t('논문 정보 — {title}', { title: documentTitle })}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return
@@ -80,10 +84,13 @@ export function BibliographyDialog({ documentTitle, entry, onSave, onClose, onFe
           onClose()
         }}
       >
-        <h2 className="bib-dialog-title">{t('서지 정보')} <small>{documentTitle}</small></h2>
+        <header className="bib-dialog-head">
+          <h2 className="bib-dialog-title">{t('논문 정보')} <small>{documentTitle}</small></h2>
+          <button type="button" className="bib-dialog-close" aria-label={t('닫기')} onClick={onClose}><X size={14} aria-hidden="true" /></button>
+        </header>
         <label>
           <span>{t('제목')}</span>
-          <input aria-label={t('제목')} value={title} onChange={(event) => edit(setTitle)(event.target.value)} />
+          <input ref={firstFieldRef} aria-label={t('제목')} value={title} onChange={(event) => edit(setTitle)(event.target.value)} />
         </label>
         <label>
           <span>{t('저자 (한 줄에 한 명)')}</span>
