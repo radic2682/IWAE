@@ -141,3 +141,6 @@
 .page-edit-cancel { border: 1px solid var(--divider); background: var(--paper); color: var(--text); }
 .page-edit-save { border: 0; background: var(--accent); color: #fff; font-weight: 600; }
 .page-edit-save:disabled, .page-edit-cancel:disabled { opacity: .6; cursor: default; }
+
+/* 옆으로 돌린 쪽: 돌린 그림의 가로가 칸(132px)을 넘지 않게 정사각 안에 맞춘 뒤 돌린다 */
+.page-edit-thumb.page-edit-thumb-quarter img { max-width: 128px; max-height: 128px; }

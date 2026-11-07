@@ -205,7 +205,8 @@ export function PageEditDialog({ docId, title, pageCount, onCancel, onSave }: Pa
                 onClick={(event) => select(event, item, index)}
                 onPointerDown={(event) => startDrag(event, item, index)}
               >
-                <div className="page-edit-thumb">
+                {/* 옆으로 돌린 쪽(90°·270°)은 돌린 뒤에도 칸 안에 다 들어오게 작게 */}
+                <div className={`page-edit-thumb${Math.abs(item.rotate) % 180 === 90 ? ' page-edit-thumb-quarter' : ''}`}>
                   <img
                     src={pageImageUrl(item.thumbDocId, item.page, Math.round(THUMB_WIDTH * ratio))}
                     alt=""
