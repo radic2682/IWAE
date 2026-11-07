@@ -237,6 +237,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const [scrollLeft, setScrollLeft] = useState(0)
   // 메모 바는 PDF 와 따로 스크롤한다. 선은 두 스크롤 위치로 매번 다시 잇는다
   const memoBarScrollRef = useRef<HTMLDivElement | null>(null)
+  // 메모 바 맨 위 서식 도구의 아래 끝(바 위에서부터 px)
+  const [dockBottom, setDockBottom] = useState(0)
   const [memoBarScroll, setMemoBarScroll] = useState({ top: 0, height: 0 })
   const [memoCardLayout, setMemoCardLayout] = useState<ReadonlyMap<string, { top: number; height: number }>>(new Map())
   // PDF 창 위쪽 안쪽 여백. 페이지는 그만큼 내려와 있으니 메모 바 안쪽도 같이 내린다(선이 경계에서 어긋나지 않게)
@@ -626,6 +628,10 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (element.clientHeight !== memoBarScroll.height || element.scrollTop !== memoBarScroll.top) {
       setMemoBarScroll({ top: element.scrollTop, height: element.clientHeight })
     }
+    // 맨 위에 붙은 서식 도구 아래까지만 잇는 선을 그린다(선이 서식 도구 위로 지나가지 않게)
+    const dock = element.querySelector<HTMLElement>('.note-format-dock')
+    const bottom = dock === null ? 0 : Math.max(0, Math.round(dock.getBoundingClientRect().bottom - element.getBoundingClientRect().top))
+    if (bottom !== dockBottom) setDockBottom(bottom)
   })
   // 쓰기 시작한 카드(새 메모·PDF 에서 누른 형광펜)는 메모 바에서 보이게 굴린다
   const focusMemoId = draftMemo !== null ? 'draft' : editingMemoId
@@ -1623,7 +1629,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               const bend = pageEdge + (MEMO_CARD_INSET - pageEdge) / 2
               const lines = memoLinkLines
               return (
-                <svg className="pdf-memo-links pdf-memo-links-flow" width={memoBarSize} height={Math.max(memoBarScroll.height, 1)} aria-hidden="true">
+                <svg className="pdf-memo-links pdf-memo-links-flow" width={memoBarSize} height={Math.max(memoBarScroll.height, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
                   {lines.map(({ target, anchorY, cardY, active }) => (
                     <g key={target.key} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
                       <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${MEMO_CARD_INSET} ${cardY}`} />
