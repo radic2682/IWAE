@@ -248,12 +248,20 @@
 .pdf-memo-card-page em { color: var(--accent); font-style: normal; }
 .pdf-memo-card-dim { opacity: .35; }
 
-/* 영역(표·그림) 메모: 그림을 아주 옅게 물들이고 같은 색 둥근 테두리(곱하기라 그림 선은 그대로 보인다) */
+/* 영역(표·그림) 메모: 대상 바깥 4px 에 아주 옅은 바탕과 얇은 선, 네 귀퉁이에만 형광펜 색 꺾쇠.
+   표·그림 전체를 물들이지 않아 원래 색이 그대로 보인다(곱하기라 선·글자도 그대로) */
 .selection-mark-layer rect.selection-persistent-highlight.selection-persistent-region {
-  fill: color-mix(in srgb, var(--hl-fill) 38%, #fff);
-  stroke: var(--hl-edge);
-  stroke-width: 1.5px;
+  fill: color-mix(in srgb, var(--hl-fill) 14%, #fff);
+  stroke: color-mix(in srgb, var(--hl-edge) 45%, #fff);
+  stroke-width: 1px;
   rx: 6px;
+}
+.selection-mark-layer path.selection-persistent-highlight.selection-region-corners {
+  fill: none;
+  stroke: var(--hl-edge);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ---------- 메모 열 머리: 노트 검색 · 닫기 · 메모만 보기 ---------- */

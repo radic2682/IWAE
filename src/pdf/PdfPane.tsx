@@ -613,8 +613,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       highlight,
       draft,
       top: box.top + firstTop * scale,
-      anchorX: contentLeft + box.left + lineRight * scale,
-      anchorY: box.top + (firstTop + lineHeight / 2) * scale,
+      // 표·그림 네모는 대상 바깥 4px 에 그린다(SelectionLayer REGION_OUTSET) — 선은 오른쪽 위 꺾쇠에서 나온다
+      anchorX: contentLeft + box.left + lineRight * scale + (highlight.kind === 'region' ? 4 : 0),
+      anchorY: highlight.kind === 'region' ? box.top + firstTop * scale + 8 : box.top + (firstTop + lineHeight / 2) * scale,
     }]
   }
 

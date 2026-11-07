@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { buildAnchor, coalesceHighlightRects, type Anchor, type AnchorRect } from '../core/anchor'
 import { announceAction } from '../app/actionFeedback'
 import {
@@ -146,6 +146,23 @@ function localPoint(event: ReactPointerEvent<SVGSVGElement>): Point {
  * 형광펜 한 개의 줄 상자들을 한 도형(path)으로 묶는다. 줄 상자가 위아래로 조금 겹쳐도 한 번만 칠해져
  * 겹친 띠가 진하게 남지 않는다(상자마다 따로 곱하기로 칠하면 겹친 곳이 두 번 물든다).
  */
+/** 표·그림 네모는 대상의 테두리 선과 겹치지 않게 이만큼(화면 px) 바깥에 그린다 */
+const REGION_OUTSET = 4
+const REGION_RADIUS = 6
+
+/** 표·그림 네모의 네 귀퉁이 꺾쇠(형광펜 색 굵은 선). 귀퉁이는 네모와 같은 둥글기 */
+function regionCornersPath(x: number, y: number, w: number, h: number): string {
+  const n = (value: number) => Math.round(value * 100) / 100
+  const r = Math.min(REGION_RADIUS, w / 2, h / 2)
+  const len = Math.max(r + 2, Math.min(18, w / 4, h / 4))
+  return [
+    `M${n(x)} ${n(y + len)}V${n(y + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + r)} ${n(y)}H${n(x + len)}`,
+    `M${n(x + w - len)} ${n(y)}H${n(x + w - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w)} ${n(y + r)}V${n(y + len)}`,
+    `M${n(x + w)} ${n(y + h - len)}V${n(y + h - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w - r)} ${n(y + h)}H${n(x + w - len)}`,
+    `M${n(x + len)} ${n(y + h)}H${n(x + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x)} ${n(y + h - r)}V${n(y + h - len)}`,
+  ].join('')
+}
+
 function rectsPath(rects: readonly AnchorRect[], renderScale: number): string {
   const n = (value: number) => Math.round(value * 100) / 100
   return rects.map((rect) => {
@@ -594,18 +611,19 @@ export function SelectionLayer({
           const persistentAnchor = resize?.id === id && resizeRect !== null ? { ...rawAnchor, rects: [resizeRect] } : rawAnchor
           const className = `selection-persistent-highlight${kind === 'region' ? ' selection-persistent-region' : ''}${id === flashHighlightId ? ' selection-highlight-flash' : ''}`
           return kind === 'region'
-            ? coalesceHighlightRects(persistentAnchor.rects).map((rect, rectIndex) => (
-                <rect
-                  key={`${id}:${rectIndex}`}
-                  className={className}
-                  data-persistent-highlight={id}
-                  data-highlight-color={color}
-                  x={rect.x * renderScale}
-                  y={rect.y * renderScale}
-                  width={rect.w * renderScale}
-                  height={rect.h * renderScale}
-                />
-              ))
+            ? coalesceHighlightRects(persistentAnchor.rects).map((rect, rectIndex) => {
+                // 대상 테두리 바깥에 옅은 바탕 + 얇은 선, 네 귀퉁이에만 형광펜 색 꺾쇠(표 전체가 노랗게 물들지 않게)
+                const x = rect.x * renderScale - REGION_OUTSET
+                const y = rect.y * renderScale - REGION_OUTSET
+                const w = rect.w * renderScale + REGION_OUTSET * 2
+                const h = rect.h * renderScale + REGION_OUTSET * 2
+                return (
+                  <Fragment key={`${id}:${rectIndex}`}>
+                    <rect className={className} data-persistent-highlight={id} data-highlight-color={color} x={x} y={y} width={w} height={h} />
+                    <path className="selection-persistent-highlight selection-region-corners" data-highlight-color={color} d={regionCornersPath(x, y, w, h)} />
+                  </Fragment>
+                )
+              })
             : (
                 <path
                   key={id}
@@ -622,10 +640,10 @@ export function SelectionLayer({
           if (id === null || id === undefined) return null
           const rect = resize !== null && resizeRect !== null ? resizeRect : persistentHighlights.find((item) => item.id === id)?.anchor.rects[0]
           if (rect === undefined) return null
-          const x = rect.x * renderScale
-          const y = rect.y * renderScale
-          const w = rect.w * renderScale
-          const h = rect.h * renderScale
+          const x = rect.x * renderScale - REGION_OUTSET
+          const y = rect.y * renderScale - REGION_OUTSET
+          const w = rect.w * renderScale + REGION_OUTSET * 2
+          const h = rect.h * renderScale + REGION_OUTSET * 2
           const handles: readonly (readonly [number, number])[] = [[x, y], [x + w, y], [x, y + h], [x + w, y + h], [x + w / 2, y], [x + w / 2, y + h], [x, y + h / 2], [x + w, y + h / 2]]
           return (
             <g className="selection-region-resize">

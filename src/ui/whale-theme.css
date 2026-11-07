@@ -1130,7 +1130,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* 표·그림 네모 크기 바꾸기(텍스트·영역 캡처 도구): 마우스를 올리면 테두리와 손잡이 */
 .selection-mark-layer .selection-region-resize { pointer-events: none; }
 .selection-mark-layer .selection-region-resize-frame { fill: none; stroke: var(--accent, #3b82f6); stroke-width: 1.5; stroke-dasharray: 5 3; }
-.selection-mark-layer .selection-region-resize-handle { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 1.5; }
+.selection-mark-layer .selection-region-resize-handle { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 1.5; rx: 4px; }
 
 /* 노트 블록은 바 폭을 넘지 않는다: 긴 한 줄(원문 칩·제목)이 카드를 바 밖으로 밀지 않게 열을 바 폭에 맞춘다 */
 .pdf-memo-card.pdf-memo-card-flow { grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; box-sizing: border-box; }
