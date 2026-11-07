@@ -101,3 +101,11 @@
 .vault-menu-recent-remove { margin-right: 4px; opacity: 0; }
 .vault-menu-recent li:hover .vault-menu-recent-remove,
 .vault-menu-recent-remove:focus-visible { opacity: 1; }
+
+/* 바닥 줄: 단추를 가운데에 세우고, 마우스를 올렸을 때 칠해지는 칸이 위·아래·좌·우 모두 같은 여백(약 4px)을 갖게 한다.
+   (전에는 위 6px·아래 2px 로 칸이 바닥에 붙어 보였고, Vault 단추와 설정 단추 사이도 2px 였다) */
+div.side-footer {
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+}
