@@ -134,9 +134,9 @@
 .pane-doc .note-format-dock { min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 
 /* ---------- 블록 단추(+ ID · + 제목 · 메모 쓰기 · …)는 블록 위 테두리에 걸쳐 바깥으로 띄운다(글을 가리지 않게) ---------- */
-.pane-doc .note-block > .note-block-menu { top: -11px; right: 8px; box-shadow: 0 0 0 1px var(--divider-strong), 0 2px 6px rgb(0 0 0 / 10%); }
-.pane-doc .note-block > .note-ticket-ghosts { top: -11px; right: 40px; }
+.pane-doc .note-block > .note-block-menu { top: -15px; right: 8px; box-shadow: 0 0 0 1px var(--divider-strong), 0 2px 6px rgb(0 0 0 / 10%); }
+.pane-doc .note-block > .note-ticket-ghosts { top: -15px; right: 40px; }
 .pane-doc .note-block > .note-ticket-ghosts .note-ticket-ghost { box-shadow: 0 0 0 1px var(--divider-strong), 0 2px 6px rgb(0 0 0 / 10%); }
-.pane-doc .note-block > .note-memo-add { top: -11px; right: 40px; }
+.pane-doc .note-block > .note-memo-add { top: -15px; right: 40px; }
 /* 출처 꼬리표는 블록 위 왼쪽 바깥 */
-.note-source-float.note-source-float { height: 22px; margin-left: 8px; padding: 0 8px; line-height: 22px; transform: translateY(-50%); }
+.note-source-float.note-source-float { height: 22px; margin-left: 8px; padding: 0 8px; line-height: 22px; transform: translateY(calc(-50% - 4px)); }
