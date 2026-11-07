@@ -51,8 +51,8 @@ function step(values: readonly number[], current: number, direction: 1 | -1): nu
 export const OVERLAY_TOOLS: readonly { id: OverlayTool; label: string; icon: (size: number, active: boolean) => ReactNode }[] = [
   { id: 'text', label: '글 상자', icon: (size, active) => <Textbox size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
   { id: 'pen', label: '펜', icon: (size, active) => <PencilSimple size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
-  { id: 'eraser', label: '지우개', icon: (size, active) => <Eraser size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
   { id: 'line', label: '선', icon: (size, active) => <LineSegment size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
+  { id: 'eraser', label: '지우개', icon: (size, active) => <Eraser size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
 ]
 
 export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null, onUpdateSelected, onRemoveSelected, onDone }: PdfOverlayPaletteProps) {

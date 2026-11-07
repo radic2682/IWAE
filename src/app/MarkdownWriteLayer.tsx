@@ -252,6 +252,18 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
               onAdd={props.onOverlayAdd}
               onUpdate={props.onOverlayUpdate}
               onRemove={props.onOverlayRemove}
+              // 지우개는 형광펜(메모)·영역·박스 메모도 지운다(종이 좌표로 맞춰 본다)
+              onErasePoint={props.onHighlightRemoved === undefined ? undefined : (_page, point) => {
+                const near = (rect: { x: number; y: number; w: number; h: number }) => point.x >= rect.x - 2 && point.x <= rect.x + rect.w + 2 && point.y >= rect.y - 2 && point.y <= rect.y + rect.h + 2
+                const hits = new Set<string>()
+                for (const mark of memoMarks) if (mark.rects.some(near)) hits.add(mark.id)
+                for (const mark of regionMarks) if (near(mark.rect)) hits.add(mark.id)
+                for (const memo of boxMemos) {
+                  const box = memo.box
+                  if (memo.anchor.rects.some(near) || (box !== undefined && near({ x: box.x, y: box.y, w: box.w, h: box.h ?? 48 }))) hits.add(memo.id)
+                }
+                for (const id of hits) props.onHighlightRemoved?.(id)
+              }}
               selectedId={selectedOverlay}
               onSelect={setSelectedOverlay}
             />

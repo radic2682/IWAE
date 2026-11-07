@@ -1735,6 +1735,19 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               onAdd={onOverlayAdd}
               onUpdate={onOverlayUpdate}
               onRemove={onOverlayRemove}
+              // 지우개는 형광펜(메모)과 박스 메모도 지운다: 지나간 자리가 그 네모 안이면
+              onErasePoint={onPersistentHighlightRemoved === undefined ? undefined : (page, point) => {
+                const near = (rect: { x: number; y: number; w: number; h: number }) => point.x >= rect.x - 2 && point.x <= rect.x + rect.w + 2 && point.y >= rect.y - 2 && point.y <= rect.y + rect.h + 2
+                for (const highlight of persistentHighlights) {
+                  if (highlight.anchor.page !== page) continue
+                  const box = highlight.box
+                  const hit = highlight.anchor.rects.some(near) || (box !== undefined && near({ x: box.x, y: box.y, w: box.w, h: box.h ?? 48 }))
+                  if (hit) {
+                    if (editingMemoId === highlight.id) setEditingMemoId(null)
+                    onPersistentHighlightRemoved(highlight.id)
+                  }
+                }
+              }}
               selectedId={overlaySelectedId}
               onSelect={setOverlaySelectedId}
             />

@@ -32,6 +32,8 @@ interface PdfOverlayLayerProps {
   readonly onAdd: (overlay: PdfOverlay) => void
   readonly onUpdate: (id: string, patch: OverlayPatch) => void
   readonly onRemove: (id: string) => void
+  /** 지우개가 지나간 쪽 좌표: 형광펜·박스 메모도 지우게(바깥에서 맞춰 본다) */
+  readonly onErasePoint?: (page: number, point: { readonly x: number; readonly y: number }) => void
   /** 고른 덮개(서식은 위 떠 있는 도구창에서 바꾼다). 주면 고르기를 밖에서 쥔다 */
   readonly selectedId?: string | null
   readonly onSelect?: (id: string | null) => void
@@ -56,7 +58,7 @@ function arrowHead(line: PdfLine): [Point, Point] {
  * PDF 위에 직접 쓰는 글 상자와 선(덮개 층). 편집 모드에서 글 상자 도구는 누른 자리에, 선·화살표 도구는 끌어서 그린다(Shift 면 수평·수직·45°).
  * 만든 것은 눌러 고르고 끌어 옮기며, 고르면 위에 속성 막대(색·크기·굵기·화살표·지우기)가 뜬다. Delete 로도 지운다.
  */
-export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, editMode, tool, style, onAdd, onUpdate, onRemove, selectedId: controlledSelected, onSelect }: PdfOverlayLayerProps) {
+export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, editMode, tool, style, onAdd, onUpdate, onRemove, onErasePoint, selectedId: controlledSelected, onSelect }: PdfOverlayLayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [ownSelected, setOwnSelected] = useState<string | null>(null)
   const selectedId = controlledSelected === undefined ? ownSelected : controlledSelected
@@ -123,6 +125,10 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
 
   // 지우개: 누른 채 지나가는 덮개(펜 획·선·글 상자)를 지운다
   const eraseAt = (clientX: number, clientY: number, erased: Set<string>) => {
+    if (onErasePoint !== undefined) {
+      const hit = pageAt(clientX, clientY)
+      if (hit !== null) onErasePoint(hit.page, hit.point)
+    }
     for (const element of document.elementsFromPoint(clientX, clientY)) {
       if (!(element instanceof Element) || rootRef.current?.contains(element) !== true) continue
       const id = element.closest('[data-overlay-id]')?.getAttribute('data-overlay-id')
