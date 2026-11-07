@@ -140,3 +140,6 @@
 .pane-doc .note-block > .note-memo-add { top: -15px; right: 40px; }
 /* 출처 꼬리표는 블록 위 왼쪽 바깥 */
 .note-source-float.note-source-float { height: 22px; margin-left: 8px; padding: 0 8px; line-height: 22px; transform: translateY(calc(-50% - 4px)); }
+
+/* 맨 아래 빈 곳 안내: 회색 대신 같은 글자색 */
+.pane-doc .note-tail span { color: var(--text-strong); }

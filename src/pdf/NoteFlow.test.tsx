@@ -118,6 +118,8 @@ describe('NoteFlow — 소제목', () => {
     fireEvent.click(adds[0]!)
     expect(props.onInsertText).toHaveBeenCalledWith('t1')
     fireEvent.click(screen.getByRole('button', { name: '끝에 글 쓰기' }))
+    expect(props.onAppendText).not.toHaveBeenCalled()
+    fireEvent.doubleClick(screen.getByRole('button', { name: '끝에 글 쓰기' }))
     expect(props.onAppendText).toHaveBeenCalled()
   })
 

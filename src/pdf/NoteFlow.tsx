@@ -699,9 +699,22 @@ export function NoteFlow({
         )
       })}
       {onAppendText === undefined ? null : (
-        // 맨 아래 빈 곳: 누르면 노트 끝에 새 글
-        <div className="note-tail" role="button" tabIndex={-1} aria-label={t('끝에 글 쓰기')} onClick={onAppendText}>
-          <span>{t('여기를 눌러 글 쓰기')}</span>
+        // 맨 아래 빈 곳: 한 번 누르면 쓰던 것·고른 것을 놓고, 두 번 누르면 노트 끝에 새 글
+        <div
+          className="note-tail"
+          role="button"
+          tabIndex={-1}
+          aria-label={t('끝에 글 쓰기')}
+          onClick={() => {
+            setSelected(new Set())
+            setHeadEdit(null)
+            onEdit(null)
+            onActivate(null)
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+          }}
+          onDoubleClick={onAppendText}
+        >
+          <span>{t('두 번 눌러 글 쓰기')}</span>
         </div>
       )}
 
