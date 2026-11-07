@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowsInSimple, ArrowsOutSimple, Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour } from '@phosphor-icons/react'
+import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour } from '@phosphor-icons/react'
 import { OVERLAY_TOOLS } from '../pdf/PdfOverlayPalette'
 import { useOverlayTool } from '../pdf/overlayToolStore'
 import { HighlighterToolbarControl } from '../pdf/HighlighterTool'
@@ -88,7 +88,6 @@ export function PaneToolbar({
     updateToolbarState(action)
   }
 
-  const fullscreenLabel = fullscreen ? t('분할 화면으로') : t('문서 전체 화면')
 
   // 넘침 처리: 도구줄(부모)이 모자라면 단계를 올리고, 그 단계를 처음 넘쳤던 너비만큼 다시 넓어지면 내린다
   const leftRef = useRef<HTMLDivElement | null>(null)
@@ -315,18 +314,6 @@ export function PaneToolbar({
               document.body,
             ) : null}
           </div>
-        ) : null}
-        {onToggleFullscreen !== undefined ? (
-          <button
-            type="button"
-            className="toolbar-tool-btn pdf-compact-tool pane-fullscreen-toggle"
-            aria-label={fullscreenLabel}
-            title={fullscreenLabel}
-            aria-pressed={fullscreen}
-            onClick={onToggleFullscreen}
-          >
-            {fullscreen ? <ArrowsInSimple size={15} aria-hidden="true" /> : <ArrowsOutSimple size={15} aria-hidden="true" />}
-          </button>
         ) : null}
       </div>
     </>

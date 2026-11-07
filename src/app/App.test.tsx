@@ -718,7 +718,7 @@ describe('App — 라이브러리 모드와 문서 전체 화면', () => {
     expect(shellHas(container, 'shell-library-expanded')).toBe(false)
   })
 
-  it('라이브러리에서 항목을 열면 접히고, 문서 전체 화면으로 전환된다', async () => {
+  it('라이브러리에서 항목을 열면 접힌다', async () => {
     const { container } = render(<App developmentPreview />)
     fireEvent.keyDown(document.body, { key: 'L', ctrlKey: true, shiftKey: true })
     expect(shellHas(container, 'shell-library-expanded')).toBe(true)
@@ -726,19 +726,6 @@ describe('App — 라이브러리 모드와 문서 전체 화면', () => {
     if (markdownRow === undefined) throw new Error('Markdown 행을 찾지 못했다')
     fireEvent.doubleClick(markdownRow)
     expect(shellHas(container, 'shell-library-expanded')).toBe(false)
-    fireEvent.click(await screen.findByRole('button', { name: '문서 전체 화면' }))
-    expect(shellHas(container, 'shell-reader-focused')).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: '분할 화면으로' }))
-    expect(shellHas(container, 'shell-reader-focused')).toBe(false)
-  })
-
-  it('문서 전체 화면에서 라이브러리를 펼치면 분할 화면으로 돌아간 뒤 펼친다', async () => {
-    const { container } = render(<App developmentPreview />)
-    fireEvent.click(await screen.findByRole('button', { name: '문서 전체 화면' }))
-    expect(shellHas(container, 'shell-reader-focused')).toBe(true)
-    fireEvent.keyDown(document.body, { key: 'L', ctrlKey: true, shiftKey: true })
-    expect(shellHas(container, 'shell-reader-focused')).toBe(false)
-    expect(shellHas(container, 'shell-library-expanded')).toBe(true)
   })
 
   it('이모지 선택창의 Escape 는 선택창만 닫고 라이브러리는 그대로 둔다', async () => {

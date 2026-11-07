@@ -45,15 +45,9 @@ describe('PaneToolbar', () => {
     expect(onEditPages).toHaveBeenCalledTimes(1)
   })
 
-  it('문서 전체 화면 버튼이 상태에 따라 이름을 바꾸고 토글을 부른다', () => {
-    const onToggleFullscreen = vi.fn()
-    const { rerender } = render(
-      <PaneToolbar kind="pdf" mode="text" onModeChange={vi.fn()} fullscreen={false} onToggleFullscreen={onToggleFullscreen} />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: '문서 전체 화면' }))
-    expect(onToggleFullscreen).toHaveBeenCalledTimes(1)
-    rerender(<PaneToolbar kind="pdf" mode="text" onModeChange={vi.fn()} fullscreen onToggleFullscreen={onToggleFullscreen} />)
-    expect(screen.getByRole('button', { name: '분할 화면으로' }).getAttribute('aria-pressed')).toBe('true')
+  it('문서 전체 화면 버튼은 없다(지웠다)', () => {
+    render(<PaneToolbar kind="pdf" mode="text" onModeChange={vi.fn()} fullscreen={false} onToggleFullscreen={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: '문서 전체 화면' })).toBeNull()
   })
 
   it('Markdown 검색 입력을 확장하고 검색어를 전달한다', () => {

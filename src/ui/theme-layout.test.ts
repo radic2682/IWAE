@@ -93,7 +93,7 @@ describe('공통 스타일 토큰 경계', () => {
       '--shadow-page',
     ]) expect(tokens).toContain(`${token}:`)
     expect(tokens).toContain('--toolbar-height: 38px')
-    expect(tokens).toContain('--bottom-bar-height: 42px')
+    expect(tokens).toContain('--bottom-bar-height: 37px')
   })
 
   it('반복되는 떠 있는 컨트롤 색상과 크기를 tokens.css 밖에 직접 쓰지 않는다', () => {
