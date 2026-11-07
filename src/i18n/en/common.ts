@@ -123,4 +123,5 @@ export const COMMON: Readonly<Record<string, string>> = {
   '두 번 눌러 글 쓰기': 'Double-click to write',
   '이 창 닫기': 'Close this pane',
   '끌어서 함께 옮기기': 'Drag to move together',
+  '설명을 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다 · 그림만 남기려면 Ctrl+Enter)': 'Add a description (click elsewhere to discard · Ctrl+Enter to keep the image only)',
 }

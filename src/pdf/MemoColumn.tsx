@@ -325,7 +325,9 @@ function dropTrailingEmptyLine(element: HTMLElement) {
  * 메모 글쓰기 칸(서식 가능). 다른 곳을 누르거나 Ctrl+Enter 면 저장, Esc 면 그만둔다.
  * onNext 가 있으면(노트의 글 블록) Ctrl+Enter, 또는 끝에서 빈 줄에 Enter 를 한 번 더 누르면 저장하고 onNext(아래에 새 글).
  */
-export function MemoEditor({ initialText, initialHtml, placeholder = t('메모를 쓰세요'), label = t('메모'), onSave, onCancel, onNext }: {
+export function MemoEditor({ initialText, initialHtml, placeholder = t('메모를 쓰세요'), label = t('메모'), onSave, onCancel, onNext, discardEmptyOnBlur = false }: {
+  /** 비운 채 다른 곳을 누르면 저장하지 않고 그만둔다(새 메모). Ctrl+Enter 로는 빈 채로도 남길 수 있다 */
+  readonly discardEmptyOnBlur?: boolean
   readonly initialText: string
   readonly initialHtml?: string
   readonly placeholder?: string
@@ -406,7 +408,7 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
           // 같은 카드 안(서식 도구·카테고리 고르기 등)으로 옮겨 간 것은 쓰기를 끝낸 게 아니다
           const card = event.currentTarget.closest('.pdf-memo-card, .pdf-memo-list-row, .pdf-box-card')
           if (event.relatedTarget instanceof Node && card?.contains(event.relatedTarget)) return
-          finish(true)
+          finish(!(discardEmptyOnBlur && memoPlainText(event.currentTarget).trim() === ''))
         }}
         onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
           event.stopPropagation()

@@ -92,7 +92,6 @@
 .note-block .pdf-memo-card-quote-blue { --memo-dot: #4b9cf0; }
 .note-block .pdf-memo-card-quote-pink { --memo-dot: #f0609e; }
 .note-block .note-source-chip .note-source-expand { display: none; }
-.note-block .note-source-chip:hover .note-source-expand,
 .note-block .note-source-chip .note-source-expand:focus-visible { display: inline-grid; }
 .note-block .note-source-chip .note-source-page,
 .note-block .pdf-memo-card-quote .note-source-page {
@@ -107,7 +106,6 @@
 }
 .note-block .pdf-memo-card-quote.note-source::before { position: absolute; top: 12px; left: 10px; }
 .note-block .note-source-chip:hover, .note-block .note-source:hover { filter: none; }
-.note-block .note-source-chip:hover .note-source-chip-text { text-decoration: underline; text-underline-offset: 3px; }
 
 /* 손잡이를 없앴으니 노트 좌우 여백은 12px 로 같게(오른쪽 = 2px + 얇은 스크롤 막대 자리 10px) */
 .pane-doc { --note-side-gap-right: 2px; }

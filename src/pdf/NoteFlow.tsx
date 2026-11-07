@@ -375,10 +375,22 @@ export function NoteFlow({
   // 이 노트에서 쓴 ID 들(다음 번호 제안·겹침 알림)
   const usedIds = items.flatMap((item) => (item.kind === 'memo' && item.ticket?.id !== undefined ? [{ key: item.key, id: item.ticket.id }] : []))
   // ID·제목 저장: 비운 칸은 지운다(둘 다 비면 그냥 메모)
+  // 새 메모(아직 블록이 아니다)에 붙인 ID·제목: 저장할 때 같이 넘긴다
+  const [draftHead, setDraftHead] = useState<MemoTicket | undefined>(undefined)
+  const hasDraftItem = items.some((item) => item.key === 'draft')
+  useEffect(() => { if (!hasDraftItem) setDraftHead(undefined) }, [hasDraftItem])
   const saveHead = (key: string, current: MemoTicket | undefined, field: 'id' | 'title', value: string) => {
     setHeadEdit(null)
     const next = { ...current, [field]: value.trim() }
     if ((next.id ?? '') === (current?.id ?? '') && (next.title ?? '') === (current?.title ?? '')) return
+    if (key === 'draft') {
+      const id = (next.id ?? '').trim()
+      const title = (next.title ?? '').trim()
+      setDraftHead(id === '' && title === '' ? undefined : { ...(id === '' ? {} : { id }), ...(title === '' ? {} : { title }) })
+      // 다시 메모 칸으로(새 메모는 메모 칸에서 벗어나면 사라지므로)
+      window.setTimeout(() => document.querySelector<HTMLElement>('[data-note-block="draft"] .pdf-memo-editor')?.focus(), 0)
+      return
+    }
     onSetTicket?.(key, next)
   }
   // 그림(표·그림 메모) 크게 보기
@@ -518,7 +530,7 @@ export function NoteFlow({
           || (highlight.note ?? '').toLowerCase().includes(needle)
           || sources.some((source) => source.anchor.quote.toLowerCase().includes(needle))
           || `${item.ticket?.id ?? ''} ${item.ticket?.title ?? ''}`.toLowerCase().includes(needle)
-        const ticket = item.ticket
+        const ticket = draft ? draftHead : item.ticket
         const hasHead = ticket !== undefined
         // 출처(PDF 이름 · 쪽)는 블록에 마우스를 올렸을 때 블록 바깥 오른쪽 위에 뜬다
         // Markdown 에는 쪽이 없다: 쪽 번호 없이 문서 이름만
@@ -607,17 +619,19 @@ export function NoteFlow({
             key={item.key}
             initialText={highlight.note ?? ''}
             initialHtml={highlight.noteHtml}
+            discardEmptyOnBlur={draft}
             placeholder={!draft ? t('메모를 쓰세요')
-              : highlight.kind === 'region' ? t('설명을 쓰세요 (안 써도 그림은 노트에 남습니다 · Esc 로 취소)')
+              : highlight.kind === 'region' ? t('설명을 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다 · 그림만 남기려면 Ctrl+Enter)')
                 : t('메모를 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다)')}
             onSave={(content) => {
               // 아직 ID 가 없는데 글 맨 앞에 「REQ-04 」처럼 썼으면 그 낱말을 ID 배지로 옮긴다
               const leading = ticket?.id === undefined && onSetTicket !== undefined ? splitLeadingTicketId(content.text) : null
               if (leading === null) {
-                onSaveMemo(highlight.id, content)
+                if (draft) onSaveMemo(highlight.id, content, draftHead)
+                else onSaveMemo(highlight.id, content)
               } else {
                 const stripped = { text: leading.rest, html: stripLeadingWord(content.html, leading.id) }
-                if (draft) onSaveMemo(highlight.id, stripped, { id: leading.id })
+                if (draft) onSaveMemo(highlight.id, stripped, { ...draftHead, id: leading.id })
                 else {
                   onSaveMemo(highlight.id, stripped)
                   onSetTicket?.(item.key, { ...ticket, id: leading.id })
@@ -639,7 +653,7 @@ export function NoteFlow({
         // 머리: ID 배지와 제목. 비어 있는 칸은 마우스를 올렸을 때 오른쪽 위에 「+ ID」「+ 제목」으로만 보인다
         const editingId = headEdit?.key === item.key && headEdit.field === 'id'
         const editingTitle = headEdit?.key === item.key && headEdit.field === 'title'
-        const canHead = onSetTicket !== undefined && !draft
+        const canHead = onSetTicket !== undefined
         const idInput = editingId ? (
           <TicketIdInput
             initial={ticket?.id ?? ''}
@@ -681,9 +695,10 @@ export function NoteFlow({
           </div>
         ) : null
         const memoEmpty = !editing && (highlight.note ?? '').trim() === '' && (highlight.noteHtml ?? '') === ''
-        const ghosts = canHead && !editingId && !editingTitle && !editing ? (
+        // 새 메모는 쓰는 중에도 「+ ID」「+ 제목」을 보인다(눌러도 메모 칸 포커스를 뺏지 않는다)
+        const ghosts = canHead && !editingId && !editingTitle && (!editing || draft) ? (
           <div className="note-ticket-ghosts">
-            {memoEmpty ? <button type="button" className="note-ticket-ghost" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button> : null}
+            {memoEmpty && !draft ? <button type="button" className="note-ticket-ghost" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button> : null}
             {ticket?.id === undefined ? <button type="button" className="note-ticket-ghost" onClick={() => setHeadEdit({ key: item.key, field: 'id' })}>{t('+ ID')}</button> : null}
             {ticket?.title === undefined ? <button type="button" className="note-ticket-ghost" onClick={() => setHeadEdit({ key: item.key, field: 'title' })}>{t('+ 제목')}</button> : null}
           </div>

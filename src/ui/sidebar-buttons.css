@@ -89,3 +89,9 @@
 .sidebar .side-context-menu > .side-color-row { padding: 4px 9px 4px 34px; }
 /* 마우스로 연 메뉴는 첫 항목이 초점만 받고 칠해지지 않는다(키보드로 움직이면 :focus-visible 로 칠해진다) */
 .sidebar .side-context-menu > button:focus:not(:focus-visible):not(:hover) { background: transparent; outline: none; }
+
+/* 문서·노트 줄: 글자와 아이콘을 키운다(작아서 읽기 어려웠다) */
+.sidebar .side-head.side-head { font-size: 13.5px; }
+.sidebar .side-head .side-section-icon { width: 17px; height: 17px; }
+.sidebar .side-section .side-tree-item.side-tree-item { height: 32px; font-size: 13.5px; }
+.sidebar .side-section .side-tree-item svg:not(.side-memo-color svg) { width: 16px; height: 16px; }
