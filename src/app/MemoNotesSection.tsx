@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, FilePlus, Folder, FolderPlus, NotePencil, Palette, Plus } from '@phosphor-icons/react'
+import { ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, Plus } from '@phosphor-icons/react'
 import { MEMO_NOTES_FOLDER, isInsideMemoFolder, memoParentOf, type MemoNoteEntry } from '../core/memoNote'
 import { FOLDER_COLORS, folderColorHex, type FolderColor } from '../core/folderColors'
 import { ItemEmoji } from './ItemEmoji'
@@ -415,7 +415,7 @@ export function MemoNotesSection({
   return (
     <section className="side-section side-memo-notes" aria-labelledby="side-memo-notes-heading">
       <div className="side-head-row">
-        <h2 id="side-memo-notes-heading" className="side-head"><NotePencil className="side-section-icon" size={15} aria-hidden="true" />{t('노트')}</h2>
+        <h2 id="side-memo-notes-heading" className="side-head"><Notebook className="side-section-icon" size={15} aria-hidden="true" />{t('노트')}</h2>
         {/* PDF 머리 단추와 같은 모양·크기(side-top-action, 16px) */}
         {folders.length > 0 ? (
           <button

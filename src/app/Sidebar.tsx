@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
-import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Files, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle } from '@phosphor-icons/react'
+import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle } from '@phosphor-icons/react'
 import {
   buildLegacyWorkspaceTree,
   projectVaultTree,
@@ -1584,7 +1584,7 @@ export function Sidebar({
         <>
         <section className={`side-section side-documents-section${sectionDropClass('documents')}`} aria-labelledby="side-documents-heading" {...sectionDropProps('documents')}>
           <div className="side-head-row side-documents-head">
-            <h2 id="side-documents-heading" className="side-head"><Files className="side-section-icon" size={15} aria-hidden="true" />{t('문서')}</h2>
+            <h2 id="side-documents-heading" className="side-head"><Books className="side-section-icon" size={15} aria-hidden="true" />{t('문서')}</h2>
             {headActions}
           </div>
           {projectedTree.documents.length > 0 || draft?.section === 'documents'
@@ -1606,7 +1606,7 @@ export function Sidebar({
         {showNotes ? (
         <section className={`side-section side-notes-section${sectionDropClass('notes')}`} aria-labelledby="side-notes-heading" {...sectionDropProps('notes')}>
           <div className="side-head-row side-notebook-head">
-            <h2 id="side-notes-heading" className="side-head"><FileMd className="side-section-icon" size={15} aria-hidden="true" />{t('노트')}</h2>
+            <h2 id="side-notes-heading" className="side-head"><Notebook className="side-section-icon" size={15} aria-hidden="true" />{t('노트')}</h2>
             <button type="button" className="side-add" onClick={() => startDraft('note', 'notes', '')}>
               {t('새 노트')}
             </button>
