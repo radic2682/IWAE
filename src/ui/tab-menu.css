@@ -1,0 +1,26 @@
+/* 탭 오른쪽 클릭 메뉴: 왼쪽 바 메뉴와 같은 폭·높이·아이콘 칸·선. 단축키도 회색이 아닌 같은 글자색 */
+.topbar .pane-tab-context,
+.pane-tab-context.pane-tab-context {
+  width: 232px;
+  padding: 5px;
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+}
+.pane-tab-context.pane-tab-context button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  padding: 0 9px;
+  border-radius: 6px;
+  color: var(--text-strong);
+  font-size: 12.5px;
+}
+.pane-tab-context.pane-tab-context button > svg { flex: 0 0 16px; }
+.pane-tab-context.pane-tab-context button > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.pane-tab-context.pane-tab-context button:is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); outline: none; }
+.pane-tab-context.pane-tab-context button:focus:not(:focus-visible):not(:hover) { background: transparent; outline: none; }
+/* 못 쓰는 항목은 흐리게(회색 글자 대신 전체를 옅게) */
+.pane-tab-context.pane-tab-context button:disabled { color: var(--text-strong); opacity: 0.45; }
+.pane-tab-context.pane-tab-context kbd { margin-left: 8px; color: var(--text-strong); font: inherit; font-size: 11.5px; }
+.pane-tab-context.pane-tab-context .pane-tab-context-sep { height: 1px; margin: 4px 6px; background: var(--divider); }

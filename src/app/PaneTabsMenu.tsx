@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowsLeftRight, CaretDown, Check, CopySimple, FilePdf, FileText, Graph, X } from '@phosphor-icons/react'
+import { ArrowLineRight, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
+import { platformShortcut } from '../core/platform'
+import '../ui/tab-menu.css'
 
 interface PaneTabsMenuProps {
   state: TabsState
@@ -433,20 +435,58 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
         }
         const left = Math.min(contextMenu.x, window.innerWidth - 230)
         return (
-          <div className="pane-tab-context" role="menu" aria-label={t('{title} 탭 메뉴', { title: tab.title })} style={{ left, top: contextMenu.y + 4 }}>
-            <button type="button" role="menuitem" onClick={run(() => closeMany([tab.id]))}>{t('닫기')}<kbd>Ctrl+W</kbd></button>
-            <button type="button" role="menuitem" disabled={others.length === 0} onClick={run(() => closeMany(others))}>{t('다른 탭 모두 닫기')}</button>
-            <button type="button" role="menuitem" disabled={toRight.length === 0} onClick={run(() => closeMany(toRight))}>{t('오른쪽 탭 모두 닫기')}</button>
-            <button type="button" role="menuitem" onClick={run(() => closeMany(state.tabs.map((candidate) => candidate.id)))}>{t('모두 닫기')}</button>
-            <div className="pane-tab-context-sep" role="separator" />
+          <div
+            className="pane-tab-context"
+            role="menu"
+            aria-label={t('{title} 탭 메뉴', { title: tab.title })}
+            style={{ left, top: contextMenu.y + 4 }}
+            // 열리면 첫 항목에 초점을 두어 ↑↓·Escape 가 듣게 한다(마우스로 열면 칠하지는 않는다)
+            ref={(element) => {
+              if (element !== null && !element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]:not(:disabled)')?.focus({ preventScroll: true })
+            }}
+            onKeyDown={(event) => {
+              const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem]:not(:disabled)'))
+              const at = items.indexOf(document.activeElement as HTMLButtonElement)
+              const next = event.key === 'ArrowDown' ? (at + 1) % items.length
+                : event.key === 'ArrowUp' ? (at <= 0 ? items.length - 1 : at - 1)
+                  : event.key === 'Home' ? 0
+                    : event.key === 'End' ? items.length - 1
+                      : null
+              if (next === null || items.length === 0) return
+              event.preventDefault()
+              items[next]?.focus()
+            }}
+          >
+            <button type="button" role="menuitem" onClick={run(() => closeMany([tab.id]))}>
+              <X size={15} aria-hidden="true" /><span>{t('닫기')}</span><kbd>{platformShortcut('Ctrl+W')}</kbd>
+            </button>
+            <button type="button" role="menuitem" disabled={others.length === 0} onClick={run(() => closeMany(others))}>
+              <XSquare size={15} aria-hidden="true" /><span>{t('다른 탭 모두 닫기')}</span>
+            </button>
+            <button type="button" role="menuitem" disabled={toRight.length === 0} onClick={run(() => closeMany(toRight))}>
+              <ArrowLineRight size={15} aria-hidden="true" /><span>{t('오른쪽 탭 모두 닫기')}</span>
+            </button>
+            <button type="button" role="menuitem" onClick={run(() => closeMany(state.tabs.map((candidate) => candidate.id)))}>
+              <Broom size={15} aria-hidden="true" /><span>{t('모두 닫기')}</span>
+            </button>
+            {(onMoveTab !== undefined && targets.length > 0) || (tab.kind === 'pdf' && onDuplicateTab !== undefined) ? (
+              <div className="pane-tab-context-sep" role="separator" />
+            ) : null}
             {onMoveTab === undefined ? null : targets.map((target) => (
-              <button key={target.pane} type="button" role="menuitem" onClick={run(() => onMoveTab(tab.id, target.pane))}>{target.label}</button>
+              <button key={target.pane} type="button" role="menuitem" onClick={run(() => onMoveTab(tab.id, target.pane))}>
+                <ArrowsLeftRight size={15} aria-hidden="true" /><span>{target.label}</span>
+              </button>
             ))}
             {tab.kind === 'pdf' && onDuplicateTab !== undefined ? (
-              <button type="button" role="menuitem" onClick={run(() => onDuplicateTab(tab.id))}>{t('같은 PDF 한 군데 더 열기')}</button>
+              <button type="button" role="menuitem" onClick={run(() => onDuplicateTab(tab.id))}>
+                <CopySimple size={15} aria-hidden="true" /><span>{t('같은 PDF 하나 더 열기')}</span>
+              </button>
             ) : null}
+            <div className="pane-tab-context-sep" role="separator" />
             {tab.kind === 'pdf' && onEditPages !== undefined ? (
-              <button type="button" role="menuitem" onClick={run(() => onEditPages(tab.id))}>{t('쪽 편집 (순서·회전·끼워 넣기)…')}</button>
+              <button type="button" role="menuitem" onClick={run(() => onEditPages(tab.id))}>
+                <Files size={15} aria-hidden="true" /><span>{t('쪽 편집 (순서·회전·끼워 넣기)…')}</span>
+              </button>
             ) : null}
             <button
               type="button"
@@ -456,7 +496,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 announceAction(t('이름을 복사했습니다'))
               })}
             >
-              {t('이름 복사')}
+              <ClipboardText size={15} aria-hidden="true" /><span>{t('이름 복사')}</span>
             </button>
           </div>
         )

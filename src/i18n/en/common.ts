@@ -98,4 +98,5 @@ export const COMMON: Readonly<Record<string, string>> = {
   '버전 묶음 풀기 (파일은 그대로)': 'Ungroup versions (files stay)',
   '논문 정보…': 'Paper details…',
   '인용 정보 복사 (BibTeX)': 'Copy citation (BibTeX)',
+  '같은 PDF 하나 더 열기': 'Open this PDF once more',
 }
