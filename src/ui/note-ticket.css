@@ -94,7 +94,6 @@
 .note-block .note-source-chip .note-source-expand { display: none; }
 .note-block .note-source-chip:hover .note-source-expand,
 .note-block .note-source-chip .note-source-expand:focus-visible { display: inline-grid; }
-.note-block .note-source-chip-text { font-family: Georgia, 'Batang', 'Noto Serif KR', serif; }
 .note-block .note-source-chip-text::before { content: '“'; }
 .note-block .note-source-chip-text::after { content: '”'; }
 .note-block .note-source-chip .note-source-page,
@@ -106,7 +105,7 @@
 .note-block.note-block .pdf-memo-card-quote.note-source.note-source {
   display: block; position: relative; padding: 6px 10px 6px 26px !important; border-radius: 8px;
   background: var(--memo-chip-bg) !important; color: var(--text-strong) !important;
-  font-family: Georgia, 'Batang', 'Noto Serif KR', serif;
+
 }
 .note-block .pdf-memo-card-quote.note-source::before { position: absolute; top: 12px; left: 10px; }
 .note-block .note-source-chip:hover, .note-block .note-source:hover { filter: none; }
