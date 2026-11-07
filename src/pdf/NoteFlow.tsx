@@ -257,10 +257,11 @@ export function NoteFlow({
   const menuItem = menu === null ? undefined : items.find((item) => item.key === menu.key)
 
   // ---------- 마우스를 올린 블록의 출처: 바 밖(문서 맨 위)에 띄워 맨 위 블록에서도 잘리지 않는다 ----------
-  const [tip, setTip] = useState<{ key: string; label: string; right: number; top: number } | null>(null)
+  // 출처 꼬리표: 블록 위 왼쪽 바깥(오른쪽 위는 블록 단추 자리)
+  const [tip, setTip] = useState<{ key: string; label: string; left: number; top: number; width: number } | null>(null)
   const showTip = (key: string, label: string) => (event: ReactPointerEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
-    setTip({ key, label, right: rect.right, top: rect.top })
+    setTip({ key, label, left: rect.left, top: rect.top, width: rect.width })
   }
   useEffect(() => {
     if (tip === null) return
@@ -272,7 +273,7 @@ export function NoteFlow({
         return
       }
       const rect = element.getBoundingClientRect()
-      setTip((current) => current === null || (current.top === rect.top && current.right === rect.right) ? current : { ...current, right: rect.right, top: rect.top })
+      setTip((current) => current === null || (current.top === rect.top && current.left === rect.left) ? current : { ...current, left: rect.left, top: rect.top, width: rect.width })
     }
     window.addEventListener('scroll', follow, true)
     return () => window.removeEventListener('scroll', follow, true)
@@ -392,7 +393,7 @@ export function NoteFlow({
         </div>
       ) : null}
       {tip !== null ? createPortal(
-        <span className="note-source-float" aria-hidden="true" style={{ left: tip.right, top: tip.top }}>{tip.label}</span>,
+        <span className="note-source-float" aria-hidden="true" style={{ left: tip.left, top: tip.top, maxWidth: Math.max(80, tip.width - 150) }}>{tip.label}</span>,
         document.body,
       ) : null}
       {items.map((item, index) => {
