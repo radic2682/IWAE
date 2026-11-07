@@ -80,7 +80,7 @@ import {
 } from './usePdfBookmarks'
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
-import { isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
+import { closeSplitCell, isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePreviewPanel, OutlinePanel, ThumbnailPanel } from './SidePanels'
 import { MarkdownOutline, MarkdownSectionPreview } from './MarkdownOutline'
@@ -1764,8 +1764,30 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }),
     }
   }
+  // 창 하나만 닫기: 남은 창이 그 자리를 채우고(배치는 한 칸 적은 것으로), 닫은 창의 탭은 옆 창으로
+  const closePane = (pane: PaneId) => {
+    const shown = visiblePanes(shownPaneCount)
+    const index = shown.indexOf(pane)
+    if (index < 0 || shown.length <= 1) return
+    const { layout, keep } = closeSplitCell(shownLayoutId, index)
+    const target = Math.min(index, keep.length - 1)
+    setPanes((current) => {
+      const old = PANE_IDS.map((id) => current[id])
+      const next = { ...current }
+      PANE_IDS.forEach((id, slot) => { next[id] = slot < keep.length ? old[keep[slot]!]! : emptyTabs })
+      const closed = old[index]!
+      if (closed.tabs.length > 0) {
+        const into = PANE_IDS[target]!
+        next[into] = { tabs: [...next[into].tabs, ...closed.tabs], activeId: next[into].activeId ?? closed.activeId }
+      }
+      return next
+    })
+    setPaneLayout(layout)
+    setActivePaneId(PANE_IDS[target]!)
+  }
   const renderPaneTabs = (pane: PaneId) => (
     <PaneTabsMenu
+      onClosePane={shownPaneCount > 1 && !docSearchMode ? () => closePane(pane) : undefined}
       state={tabsWithVersion(panes[pane])}
       label={t('탭')}
       paneId={pane}

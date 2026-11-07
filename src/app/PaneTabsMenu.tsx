@@ -8,6 +8,8 @@ import '../ui/tab-menu.css'
 
 interface PaneTabsMenuProps {
   state: TabsState
+  /** 빈 창 닫기(창이 여럿일 때) */
+  onClosePane?: () => void
   label: string
   onActivate: (id: string) => void
   onClose: (id: string) => void
@@ -172,7 +174,7 @@ function startTabDrag(
 }
 
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onReorderTab }: PaneTabsMenuProps) {
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onReorderTab, onClosePane }: PaneTabsMenuProps) {
   const label = t(rawLabel)
   const [menuOpen, setMenuOpen] = useState(false)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -263,7 +265,16 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   }, [state.activeId, state.tabs.length])
 
   if (state.tabs.length === 0) {
-    return <span className="pane-tabs-empty">{t('열린 {label} 없음', { label })}</span>
+    return (
+      <span className="pane-tabs-empty-row">
+        <span className="pane-tabs-empty">{t('열린 {label} 없음', { label })}</span>
+        {onClosePane === undefined ? null : (
+          <button type="button" className="pane-close-button" aria-label={t('이 창 닫기')} title={t('이 창 닫기')} onClick={onClosePane}>
+            <X size={14} aria-hidden="true" />
+          </button>
+        )}
+      </span>
+    )
   }
 
   return (
