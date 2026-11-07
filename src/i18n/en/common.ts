@@ -128,4 +128,11 @@ export const COMMON: Readonly<Record<string, string>> = {
   '이 문서에는 제목이 없습니다': 'This document has no headings',
   '{count}절 {title}': 'Section {count}: {title}',
   '{title} 책갈피 지우기': 'Remove bookmark {title}',
+  'GitHub: 받을 것 {count}개': 'GitHub: {count} to pull',
+  'GitHub · {name}': 'GitHub · {name}',
+  '새 소식 확인': 'Check for updates',
+  '최신으로 받기 ({count})': 'Pull latest ({count})',
+  '최신으로 받기': 'Pull latest',
+  '버전 보기': 'Versions',
+  'GitHub 에서 열기': 'Open on GitHub',
 }

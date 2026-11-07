@@ -189,3 +189,13 @@ describe('PaneToolbar', () => {
     expect((screen.getByRole('button', { name: '앞으로' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
+
+describe('PaneToolbar — GitHub 와 이어진 Markdown', () => {
+  it('받을 것 수를 배지로 보이고, 메뉴에서 최신으로 받기를 부른다', () => {
+    const onAction = vi.fn()
+    render(<PaneToolbar kind="markdown" mode="text" onModeChange={vi.fn()} github={{ name: 'docs', behind: 3, onAction }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'GitHub: 받을 것 3개' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '최신으로 받기 (3)' }))
+    expect(onAction).toHaveBeenCalledWith('pull')
+  })
+})

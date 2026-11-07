@@ -168,6 +168,8 @@ export interface DocumentViewProps {
   /** 이 문서의 원본 출처 수와 창 열기(PDF 도구줄의 링크 단추) */
   sourceCount?: number
   onOpenSources?: () => void
+  /** GitHub 와 이어진 폴더 안의 Markdown 이면 도구줄에 GitHub 단추 */
+  github?: { readonly name: string; readonly behind: number; readonly onAction: (action: 'fetch' | 'pull' | 'versions' | 'open') => void }
   /** PDF 파일 복사(클립보드) */
   onCopyFile?: () => void
   /** 이 PDF 의 쪽 편집(쪽 미리보기로 순서·끼워 넣기·빼기)을 연다 */
@@ -525,6 +527,7 @@ export function DocumentView(props: DocumentViewProps) {
       onOpenVersions={tab.kind === 'pdf' ? props.onOpenVersions : undefined}
       sourceCount={props.sourceCount ?? 0}
       onOpenSources={props.onOpenSources}
+      github={tab.kind === 'markdown' ? props.github : undefined}
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
       cleanView={props.pdfViewPrefs.clean === true}

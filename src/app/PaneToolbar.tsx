@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour } from '@phosphor-icons/react'
+import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut } from '@phosphor-icons/react'
 import { OVERLAY_TOOLS } from '../pdf/PdfOverlayPalette'
 import { useOverlayTool } from '../pdf/overlayToolStore'
 import { HighlighterToolbarControl } from '../pdf/HighlighterTool'
@@ -32,6 +32,8 @@ interface PaneToolbarProps {
   /** 원본 출처. 주면 링크 단추가 나온다(출처 수가 배지). 누르면 출처 창 */
   readonly sourceCount?: number
   readonly onOpenSources?: () => void
+  /** GitHub 와 이어진 폴더의 문서: 새 소식 확인·최신으로 받기·버전·GitHub 에서 열기 */
+  readonly github?: { readonly name: string; readonly behind: number; readonly onAction: (action: 'fetch' | 'pull' | 'versions' | 'open') => void }
   /** PDF 파일을 클립보드에 복사(탐색기·메일·메신저에 붙여 넣으면 파일이 들어간다) */
   readonly onCopyFile?: () => void
   /** PDF 쪽 배치(한 장·두 장·세 장·연속). 주면 도구줄 앞에 단추 넷이 나온다 */
@@ -60,6 +62,7 @@ export function PaneToolbar({
   onOpenVersions,
   sourceCount = 0,
   onOpenSources,
+  github,
   onCopyFile,
   pageLayout,
   onPageLayoutChange,
@@ -215,6 +218,7 @@ export function PaneToolbar({
           <CaretDown size={9} weight="bold" aria-hidden="true" />
         </button>
       ) : null}
+      {github !== undefined ? <GithubToolbarButton github={github} /> : null}
       {onOpenSources !== undefined ? (
         <button
           type="button"
@@ -251,7 +255,7 @@ export function PaneToolbar({
       ) : null}
     </>
   )
-  const hasDocGroup = (versionLabel !== undefined && onOpenVersions !== undefined) || onOpenSources !== undefined || onCopyFile !== undefined || onPrint !== undefined
+  const hasDocGroup = (versionLabel !== undefined && onOpenVersions !== undefined) || onOpenSources !== undefined || onCopyFile !== undefined || onPrint !== undefined || github !== undefined
   // 너비가 모자라면 덜 쓰는 묶음부터 「⋯」 안으로: 1 = 쪽 배치·화면 나누기, 2 = 판·출처·복사·인쇄, 3 = 박스 메모·편집 도구·쪽 편집
   const inMenu = (group: 1 | 2 | 3) => overflowLevel >= group
 
@@ -316,6 +320,60 @@ export function PaneToolbar({
           </div>
         ) : null}
       </div>
+    </>
+  )
+}
+
+/** 문서 도구줄의 GitHub 단추: 받을 커밋 수를 배지로, 누르면 아래로 작은 메뉴 */
+function GithubToolbarButton({ github }: { readonly github: NonNullable<PaneToolbarProps['github']> }) {
+  const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (rect !== undefined) setPlace({ left: Math.max(8, rect.right - 232), top: rect.bottom + 6 })
+    const close = (event: PointerEvent) => {
+      const target = event.target as Element | null
+      if (target?.closest('.pane-github-menu') == null && !buttonRef.current?.contains(target)) setOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    window.addEventListener('pointerdown', close, true)
+    window.addEventListener('keydown', escape)
+    return () => {
+      window.removeEventListener('pointerdown', close, true)
+      window.removeEventListener('keydown', escape)
+    }
+  }, [open])
+  const run = (action: 'fetch' | 'pull' | 'versions' | 'open') => () => {
+    setOpen(false)
+    github.onAction(action)
+  }
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`toolbar-tool-btn pdf-compact-tool pane-github${github.behind > 0 ? ' pane-github-behind' : ''}`}
+        aria-label={github.behind > 0 ? t('GitHub: 받을 것 {count}개', { count: github.behind }) : t('GitHub')}
+        title={t('GitHub · {name}', { name: github.name })}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <GithubLogo size={15} aria-hidden="true" />
+        {github.behind > 0 ? <span className="pane-sources-count">{github.behind}</span> : null}
+      </button>
+      {open && place !== null ? createPortal(
+        <div className="pane-github-menu" role="menu" aria-label={t('GitHub')} style={{ left: place.left, top: place.top }}>
+          <button type="button" role="menuitem" onClick={run('fetch')}><ArrowsClockwise size={15} aria-hidden="true" /><span>{t('새 소식 확인')}</span></button>
+          <button type="button" role="menuitem" onClick={run('pull')}><DownloadSimple size={15} aria-hidden="true" /><span>{github.behind > 0 ? t('최신으로 받기 ({count})', { count: github.behind }) : t('최신으로 받기')}</span></button>
+          <button type="button" role="menuitem" onClick={run('versions')}><ClockCounterClockwise size={15} aria-hidden="true" /><span>{t('버전 보기')}</span></button>
+          <div className="pane-github-sep" role="separator" />
+          <button type="button" role="menuitem" onClick={run('open')}><ArrowSquareOut size={15} aria-hidden="true" /><span>{t('GitHub 에서 열기')}</span></button>
+        </div>,
+        document.body,
+      ) : null}
     </>
   )
 }

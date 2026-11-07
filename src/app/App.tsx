@@ -1687,6 +1687,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     window.addEventListener('iwae:github-links-changed', reload)
     return () => window.removeEventListener('iwae:github-links-changed', reload)
   }, [reloadGithubSources])
+  /** 이 파일이 GitHub 와 이어진 폴더(받아 둔 저장소) 안에 있으면 그 연결 */
+  const githubSourceOf = (path: string): GithubSource | undefined => {
+    const wanted = path.replaceAll('\\', '/').toLocaleLowerCase()
+    for (const [target, source] of githubSources) {
+      const folder = target.replaceAll('\\', '/').replace(/\/+$/u, '').toLocaleLowerCase()
+      if (folder !== '' && wanted.startsWith(`${folder}/`)) return source
+    }
+    return undefined
+  }
   const putGithubSource = (source: GithubSource) => setGithubSources((current) => new Map(current).set(source.target, source))
   const refreshAll = async () => {
     await refreshVault()
@@ -1947,6 +1956,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onOverlayRemove={pdfOverlays.remove}
         sourceCount={docSources.sources[tabDocId(tab)]?.length ?? 0}
         onOpenSources={() => setSourcesDocId(tabDocId(tab))}
+        github={(() => {
+          const source = tab.kind === 'markdown' ? githubSourceOf(tab.id) : undefined
+          return source === undefined ? undefined : { name: source.name, behind: source.behind, onAction: (action) => githubAction(action, source.name) }
+        })()}
         onCopyFile={() => void copyPdfFile(tabDocId(tab))}
         onEditPages={(id) => setPageEditDocId(id)}
         versionLabel={tab.kind === 'pdf' ? versionLabelOf(tabDocId(tab)) : undefined}
