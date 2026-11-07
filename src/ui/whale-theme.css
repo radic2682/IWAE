@@ -977,7 +977,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* ---------- Markdown 뷰어: PDF 와 같은 읽기 틀(작업 바탕 위 종이, 같은 스크롤바, 배율) ---------- */
 .pane-doc .markdown-pane-host { background: var(--workspace); }
 .pane-doc .markdown-pane {
-  --md-paper-w: min(calc(820px * var(--md-zoom, 1)), calc(100% - 28px));
+  --md-paper-w: min(calc(820px * var(--md-zoom, 1)), calc(100% - 24px));
   padding: 18px 0 40px;
   scrollbar-width: none;
   /* 종이: 가운데 흰 기둥(내용과 함께 스크롤된다) */
@@ -994,7 +994,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .markdown-pane::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .pane-doc .markdown-pane > * {
   zoom: var(--md-zoom, 1);
-  max-width: calc((min(820px * var(--md-zoom, 1), 100% - 28px) - 112px * var(--md-zoom, 1)) / var(--md-zoom, 1));
+  max-width: calc((min(820px * var(--md-zoom, 1), 100% - 24px) - 112px * var(--md-zoom, 1)) / var(--md-zoom, 1));
   margin-inline: auto;
 }
 .pane-doc .markdown-pane > :first-child { margin-top: 36px; }

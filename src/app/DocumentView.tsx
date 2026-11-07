@@ -537,11 +537,22 @@ export function DocumentView(props: DocumentViewProps) {
   const [markdownZoom, setMarkdownZoomState] = useState(() => {
     try { const saved = Number(window.localStorage.getItem('iwae:md-zoom:v1')); return saved >= 50 && saved <= 300 ? saved : 100 } catch { return 100 }
   })
+  // 폭 맞춤(PDF 처럼 처음엔 폭 맞춤). 배율을 직접 바꾸면 풀린다
+  const [markdownFit, setMarkdownFitState] = useState(() => {
+    try { return window.localStorage.getItem('iwae:md-fit:v1') !== 'off' } catch { return true }
+  })
+  const setMarkdownFit = useCallback((on: boolean) => {
+    setMarkdownFitState(on)
+    try { window.localStorage.setItem('iwae:md-fit:v1', on ? 'on' : 'off') } catch { /* 이번 실행에만 */ }
+  }, [])
   const setMarkdownZoom = useCallback((value: number) => {
     const next = Math.min(Math.max(Math.round(value), 50), 300)
     setMarkdownZoomState(next)
+    setMarkdownFit(false)
     try { window.localStorage.setItem('iwae:md-zoom:v1', String(next)) } catch { /* 이번 실행에만 */ }
-  }, [])
+  }, [setMarkdownFit])
+  // 폭 맞춤이 잰 배율(저장하지 않는다 — 다음에도 창 폭에 맞춰 다시 잰다)
+  const onMarkdownFitZoom = useCallback((value: number) => setMarkdownZoomState(value), [])
   const [markdownSections, setMarkdownSections] = useState({ current: 0, count: 1 })
   const onMarkdownSectionsChange = useCallback((current: number, count: number) => setMarkdownSections((value) => (value.current === current && value.count === count ? value : { current, count })), [])
   const [markdownSectionRequest, setMarkdownSectionRequest] = useState<{ index: number; nonce: number } | null>(null)
@@ -574,13 +585,13 @@ export function DocumentView(props: DocumentViewProps) {
   }, [tab.id, tab.kind])
   const markdownBottomBar = tab.kind === 'markdown' ? (
     <PdfBottomBar
-      zoomPercent={markdownZoom}
+      zoomPercent={Math.round(markdownZoom)}
       page={markdownSections.current + 1}
       pageCount={markdownSections.count}
       onZoomIn={() => setMarkdownZoom(stepZoom(markdownZoom, 1))}
       onZoomOut={() => setMarkdownZoom(stepZoom(markdownZoom, -1))}
-      onFitWidth={() => setMarkdownZoom(100)}
-      onFitPage={() => setMarkdownZoom(100)}
+      onFitWidth={() => setMarkdownFit(true)}
+      onFitPage={() => setMarkdownFit(true)}
       onActualSize={() => setMarkdownZoom(100)}
       onZoomChange={setMarkdownZoom}
       onPageChange={(value) => setMarkdownSectionRequest({ index: Math.max(value - 1, 0), nonce: Date.now() })}
@@ -689,6 +700,8 @@ export function DocumentView(props: DocumentViewProps) {
                 onJumpHandled={props.onMarkdownJumpHandled}
                 zoom={markdownZoom}
                 onZoomChange={setMarkdownZoom}
+                fitWidth={markdownFit}
+                onFitZoom={onMarkdownFitZoom}
                 onSectionsChange={onMarkdownSectionsChange}
                 sectionRequest={markdownSectionRequest}
               />

@@ -11,7 +11,7 @@ import {
   type DragEvent,
 } from 'react'
 import { announceAction } from './actionFeedback'
-import { MarkdownWriteLayer, markdownPaper, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
+import { MarkdownWriteLayer, markdownFitWidthZoom, markdownPaper, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
 import { MarkdownMemoBar } from './MarkdownMemoBar'
 import type { MarkdownSearchHit } from './MarkdownSearchPanel'
 import { PdfPins, PinHead, type PdfPinPatchInput, type PlacedPin } from '../pdf/PdfPins'
@@ -74,6 +74,9 @@ interface MarkdownPaneProps {
   readonly zoom?: number
   /** Ctrl+휠로 배율을 바꿨다 */
   readonly onZoomChange?: (zoom: number) => void
+  /** 폭 맞춤: 창 폭이 바뀌면 종이가 양옆 12px 만 남기고 꽉 차는 배율을 알린다 */
+  readonly fitWidth?: boolean
+  readonly onFitZoom?: (zoom: number) => void
   /** 지금 절(제목) 차례와 절 수가 바뀌었다(아래 막대의 「쪽」 칸) */
   readonly onSectionsChange?: (current: number, count: number) => void
   /** 이 절(0 부터)로 가라. nonce 가 바뀔 때마다 */
@@ -427,6 +430,8 @@ export function MarkdownPane({
   onExternalLink,
   zoom = 100,
   onZoomChange,
+  fitWidth = false,
+  onFitZoom,
   onSectionsChange,
   sectionRequest = null,
   boxHighlights = EMPTY_BOX_HIGHLIGHTS,
@@ -525,6 +530,20 @@ export function MarkdownPane({
     const paper = markdownPaper(article.clientWidth, zoom)
     article.scrollTo({ top: Math.max(rect.y * paper.scale - article.clientHeight / 3, 0), behavior: 'smooth' })
   }
+
+  // 폭 맞춤: 글 영역 폭이 바뀔 때마다 배율을 다시 맞춘다
+  useEffect(() => {
+    const article = articleRef.current
+    if (!fitWidth || article === null || onFitZoom === undefined) return undefined
+    const fit = () => {
+      const next = markdownFitWidthZoom(article.clientWidth)
+      if (Math.abs(next - zoom) > 0.05) onFitZoom(next)
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(article)
+    return () => observer.disconnect()
+  }, [fitWidth, onFitZoom, zoom])
 
   // ---------- 쓰기 층(박스 메모·편집): 글자 위치 → 종이 좌표 ----------
   const [boxRequest, setBoxRequest] = useState<MarkdownBoxRequest | null>(null)

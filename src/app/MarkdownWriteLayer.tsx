@@ -13,6 +13,13 @@ import '../ui/pdf-overlay.css'
 
 /** Markdown 종이 폭(배율 1). 박스 메모·편집 좌표는 이 종이의 왼쪽 위 기준, 배율 1 의 px 다(PDF 의 쪽 좌표와 같은 뜻) */
 export const MARKDOWN_PAPER_WIDTH = 820
+/** 종이 양옆 작업 바탕 여백(PDF 쪽 폭 맞춤과 같은 12px) */
+export const MARKDOWN_PAPER_GUTTER = 12
+
+/** 폭 맞춤 배율: 종이가 양옆 12px 만 남기고 꽉 차게 */
+export function markdownFitWidthZoom(articleWidth: number): number {
+  return Math.min(Math.max(((articleWidth - MARKDOWN_PAPER_GUTTER * 2) / MARKDOWN_PAPER_WIDTH) * 100, 50), 300)
+}
 
 /** 글자 차례(원문 텍스트 위치)로 화면 사각형을 다시 얻는다(배율·창 폭이 바뀌어도 맞는다) */
 export type MarkdownRectsOf = (charRange: readonly [number, number]) => readonly { x: number; y: number; w: number; h: number }[]
@@ -48,7 +55,7 @@ interface MarkdownWriteLayerProps {
 
 /** 종이 자리: 글 영역 폭 안에서 가운데, 배율에 따라 커진다(창이 좁으면 창에 맞춘다) */
 export function markdownPaper(articleWidth: number, zoom: number): { left: number; width: number; scale: number } {
-  const width = Math.max(Math.min(MARKDOWN_PAPER_WIDTH * (zoom / 100), articleWidth - 28), 120)
+  const width = Math.max(Math.min(MARKDOWN_PAPER_WIDTH * (zoom / 100), articleWidth - MARKDOWN_PAPER_GUTTER * 2), 120)
   return { left: (articleWidth - width) / 2, width, scale: width / MARKDOWN_PAPER_WIDTH }
 }
 
