@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Select } from '../ui/Select'
 import type { ExternalTranslationProvider, PullProgress, TranslationExecutionMode, TranslationStatus } from '../core/translation'
 import { EXTERNAL_PROVIDERS, externalProviderInfo } from '../core/translationSettings'
 import { RECOMMENDED_TRANSLATION_MODELS } from '../core/translation'
@@ -177,16 +178,13 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
 
         <label className="translation-settings-field">
           <span className="translation-settings-label">{t('번역 언어')}</span>
-          <select
+          <Select
             className="translation-settings-select"
+            ariaLabel={t('번역 언어')}
             value={state.settings.targetLanguage}
-            onChange={(event) => state.updateSettings({ targetLanguage: event.currentTarget.value })}
-          >
-            <option value="ko">한국어</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-            <option value="zh">中文</option>
-          </select>
+            options={[{ value: 'ko', label: '한국어' }, { value: 'en', label: 'English' }, { value: 'ja', label: '日本語' }, { value: 'zh', label: '中文' }]}
+            onChange={(value) => state.updateSettings({ targetLanguage: value })}
+          />
         </label>
       </div>
 
@@ -194,17 +192,16 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
         <div className="translation-settings-fields translation-settings-external-fields">
           <label className="translation-settings-field">
             <span className="translation-settings-label">{t('제공자')}</span>
-            <select
+            <Select
               className="translation-settings-input"
-              aria-label={t('제공자')}
+              ariaLabel={t('제공자')}
               value={state.settings.externalProvider}
-              onChange={(event) => {
-                const next = externalProviderInfo(event.currentTarget.value as ExternalTranslationProvider)
+              options={EXTERNAL_PROVIDERS.map((item) => ({ value: item.id, label: t(item.label) }))}
+              onChange={(value) => {
+                const next = externalProviderInfo(value as ExternalTranslationProvider)
                 state.updateSettings({ externalProvider: next.id, externalEndpoint: next.endpoint || state.settings.externalEndpoint, externalModel: next.models[0] ?? '' })
               }}
-            >
-              {EXTERNAL_PROVIDERS.map((item) => <option key={item.id} value={item.id}>{t(item.label)}</option>)}
-            </select>
+            />
           </label>
           <label className="translation-settings-field">
             <span className="translation-settings-label">API endpoint</span>

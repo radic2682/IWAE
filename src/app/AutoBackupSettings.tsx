@@ -1,4 +1,5 @@
 import { ArrowClockwise, FolderOpen } from '@phosphor-icons/react'
+import { Select } from '../ui/Select'
 import { AUTO_BACKUP_DAY_CHOICES, AUTO_BACKUP_KEEP_CHOICES, nextAutoBackupAt, type AutoBackupSettings as Settings } from '../core/autoBackup'
 import { revealInFolder } from '../bridge/vaultBackup'
 import { dateLocale, getLocale, t } from '../i18n'
@@ -40,15 +41,21 @@ export function AutoBackupSettings({ settings, running, onChange, onRunNow }: Au
       <div className="auto-backup-grid">
         <label>
           <span>{t('주기')}</span>
-          <select value={settings.everyDays} disabled={!settings.enabled} onChange={(event) => onChange({ everyDays: Number(event.target.value) })}>
-            {AUTO_BACKUP_DAY_CHOICES.map((days) => <option key={days} value={days}>{days === 1 ? t('매일') : t('{days}일마다', { days })}</option>)}
-          </select>
+          <Select
+            value={String(settings.everyDays)}
+            disabled={!settings.enabled}
+            options={AUTO_BACKUP_DAY_CHOICES.map((days) => ({ value: String(days), label: days === 1 ? t('매일') : t('{days}일마다', { days }) }))}
+            onChange={(value) => onChange({ everyDays: Number(value) })}
+          />
         </label>
         <label>
           <span>{t('남길 개수')}</span>
-          <select value={settings.keep} disabled={!settings.enabled} onChange={(event) => onChange({ keep: Number(event.target.value) })}>
-            {AUTO_BACKUP_KEEP_CHOICES.map((count) => <option key={count} value={count}>{t('최근 {count}개', { count })}</option>)}
-          </select>
+          <Select
+            value={String(settings.keep)}
+            disabled={!settings.enabled}
+            options={AUTO_BACKUP_KEEP_CHOICES.map((count) => ({ value: String(count), label: t('최근 {count}개', { count }) }))}
+            onChange={(value) => onChange({ keep: Number(value) })}
+          />
         </label>
       </div>
 

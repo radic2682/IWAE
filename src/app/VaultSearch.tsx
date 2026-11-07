@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Select } from '../ui/Select'
 import { File, FileMd, FilePdf, MagnifyingGlass, Star, X } from '@phosphor-icons/react'
 import { searchVaultPages, type VaultSearchHit, type VaultSearchRecord } from '../core/vaultSearch'
 import type { VaultFileKind } from '../core/vaultIndex'
@@ -113,10 +114,13 @@ export function VaultSearch({ records, onOpen, onFavoriteChange, indexingProgres
             <button type="button" aria-label={t('기타 파일만 보기')} aria-pressed={kind === 'other'} onClick={() => setKind(kind === 'other' ? undefined : 'other')}>{t('기타')}</button>
           </div>
           <div className="vault-search-filters vault-search-secondary-filters" aria-label={t('파일 상태 필터')}>
-            <select aria-label={t('폴더 필터')} value={folder ?? ''} onChange={(event) => setFolder(event.target.value || undefined)}>
-              <option value="">{t('모든 폴더')}</option>
-              {folders.map((path) => <option key={path} value={path}>{path}</option>)}
-            </select>
+            <Select
+              className="vault-search-folder"
+              ariaLabel={t('폴더 필터')}
+              value={folder ?? ''}
+              options={[{ value: '', label: t('모든 폴더') }, ...folders.map((path) => ({ value: path, label: path }))]}
+              onChange={(value) => setFolder(value || undefined)}
+            />
             <button type="button" aria-label={t('즐겨찾기만 보기')} aria-pressed={favorite} onClick={() => setFavorite((value) => !value)}>{t('즐겨찾기')}</button>
             <button type="button" aria-label={t('최근 파일만 보기')} aria-pressed={recent} onClick={() => setRecent((value) => !value)}>{t('최근')}</button>
             <button type="button" aria-label={t('누락 파일만 보기')} aria-pressed={missing} onClick={() => setMissing((value) => !value)}>{t('누락')}</button>

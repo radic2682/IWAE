@@ -1,0 +1,28 @@
+/* 앱 드롭다운: 입력칸과 같은 둥근 모서리, 목록도 앱 메뉴와 같은 모양(회색 글자·각진 운영체제 목록 없이) */
+.app-select {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 0; width: 100%; height: 32px; padding: 0 10px 0 12px; box-sizing: border-box;
+  border: 1px solid var(--divider-strong, var(--divider)); border-radius: 8px;
+  background: var(--paper); color: var(--text-strong);
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.app-select:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--divider))); }
+.app-select:focus-visible, .app-select-open { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.app-select:disabled { cursor: default; opacity: .45; }
+.app-select-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-select-caret { flex: 0 0 auto; transition: transform 120ms ease; }
+.app-select-open .app-select-caret { transform: rotate(180deg); }
+
+.app-select-list {
+  position: fixed; z-index: 1000; box-sizing: border-box; max-height: 320px; overflow-y: auto; padding: 5px;
+  border: 1px solid var(--divider); border-radius: 10px; background: var(--paper);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 18%), 0 2px 6px rgb(0 0 0 / 8%);
+  color: var(--text-strong); font-size: 13px;
+}
+.app-select-option {
+  display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px 0 6px;
+  border-radius: 6px; cursor: pointer; white-space: nowrap;
+}
+.app-select-option-active { background: var(--chrome-hover); }
+.app-select-option[aria-selected='true'] { font-weight: 600; }
+.app-select-check { display: inline-grid; place-items: center; flex: 0 0 16px; color: var(--accent); }

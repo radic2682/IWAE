@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Select } from '../ui/Select'
 import { createPortal } from 'react-dom'
 import { ArrowClockwise, FileText, GitBranch, GitCommit, GithubLogo, Tag, X } from '@phosphor-icons/react'
 import { previewGithubUrl, type GithubRef, type GithubSource } from '../bridge/github'
@@ -95,10 +96,13 @@ export function GithubImportDialog({ onImport, onClose, folders = [], initialFol
         <div className="gh-target">
           <label>
             <span>{t('넣을 곳')}</span>
-            <select aria-label={t('넣을 곳')} value={parent} disabled={busy} onChange={(event) => setParent(event.target.value)}>
-              <option value="">{t('Vault 맨 위')}</option>
-              {folders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}
-            </select>
+            <Select
+              ariaLabel={t('넣을 곳')}
+              value={parent}
+              disabled={busy}
+              options={[{ value: '', label: t('Vault 맨 위') }, ...folders.map((folder) => ({ value: folder, label: folder }))]}
+              onChange={setParent}
+            />
           </label>
           <label>
             <span>{t('폴더 이름')}</span>

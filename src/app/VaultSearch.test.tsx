@@ -50,7 +50,8 @@ describe('VaultSearch', () => {
     render(<VaultSearch records={records} onOpen={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Vault 검색' }))
 
-    fireEvent.change(screen.getByRole('combobox', { name: '폴더 필터' }), { target: { value: 'C:/notes' } })
+    fireEvent.click(screen.getByRole('combobox', { name: '폴더 필터' }))
+    fireEvent.click(screen.getByRole('option', { name: 'C:/notes' }))
     fireEvent.click(screen.getByRole('button', { name: '즐겨찾기만 보기' }))
     fireEvent.click(screen.getByRole('button', { name: '최근 파일만 보기' }))
     fireEvent.click(screen.getByRole('button', { name: '누락 파일만 보기' }))

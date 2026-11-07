@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Select } from '../ui/Select'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Copy, FilePlus, Folder, FolderOpen, FolderSimple, HouseSimple, LinkSimple, Trash, X } from '@phosphor-icons/react'
@@ -168,10 +169,12 @@ export function FolderNameDialog({ mode, initialName = '', parentPath, parentCho
           ) : (
             <label className="side-dialog-field">
               <span>{t('위치')}</span>
-              <select aria-label={t('만들 위치')} value={parent} onChange={(event) => setParent(event.target.value)}>
-                <option value="">{t('Vault 맨 위')}</option>
-                {parentChoices.map((path) => <option key={path} value={path}>{locationLabel(path)}</option>)}
-              </select>
+              <Select
+                ariaLabel={t('만들 위치')}
+                value={parent}
+                options={[{ value: '', label: t('Vault 맨 위') }, ...parentChoices.map((path) => ({ value: path, label: locationLabel(path) }))]}
+                onChange={setParent}
+              />
             </label>
           )
         ) : null}

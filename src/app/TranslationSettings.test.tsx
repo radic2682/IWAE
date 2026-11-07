@@ -53,7 +53,7 @@ describe('TranslationSettings', () => {
     expect(screen.getByText(/0\.12\.3/)).toBeDefined()
     expect((screen.getByLabelText('Ollama 주소') as HTMLInputElement).value)
       .toBe('http://127.0.0.1:11434')
-    expect((screen.getByLabelText('번역 언어') as HTMLSelectElement).value).toBe('ko')
+    expect(screen.getByRole('combobox', { name: '번역 언어' }).textContent).toBe('한국어')
     for (const name of ['최대 속도 자동', 'CPU', 'GPU']) {
       expect(screen.getByRole('radio', { name })).toBeDefined()
     }
@@ -76,7 +76,8 @@ describe('TranslationSettings', () => {
     fireEvent.change(screen.getByLabelText('Ollama 주소'), {
       target: { value: 'http://localhost:11434' },
     })
-    fireEvent.change(screen.getByLabelText('번역 언어'), { target: { value: 'en' } })
+    fireEvent.click(screen.getByRole('combobox', { name: '번역 언어' }))
+    fireEvent.click(screen.getByRole('option', { name: 'English' }))
     fireEvent.click(screen.getByRole('radio', { name: 'GPU' }))
     fireEvent.click(screen.getByRole('radio', { name: 'TranslateGemma 12B' }))
 
