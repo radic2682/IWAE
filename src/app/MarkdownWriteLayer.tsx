@@ -1,4 +1,5 @@
 import { t } from '../i18n'
+import { coalesceHighlightRects } from '../core/anchor'
 import { useEffect, useMemo, useState, type RefObject } from 'react'
 import { useOverlayTool } from '../pdf/overlayToolStore'
 import { BOX_DEFAULT_WIDTH, placeBoxMemo, type MemoBox } from '../core/boxMemo'
@@ -57,6 +58,18 @@ interface MarkdownWriteLayerProps {
 export function markdownPaper(articleWidth: number, zoom: number): { left: number; width: number; scale: number } {
   const width = Math.max(Math.min(MARKDOWN_PAPER_WIDTH * (zoom / 100), articleWidth - MARKDOWN_PAPER_GUTTER * 2), 120)
   return { left: (articleWidth - width) / 2, width, scale: width / MARKDOWN_PAPER_WIDTH }
+}
+
+/** 둥근 네모 여럿을 한 경로로(PDF 형광펜과 같은 2px 둥글기) */
+function roundedRectsPath(rects: readonly { x: number; y: number; w: number; h: number }[]): string {
+  const n = (value: number) => Math.round(value * 100) / 100
+  return rects.map(({ x, y, w, h }) => {
+    const r = Math.max(0, Math.min(2, w / 2, h / 2))
+    return `M${n(x + r)} ${n(y)}H${n(x + w - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w)} ${n(y + r)}`
+      + `V${n(y + h - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w - r)} ${n(y + h)}`
+      + `H${n(x + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x)} ${n(y + h - r)}`
+      + `V${n(y + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + r)} ${n(y)}Z`
+  }).join('')
 }
 
 /**
@@ -139,33 +152,24 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
 
   return (
     <>
+      {/* 형광펜: 쓰기 층과 따로, 글 바로 위에서 곱하기로 섞는다 — 종이만 물들고 글자는 검은색 그대로(PDF 와 같이 글자 밑으로).
+          한 줄의 조각(굵은 글씨 등)은 하나로 이어 칠한다 */}
+      <div className="markdown-mark-host" aria-hidden="true">
+        <svg className="markdown-box-marks" width={articleWidth} height={scrollHeight} style={{ transform: `translateY(${-scrollTop}px)` }}>
+          {[...memoMarks.map((memo) => ({ id: `memo:${memo.id}`, color: memo.color, rects: memo.rects })), ...boxMemos.map((memo) => ({ id: memo.id, color: memo.color, rects: memo.anchor.rects }))]
+            .filter((mark) => mark.rects.length > 0)
+            .map((mark) => (
+              <path
+                key={mark.id}
+                className="markdown-mark"
+                data-highlight-color={mark.color}
+                d={roundedRectsPath(coalesceHighlightRects(mark.rects).map((rect) => ({ x: paper.left + rect.x * paper.scale, y: rect.y * paper.scale, w: rect.w * paper.scale, h: rect.h * paper.scale })))}
+              />
+            ))}
+        </svg>
+      </div>
       <div className="markdown-write-host" onWheel={forwardWheel} data-markdown-edit={mode === 'edit' || undefined}>
         <div className="markdown-write-surface" style={{ width: articleWidth, height: scrollHeight, transform: `translateY(${-scrollTop}px)` }}>
-          {/* 박스 메모의 형광펜(글 위에 옅게) */}
-          <svg className="markdown-box-marks" width={articleWidth} height={scrollHeight} aria-hidden="true">
-            {memoMarks.flatMap((memo) => memo.rects.map((rect, index) => (
-              <rect
-                key={`memo:${memo.id}:${index}`}
-                className={`markdown-box-mark markdown-box-mark-${memo.color}`}
-                x={paper.left + rect.x * paper.scale}
-                y={rect.y * paper.scale}
-                width={rect.w * paper.scale}
-                height={rect.h * paper.scale}
-                rx={2}
-              />
-            )))}
-            {boxMemos.flatMap((memo) => memo.anchor.rects.map((rect, index) => (
-              <rect
-                key={`${memo.id}:${index}`}
-                className={`markdown-box-mark markdown-box-mark-${memo.color}`}
-                x={paper.left + rect.x * paper.scale}
-                y={rect.y * paper.scale}
-                width={rect.w * paper.scale}
-                height={rect.h * paper.scale}
-                rx={2}
-              />
-            )))}
-          </svg>
           {boxMemos.length > 0 ? (
             <MemoFormatSlotContext.Provider value={boxFormatSlot}>
               <PdfBoxMemos

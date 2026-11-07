@@ -1007,11 +1007,13 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-write-surface { position: absolute; top: 0; left: 0; will-change: transform; }
 .markdown-write-host .pdf-box-layer, .markdown-write-host .pdf-overlay-layer { position: absolute; top: 0; left: 0; }
 .markdown-write-host[data-markdown-edit] .pdf-overlay-layer { pointer-events: auto; }
-.markdown-box-marks { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; }
-.markdown-box-mark { fill: #ffd84d; opacity: .38; }
-.markdown-box-mark-green { fill: #b9ebc6; }
-.markdown-box-mark-blue { fill: #c3defc; }
-.markdown-box-mark-pink { fill: #fcc6dc; }
+/* Markdown 형광펜: 글 위에 곱하기로 섞는 층(종이만 물들고 글자는 그대로 — PDF 와 같은 색·모양) */
+.markdown-mark-host { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; mix-blend-mode: multiply; }
+.markdown-box-marks { position: absolute; top: 0; left: 0; pointer-events: none; }
+.markdown-mark { --hl-fill: #ffe38c; fill: var(--hl-fill); stroke: var(--hl-fill); stroke-width: 1.5px; stroke-linejoin: round; }
+.markdown-mark[data-highlight-color='green'] { --hl-fill: #b9ebc6; }
+.markdown-mark[data-highlight-color='blue'] { --hl-fill: #c3defc; }
+.markdown-mark[data-highlight-color='pink'] { --hl-fill: #fcc6dc; }
 .pane-doc .markdown-pane-host[data-reader-mode='hand'] .markdown-pane { cursor: grab; user-select: none; }
 .pane-doc .markdown-pane-host .pdf-overlay-palette { top: 8px; }
 
@@ -1023,7 +1025,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 
 /* Markdown 메모 바(오른쪽, PDF 메모 바와 같은 바탕) */
 /* 메모 바는 창 틀 오른쪽(PDF 와 같은 자리, PdfPane 처럼 .pane-frame 에 붙는다). 글은 --memo-bar-w 만큼 비운 왼쪽 */
-.pane-doc .markdown-pane-host-memo .markdown-write-host { right: var(--memo-bar-w, 0px); width: auto; }
+.pane-doc .markdown-pane-host-memo :is(.markdown-write-host, .markdown-mark-host) { right: var(--memo-bar-w, 0px); width: auto; }
 .pane-doc .markdown-pane-host-memo .markdown-pane { position: absolute; inset: 0 var(--memo-bar-w, 0px) 0 0; height: auto; }
 .pane-doc .markdown-pane-host-memo .markdown-scrollbar { right: var(--memo-bar-w, 0px); }
 .pane-doc .markdown-memo-bar { width: var(--memo-bar-w, 360px); display: flex; flex-direction: column; overflow: hidden; }
@@ -1147,7 +1149,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 
 /* 깨끗이 보기(Markdown): PDF 와 같이 내 표시를 감춘다 — 형광펜·메모 칠·박스 메모·쓴 글·책갈피. 검색 칠과 지금 고르는 글은 남긴다 */
 .pdf-clean-view :is(.markdown-persistent-highlight, .markdown-box-mark) { background: transparent !important; fill: transparent !important; }
-.pdf-clean-view :is(.markdown-box-marks, .markdown-highlight-delete) { display: none !important; }
+.pdf-clean-view :is(.markdown-mark-host, .markdown-box-marks, .markdown-highlight-delete) { display: none !important; }
 
 /* 도구줄 형광펜: 형광펜 모드일 때 옆에 색 넷과 지우개 */
 .pane-highlighter { display: inline-flex; align-items: center; gap: 4px; }

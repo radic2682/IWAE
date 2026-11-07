@@ -495,7 +495,9 @@ export function NoteFlow({
         const ticket = item.ticket
         const hasHead = ticket !== undefined
         // 출처(PDF 이름 · 쪽)는 블록에 마우스를 올렸을 때 블록 바깥 오른쪽 위에 뜬다
-        const tipLabel = `${item.sourceLabel ?? item.docLabel ?? 'PDF'} · ${[...new Set(sources.map((source) => `p.${source.anchor.page + 1}`))].join(', ')}${draft ? ` · ${t('새 메모')}` : ''}`
+        // Markdown 에는 쪽이 없다: 쪽 번호 없이 문서 이름만
+        const pages = [...new Set(sources.filter((source) => !isMarkdownSource(source)).map((source) => `p.${source.anchor.page + 1}`))]
+        const tipLabel = `${item.sourceLabel ?? item.docLabel ?? 'PDF'}${pages.length > 0 ? ` · ${pages.join(', ')}` : ''}${draft ? ` · ${t('새 메모')}` : ''}`
         // 원문 하나: 한 줄 출처 칩으로 접혀 있고 펼치면 전부. 표·그림은 그림이 곧 내용이라 늘 크게. 더한 원문에는 떼기 단추
         const renderSource = (source: PersistentPdfHighlight, extra: boolean) => {
           const collapsed = source.kind !== 'region' && openQuotes?.has(source.id) !== true
@@ -519,7 +521,7 @@ export function NoteFlow({
                 </button>
                 {meta}
                 <span className="note-source-chip-text">{source.kind === 'region' ? t('표·그림') : source.anchor.quote.replace(/\s+/gu, ' ').trim()}</span>
-                <span className="note-source-page">p.{source.anchor.page + 1}</span>
+                {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
                 {remove}
               </div>
             )
@@ -549,7 +551,7 @@ export function NoteFlow({
               </button>
               {meta}
               {source.anchor.quote.replace(/\s+/gu, ' ').trim()}
-              <span className="note-source-page">p.{source.anchor.page + 1}</span>
+              {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
               {remove}
             </div>
           )
@@ -898,5 +900,10 @@ function TicketIdInput({ initial, suggestions, taken, onDone, onCancel }: {
       {duplicate ? <p className="note-ticket-id-warn" role="status">{t('이 노트에 이미 있는 ID 입니다')}</p> : null}
     </div>
   )
+}
+
+/** Markdown 문서의 원문인가(쪽 번호가 없다) */
+function isMarkdownSource(source: PersistentPdfHighlight): boolean {
+  return /\.(md|markdown|mdx)$/iu.test(source.anchor.docId)
 }
 

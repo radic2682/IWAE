@@ -30,6 +30,17 @@ import type { OverlayPatch, PdfOverlay } from '../core/pdfOverlays'
 const EMPTY_BOX_HIGHLIGHTS: readonly PersistentPdfHighlight[] = []
 const EMPTY_OVERLAYS: readonly PdfOverlay[] = []
 const EMPTY_PINS: readonly PdfBookmark[] = []
+
+/** 형광펜 → 노트 카드 선 하나(창 틀 좌표) */
+interface MemoLink {
+  readonly id: string
+  readonly color: string
+  readonly anchorX: number
+  readonly anchorY: number
+  readonly edge: number
+  readonly cardX: number
+  readonly cardY: number
+}
 import { renderMarkdown, resolveMarkdownLink, resolveRelativePath } from '../core/markdown'
 import {
   MARKDOWN_EXCERPT_DRAG_MIME,
@@ -594,6 +605,64 @@ export function MarkdownPane({
   const noteApi = useMemoNoteApi()
   const [attachKey, setAttachKey] = useState<string | null>(null)
   const [memoOnly, setMemoOnly] = useState(false)
+
+  // ---------- 형광펜 → 노트 카드 선(PDF 와 같은 모양): 형광펜 끝 → 종이 오른쪽 점선, 거기서 카드까지 곡선 ----------
+  const [memoLinks, setMemoLinks] = useState<readonly MemoLink[]>([])
+  const measureMemoLinks = () => {
+    const frame = paneFrame
+    const article = articleRef.current
+    const bar = frame?.querySelector<HTMLElement>('.markdown-memo-bar') ?? null
+    const scroller = bar?.querySelector<HTMLElement>('.pdf-memo-bar-scroll') ?? null
+    const next: MemoLink[] = []
+    if (memoBarVisible && !memoOnly && frame !== null && article !== null && bar !== null && scroller !== null) {
+      const fr = frame.getBoundingClientRect()
+      const ar = article.getBoundingClientRect()
+      const br = bar.getBoundingClientRect()
+      const sr = scroller.getBoundingClientRect()
+      const paper = markdownPaper(article.clientWidth, zoom)
+      const edge = ar.left + paper.left + paper.width - fr.left
+      for (const highlight of boxHighlights) {
+        if (highlight.anchor.docId !== path || highlight.box !== undefined || highlight.kind === 'region') continue
+        const card = scroller.querySelector<HTMLElement>(`[data-memo-id="${CSS.escape(highlight.id)}"]`)
+        if (card === null) continue
+        const cardY = card.getBoundingClientRect().top + 18
+        if (cardY < sr.top || cardY > sr.bottom) continue
+        const rects = rectsOf(highlight.anchor.charRange)
+        if (rects.length === 0) continue
+        const top = Math.min(...rects.map((rect) => rect.y))
+        const line = rects.filter((rect) => rect.y < top + 2)
+        const right = Math.max(...line.map((rect) => rect.x + rect.w))
+        const lineHeight = Math.max(...line.map((rect) => rect.h))
+        const anchorY = ar.top - article.scrollTop + (top + lineHeight / 2) * paper.scale
+        if (anchorY < ar.top || anchorY > ar.bottom) continue
+        next.push({
+          id: highlight.id,
+          color: highlight.color,
+          anchorX: Math.round(ar.left + paper.left + right * paper.scale - fr.left),
+          anchorY: Math.round(anchorY - fr.top),
+          edge: Math.round(edge),
+          cardX: Math.round(br.left - fr.left + 12),
+          cardY: Math.round(cardY - fr.top),
+        })
+      }
+    }
+    setMemoLinks((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
+  }
+  useLayoutEffect(measureMemoLinks)
+  // 노트 바를 굴리거나 카드 크기가 바뀌어도 다시 잰다
+  useEffect(() => {
+    const scroller = paneFrame?.querySelector<HTMLElement>('.markdown-memo-bar .pdf-memo-bar-scroll')
+    if (scroller === null || scroller === undefined) return undefined
+    const again = () => window.requestAnimationFrame(measureMemoLinks)
+    scroller.addEventListener('scroll', again, { passive: true })
+    const observer = new ResizeObserver(again)
+    observer.observe(scroller)
+    for (const child of Array.from(scroller.children)) observer.observe(child)
+    return () => {
+      scroller.removeEventListener('scroll', again)
+      observer.disconnect()
+    }
+  })
   useEffect(() => {
     if (attachKey === null) return
     const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') setAttachKey(null) }
@@ -1122,6 +1191,22 @@ export function MarkdownPane({
           onResizeStart={memoBar.startResize}
           onResizeReset={memoBar.resetSize}
         />,
+        paneFrame,
+      ) : null}
+      {memoLinks.length > 0 && paneFrame !== null ? createPortal(
+        <svg className="pdf-memo-links pdf-memo-links-page markdown-memo-links" aria-hidden="true">
+          {memoLinks.map((link) => {
+            const bend = link.edge + (link.cardX - link.edge) / 2
+            return (
+              <g key={link.id} className={`pdf-memo-link pdf-memo-link-${link.color}`}>
+                <path className="pdf-memo-link-inner" d={`M ${link.anchorX} ${link.anchorY} H ${link.edge}`} />
+                <circle cx={link.anchorX} cy={link.anchorY} r={2.2} />
+                <circle className="pdf-memo-link-edge" cx={link.edge} cy={link.anchorY} r={2} />
+                <path d={`M ${link.edge} ${link.anchorY} C ${bend} ${link.anchorY}, ${bend} ${link.cardY}, ${link.cardX} ${link.cardY}`} />
+              </g>
+            )
+          })}
+        </svg>,
         paneFrame,
       ) : null}
       {scrollBox.height > scrollBox.client + 1 ? (
