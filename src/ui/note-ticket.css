@@ -183,3 +183,9 @@
 
 /* 맨 위 블록의 떠 있는 단추(블록 위 테두리에 걸친다)가 스크롤 칸 위 끝에 잘리지 않게 위 여백을 둔다 */
 .pane-doc .pdf-memo-bar-scroll.pdf-memo-bar-scroll { padding-top: 20px; }
+
+/* 여러 블록 고름: 끌어서 함께 옮긴다는 안내(같은 글자색) */
+.note-selection-bar .note-selection-hint { flex: 0 0 auto; color: var(--text-strong); font-size: 12px; }
+
+/* 고르기 막대: 목록을 밀어내지 않고 위에 떠 있는다(고르는 동안 블록 자리가 움직이지 않게) */
+.pane-doc .note-selection-bar.note-selection-bar { position: sticky; top: auto; bottom: 10px; order: 9999; margin: -38px 0 0; height: 32px; box-sizing: border-box; }

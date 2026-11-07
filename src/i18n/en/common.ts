@@ -122,4 +122,5 @@ export const COMMON: Readonly<Record<string, string>> = {
   '이 노트에 이미 있는 ID 입니다': 'This ID is already used in this note',
   '두 번 눌러 글 쓰기': 'Double-click to write',
   '이 창 닫기': 'Close this pane',
+  '끌어서 함께 옮기기': 'Drag to move together',
 }

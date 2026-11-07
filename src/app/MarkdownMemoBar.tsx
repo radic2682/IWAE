@@ -212,7 +212,7 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
               })}
               openQuotes={openQuotes}
               onRate={(id, rating) => onHighlightUpdated?.(id, { rating })}
-              onMove={(key, beforeKey) => updateNote((note) => moveBlockBefore(note, key, beforeKey))}
+              onMove={(keys, beforeKey) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note))}
               onJump={onJump}
               onCardLayout={() => undefined}
               onRenameSection={(key, sectionTitle) => updateNote((note) => updateSection(note, key, { title: sectionTitle }))}

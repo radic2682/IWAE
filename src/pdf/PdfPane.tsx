@@ -1637,7 +1637,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 onToggleCollapse={toggleQuote}
                 openQuotes={openQuotes}
                 onRate={(id, rating) => patchMemo(id, { rating })}
-                onMove={(key, beforeKey) => updateNote((note) => moveBlockBefore(note, key, beforeKey))}
+                onMove={(keys, beforeKey) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note))}
                 onJump={jumpToMemo}
                 onCardLayout={setMemoCardLayout}
                 onRenameSection={(key, title) => updateNote((note) => updateSection(note, key, { title }))}

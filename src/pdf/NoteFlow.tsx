@@ -101,7 +101,8 @@ export function NoteFlow({
   readonly onToggleCollapse: (highlightId: string, collapsed: boolean) => void
   readonly onRate: (highlightId: string, rating: number) => void
   /** key 의 카드를 beforeKey 카드 앞으로(null 이면 맨 끝) */
-  readonly onMove: (key: string, beforeKey: string | null) => void
+  /** 블록(들)을 beforeKey 앞으로. 여럿이면 그 차례대로 한 번에 */
+  readonly onMove: (key: string | readonly string[], beforeKey: string | null) => void
   readonly onJump: (highlight: PersistentPdfHighlight) => void
   readonly onCardLayout: (layout: ReadonlyMap<string, { top: number; height: number }>) => void
   readonly onRenameSection?: (key: string, title: string) => void
@@ -159,6 +160,8 @@ export function NoteFlow({
     return items.slice(at, next < 0 ? items.length : next).map((item) => item.key)
   }
   // 블록 어디든 잡고 조금(5px) 움직이면 끌기. 단추·입력칸·쓰는 중인 편집기에서는 시작하지 않는다
+  // 고른 블록(아래에서 정한다): 끌기가 함께 옮길 블록을 알게
+  const selectedRef = useRef<ReadonlySet<string>>(new Set())
   const startBlockDrag = (key: string) => (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0 || key === 'draft') return
     if ((event.target as Element).closest('button, input, textarea, select, a, [contenteditable="true"], .pdf-memo-editor, .pdf-memo-format-bar') !== null) return
@@ -198,6 +201,15 @@ export function NoteFlow({
       window.addEventListener('click', (clickEvent) => clickEvent.stopPropagation(), { capture: true, once: true })
       const moving = items.find((item) => item.key === state.key)
       if (moving === undefined) return
+      // 여러 블록을 골라 둔 채 그중 하나를 끌면 고른 블록을 모두(문서 차례대로) 그 자리로 옮긴다
+      const picked = selectedRef.current
+      if (picked.size > 1 && picked.has(state.key)) {
+        const keys = items.filter((item) => picked.has(item.key) && item.key !== 'draft').map((item) => item.key)
+        const moved = new Set(keys.flatMap((pickedKey) => groupOf(pickedKey)))
+        const before = items.slice(state.drop).find((item) => !moved.has(item.key) && item.key !== 'draft')
+        onMove(keys, before?.key ?? null)
+        return
+      }
       const group = groupOf(state.key)
       const after = items.slice(state.drop).filter((item) => !group.includes(item.key) && item.key !== 'draft')
       // 소제목은 다른 묶음 한가운데로 들어가지 않게 다음 소제목 앞(또는 맨 끝)으로 놓는다
@@ -208,12 +220,20 @@ export function NoteFlow({
     window.addEventListener('pointerup', finish)
     window.addEventListener('pointercancel', finish)
   }
-  const draggedGroup = dragging === null ? [] : groupOf(dragging.key)
-  const shellClass = (key: string, index: number) => [
+  // 끄는 중인 블록(고른 블록 여럿을 끌면 그 모두)
+  const draggedGroupOf = (): readonly string[] => {
+    if (dragging === null) return []
+    const picked = selectedRef.current
+    return picked.size > 1 && picked.has(dragging.key) ? [...picked].flatMap((key) => groupOf(key)) : groupOf(dragging.key)
+  }
+  const shellClass = (key: string, index: number) => {
+    const draggedGroup = draggedGroupOf()
+    return [
     draggedGroup.includes(key) ? 'pdf-memo-card-dragging' : '',
     dragging !== null && !draggedGroup.includes(key) && dragging.drop === index ? 'pdf-memo-card-drop-before' : '',
     dragging !== null && !draggedGroup.includes(key) && dragging.drop === items.length && index === items.length - 1 ? 'pdf-memo-card-drop-after' : '',
-  ]
+    ]
+  }
   const register = (key: string) => (element: HTMLDivElement | null) => {
     if (element === null) cardRefs.current.delete(key)
     else cardRefs.current.set(key, element)
@@ -282,6 +302,7 @@ export function NoteFlow({
 
   // ---------- 여러 블록 고르기: Ctrl/⌘+누르기는 하나씩, Shift+누르기는 그 사이 모두. Delete 로 지운다 ----------
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
+  selectedRef.current = selected
   const lastPickedRef = useRef<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   useEffect(() => {
@@ -336,6 +357,9 @@ export function NoteFlow({
       if (event.ctrlKey || event.metaKey || event.shiftKey) return
       const target = event.target as Element | null
       if (target?.closest('.note-selection-bar') != null) return
+      // 고른 블록 위에서 누르면(끌어 함께 옮기려는 것) 고르기를 유지한다
+      const block = target?.closest<HTMLElement>('[data-note-block]')
+      if (block?.dataset.noteBlock !== undefined && selectedRef.current.has(block.dataset.noteBlock)) return
       setSelected(new Set())
     }
     window.addEventListener('keydown', onKey)
@@ -387,6 +411,7 @@ export function NoteFlow({
           ) : (
             <>
               <span>{t('{count}개 고름', { count: selected.size })}</span>
+              <span className="note-selection-hint">{t('끌어서 함께 옮기기')}</span>
               <button type="button" className="note-selection-danger" onClick={() => setConfirmDelete(true)}>{t('지우기')}</button>
               <button type="button" onClick={() => setSelected(new Set())}>{t('고르기 풀기')}</button>
             </>
