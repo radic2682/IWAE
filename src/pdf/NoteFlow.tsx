@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { CaretDown, CaretRight, DotsSixVertical, DotsThree, Plus, Star, Ticket, X } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, CaretDown, CaretRight, CaretUp, Crosshair, DotsSixVertical, DotsThree, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Ticket, Trash, X } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
 import { RegionCrop } from './RegionCrop'
 import { t } from '../i18n'
@@ -37,6 +37,17 @@ export type NoteFlowItem =
  * - 블록 어디든(또는 손잡이를) 잡고 끌어 차례를 바꾼다(소제목은 묶인 블록과 함께).
  * 카드마다의 자리를 onCardLayout 으로 알린다(형광펜 → 카드 선은 바깥에서 그린다).
  */
+
+/** 메뉴 항목: 같은 크기의 아이콘 칸 + 글자 */
+function menuLabel(icon: ReactNode, label: string) {
+  return (
+    <>
+      <span className="note-menu-icon" aria-hidden="true">{icon}</span>
+      <span className="note-menu-label">{label}</span>
+    </>
+  )
+}
+
 export function NoteFlow({
   items,
   editingKey,
@@ -695,6 +706,26 @@ export function NoteFlow({
               const rect = element.getBoundingClientRect()
               if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
               if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
+              // 첫 항목에 초점을 두어 Escape·화살표가 듣게 한다(마우스로 열면 칠하지 않는다)
+              if (!element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]')?.focus({ preventScroll: true })
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                event.stopPropagation()
+                setMenu(null)
+                return
+              }
+              const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem]'))
+              const at = items.indexOf(document.activeElement as HTMLButtonElement)
+              const next = event.key === 'ArrowDown' ? (at + 1) % items.length
+                : event.key === 'ArrowUp' ? (at <= 0 ? items.length - 1 : at - 1)
+                  : event.key === 'Home' ? 0
+                    : event.key === 'End' ? items.length - 1
+                      : null
+              if (next === null || items.length === 0) return
+              event.preventDefault()
+              items[next]?.focus()
             }}
           >
             {menuItem.kind === 'memo' ? (
@@ -715,48 +746,48 @@ export function NoteFlow({
                   ))}
                 </div>
                 {onAddRef !== undefined ? (
-                  <button type="button" role="menuitem" onClick={run(() => onAddRef(menuItem.key))}>{t('원문 더하기')}</button>
+                  <button type="button" role="menuitem" onClick={run(() => onAddRef(menuItem.key))}>{menuLabel(<LinkSimple size={15} />, t('원문 더하기'))}</button>
                 ) : null}
                 {onSetTicket !== undefined && menuItem.ticketTitle === undefined ? (
                   <button type="button" role="menuitem" onClick={run(() => {
                     onSetTicket(menuItem.key, t('새 티켓'))
                     setRenamingTicket(menuItem.key)
-                  })}>{t('티켓으로 바꾸기')}</button>
+                  })}>{menuLabel(<Ticket size={15} />, t('티켓으로 바꾸기'))}</button>
                 ) : null}
                 {onSetTicket !== undefined && menuItem.ticketTitle !== undefined ? (
                   <>
-                    <button type="button" role="menuitem" onClick={run(() => setRenamingTicket(menuItem.key))}>{t('티켓 제목 바꾸기')}</button>
-                    <button type="button" role="menuitem" onClick={run(() => onSetTicket(menuItem.key, null))}>{t('메모로 되돌리기')}</button>
+                    <button type="button" role="menuitem" onClick={run(() => setRenamingTicket(menuItem.key))}>{menuLabel(<PencilSimple size={15} />, t('티켓 제목 바꾸기'))}</button>
+                    <button type="button" role="menuitem" onClick={run(() => onSetTicket(menuItem.key, null))}>{menuLabel(<ArrowCounterClockwise size={15} />, t('메모로 되돌리기'))}</button>
                   </>
                 ) : null}
                 {menuItem.highlight.kind === 'region' || menuItem.ticketTitle !== undefined ? null : (
                   <button type="button" role="menuitem" onClick={run(() => onToggleCollapse(menuItem.highlight.id, openQuotes?.has(menuItem.highlight.id) === true))}>
-                    {openQuotes?.has(menuItem.highlight.id) === true ? t('원문 접기') : t('원문 펼치기')}
+                    {openQuotes?.has(menuItem.highlight.id) === true ? menuLabel(<CaretUp size={15} />, t('원문 접기')) : menuLabel(<CaretDown size={15} />, t('원문 펼치기'))}
                   </button>
                 )}
                 {menuItem.highlight.kind === 'region' ? (
-                  <button type="button" role="menuitem" onClick={run(() => setZoomed(menuItem.highlight))}>{t('그림 크게 보기')}</button>
+                  <button type="button" role="menuitem" onClick={run(() => setZoomed(menuItem.highlight))}>{menuLabel(<MagnifyingGlassPlus size={15} />, t('그림 크게 보기'))}</button>
                 ) : null}
-                <button type="button" role="menuitem" onClick={run(() => onJump(menuItem.highlight))}>{t('PDF 에서 보기')}</button>
+                <button type="button" role="menuitem" onClick={run(() => onJump(menuItem.highlight))}>{menuLabel(<Crosshair size={15} />, t('PDF 에서 보기'))}</button>
                 <hr />
               </>
             ) : null}
             {menuItem.kind === 'section' ? (
-              <button type="button" role="menuitem" onClick={run(() => onEdit(menuItem.key))}>{t('이름 바꾸기')}</button>
+              <button type="button" role="menuitem" onClick={run(() => onEdit(menuItem.key))}>{menuLabel(<PencilSimple size={15} />, t('이름 바꾸기'))}</button>
             ) : null}
             {onInsertSection !== undefined ? (
-              <button type="button" role="menuitem" onClick={run(() => onInsertSection(menuItem.key))}>{t('위에 소제목 넣기')}</button>
+              <button type="button" role="menuitem" onClick={run(() => onInsertSection(menuItem.key))}>{menuLabel(<TextHOne size={15} />, t('위에 소제목 넣기'))}</button>
             ) : null}
             {onInsertText !== undefined ? (
-              <button type="button" role="menuitem" onClick={run(() => onInsertText(menuItem.key))}>{t('아래에 글 넣기')}</button>
+              <button type="button" role="menuitem" onClick={run(() => onInsertText(menuItem.key))}>{menuLabel(<TextAlignLeft size={15} />, t('아래에 글 넣기'))}</button>
             ) : null}
             <hr />
             {menuItem.kind === 'memo' ? (
-              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onDeleteMemo(menuItem.highlight.id))}>{t('형광펜과 메모 지우기')}</button>
+              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onDeleteMemo(menuItem.highlight.id))}>{menuLabel(<Trash size={15} />, t('형광펜과 메모 지우기'))}</button>
             ) : menuItem.kind === 'text' ? (
-              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onRemoveText(menuItem.key))}>{t('글 지우기')}</button>
+              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onRemoveText(menuItem.key))}>{menuLabel(<Trash size={15} />, t('글 지우기'))}</button>
             ) : (
-              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onRemoveSection?.(menuItem.key))}>{t('소제목 지우기(블록은 남김)')}</button>
+              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onRemoveSection?.(menuItem.key))}>{menuLabel(<Trash size={15} />, t('소제목 지우기(블록은 남김)'))}</button>
             )}
           </div>
         </>,

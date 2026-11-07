@@ -880,3 +880,26 @@
 :is(.pdf-memo-card-text, .pdf-memo-editor) :is(th, td)[align="right"] { text-align: right; }
 .pdf-memo-editor td:focus-within, .pdf-memo-editor th:focus-within { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -2px; }
 .pdf-memo-format-table-menu .pdf-memo-format-menu-item:disabled { opacity: .45; cursor: default; }
+
+/* 메모 바 머리 단추도 앱의 다른 아이콘 단추처럼: 테두리 없이, 마우스를 올리면 바탕만 칠한다 */
+.pdf-memo-bar .pdf-memo-header .pdf-memo-header-button {
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-strong);
+}
+.pdf-memo-bar .pdf-memo-header .pdf-memo-header-button:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--text-strong); outline: none; }
+.pdf-memo-bar .pdf-memo-header .pdf-memo-header-button[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
+
+/* 메모 카드·블록 메뉴: 왼쪽 바·탭 메뉴와 같은 폭·높이·아이콘 칸. 마우스로 열면 첫 항목은 칠하지 않는다 */
+.note-menu.note-menu { width: 232px; padding: 5px; border-radius: 10px; }
+.note-menu.note-menu > button { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 0 9px; border-radius: 6px; color: var(--text-strong); font-size: 12.5px; }
+.note-menu.note-menu > button:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
+.note-menu.note-menu > button:focus:not(:focus-visible):not(:hover) { background: transparent; outline: none; }
+.note-menu .note-menu-icon { display: grid; flex: 0 0 16px; place-items: center; }
+.note-menu .note-menu-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-menu.note-menu > .note-menu-row { padding: 4px 9px 4px 34px; }
