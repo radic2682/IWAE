@@ -22,6 +22,7 @@ import { diffLines, pageLines } from '../core/pdfTextDiff'
 import { getPdfToolJob, setPdfToolJob } from '../pdf/pdfToolJobs'
 import { setOverlayTool } from '../pdf/overlayToolStore'
 import { recognizePdfPageLines } from '../pdf/pdfOcrText'
+import { detectPageRotation } from '../pdf/pdfPageOrientation'
 import type { PageTextIndex } from '../core/textIndex'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { setMemoBarVisible, useMemoBarVisible } from '../pdf/memoStore'
@@ -40,7 +41,7 @@ import { PaneShell } from './PaneShell'
 import { DocumentView, type DocumentViewController, type DocumentViewState } from './DocumentView'
 import { DocumentSearchPanel, useDocumentSearch } from './DocumentSearchPanel'
 import { PageEditDialog } from './PageEditDialog'
-import { pageMoves, remapAnchor, remapDocumentReferences, type PageEditItem } from '../core/pdfPageEdit'
+import { pageMoves, remapAnchor, remapDocumentReferences, type PageEditItem, type PageRotation } from '../core/pdfPageEdit'
 import type { CanvasTranslationResult, ReaderExcerptInsertRequest } from './NoteCanvas'
 import { createInitialCanvasDocument } from '../core/initialCanvasDocument'
 import {
@@ -976,6 +977,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       { id: 'pdf-split', kind: 'action', label: t('PDF: 목차 단위로 나누기'), keywords: 'split chapters', run: open('split') },
       { id: 'pdf-merge', kind: 'action', label: t('PDF: 다른 PDF 와 합치기'), keywords: 'merge combine', run: open('merge') },
       { id: 'pdf-blanks', kind: 'action', label: t('PDF: 빈 쪽 빼기'), keywords: 'blank remove pages', run: open('blanks') },
+      { id: 'pdf-orient', kind: 'action', label: t('PDF: 스캔 쪽 방향 바로잡기'), keywords: 'orientation rotate scan upside down sideways', run: open('orient') },
+      { id: 'pdf-compress', kind: 'action', label: t('PDF: 압축'), keywords: 'compress shrink size images', run: open('compress') },
       { id: 'pdf-numbers', kind: 'action', label: t('PDF: 쪽 번호 넣기'), keywords: 'page numbers', run: open('numbers') },
       { id: 'pdf-watermark', kind: 'action', label: t('PDF: 워터마크'), keywords: 'watermark stamp', run: open('watermark') },
       { id: 'pdf-crop', kind: 'action', label: t('PDF: 여백 자르기'), keywords: 'crop margins', run: open('crop') },
@@ -1754,6 +1757,32 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             return t('{count}쪽을 뺐습니다', { count: pages.length })
           },
           findBlankPages: () => pdfBlankPages(docId),
+          fixOrientation: async () => {
+            if (meta === undefined) throw new Error(t('PDF를 열 수 없습니다'))
+            if (getPdfToolJob(docId) !== undefined) return t('이미 작업하는 중입니다')
+            setPdfToolJob({ docId, label: '방향 살피는 중', done: 0, total: meta.pageCount })
+            const rotations = new Map<number, PageRotation>()
+            let scanned = 0
+            try {
+              for (let page = 0; page < meta.pageCount; page += 1) {
+                setPdfToolJob({ docId, label: '방향 살피는 중', done: page + 1, total: meta.pageCount })
+                const native = await pageTextIndex(docId, page).catch(() => null)
+                if (native !== null && native.chars.some((char) => char.c.trim() !== '' && char.w > 0)) continue
+                scanned += 1
+                const rotation = await detectPageRotation(docId, page).catch(() => null)
+                if (rotation === null) throw new Error(t('PDF OCR 엔진을 사용할 수 없습니다.'))
+                if (rotation !== 0) rotations.set(page, rotation)
+              }
+              if (scanned === 0) return t('글자 없는 스캔 쪽이 없습니다')
+              if (rotations.size === 0) return t('{count}쪽을 살폈지만 돌릴 쪽이 없습니다', { count: scanned })
+              setPdfToolJob({ docId, label: '쪽 돌리는 중', done: meta.pageCount, total: meta.pageCount })
+              const items = Array.from({ length: meta.pageCount }, (_, page) => ({ key: `p${page}`, page, rotate: rotations.get(page) ?? (0 as PageRotation) }))
+              await savePageEdit(docId, meta.pageSizes, items)
+              return t('{count}쪽을 돌렸습니다', { count: rotations.size })
+            } finally {
+              setPdfToolJob({ docId, clear: true })
+            }
+          },
           exportImages: async (dpi) => {
             const result = await exportPdfImages(docId, title, dpi)
             return result === null ? t('취소했습니다') : t('그림 {count}장을 저장했습니다: {folder}', { count: result.count, folder: result.folder })

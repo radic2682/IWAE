@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowSquareOut, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT, Toolbox, X,
+  ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT, Toolbox, X,
 } from '@phosphor-icons/react'
 import type { PdfToolOp } from '../bridge/pdf'
 import { formatBytes } from '../bridge/vaultBackup'
@@ -14,7 +14,7 @@ import '../ui/pdf-tools.css'
 export type PdfToolId =
   | 'ocr' | 'compare'
   | 'flatten' | 'redact'
-  | 'extract' | 'split' | 'merge' | 'blanks'
+  | 'extract' | 'split' | 'merge' | 'blanks' | 'orient'
   | 'numbers' | 'watermark' | 'crop' | 'nup' | 'compress'
   | 'images' | 'markdown' | 'unlock'
 
@@ -31,6 +31,8 @@ export interface PdfToolActions {
   /** 쪽 빼기(쪽 편집과 같다: 형광펜·메모가 따라 옮겨진다) */
   readonly removePages: (pages: readonly number[]) => Promise<string>
   readonly findBlankPages: () => Promise<number[]>
+  /** 글자 없는 스캔 쪽 가운데 옆으로 눕거나 거꾸로 선 쪽을 읽어 가려 돌린다. 사람에게 보일 한 줄 */
+  readonly fixOrientation: () => Promise<string>
   readonly exportImages: (dpi: number) => Promise<string>
   readonly exportMarkdown: () => Promise<string>
   /** 다른 PDF 와 글자 비교 */
@@ -75,6 +77,7 @@ const GROUPS: readonly { readonly title: string; readonly tools: readonly ToolIn
     { id: 'split', label: '목차 단위로 나누기', icon: <Scissors size={16} /> },
     { id: 'merge', label: '다른 PDF 와 합치기', icon: <Stack size={16} /> },
     { id: 'blanks', label: '빈 쪽 빼기', icon: <Broom size={16} /> },
+    { id: 'orient', label: '스캔 쪽 방향 바로잡기', icon: <ArrowsClockwise size={16} /> },
   ] },
   { title: '모양', tools: [
     { id: 'numbers', label: '쪽 번호 넣기', icon: <Hash size={16} /> },
@@ -413,6 +416,14 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
             setBlanks(null)
             return message
           }), blanks.length >= pageCount)}
+        </>
+      )
+    case 'orient':
+      return (
+        <>
+          <Note>{t('글자 없는 스캔 쪽을 이 PC 에서 0·90·180·270도로 돌려 읽어 보고, 옆으로 눕거나 거꾸로 선 쪽을 똑바로 돌립니다. 확실하지 않은 쪽은 그대로 둡니다. 쪽 편집과 같아서 형광펜·메모·노트 출처가 따라 옮겨지고, 덮기 전 원본은 .iwae/history/pdf-edits 에 남습니다.')}</Note>
+          {props.hasText ? <Note>{t('이 PDF 는 앞쪽에 글자가 있습니다. 글자 없는 쪽만 살핍니다.')}</Note> : null}
+          {primary(t('방향 살펴 바로잡기'), () => void run(t('방향을 살피는 중…'), actions.fixOrientation))}
         </>
       )
     case 'numbers':

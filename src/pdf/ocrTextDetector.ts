@@ -187,3 +187,13 @@ export function recognizeImageLines(image: Blob): Promise<readonly { text: strin
     textRecScoreThresh: 0.35,
   }).then((result) => result === null ? null : result.items.map(({ text, poly }) => ({ text, poly })))
 }
+
+/** 줄마다의 글자와 확신(0~1). 쪽 방향을 가릴 때 각도마다 얼마나 읽히는지 견주는 데 쓴다 */
+export function recognizeImageDataItems(image: ImageData): Promise<readonly { text: string; score: number; poly: readonly (readonly [number, number])[] }[] | null> {
+  return predict(image, {
+    textDetLimitSideLen: 1600,
+    textDetLimitType: 'max',
+    textDetMaxSideLimit: 1800,
+    textRecScoreThresh: 0.35,
+  }).then((result) => result === null ? null : result.items.map(({ text, score, poly }) => ({ text, score, poly })))
+}
