@@ -774,14 +774,17 @@ describe('Sidebar — 폴더 작업', () => {
     },
   ]
 
-  it('폴더 메뉴는 만들기 / 정리 / 휴지통 묶음으로 나뉘고, 첫 항목에 초점이 가며 Escape 로 닫힌다', async () => {
+  it('폴더 메뉴는 만들기 / 정리 / 휴지통 묶음으로 나뉘고, 메뉴 틀에 초점이 가며(↓ 로 첫 항목부터) Escape 로 닫힌다', async () => {
     await renderSidebar({ tree: folderTree, onCreateFolder: vi.fn(), onRenameFolder: vi.fn(), onTrashFolder: vi.fn(), onItemIconChange: vi.fn() })
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Specs 접기' }))
     const items = screen.getAllByRole('menuitem')
     expect(items.map((item) => item.textContent)).toEqual(['새 하위 폴더…', '이름 바꾸기', '이모지 설정…', '휴지통으로 이동…'])
     expect(screen.getAllByRole('separator')).toHaveLength(2)
-    expect(document.activeElement).toBe(items[0])
     const menu = screen.getByRole('menu')
+    // 첫 항목이 열자마자 칠해지지 않게 메뉴 틀에 초점을 둔다
+    expect(document.activeElement).toBe(menu)
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[0])
     fireEvent.keyDown(menu, { key: 'ArrowDown' })
     expect(document.activeElement).toBe(items[1])
     fireEvent.keyDown(menu, { key: 'Escape' })

@@ -266,7 +266,7 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '소제목 지우기(블록은 남김)': 'Delete section (keep blocks)',
   // MemoListView
   '메모만 보기': 'Memos only',
-  '노트가 비어 있습니다. PDF에서 글을 끌거나(왼쪽 버튼) 표·그림을 끌어(오른쪽 버튼) 메모를 만드세요.': 'The note is empty. Drag over text (left button) or a table/figure (right button) in the PDF to create a memo.',
+  '노트가 비어 있습니다. PDF에서 글을 끌거나, 표·그림을 영역 캡처 도구(또는 Ctrl+끌기)로 감싸 메모를 만드세요.': 'The note is empty. Drag text in the PDF, or box a table or figure with the region capture tool (or Ctrl+drag), to make a memo.',
   '다른 PDF': 'Other PDF',
   '표/그림': 'Table/figure',
   '원문 보기': 'View source',

@@ -26,7 +26,7 @@ describe('MemoNotesSection', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '이모지 지우기' }))
     expect(onClearIcon).toHaveBeenCalledWith(key)
     fireEvent.contextMenu(item)
-    fireEvent.click(screen.getByRole('menuitem', { name: '노트 지우기' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '휴지통으로 이동' }))
     expect(onTrash).toHaveBeenCalledWith('노트/TODO.iwnote')
   })
 
@@ -156,7 +156,7 @@ describe('MemoNotesSection', () => {
       fireEvent.keyDown(input, { key: 'Enter' })
       expect(onCreateFolder).toHaveBeenCalledWith('노트/회의', '2026')
       fireEvent.contextMenu(screen.getByRole('button', { name: /^회의 (접기|펼치기)$/ }))
-      fireEvent.click(screen.getByRole('menuitem', { name: '폴더 지우기…' }))
+      fireEvent.click(screen.getByRole('menuitem', { name: '휴지통으로 이동…' }))
       const dialog = await screen.findByRole('dialog')
       expect(dialog.textContent).toContain('문서 1개')
       fireEvent.click(within(dialog).getByRole('button', { name: '휴지통으로 이동' }))

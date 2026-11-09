@@ -99,7 +99,7 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '이 PDF': 'This PDF',
   '열린 노트가 없습니다.': 'No note is open.',
   '새 노트 만들기': 'Create new note',
-  'PDF에서 글을 끌면(왼쪽 버튼) 또는 표·그림을 끌면(오른쪽 버튼) 보고 있는 자리에 메모가 생깁니다. 「＋ 글」로 노트에 직접 쓸 수도 있습니다.': 'Drag text (left button) or a table/figure (right button) in the PDF to add a memo at the current spot. You can also write in the note directly with "+ Text".',
+  'PDF에서 글을 끌거나, 표·그림을 영역 캡처 도구(또는 Ctrl+끌기)로 감싸면 보고 있는 자리에 메모가 생깁니다. 「＋ 글」로 노트에 직접 쓸 수도 있습니다.': 'Drag text in the PDF, or box a table or figure with the region capture tool (or Ctrl+drag), to add a memo at the current spot. You can also write in the note directly with "+ Text".',
   '박스 메모': 'Box memo',
   '글을 끌면 박스가 생깁니다': 'Drag over text to create a box',
   '책갈피 핀 꽂기': 'Add bookmark pin',

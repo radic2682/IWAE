@@ -48,7 +48,7 @@ export function MemoListView({
     <div className="pdf-memo-list" role="region" aria-label={t('메모만 보기')}>
       <div className="pdf-memo-list-scope">{title}</div>
       {shown.length === 0 ? (
-        <p className="pdf-memo-list-empty">{t('노트가 비어 있습니다. PDF에서 글을 끌거나(왼쪽 버튼) 표·그림을 끌어(오른쪽 버튼) 메모를 만드세요.')}</p>
+        <p className="pdf-memo-list-empty">{t('노트가 비어 있습니다. PDF에서 글을 끌거나, 표·그림을 영역 캡처 도구(또는 Ctrl+끌기)로 감싸 메모를 만드세요.')}</p>
       ) : shown.map((item) => {
         if (item.kind === 'section') {
           return <h3 key={item.key} className="pdf-memo-list-section">{item.title}<span className="note-section-count">{item.count}</span></h3>

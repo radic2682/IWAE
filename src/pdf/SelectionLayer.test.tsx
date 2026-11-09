@@ -326,14 +326,16 @@ describe('SelectionLayer', () => {
     expect(release).toHaveBeenCalledWith(7)
   })
 
-  it('우클릭만 하면 기본 컨텍스트 메뉴를 허용한다', () => {
+  it('우클릭만 하면 앱의 문서 메뉴를 띄운다(브라우저 기본 메뉴 대신)', () => {
     const view = mount()
     const layer = view.getByTestId('selection-layer')
 
     fireEvent.pointerDown(layer, { button: 2, buttons: 2, clientX: 18, clientY: 24, pointerId: 4 })
     fireEvent.pointerUp(layer, { button: 2, clientX: 18, clientY: 24, pointerId: 4 })
 
-    expect(fireEvent.contextMenu(layer)).toBe(true)
+    expect(fireEvent.contextMenu(layer)).toBe(false)
+    expect(view.getByRole('menu', { name: '문서 메뉴' })).not.toBeNull()
+    expect(view.getByRole('menuitem', { name: /이 문서에서 찾기/u })).not.toBeNull()
   })
 
   it('우클릭 끌기는 고르지 않는다(앱의 마우스 제스처 몫)', () => {

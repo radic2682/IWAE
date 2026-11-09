@@ -718,9 +718,12 @@ export function Sidebar({
     event.preventDefault()
     event.stopPropagation()
     setActionError(null)
+    // 왼쪽 바 문서 메뉴와 같은 항목(버전 관리 시작·버전으로 묶기 포함)이 보이게 버전 id 도 넘긴다
+    const versionDocId = item.open.kind === 'pdf' ? item.open.doc.docId : item.open.kind === 'markdown' ? item.open.node.indexId : undefined
     setContextMenu({
       kind: 'entry',
       pdf: item.kind === 'pdf',
+      ...(versionDocId === undefined ? {} : { versionDocId }),
       iconKey: item.id,
       id: item.id,
       name: item.name,
@@ -1795,6 +1798,7 @@ export function Sidebar({
             <div
               className="side-context-menu"
               role="menu"
+              tabIndex={-1}
               aria-label={t('{name} 작업', { name: contextMenu.name })}
               style={{ left: contextMenu.x, top: contextMenu.y }}
               // 창 아래·오른쪽 끝에서 열면 메뉴가 창 밖으로 나간다. 창 안으로 들어오게 옮긴다. 열리면 첫 항목에 초점을 둔다(Escape·화살표가 듣게)
@@ -1803,7 +1807,8 @@ export function Sidebar({
                 const rect = element.getBoundingClientRect()
                 if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
                 if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
-                if (!element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]')?.focus({ preventScroll: true })
+                // 첫 항목이 아니라 메뉴 틀에 초점(앞서 키보드를 썼으면 첫 항목이 열자마자 칠해진다). ↓ 를 누르면 첫 항목부터
+                if (!element.contains(document.activeElement)) element.focus({ preventScroll: true })
               }}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {

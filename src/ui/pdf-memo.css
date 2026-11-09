@@ -911,3 +911,7 @@
 .note-menu .note-menu-icon { display: grid; flex: 0 0 16px; place-items: center; }
 .note-menu .note-menu-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-menu.note-menu > .note-menu-row { padding: 4px 9px 4px 34px; }
+.note-menu.note-menu:focus { outline: none; }
+/* 별점 줄: 무엇을 정하는 별인지 이름을 앞에 */
+.note-menu.note-menu > .note-menu-rating { padding-left: 9px; }
+.note-menu-rating .note-menu-row-label { flex: 1 1 auto; font-size: 12.5px; }

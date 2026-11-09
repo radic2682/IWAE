@@ -11,6 +11,8 @@ import { selectionRange } from './selection'
 import { estimateSelectionTextHeight } from './visualTextHeight'
 import { detectSelectionTextHeight } from './ocrTextDetector'
 import { SelectionActions, type PdfSelectionTranslation } from './SelectionActions'
+import { ContextMenu } from '../ui/ContextMenu'
+import { documentContextEntries } from '../ui/documentContextMenu'
 import {
   createPersistentPdfHighlight,
   type PdfHighlightColor,
@@ -238,6 +240,9 @@ export function SelectionLayer({
   const suppressContextMenuRef = useRef(false)
   const interactionLayerRef = useRef<SVGSVGElement | null>(null)
   const actionsRef = useRef<HTMLDivElement | null>(null)
+  // 끌지 않은 우클릭으로 연 문서 메뉴(화면 좌표)
+  const [docMenu, setDocMenu] = useState<{ x: number; y: number; selection: PdfExcerptSelection | null } | null>(null)
+  const rightPressSelectionRef = useRef<PdfExcerptSelection | null>(null)
   /** 사용자가 마지막으로 고른 앵커(영역이었는가) */
   const userAnchorRef = useRef<{ readonly anchor: Anchor; readonly region: boolean } | null>(null)
 
@@ -691,9 +696,21 @@ export function SelectionLayer({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         onContextMenu={(event) => {
-          if (!suppressContextMenuRef.current) return
           event.preventDefault()
-          suppressContextMenuRef.current = false
+          if (suppressContextMenuRef.current) {
+            suppressContextMenuRef.current = false
+            return
+          }
+          // 끌지 않은 우클릭: 문서 메뉴(고른 글이 있으면 복사 등도)
+          setDocMenu({ x: event.clientX, y: event.clientY, selection: (showActions ? userSelection : null) ?? rightPressSelectionRef.current })
+        }}
+        // 오른쪽 단추로 눌러도 초점을 옮기지 않는다: 새 메모 칸이 초점을 잃으면 빈 메모와 함께 고른 글이 사라져, 우클릭 메뉴에 복사가 안 나왔다
+        onMouseDown={(event) => { if (event.button === 2) event.preventDefault() }}
+        onPointerDownCapture={(event) => {
+          if (event.button !== 2) return
+          event.preventDefault()
+          // 누른 순간의 고른 글(메뉴가 뜰 때는 이미 사라졌을 수 있다)
+          rightPressSelectionRef.current = showActions ? userSelection : null
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -724,6 +741,22 @@ export function SelectionLayer({
           />
         )
       })}
+      {docMenu === null ? null : (
+        <ContextMenu
+          x={docMenu.x}
+          y={docMenu.y}
+          label={t('문서 메뉴')}
+          onClose={() => setDocMenu(null)}
+          entries={(() => {
+            const picked = docMenu.selection
+            return documentContextEntries(picked === null ? {} : {
+              selectedText: picked.anchor.quote,
+              ...(onCopyWithSource === undefined ? {} : { onCopyWithSource: () => onCopyWithSource(picked) }),
+              ...(onSearchDocuments === undefined ? {} : { onSearchSelection: () => onSearchDocuments(picked) }),
+            })
+          })()}
+        />
+      )}
       {!showActions || shown === null || bounds === undefined ? null : (
         <>
           <div

@@ -1607,7 +1607,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                   <button type="button" onClick={() => void noteApi.create()}>{t('새 노트 만들기')}</button>
                 </div>
               ) : noteItems.length === 0 ? (
-                <p className="note-empty-hint">{t('PDF에서 글을 끌면(왼쪽 버튼) 또는 표·그림을 끌면(오른쪽 버튼) 보고 있는 자리에 메모가 생깁니다. 「＋ 글」로 노트에 직접 쓸 수도 있습니다.')}</p>
+                <p className="note-empty-hint">{t('PDF에서 글을 끌거나, 표·그림을 영역 캡처 도구(또는 Ctrl+끌기)로 감싸면 보고 있는 자리에 메모가 생깁니다. 「＋ 글」로 노트에 직접 쓸 수도 있습니다.')}</p>
               ) : null}
               <MemoFormatSlotContext.Provider value={formatSlot}>
               <NoteFlow

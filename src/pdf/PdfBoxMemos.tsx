@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CaretDown, CaretRight, DotsSixVertical, Trash } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, DotsSixVertical, NotePencil, PencilSimple, Trash } from '@phosphor-icons/react'
 import { BOX_MAX_WIDTH, BOX_MIN_WIDTH, boxConnector, clampBox, type MemoBox } from '../core/boxMemo'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
 import { t } from '../i18n'
 import '../ui/pdf-box-memo.css'
+import '../ui/context-menu.css'
 
 const COLORS: readonly PdfHighlightColor[] = ['yellow', 'green', 'blue', 'pink']
 
@@ -262,11 +263,22 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
         )
       })}
       {menu === null ? null : createPortal(
-        <div className="pdf-box-menu" role="menu" aria-label={t('박스 메모')} style={{ left: menu.x, top: menu.y }}>
-          {onSendToNote === undefined || menu.id === draftId ? null : (
-            <button type="button" role="menuitem" onClick={() => { onSendToNote(menu.id); setMenu(null) }}>{t('노트로 보내기')}</button>
+        // 다른 우클릭 메뉴와 같은 꼴(아이콘 칸 + 글 칸)
+        <div className="pdf-box-menu app-context-menu" role="menu" aria-label={t('박스 메모')} style={{ left: menu.x, top: menu.y }}>
+          {menu.id === draftId ? null : (
+            <button type="button" role="menuitem" onClick={() => { onEdit(menu.id); setMenu(null) }}>
+              <span className="app-context-icon" aria-hidden="true"><PencilSimple size={15} /></span><span className="app-context-label">{t('글 고치기')}</span>
+            </button>
           )}
-          <button type="button" role="menuitem" className="pdf-box-menu-danger" onClick={() => { if (menu.id === draftId) onCancelDraft(); else onDelete(menu.id); setMenu(null) }}>{t('지우기')}</button>
+          {onSendToNote === undefined || menu.id === draftId ? null : (
+            <button type="button" role="menuitem" onClick={() => { onSendToNote(menu.id); setMenu(null) }}>
+              <span className="app-context-icon" aria-hidden="true"><NotePencil size={15} /></span><span className="app-context-label">{t('노트로 보내기')}</span>
+            </button>
+          )}
+          <hr className="app-context-sep" />
+          <button type="button" role="menuitem" className="app-context-danger" onClick={() => { if (menu.id === draftId) onCancelDraft(); else onDelete(menu.id); setMenu(null) }}>
+            <span className="app-context-icon" aria-hidden="true"><Trash size={15} /></span><span className="app-context-label">{t('박스 메모 지우기')}</span>
+          </button>
         </div>,
         document.body,
       )}

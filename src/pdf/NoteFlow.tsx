@@ -836,6 +836,7 @@ export function NoteFlow({
           <div
             className="note-menu"
             role="menu"
+            tabIndex={-1}
             aria-label={t('블록 작업')}
             style={{ left: menu.x, top: menu.y }}
             ref={(element) => {
@@ -843,8 +844,8 @@ export function NoteFlow({
               const rect = element.getBoundingClientRect()
               if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
               if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
-              // 첫 항목에 초점을 두어 Escape·화살표가 듣게 한다(마우스로 열면 칠하지 않는다)
-              if (!element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]')?.focus({ preventScroll: true })
+              // 메뉴 틀에 초점을 두어 Escape·화살표가 듣게 한다. 첫 항목에 두면(앞서 키보드를 썼을 때) 열자마자 칠해진다
+              if (!element.contains(document.activeElement)) element.focus({ preventScroll: true })
             }}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
@@ -867,7 +868,8 @@ export function NoteFlow({
           >
             {menuItem.kind === 'memo' ? (
               <>
-                <div className="note-menu-row" role="group" aria-label={t('별점')}>
+                <div className="note-menu-row note-menu-rating" role="group" aria-label={t('중요도(별점)')}>
+                  <span className="note-menu-row-label">{t('중요도')}</span>
                   {[1, 2, 3, 4, 5].map((value) => (
                     <button
                       key={value}

@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, Plus } from '@phosphor-icons/react'
+import { ArrowSquareIn, ArrowSquareOut, ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, ClipboardText, Eraser, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, PencilSimple, Plus, Smiley, Trash } from '@phosphor-icons/react'
 import { MEMO_NOTES_FOLDER, isInsideMemoFolder, memoParentOf, type MemoNoteEntry } from '../core/memoNote'
 import { FOLDER_COLORS, folderColorHex, type FolderColor } from '../core/folderColors'
 import { ItemEmoji } from './ItemEmoji'
@@ -606,7 +606,7 @@ export function MemoNotesSection({
               <button type="button" role="menuitem" onClick={() => {
                 onOpen(menu.path)
                 setMenu(null)
-              }}>{t('열기')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><ArrowSquareIn size={15} /></span><span className="side-context-label">{t('열기')}</span></button>
             ) : (
               <>
                 {onCreateIn !== undefined ? (
@@ -614,13 +614,13 @@ export function MemoNotesSection({
                     setExpanded((current) => new Set([...current, menu.path]))
                     onCreateIn(menu.path)
                     setMenu(null)
-                  }}>{t('이 폴더에 새 노트')}</button>
+                  }}><span className="side-context-icon" aria-hidden="true"><FilePlus size={15} /></span><span className="side-context-label">{t('이 폴더에 새 노트')}</span></button>
                 ) : null}
                 {onCreateFolder !== undefined ? (
                   <button type="button" role="menuitem" onClick={() => {
                     startDraftFolder(menu.path)
                     setMenu(null)
-                  }}>{t('새 하위 폴더…')}</button>
+                  }}><span className="side-context-icon" aria-hidden="true"><FolderPlus size={15} /></span><span className="side-context-label">{t('새 하위 폴더…')}</span></button>
                 ) : null}
               </>
             )}
@@ -628,19 +628,19 @@ export function MemoNotesSection({
               <button type="button" role="menuitem" onClick={() => {
                 setRenaming({ kind: menu.kind, path: menu.path, value: menu.title })
                 setMenu(null)
-              }}>{t('이름 바꾸기')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><PencilSimple size={15} /></span><span className="side-context-label">{t('이름 바꾸기')}</span></button>
             ) : null}
             {onPickIcon !== undefined ? (
               <button type="button" role="menuitem" onClick={() => {
                 onPickIcon(menuKey, menu.x, menu.y)
                 setMenu(null)
-              }}>{icons[menuKey] === undefined ? t('이모지 설정…') : t('이모지 바꾸기…')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><Smiley size={15} /></span><span className="side-context-label">{icons[menuKey] === undefined ? t('이모지 설정…') : t('이모지 바꾸기…')}</span></button>
             ) : null}
             {onClearIcon !== undefined && icons[menuKey] !== undefined ? (
               <button type="button" role="menuitem" onClick={() => {
                 onClearIcon(menuKey)
                 setMenu(null)
-              }}>{t('이모지 지우기')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><Eraser size={15} /></span><span className="side-context-label">{t('이모지 지우기')}</span></button>
             ) : null}
             {onColorChange !== undefined ? (
               <ColorSwatches
@@ -682,13 +682,13 @@ export function MemoNotesSection({
               <button type="button" role="menuitem" onClick={() => {
                 onReveal(menu.path)
                 setMenu(null)
-              }}>{t('탐색기에서 보기')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><ArrowSquareOut size={15} /></span><span className="side-context-label">{t('탐색기에서 보기')}</span></button>
             ) : null}
             {onCopyPath !== undefined ? (
               <button type="button" role="menuitem" onClick={() => {
                 onCopyPath(menu.path)
                 setMenu(null)
-              }}>{t('경로 복사')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><ClipboardText size={15} /></span><span className="side-context-label">{t('경로 복사')}</span></button>
             ) : null}
             <hr className="side-context-sep" />
             {menu.kind === 'note' ? (
@@ -696,12 +696,12 @@ export function MemoNotesSection({
                 const { path } = menu
                 setMenu(null)
                 onTrash(path).catch(fail)
-              }}>{t('노트 지우기')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><Trash size={15} /></span><span className="side-context-label">{t('휴지통으로 이동')}</span></button>
             ) : onTrashFolder !== undefined ? (
               <button type="button" role="menuitem" className="side-context-danger" onClick={() => {
                 setDeleteFolder(menu.path)
                 setMenu(null)
-              }}>{t('폴더 지우기…')}</button>
+              }}><span className="side-context-icon" aria-hidden="true"><Trash size={15} /></span><span className="side-context-label">{t('휴지통으로 이동…')}</span></button>
             ) : null}
           </div>
         </>

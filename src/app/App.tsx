@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
+import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { onOpenFiles, openDefaultAppsSettings, takeOpenFiles } from '../bridge/openFiles'
 import { dropZoneAt, type DropZone, type TreeDropPlace } from './dropZone'
@@ -933,6 +934,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   useAppShortcuts(shortcutActions)
   const shortcutActionsRef = useRef(shortcutActions)
   shortcutActionsRef.current = shortcutActions
+  // 문서 칸 우클릭 메뉴의 「이 문서에서 찾기」 등: 단축키와 같은 동작을 부른다
+  useEffect(() => {
+    const onCommand = (event: Event) => {
+      const name = (event as CustomEvent<{ name?: string }>).detail?.name
+      if (name === 'search' || name === 'documentSearch' || name === 'commandPalette') shortcutActionsRef.current[name]?.()
+    }
+    window.addEventListener(APP_COMMAND_EVENT, onCommand)
+    return () => window.removeEventListener(APP_COMMAND_EVENT, onCommand)
+  }, [])
   useEffect(() => { clearUndo() }, [vault])
   /** 명령 팔레트(Ctrl+Shift+P)에 보일 동작과 문서 */
   const paletteCommands = (): PaletteCommand[] => {
@@ -1571,10 +1581,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   useMouseGestures({
     // 맨 위·아래로도 점프 기록에 남긴다(← 로 돌아온다)
     bottom: () => {
+      if (activeDocumentTab?.kind === 'markdown') {
+        window.dispatchEvent(new CustomEvent('iwae:md-edge', { detail: { path: activeDocumentTab.id, edge: 'bottom' } }))
+        return
+      }
       const meta = activePdfDoc === null ? undefined : openedDocs.find((doc) => doc.docId === activePdfDoc.docId)
       if (meta !== undefined) jumpToPage(meta.pageCount)
     },
-    top: () => jumpToPage(1),
+    top: () => {
+      if (activeDocumentTab?.kind === 'markdown') {
+        window.dispatchEvent(new CustomEvent('iwae:md-edge', { detail: { path: activeDocumentTab.id, edge: 'top' } }))
+        return
+      }
+      jumpToPage(1)
+    },
     closeTab: () => paneShortcutsRef.current.closeActiveTab(),
     reopenTab: reopenClosedTab,
     back: () => navigationBackRef.current(),

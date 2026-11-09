@@ -59,6 +59,8 @@ import {
 import { getMarkdownTheme, type MarkdownThemeId } from '../core/markdownTheme'
 import type { ReaderPaneToolMode } from './PaneToolbar'
 import '../ui/sidebar-followup.css'
+import { ContextMenu } from '../ui/ContextMenu'
+import { documentContextEntries } from '../ui/documentContextMenu'
 
 interface MarkdownPaneProps {
   title: string
@@ -543,9 +545,8 @@ export function MarkdownPane({
   const eraseHighlights = highlightTool.erase
   useEffect(() => { if (interactionMode !== 'highlight') setHighlightTool({ erase: false }) }, [interactionMode, setHighlightTool])
   const lassoStartRef = useRef<{ readonly x: number; readonly y: number } | null>(null)
-  /** 오른쪽 버튼으로 시작한 영역 잡기인가, 실제로 끌었는가(끌었으면 우클릭 메뉴를 띄우지 않는다) */
-  const rightLassoRef = useRef(false)
-  const rightDraggedRef = useRef(false)
+  // 끌지 않은 우클릭으로 연 문서 메뉴(그때 고른 글)
+  const [docMenu, setDocMenu] = useState<{ x: number; y: number; text: string } | null>(null)
 
   useEffect(() => {
     const clearSelectionOutside = (event: PointerEvent) => {
@@ -898,23 +899,30 @@ export function MarkdownPane({
     }
   }, [action, onTranslateSelection, translationState.status])
 
+  // 마우스 제스처 ↑↓(App): 이 글의 맨 위·아래로
   useEffect(() => {
-    // 영역 도구가 아니어도 오른쪽 버튼으로 끌면 영역을 잡는다(PDF 와 같다). 영역 도구를 끄면 하던 것은 버린다
-    if (interactionMode !== 'lasso' && lassoStartRef.current !== null && !rightLassoRef.current) {
+    const onEdge = (event: Event) => {
+      const detail = (event as CustomEvent<{ path?: string; edge?: 'top' | 'bottom' }>).detail
+      const article = articleRef.current
+      if (detail?.path !== path || article === null) return
+      article.scrollTo({ top: detail.edge === 'bottom' ? article.scrollHeight : 0, behavior: 'smooth' })
+    }
+    window.addEventListener('iwae:md-edge', onEdge)
+    return () => window.removeEventListener('iwae:md-edge', onEdge)
+  }, [path])
+
+  useEffect(() => {
+    if (interactionMode !== 'lasso') {
       lassoStartRef.current = null
       setLassoRect(null)
+      return
     }
     const move = (event: PointerEvent) => {
       const start = lassoStartRef.current
       if (start === null) return
-      if (rightLassoRef.current && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4) rightDraggedRef.current = true
       setLassoRect(normalizedRect(start.x, start.y, event.clientX, event.clientY))
     }
-    const finish = (event: PointerEvent) => {
-      if (lassoStartRef.current === null) return
-      rightLassoRef.current = false
-      finishLasso(event.clientX, event.clientY)
-    }
+    const finish = (event: PointerEvent) => finishLasso(event.clientX, event.clientY)
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', finish)
     window.addEventListener('pointercancel', finish)
@@ -1145,10 +1153,7 @@ export function MarkdownPane({
           window.addEventListener('pointercancel', end)
           return
         }
-        const rightDrag = event.button === 2 && (interactionMode === 'text' || interactionMode === 'hand')
-        if (!rightDrag && (interactionMode !== 'lasso' || event.button !== 0)) return
-        rightLassoRef.current = rightDrag
-        rightDraggedRef.current = false
+        if (interactionMode !== 'lasso' || event.button !== 0) return
         event.preventDefault()
         setAction(null)
         setTranslationState({ status: 'idle' })
@@ -1157,10 +1162,9 @@ export function MarkdownPane({
         setLassoRect({ left: event.clientX, top: event.clientY, width: 0, height: 0 })
       }}
       onContextMenu={(event) => {
-        // 오른쪽 버튼으로 영역을 끌었으면 우클릭 메뉴를 띄우지 않는다
-        if (!rightDraggedRef.current) return
+        // 마우스 제스처를 그렸으면 제스처가 이 메뉴 이벤트를 먼저 막는다. 여기 오는 것은 그냥 우클릭
         event.preventDefault()
-        rightDraggedRef.current = false
+        setDocMenu({ x: event.clientX, y: event.clientY, text: window.getSelection()?.toString() ?? '' })
       }}
       onClick={(event) => {
         // 링크: 바깥 주소는 확인 뒤 브라우저로, #제목은 이 문서 안에서, 다른 .md 는 IWAE 탭으로 연다
@@ -1418,6 +1422,15 @@ export function MarkdownPane({
           />
         ))}
       </div>
+      {docMenu === null ? null : (
+        <ContextMenu
+          x={docMenu.x}
+          y={docMenu.y}
+          label={t('문서 메뉴')}
+          onClose={() => setDocMenu(null)}
+          entries={documentContextEntries({ selectedText: docMenu.text })}
+        />
+      )}
       {lassoRect === null ? null : (
         <span
           className="markdown-lasso-rect"

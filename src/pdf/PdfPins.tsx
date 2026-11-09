@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { PushPin, Trash } from '@phosphor-icons/react'
+import { ArrowSquareIn, PencilSimple, PushPin, Trash } from '@phosphor-icons/react'
+import { ContextMenu } from '../ui/ContextMenu'
 import type { PdfBookmark } from '../core/pdfBookmarks'
 import '../ui/pdf-pins.css'
 import { t } from '../i18n'
@@ -47,6 +48,7 @@ const PIN_HOLD_SLOP = 5
  * 누르면 그 자리로 가고, 두 번 누르거나 우클릭하면 그 자리에서 이모지·이름을 고친다.
  */
 export function PdfPins({ pins, editingId, onEdit, onJump, onUpdate, onRemove, style, track, onMove }: PdfPinsProps) {
+  const [pinMenu, setPinMenu] = useState<{ placed: PlacedPin; x: number; y: number } | null>(null)
   // 끄는 중인 핀과 그 높이. 끄는 동안은 그 핀만 손을 따라 그린다
   const [dragging, setDragging] = useState<{ id: string; y: number } | null>(null)
   // 꾹 누르기로 끈 뒤 따라오는 click(그 자리로 가기)은 무시한다
@@ -114,14 +116,31 @@ export function PdfPins({ pins, editingId, onEdit, onJump, onUpdate, onRemove, s
               }}
               onDoubleClick={() => onEdit(placed.pin.id)}
               onContextMenu={(event) => {
+                // 다른 곳과 같이 우클릭은 메뉴(가기·이름 바꾸기·빼기). 이름 고치기는 두 번 누르기로도 된다
                 event.preventDefault()
-                onEdit(placed.pin.id)
+                setPinMenu({ placed, x: event.clientX, y: event.clientY })
               }}
             >
               <span className="pdf-pin-name">{placed.pin.title}</span>
               <PinHead emoji={placed.pin.emoji} />
             </button>
           ))}
+      {pinMenu === null ? null : (
+        <ContextMenu
+          x={pinMenu.x}
+          y={pinMenu.y}
+          label={t('책갈피 {title}', { title: pinMenu.placed.pin.title })}
+          onClose={() => setPinMenu(null)}
+          entries={[
+            { key: 'jump', icon: <ArrowSquareIn size={15} />, label: t('이 자리로 가기'), onSelect: () => onJump(pinMenu.placed.target) },
+            ...(onUpdate === undefined ? [] : [{ key: 'rename', icon: <PencilSimple size={15} />, label: t('이름 바꾸기'), onSelect: () => onEdit(pinMenu.placed.pin.id) }]),
+            ...(onRemove === undefined ? [] : [
+              { key: 'sep', separator: true as const },
+              { key: 'remove', icon: <Trash size={15} />, label: t('핀 빼기'), danger: true, onSelect: () => onRemove(pinMenu.placed.pin.id) },
+            ]),
+          ]}
+        />
+      )}
     </div>
   )
 }
