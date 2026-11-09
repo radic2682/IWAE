@@ -17,6 +17,7 @@ import type { VisiblePdfSourceReference } from '../core/workspaceSources'
 import type { PdfSearchMatch } from '../core/pdfSearch'
 import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import { prewarmPdfTextDetector } from './ocrTextDetector'
+import { getAppPrefs } from '../app/appPrefs'
 import { layoutPages, layoutSpread, pageUnitAt, spreadHeight, totalHeight, visibleRange, type SpreadBox } from './pageLayout'
 import { spreadColumns, type PdfRotation, type PdfSpread } from '../core/pdfViewPrefs'
 import { renderWidthFor } from './renderWidth'
@@ -217,7 +218,16 @@ export function pageHeightFitZoom(pageSize: readonly [number, number], viewport:
 
 export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent = 100, zoomScale = 0, onPageChange, pageRequest, onViewportChange, onZoomChange, onAnchorCreated, onPersistentHighlightCreated, onPersistentHighlightRemoved, persistentHighlights = [], highlightAnchor = null, sourceHighlights = [], searchMatches = [], activeSearchMatchId = null, interactionMode = 'text', highlightColor, onInteractionModeChange, onHighlightColorChange, onSendToCanvas, onCopyWithSource, onSearchDocuments, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink, onPersistentHighlightUpdated, onPersistentHighlightsPatched, flashHighlightId = null, viewKey, onMovePin, overlays = [], onOverlayAdd, onOverlayUpdate, onOverlayRemove, searchJumpNonce = 0, spread = 'single', continuous = true, tone = 'none', rotation = 0, invert = false, onMemoJump, docTitles, primary = true, inSplit = false, pins = [], onAddPin, onUpdatePin, onRemovePin }: PdfPaneProps) {
   useEffect(() => {
-    if (!hasText) void prewarmPdfTextDetector()
+    // OCR 엔진(수십 MB)은 스캔 쪽을 열었고 OCR 이 켜져 있을 때만, 화면이 한가할 때 미리 띄운다.
+    // 꺼 두면 영역을 처음 잡을 때 그제야 띄운다.
+    if (hasText || !getAppPrefs().ocr) return
+    const warm = () => { void prewarmPdfTextDetector() }
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(warm, { timeout: 4000 })
+      return () => window.cancelIdleCallback(handle)
+    }
+    const handle = window.setTimeout(warm, 1500)
+    return () => window.clearTimeout(handle)
   }, [docId, hasText])
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [measured, setMeasured] = useState<Measured>({ width: 0, height: 0 })

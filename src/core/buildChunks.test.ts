@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAssetFileName, buildChunkName, filterInitialModulePreloads } from './buildChunks'
+import { buildAssetFileName, buildChunkGroups, buildChunkName, filterInitialModulePreloads } from './buildChunks'
 
 describe('buildChunkName', () => {
   it.each([
@@ -19,6 +19,19 @@ describe('buildChunkName', () => {
     expect(buildChunkName('C:/app/node_modules/@paddleocr/paddleocr-js/dist/index.js')).toBeUndefined()
     expect(buildChunkName('C:/app/node_modules/onnxruntime-web/dist/ort.js')).toBeUndefined()
     expect(buildChunkName('C:/app/node_modules/@techstark/opencv-js/dist/opencv.js')).toBeUndefined()
+  })
+})
+
+describe('buildChunkGroups', () => {
+  it('React 는 react-vendor 가 가장 먼저 가져간다', () => {
+    const groups = buildChunkGroups()
+    expect(groups.map((group) => group.name)).toEqual(['react-vendor', 'icons-vendor', 'canvas-vendor'])
+    const react = groups[0]!
+    const canvas = groups[2]!
+    expect(react.priority).toBeGreaterThan(canvas.priority)
+    expect(react.test('C:/app/node_modules/react/cjs/react.production.js')).toBe(true)
+    expect(canvas.test('C:/app/node_modules/react/cjs/react.production.js')).toBe(false)
+    expect(canvas.test('C:/app/node_modules/@xyflow/react/dist/esm/index.js')).toBe(true)
   })
 })
 

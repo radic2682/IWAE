@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import {
   buildAssetFileName,
-  buildChunkName,
+  buildChunkGroups,
   filterInitialModulePreloads,
 } from './src/core/buildChunks.ts'
 import {
@@ -80,7 +80,7 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        manualChunks: buildChunkName,
+        codeSplitting: { groups: buildChunkGroups() },
         assetFileNames: (assetInfo) => buildAssetFileName(assetInfo) ?? 'assets/[name]-[hash][extname]',
       },
     },
