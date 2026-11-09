@@ -41,6 +41,7 @@ import {
   rememberVault,
   relinkDocument,
   writeCanvas,
+  updateLibraryPageCount,
   writeLibrary,
   writeSession,
   writeVaultIndex,
@@ -693,6 +694,11 @@ export function useVault(options: UseVaultOptions = {}) {
     }
     try {
       const meta = await openPdf(entry.path, entry.docId)
+      if (vault !== null && entry.pages !== meta.pageCount) {
+        // 암호 PDF 는 쪽 수를 모른 채(0) 등록되므로 열린 김에 실제 쪽 수로 고친다
+        const updated = await updateLibraryPageCount(vault, entry.docId, meta.pageCount).catch(() => null)
+        if (updated !== null) setEntries(updated)
+      }
       setOpenedDocs((current) => current.some((item) => item.docId === meta.docId)
         ? current
         : [...current, meta])
@@ -705,7 +711,7 @@ export function useVault(options: UseVaultOptions = {}) {
       setError(errorText(err))
       return null
     }
-  }, [entries, recordFileOpened])
+  }, [entries, recordFileOpened, vault])
 
   /**
    * Vault 밖 PDF 를 연다(탐색기에서 IWAE 로 연 것). Vault 에 같은 파일이 있으면 그것을 열고,

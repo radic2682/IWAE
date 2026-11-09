@@ -19,6 +19,8 @@ import {
   readBlockPresets,
   readSession,
   relinkDocument,
+  registerUnlistedVaultPdfs,
+  updateLibraryPageCount,
   writeSession,
   writeLibrary,
   writePdfHighlights,
@@ -752,5 +754,51 @@ describe('relinkDocument', () => {
       '같은 문서가 아닙니다',
     )
     expect(fsMocks.writeTextFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('registerUnlistedVaultPdfs with a password-protected PDF', () => {
+  const identity = { docId: 'lockeddoc001', sha256: 'e'.repeat(64), size: 2048 }
+
+  beforeEach(() => {
+    fsMocks.exists.mockReset()
+    fsMocks.mkdir.mockReset()
+    fsMocks.readTextFile.mockReset()
+    fsMocks.readDir.mockReset()
+    fsMocks.writeTextFile.mockReset()
+    vi.mocked(openPdf).mockReset()
+    invoke.mockReset()
+    fsMocks.exists.mockResolvedValue(false)
+    fsMocks.readDir.mockResolvedValue([{ name: 'locked-copy.pdf', isDirectory: false }])
+    invoke.mockResolvedValue(identity)
+  })
+
+  it('암호 PDF 도 쪽 수 0 으로 등록해 목록에 올린다', async () => {
+    const lockedError = new Error('password required')
+    lockedError.name = 'PdfPasswordError'
+    vi.mocked(openPdf).mockRejectedValue(lockedError)
+
+    await expect(registerUnlistedVaultPdfs({ root: 'C:/LockedVault' })).resolves.toEqual(['locked-copy.pdf'])
+
+    const library = fsMocks.writeTextFile.mock.calls
+      .map((call) => String(call[1]))
+      .find((text) => text.includes('"documents"'))
+    expect(library).toBeDefined()
+    const doc = (JSON.parse(library!) as { documents: Record<string, VaultLibraryEntry> }).documents[identity.docId]
+    expect(doc).toMatchObject({ docId: identity.docId, sha256: identity.sha256, size: identity.size, pages: 0, title: 'locked-copy' })
+  })
+
+  it('암호 말고 다른 이유로 못 연 PDF 는 등록하지 않는다', async () => {
+    vi.mocked(openPdf).mockRejectedValue(new Error('broken file'))
+    await expect(registerUnlistedVaultPdfs({ root: 'C:/BrokenVault' })).resolves.toEqual([])
+    expect(fsMocks.writeTextFile).not.toHaveBeenCalled()
+  })
+
+  it('열고 난 뒤 실제 쪽 수로 고친다', async () => {
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({ version: 1, documents: { [entry.docId]: { ...entry, pages: 0 } } }))
+    const updated = await updateLibraryPageCount(vault, entry.docId, 7)
+    expect(updated?.find((item) => item.docId === entry.docId)?.pages).toBe(7)
+    await expect(updateLibraryPageCount(vault, entry.docId, 0)).resolves.toBeNull()
   })
 })

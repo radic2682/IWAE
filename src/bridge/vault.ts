@@ -1033,7 +1033,9 @@ const checkedUnlistedPaths = new Set<string>()
 
 export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<string[]> {
   const { join } = await import('@tauri-apps/api/path')
-  const [tree, library, index] = await Promise.all([listVaultTree(vault), readLibrary(vault), readVaultIndex(vault)])
+  const tree = await listVaultTree(vault)
+  const library = await readLibrary(vault)
+  const index = await readVaultIndex(vault)
   const known = new Set(index.entries.filter((entry) => entry.kind === 'pdf').map((entry) => entry.path.replaceAll('\\', '/').toLocaleLowerCase()))
   const knownHashes = new Set(library.map((entry) => entry.sha256))
   const candidates = tree.filter((entry) => !entry.isDirectory
@@ -1049,9 +1051,10 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
     if (checkedUnlistedPaths.has(absolute)) continue
     // 먼저 해시만 잰다. 이미 등록된 PDF 와 내용이 같으면(다른 폴더의 사본 등) 열지 않는다.
     // PDF 를 열면 열린 문서 캐시(8개)에서 사용자가 보고 있는 문서가 밀려나 쪽이 빈칸이 된다
+    let identity: { docId: string; sha256: string; size: number }
     try {
       const { invoke } = await import('@tauri-apps/api/core')
-      const identity = await invoke<{ sha256: string }>('pdf_file_hash', { path: absolute })
+      identity = await invoke<{ docId: string; sha256: string; size: number }>('pdf_file_hash', { path: absolute })
       if (knownHashes.has(identity.sha256)) {
         checkedUnlistedPaths.add(absolute)
         continue
@@ -1060,11 +1063,13 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
       // 아직 복사 중이거나 읽을 수 없으면 다음 새로고침에 다시 본다
       continue
     }
-    let meta: Awaited<ReturnType<typeof openPdf>>
+    let meta: { docId: string; sha256: string; size: number; pageCount: number }
     try {
       meta = await openPdf(absolute, undefined, { askPassword: false })
-    } catch {
-      continue
+    } catch (error) {
+      // 암호 PDF 는 열 수 없지만 목록에는 올린다(쪽 수는 모름 — 처음 열 때 암호를 묻고 고친다)
+      if (!(error instanceof Error) || error.name !== 'PdfPasswordError') continue
+      meta = { docId: identity.docId, sha256: identity.sha256, size: identity.size, pageCount: 0 }
     }
     checkedUnlistedPaths.add(absolute)
     if (knownHashes.has(meta.sha256)) continue
@@ -1098,6 +1103,19 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
   await writeLibrary(vault, [...library, ...added])
   await writeVaultIndex(vault, { version: 1, entries: indexEntries })
   return added.map((entry) => `${entry.folderPath ? `${entry.folderPath}/` : ''}${entry.title}.pdf`)
+}
+
+/** 쪽 수를 모르고 등록한 문서(암호 PDF)를 연 뒤 실제 쪽 수로 고친다. 바뀐 항목이 없으면 null */
+export async function updateLibraryPageCount(
+  vault: VaultHandle,
+  docId: string,
+  pages: number,
+): Promise<VaultLibraryEntry[] | null> {
+  const entries = await readLibrary(vault)
+  if (!entries.some((entry) => entry.docId === docId && entry.pages !== pages)) return null
+  const updated = entries.map((entry) => entry.docId === docId ? { ...entry, pages } : entry)
+  await writeLibrary(vault, updated)
+  return updated
 }
 
 /** 번역 캐시(번역 기록): `.iwae/translations.json`. 없거나 깨졌으면 빈 목록 */

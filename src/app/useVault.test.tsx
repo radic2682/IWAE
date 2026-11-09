@@ -44,6 +44,7 @@ vi.mock('../bridge/pdf', () => ({
 vi.mock('../bridge/vault', () => ({
   addToLibrary: vi.fn(),
   registerUnlistedVaultPdfs: vi.fn().mockResolvedValue([]),
+  updateLibraryPageCount: vi.fn().mockResolvedValue(null),
   attachPdfToLibrary: vi.fn(),
   attachMarkdownReference: vi.fn(),
   createNote: vi.fn(),
