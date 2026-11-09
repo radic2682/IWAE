@@ -707,7 +707,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
     setEditingMemoId(null)
     setDraftIndex(noteCenterIndex())
-    setDraftMemo((current) => current?.id === highlight.id ? current : highlight)
+    // 같은 자리를 다시 받으면(스캔 영역의 OCR 글자가 뒤늦게 온 경우) 원문 글만 바꿔 끼운다
+    setDraftMemo((current) => current?.id === highlight.id ? (current.anchor.quote === highlight.anchor.quote ? current : { ...current, anchor: { ...current.anchor, quote: highlight.anchor.quote } }) : highlight)
   }
 
   /** 박스 메모 모드에서 고른 글: 이미 박스가 있으면 그 박스를 열고, 아니면 여백에 새 박스(글을 써야 저장된다) */

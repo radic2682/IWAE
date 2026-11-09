@@ -8,7 +8,7 @@ mod common;
 
 use app_lib::pdf::{CharBox, PageTextIndex, PdfRenderError, PdfThread};
 use common::{
-    pdfium_present, write_text_index_pdf, write_text_index_pdf_rotated, TEXT_INDEX_EXPECTED,
+    pdfium_present, write_cropped_text_pdf, write_text_index_pdf, write_text_index_pdf_rotated, TEXT_INDEX_EXPECTED,
     TEXT_INDEX_FIRST_BASELINE, TEXT_INDEX_LINE_GAP, TEXT_INDEX_PAGE_HEIGHT, TEXT_INDEX_PAGE_WIDTH,
 };
 
@@ -450,4 +450,23 @@ fn an_unopened_document_has_no_text() {
         pdf.page_text_blocking(wrong, 0),
         Err(PdfRenderError::UnknownDocument)
     );
+}
+
+/// CropBox 원점이 (0,0) 이 아닌 페이지: 글자 상자는 보이는 페이지(잘라 낸 상자) 기준이어야 한다.
+/// 원점을 빼지 않으면 검색 결과·형광펜이 (100, 200) 만큼 통째로 밀려 엉뚱한 곳에 칠해진다.
+#[test]
+fn boxes_are_measured_from_the_crop_box_origin() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    let meta = pdf.open_blocking(write_cropped_text_pdf("page-text-cropped.pdf")).expect("문서가 열려야 한다");
+    let (page_w, page_h) = meta.page_sizes[0];
+    assert_eq!((page_w, page_h), (400.0, 500.0), "보이는 페이지 크기는 CropBox");
+    let index = pdf.page_text_blocking(meta.doc_id, 0).expect("텍스트");
+    assert_eq!(index.text, "Cropped");
+    let first = &index.chars[0];
+    assert!((first.x - 40.0).abs() < 1.0, "왼쪽에서 40pt 여야 한다: {}", first.x);
+    // 기준선 y=600, CropBox 위 700 → 위에서 100pt 언저리(글자 윗변은 그보다 조금 위)
+    assert!(first.y > 80.0 && first.y < 100.0, "위에서 100pt 언저리여야 한다: {}", first.y);
 }

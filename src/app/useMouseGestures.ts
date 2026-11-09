@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { t } from '../i18n'
+import { getAppPrefs } from './appPrefs'
 
 /** 한 획의 방향 */
 export type GestureStroke = 'U' | 'D' | 'L' | 'R'
@@ -110,6 +111,8 @@ export function useMouseGestures(actions: MouseGestureActions): void {
 
     const down = (event: PointerEvent) => {
       if (event.button !== 2) return
+      // 설정에서 끈 경우: 오른쪽 버튼은 평소 우클릭만
+      if (!getAppPrefs().mouseGestures) return
       if (event.target instanceof Element && event.target.closest('input, textarea, [contenteditable="true"]') !== null) return
       tracking = { anchorX: event.clientX, anchorY: event.clientY, strokes: [] }
       pending = [{ x: event.clientX, y: event.clientY }]

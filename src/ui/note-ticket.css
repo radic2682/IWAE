@@ -201,3 +201,8 @@
   font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere;
 }
 .note-block .note-source-translation-error { color: var(--danger, #d1242f); }
+
+/* 영역 원문(OCR 글자 있음)의 번역 단추: 그림 오른쪽 위 */
+.note-source-region { position: relative; }
+.note-region-translate { position: absolute; top: 6px; right: 6px; z-index: 1; display: flex; }
+.note-region-translate .note-source-translate { background: var(--paper); box-shadow: 0 1px 4px rgb(0 0 0 / 18%); }

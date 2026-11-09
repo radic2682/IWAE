@@ -432,17 +432,32 @@ fn quarter_turns_of(page: &PdfPage) -> u8 {
     }
 }
 
+/// 보이는 페이지(CropBox 와 MediaBox 가 겹친 상자)의 왼쪽 아래 모서리(PDF 사용자 공간).
+///
+/// PDFium 은 그 상자만 그리고 `page_sizes` 도 그 크기라, 글자·링크·주석의 좌표에서 이 원점을
+/// 빼야 화면과 맞는다. 원점이 (0,0) 이 아닌 문서(여백을 잘라 낸 스캔·조판 문서)에서 검색 결과와
+/// 형광펜이 통째로 밀리던 원인이다. 못 읽으면 (0,0).
+pub(crate) fn page_origin(page: &PdfPage) -> (f32, f32) {
+    page.boundaries()
+        .bounding()
+        .ok()
+        .map(|boundary| (boundary.bounds.left().value, boundary.bounds.bottom().value))
+        .filter(|(x, y)| x.is_finite() && y.is_finite())
+        .unwrap_or((0.0, 0.0))
+}
+
 fn link_rect_from(
     rect: &PdfRect,
+    origin: (f32, f32),
     quarter_turns: u8,
     page_width: f32,
     page_height: f32,
 ) -> LinkRect {
     let (x, y, w, h) = displayed_box(
-        rect.left().value,
-        rect.bottom().value,
-        rect.right().value,
-        rect.top().value,
+        rect.left().value - origin.0,
+        rect.bottom().value - origin.1,
+        rect.right().value - origin.0,
+        rect.top().value - origin.1,
         quarter_turns,
         page_width,
         page_height,
@@ -768,9 +783,10 @@ impl OpenDocument {
             return None;
         }
         let height = self.page_sizes.get(page as usize).map(|size| size.1);
+        let origin_y = self.document.pages().get(page).map(|target| page_origin(&target).1).unwrap_or(0.0);
         let y = match destination.view_settings() {
             Ok(PdfDestinationViewSettings::SpecificCoordinatesAndZoom(_, Some(y), _)) => {
-                height.map(|h| (h - y.value).clamp(0.0, h))
+                height.map(|h| (h - (y.value - origin_y)).clamp(0.0, h))
             }
             _ => None,
         };
@@ -781,6 +797,7 @@ impl OpenDocument {
     pub fn links(&self, page: i32) -> Result<Vec<PdfLink>, PdfRenderError> {
         let (handle, page_width, page_height) = self.page_handle(page)?;
         let quarter_turns = quarter_turns_of(&handle);
+        let origin = page_origin(&handle);
         let mut links = Vec::new();
 
         for link in handle.links().iter() {
@@ -797,7 +814,7 @@ impl OpenDocument {
                     sanitize_uri(&uri).map(|uri| PdfLinkTarget::Uri { uri })
                 });
             let Some(target) = target else { continue };
-            let rect = link_rect_from(&rect, quarter_turns, page_width, page_height);
+            let rect = link_rect_from(&rect, origin, quarter_turns, page_width, page_height);
             if rect.w <= 0.0 || rect.h <= 0.0 {
                 continue;
             }
@@ -826,6 +843,7 @@ impl OpenDocument {
         for page in 0..self.page_count {
             let (handle, page_width, page_height) = self.page_handle(page)?;
             let quarter_turns = quarter_turns_of(&handle);
+            let origin = page_origin(&handle);
             for annotation in handle.annotations().iter() {
                 let kind = match annotation.annotation_type() {
                     PdfPageAnnotationType::Highlight => "highlight",
@@ -840,7 +858,7 @@ impl OpenDocument {
                         .attachment_points()
                         .iter()
                         .map(|quad| {
-                            link_rect_from(&quad.to_rect(), quarter_turns, page_width, page_height)
+                            link_rect_from(&quad.to_rect(), origin, quarter_turns, page_width, page_height)
                         })
                         .collect()
                 } else {
@@ -850,6 +868,7 @@ impl OpenDocument {
                     if let Ok(bounds) = annotation.bounds() {
                         rects.push(link_rect_from(
                             &bounds,
+                            origin,
                             quarter_turns,
                             page_width,
                             page_height,
@@ -986,6 +1005,7 @@ impl OpenDocument {
             _ => 0,
         };
 
+        let (origin_x, origin_y) = page_origin(&page_handle);
         let text = page_handle
             .text()
             .map_err(|err| PdfRenderError::Failed(tr!("텍스트를 읽지 못했습니다: {err}", "Could not read text: {err}")))?;
@@ -1011,10 +1031,10 @@ impl OpenDocument {
                 .loose_bounds()
                 .map(|rect| {
                     displayed_box(
-                        rect.left().value,
-                        rect.bottom().value,
-                        rect.right().value,
-                        rect.top().value,
+                        rect.left().value - origin_x,
+                        rect.bottom().value - origin_y,
+                        rect.right().value - origin_x,
+                        rect.top().value - origin_y,
                         quarter_turns,
                         page_width,
                         page_height,
@@ -1087,7 +1107,7 @@ impl OpenDocument {
             // 쪽 핸들이 이 함수 안에서만 살아 있으므로 수명을 늘려도 밖으로 새지 않는다.
             .map(|object| unsafe { std::mem::transmute::<PdfPageObject<'_>, PdfPageObject<'static>>(object) })
             .collect();
-        let mut sink = LayoutSink { layout: &mut layout, quarter_turns };
+        let mut sink = LayoutSink { layout: &mut layout, quarter_turns, origin: page_origin(&page_handle) };
         sink.collect(objects.into_iter(), IDENTITY, 0);
         Ok(layout)
     }
@@ -1124,11 +1144,14 @@ fn apply(m: Affine, x: f32, y: f32) -> (f32, f32) {
 struct LayoutSink<'a> {
     layout: &'a mut PageLayout,
     quarter_turns: u8,
+    /// 보이는 페이지의 왼쪽 아래(PDF 공간). 빼야 화면 좌표와 맞는다
+    origin: (f32, f32),
 }
 
 impl LayoutSink<'_> {
     /// PDF 공간 점 → 화면 좌표(왼쪽 위 원점)
     fn point(&self, x: f32, y: f32) -> (f32, f32) {
+        let (x, y) = (x - self.origin.0, y - self.origin.1);
         let (dx, dy, _, _) = displayed_box(x, y, x, y, self.quarter_turns, self.layout.width, self.layout.height);
         (dx, dy)
     }
@@ -1147,10 +1170,10 @@ impl LayoutSink<'_> {
                     if let Ok(bounds) = object.bounds() {
                         let rect = bounds.to_rect();
                         let (x0, y0, w, h) = displayed_box(
-                            rect.left().value,
-                            rect.bottom().value,
-                            rect.right().value,
-                            rect.top().value,
+                            rect.left().value - self.origin.0,
+                            rect.bottom().value - self.origin.1,
+                            rect.right().value - self.origin.0,
+                            rect.top().value - self.origin.1,
                             self.quarter_turns,
                             self.layout.width,
                             self.layout.height,
@@ -1526,10 +1549,14 @@ impl PdfEngine {
                 .map_err(|err| tr!("페이지를 열지 못했습니다: {err}", "Could not open the page: {err}"))?;
             let quarter_turns = quarter_turns_of(&page);
             let (page_width, page_height) = (page.width().value, page.height().value);
+            let (ox, oy) = page_origin(&page);
             let quads: Vec<(f32, f32, f32, f32)> = highlight
                 .rects
                 .iter()
-                .map(|rect| pdf_space_rect(*rect, quarter_turns, page_width, page_height))
+                .map(|rect| {
+                    let (l, b, r, t) = pdf_space_rect(*rect, quarter_turns, page_width, page_height);
+                    (l + ox, b + oy, r + ox, t + oy)
+                })
                 .collect();
             let bounds = quads.iter().fold(quads[0], |acc, quad| {
                 (
@@ -1609,6 +1636,7 @@ impl PdfEngine {
                 .get(searchable.page)
                 .map_err(|err| tr!("페이지를 열지 못했습니다: {err}", "Could not open the page: {err}"))?;
             let quarter_turns = quarter_turns_of(&page);
+            let (page_ox, page_oy) = page_origin(&page);
             let (page_width, page_height) = (page.width().value, page.height().value);
             for line in &searchable.lines {
                 let text = line.text.trim();
@@ -1631,6 +1659,7 @@ impl PdfEngine {
                 };
                 let (left, bottom, right, top) =
                     pdf_space_rect(rect, quarter_turns, page_width, page_height);
+                let (left, bottom, right, top) = (left + page_ox, bottom + page_oy, right + page_ox, top + page_oy);
                 let size = (top - bottom).max(1.0);
                 let mut object =
                     PdfPageTextObject::new(&document, text, font, PdfPoints::new(size))

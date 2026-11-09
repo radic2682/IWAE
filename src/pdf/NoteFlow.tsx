@@ -570,7 +570,7 @@ export function NoteFlow({
           ) : null
           // 원문 번역: 출처 줄 끝의 작은 단추. 캐시에 있으면 바로, 없으면 번역기에 묻는다
           const shown = translations.get(source.id)
-          const translateButton = translationCache.ready && source.kind !== 'region' && source.anchor.quote.trim() !== '' ? (
+          const translateButton = translationCache.ready && source.anchor.quote.trim() !== '' ? (
             <button
               type="button"
               className={`note-source-translate${shown !== undefined ? ' note-source-translate-on' : ''}`}
@@ -621,12 +621,17 @@ export function NoteFlow({
           }
           const pageSize = source.kind === 'region' ? pageSizeOf(source) ?? source.pageSize : undefined
           if (source.kind === 'region' && pageSize !== undefined) {
+            // 스캔 쪽의 영역은 OCR 로 읽은 글자가 원문에 있다: 번역 단추와 번역 줄을 같이 단다
             return (
-              <div key={source.id} className="pdf-memo-card-source note-source-region" onClick={draft ? undefined : () => onJump(source)}>
-                {meta}
-                <RegionCrop highlight={source} pageSize={pageSize} maxWidth={480} fill />
-                {remove}
-              </div>
+              <Fragment key={source.id}>
+                <div className="pdf-memo-card-source note-source-region" onClick={draft ? undefined : () => onJump(source)}>
+                  {meta}
+                  <RegionCrop highlight={source} pageSize={pageSize} maxWidth={480} fill />
+                  {remove}
+                  {translateButton === null ? null : <span className="note-region-translate">{translateButton}</span>}
+                </div>
+                {translationLine}
+              </Fragment>
             )
           }
           return (

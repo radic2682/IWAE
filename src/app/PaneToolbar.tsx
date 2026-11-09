@@ -5,6 +5,7 @@ import { OVERLAY_TOOLS, overlayToolInfo } from '../pdf/PdfOverlayPalette'
 import { DRAW_TOOLS, isDrawTool, setLastDrawTool, useLastDrawTool, useOverlayTool } from '../pdf/overlayToolStore'
 import type { OverlayTool } from '../pdf/PdfOverlayLayer'
 import { ContextMenu } from '../ui/ContextMenu'
+import { getAppPrefs } from './appPrefs'
 import { HighlighterToolbarControl } from '../pdf/HighlighterTool'
 import { INITIAL_READER_TOOL_STATE, readerToolReducer, type ReaderToolAction, type ReaderToolState } from '../core/readerTools'
 import { ReaderToolbar } from './ReaderToolbar'
@@ -117,6 +118,7 @@ export function PaneToolbar({
     if (!shortcutsEnabled) return
     const onKey = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      if (!getAppPrefs().singleKeyShortcuts) return
       const target = event.target
       if (target instanceof HTMLElement && (target.isContentEditable || /^(input|textarea|select)$/iu.test(target.tagName))) return
       const info = OVERLAY_TOOLS.find((item) => item.shortcut.toLowerCase() === event.key.toLowerCase())

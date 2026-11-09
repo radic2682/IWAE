@@ -3,6 +3,7 @@ import { joinRecognizedText } from '../core/ocrRecognition'
 import { ocrWasmBaseUrl } from '../core/ocrRuntimeAssets'
 import { detectedLineHeight, type DetectedTextLine } from './ocrGeometry'
 import { readSelectionImageData } from './visualTextHeight'
+import { pageImageUrl } from '../bridge/pdf'
 
 interface OcrResultItem {
   readonly poly: readonly (readonly [number, number])[]
@@ -120,6 +121,52 @@ export function detectSelectionTextHeight(selection: PdfExcerptSelection, image:
   results.set(key, task)
   if (results.size > 100) results.delete(results.keys().next().value!)
   return task
+}
+
+/**
+ * 고른 영역(스캔 쪽처럼 글자 층이 없는 곳)의 글자를 이 PC 에서 읽는다. 화면에 그린 쪽 그림을 잘라
+ * 키워서(최대 3배) 읽으므로 따로 렌더하지 않는다. 못 읽으면 null.
+ */
+export async function recognizeSelectionText(selection: PdfExcerptSelection, image: HTMLImageElement | null): Promise<string | null> {
+  // 쪽은 타일로 그려 <img> 가 없을 때가 많다: 그때는 쪽을 넉넉한 해상도로 따로 받아 잘라 읽는다
+  const imageData = readSelectionImageData(selection, image, 1600, 1600, 3) ?? await renderedSelectionImageData(selection)
+  if (imageData === null) return null
+  return predict(imageData, {
+    textDetLimitSideLen: 1600,
+    textDetLimitType: 'max',
+    textDetMaxSideLimit: 1800,
+    textRecScoreThresh: 0.35,
+  }).then((result) => {
+    const text = result === null ? '' : joinRecognizedText(result.items).trim()
+    return text === '' ? null : text
+  })
+}
+
+/** 고른 영역만 쪽 그림에서 잘라 ImageData 로(쪽 폭 기준 약 3배, 최대 2400px 로 렌더) */
+async function renderedSelectionImageData(selection: PdfExcerptSelection): Promise<ImageData | null> {
+  const { crop, pageSize, anchor } = selection
+  if (pageSize[0] <= 0 || pageSize[1] <= 0 || crop.w <= 0 || crop.h <= 0) return null
+  const width = Math.min(2400, Math.round(pageSize[0] * 3))
+  try {
+    const response = await fetch(pageImageUrl(anchor.docId, anchor.page, width))
+    if (!response.ok) return null
+    const bitmap = await createImageBitmap(await response.blob())
+    const scale = bitmap.width / pageSize[0]
+    const w = Math.max(1, Math.round(crop.w * scale))
+    const h = Math.max(1, Math.round(crop.h * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (context === null) return null
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, w, h)
+    context.drawImage(bitmap, crop.x * scale, crop.y * scale, crop.w * scale, crop.h * scale, 0, 0, w, h)
+    bitmap.close()
+    return context.getImageData(0, 0, w, h)
+  } catch {
+    return null
+  }
 }
 
 export function recognizeImageText(image: Blob): Promise<string | null> {

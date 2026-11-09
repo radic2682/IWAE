@@ -360,3 +360,19 @@
 .translation-cache-clear { flex: 0 0 auto; height: 32px; padding: 0 12px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: 8px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer; }
 .translation-cache-clear:hover:not(:disabled) { background: var(--chrome-hover); }
 .translation-cache-clear:disabled { cursor: default; opacity: .45; }
+
+/* 단축키·마우스 / 검색·OCR */
+.behavior-settings { display: grid; gap: 12px; }
+.behavior-title { margin: 6px 0 0; font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.behavior-settings .translation-cache-settings { margin-top: 0; }
+.behavior-stack { flex-direction: column; align-items: stretch; gap: 14px; }
+.behavior-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 22px; padding: 4px 2px; }
+.behavior-key-group h4 { margin: 0 0 6px; font-size: 12.5px; font-weight: 700; color: var(--text-strong); }
+.behavior-key-group dl, .behavior-gestures { display: grid; gap: 4px; margin: 0; }
+.behavior-gestures { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 22px; padding: 0 2px; }
+.behavior-key-row { display: flex; align-items: center; gap: 10px; min-height: 24px; font-size: 12.5px; color: var(--text-strong); }
+.behavior-key-row dt { flex: 0 0 auto; margin: 0; }
+.behavior-key-row dd { margin: 0; }
+.behavior-key-row kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: 5px; font: inherit; font-size: 11.5px; font-weight: 700; text-align: center; }
+.behavior-rebuild { display: flex; align-items: center; gap: 12px; }
+.behavior-rebuild-note { font-size: 12.5px; color: var(--text-strong); }

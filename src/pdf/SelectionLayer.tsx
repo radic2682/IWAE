@@ -9,7 +9,8 @@ import {
 import type { PageTextIndex } from '../core/textIndex'
 import { selectionRange } from './selection'
 import { estimateSelectionTextHeight } from './visualTextHeight'
-import { detectSelectionTextHeight } from './ocrTextDetector'
+import { detectSelectionTextHeight, recognizeSelectionText } from './ocrTextDetector'
+import { getAppPrefs } from '../app/appPrefs'
 import { SelectionActions, type PdfSelectionTranslation } from './SelectionActions'
 import { ContextMenu } from '../ui/ContextMenu'
 import { documentContextEntries } from '../ui/documentContextMenu'
@@ -556,14 +557,26 @@ export function SelectionLayer({
     setCommitted(resolved)
     userAnchorRef.current = { anchor: resolved.anchor, region: resolved.mode === 'region' }
     onSelectionChange?.(resolved)
-    if (!hasGlyphs && image !== null) {
+    if (!hasGlyphs) {
       const epoch = selectionEpochRef.current
-      void detectSelectionTextHeight(resolved, image).then((height) => {
+      // 글자 층이 없는 곳(스캔): 글자 높이를 재고, 영역이면 OCR 로 글자를 읽어 원문에 넣는다(설정에서 끌 수 있다)
+      let latest = resolved
+      if (image !== null) void detectSelectionTextHeight(resolved, image).then((height) => {
         if (height === null || selectionEpochRef.current !== epoch) return
-        const refined = { ...resolved, visualTextHeight: height }
-        setCommitted(refined)
-        onSelectionChange?.(refined)
+        latest = { ...latest, visualTextHeight: height }
+        setCommitted(latest)
+        onSelectionChange?.(latest)
       })
+      if (resolved.mode === 'region' && resolved.anchor.quote.trim() === '' && getAppPrefs().ocr) {
+        void recognizeSelectionText(resolved, image).then((text) => {
+          if (text === null || selectionEpochRef.current !== epoch) return
+          latest = { ...latest, anchor: { ...latest.anchor, quote: text.replace(/\s+/gu, ' ').trim().slice(0, 4000) } }
+          userAnchorRef.current = { anchor: latest.anchor, region: true }
+          setCommitted(latest)
+          onSelectionChange?.(latest)
+          announceAction(t('영역의 글자를 읽었습니다(OCR)'))
+        }).catch(() => undefined)
+      }
     }
     if (mode === 'highlight' && resolved.mode === 'text') {
       onPersistentHighlightCreated?.(createPersistentPdfHighlight(resolved.anchor, highlightColor, {

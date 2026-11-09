@@ -1,3 +1,5 @@
+import { getAppPrefs } from './appPrefs'
+import { emptyVaultSearchTextCache } from '../core/vaultSearchCache'
 import type { FolderColor } from '../core/folderColors'
 import { seedSampleVaultInto } from './sampleVaultDesktop'
 import { addRecentPdf, readRecentPdfs, removeRecentPdf, samePath, writeRecentPdfs, type RecentPdf } from '../core/recentPdfs'
@@ -258,6 +260,8 @@ export function useVault(options: UseVaultOptions = {}) {
   const [extractedSearchText, setExtractedSearchText] = useState<Readonly<Record<string, string>>>({})
   const [extractedSearchPages, setExtractedSearchPages] = useState<Readonly<Record<string, readonly VaultSearchPage[]>>>({})
   const [searchIndexProgress, setSearchIndexProgress] = useState({ indexed: 0, total: 0 })
+  /** 「색인 다시 만들기」: 설정과 상관없이 이번 한 번은 색인한다 */
+  const forceIndexRef = useRef(false)
   const searchGenerationRef = useRef(0)
   const metadataWriteQueueRef = useRef<Promise<void>>(Promise.resolve())
 
@@ -458,7 +462,11 @@ export function useVault(options: UseVaultOptions = {}) {
           ...Object.fromEntries(records.filter((record) => record !== null)),
         }))
       })
-      void (async () => {
+      // 설정 「Vault 를 열 때 모든 PDF 색인」을 끄면 미리 읽지 않는다(「색인 다시 만들기」로 따로 만든다)
+      const indexNow = getAppPrefs().autoIndex || forceIndexRef.current
+      forceIndexRef.current = false
+      if (!indexNow) setSearchIndexProgress({ indexed: 0, total: 0 })
+      if (indexNow) void (async () => {
         let nextCache = searchTextCache
         for (const indexEntry of searchablePdfEntries) {
           const cached = nextCache.documents[indexEntry.id]
@@ -483,6 +491,11 @@ export function useVault(options: UseVaultOptions = {}) {
               },
               4,
               async (page) => {
+                // OCR 을 끄면 스캔 쪽은 비워 두되 「다 읽음」으로 남기지 않는다(나중에 켜면 다시 읽게)
+                if (!getAppPrefs().ocr) {
+                  extractionIncomplete = true
+                  return ''
+                }
                 try {
                   return await recognizePdfPageText(document.docId, page)
                 } catch (err) {
@@ -1568,7 +1581,18 @@ export function useVault(options: UseVaultOptions = {}) {
     }))
   }, [extractedSearchPages, extractedSearchText, fileActivity, injected, injectedLibrary, vaultIndex])
 
+  /** 설정 「색인 다시 만들기」: 저장해 둔 글자를 지우고 Vault 를 다시 읽으며 모든 PDF 를 새로 읽는다 */
+  const rebuildSearchIndex = useCallback(async () => {
+    if (vault === null) return
+    await writeVaultSearchTextCache(vault, emptyVaultSearchTextCache())
+    setExtractedSearchPages({})
+    setExtractedSearchText({})
+    forceIndexRef.current = true
+    await loadVault(vault)
+  }, [loadVault, vault])
+
   return {
+    rebuildSearchIndex,
     initializing,
     vault,
     library: displayedLibrary,

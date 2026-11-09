@@ -171,6 +171,25 @@ pub fn write_text_index_pdf_rotated(name: &str, degrees: i32) -> PathBuf {
     write_pdf(name, objects)
 }
 
+/// CropBox 의 원점이 (0,0) 이 아닌 한 장짜리 PDF. MediaBox [0 0 612 792], CropBox [100 200 500 700],
+/// 글자는 사용자 공간 (140, 600) 에 찍는다 — 보이는 페이지에서는 왼쪽 40, 위에서 100 언저리다.
+/// 스캔·조판 도구가 여백을 잘라 낸 문서가 흔히 이 모양이고, 원점을 빼지 않으면 형광펜이 통째로 밀린다.
+pub fn write_cropped_text_pdf(name: &str) -> PathBuf {
+    let content = "BT /F1 12 Tf 140 600 Td (Cropped) Tj ET";
+    let objects: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".into(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /CropBox [100 200 500 700] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>".into(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into(),
+        format!("<< /Length {} >>
+stream
+{}
+endstream", content.len(), content),
+    ];
+
+    write_pdf(name, objects)
+}
+
 /// MediaBox 를 마음대로 준 한 장짜리 PDF.
 ///
 /// 세로로 아주 긴 페이지(스펙 문서의 접지 도면, 또는 그냥 이상하게 만들어진 문서)가 렌더

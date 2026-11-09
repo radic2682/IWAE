@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
+import { InputSettings, SearchSettings } from './BehaviorSettings'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { onOpenFiles, openDefaultAppsSettings, takeOpenFiles } from '../bridge/openFiles'
@@ -363,6 +364,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     missingDocIds,
     searchRecords,
     searchIndexProgress,
+    rebuildSearchIndex,
     markdownSources,
     markdownTheme,
     recentVaultPaths,
@@ -2593,6 +2595,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             </>
           ),
         },
+        { id: 'input', label: t('단축키·마우스'), content: <InputSettings /> },
+        { id: 'search', label: t('검색·OCR'), content: <SearchSettings onRebuildIndex={vault === null ? undefined : rebuildSearchIndex} /> },
         { id: 'translation', label: t('번역'), content: <TranslationSettings state={translation} /> },
         {
           id: 'ai',
