@@ -530,6 +530,7 @@ export function DocumentView(props: DocumentViewProps) {
       github={tab.kind === 'markdown' ? props.github : undefined}
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
+      shortcutsEnabled={props.shortcutTarget}
       cleanView={props.pdfViewPrefs.clean === true}
       onCleanViewChange={(clean) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, clean })}
       splitLayout={tab.kind === 'pdf' && meta !== null ? split.layout : tab.kind === 'markdown' ? markdownSplit : undefined}

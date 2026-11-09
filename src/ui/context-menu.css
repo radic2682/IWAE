@@ -10,3 +10,4 @@
 .app-context-menu > .app-context-sep { height: 1px; margin: 4px 6px; border: 0; background: var(--divider); }
 .app-context-menu > .app-context-note { padding: 4px 9px 6px; font-size: 11.5px; line-height: 1.45; }
 .app-context-menu .app-context-danger { color: var(--danger, #e5534b); }
+.app-context-menu > button.app-context-current { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }

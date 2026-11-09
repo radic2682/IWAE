@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { PdfOverlayLayer, type OverlayStyle, type OverlayTool } from './PdfOverlayLayer'
 import { createLine, createTextBox, type PdfOverlay } from '../core/pdfOverlays'
 
-const style: OverlayStyle = { color: '#d9363e', textSize: 12, lineWidth: 2, arrow: true, dashed: false }
+const style: OverlayStyle = { color: '#d9363e', textSize: 12, lineWidth: 2, bold: false, textFill: 'none', border: false, dash: 'solid', arrowStart: false, arrowEnd: true, fill: false }
 
 function mount(overlays: PdfOverlay[] = [], extra: { editMode?: boolean; tool?: OverlayTool } = {}) {
   const handlers = { onAdd: vi.fn(), onUpdate: vi.fn(), onRemove: vi.fn() }
@@ -30,6 +30,7 @@ describe('PdfOverlayLayer', () => {
   it('글 상자 도구로 빈 곳을 누르면 그 자리에 쓰기 상자가 열리고, 글을 쓰고 빈 곳을 누르면 그때 저장한다', () => {
     const { view, layer, onAdd } = mount()
     fireEvent.pointerDown(layer, { button: 0, clientX: 120, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(window, { clientX: 120, clientY: 200, pointerId: 1 })
     // 글을 쓰기 전에는 저장하지 않는다
     expect(onAdd).not.toHaveBeenCalled()
     const editor = view.getByRole('textbox', { name: '글 상자' })
@@ -42,9 +43,22 @@ describe('PdfOverlayLayer', () => {
     expect(view.queryByRole('textbox', { name: '글 상자' })).toBeNull()
   })
 
+  it('글 상자 도구로 끌면 그 너비의 상자를 만든다', () => {
+    const { view, layer, onAdd } = mount()
+    fireEvent.pointerDown(layer, { button: 0, clientX: 100, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(window, { clientX: 340, clientY: 230, pointerId: 1 })
+    fireEvent.pointerUp(window, { clientX: 340, clientY: 230, pointerId: 1 })
+    const editor = view.getByRole('textbox', { name: '글 상자' })
+    editor.innerText = '넓은 상자'
+    fireEvent.input(editor)
+    fireEvent.pointerDown(layer, { button: 0, clientX: 500, clientY: 500, pointerId: 2 })
+    expect(onAdd.mock.calls[0]![0]).toMatchObject({ kind: 'text', x: 100, y: 200, w: 240, text: '넓은 상자' })
+  })
+
   it('글 없이 끝낸 새 글 상자는 남기지 않는다', () => {
     const { view, layer, onAdd } = mount()
     fireEvent.pointerDown(layer, { button: 0, clientX: 120, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(window, { clientX: 120, clientY: 200, pointerId: 1 })
     fireEvent.pointerDown(layer, { button: 0, clientX: 300, clientY: 300, pointerId: 2 })
     expect(onAdd).not.toHaveBeenCalled()
     expect(view.container.querySelectorAll('.pdf-overlay-text')).toHaveLength(0)

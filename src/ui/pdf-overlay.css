@@ -103,3 +103,84 @@
 /* 깨끗이 보기(눈 단추): 편집 덮개도 감춘다 */
 .pdf-clean-view .pdf-overlay-layer { display: none !important; }
 .pdf-overlay-layer-edit[data-overlay-tool='pen'] { cursor: crosshair; touch-action: none; }
+
+/* ── 도구 서식 띠: 문서 도구줄(같은 바탕)에 이어 붙는 한 줄. 편집 도구·형광펜·박스 메모 공통 ── */
+.doc-format-strip {
+  position: absolute; z-index: 13; top: var(--doc-card-h, 36px); left: 0; right: var(--memo-bar-w, 0px);
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 8px;
+  border-bottom: 1px solid var(--hairline); background: var(--workspace); color: var(--text-strong);
+  font-size: 12.5px; overflow-x: auto; scrollbar-width: none;
+}
+.doc-format-strip::-webkit-scrollbar { display: none; }
+/* 띠가 있는 동안 문서는 띠 밑에서 시작한다(가리지 않게) */
+.pane-doc .pane-frame:has(.doc-format-strip) { --doc-head-h: calc(var(--doc-card-h, 36px) + 40px); }
+.pane-doc .pane-frame:has(.doc-format-strip) .markdown-pane { padding-top: 40px; }
+.doc-strip-chip {
+  display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px;
+  border: 1px solid var(--accent); border-radius: 7px; background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+  color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+}
+.doc-strip-chip:hover { background: color-mix(in srgb, var(--accent) 22%, var(--paper)); }
+.doc-strip-chip-icon { display: grid; place-items: center; }
+.doc-strip-body { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; }
+.doc-strip-body:empty { display: none; }
+.doc-strip-sep { flex: 0 0 auto; width: 1px; height: 18px; margin: 0 4px; background: var(--divider); }
+.doc-strip-swatches { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; padding: 0 2px; }
+.doc-strip-swatch {
+  position: relative; flex: 0 0 auto; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 22%); cursor: pointer;
+}
+.doc-strip-swatch-on { box-shadow: 0 0 0 2px var(--workspace), 0 0 0 3.5px var(--accent); }
+.doc-strip-swatch-custom { background: conic-gradient(#f44, #fb3, #4c4, #3cf, #46f, #c4f, #f44); overflow: hidden; }
+.doc-strip-swatch-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.doc-strip-seg { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: color-mix(in srgb, var(--text-strong) 7%, transparent); }
+.doc-strip-opt, .doc-strip-toggle {
+  display: grid; flex: 0 0 auto; place-items: center; min-width: 30px; height: 24px; padding: 0 6px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; cursor: pointer;
+}
+.doc-strip-toggle { height: 28px; border-radius: 7px; }
+.doc-strip-opt:hover, .doc-strip-toggle:hover { background: var(--chrome-hover); }
+.doc-strip-opt.doc-strip-opt-on, .doc-strip-toggle.doc-strip-opt-on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.doc-strip-line { display: block; width: 16px; height: 2px; border-radius: 2px; background: currentColor; }
+.doc-strip-line-dash { background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 8px); }
+.doc-strip-line-dot { height: 2.5px; background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 50% / 4px 3px repeat-x; }
+.doc-strip-fill { display: block; width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 25%); }
+.doc-strip-fill-none { font-size: 11px; font-weight: 650; }
+.doc-format-strip .doc-strip-select { flex: 0 0 auto; width: 86px; }
+.doc-format-strip .doc-strip-select button { height: 28px; }
+.doc-strip-hint { flex: 0 0 auto; margin-left: auto; padding-left: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.doc-strip-kbd { flex: 0 0 auto; margin-left: auto; padding: 1px 5px; border: 1px solid var(--divider-strong); border-radius: 4px; font: inherit; font-size: 10.5px; font-weight: 700; }
+.doc-strip-hint + .doc-strip-kbd { margin-left: 0; }
+.doc-strip-close { display: grid; flex: 0 0 auto; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); cursor: pointer; }
+.doc-strip-close:hover { background: var(--chrome-hover); }
+/* 박스 메모 서식 칸(PdfBoxMemos 가 채운다)도 띠 안에서 한 줄로 */
+.doc-format-strip .pdf-box-format-slot { display: flex; align-items: center; gap: 6px; }
+.doc-format-strip .pdf-box-format-slot:empty { display: none; }
+
+/* ── 도구줄 그리기 ▾: 마지막 그리기 도구 + 고르기 화살표가 한 덩어리 ── */
+.pane-draw-split { display: inline-flex; align-items: center; border-radius: 6px; }
+.pane-doc .pane-draw-split .pane-draw-caret { width: 16px; max-width: 16px; margin-left: -2px; }
+.pane-doc .pane-draw-split-on { box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--paper)); }
+.pane-doc .pane-toolbar .pane-draw-split-on .pane-draw-main.toolbar-tool-btn-active { border-color: transparent; background: transparent; }
+.pane-doc .pane-draw-split-on .pane-draw-caret { color: var(--accent); }
+
+/* ── 문서 위: 고른 것 옆 작은 막대 · 네 모서리 손잡이 · 글 상자 끌어 만들기 ── */
+.pdf-overlay-mini {
+  position: absolute; z-index: 6; display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 4px;
+  border: 1px solid var(--divider); border-radius: 9px; background: var(--paper); color: var(--text-strong);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 22%); pointer-events: auto;
+}
+.pdf-overlay-mini-btn { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.pdf-overlay-mini-btn:hover { background: var(--chrome-hover); }
+.pdf-overlay-mini-btn.pdf-overlay-mini-on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.pdf-overlay-mini-sep { width: 1px; height: 16px; margin: 0 3px; background: var(--divider); }
+.pdf-overlay-mini-swatch { width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+.pdf-overlay-mini-dash { display: block; width: 14px; height: 2px; background: currentColor; }
+.pdf-overlay-mini-dash-dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); }
+.pdf-overlay-mini-dash-dot { height: 2.5px; background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 50% / 4px 3px repeat-x; }
+.pdf-overlay-corner { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 2px; pointer-events: all; }
+.pdf-overlay-corner-nw, .pdf-overlay-corner-se { cursor: nwse-resize; }
+.pdf-overlay-corner-ne, .pdf-overlay-corner-sw { cursor: nesw-resize; }
+.pdf-overlay-text-preview { fill: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent); stroke: var(--accent, #3b82f6); stroke-width: 1.5px; stroke-dasharray: 5 4; }
+.pdf-overlay-resize-left { right: auto; left: -4px; }
+.pdf-overlay-resize-left::after { right: auto; left: 2px; }

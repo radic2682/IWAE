@@ -1,7 +1,9 @@
 import { t } from '../i18n'
 import { coalesceHighlightRects } from '../core/anchor'
 import { useEffect, useMemo, useState, type RefObject } from 'react'
-import { useOverlayTool } from '../pdf/overlayToolStore'
+import { useOverlayTool, useToolStyle } from '../pdf/overlayToolStore'
+import { HighlighterStrip } from '../pdf/HighlighterTool'
+import { ChatTeardropText } from '@phosphor-icons/react'
 import { BOX_DEFAULT_WIDTH, placeBoxMemo, type MemoBox } from '../core/boxMemo'
 import type { OverlayPatch, PdfOverlay } from '../core/pdfOverlays'
 import { PdfBoxMemos } from '../pdf/PdfBoxMemos'
@@ -175,7 +177,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
 
   // 편집 도구창 상태
   const [overlayTool, setOverlayTool] = useOverlayTool()
-  const [overlayStyle, setOverlayStyle] = useState<OverlayStyle>({ color: '#d9363e', textSize: 9, lineWidth: 2, arrow: false, dashed: false })
+  const [overlayStyle, patchOverlayStyle] = useToolStyle(overlayTool)
   const [selectedOverlay, setSelectedOverlay] = useState<string | null>(null)
   useEffect(() => { if (mode !== 'edit') setSelectedOverlay(null) }, [mode])
   const [boxFormatSlot, setBoxFormatSlot] = useState<HTMLDivElement | null>(null)
@@ -275,7 +277,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
           tool={overlayTool}
           style={overlayStyle}
           onToolChange={(next) => { setOverlayTool(next); setSelectedOverlay(null) }}
-          onStyleChange={(patch) => setOverlayStyle((current) => ({ ...current, ...patch }))}
+          onStyleChange={patchOverlayStyle}
           selected={overlays.find((item) => item.id === selectedOverlay) ?? null}
           onUpdateSelected={(patch) => { if (selectedOverlay !== null) props.onOverlayUpdate?.(selectedOverlay, patch) }}
           onRemoveSelected={() => {
@@ -286,19 +288,19 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
           onDone={() => props.onModeChange?.('text')}
         />
       ) : null}
+      {mode === 'highlight' ? <HighlighterStrip onDone={() => props.onModeChange?.('text')} /> : null}
       {mode === 'box' || editingBoxId !== null || draftBox !== null ? (
         <PdfFloatPalette
           label={t('박스 메모')}
+          icon={<ChatTeardropText size={15} aria-hidden="true" />}
+          hint={editingBoxId === null && draftBox === null ? t('글을 끌면 박스가 생깁니다') : undefined}
           onDone={() => {
             const active = document.activeElement
             if (active instanceof HTMLElement && active.closest('.pdf-box-card') !== null) active.blur()
             props.onModeChange?.('text')
           }}
         >
-          <span className="pdf-box-palette-label">{t('박스 메모')}</span>
-          <span className="pdf-overlay-palette-sep" aria-hidden="true" />
           <div className="pdf-box-format-slot" ref={setBoxFormatSlot} />
-          {editingBoxId === null && draftBox === null ? <span className="pdf-box-palette-hint">{t('글을 끌면 박스가 생깁니다')}</span> : null}
         </PdfFloatPalette>
       ) : null}
     </>

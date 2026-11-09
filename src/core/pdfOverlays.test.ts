@@ -40,7 +40,7 @@ describe('PDF 덮개(글 상자·선)', () => {
       version: 1,
       overlays: {
         d: [
-          { id: '1', kind: 'text', page: 0, x: 1, y: 2, w: 5, text: 'ok', size: 500, color: '#123456' },
+          { id: '1', kind: 'text', page: 0, x: 1, y: 2, w: 5, text: 'ok', size: 500, color: 'tomato' },
           { id: '2', kind: 'line', page: 1, x1: 0, y1: 0, x2: 9, y2: 9, color: '#1a73e8', width: 99 },
           { id: '3', kind: 'text', page: -1, x: 1, y: 2, text: 'neg' },
           { id: '1', kind: 'text', page: 0, x: 1, y: 2, text: 'dup' },

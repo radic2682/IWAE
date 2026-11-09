@@ -3,8 +3,13 @@
  * 좌표는 모두 쪽 좌표(points, 왼쪽 위 기준)라서 확대·축소에도 쪽의 같은 자리에 남는다. 눈 단추(깨끗이 보기)로 감출 수 있다.
  */
 
-export type OverlayColor = '#111111' | '#d9363e' | '#1a73e8' | '#188038' | '#f29900' | '#7b1fa2' | '#ffffff'
+/** 색: 기본 일곱 가지 또는 직접 고른 #rrggbb */
+export type OverlayColor = string
 export const OVERLAY_COLORS: readonly OverlayColor[] = ['#111111', '#d9363e', '#1a73e8', '#188038', '#f29900', '#7b1fa2', '#ffffff']
+/** #rrggbb 인가 */
+export function isOverlayColor(value: unknown): value is OverlayColor {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/iu.test(value)
+}
 
 export interface PdfTextBox {
   readonly id: string
@@ -39,7 +44,11 @@ export interface PdfLine {
   readonly width: number
   /** 끝에 화살촉 */
   readonly arrow?: boolean
+  /** 시작에도 화살촉(양쪽 화살표) */
+  readonly arrowStart?: boolean
   readonly dashed?: boolean
+  /** 짧은 점선(dashed 보다 먼저 본다) */
+  readonly dotted?: boolean
 }
 
 /** 펜으로 자유롭게 그린 선(쪽 좌표 점들) */
@@ -69,6 +78,7 @@ export interface PdfShape {
   /** 안을 옅게 칠할까 */
   readonly fill?: boolean
   readonly dashed?: boolean
+  readonly dotted?: boolean
 }
 
 export type PdfOverlay = PdfTextBox | PdfLine | PdfInk | PdfShape
@@ -79,7 +89,7 @@ export type OverlayPatch = Partial<PdfTextBox> | Partial<PdfLine> | Partial<PdfI
 export const SHAPE_MIN_SIZE = 4
 
 /** 두 점(끈 시작·끝)으로 도형을 만든다. Shift 면 정사각형·원 */
-export function createShape(page: number, shape: PdfShape['shape'], from: { x: number; y: number }, to: { x: number; y: number }, init: Partial<Pick<PdfShape, 'color' | 'width' | 'fill' | 'dashed'>> = {}): PdfShape {
+export function createShape(page: number, shape: PdfShape['shape'], from: { x: number; y: number }, to: { x: number; y: number }, init: Partial<Pick<PdfShape, 'color' | 'width' | 'fill' | 'dashed' | 'dotted'>> = {}): PdfShape {
   return {
     id: newOverlayId(),
     kind: 'shape',
@@ -89,8 +99,23 @@ export function createShape(page: number, shape: PdfShape['shape'], from: { x: n
     color: init.color ?? '#d9363e',
     width: init.width ?? 2,
     ...(init.fill === true ? { fill: true } : {}),
-    ...(init.dashed === true ? { dashed: true } : {}),
+    ...(init.dotted === true ? { dotted: true } : init.dashed === true ? { dashed: true } : {}),
   }
+}
+
+/** 선 모양: 실선·점선·짧은 점선 */
+export type OverlayDash = 'solid' | 'dash' | 'dot'
+export function dashOf(item: { readonly dashed?: boolean; readonly dotted?: boolean }): OverlayDash {
+  return item.dotted === true ? 'dot' : item.dashed === true ? 'dash' : 'solid'
+}
+export function dashPatch(dash: OverlayDash): { dashed?: boolean; dotted?: boolean } {
+  return { dashed: dash === 'dash' ? true : undefined, dotted: dash === 'dot' ? true : undefined }
+}
+/** SVG stroke-dasharray(굵기 w 화면 px 기준). 짧은 점선은 둥근 끝과 같이 쓴다 */
+export function dashArray(dash: OverlayDash, w: number): string | undefined {
+  if (dash === 'dash') return `${w * 3} ${w * 2}`
+  if (dash === 'dot') return `0.01 ${w * 2.2}`
+  return undefined
 }
 
 /** 끈 두 점 → 왼쪽 위·크기 */
@@ -136,7 +161,7 @@ export function createTextBox(page: number, x: number, y: number, init: Partial<
   }
 }
 
-export function createLine(page: number, from: { x: number; y: number }, to: { x: number; y: number }, init: Partial<Pick<PdfLine, 'color' | 'width' | 'arrow' | 'dashed'>> = {}): PdfLine {
+export function createLine(page: number, from: { x: number; y: number }, to: { x: number; y: number }, init: Partial<Pick<PdfLine, 'color' | 'width' | 'arrow' | 'arrowStart' | 'dashed' | 'dotted'>> = {}): PdfLine {
   return {
     id: newOverlayId(),
     kind: 'line',
@@ -148,7 +173,8 @@ export function createLine(page: number, from: { x: number; y: number }, to: { x
     color: init.color ?? '#d9363e',
     width: init.width ?? 2,
     ...(init.arrow === true ? { arrow: true } : {}),
-    ...(init.dashed === true ? { dashed: true } : {}),
+    ...(init.arrowStart === true ? { arrowStart: true } : {}),
+    ...(init.dotted === true ? { dotted: true } : init.dashed === true ? { dashed: true } : {}),
   }
 }
 
@@ -240,7 +266,6 @@ export function remapOverlayPages(all: Overlays, docId: string, moves: ReadonlyM
   return { ...all, [docId]: next }
 }
 
-const COLOR_SET = new Set<string>(OVERLAY_COLORS)
 
 function num(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -259,7 +284,7 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
       const item = entry as Record<string, unknown>
       const id = typeof item.id === 'string' && item.id !== '' && !seen.has(item.id) ? item.id : null
       const page = num(item.page)
-      const color = typeof item.color === 'string' && COLOR_SET.has(item.color) ? item.color as OverlayColor : '#d9363e'
+      const color = isOverlayColor(item.color) ? item.color.toLowerCase() : '#d9363e'
       if (id === null || page === null || page < 0 || !Number.isInteger(page)) return []
       seen.add(id)
       if (item.kind === 'text') {
@@ -291,7 +316,7 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
           id, kind: 'shape', shape: item.shape === 'ellipse' ? 'ellipse' : 'rect', page, x, y, w, h, color,
           width: Math.min(Math.max(width ?? 2, 0.5), 20),
           ...(item.fill === true ? { fill: true } : {}),
-          ...(item.dashed === true ? { dashed: true } : {}),
+          ...(item.dotted === true ? { dotted: true } : item.dashed === true ? { dashed: true } : {}),
         }]
       }
       if (item.kind === 'ink') {
@@ -317,7 +342,8 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
           id, kind: 'line', page, x1, y1, x2, y2, color,
           width: Math.min(Math.max(width ?? 2, 0.5), 20),
           ...(item.arrow === true ? { arrow: true } : {}),
-          ...(item.dashed === true ? { dashed: true } : {}),
+          ...(item.arrowStart === true ? { arrowStart: true } : {}),
+          ...(item.dotted === true ? { dotted: true } : item.dashed === true ? { dashed: true } : {}),
         }]
       }
       return []

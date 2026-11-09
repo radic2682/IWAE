@@ -1019,8 +1019,6 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-mark[data-highlight-color='blue'] { --hl-fill: #c3defc; }
 .markdown-mark[data-highlight-color='pink'] { --hl-fill: #fcc6dc; }
 .pane-doc .markdown-pane-host[data-reader-mode='hand'] .markdown-pane { cursor: grab; user-select: none; }
-.pane-doc .markdown-pane-host .pdf-overlay-palette { top: calc(var(--doc-head-h, 36px) + 12px); left: calc((100% - var(--memo-bar-w, 0px)) / 2); }
-.pane-doc .pdf-split .markdown-pane-host .pdf-overlay-palette { left: 50%; }
 
 /* Markdown 목차(왼쪽 바) */
 .markdown-outline ul { margin: 0; padding: 4px 6px; list-style: none; }

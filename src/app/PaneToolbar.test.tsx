@@ -1,26 +1,35 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { HighlighterStrip } from '../pdf/HighlighterTool'
 import { PaneToolbar } from './PaneToolbar'
 import { PdfBottomBar } from './PdfBottomBar'
 
 describe('PaneToolbar', () => {
-  it('형광펜은 도구줄 단추: 누르면 형광펜 모드, 그동안 색 넷과 지우개가 펼쳐진다(PDF·Markdown 같다)', () => {
+  it('형광펜은 도구줄 단추: 누르면 형광펜 모드. 색 넷과 지우개는 도구줄 아래 서식 띠에(PDF·Markdown 같다)', () => {
     for (const kind of ['pdf', 'markdown'] as const) {
       const onModeChange = vi.fn()
       const { rerender, unmount } = render(<PaneToolbar kind={kind} mode="text" onModeChange={onModeChange} />)
-      expect(screen.queryByRole('button', { name: '형광펜 지우개' })).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: '형광펜' }))
       expect(onModeChange).toHaveBeenLastCalledWith('highlight')
       rerender(<PaneToolbar kind={kind} mode="highlight" onModeChange={onModeChange} />)
       expect(screen.getByRole('button', { name: '형광펜' }).getAttribute('aria-pressed')).toBe('true')
-      fireEvent.click(screen.getByRole('button', { name: '초록 형광펜' }))
-      expect(screen.getByRole('button', { name: '초록 형광펜' }).getAttribute('aria-pressed')).toBe('true')
-      fireEvent.click(screen.getByRole('button', { name: '형광펜 지우개' }))
-      expect(screen.getByRole('button', { name: '형광펜 지우개' }).getAttribute('aria-pressed')).toBe('true')
-      fireEvent.click(screen.getByRole('button', { name: '형광펜 지우개' }))
+      // 도구줄에는 색이 떠 있지 않다(띠는 문서 칸이 그린다)
+      expect(screen.queryByRole('button', { name: '초록 형광펜' })).toBeNull()
       unmount()
     }
+  })
+
+  it('형광펜 서식 띠: 색 넷과 지우개, 닫기', () => {
+    const onDone = vi.fn()
+    render(<HighlighterStrip onDone={onDone} />)
+    fireEvent.click(screen.getByRole('button', { name: '초록 형광펜' }))
+    expect(screen.getByRole('button', { name: '초록 형광펜' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: '형광펜 지우개' }))
+    expect(screen.getByRole('button', { name: '형광펜 지우개' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: '형광펜 지우개' }))
+    fireEvent.click(screen.getByRole('button', { name: '형광펜 닫기' }))
+    expect(onDone).toHaveBeenCalled()
   })
 
   it('Markdown 도 깨끗이 보기(눈 단추)를 PDF 와 같이 쓴다', () => {
@@ -30,7 +39,7 @@ describe('PaneToolbar', () => {
     expect(onCleanViewChange).toHaveBeenCalledWith(true)
   })
 
-  it('편집 도구를 누르면 그 도구로 편집 모드, 다시 누르면 텍스트로. 쪽 편집 단추는 따로', () => {
+  it('편집 도구: 글 상자 · 그리기(마지막 도구) ▾ · 지우개. 다시 누르면 텍스트로. 쪽 편집 단추는 따로', () => {
     const onModeChange = vi.fn()
     const onEditPages = vi.fn()
     const { rerender } = render(<PaneToolbar kind="pdf" mode="text" onModeChange={onModeChange} onEditPages={onEditPages} />)
@@ -38,8 +47,12 @@ describe('PaneToolbar', () => {
     expect(onModeChange).toHaveBeenLastCalledWith('edit')
     rerender(<PaneToolbar kind="pdf" mode="edit" onModeChange={onModeChange} onEditPages={onEditPages} />)
     expect(screen.getByRole('button', { name: '펜' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: '선' }).getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(screen.getByRole('button', { name: '펜' }))
+    expect(screen.getByRole('button', { name: '글 상자' }).getAttribute('aria-pressed')).toBe('false')
+    // ▾ 로 다른 그리기 도구를 고르면 그 도구가 그리기 단추에 남는다
+    fireEvent.click(screen.getByRole('button', { name: '그리기 도구 고르기' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /네모/u }))
+    expect(screen.getByRole('button', { name: '네모' })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: '네모' }))
     expect(onModeChange).toHaveBeenLastCalledWith('text')
     fireEvent.click(screen.getByRole('button', { name: '쪽 편집' }))
     expect(onEditPages).toHaveBeenCalledTimes(1)
@@ -71,7 +84,7 @@ describe('PaneToolbar', () => {
     const { container } = render(<PaneToolbar kind="pdf" mode="text" onModeChange={vi.fn()} />)
 
     expect(screen.queryByRole('searchbox', { name: 'PDF 검색' })).toBeNull()
-    expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['손 도구', '텍스트 선택', '영역 캡처', '형광펜', '박스 메모', '글 상자', '펜', '선', '화살표', '네모', '동그라미', '지우개'])
+    expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['손 도구', '텍스트 선택', '영역 캡처', '형광펜', '박스 메모', '글 상자', expect.any(String), '그리기 도구 고르기', '지우개'])
     expect(screen.getByRole('button', { name: '텍스트 선택' }).textContent).toBe('')
     expect(screen.getByRole('button', { name: '영역 캡처' }).textContent).toBe('')
     expect(container.querySelector('.pdf-mode-toggle-row')).not.toBeNull()
@@ -113,7 +126,7 @@ describe('PaneToolbar', () => {
     expect(screen.getByRole('button', { name: '텍스트 선택' })).toBeDefined()
     expect(screen.getByRole('button', { name: '영역 캡처' })).toBeDefined()
     // PDF 와 같은 손 도구·박스 메모·편집
-    for (const name of ['손 도구', '박스 메모', '글 상자', '펜', '지우개', '선']) expect(screen.getByRole('button', { name })).toBeDefined()
+    for (const name of ['손 도구', '박스 메모', '글 상자', '그리기 도구 고르기', '지우개']) expect(screen.getByRole('button', { name })).toBeDefined()
   })
 
   it('PDF 하단 조작을 하나의 오버레이 표면으로 묶는다', () => {

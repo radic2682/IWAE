@@ -1,9 +1,11 @@
+import { ChatTeardropText } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useIsNoteHostPane } from '../app/noteHostPane'
 import { MEMO_BAR_WIDTH, useMemoBarWidth } from './memoBarWidth'
 import { NoteBarHeader } from './NoteBarHeader'
 import { useHighlightTool } from './highlightToolStore'
-import { useOverlayTool } from './overlayToolStore'
+import { useOverlayTool, useToolStyle } from './overlayToolStore'
+import { HighlighterStrip } from './HighlighterTool'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { PdfPins, PinHead, type PlacedPin, type PdfPinPatchInput } from './PdfPins'
 import type { PdfBookmark } from '../core/pdfBookmarks'
@@ -247,7 +249,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   // 박스 메모(PDF 쪽 위에 떠 있는 메모): 아직 저장 전인 새 박스, 글을 고치는 중인 박스
   // PDF 위 편집: 지금 도구·색·크기(이 창에서만 기억)
   const [overlayTool, setOverlayTool] = useOverlayTool()
-  const [overlayStyle, setOverlayStyle] = useState<OverlayStyle>({ color: '#d9363e', textSize: 9, lineWidth: 2, arrow: false, dashed: false })
+  // 새로 만들 것의 서식: 도구마다 따로 기억(PDF·Markdown 같이)
+  const [overlayStyle, patchOverlayStyle] = useToolStyle(overlayTool)
   // PDF 편집에서 고른 덮개(서식은 위 도구창에서 바꾼다)
   const [overlaySelectedId, setOverlaySelectedId] = useState<string | null>(null)
   useEffect(() => { if (interactionMode !== 'edit') setOverlaySelectedId(null) }, [interactionMode])
@@ -1775,7 +1778,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
           tool={overlayTool}
           style={overlayStyle}
           onToolChange={(next) => { setOverlayTool(next); setOverlaySelectedId(null) }}
-          onStyleChange={(patch) => setOverlayStyle((current) => ({ ...current, ...patch }))}
+          onStyleChange={patchOverlayStyle}
           selected={overlays.find((item) => item.id === overlaySelectedId) ?? null}
           onUpdateSelected={(patch) => { if (overlaySelectedId !== null) onOverlayUpdate?.(overlaySelectedId, patch) }}
           onRemoveSelected={() => {
@@ -1786,9 +1789,14 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
           onDone={() => onInteractionModeChange?.('text')}
         />
       ) : null}
+      {primary && interactionMode === 'highlight' && rotation === 0 ? (
+        <HighlighterStrip onDone={() => onInteractionModeChange?.('text')} />
+      ) : null}
       {primary && (interactionMode === 'box' || editingBoxId !== null || draftBox !== null) && rotation === 0 ? (
         <PdfFloatPalette
           label={t('박스 메모')}
+          icon={<ChatTeardropText size={15} aria-hidden="true" />}
+          hint={editingBoxId === null && draftBox === null ? t('글을 끌면 박스가 생깁니다') : undefined}
           onDone={() => {
             // 쓰던 박스가 있으면 저장하고 모드를 끝낸다
             const active = document.activeElement
@@ -1796,10 +1804,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
             onInteractionModeChange?.('text')
           }}
         >
-          <span className="pdf-box-palette-label">{t('박스 메모')}</span>
-          <span className="pdf-overlay-palette-sep" aria-hidden="true" />
           <div className="pdf-box-format-slot" ref={setBoxFormatSlot} />
-          {editingBoxId === null && draftBox === null ? <span className="pdf-box-palette-hint">{t('글을 끌면 박스가 생깁니다')}</span> : null}
         </PdfFloatPalette>
       ) : null}
       {scrollableHeight > 0 && (

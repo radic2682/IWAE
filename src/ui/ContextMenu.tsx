@@ -10,6 +10,8 @@ export interface ContextMenuItem {
   readonly shortcut?: string
   readonly danger?: boolean
   readonly disabled?: boolean
+  /** 지금 고른 것(칠해 둔다) */
+  readonly current?: boolean
 }
 
 /** 구분선 또는 안내 한 줄 */
@@ -60,7 +62,8 @@ export function ContextMenu({ x, y, label, entries, onClose }: {
             type="button"
             role="menuitem"
             disabled={entry.disabled}
-            className={entry.danger === true ? 'app-context-danger' : undefined}
+            className={[entry.danger === true ? 'app-context-danger' : '', entry.current === true ? 'app-context-current' : ''].filter(Boolean).join(' ') || undefined}
+            aria-checked={entry.current === undefined ? undefined : entry.current}
             onClick={() => { onClose(); entry.onSelect?.() }}
           >
             <span className="app-context-icon" aria-hidden="true">{entry.icon}</span>

@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut } from '@phosphor-icons/react'
-import { OVERLAY_TOOLS } from '../pdf/PdfOverlayPalette'
-import { useOverlayTool } from '../pdf/overlayToolStore'
+import { OVERLAY_TOOLS, overlayToolInfo } from '../pdf/PdfOverlayPalette'
+import { DRAW_TOOLS, isDrawTool, setLastDrawTool, useLastDrawTool, useOverlayTool } from '../pdf/overlayToolStore'
+import type { OverlayTool } from '../pdf/PdfOverlayLayer'
+import { ContextMenu } from '../ui/ContextMenu'
 import { HighlighterToolbarControl } from '../pdf/HighlighterTool'
 import { INITIAL_READER_TOOL_STATE, readerToolReducer, type ReaderToolAction, type ReaderToolState } from '../core/readerTools'
 import { ReaderToolbar } from './ReaderToolbar'
@@ -47,6 +49,8 @@ interface PaneToolbarProps {
   readonly onSplitLayoutChange?: (id: PdfSplitLayoutId) => void
   /** 쪽 편집(쪽 미리보기로 순서 바꾸기·끼워 넣기·빼기). 주면 쪽 편집 단추가 나온다 */
   readonly onEditPages?: () => void
+  /** 한 글자 단축키(T·P·L·A·R·O·E)를 이 도구줄이 받는가(마지막으로 만진 문서 칸) */
+  readonly shortcutsEnabled?: boolean
 }
 
 export function PaneToolbar({
@@ -71,8 +75,58 @@ export function PaneToolbar({
   splitLayout,
   onSplitLayoutChange,
   onEditPages,
+  shortcutsEnabled = false,
 }: PaneToolbarProps) {
   const [overlayTool, setOverlayTool] = useOverlayTool()
+  const lastDraw = useLastDrawTool()
+  const drawActive = mode === 'edit' && isDrawTool(overlayTool)
+  const [drawMenu, setDrawMenu] = useState<{ x: number; y: number } | null>(null)
+  /** 편집 도구 고르기(같은 도구를 다시 고르면 끈다). 그리기 도구면 그리기 단추에 그것이 남는다 */
+  const pickTool = (id: OverlayTool, toggle = false) => {
+    if (toggle && mode === 'edit' && overlayTool === id) {
+      onModeChange('text')
+      return
+    }
+    if (isDrawTool(id)) setLastDrawTool(id)
+    setOverlayTool(id)
+    onModeChange('edit')
+  }
+  const toolButton = (id: OverlayTool, extraClass = '') => {
+    const info = overlayToolInfo(id)
+    const active = mode === 'edit' && overlayTool === id
+    return (
+      <button
+        key={id}
+        type="button"
+        className={`reader-tool-button toolbar-tool-btn pdf-compact-tool${extraClass === '' ? '' : ` ${extraClass}`}${active ? ' reader-tool-button-active toolbar-tool-btn-active' : ''}`}
+        aria-label={t(info.label)}
+        title={`${t(info.label)} (${info.shortcut})`}
+        aria-pressed={active}
+        onClick={(event) => {
+          // 누른 단추에 초점 테두리가 남아 두 도구가 켜진 것처럼 보이지 않게
+          event.currentTarget.blur()
+          pickTool(id, true)
+        }}
+      >
+        {info.icon(17, active)}
+      </button>
+    )
+  }
+  // 한 글자 단축키(T·P·L·A·R·O·E): 이 문서 칸이 마지막으로 만진 칸일 때, 글 쓰는 칸 밖에서
+  useEffect(() => {
+    if (!shortcutsEnabled) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(input|textarea|select)$/iu.test(target.tagName))) return
+      const info = OVERLAY_TOOLS.find((item) => item.shortcut.toLowerCase() === event.key.toLowerCase())
+      if (info === undefined) return
+      event.preventDefault()
+      pickTool(info.id)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
   const [toolbarState, updateToolbarState] = useReducer(readerToolReducer, INITIAL_READER_TOOL_STATE)
   const state: ReaderToolState = {
     ...toolbarState,
@@ -161,31 +215,44 @@ export function PaneToolbar({
         toolsClassName="pdf-mode-toggle-row"
         buttonClassName="toolbar-tool-btn pdf-compact-tool"
       />
+      {/* 쓰기·그리기: 글 상자 · 그리기 ▾(펜·선·화살표·네모·동그라미를 한 단추에, 마지막 것이 보임) · 지우개 */}
       <div className="reader-toolbar pdf-inline-tools pdf-write-tools pane-overlay-tools" role="group" aria-label={t('편집 도구')}>
-        {OVERLAY_TOOLS.map((item) => {
-          const active = mode === 'edit' && overlayTool === item.id
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={`reader-tool-button toolbar-tool-btn pdf-compact-tool${active ? ' reader-tool-button-active toolbar-tool-btn-active' : ''}`}
-              aria-label={t(item.label)}
-              title={t(item.label)}
-              aria-pressed={active}
-              onClick={() => {
-                if (active) {
-                  onModeChange('text')
-                  return
-                }
-                setOverlayTool(item.id)
-                onModeChange('edit')
-              }}
-            >
-              {item.icon(17, active)}
-            </button>
-          )
-        })}
+        {(['text'] as const).map((id) => toolButton(id))}
+        <div className={`pane-draw-split${drawActive ? ' pane-draw-split-on' : ''}`}>
+          {toolButton(lastDraw, 'pane-draw-main')}
+          <button
+            type="button"
+            className="toolbar-tool-btn pdf-compact-tool pane-draw-caret"
+            aria-label={t('그리기 도구 고르기')}
+            title={t('그리기 도구 고르기')}
+            aria-haspopup="menu"
+            aria-expanded={drawMenu !== null}
+            onClick={(event) => {
+              event.currentTarget.blur()
+              const rect = event.currentTarget.parentElement?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect()
+              setDrawMenu(drawMenu === null ? { x: rect.left, y: rect.bottom + 6 } : null)
+            }}
+          >
+            <CaretDown size={9} weight="bold" aria-hidden="true" />
+          </button>
+        </div>
+        {toolButton('eraser')}
       </div>
+      {drawMenu === null ? null : (
+        <ContextMenu
+          x={drawMenu.x}
+          y={drawMenu.y}
+          label={t('그리기')}
+          onClose={() => setDrawMenu(null)}
+          entries={[
+            { key: 'title', note: t('그리기') },
+            ...DRAW_TOOLS.map((id) => {
+              const info = overlayToolInfo(id)
+              return { key: id, icon: info.icon(15, false), label: t(info.label), shortcut: info.shortcut, current: id === (drawActive ? overlayTool : lastDraw), onSelect: () => pickTool(id) }
+            }),
+          ]}
+        />
+      )}
       {onEditPages !== undefined ? (
         <>
           <span className="pane-toolbar-divider" aria-hidden="true" />

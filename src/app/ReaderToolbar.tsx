@@ -1,5 +1,5 @@
 import type { Dispatch } from 'react'
-import { Hand, Highlighter, MagnifyingGlass, Selection, TextT, Translate, ChatTeardropText, PencilSimpleLine } from '@phosphor-icons/react'
+import { Hand, Highlighter, MagnifyingGlass, Selection, CursorText, Translate, ChatTeardropText, PencilSimpleLine } from '@phosphor-icons/react'
 import type { ReaderPrimaryMode, ReaderToolAction, ReaderToolState } from '../core/readerTools'
 import '../ui/pdf-followup.css'
 import { t } from '../i18n'
@@ -19,7 +19,7 @@ interface ReaderToolbarProps {
 
 const TOOL_DEFINITIONS = {
   pan: { label: '손 도구', icon: Hand },
-  'text-select': { label: '텍스트 선택', icon: TextT },
+  'text-select': { label: '텍스트 선택', icon: CursorText },
   'region-select': { label: '영역 선택', icon: Selection },
   highlight: { label: '형광펜', icon: Highlighter },
   translate: { label: '번역', icon: Translate },
@@ -82,7 +82,11 @@ export function ReaderToolbar({
               aria-label={label}
               title={label}
               aria-pressed={active}
-              onClick={() => dispatch({ type: 'toggle', mode })}
+              onClick={(event) => {
+                // 초점 테두리가 남아 두 도구가 켜진 것처럼 보이지 않게
+                event.currentTarget.blur()
+                dispatch({ type: 'toggle', mode })
+              }}
             >
               <Icon size={17} weight={active ? 'bold' : 'regular'} aria-hidden="true" />
               {showLabels ? <span className="pdf-compact-tool-label">{label}</span> : null}
