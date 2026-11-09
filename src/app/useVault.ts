@@ -907,7 +907,7 @@ export function useVault(options: UseVaultOptions = {}) {
    * PDF 도구의 결과를 원본 옆(같은 폴더) 새 PDF 로 쓰고 목록에 올린다. 이름이 겹치면 (2)·(3)… 을 붙인다.
    * 쓴 파일의 절대 경로를 돌려준다.
    */
-  const writeDocumentToolCopy = useCallback(async (docId: string, op: PdfToolOp, suffix: string, subfolder?: string): Promise<string> => {
+  const writeDocumentToolCopy = useCallback(async (docId: string, op: PdfToolOp, suffix: string, subfolder?: string, onReport?: (report: PdfToolResult['report']) => void): Promise<string> => {
     if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const entry = entries.find((candidate) => candidate.docId === docId)
     if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 입니다.'))
@@ -920,6 +920,7 @@ export function useVault(options: UseVaultOptions = {}) {
     for (let n = 2; await exists(path); n += 1) path = await join(folder, `${base} (${n}).pdf`)
     const result = await runPdfTool(docId, op, { kind: 'newFile', path })
     if (result === null) throw new Error(t('새 PDF 를 만들지 못했습니다'))
+    onReport?.(result.report)
     await refreshVaultFilesRef.current(vault)
     return result.path
   }, [entries, vault])

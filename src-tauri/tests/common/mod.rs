@@ -239,6 +239,89 @@ endstream", content.len(), content),
     write_pdf(name, objects)
 }
 
+/// 사진처럼 잡음이 섞인 부드러운 RGB 그림(결정적). 압축 도구 시험용.
+pub fn photo_like_image(width: u32, height: u32) -> image::RgbImage {
+    let mut seed = 0x2545_f491_u32;
+    image::RgbImage::from_fn(width, height, |x, y| {
+        seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        let noise = ((seed >> 24) as f32 - 128.0) * 0.18;
+        let fx = x as f32 / width as f32;
+        let fy = y as f32 / height as f32;
+        let r = 128.0 + 90.0 * (fx * 9.0).sin() * (fy * 4.0).cos() + noise;
+        let g = 120.0 + 80.0 * (fy * 7.0 + fx * 2.0).sin() + noise;
+        let b = 140.0 + 70.0 * ((fx + fy) * 6.0).cos() + noise;
+        image::Rgb([r.clamp(0.0, 255.0) as u8, g.clamp(0.0, 255.0) as u8, b.clamp(0.0, 255.0) as u8])
+    })
+}
+
+/// 쪽 윗부분을 큰 JPEG 사진 한 장(`image_width`x`image_height` 픽셀, 540x400 points 로 놓임)이 차지하고,
+/// 그 위에 글자가 얹힌 한 장짜리 PDF. 사진의 해상도는 약 `image_width / 7.5` dpi.
+pub fn write_photo_pdf(name: &str, image_width: u32, image_height: u32) -> PathBuf {
+    let mut jpeg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 92)
+        .encode_image(&photo_like_image(image_width, image_height))
+        .expect("JPEG 인코딩");
+    let content = "q 540 0 0 400 36 360 cm /Im0 Do Q BT /F1 14 Tf 40 330 Td (Compression keeps this text) Tj ET";
+    let mut image_object = format!(
+        "<< /Type /XObject /Subtype /Image /Width {image_width} /Height {image_height} /ColorSpace /DeviceRGB          /BitsPerComponent 8 /Filter /DCTDecode /Length {} >>
+stream
+",
+        jpeg.len()
+    )
+    .into_bytes();
+    image_object.extend_from_slice(&jpeg);
+    image_object.extend_from_slice(b"
+endstream");
+    let objects: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im0 4 0 R >> /Font << /F1 5 0 R >> >> /Contents 6 0 R >>".to_vec(),
+        image_object,
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+        format!("<< /Length {} >>
+stream
+{}
+endstream", content.len(), content).into_bytes(),
+    ];
+    write_pdf_bytes(name, objects)
+}
+
+/// [`write_pdf`] 의 바이트판 — 스트림에 바이너리(JPEG 등)가 들어갈 때.
+fn write_pdf_bytes(name: &str, objects: Vec<Vec<u8>>) -> PathBuf {
+    let mut pdf: Vec<u8> = b"%PDF-1.4
+".to_vec();
+    let mut offsets = Vec::with_capacity(objects.len());
+    for (index, body) in objects.iter().enumerate() {
+        offsets.push(pdf.len());
+        pdf.extend_from_slice(format!("{} 0 obj
+", index + 1).as_bytes());
+        pdf.extend_from_slice(body);
+        pdf.extend_from_slice(b"
+endobj
+");
+    }
+    let xref_at = pdf.len();
+    pdf.extend_from_slice(format!("xref
+0 {}
+0000000000 65535 f 
+", objects.len() + 1).as_bytes());
+    for offset in &offsets {
+        pdf.extend_from_slice(format!("{offset:010} 00000 n 
+").as_bytes());
+    }
+    pdf.extend_from_slice(
+        format!("trailer
+<< /Size {} /Root 1 0 R >>
+startxref
+{}
+%%EOF
+", objects.len() + 1, xref_at).as_bytes(),
+    );
+    let path = fixture_dir().join(name);
+    std::fs::write(&path, &pdf).expect("픽스처 쓰기");
+    path
+}
+
 /// 링크·주석·문서 정보를 가진 두 장짜리 PDF.
 ///
 /// 0번 페이지에 다섯 개의 주석을 단다 — 내부 링크(2쪽 y=500), https 링크, 열면 안 되는

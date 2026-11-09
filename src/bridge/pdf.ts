@@ -251,6 +251,7 @@ export type PdfToolOp =
   | { kind: 'crop'; left: number; top: number; right: number; bottom: number }
   | { kind: 'nUp'; columns: number; rows: number; landscape: boolean }
   | { kind: 'unlock' }
+  | { kind: 'compress'; maxDpi: number; quality: number }
 
 /** 도구 결과를 둘 곳 */
 export type PdfToolOutput =
@@ -262,7 +263,16 @@ export interface PdfToolResult {
   readonly path: string
   /** 원본을 덮었으면 다시 연 메타 */
   readonly meta: PdfDocMeta | null
-  readonly report: { readonly written: number; readonly skipped: number; readonly rasterized: number }
+  readonly report: {
+    readonly written: number
+    readonly skipped: number
+    readonly rasterized: number
+    /** 줄여서 다시 담은 그림 수(압축) */
+    readonly compressed: number
+    /** 압축 전·후 크기(바이트). 압축 도구만 채운다 */
+    readonly sizeBefore: number
+    readonly sizeAfter: number
+  }
 }
 
 /** PDF 도구를 돌린다. 저장 대화상자를 취소하면 null */

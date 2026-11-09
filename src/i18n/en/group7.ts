@@ -166,4 +166,13 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '나눔': 'split',
   '스캔 쪽을 이 PC 에서 읽어 보이지 않는 글자를 입힙니다. 글자 고르기·검색·형광펜이 됩니다(원본은 백업).': 'Reads scanned pages on this PC and adds invisible text, enabling selecting, searching and highlighting (the original is backed up).',
   'OCR 하기': 'Run OCR',
+  '압축': 'Compress',
+  '쪽에 놓인 크기보다 해상도가 높은 그림(스캔·사진)을 줄여 파일 크기를 낮춘 사본을 원본 옆에 만듭니다. 글자와 도형은 그대로이고, 원본은 건드리지 않습니다. 줄어드는 그림이 없으면 사본을 만들지 않습니다.': 'Makes a smaller copy next to the original by downsampling images (scans, photos) whose resolution is higher than their size on the page. Text and shapes stay as they are and the original is untouched. If no image can shrink, no copy is made.',
+  '압축 정도': 'Compression level',
+  '보통 (150 dpi)': 'Normal (150 dpi)',
+  '작게 (96 dpi)': 'Smaller (96 dpi)',
+  '압축한 사본 만들기': 'Make compressed copy',
+  '그림을 줄이는 중…': 'Shrinking images…',
+  '압축했습니다: {before} → {after} ({percent}% 줄었습니다)': 'Compressed: {before} → {after} ({percent}% smaller)',
+  '(압축)': '(compressed)',
 }

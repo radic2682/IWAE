@@ -1739,6 +1739,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             return message
           },
           saveCopy: (op, suffix, folder) => writeDocumentToolCopy(docId, op, suffix, folder),
+          compress: async (maxDpi, quality) => {
+            let report: { sizeBefore: number; sizeAfter: number } = { sizeBefore: 0, sizeAfter: 0 }
+            const path = await writeDocumentToolCopy(docId, { kind: 'compress', maxDpi, quality }, t('(압축)'), undefined, (next) => { report = next })
+            return { path, sizeBefore: report.sizeBefore, sizeAfter: report.sizeAfter }
+          },
           removePages: async (pages) => {
             if (meta === undefined) throw new Error(t('PDF를 열 수 없습니다'))
             const drop = new Set(pages)

@@ -55,6 +55,9 @@ pub enum ToolOp {
     NUp { columns: u8, rows: u8, landscape: bool },
     /// 암호를 뺀 사본(쪽을 새 문서로 옮긴다).
     Unlock,
+    /// 쪽에 놓인 크기보다 해상도가 높은 그림(`max_dpi` 초과)을 줄여 JPEG(`quality` 1~100)로 다시 담는다.
+    /// 글자·벡터는 그대로 두고, 줄어들지 않으면 사본을 만들지 않는다.
+    Compress { max_dpi: f32, quality: u8 },
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -152,6 +155,11 @@ pub struct ToolReport {
     pub skipped: usize,
     /// 그림으로 바꿔 가린 쪽 수
     pub rasterized: usize,
+    /// 줄여서 다시 담은 그림 수(압축)
+    pub compressed: usize,
+    /// 압축 전·후 파일 크기(바이트). 압축 도구만 채운다
+    pub size_before: u64,
+    pub size_after: u64,
 }
 
 /// 가린 쪽을 그림으로 바꿀 때의 해상도(dpi)
@@ -257,24 +265,127 @@ impl PdfEngine {
             }
             _ => {
                 let bytes = source_bytes()?;
+                let source_len = bytes.len() as u64;
                 let mut document = pdfium
                     .load_pdf_from_byte_vec(bytes, password)
                     .map_err(|err| tr!("PDF 사본을 열지 못했습니다: {err}", "Could not open the PDF copy: {err}"))?;
                 let report = match op {
                     ToolOp::Searchable { pages } => {
                         let found = add_searchable_layer(&mut document, pages)?;
-                        ToolReport { written: found.written, skipped: found.skipped, rasterized: 0 }
+                        ToolReport { written: found.written, skipped: found.skipped, ..ToolReport::default() }
                     }
                     ToolOp::Flatten { highlights, overlays, notes, redactions } => flatten(&mut document, highlights, overlays, notes, redactions)?,
                     ToolOp::PageNumbers { position, start, template, size, skip_first } => add_page_numbers(&mut document, *position, *start, template, *size, *skip_first)?,
                     ToolOp::Watermark { text, size, opacity, angle, color } => add_watermark(&mut document, text, *size, *opacity, *angle, color)?,
                     ToolOp::Crop { left, top, right, bottom } => crop_pages(&mut document, *left, *top, *right, *bottom)?,
+                    ToolOp::Compress { max_dpi, quality } => {
+                        let before = source_len;
+                        let mut report = compress_images(&mut document, *max_dpi, *quality)?;
+                        let saved = document.save_to_bytes().map_err(tool_err("save"))?;
+                        report.size_before = before;
+                        report.size_after = saved.len() as u64;
+                        // 줄지 않았으면 사본을 만들 이유가 없다
+                        if report.compressed == 0 || report.size_after >= report.size_before {
+                            return Err(tr!(
+                                "이 PDF 는 더 줄일 수 없습니다(줄일 만큼 큰 그림이 없습니다).",
+                                "This PDF cannot be made smaller (it has no images large enough to shrink)."
+                            ));
+                        }
+                        return Ok((saved, report));
+                    }
                     _ => unreachable!("위에서 처리했다"),
                 };
                 Ok((document.save_to_bytes().map_err(tool_err("save"))?, report))
             }
         }
     }
+}
+
+/// 이 픽셀 수보다 작은 그림(아이콘·로고)은 건드리지 않는다
+const COMPRESS_MIN_PIXELS: u64 = 120_000;
+/// 목표 해상도를 이만큼(비율) 넘어야 줄인다. 조금 넘는 그림을 다시 인코딩하면 화질만 잃는다
+const COMPRESS_TRIGGER: f32 = 1.2;
+
+/// 쪽에 놓인 크기에 비해 해상도가 높은 그림을 `max_dpi` 로 줄여 JPEG 로 다시 담는다.
+/// 투명(마스크)이 있는 그림, 이미 충분히 작은 그림, 다시 담아도 커지는 그림은 그대로 둔다.
+fn compress_images(document: &mut PdfDocument, max_dpi: f32, quality: u8) -> Result<ToolReport, String> {
+    let max_dpi = max_dpi.clamp(36.0, 600.0);
+    let quality = quality.clamp(20, 95);
+    let mut report = ToolReport::default();
+    let page_count = document.pages().len();
+
+    for page_index in 0..page_count {
+        let mut page = document
+            .pages()
+            .get(page_index)
+            .map_err(|err| tr!("페이지를 열지 못했습니다: {err}", "Could not open the page: {err}"))?;
+        let mut changed = false;
+        // 먼저 줄일 그림과 새 JPEG 를 모은다(쪽을 빌려 읽는 동안에는 고치지 못한다)
+        let mut jobs: Vec<(PdfPageObjectIndex, Vec<u8>, PdfMatrix)> = Vec::new();
+        {
+            let objects = page.objects();
+            for index in 0..objects.len() {
+                let Ok(object) = objects.get(index) else { continue };
+                let Some(image) = object.as_image_object() else { continue };
+                let Some(jpeg) = shrunk_jpeg(document, image, max_dpi, quality) else { continue };
+                let Ok(matrix) = image.matrix() else { continue };
+                jobs.push((index, jpeg, matrix));
+            }
+        }
+        for (index, jpeg, matrix) in jobs {
+            let Ok(mut replacement) = PdfPageImageObject::new_from_jpeg_reader(document, std::io::Cursor::new(jpeg)) else { continue };
+            if replacement.reset_matrix(matrix).is_err() {
+                continue;
+            }
+            // 같은 자리(겹침 순서 그대로)에 새 그림을 넣고 옛 그림을 뺀다
+            let Ok(old) = page.objects_mut().remove_object_at_index(index) else { continue };
+            if page.objects_mut().insert_object_at_index(index, PdfPageObject::Image(replacement)).is_err() {
+                // 넣지 못하면 옛 그림을 되돌려 놓는다
+                let _ = page.objects_mut().insert_object_at_index(index, old);
+                continue;
+            }
+            report.compressed += 1;
+            changed = true;
+        }
+        if changed {
+            page.regenerate_content()
+                .map_err(|err| tr!("페이지를 다시 쓰지 못했습니다: {err}", "Could not rewrite the page: {err}"))?;
+        }
+    }
+    Ok(report)
+}
+
+/// 이 그림을 목표 해상도로 줄여 JPEG 로 인코딩한다. 줄일 이유가 없으면 None.
+fn shrunk_jpeg(document: &PdfDocument, image: &PdfPageImageObject, max_dpi: f32, quality: u8) -> Option<Vec<u8>> {
+    let width = u32::try_from(image.width().ok()?).ok()?;
+    let height = u32::try_from(image.height().ok()?).ok()?;
+    if width == 0 || height == 0 || u64::from(width) * u64::from(height) < COMPRESS_MIN_PIXELS {
+        return None;
+    }
+    let dpi = image.horizontal_dpi().ok()?.max(image.vertical_dpi().ok()?);
+    if !dpi.is_finite() || dpi <= max_dpi * COMPRESS_TRIGGER {
+        return None;
+    }
+    // 투명한 부분이 있거나 돌아가 있으면 보이는 그림을 그대로 알 수 없으니 건드리지 않는다
+    let probe = image.get_processed_image_with_width(document, 24.try_into().ok()?).ok()?;
+    if probe.to_rgba8().pixels().any(|pixel| pixel.0[3] < 255) {
+        return None;
+    }
+    let original = image.get_raw_image_data().ok()?.len();
+    let raw = image.get_raw_image().ok()?;
+    let scale = max_dpi / dpi;
+    let target_width = ((width as f32 * scale).round() as u32).max(1);
+    let target_height = ((height as f32 * scale).round() as u32).max(1);
+    let small = raw.resize_exact(target_width, target_height, image::imageops::FilterType::Triangle);
+    let mut jpeg = Vec::new();
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, quality);
+    let ok = if small.color().has_color() {
+        small.to_rgb8().write_with_encoder(encoder).is_ok()
+    } else {
+        small.to_luma8().write_with_encoder(encoder).is_ok()
+    };
+    // 압축한 뒤가 처음보다 작을 때만 바꾼다
+    (ok && jpeg.len() < original).then_some(jpeg)
 }
 
 /// 보이지 않는 OCR 글자 층(검색 가능한 PDF). 이미 글자가 있는 쪽은 부르는 쪽이 빼고 보낸다.

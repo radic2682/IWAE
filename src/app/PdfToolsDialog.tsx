@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowSquareOut, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT, Toolbox, X,
+  ArrowSquareOut, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT, Toolbox, X,
 } from '@phosphor-icons/react'
 import type { PdfToolOp } from '../bridge/pdf'
+import { formatBytes } from '../bridge/vaultBackup'
 import { chapterRanges, parsePageRanges, type FlattenChoice, type FlattenCounts } from '../core/pdfToolOps'
 import type { DiffHunk } from '../core/pdfTextDiff'
 import { errorText } from '../core/errorText'
@@ -14,7 +15,7 @@ export type PdfToolId =
   | 'ocr' | 'compare'
   | 'flatten' | 'redact'
   | 'extract' | 'split' | 'merge' | 'blanks'
-  | 'numbers' | 'watermark' | 'crop' | 'nup'
+  | 'numbers' | 'watermark' | 'crop' | 'nup' | 'compress'
   | 'images' | 'markdown' | 'unlock'
 
 /** 도구 창이 App 에 부탁하는 일. 모두 끝나면 사람에게 보일 한 줄을 돌려준다 */
@@ -25,6 +26,8 @@ export interface PdfToolActions {
   readonly applyInPlace: (op: PdfToolOp) => Promise<string>
   /** 원본 옆 새 PDF. 만든 파일 경로 */
   readonly saveCopy: (op: PdfToolOp, suffix: string, folder?: string) => Promise<string>
+  /** 그림을 줄인 새 PDF 를 원본 옆에 만든다. 만든 경로와 전·후 크기. 줄지 않으면 만들지 않고 던진다 */
+  readonly compress: (maxDpi: number, quality: number) => Promise<{ readonly path: string; readonly sizeBefore: number; readonly sizeAfter: number }>
   /** 쪽 빼기(쪽 편집과 같다: 형광펜·메모가 따라 옮겨진다) */
   readonly removePages: (pages: readonly number[]) => Promise<string>
   readonly findBlankPages: () => Promise<number[]>
@@ -78,6 +81,7 @@ const GROUPS: readonly { readonly title: string; readonly tools: readonly ToolIn
     { id: 'watermark', label: '워터마크', icon: <Stamp size={16} weight="duotone" /> },
     { id: 'crop', label: '여백 자르기', icon: <Crop size={16} /> },
     { id: 'nup', label: '모아찍기', icon: <SquaresFour size={16} /> },
+    { id: 'compress', label: '압축', icon: <ArrowsInSimple size={16} /> },
   ] },
   { title: '내보내기', tools: [
     { id: 'images', label: '쪽 그림(PNG)으로', icon: <FileImage size={16} /> },
@@ -235,6 +239,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
   const [margins, setMargins] = useState({ top: 10, bottom: 10, left: 10, right: 10 })
   const [nup, setNup] = useState(2)
   const [dpi, setDpi] = useState(150)
+  const [shrink, setShrink] = useState<'normal' | 'small'>('normal')
   const [output, setOutput] = useState<'inPlace' | 'copy'>(tool === 'watermark' ? 'copy' : 'inPlace')
   const [compareWith, setCompareWith] = useState(props.otherPdfs[0]?.docId ?? '')
   const [diff, setDiff] = useState<{ hunks: readonly DiffHunk[]; truncated: boolean; otherDocId: string } | null>(null)
@@ -512,6 +517,26 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
             ))}
           </div>
           {primary(t('모아찍기 만들기 ({sheets}장)', { sheets: Math.ceil(pageCount / nup) }), () => void applyOrCopy('copy', { kind: 'nUp', ...layouts[nup]! }, t('(모아찍기 {count})', { count: nup }), t('모으는 중…')))}
+        </>
+      )
+    }
+    case 'compress': {
+      const levels = { normal: { maxDpi: 150, quality: 80 }, small: { maxDpi: 96, quality: 65 } } as const
+      return (
+        <>
+          <Note>{t('쪽에 놓인 크기보다 해상도가 높은 그림(스캔·사진)을 줄여 파일 크기를 낮춘 사본을 원본 옆에 만듭니다. 글자와 도형은 그대로이고, 원본은 건드리지 않습니다. 줄어드는 그림이 없으면 사본을 만들지 않습니다.')}</Note>
+          <div className="pdf-tools-seg" role="radiogroup" aria-label={t('압축 정도')}>
+            <button type="button" role="radio" aria-checked={shrink === 'normal'} className={shrink === 'normal' ? 'on' : ''} onClick={() => setShrink('normal')}>{t('보통 (150 dpi)')}</button>
+            <button type="button" role="radio" aria-checked={shrink === 'small'} className={shrink === 'small' ? 'on' : ''} onClick={() => setShrink('small')}>{t('작게 (96 dpi)')}</button>
+          </div>
+          {primary(t('압축한 사본 만들기'), () => void run(t('그림을 줄이는 중…'), async () => {
+            const { path, sizeBefore, sizeAfter } = await actions.compress(levels[shrink].maxDpi, levels[shrink].quality)
+            const percent = sizeBefore > 0 ? Math.round((1 - sizeAfter / sizeBefore) * 100) : 0
+            return {
+              text: t('압축했습니다: {before} → {after} ({percent}% 줄었습니다)', { before: formatBytes(sizeBefore), after: formatBytes(sizeAfter), percent }),
+              path,
+            }
+          }))}
         </>
       )
     }

@@ -5,7 +5,7 @@ mod common;
 use app_lib::pdf::{
     ExportHighlight, FlatOverlay, LinkRect, NumberPosition, PdfThread, Redaction, SearchableLine, SearchablePage, ToolOp, ToolTarget,
 };
-use common::{fixture_dir, pdfium_present, write_single_page_pdf, write_text_index_pdf, write_two_page_pdf};
+use common::{fixture_dir, pdfium_present, write_photo_pdf, write_single_page_pdf, write_text_index_pdf, write_two_page_pdf};
 
 fn new_file(name: &str) -> ToolTarget {
     let path = fixture_dir().join(name);
@@ -183,4 +183,59 @@ fn unlock_copies_every_page() {
     let path = path.clone();
     pdf.tool_blocking(meta.doc_id, ToolOp::Unlock, target).expect("풀기");
     assert_eq!(pdf.open_blocking(path).expect("푼 PDF").page_count, 2);
+}
+
+#[test]
+fn compress_shrinks_a_high_resolution_photo_and_keeps_the_text() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    // 540pt 폭에 3600px 사진 = 약 480 dpi
+    let source = write_photo_pdf("tool-photo.pdf", 3600, 2700);
+    let before = std::fs::metadata(&source).unwrap().len();
+    let meta = pdf.open_blocking(source).expect("열기");
+
+    for (label, max_dpi, quality, ratio) in [("normal", 150.0_f32, 80_u8, 0.35_f64), ("small", 96.0, 65, 0.2)] {
+        let target = new_file(&format!("tool-photo-{label}.pdf"));
+        let ToolTarget::NewFile { path } = &target else { unreachable!() };
+        let path = path.clone();
+        let result = pdf
+            .tool_blocking(meta.doc_id.clone(), ToolOp::Compress { max_dpi, quality }, target)
+            .expect("압축");
+        assert_eq!(result.report.compressed, 1);
+        assert!(result.report.size_before.abs_diff(before) < before / 100, "원본 크기와 거의 같아야 한다");
+        let after = std::fs::metadata(&path).unwrap().len();
+        assert_eq!(result.report.size_after, after);
+        eprintln!("compress {label}: {before} -> {after} bytes ({:.0}%)", after as f64 * 100.0 / before as f64);
+        assert!((after as f64) < before as f64 * ratio, "{label}: {before} -> {after}");
+
+        let compressed = pdf.open_blocking(path).expect("압축한 PDF");
+        assert_eq!(compressed.page_count, 1);
+        assert_eq!(compressed.page_sizes[0], (612.0, 792.0));
+        let text = pdf.page_text_blocking(compressed.doc_id, 0).expect("글자").text;
+        assert!(text.contains("Compression keeps this text"), "{text:?}");
+    }
+}
+
+#[test]
+fn compress_refuses_when_nothing_can_shrink() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    // 이미 낮은 해상도(540pt 에 600px = 80 dpi) 사진과 글자뿐인 쪽은 줄일 것이 없다
+    let low = pdf.open_blocking(write_photo_pdf("tool-photo-low.pdf", 600, 450)).expect("열기");
+    let target = new_file("tool-photo-low-out.pdf");
+    let ToolTarget::NewFile { path } = &target else { unreachable!() };
+    let path = path.clone();
+    let err = pdf
+        .tool_blocking(low.doc_id, ToolOp::Compress { max_dpi: 150.0, quality: 80 }, target)
+        .expect_err("줄일 것이 없다");
+    assert!(!err.is_empty());
+    assert!(!path.exists(), "줄지 않으면 사본을 쓰지 않는다");
+
+    let text_only = pdf.open_blocking(write_two_page_pdf("tool-two-compress.pdf")).expect("열기");
+    let target = new_file("tool-two-compress-out.pdf");
+    assert!(pdf.tool_blocking(text_only.doc_id, ToolOp::Compress { max_dpi: 96.0, quality: 65 }, target).is_err());
 }
