@@ -50,6 +50,14 @@ describe('persistentHighlight — 메모와 출처', () => {
     expect(restored[0]).toMatchObject({ color: 'green', note: '핵심 정의', createdAt: '2026-10-02T00:00:00.000Z', source: 'imported' })
   })
 
+  it('쪽을 옮겨 앵커와 id 의 쪽이 달라져도 파일을 읽는다', () => {
+    const highlight = createPersistentPdfHighlight({ ...anchor, page: 5 })
+    const moved = { ...highlight, anchor: { ...highlight.anchor, page: 2 } }
+    const restored = parsePersistentPdfHighlights({ version: 1, highlights: [moved, createPersistentPdfHighlight(anchor)] })
+    expect(restored.map(({ id }) => id)).toEqual([highlight.id, createPersistentPdfHighlight(anchor).id])
+    expect(restored[0]?.anchor.page).toBe(2)
+  })
+
   it('메모가 없던 예전 항목도 그대로 읽는다', () => {
     const restored = parsePersistentPdfHighlights({ version: 1, highlights: [createPersistentPdfHighlight(anchor)] })
     expect(restored[0]?.note).toBeUndefined()

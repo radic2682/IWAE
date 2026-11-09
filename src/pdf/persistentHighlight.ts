@@ -258,8 +258,9 @@ export function parsePersistentPdfHighlights(value: unknown): PersistentPdfHighl
     const color = item.color === undefined ? 'yellow' : item.color
     if (!isHighlightColor(color)) throw new Error(t('PDF 형광펜 색상이 잘못되었습니다.'))
     const kind = item.kind === 'region' ? 'region' as const : undefined
-    const normalized = createPersistentPdfHighlight(item.anchor, color, { kind })
-    if (normalized.id !== item.id) throw new Error(t('PDF 형광펜 식별자가 앵커와 일치하지 않습니다.'))
+    // id 는 만들 때 정해진 이름표일 뿐이다. 쪽을 옮기거나 영역을 키워도 노트가 id 로 가리키므로 그대로 두어,
+    // 지금 앵커에서 다시 만든 id 와 달라도 읽는다(예전엔 여기서 던져 파일 전체가 안 열렸다).
+    if (item.id === '') throw new Error(t('PDF 형광펜 항목이 잘못되었습니다.'))
     if (ids.has(item.id)) continue
     ids.add(item.id)
     // 메모·시각·출처는 덧붙은 정보라, 모양이 틀리면 항목을 버리지 않고 그 값만 버린다.

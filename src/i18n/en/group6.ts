@@ -285,5 +285,4 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   'PDF 형광펜 저장 형식이 잘못되었습니다.': 'Invalid PDF highlight storage format.',
   'PDF 형광펜 항목이 잘못되었습니다.': 'Invalid PDF highlight entry.',
   'PDF 형광펜 색상이 잘못되었습니다.': 'Invalid PDF highlight color.',
-  'PDF 형광펜 식별자가 앵커와 일치하지 않습니다.': 'PDF highlight id does not match its anchor.',
 }
