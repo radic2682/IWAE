@@ -254,10 +254,10 @@ export function NoteFlow({
     event.preventDefault()
     setMenu({ key, x: event.clientX, y: event.clientY })
   }
-  const menuButton = (key: string) => key === 'draft' ? null : (
+  const menuButton = (key: string, inTab = false) => key === 'draft' ? null : (
     <button
       type="button"
-      className="note-block-menu"
+      className={inTab ? 'note-tab-btn note-tab-more' : 'note-block-menu'}
       aria-label={t('블록 메뉴')}
       title={t('메뉴')}
       onClick={(event) => {
@@ -277,29 +277,6 @@ export function NoteFlow({
     </div>
   )
   const menuItem = menu === null ? undefined : items.find((item) => item.key === menu.key)
-
-  // ---------- 마우스를 올린 블록의 출처: 바 밖(문서 맨 위)에 띄워 맨 위 블록에서도 잘리지 않는다 ----------
-  // 출처 꼬리표: 블록 위 왼쪽 바깥(오른쪽 위는 블록 단추 자리)
-  const [tip, setTip] = useState<{ key: string; label: string; left: number; top: number; width: number } | null>(null)
-  const showTip = (key: string, label: string) => (event: ReactPointerEvent<HTMLElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    setTip({ key, label, left: rect.left, top: rect.top, width: rect.width })
-  }
-  useEffect(() => {
-    if (tip === null) return
-    // 스크롤하면 블록을 따라 다시 잰다(블록이 사라졌으면 내린다)
-    const follow = () => {
-      const element = cardRefs.current.get(tip.key)
-      if (element === undefined) {
-        setTip(null)
-        return
-      }
-      const rect = element.getBoundingClientRect()
-      setTip((current) => current === null || (current.top === rect.top && current.left === rect.left) ? current : { ...current, left: rect.left, top: rect.top, width: rect.width })
-    }
-    window.addEventListener('scroll', follow, true)
-    return () => window.removeEventListener('scroll', follow, true)
-  }, [tip])
 
   // ---------- 여러 블록 고르기: Ctrl/⌘+누르기는 하나씩, Shift+누르기는 그 사이 모두. Delete 로 지운다 ----------
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
@@ -449,10 +426,6 @@ export function NoteFlow({
             </>
           )}
         </div>
-      ) : null}
-      {tip !== null ? createPortal(
-        <span className="note-source-float" aria-hidden="true" style={{ left: tip.left, top: tip.top, maxWidth: Math.max(80, tip.width - 150) }}>{tip.label}</span>,
-        document.body,
       ) : null}
       {items.map((item, index) => {
         if (item.kind === 'section') {
@@ -696,8 +669,8 @@ export function NoteFlow({
             }}
           />
         ) : (highlight.note ?? '').trim() === '' && (highlight.noteHtml ?? '') === '' ? (
-          // 메모 없는 형광펜: 빈 줄 대신, 마우스를 올렸을 때만 오른쪽 위 「메모 쓰기」(ghosts)
-          onSetTicket === undefined || draft ? <button type="button" className="note-memo-add" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button> : null
+          // 메모 없는 형광펜: 빈 줄 대신, 마우스를 올렸을 때만 오른쪽 위 탭의 「메모 쓰기」
+          null
         ) : (
           <MemoNoteView note={highlight.note} noteHtml={highlight.noteHtml} onEdit={() => onEdit(item.key)} onChange={(content) => onSaveMemo(highlight.id, content)} />
         )
@@ -747,13 +720,21 @@ export function NoteFlow({
         ) : null
         const memoEmpty = !editing && (highlight.note ?? '').trim() === '' && (highlight.noteHtml ?? '') === ''
         // 새 메모는 쓰는 중에도 「+ ID」「+ 제목」을 보인다(눌러도 메모 칸 포커스를 뺏지 않는다)
-        const ghosts = canHead && !editingId && !editingTitle && (!editing || draft) ? (
-          <div className="note-ticket-ghosts">
-            {memoEmpty && !draft ? <button type="button" className="note-ticket-ghost" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button> : null}
-            {ticket?.id === undefined ? <button type="button" className="note-ticket-ghost" onClick={() => setHeadEdit({ key: item.key, field: 'id' })}>{t('+ ID')}</button> : null}
-            {ticket?.title === undefined ? <button type="button" className="note-ticket-ghost" onClick={() => setHeadEdit({ key: item.key, field: 'title' })}>{t('+ 제목')}</button> : null}
+        const showHeadButtons = canHead && !editingId && !editingTitle && (!editing || draft)
+        const tabButtons = [
+          memoEmpty && !draft && (canHead ? showHeadButtons : true)
+            ? <button key="memo" type="button" className="note-tab-btn" onClick={() => onEdit(item.key)}>{t('메모 쓰기')}</button> : null,
+          showHeadButtons && ticket?.id === undefined ? <button key="id" type="button" className="note-tab-btn" onClick={() => setHeadEdit({ key: item.key, field: 'id' })}>{t('+ ID')}</button> : null,
+          showHeadButtons && ticket?.title === undefined ? <button key="title" type="button" className="note-tab-btn" onClick={() => setHeadEdit({ key: item.key, field: 'title' })}>{t('+ 제목')}</button> : null,
+          editing ? null : menuButton(item.key, true),
+        ].filter(Boolean)
+        // 호버: 테두리가 형광펜 색이 되고, 위 테두리 양 끝에 출처 탭(왼쪽)과 단추 탭(오른쪽)이 붙는다
+        const tabs = (
+          <div className="note-block-tabs">
+            <div className="note-tab note-tab-l"><span title={tipLabel}>{tipLabel}</span></div>
+            {tabButtons.length > 0 ? <div className="note-tab note-tab-r">{tabButtons}</div> : null}
           </div>
-        ) : null
+        )
         const region = highlight.kind === 'region'
         const collapsedFirst = highlight.kind !== 'region' && openQuotes?.has(highlight.id) !== true
         return (
@@ -780,22 +761,15 @@ export function NoteFlow({
             data-note-block={item.key}
             onPointerDown={headEdit?.key === item.key ? undefined : startBlockDrag(item.key)}
             onClickCapture={pickBlock(item.key)}
-            onPointerEnter={(event) => {
-              onActivate(item.key)
-              showTip(item.key, tipLabel)(event)
-            }}
-            onPointerLeave={() => {
-              onActivate(null)
-              setTip((current) => (current?.key === item.key ? null : current))
-            }}
+            onPointerEnter={() => onActivate(item.key)}
+            onPointerLeave={() => onActivate(null)}
             onContextMenu={openMenu(item.key)}
           >
             {/* 늘 같은 차례: ID·제목 → 내 글 → 원문(출처) */}
             {head}
             {memo}
             {sourceList}
-            {ghosts}
-            {menuButton(item.key)}
+            {tabs}
           </div>
           {gapAfter(item.key)}
           </Fragment>

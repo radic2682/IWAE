@@ -59,11 +59,10 @@ describe('NoteFlow — 소제목', () => {
     const { container, rerender } = render(<NoteFlow {...props} items={items} />)
     expect(container.querySelector('.pdf-memo-card-head')).toBeNull()
     const card = container.querySelector('.pdf-memo-card-flow')!
-    // 출처(PDF 이름 · 쪽)는 마우스를 올리면 바 밖에 뜨는 꼬리표로
+    // 출처(PDF 이름 · 쪽)는 블록 위 테두리 왼쪽 탭에(호버할 때만 CSS 로 보인다). 단추 탭은 오른쪽
+    expect(card.querySelector('.note-tab-l')?.textContent).toBe('PDF · p.31')
+    expect(card.querySelector('.note-tab-r .note-tab-more')).not.toBeNull()
     expect(document.querySelector('.note-source-float')).toBeNull()
-    fireEvent.pointerEnter(card)
-    expect(document.querySelector('.note-source-float')?.textContent).toBe('PDF · p.31')
-    fireEvent.pointerLeave(card)
     expect(document.querySelector('.note-source-float')).toBeNull()
     const memoText = card.querySelector('.pdf-memo-card-text')!
     const chip = card.querySelector('.note-source-chip.pdf-memo-card-quote-green')!
