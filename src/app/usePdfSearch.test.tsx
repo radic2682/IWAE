@@ -193,8 +193,11 @@ describe('usePdfSearch', () => {
     expect(result.current.progress).toEqual({ completed: 1, total: 3 })
     expect(result.current.matches.map((match) => match.page)).toEqual([2])
 
+    // 화면은 120ms 에 한 번만 고친다(쪽마다 고치면 큰 문서에서 멈춘다)
     pending[0]?.resolve(page('hit'))
     await settle()
+    expect(result.current.progress).toEqual({ completed: 1, total: 3 })
+    await elapse(120)
     expect(result.current.progress).toEqual({ completed: 2, total: 3 })
     expect(result.current.matches.map((match) => match.page)).toEqual([0, 2])
 

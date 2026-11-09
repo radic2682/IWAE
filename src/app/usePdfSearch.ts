@@ -11,6 +11,8 @@ import {
 
 const SEARCH_DEBOUNCE_MS = 200
 const MAX_CONCURRENT_PAGE_REQUESTS = 4
+/** 찾는 동안 화면(결과 목록·진행률)을 고치는 간격. 쪽마다 고치면 큰 문서에서 결과가 쌓일수록 멈춘다 */
+const SEARCH_FLUSH_MS = 120
 const SEARCH_HISTORY_KEY = 'iwae:pdf-search-history:v1'
 
 const completedSearchCache = new Map<string, readonly PdfSearchMatch[]>()
@@ -99,6 +101,7 @@ export function usePdfSearch({
   useEffect(() => {
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | undefined
+    let flushTimer: ReturnType<typeof setTimeout> | undefined
 
     const reset = (): void => {
       setStatus('idle')
@@ -122,6 +125,7 @@ export function usePdfSearch({
     cancelCurrentRef.current = () => {
       cancelled = true
       if (timer !== undefined) clearTimeout(timer)
+      if (flushTimer !== undefined) clearTimeout(flushTimer)
       reset()
     }
 
@@ -161,6 +165,29 @@ export function usePdfSearch({
       let nextPage = 0
       let completed = 0
       let failed = false
+      let lastFlush = Number.NEGATIVE_INFINITY
+
+      const flush = (): void => {
+        flushTimer = undefined
+        if (cancelled || failed) return
+        lastFlush = Date.now()
+        const currentMatches = orderedMatches(pageMatches)
+        setMatches(currentMatches)
+        setActiveIndex((current) => {
+          if (currentMatches.length === 0) return -1
+          // 아직 사람이 옮기지 않았으면 늘 「지금 쪽부터의 첫 결과」(앞쪽 결과가 늦게 들어와도 자리가 밀리지 않게)
+          if (!userMovedRef.current) return firstMatchFrom(currentMatches, searchStartRef.current)
+          return Math.min(Math.max(current, 0), currentMatches.length - 1)
+        })
+        setProgress({ completed, total: totalPages })
+      }
+      /** 처음 것은 바로, 그 뒤로는 SEARCH_FLUSH_MS 에 한 번 */
+      const scheduleFlush = (): void => {
+        if (flushTimer !== undefined) return
+        const wait = lastFlush + SEARCH_FLUSH_MS - Date.now()
+        if (wait <= 0) flush()
+        else flushTimer = setTimeout(flush, wait)
+      }
 
       const worker = async (): Promise<void> => {
         while (!cancelled && !failed) {
@@ -175,15 +202,7 @@ export function usePdfSearch({
 
             pageMatches[page] = searchPageIndex(docId, page, index, query, options)
             completed += 1
-            const currentMatches = orderedMatches(pageMatches)
-            setMatches(currentMatches)
-            setActiveIndex((current) => {
-              if (currentMatches.length === 0) return -1
-              // 아직 사람이 옮기지 않았으면 늘 「지금 쪽부터의 첫 결과」(앞쪽 결과가 늦게 들어와도 자리가 밀리지 않게)
-              if (!userMovedRef.current) return firstMatchFrom(currentMatches, searchStartRef.current)
-              return Math.min(Math.max(current, 0), currentMatches.length - 1)
-            })
-            setProgress({ completed, total: totalPages })
+            scheduleFlush()
           } catch {
             if (cancelled) return
             failed = true
@@ -196,6 +215,8 @@ export function usePdfSearch({
 
       const workerCount = Math.min(MAX_CONCURRENT_PAGE_REQUESTS, totalPages)
       void Promise.all(Array.from({ length: workerCount }, () => worker())).then(() => {
+        if (flushTimer !== undefined) clearTimeout(flushTimer)
+        flushTimer = undefined
         if (cancelled || failed) return
         const completeMatches = orderedMatches(pageMatches)
         completedSearchCache.set(cacheKey, completeMatches)
@@ -210,6 +231,7 @@ export function usePdfSearch({
     return () => {
       cancelled = true
       if (timer !== undefined) clearTimeout(timer)
+      if (flushTimer !== undefined) clearTimeout(flushTimer)
     }
   }, [docId, options.caseSensitive, options.wholeWord, query, totalPages])
 

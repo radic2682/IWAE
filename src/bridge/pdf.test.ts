@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { pageImageUrl, pickPdfFile, openPdf, pageTextIndex } from './pdf'
+import { pageImageUrl, pickPdfFile, openPdf, pageTextIndex, TEXT_INDEX_CACHE_PAGES } from './pdf'
 import { MIN_RENDER_WIDTH, MAX_RENDER_WIDTH } from '../pdf/renderWidth'
 import { SAMPLE_DOC_ID } from '../pdf/samplePage'
 
@@ -121,6 +121,25 @@ describe('pageTextIndex — 페이지별 캐시', () => {
 
     expect(invoke).toHaveBeenCalledTimes(1)
     expect(invoke).toHaveBeenCalledWith('pdf_page_text', { docId: 'cachetest001', page: 3 })
+  })
+
+  it('쪽 글자는 최근에 쓴 것만 정해진 수까지 들고 있는다(큰 PDF 를 검색해도 메모리가 계속 늘지 않게)', async () => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })
+    const invoke = vi.fn().mockResolvedValue({ text: 'A', chars: [] })
+    vi.doMock('@tauri-apps/api/core', () => ({ invoke }))
+
+    await pageTextIndex('lru-doc', 0)
+    for (let page = 1; page <= TEXT_INDEX_CACHE_PAGES; page += 1) {
+      await pageTextIndex('lru-doc', page)
+      // 0 쪽은 계속 쓰니 남는다
+      if (page === TEXT_INDEX_CACHE_PAGES - 1) await pageTextIndex('lru-doc', 0)
+    }
+    expect(invoke).toHaveBeenCalledTimes(TEXT_INDEX_CACHE_PAGES + 1)
+    await pageTextIndex('lru-doc', 0)
+    expect(invoke).toHaveBeenCalledTimes(TEXT_INDEX_CACHE_PAGES + 1)
+    // 가장 오래 안 쓴 1 쪽은 밀려나 다시 읽는다
+    await pageTextIndex('lru-doc', 1)
+    expect(invoke).toHaveBeenCalledTimes(TEXT_INDEX_CACHE_PAGES + 2)
   })
 })
 

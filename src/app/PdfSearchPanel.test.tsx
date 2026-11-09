@@ -289,4 +289,45 @@ describe('PdfSearchPanel', () => {
     fireEvent.keyDown(rows[0]!, { key: 'ArrowDown' })
     expect(select).toHaveBeenLastCalledWith(1)
   })
+
+  it('결과가 아주 많아도 줄은 한 번에 150개까지만 그리고, 「더 보기」로 늘린다', () => {
+    const many: PdfSearchMatch[] = Array.from({ length: 70000 }, (_, index) => ({
+      ...matches[0]!,
+      id: `doc:${index}`,
+      page: Math.floor(index / 20),
+    }))
+    const { container } = render(
+      <PdfSearchPanel
+        docked
+        query="needle"
+        onQueryChange={vi.fn()}
+        search={searchResult({ status: 'complete', matches: many, activeIndex: 0 })}
+        options={options}
+        onOptionsChange={vi.fn()}
+        onSelectMatch={vi.fn()}
+      />,
+    )
+    expect(container.querySelectorAll('.pdf-search-result-row')).toHaveLength(150)
+    expect(screen.getByText('70000건 · 3500쪽')).toBeTruthy()
+    expect(container.querySelector('.pdf-search-group-meta')?.textContent).toBe('1–3500쪽 · 70000')
+    fireEvent.click(screen.getByRole('button', { name: /더 보기/u }))
+    expect(container.querySelectorAll('.pdf-search-result-row')).toHaveLength(300)
+  })
+
+  it('지금 결과가 그린 줄 밖이면 그 줄까지 그린다', () => {
+    const many: PdfSearchMatch[] = Array.from({ length: 1000 }, (_, index) => ({ ...matches[0]!, id: `doc:${index}`, page: index }))
+    const { container } = render(
+      <PdfSearchPanel
+        docked
+        query="needle"
+        onQueryChange={vi.fn()}
+        search={searchResult({ status: 'complete', matches: many, activeIndex: 600 })}
+        options={options}
+        onOptionsChange={vi.fn()}
+        onSelectMatch={vi.fn()}
+      />,
+    )
+    expect(container.querySelector('[aria-current="true"]')).not.toBeNull()
+    expect(container.querySelectorAll('.pdf-search-result-row').length).toBeLessThan(1000)
+  })
 })

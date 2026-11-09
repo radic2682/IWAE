@@ -7,6 +7,9 @@ import { pageImageUrl } from '../bridge/pdf'
 import '../ui/pdf-followup.css'
 import { t } from '../i18n'
 
+/** 결과 줄을 한 번에 그리는 수. 흔한 낱말은 큰 문서에서 수만 건이라 다 그리면 앱이 멈춘다 */
+export const SEARCH_RENDER_STEP = 150
+
 export interface PdfSearchPanelProps {
   readonly query?: string
   readonly onQueryChange?: (query: string) => void
@@ -135,7 +138,7 @@ export function PdfSearchPanel({
 
       {search.matches.length > 0 ? (
         <ol className="pdf-search-results">
-          {search.matches.map((match, index) => {
+          {search.matches.slice(0, Math.max(SEARCH_RENDER_STEP, search.activeIndex + 50)).map((match, index) => {
             const active = index === search.activeIndex
             return (
               <li className="pdf-search-result-item" key={match.id}>
@@ -372,9 +375,42 @@ function DockedSearchResults({
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set())
   useEffect(() => setToggled(new Set()), [query])
   const listRef = useRef<HTMLDivElement | null>(null)
+  // 그릴 줄 수(펼친 묶음을 위에서부터 센다). 끝에 닿으면 더 그린다. 검색어가 바뀌면 처음으로
+  const [limit, setLimit] = useState(SEARCH_RENDER_STEP)
+  useEffect(() => setLimit(SEARCH_RENDER_STEP), [query])
 
   const activeGroup = groups.find((group) => group.items.some((item) => item.index === search.activeIndex))?.key
   const isOpen = (key: string, toc: boolean) => key === activeGroup || (toc ? toggled.has(key) : !toggled.has(key))
+  /** 펼친 묶음들의 줄을 위에서부터 셌을 때 지금 결과의 자리(없으면 -1) */
+  let activePosition = -1
+  let openRows = 0
+  for (const group of groups) {
+    if (!isOpen(group.key, group.toc)) continue
+    if (group.key === activeGroup) activePosition = openRows + group.items.findIndex((item) => item.index === search.activeIndex)
+    openRows += group.items.length
+  }
+  const rowsBefore: number[] = []
+  {
+    let counted = 0
+    for (const group of groups) {
+      rowsBefore.push(counted)
+      if (isOpen(group.key, group.toc)) counted += group.items.length
+    }
+  }
+  // 지금 결과(Enter 로 넘어간 곳)가 그린 줄 밖이면 그 줄까지 그린다
+  const renderLimit = Math.max(limit, activePosition + 1)
+  const moreRef = useRef<HTMLButtonElement | null>(null)
+  const hasMore = openRows > renderLimit
+  const showMore = () => setLimit((current) => Math.max(current, renderLimit) + SEARCH_RENDER_STEP)
+  useEffect(() => {
+    const element = moreRef.current
+    if (element === null || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setLimit((current) => Math.max(current, renderLimit) + SEARCH_RENDER_STEP)
+    }, { rootMargin: '400px' })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [hasMore, renderLimit])
 
   // Enter 로 다음 결과로 가면 그 줄이 보이게. 목록 안에 포커스가 있으면 포커스도 그 줄로 옮긴다
   useEffect(() => {
@@ -455,11 +491,16 @@ function DockedSearchResults({
       ) : null}
 
       <div className="pdf-search-groups" ref={listRef}>
-        {groups.map((group) => {
+        {groups.map((group, groupIndex) => {
           const open = isOpen(group.key, group.toc)
-          const pages = group.items.map((item) => item.match.page + 1)
-          const first = Math.min(...pages)
-          const last = Math.max(...pages)
+          // Math.min(...배열)은 수만 개면 호출 스택이 넘친다
+          let first = Number.POSITIVE_INFINITY
+          let last = Number.NEGATIVE_INFINITY
+          for (const item of group.items) {
+            first = Math.min(first, item.match.page + 1)
+            last = Math.max(last, item.match.page + 1)
+          }
+          const shown = open ? group.items.slice(0, Math.max(0, renderLimit - rowsBefore[groupIndex]!)) : []
           return (
             <div key={group.key} className={`pdf-search-group${group.toc ? ' pdf-search-group-toc' : ''}`}>
               <button
@@ -479,7 +520,7 @@ function DockedSearchResults({
               </button>
               {open ? (
                 <ol className="pdf-search-results">
-                  {group.items.map(({ match, index }) => {
+                  {shown.map(({ match, index }) => {
                     const active = index === search.activeIndex
                     const snippet = cleanSnippet(match.before, match.after)
                     return (
@@ -509,6 +550,11 @@ function DockedSearchResults({
             </div>
           )
         })}
+        {hasMore ? (
+          <button ref={moreRef} type="button" className="pdf-search-more" onClick={showMore}>
+            {t('더 보기 ({count}건 남음)', { count: openRows - renderLimit })}
+          </button>
+        ) : null}
       </div>
     </section>
   )

@@ -192,6 +192,7 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '최근 검색어 {query}': 'Recent search {query}',
   'PDF 검색 중 오류가 발생했습니다': 'An error occurred while searching the PDF',
   '검색 결과가 없습니다': 'No results',
+  '더 보기 ({count}건 남음)': 'Show more ({count} left)',
   '{page}페이지 {quote}': 'Page {page} {quote}',
   '{page}페이지': 'Page {page}',
   'PDF 검색': 'Search PDF',

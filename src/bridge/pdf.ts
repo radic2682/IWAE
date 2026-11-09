@@ -22,6 +22,11 @@ import {
 } from '../pdf/samplePage'
 import type { PageTextIndex } from '../core/textIndex'
 
+/**
+ * 쪽 글자(글자마다 상자) 캐시에 들고 있는 쪽 수. 한 쪽이 수백 KB 라, 다 들고 있으면 3000쪽 PDF 를
+ * 한 번 검색하는 것만으로 1GB 가 남았다. 최근에 쓴 쪽부터 남긴다.
+ */
+export const TEXT_INDEX_CACHE_PAGES = 240
 const textIndexCache = new Map<string, Promise<PageTextIndex>>()
 const outlineCache = new Map<string, Promise<readonly PdfOutlineEntry[]>>()
 
@@ -171,7 +176,12 @@ export async function editPdfPages(docId: string, path: string, backup: string, 
 export function pageTextIndex(docId: string, page: number): Promise<PageTextIndex> {
   const key = `${docId}:${page}`
   const cached = textIndexCache.get(key)
-  if (cached !== undefined) return cached
+  if (cached !== undefined) {
+    // 맨 뒤(가장 최근)로 옮긴다
+    textIndexCache.delete(key)
+    textIndexCache.set(key, cached)
+    return cached
+  }
 
   const request = (async () => {
     if (docId === SAMPLE_DOC_ID) return samplePageTextIndex(page)
@@ -181,6 +191,7 @@ export function pageTextIndex(docId: string, page: number): Promise<PageTextInde
   })()
 
   textIndexCache.set(key, request)
+  while (textIndexCache.size > TEXT_INDEX_CACHE_PAGES) textIndexCache.delete(textIndexCache.keys().next().value!)
   void request.catch(() => {
     if (textIndexCache.get(key) === request) textIndexCache.delete(key)
   })

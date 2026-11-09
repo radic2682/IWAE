@@ -527,6 +527,8 @@ button.note-source-page:hover { color: var(--accent); }
 .pdf-search-meter { display: block; height: 2px; border-radius: 2px; background: var(--field); overflow: hidden; }
 .pdf-search-meter > span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
 .pdf-search-groups { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 2px 12px 0; }
+.pdf-search-more { display: block; width: calc(100% - 8px); height: 30px; margin: 6px 4px 0; border: 1px solid var(--hairline); border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.pdf-search-more:hover { background: var(--field-hover); }
 .pdf-search-group + .pdf-search-group { margin-top: 6px; }
 .pdf-search-group-head {
   position: sticky; top: 0; z-index: 1;
