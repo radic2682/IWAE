@@ -1,3 +1,4 @@
+import { runAppCommand } from '../ui/documentContextMenu'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import { PaneShell } from './PaneShell'
 import { PaneToolbar, type PdfToolMode } from './PaneToolbar'
@@ -346,6 +347,15 @@ export function DocumentView(props: DocumentViewProps) {
   const [searchJumpNonce, setSearchJumpNonce] = useState(0)
   const [markdownQuery, setMarkdownQuery] = useState('')
   const [toolMode, setToolMode] = useState<PdfToolMode>('text')
+  // PDF 도구 창의 「가리기 도구 켜기」: 이 문서 칸을 편집 모드로
+  useEffect(() => {
+    const start = (event: Event) => {
+      const target = (event as CustomEvent<{ docId?: string }>).detail?.docId
+      if (target !== undefined && target === docId) setToolMode('edit')
+    }
+    window.addEventListener('iwae:start-overlay-edit', start)
+    return () => window.removeEventListener('iwae:start-overlay-edit', start)
+  }, [docId])
   // Markdown 화면 나누기(같은 문서를 칸마다 따로 스크롤). 첫 칸이 주 칸이다
   const [markdownSplit, setMarkdownSplitState] = useState<PdfSplitLayoutId>('single')
   const [markdownFractions, setMarkdownFractions] = useState({ cols: [1], rows: [1] })
@@ -530,6 +540,7 @@ export function DocumentView(props: DocumentViewProps) {
       github={tab.kind === 'markdown' ? props.github : undefined}
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
+      onPdfTools={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => runAppCommand('pdfTools', { docId }) : undefined}
       shortcutsEnabled={props.shortcutTarget}
       cleanView={props.pdfViewPrefs.clean === true}
       onCleanViewChange={(clean) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, clean })}

@@ -134,7 +134,46 @@ export async function pickPdfFile(): Promise<string | null> {
  * docId 를 주면 Vault 에 등록된 그 id 로 연다. 쪽 편집으로 파일 내용(해시)이 바뀌어도 형광펜·
  * 책갈피·노트 출처가 같은 문서를 가리키게 하려는 것이다. 새 파일은 비워 두면 내용 해시로 정한다.
  */
-export async function openPdf(path: string, docId?: string): Promise<PdfDocMeta> {
+/** Rust 가 암호가 필요하다고 할 때 오류 앞에 붙이는 말(engine.rs 의 PASSWORD_REQUIRED·PASSWORD_WRONG) */
+const PASSWORD_REQUIRED = 'IWAE_PDF_PASSWORD_REQUIRED'
+const PASSWORD_WRONG = 'IWAE_PDF_PASSWORD_WRONG'
+
+/** 암호를 묻는 창. App 이 하나 걸어 둔다. 취소하면 null */
+export type PdfPasswordPrompt = (request: { readonly path: string; readonly wrong: boolean }) => Promise<string | null>
+let passwordPrompt: PdfPasswordPrompt | null = null
+/** 암호로 연 문서(이 세션). 「암호 푼 사본」을 보일지 정한다 */
+const passwordDocIds = new Set<string>()
+export function isPasswordProtectedDoc(docId: string): boolean {
+  return passwordDocIds.has(docId)
+}
+export function setPdfPasswordPrompt(prompt: PdfPasswordPrompt | null): void {
+  passwordPrompt = prompt
+}
+
+/** 암호 PDF 인데 암호를 받지 못했다(물을 창이 없거나 취소) */
+export class PdfPasswordError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PdfPasswordError'
+  }
+}
+
+function passwordProblem(error: unknown): 'required' | 'wrong' | null {
+  const text = error instanceof Error ? error.message : String(error)
+  if (text.startsWith(PASSWORD_WRONG)) return 'wrong'
+  if (text.startsWith(PASSWORD_REQUIRED)) return 'required'
+  return null
+}
+
+function withoutCode(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error)).replace(/^IWAE_PDF_PASSWORD_(REQUIRED|WRONG):\s*/u, '')
+}
+
+/**
+ * PDF 를 연다. 암호 PDF 면 걸어 둔 창으로 암호를 물어 다시 연다(맞는 암호는 이 세션 동안 Rust 가 기억한다).
+ * `askPassword: false` 면 묻지 않고 PdfPasswordError 를 던진다(Vault 를 훑을 때처럼 사람이 연 게 아닐 때).
+ */
+export async function openPdf(path: string, docId?: string, options: { readonly askPassword?: boolean } = {}): Promise<PdfDocMeta> {
   if (!isDesktop()) {
     // pickPdfFile 이 브라우저에서 null 을 주므로 정상 경로로는 여기 오지
     // 않는다. 조용히 가짜 메타를 지어내면 빈 페이지 1,000장이 뜨고 원인을
@@ -143,7 +182,26 @@ export async function openPdf(path: string, docId?: string): Promise<PdfDocMeta>
   }
 
   const { invoke } = await import('@tauri-apps/api/core')
-  return invoke<PdfDocMeta>('pdf_open', docId === undefined ? { path } : { path, docId })
+  const args = docId === undefined ? { path } : { path, docId }
+  try {
+    return await invoke<PdfDocMeta>('pdf_open', args)
+  } catch (error) {
+    let problem = passwordProblem(error)
+    if (problem === null) throw error
+    if (options.askPassword === false || passwordPrompt === null) throw new PdfPasswordError(withoutCode(error))
+    for (;;) {
+      const password = await passwordPrompt({ path, wrong: problem === 'wrong' })
+      if (password === null) throw new PdfPasswordError(withoutCode(error))
+      try {
+        const meta = await invoke<PdfDocMeta>('pdf_open', { ...args, password })
+        passwordDocIds.add(meta.docId)
+        return meta
+      } catch (retry) {
+        problem = passwordProblem(retry)
+        if (problem === null) throw retry
+      }
+    }
+  }
 }
 
 /** 쪽 편집 계획의 한 줄: 새 문서의 이 자리에 어느 문서의 몇 쪽(0-기반)을 얼마나 더 돌려 놓나 */
@@ -161,11 +219,71 @@ const docRevisions = new Map<string, number>()
 export async function editPdfPages(docId: string, path: string, backup: string, plan: readonly PdfPageEditOp[]): Promise<PdfDocMeta> {
   const { invoke } = await import('@tauri-apps/api/core')
   const meta = await invoke<PdfDocMeta>('pdf_edit_pages', { docId, path, backup, plan })
+  forgetDocumentCaches(docId)
+  return meta
+}
+
+/** 원본이 바뀐 문서의 쪽 그림·글자·링크·목차 캐시를 버린다 */
+function forgetDocumentCaches(docId: string): void {
   docRevisions.set(docId, (docRevisions.get(docId) ?? 0) + 1)
   for (const key of [...textIndexCache.keys()]) if (key.startsWith(`${docId}:`)) textIndexCache.delete(key)
   for (const key of [...linkCache.keys()]) if (key.startsWith(`${docId}:`)) linkCache.delete(key)
   outlineCache.delete(docId)
-  return meta
+}
+
+/** 굽는 덮개(화면 좌표, points). Rust 의 FlatOverlay */
+export type PdfFlatOverlay =
+  | { kind: 'text'; page: number; x: number; y: number; w: number; text: string; size: number; color: string; bold?: boolean; fill?: string | null; border?: boolean }
+  | { kind: 'line'; page: number; x1: number; y1: number; x2: number; y2: number; color: string; width: number; arrow?: boolean; arrowStart?: boolean; dashed?: boolean; dotted?: boolean }
+  | { kind: 'ink'; page: number; points: readonly (readonly [number, number])[]; color: string; width: number }
+  | { kind: 'shape'; page: number; shape: 'rect' | 'ellipse'; x: number; y: number; w: number; h: number; color: string; width: number; fill?: boolean; dashed?: boolean; dotted?: boolean }
+
+export interface PdfRect { x: number; y: number; w: number; h: number }
+
+/** PDF 도구 하나. Rust 의 ToolOp */
+export type PdfToolOp =
+  | { kind: 'searchable'; pages: readonly SearchablePdfPage[] }
+  | { kind: 'flatten'; highlights: readonly ExportPdfHighlight[]; overlays: readonly PdfFlatOverlay[]; notes: readonly { page: number; rect: PdfRect; text: string }[]; redactions: readonly { page: number; rect: PdfRect }[] }
+  | { kind: 'extract'; pages: readonly number[] }
+  | { kind: 'merge'; sources: readonly string[] }
+  | { kind: 'pageNumbers'; position: 'bottomCenter' | 'bottomRight' | 'bottomLeft' | 'topCenter' | 'topRight' | 'topLeft'; start: number; template: string; size: number; skipFirst: boolean }
+  | { kind: 'watermark'; text: string; size: number; opacity: number; angle: number; color: string }
+  | { kind: 'crop'; left: number; top: number; right: number; bottom: number }
+  | { kind: 'nUp'; columns: number; rows: number; landscape: boolean }
+  | { kind: 'unlock' }
+
+/** 도구 결과를 둘 곳 */
+export type PdfToolOutput =
+  | { kind: 'inPlace'; path: string; backup: string }
+  | { kind: 'newFile'; path: string }
+  | { kind: 'dialog'; suggestedName: string }
+
+export interface PdfToolResult {
+  readonly path: string
+  /** 원본을 덮었으면 다시 연 메타 */
+  readonly meta: PdfDocMeta | null
+  readonly report: { readonly written: number; readonly skipped: number; readonly rasterized: number }
+}
+
+/** PDF 도구를 돌린다. 저장 대화상자를 취소하면 null */
+export async function runPdfTool(docId: string, op: PdfToolOp, output: PdfToolOutput): Promise<PdfToolResult | null> {
+  if (!isDesktop()) throw new Error(t('PDF 도구는 데스크톱(Tauri) 안에서만 됩니다.'))
+  const { invoke } = await import('@tauri-apps/api/core')
+  const result = await invoke<PdfToolResult | null>('pdf_tool', { docId, op, output })
+  if (result !== null && output.kind === 'inPlace') forgetDocumentCaches(docId)
+  return result
+}
+
+/** 빈 쪽 번호(0 부터) */
+export async function pdfBlankPages(docId: string): Promise<number[]> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke<number[]>('pdf_blank_pages', { docId })
+}
+
+/** 쪽마다 PNG 로 내보낸다(폴더는 대화상자에서). 취소하면 null */
+export async function exportPdfImages(docId: string, stem: string, dpi: number): Promise<{ folder: string; count: number } | null> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke<{ folder: string; count: number } | null>('pdf_export_images', { docId, stem, dpi })
 }
 
 /**

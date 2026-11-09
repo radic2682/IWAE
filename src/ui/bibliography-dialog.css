@@ -76,3 +76,4 @@
 .bib-dialog.bib-dialog .bib-dialog-actions button:hover:not(:disabled) { background: var(--chrome-hover); }
 .bib-dialog.bib-dialog .bib-dialog-actions .bib-dialog-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
 .bib-dialog.bib-dialog .bib-dialog-actions .bib-dialog-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--paper)); }
+.bib-dialog-note { margin: 0; color: var(--text-strong); font-size: 12px; line-height: 1.5; }

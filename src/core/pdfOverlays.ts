@@ -62,11 +62,14 @@ export interface PdfInk {
   readonly width: number
 }
 
-/** 도형(네모·동그라미). x, y 는 왼쪽 위, w, h 는 크기(쪽 좌표) */
+/**
+ * 도형(네모·동그라미·가리기). x, y 는 왼쪽 위, w, h 는 크기(쪽 좌표).
+ * 'redact'(가리기)는 화면에서는 검은 상자로 덮어 보이고, 「가린 사본」을 만들 때 그 자리의 글자·그림을 정말로 지운다.
+ */
 export interface PdfShape {
   readonly id: string
   readonly kind: 'shape'
-  readonly shape: 'rect' | 'ellipse'
+  readonly shape: 'rect' | 'ellipse' | 'redact'
   readonly page: number
   readonly x: number
   readonly y: number
@@ -313,7 +316,7 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
         const width = num(item.width)
         if (x === null || y === null || w === null || h === null || w <= 0 || h <= 0) return []
         return [{
-          id, kind: 'shape', shape: item.shape === 'ellipse' ? 'ellipse' : 'rect', page, x, y, w, h, color,
+          id, kind: 'shape', shape: item.shape === 'ellipse' ? 'ellipse' : item.shape === 'redact' ? 'redact' : 'rect', page, x, y, w, h, color,
           width: Math.min(Math.max(width ?? 2, 0.5), 20),
           ...(item.fill === true ? { fill: true } : {}),
           ...(item.dotted === true ? { dotted: true } : item.dashed === true ? { dashed: true } : {}),
@@ -351,4 +354,9 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
     if (items.length > 0) overlays[docId] = items
   }
   return { version: 1, overlays }
+}
+
+/** 가리기 상자인가 */
+export function isRedaction(overlay: PdfOverlay): overlay is PdfShape {
+  return overlay.kind === 'shape' && overlay.shape === 'redact'
 }

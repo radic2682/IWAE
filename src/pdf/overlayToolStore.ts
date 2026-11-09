@@ -29,8 +29,8 @@ export function useOverlayTool(): readonly [OverlayTool, (tool: OverlayTool) => 
 }
 
 /** 그리기 단추 하나에 접힌 도구들. 단추에는 마지막에 쓴 것이 보인다 */
-export type DrawTool = 'pen' | 'line' | 'arrow' | 'rect' | 'ellipse'
-export const DRAW_TOOLS: readonly DrawTool[] = ['pen', 'line', 'arrow', 'rect', 'ellipse']
+export type DrawTool = 'pen' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'redact'
+export const DRAW_TOOLS: readonly DrawTool[] = ['pen', 'line', 'arrow', 'rect', 'ellipse', 'redact']
 const LAST_DRAW_KEY = 'iwae:overlay-last-draw:v1'
 let lastDraw: DrawTool = (() => {
   try {
@@ -75,6 +75,7 @@ const DEFAULT_STYLES: Readonly<Record<OverlayTool, ToolStyle>> = {
   arrow: { ...BASE_STYLE, color: '#1a73e8', arrowEnd: true },
   rect: BASE_STYLE,
   ellipse: BASE_STYLE,
+  redact: BASE_STYLE,
   eraser: BASE_STYLE,
 }
 const STYLES_KEY = 'iwae:overlay-styles:v1'

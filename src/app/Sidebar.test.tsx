@@ -53,7 +53,7 @@ async function renderSidebar(
     onRevealRecentPdf?: (path: string) => void
     onEditBibliography?: (docId: string) => void
     onCopyBibtex?: (docId: string) => void
-    onMakeSearchable?: (docId: string) => void
+    onOpenPdfTools?: (docId: string) => void
     memoCategories?: Readonly<Record<string, { total: number; untagged: number; topics: readonly (readonly [string, number])[] }>>
     memoFilter?: { docId: string; topic: string | null } | null
     onSelectMemoCategory?: (doc: { docId: string }, topic: string | null) => void
@@ -109,7 +109,7 @@ async function renderSidebar(
       onRevealRecentPdf={overrides.onRevealRecentPdf}
       onEditBibliography={overrides.onEditBibliography}
       onCopyBibtex={overrides.onCopyBibtex}
-      onMakeSearchable={overrides.onMakeSearchable}
+      onOpenPdfTools={overrides.onOpenPdfTools}
       memoCategories={overrides.memoCategories}
       memoFilter={overrides.memoFilter}
       onSelectMemoCategory={overrides.onSelectMemoCategory}
@@ -903,13 +903,13 @@ describe('Sidebar — 서지 정보 메뉴', () => {
   })
 })
 
-describe('Sidebar — 검색 가능한 사본', () => {
-  it('PDF 메뉴에서 검색 가능한 사본 만들기를 부른다', async () => {
-    const onMakeSearchable = vi.fn()
-    await renderSidebar({ tree: emojiTree, onMakeSearchable })
+describe('Sidebar — PDF 도구', () => {
+  it('PDF 메뉴에서 PDF 도구 창을 연다', async () => {
+    const onOpenPdfTools = vi.fn()
+    await renderSidebar({ tree: emojiTree, onOpenPdfTools })
     fireEvent.contextMenu(screen.getByRole('button', { name: /첫 논문/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '검색 가능한 PDF 사본 만들기' }))
-    expect(onMakeSearchable).toHaveBeenCalledWith('doc-1')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'PDF 도구…' }))
+    expect(onOpenPdfTools).toHaveBeenCalledWith('doc-1')
   })
 })
 

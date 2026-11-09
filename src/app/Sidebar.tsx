@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from '
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
-import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, MagnifyingGlassPlus, PencilSimple, Quotes, Smiley, Stack, Star, Trash } from '@phosphor-icons/react'
+import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, PencilSimple, Quotes, Smiley, Stack, Star, Toolbox, Trash } from '@phosphor-icons/react'
 import {
   buildLegacyWorkspaceTree,
   projectVaultTree,
@@ -157,7 +157,8 @@ interface SidebarProps {
   onEditBibliography?: (docId: string) => void
   onCopyBibtex?: (docId: string) => void
   /** 스캔 PDF 에 보이지 않는 글자 층을 깐 사본을 만든다 */
-  onMakeSearchable?: (docId: string) => void
+  /** PDF 도구 창(OCR·합치기·표시 넣은 사본 …)을 연다 */
+  onOpenPdfTools?: (docId: string) => void
 }
 
 export interface MemoCategorySummary {
@@ -309,7 +310,7 @@ export function Sidebar({
   bibliography,
   onEditBibliography,
   onCopyBibtex,
-  onMakeSearchable,
+  onOpenPdfTools,
 }: SidebarProps) {
   // vault 줄과 목록이 같은 스크롤 영역에 있으면 목록이
   // 길어졌을 때 vault 줄이 화면 밖으로 밀려난다 — 항상 손이 닿아야
@@ -1744,8 +1745,8 @@ export function Sidebar({
           ].filter((node): node is ReactElement => node !== null),
           // 도구: 검색 사본·판 관리·Vault 로 복사
           [
-            contextMenu.pdf && onMakeSearchable !== undefined
-              ? item('searchable', <MagnifyingGlassPlus size={15} />, t('검색 가능한 PDF 사본 만들기'), () => void runEntryAction(() => onMakeSearchable(contextMenu.id)))
+            contextMenu.pdf && onOpenPdfTools !== undefined
+              ? item('pdf-tools', <Toolbox size={15} />, t('PDF 도구…'), () => { onOpenPdfTools(contextMenu.id); close() })
               : null,
             docId !== undefined && versionGroup === undefined && onStartVersions !== undefined
               ? item('versions-start', <Stack size={15} />, t('버전 관리 시작'), () => { onStartVersions(docId); close() })

@@ -762,7 +762,10 @@ export function SelectionLayer({
           onClose={() => setDocMenu(null)}
           entries={(() => {
             const picked = docMenu.selection
-            return documentContextEntries(picked === null ? {} : {
+            // 이 쪽에 글자가 있나: 없으면(스캔 쪽) 「OCR 로 글자 입히기」를 보인다
+            const pdf = { docId, hasText: index.chars.some((char) => char.c.trim() !== '' && char.w > 0) }
+            return documentContextEntries(picked === null ? { pdf } : {
+              pdf,
               selectedText: picked.anchor.quote,
               ...(onCopyWithSource === undefined ? {} : { onCopyWithSource: () => onCopyWithSource(picked) }),
               ...(onSearchDocuments === undefined ? {} : { onSearchSelection: () => onSearchDocuments(picked) }),

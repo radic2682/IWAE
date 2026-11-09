@@ -105,6 +105,10 @@ vi.mock('../bridge/pdf', () => ({
     chars: [...'Imported text'].map((c, i) => ({ c, x: i * 7, y: 4, w: 7, h: 12 })),
   })),
   exportAnnotatedPdf: vi.fn(async () => null),
+  setPdfPasswordPrompt: vi.fn(),
+  isPasswordProtectedDoc: vi.fn(() => false),
+  pdfBlankPages: vi.fn(async () => []),
+  exportPdfImages: vi.fn(async () => null),
 }))
 
 vi.mock('../pdf/PdfPane', () => ({
@@ -893,13 +897,16 @@ describe('App — 바깥 AI가 보낸 위치', () => {
   })
 })
 
-describe('App — 검색 가능한 PDF 사본', () => {
-  it('모든 쪽에 이미 글자가 있으면 사본을 만들지 않고 알린다', async () => {
+describe('App — PDF 도구', () => {
+  it('왼쪽 바 메뉴로 도구 창을 열고, 모든 쪽에 글자가 있으면 OCR 하지 않고 알린다', async () => {
     render(<App developmentPreview />)
     const documents = screen.getByRole('region', { name: '문서' })
     const pdfButton = within(documents).getAllByRole('button').find((button) => button.textContent?.includes(SAMPLE_TITLE))!
     fireEvent.contextMenu(pdfButton)
-    fireEvent.click(screen.getByRole('menuitem', { name: '검색 가능한 PDF 사본 만들기' }))
-    expect(await screen.findByText('이 PDF는 이미 모든 쪽에 글자가 있습니다')).toBeDefined()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'PDF 도구…' }))
+    const dialog = await screen.findByRole('dialog', { name: /PDF 도구/ })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'OCR 로 글자 입히기' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'OCR 시작' }))
+    expect((await within(dialog).findAllByText('이 PDF는 이미 모든 쪽에 글자가 있습니다')).length).toBeGreaterThan(0)
   })
 })

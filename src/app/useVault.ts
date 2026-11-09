@@ -17,7 +17,7 @@ import type {
   VaultTreeReorderRequest,
   VaultMarkdownNode,
 } from '../core/vaultTree'
-import { editPdfPages, openPdf, pageTextIndex, pickPdfFile, type PdfDocMeta, type PdfPageEditOp } from '../bridge/pdf'
+import { editPdfPages, openPdf, pageTextIndex, pickPdfFile, runPdfTool, type PdfDocMeta, type PdfPageEditOp, type PdfToolOp, type PdfToolResult } from '../bridge/pdf'
 import {
   attachPdfToLibrary,
   attachMarkdownReference,
@@ -830,18 +830,9 @@ export function useVault(options: UseVaultOptions = {}) {
    * 목록·색인의 해시·크기·쪽 수만 고친다. 노트(.canvas) 안의 이 문서 출처는 remapNote 로 옮긴다.
    * 덮기 전 원본은 .iwae/history/pdf-edits 에 남는다.
    */
-  const editDocumentPages = useCallback(async (
-    docId: string,
-    plan: readonly PdfPageEditOp[],
-    remapNote: (document: unknown) => unknown | null,
-  ): Promise<PdfDocMeta> => {
-    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
-    const entry = entries.find((candidate) => candidate.docId === docId)
-    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 는 편집할 수 없습니다.'))
-    const { join } = await import('@tauri-apps/api/path')
-    const stamp = new Date().toISOString().replace(/[:.]/gu, '-')
-    const backup = await join(vault.root, '.iwae', 'history', 'pdf-edits', `${entry.title}-${stamp}.pdf`)
-    const meta = await editPdfPages(docId, entry.path, backup, plan)
+  /** 원본이 바뀐 PDF(같은 docId)의 목록·색인 해시·크기·쪽 수를 고친다 */
+  const commitReplacedDocument = useCallback(async (docId: string, meta: PdfDocMeta) => {
+    if (vault === null) return
     const updated = entries.map((candidate) => candidate.docId === docId
       ? { ...candidate, sha256: meta.sha256, size: meta.size, pages: meta.pageCount }
       : candidate)
@@ -852,6 +843,32 @@ export function useVault(options: UseVaultOptions = {}) {
     setEntries(updated)
     setVaultIndex(nextIndex)
     setOpenedDocs((current) => current.map((doc) => doc.docId === docId ? meta : doc))
+  }, [entries, vault])
+
+  /** 덮기 전 원본을 남길 자리(.iwae/history/pdf-edits) */
+  const backupPathFor = useCallback(async (title: string) => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const { join } = await import('@tauri-apps/api/path')
+    const stamp = new Date().toISOString().replace(/[:.]/gu, '-')
+    return join(vault.root, '.iwae', 'history', 'pdf-edits', `${title}-${stamp}.pdf`)
+  }, [vault])
+
+  /**
+   * PDF 쪽 편집을 원본에 덮어쓴다. 문서 id 는 그대로 두고(형광펜·책갈피·노트 출처가 따라오게)
+   * 목록·색인의 해시·크기·쪽 수만 고친다. 노트(.canvas) 안의 이 문서 출처는 remapNote 로 옮긴다.
+   * 덮기 전 원본은 .iwae/history/pdf-edits 에 남는다.
+   */
+  const editDocumentPages = useCallback(async (
+    docId: string,
+    plan: readonly PdfPageEditOp[],
+    remapNote: (document: unknown) => unknown | null,
+  ): Promise<PdfDocMeta> => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const entry = entries.find((candidate) => candidate.docId === docId)
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 는 편집할 수 없습니다.'))
+    const backup = await backupPathFor(entry.title)
+    const meta = await editPdfPages(docId, entry.path, backup, plan)
+    await commitReplacedDocument(docId, meta)
     for (const note of notebooks.flatMap((group) => group.notes)) {
       try {
         const document = await readCanvas(vault, note.path)
@@ -863,7 +880,70 @@ export function useVault(options: UseVaultOptions = {}) {
       }
     }
     return meta
-  }, [entries, notebooks, vault])
+  }, [backupPathFor, commitReplacedDocument, entries, notebooks, vault])
+
+  /**
+   * PDF 도구를 원본에 적용한다(OCR 글자 층·쪽 번호·워터마크·여백 자르기처럼 쪽 수·순서가 그대로인 것).
+   * 문서 id 는 그대로라 형광펜·메모가 따라온다. 덮기 전 원본은 .iwae/history/pdf-edits 에 남는다.
+   */
+  const applyDocumentTool = useCallback(async (docId: string, op: PdfToolOp): Promise<PdfToolResult> => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const entry = entries.find((candidate) => candidate.docId === docId)
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 는 편집할 수 없습니다.'))
+    const backup = await backupPathFor(entry.title)
+    const result = await runPdfTool(docId, op, { kind: 'inPlace', path: entry.path, backup })
+    if (result === null || result.meta === null) throw new Error(t('PDF 를 고치지 못했습니다'))
+    await commitReplacedDocument(docId, result.meta)
+    return result
+  }, [backupPathFor, commitReplacedDocument, entries, vault])
+
+  /**
+   * PDF 도구의 결과를 원본 옆(같은 폴더) 새 PDF 로 쓰고 목록에 올린다. 이름이 겹치면 (2)·(3)… 을 붙인다.
+   * 쓴 파일의 절대 경로를 돌려준다.
+   */
+  const writeDocumentToolCopy = useCallback(async (docId: string, op: PdfToolOp, suffix: string, subfolder?: string): Promise<string> => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const entry = entries.find((candidate) => candidate.docId === docId)
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 입니다.'))
+    const { dirname, join } = await import('@tauri-apps/api/path')
+    const { exists } = await import('@tauri-apps/plugin-fs')
+    const parent = await dirname(entry.path)
+    const folder = subfolder === undefined ? parent : await join(parent, subfolder.replace(/[\\/:*?"<>|]/gu, '').trim() || 'PDF')
+    const base = `${entry.title} ${suffix}`.replace(/[\\/:*?"<>|]/gu, '').trim()
+    let path = await join(folder, `${base}.pdf`)
+    for (let n = 2; await exists(path); n += 1) path = await join(folder, `${base} (${n}).pdf`)
+    const result = await runPdfTool(docId, op, { kind: 'newFile', path })
+    if (result === null) throw new Error(t('새 PDF 를 만들지 못했습니다'))
+    await refreshVaultFilesRef.current(vault)
+    return result.path
+  }, [entries, vault])
+
+  /** PDF 의 글을 원본 옆 Markdown 파일로 쓴다. 쓴 경로 */
+  const writeDocumentMarkdown = useCallback(async (docId: string, markdown: string): Promise<string> => {
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+    const entry = entries.find((candidate) => candidate.docId === docId)
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 입니다.'))
+    const { dirname, join } = await import('@tauri-apps/api/path')
+    const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
+    const folder = await dirname(entry.path)
+    const base = entry.title.replace(/[\\/:*?"<>|]/gu, '').trim() || 'PDF'
+    let path = await join(folder, `${base}.md`)
+    for (let n = 2; await exists(path); n += 1) path = await join(folder, `${base} (${n}).md`)
+    await writeTextFile(path, markdown)
+    await refreshVaultFilesRef.current(vault)
+    return path
+  }, [entries, vault])
+
+  /** Vault 의 PDF 들(합치기·비교에 고를 것) */
+  const vaultPdfs = useMemo(() => entries.map((entry) => ({ docId: entry.docId, title: entry.title, path: entry.path })), [entries])
+
+  /** 경로로 PDF 를 연다(방금 도구로 만든 파일). Vault 목록에 있으면 그것으로, 없으면 밖의 파일처럼 */
+  const openPdfAtPath = useCallback(async (path: string) => {
+    const key = path.replaceAll('\\', '/').toLocaleLowerCase()
+    const entry = entries.find((candidate) => candidate.path.replaceAll('\\', '/').toLocaleLowerCase() === key)
+    if (entry !== undefined) await openDocument({ docId: entry.docId, title: entry.title, pages: entry.pages })
+    else await openExternalPdf(path)
+  }, [entries, openDocument, openExternalPdf])
 
   const setMarkdownTheme = useCallback(async (nextTheme: MarkdownThemeId) => {
     setMarkdownThemeState(nextTheme)
@@ -1663,6 +1743,11 @@ export function useVault(options: UseVaultOptions = {}) {
     openMarkdown,
     relink,
     editDocumentPages,
+    applyDocumentTool,
+    writeDocumentToolCopy,
+    writeDocumentMarkdown,
+    vaultPdfs,
+    openPdfAtPath,
     loadPdfById,
   }
 }

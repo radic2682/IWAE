@@ -1062,7 +1062,7 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
     }
     let meta: Awaited<ReturnType<typeof openPdf>>
     try {
-      meta = await openPdf(absolute)
+      meta = await openPdf(absolute, undefined, { askPassword: false })
     } catch {
       continue
     }

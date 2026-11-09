@@ -17,6 +17,7 @@ import type { VisiblePdfSourceReference } from '../core/workspaceSources'
 import type { PdfSearchMatch } from '../core/pdfSearch'
 import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import { prewarmPdfTextDetector } from './ocrTextDetector'
+import { ScanBadge } from './ScanBadge'
 import { getAppPrefs } from '../app/appPrefs'
 import { layoutPages, layoutSpread, pageUnitAt, spreadHeight, totalHeight, visibleRange, type SpreadBox } from './pageLayout'
 import { spreadColumns, type PdfRotation, type PdfSpread } from '../core/pdfViewPrefs'
@@ -1898,7 +1899,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       {/* 스캔본 표시. 화면 구석에 조용히 둔다 — 사용자가 고칠 수 있는 일이
           아니라 경고할 것이 아니고, M5 에서 텍스트 발췌 메뉴가 잠길 때
           "왜 잠겼는지"를 미리 알려 두는 몫이다. */}
-      {hasText ? null : <div className="pdf-scan">{t('스캔본 · 텍스트 없음')}</div>}
+      {hasText ? null : <ScanBadge docId={docId} />}
       {(() => {
         if (openHighlight === null || onPersistentHighlightUpdated === undefined) return null
         const highlight = persistentHighlights.find(({ id }) => id === openHighlight.id)

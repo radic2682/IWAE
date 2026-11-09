@@ -9,14 +9,14 @@ import { TextB, Trash, PaintBucket, BoundingBox, ArrowRight, ArrowsHorizontal } 
 import '../ui/pdf-overlay.css'
 import { t } from '../i18n'
 
-export type OverlayTool = 'text' | 'pen' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse'
+export type OverlayTool = 'text' | 'pen' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'redact'
 
 /** 새로 만들 것의 서식(도구마다 따로 기억한다: overlayToolStore) */
 export type OverlayStyle = ToolStyle
 
 /** 도형 도구인가 */
 function shapeOfTool(tool: OverlayTool): PdfShape['shape'] | null {
-  return tool === 'rect' ? 'rect' : tool === 'ellipse' ? 'ellipse' : null
+  return tool === 'rect' ? 'rect' : tool === 'ellipse' ? 'ellipse' : tool === 'redact' ? 'redact' : null
 }
 
 interface PdfOverlayLayerProps {
@@ -354,7 +354,16 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
           const scale = layout.width / size[0]
           const box = { x: layout.left + shape.x * scale, y: layout.top + shape.y * scale, w: shape.w * scale, h: shape.h * scale }
           const strokeWidth = Math.max(shape.width * scale, 1)
-          const look = {
+          const redact = shape.shape === 'redact'
+          // 가리기: 검게 덮고 빨간 점선 테두리(아직 정말 지운 것은 아니라는 표시)
+          const look = redact ? {
+            stroke: '#d9363e',
+            strokeWidth: 1.5,
+            fill: '#111111',
+            fillOpacity: 0.86,
+            strokeDasharray: '5 3',
+            strokeLinecap: undefined,
+          } : {
             stroke: shape.color,
             strokeWidth,
             fill: shape.fill === true ? shape.color : 'none',
@@ -366,7 +375,7 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
             ? <ellipse cx={box.x + box.w / 2} cy={box.y + box.h / 2} rx={box.w / 2} ry={box.h / 2} {...props} />
             : <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={2} {...props} />
           return (
-            <g key={shape.id} className={`pdf-overlay-line pdf-overlay-shape${shape.fill === true ? ' pdf-overlay-shape-filled' : ''}${selectedId === shape.id ? ' pdf-overlay-line-selected' : ''}`}>
+            <g key={shape.id} className={`pdf-overlay-line pdf-overlay-shape${redact ? ' pdf-overlay-redact' : ''}${shape.fill === true ? ' pdf-overlay-shape-filled' : ''}${selectedId === shape.id ? ' pdf-overlay-line-selected' : ''}`}>
               {outline(look)}
               {editMode ? outline({
                 className: 'pdf-overlay-line-hit pdf-overlay-shape-hit',

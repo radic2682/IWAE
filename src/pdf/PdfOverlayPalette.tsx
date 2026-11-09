@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, ArrowUpRight, ArrowsHorizontal, BoundingBox, Circle, Eraser, LineSegment, PaintBucket, PencilSimple, Square, TextAa, TextB, Trash, X } from '@phosphor-icons/react'
+import { ArrowRight, ArrowUpRight, ArrowsHorizontal, BoundingBox, Circle, Eraser, LineSegment, PaintBucket, PencilSimple, Rectangle, Square, TextAa, TextB, Trash, X } from '@phosphor-icons/react'
 import { dashOf, dashPatch, isOverlayColor, LINE_WIDTHS, OVERLAY_COLORS, TEXT_SIZES, type OverlayColor, type OverlayDash, type OverlayPatch, type PdfOverlay } from '../core/pdfOverlays'
 import type { OverlayStyle, OverlayTool } from './PdfOverlayLayer'
 import type { ToolStyle } from './overlayToolStore'
@@ -154,11 +154,13 @@ export const OVERLAY_TOOLS: readonly { id: OverlayTool; label: string; shortcut:
   { id: 'arrow', label: '화살표', shortcut: 'A', icon: (size, active) => <ArrowUpRight size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
   { id: 'rect', label: '네모', shortcut: 'R', icon: (size, active) => <Square size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
   { id: 'ellipse', label: '동그라미', shortcut: 'O', icon: (size, active) => <Circle size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
+  { id: 'redact', label: '가리기', shortcut: 'X', icon: (size, active) => <Rectangle size={size} weight={active ? 'fill' : 'duotone'} aria-hidden="true" /> },
   { id: 'eraser', label: '지우개', shortcut: 'E', icon: (size, active) => <Eraser size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
 ]
 export const overlayToolInfo = (id: OverlayTool) => OVERLAY_TOOLS.find((item) => item.id === id) ?? OVERLAY_TOOLS[0]!
 
 const KIND_LABEL: Record<PdfOverlay['kind'], string> = { text: '고른 글 상자', line: '고른 선', ink: '고른 펜 획', shape: '고른 도형' }
+const REDACT_LABEL = '고른 가리기 상자'
 const TOOL_HINT: Partial<Record<OverlayTool, string>> = {
   text: '끌면 그 너비로 · 누르면 바로 쓰기',
   pen: '누른 채 그리기',
@@ -166,6 +168,7 @@ const TOOL_HINT: Partial<Record<OverlayTool, string>> = {
   arrow: 'Shift: 수평·수직·45°',
   rect: 'Shift: 정사각형',
   ellipse: 'Shift: 원',
+  redact: '끌어서 가릴 곳 지정 · 「PDF 도구 → 가린 사본」을 만들면 그 자리 글자가 정말 지워집니다',
   eraser: '누른 채 지나가면 지움 (형광펜·박스 메모 포함)',
 }
 
@@ -194,7 +197,9 @@ const FILLS: readonly { value: ToolStyle['textFill']; label: string; swatch: str
 export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null, onUpdateSelected, onRemoveSelected, onDone }: PdfOverlayPaletteProps) {
   const info = overlayToolInfo(tool)
   // 서식 대상: 고른 덮개, 없으면 지금 도구로 새로 만들 것
-  const target: 'text' | 'pen' | 'line' | 'shape' | null = selected !== null
+  const redactSelected = selected?.kind === 'shape' && selected.shape === 'redact'
+  // 가리기 상자에는 서식이 없다(늘 검게 덮는다)
+  const target: 'text' | 'pen' | 'line' | 'shape' | null = redactSelected ? null : selected !== null
     ? selected.kind === 'text' ? 'text' : selected.kind === 'line' ? 'line' : selected.kind === 'shape' ? 'shape' : 'pen'
     : tool === 'text' ? 'text' : tool === 'line' || tool === 'arrow' ? 'line' : tool === 'rect' || tool === 'ellipse' ? 'shape' : tool === 'pen' ? 'pen' : null
   const set = (stylePatch: Partial<ToolStyle>, selectedPatch: OverlayPatch) => (selected !== null ? onUpdateSelected?.(selectedPatch) : onStyleChange(stylePatch))
@@ -209,7 +214,7 @@ export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null,
     ? selected.arrow === true ? selected.arrowStart === true ? 'both' : 'end' : 'none'
     : style.arrowEnd ? style.arrowStart ? 'both' : 'end' : 'none'
   const shapeFill = selected?.kind === 'shape' ? selected.fill === true : style.fill
-  const label = selected !== null ? t(KIND_LABEL[selected.kind]) : t(info.label)
+  const label = redactSelected ? t(REDACT_LABEL) : selected !== null ? t(KIND_LABEL[selected.kind]) : t(info.label)
   const sizes = TEXT_SIZES.filter((size) => size >= 8)
 
   return (

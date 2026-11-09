@@ -9,6 +9,7 @@ import { GROUP_3 } from './en/group3'
 import { GROUP_4 } from './en/group4'
 import { GROUP_5 } from './en/group5'
 import { GROUP_6 } from './en/group6'
+import { GROUP_7 } from './en/group7'
 
 export const EN: Readonly<Record<string, string>> = {
   ...GROUP_1,
@@ -17,5 +18,6 @@ export const EN: Readonly<Record<string, string>> = {
   ...GROUP_4,
   ...GROUP_5,
   ...GROUP_6,
+  ...GROUP_7,
   ...COMMON,
 }

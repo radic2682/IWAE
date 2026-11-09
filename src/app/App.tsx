@@ -14,7 +14,13 @@ import { ActionToast } from './ActionToast'
 import { registerLiveCanvas } from './liveCanvasRegistry'
 import { useMcpCanvasBridge } from './useMcpCanvasBridge'
 import { announceAction } from './actionFeedback'
-import { exportSearchablePdf, pageTextIndex, pdfOutline, type SearchablePdfPage } from '../bridge/pdf'
+import { exportPdfImages, isPasswordProtectedDoc, pageTextIndex, pdfBlankPages, pdfOutline, setPdfPasswordPrompt, type SearchablePdfPage } from '../bridge/pdf'
+import { PdfToolsDialog, type PdfToolId } from './PdfToolsDialog'
+import { PdfPasswordDialog } from './PdfPasswordDialog'
+import { buildFlattenOp, countMarks } from '../core/pdfToolOps'
+import { diffLines, pageLines } from '../core/pdfTextDiff'
+import { getPdfToolJob, setPdfToolJob } from '../pdf/pdfToolJobs'
+import { setOverlayTool } from '../pdf/overlayToolStore'
 import { recognizePdfPageLines } from '../pdf/pdfOcrText'
 import type { PageTextIndex } from '../core/textIndex'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
@@ -410,6 +416,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     openMarkdown,
     relink,
     editDocumentPages,
+    applyDocumentTool,
+    writeDocumentToolCopy,
+    writeDocumentMarkdown,
+    vaultPdfs,
+    openPdfAtPath,
     loadPdfById,
   } = vaultState
   const injected = effectiveLibrary !== undefined && effectiveNotebooks !== undefined
@@ -939,13 +950,40 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 문서 칸 우클릭 메뉴의 「이 문서에서 찾기」 등: 단축키와 같은 동작을 부른다
   useEffect(() => {
     const onCommand = (event: Event) => {
-      const name = (event as CustomEvent<{ name?: string }>).detail?.name
+      const detail = (event as CustomEvent<{ name?: string; docId?: string; tool?: string }>).detail
+      const name = detail?.name
       if (name === 'search' || name === 'documentSearch' || name === 'commandPalette') shortcutActionsRef.current[name]?.()
+      if (name === 'pdfTools' && detail?.docId !== undefined) setPdfToolsTarget({ docId: detail.docId, ...(detail.tool === undefined ? {} : { tool: detail.tool as PdfToolId }) })
+      if (name === 'ocrDocument' && detail?.docId !== undefined) {
+        void ocrDocumentRef.current(detail.docId).catch((cause: unknown) => announceAction(t('OCR 하지 못했습니다: {error}', { error: errorText(cause) })))
+      }
     }
     window.addEventListener(APP_COMMAND_EVENT, onCommand)
     return () => window.removeEventListener(APP_COMMAND_EVENT, onCommand)
   }, [])
   useEffect(() => { clearUndo() }, [vault])
+  /** 지금 PDF 에 쓸 수 있는 도구(명령 팔레트) */
+  const pdfToolPaletteCommands = (docId: string): PaletteCommand[] => {
+    const open = (tool: PdfToolId) => () => setPdfToolsTarget({ docId, tool })
+    const meta = openedDocs.find((doc) => doc.docId === docId)
+    return [
+      { id: 'pdf-tools', kind: 'action', label: t('PDF 도구…'), keywords: 'pdf tools stirling', run: open(meta?.hasText === false ? 'ocr' : 'flatten') },
+      { id: 'pdf-ocr', kind: 'action', label: t('PDF: OCR 로 글자 입히기'), keywords: 'ocr scan text recognize', run: () => { void ocrDocumentRef.current(docId).catch((cause: unknown) => announceAction(errorText(cause))) } },
+      { id: 'pdf-flatten', kind: 'action', label: t('PDF: 표시 넣은 사본'), keywords: 'flatten annotate export share', run: open('flatten') },
+      { id: 'pdf-redact', kind: 'action', label: t('PDF: 가린 사본'), keywords: 'redact hide privacy', run: open('redact') },
+      { id: 'pdf-compare', kind: 'action', label: t('PDF: 다른 판과 글자 비교'), keywords: 'compare diff version', run: open('compare') },
+      { id: 'pdf-extract', kind: 'action', label: t('PDF: 쪽 뽑아 새 PDF'), keywords: 'extract split pages', run: open('extract') },
+      { id: 'pdf-split', kind: 'action', label: t('PDF: 목차 단위로 나누기'), keywords: 'split chapters', run: open('split') },
+      { id: 'pdf-merge', kind: 'action', label: t('PDF: 다른 PDF 와 합치기'), keywords: 'merge combine', run: open('merge') },
+      { id: 'pdf-blanks', kind: 'action', label: t('PDF: 빈 쪽 빼기'), keywords: 'blank remove pages', run: open('blanks') },
+      { id: 'pdf-numbers', kind: 'action', label: t('PDF: 쪽 번호 넣기'), keywords: 'page numbers', run: open('numbers') },
+      { id: 'pdf-watermark', kind: 'action', label: t('PDF: 워터마크'), keywords: 'watermark stamp', run: open('watermark') },
+      { id: 'pdf-crop', kind: 'action', label: t('PDF: 여백 자르기'), keywords: 'crop margins', run: open('crop') },
+      { id: 'pdf-nup', kind: 'action', label: t('PDF: 모아찍기'), keywords: 'n-up layout print', run: open('nup') },
+      { id: 'pdf-images', kind: 'action', label: t('PDF: 쪽 그림(PNG)으로 내보내기'), keywords: 'images png export', run: open('images') },
+      { id: 'pdf-markdown', kind: 'action', label: t('PDF: 글을 Markdown 으로'), keywords: 'markdown text export', run: open('markdown') },
+    ]
+  }
   /** 명령 팔레트(Ctrl+Shift+P)에 보일 동작과 문서 */
   const paletteCommands = (): PaletteCommand[] => {
     const act = (name: keyof AppShortcutActions) => () => shortcutActionsRef.current[name]?.()
@@ -968,6 +1006,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       { id: 'print', kind: 'action', label: t('인쇄'), shortcut: 'Ctrl+P', keywords: 'print', run: act('print') },
       { id: 'theme', kind: 'action', label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'), keywords: 'theme dark light', run: () => theme.setPreference(theme.resolvedTheme === 'dark' ? 'light' : 'dark') },
       ...(SPLIT_PANES_ENABLED ? [{ id: 'split', kind: 'action' as const, label: t('화면 나누기 바꾸기'), shortcut: 'Ctrl+\\', keywords: 'split pane', run: act('toggleSinglePane') }] : []),
+      ...(activePdfDoc === null ? [] : pdfToolPaletteCommands(activePdfDoc.docId)),
     ]
     const documents: PaletteCommand[] = searchRecords
       .filter((record) => record.kind === 'pdf' || record.kind === 'markdown')
@@ -1368,36 +1407,70 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (range !== null) setDraftPdfHighlight(buildAnchor(location.docId, pageIndex, index, range[0], range[1]))
     }).catch(() => undefined)
   }, [docTitles, navigation, openMarkdown, searchRecords])
-  /**
-   * 글자 층이 없는 쪽만 OCR 해서 보이지 않는 글자를 깐 사본을 만든다. 이미 글자가 있는 쪽은
-   * 건드리지 않는다 — 원래 글자 위에 OCR 글자를 겹치면 검색 결과가 두 번씩 나온다.
-   */
-  const makeSearchablePdf = useCallback(async (docId: string) => {
+  /** PDF 도구 창(대상 문서·먼저 고를 도구) */
+  const [pdfToolsTarget, setPdfToolsTarget] = useState<{ docId: string; tool?: PdfToolId } | null>(null)
+  /** 암호 PDF 를 열 때 묻는 창 */
+  const [passwordRequest, setPasswordRequest] = useState<{ path: string; wrong: boolean; nonce: number; resolve: (password: string | null) => void } | null>(null)
+  const passwordNonce = useRef(0)
+  useEffect(() => {
+    setPdfPasswordPrompt((request) => new Promise((resolve) => setPasswordRequest({ ...request, nonce: (passwordNonce.current += 1), resolve })))
+    return () => setPdfPasswordPrompt(null)
+  }, [])
+  /** 도구를 돌릴 문서의 메타(열려 있지 않으면 연다) */
+  const toolDocumentMeta = useCallback(async (docId: string) => {
+    const opened = openedDocs.find((doc) => doc.docId === docId)
+    if (opened !== undefined) return opened
     const libraryDoc = shownLibrary.find((doc) => doc.docId === docId)
-    const meta = openedDocs.find((doc) => doc.docId === docId)
-      ?? (libraryDoc === undefined ? null : await openDocument(libraryDoc))
-    if (meta === null) {
-      announceAction(t('PDF를 열 수 없습니다'))
-      return
-    }
-    const pages: SearchablePdfPage[] = []
-    for (let page = 0; page < meta.pageCount; page += 1) {
-      const native = await pageTextIndex(docId, page).catch(() => null)
-      if (native !== null && native.chars.some((char) => char.c.trim() !== '' && char.w > 0)) continue
-      announceAction(t('OCR 중 {page}/{total}쪽', { page: page + 1, total: meta.pageCount }))
-      const lines = await recognizePdfPageLines(docId, page, meta.pageSizes[page]?.[0] ?? 612).catch(() => [])
-      if (lines.length > 0) pages.push({ page, lines: lines.map((line) => ({ ...line })) })
-    }
-    if (pages.length === 0) {
-      announceAction(t('이 PDF는 이미 모든 쪽에 글자가 있습니다'))
-      return
-    }
-    const result = await exportSearchablePdf(docId, pages, t('{title} (검색 가능)', { title: meta.title }))
-    if (result === null) return
-    announceAction(result.skipped > 0
-      ? t('검색 가능한 PDF를 저장했습니다(한글 글꼴이 없어 {skipped}줄 제외): {path}', { skipped: result.skipped, path: result.path })
-      : t('검색 가능한 PDF를 저장했습니다: {path}', { path: result.path }))
+    return libraryDoc === undefined ? null : openDocument(libraryDoc, false)
   }, [openDocument, openedDocs, shownLibrary])
+  /**
+   * 글자 층이 없는 쪽만 OCR 해서 원본에 보이지 않는 글자를 입힌다(덮기 전 원본은 .iwae/history/pdf-edits).
+   * 이미 글자가 있는 쪽은 건드리지 않는다 — 원래 글자 위에 OCR 글자를 겹치면 검색 결과가 두 번씩 나온다.
+   * 진행은 pdfToolJobs 로 알린다(스캔 표시 단추·도구 창이 같이 본다).
+   */
+  const ocrDocument = useCallback(async (docId: string): Promise<string> => {
+    if (getPdfToolJob(docId) !== undefined) return t('이미 OCR 하는 중입니다')
+    const meta = await toolDocumentMeta(docId)
+    if (meta === null) throw new Error(t('PDF를 열 수 없습니다'))
+    setPdfToolJob({ docId, label: 'OCR 준비 중', done: 0, total: meta.pageCount })
+    try {
+      const pages: SearchablePdfPage[] = []
+      for (let page = 0; page < meta.pageCount; page += 1) {
+        const native = await pageTextIndex(docId, page).catch(() => null)
+        setPdfToolJob({ docId, label: 'OCR 중', done: page + 1, total: meta.pageCount })
+        if (native !== null && native.chars.some((char) => char.c.trim() !== '' && char.w > 0)) continue
+        const lines = await recognizePdfPageLines(docId, page, meta.pageSizes[page]?.[0] ?? 612).catch(() => [])
+        if (lines.length > 0) pages.push({ page, lines: lines.map((line) => ({ ...line })) })
+      }
+      if (pages.length === 0) {
+        const message = t('이 PDF는 이미 모든 쪽에 글자가 있습니다')
+        announceAction(message)
+        return message
+      }
+      setPdfToolJob({ docId, label: '글자 입히는 중', done: meta.pageCount, total: meta.pageCount })
+      const result = await applyDocumentTool(docId, { kind: 'searchable', pages })
+      const message = result.report.skipped > 0
+        ? t('OCR 글자 {count}줄을 입혔습니다(한글 글꼴이 없어 {skipped}줄 제외). 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다', { count: result.report.written, skipped: result.report.skipped })
+        : t('OCR 글자 {count}줄을 입혔습니다. 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다', { count: result.report.written })
+      announceAction(message)
+      return message
+    } finally {
+      setPdfToolJob({ docId, clear: true })
+    }
+  }, [applyDocumentTool, toolDocumentMeta])
+  const ocrDocumentRef = useRef(ocrDocument)
+  ocrDocumentRef.current = ocrDocument
+  const [pdfToolsOutline, setPdfToolsOutline] = useState<Record<string, readonly { title: string; page: number | null; depth: number }[]>>({})
+  useEffect(() => {
+    const docId = pdfToolsTarget?.docId
+    if (docId === undefined) return
+    let alive = true
+    void toolDocumentMeta(docId).then(() => pdfOutline(docId)).then((entries) => {
+      if (!alive) return
+      setPdfToolsOutline((current) => ({ ...current, [docId]: entries }))
+    }).catch(() => undefined)
+    return () => { alive = false }
+  }, [pdfToolsTarget?.docId, toolDocumentMeta])
   navigationJumpRef.current = navigation.jump
   navigationBackRef.current = navigation.back
   navigationForwardRef.current = navigation.forward
@@ -1630,6 +1703,92 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setCanvasEpoch((epoch) => epoch + 1)
     setPageEditDocId(null)
     announceAction(t('쪽 편집을 저장했습니다. 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다'))
+  }
+  /** PDF 도구 창. 문서의 표시 수·목차·다른 PDF 를 모아 넘기고, 창이 부탁하는 일을 해 준다 */
+  const renderPdfTools = (target: { docId: string; tool?: PdfToolId }) => {
+    const docId = target.docId
+    const meta = openedDocs.find((doc) => doc.docId === docId)
+    const title = docTitles[docId] ?? meta?.title ?? 'PDF'
+    const docOverlays = pdfOverlays.overlays[docId] ?? []
+    const group = groupOfDoc(versionGroups.groups, docId)
+    const siblings = new Set(group?.versions.map((version) => version.docId) ?? [])
+    const others = vaultPdfs
+      .filter((pdf) => pdf.docId !== docId)
+      .map((pdf) => ({ ...pdf, title: docTitles[pdf.docId] ?? pdf.title, sibling: siblings.has(pdf.docId) }))
+      .sort((a, b) => Number(b.sibling) - Number(a.sibling) || a.title.localeCompare(b.title))
+    const fileName = (path: string) => path.split(/[\\/]/u).at(-1) ?? path
+    return (
+      <PdfToolsDialog
+        docId={docId}
+        title={title}
+        pageCount={meta?.pageCount ?? 0}
+        hasText={meta?.hasText ?? true}
+        passwordProtected={isPasswordProtectedDoc(docId)}
+        outline={pdfToolsOutline[docId] ?? []}
+        otherPdfs={others}
+        marks={countMarks(docId, pdfHighlights.highlights, docOverlays)}
+        buildFlatten={(choice) => buildFlattenOp(docId, pdfHighlights.highlights, docOverlays, choice)}
+        initialTool={target.tool}
+        onClose={() => setPdfToolsTarget(null)}
+        actions={{
+          ocr: () => ocrDocument(docId),
+          applyInPlace: async (op) => {
+            await applyDocumentTool(docId, op)
+            const message = t('원본에 적용했습니다. 덮기 전 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다')
+            announceAction(message)
+            return message
+          },
+          saveCopy: (op, suffix, folder) => writeDocumentToolCopy(docId, op, suffix, folder),
+          removePages: async (pages) => {
+            if (meta === undefined) throw new Error(t('PDF를 열 수 없습니다'))
+            const drop = new Set(pages)
+            const items = Array.from({ length: meta.pageCount }, (_, page) => page)
+              .filter((page) => !drop.has(page))
+              .map((page) => ({ key: `p${page}`, page, rotate: 0 as const }))
+            await savePageEdit(docId, meta.pageSizes, items)
+            return t('{count}쪽을 뺐습니다', { count: pages.length })
+          },
+          findBlankPages: () => pdfBlankPages(docId),
+          exportImages: async (dpi) => {
+            const result = await exportPdfImages(docId, title, dpi)
+            return result === null ? t('취소했습니다') : t('그림 {count}장을 저장했습니다: {folder}', { count: result.count, folder: result.folder })
+          },
+          exportMarkdown: async () => {
+            const pageCount = meta?.pageCount ?? 0
+            const parts: string[] = [`# ${title}`, '']
+            for (let page = 0; page < pageCount; page += 1) {
+              const index = await pageTextIndex(docId, page).catch(() => null)
+              const text = (index?.text ?? '').replace(/[ \t]+\n/gu, '\n').trim()
+              parts.push(`## p.${page + 1}`, '', text === '' ? t('(글자 없음)') : text, '')
+            }
+            const path = await writeDocumentMarkdown(docId, parts.join('\n'))
+            return t('Markdown 을 저장했습니다: {name}', { name: fileName(path) })
+          },
+          compare: async (otherDocId) => {
+            const other = await toolDocumentMeta(otherDocId)
+            if (meta === undefined || other === null) throw new Error(t('PDF를 열 수 없습니다'))
+            const read = async (id: string, count: number) => {
+              const texts: string[] = []
+              for (let page = 0; page < count; page += 1) texts.push((await pageTextIndex(id, page).catch(() => null))?.text ?? '')
+              return texts
+            }
+            const [mine, theirs] = await Promise.all([read(docId, meta.pageCount), read(otherDocId, other.pageCount)])
+            return diffLines(pageLines(mine), pageLines(theirs))
+          },
+          openPath: (path) => { void openPdfAtPath(path) },
+          jump: (id, page) => {
+            const libraryDoc = shownLibrary.find((doc) => doc.docId === id)
+            if (!openedDocs.some((doc) => doc.docId === id) && libraryDoc !== undefined) void openDocument(libraryDoc).then(() => navigation.jump({ docId: id, page: page + 1 }))
+            else navigation.jump({ docId: id, page: page + 1 })
+          },
+          startRedactTool: () => {
+            setPdfToolsTarget(null)
+            setOverlayTool('redact')
+            window.dispatchEvent(new CustomEvent('iwae:start-overlay-edit', { detail: { docId } }))
+          },
+        }}
+      />
+    )
   }
   /**
    * 목차·축소판·주석 패널 위에 "지금 어느 패널의 어느 문서를 따르는가"를 보인다.
@@ -2249,9 +2408,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             bibliography={bibliography.entries}
             onEditBibliography={setBibliographyDocId}
             onCopyBibtex={copyBibtex}
-            onMakeSearchable={(docId) => {
-              void makeSearchablePdf(docId).catch((cause: unknown) => announceAction(t('검색 가능한 PDF를 만들지 못했습니다: {error}', { error: errorText(cause) })))
-            }}
+            onOpenPdfTools={(docId) => setPdfToolsTarget({ docId })}
           />
         ) : (
           <div className="side-doc-target-wrap">
@@ -2401,6 +2558,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         />
       )
     })() : null}
+    {pdfToolsTarget !== null ? renderPdfTools(pdfToolsTarget) : null}
+    {passwordRequest !== null ? (
+      <PdfPasswordDialog
+        key={passwordRequest.nonce}
+        path={passwordRequest.path}
+        wrong={passwordRequest.wrong}
+        onSubmit={(password) => { passwordRequest.resolve(password); setPasswordRequest(null) }}
+        onCancel={() => { passwordRequest.resolve(null); setPasswordRequest(null) }}
+      />
+    ) : null}
     {bibliographyDocId !== null ? (
       <BibliographyDialog
         documentTitle={docTitles[bibliographyDocId] ?? bibliographyDocId}
