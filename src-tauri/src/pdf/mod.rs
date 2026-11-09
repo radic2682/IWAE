@@ -7,15 +7,17 @@ mod cache;
 mod engine;
 pub mod shared;
 mod thread;
+mod tools;
 
 pub use engine::{
     find_unicode_font, pdf_space_rect, sanitize_uri, CharBox, CropRect, ExportHighlight,
     ImportedAnnotation, LayoutChar, LayoutRect, LayoutSegment, LinkRect, PageLayout, PageTextIndex, PdfDocMeta, PdfLink, PdfLinkTarget, PdfMetadata,
     PdfOutlineEntry, PdfRenderError, SearchableLine, SearchablePage, SearchableReport,
     CROP_PIXELS_PER_POINT, MAX_RENDER_PIXELS, MAX_RENDER_WIDTH, MAX_TILE_PAGE_WIDTH, MAX_TILE_SIDE, MIN_RENDER_WIDTH,
-    RawImage, TileRect,
+    RawImage, TileRect, PASSWORD_REQUIRED, PASSWORD_WRONG,
 };
-pub use thread::PdfThread;
+pub use tools::{FlatNote, FlatOverlay, NumberPosition, Redaction, ToolOp, ToolReport};
+pub use thread::{PdfThread, ToolResult, ToolTarget};
 
 use std::path::PathBuf;
 
@@ -30,10 +32,11 @@ pub async fn pdf_open(
     state: State<'_, PdfThread>,
     path: String,
     doc_id: Option<String>,
+    password: Option<String>,
 ) -> Result<PdfDocMeta, String> {
     let pdf = state.inner().clone();
 
-    tauri::async_runtime::spawn_blocking(move || pdf.open_with_id_blocking(PathBuf::from(path), doc_id))
+    tauri::async_runtime::spawn_blocking(move || pdf.open_with_password_blocking(PathBuf::from(path), doc_id, password.filter(|p| !p.is_empty())))
         .await
         .map_err(|err| tr!("PDF 열기 작업이 중단되었습니다: {err}", "PDF open task was interrupted: {err}"))?
 }
@@ -313,4 +316,95 @@ pub async fn pdf_edit_pages(
     })
     .await
     .map_err(|err| tr!("쪽 편집 작업이 중단되었습니다: {err}", "Page edit task was interrupted: {err}"))?
+}
+
+/// 도구 결과를 둘 곳. 웹뷰에서 `{ kind: "inPlace" | "newFile" | "dialog", ... }` 로 온다.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum ToolOutput {
+    /// 원본을 덮는다(덮기 전 원본은 backup). 경로는 Vault 목록에 있는 그 파일이어야 한다.
+    InPlace { path: String, backup: String },
+    /// Vault 안 새 파일.
+    NewFile { path: String },
+    /// 저장 위치를 Rust 대화상자에서 고른다.
+    Dialog { suggested_name: String },
+}
+
+/// PDF 도구(OCR 글자 층·내 표시 굽기·가리기·쪽 뽑기·합치기·쪽 번호·워터마크·여백 자르기·모아찍기·암호 풀기).
+/// 대화상자를 취소하면 `None`.
+#[tauri::command]
+pub async fn pdf_tool(
+    app: tauri::AppHandle,
+    state: State<'_, PdfThread>,
+    doc_id: String,
+    op: ToolOp,
+    output: ToolOutput,
+) -> Result<Option<ToolResult>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let target = match output {
+        ToolOutput::InPlace { path, backup } => ToolTarget::InPlace { path: PathBuf::from(path), backup: PathBuf::from(backup) },
+        ToolOutput::NewFile { path } => ToolTarget::NewFile { path: PathBuf::from(path) },
+        ToolOutput::Dialog { suggested_name } => {
+            let file_name = sanitize_file_name(&suggested_name);
+            let chosen = tauri::async_runtime::spawn_blocking(move || {
+                app.dialog().file().set_file_name(&file_name).add_filter("PDF", &["pdf"]).blocking_save_file()
+            })
+            .await
+            .map_err(|err| tr!("저장 대화상자가 중단되었습니다: {err}", "Save dialog was interrupted: {err}"))?;
+            let Some(chosen) = chosen else { return Ok(None) };
+            let path = chosen
+                .into_path()
+                .map_err(|err| tr!("저장 경로를 읽지 못했습니다: {err}", "Could not read the save path: {err}"))?;
+            ToolTarget::NewFile { path }
+        }
+    };
+    let pdf = state.inner().clone();
+    let result = tauri::async_runtime::spawn_blocking(move || pdf.tool_blocking(doc_id, op, target))
+        .await
+        .map_err(|err| tr!("PDF 도구가 중단되었습니다: {err}", "The PDF tool was interrupted: {err}"))??;
+    Ok(Some(result))
+}
+
+/// 빈 쪽 번호(0 부터).
+#[tauri::command]
+pub async fn pdf_blank_pages(state: State<'_, PdfThread>, doc_id: String) -> Result<Vec<i32>, String> {
+    let pdf = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || pdf.blank_pages_blocking(doc_id))
+        .await
+        .map_err(|err| tr!("빈 쪽 찾기가 중단되었습니다: {err}", "The blank page scan was interrupted: {err}"))?
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageExport {
+    pub folder: String,
+    pub count: usize,
+}
+
+/// 쪽마다 PNG. 폴더는 Rust 대화상자에서 고른다. 취소하면 `None`.
+#[tauri::command]
+pub async fn pdf_export_images(
+    app: tauri::AppHandle,
+    state: State<'_, PdfThread>,
+    doc_id: String,
+    stem: String,
+    dpi: f32,
+) -> Result<Option<ImageExport>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let chosen = tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
+        .await
+        .map_err(|err| tr!("폴더 대화상자가 중단되었습니다: {err}", "Folder dialog was interrupted: {err}"))?;
+    let Some(chosen) = chosen else { return Ok(None) };
+    let folder = chosen
+        .into_path()
+        .map_err(|err| tr!("폴더 경로를 읽지 못했습니다: {err}", "Could not read the folder path: {err}"))?;
+    let stem: String = sanitize_file_name(&stem).trim_end_matches(".pdf").to_string();
+    let shown = folder.display().to_string();
+    let pdf = state.inner().clone();
+    let count = tauri::async_runtime::spawn_blocking(move || pdf.export_images_blocking(doc_id, folder, stem, dpi.clamp(36.0, 600.0)))
+        .await
+        .map_err(|err| tr!("그림 내보내기가 중단되었습니다: {err}", "Image export was interrupted: {err}"))??;
+    Ok(Some(ImageExport { folder: shown, count }))
 }

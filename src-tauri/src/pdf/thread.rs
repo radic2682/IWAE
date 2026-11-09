@@ -6,7 +6,8 @@
 
 use std::any::Any;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::OnceLock;
 
@@ -16,6 +17,25 @@ use super::engine::{
     PdfEngine, PdfLink, PdfMetadata, PdfOutlineEntry, PdfRenderError, SearchablePage,
     SearchableReport, RawImage, TileRect,
 };
+use super::tools::{self, ToolOp, ToolReport};
+
+/// 도구 결과를 어디에 둘까.
+pub enum ToolTarget {
+    /// 원본을 덮는다. 덮기 전 원본은 backup 으로. 같은 doc_id 로 다시 연다.
+    InPlace { path: PathBuf, backup: PathBuf },
+    /// 새 파일로 쓴다(원본은 그대로).
+    NewFile { path: PathBuf },
+}
+
+/// 도구 하나를 돌린 결과.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolResult {
+    pub path: String,
+    /// 원본을 덮었으면 다시 연 문서의 메타
+    pub meta: Option<PdfDocMeta>,
+    pub report: ToolReport,
+}
 
 /// 스레드에 보내는 명령. 답은 요청마다 새로 만든 채널로 돌아온다(oneshot 대용).
 enum Command {
@@ -38,7 +58,29 @@ enum Command {
         path: PathBuf,
         /// 해시는 부르는 쪽에서 구해 온다 — 아래 [`PdfThread::open_blocking`] 참고.
         identity: engine::FileIdentity,
+        /// 암호 PDF 의 암호. 맞으면 이 세션 동안 기억해 다시 열 때 쓴다(디스크에는 쓰지 않는다).
+        password: Option<String>,
         reply: Sender<Result<PdfDocMeta, String>>,
+    },
+    /// PDF 도구 하나([`ToolOp`]).
+    Tool {
+        doc_id: String,
+        op: ToolOp,
+        target: ToolTarget,
+        reply: Sender<Result<ToolResult, String>>,
+    },
+    /// 빈 쪽 번호들(0 부터).
+    BlankPages {
+        doc_id: String,
+        reply: Sender<Result<Vec<i32>, String>>,
+    },
+    /// 쪽마다 PNG 로 폴더에 쓴다.
+    ExportImages {
+        doc_id: String,
+        folder: PathBuf,
+        stem: String,
+        dpi: f32,
+        reply: Sender<Result<usize, String>>,
     },
     /// 화면용 렌더(쪽 전체 또는 타일). PNG 로 묶지 않고 RGBA 로 돌려준다.
     RenderRaw {
@@ -223,6 +265,8 @@ impl PdfThread {
                 // 엔진과 캐시는 이 클로저 밖으로 나가지 않는다.
                 let engine = PdfEngine::new();
                 let mut cache: DocCache<OpenDocument> = DocCache::new(CAPACITY);
+                // 맞았던 암호(경로·doc_id 별). 메모리에만 둔다.
+                let mut passwords: HashMap<String, String> = HashMap::new();
                 let mut next_seq: u64 = 0;
 
                 // 화면 렌더는 바로 그리지 않고 모아 두었다가 순서를 골라 그린다(아래 next_screen_job).
@@ -278,22 +322,7 @@ impl PdfThread {
                                     Some(document) => engine.rebuild_pages(document.document(), &plan)?,
                                     None => return Err(PdfRenderError::UnknownDocument.to_string()),
                                 };
-                                // 원본 핸들을 놓아야 Windows 에서 파일을 바꿀 수 있다.
-                                drop(cache.remove(&doc_id));
-                                if let Some(parent) = backup.parent() {
-                                    std::fs::create_dir_all(parent)
-                                        .map_err(|err| tr!("백업 폴더를 만들지 못했습니다: {err}", "Could not create the backup folder: {err}"))?;
-                                }
-                                std::fs::copy(&path, &backup)
-                                    .map_err(|err| tr!("원본을 백업하지 못했습니다: {err}", "Could not back up the original: {err}"))?;
-                                let temporary = path.with_extension("pdf.iwae-edit");
-                                std::fs::write(&temporary, &bytes)
-                                    .map_err(|err| tr!("편집본을 쓰지 못했습니다: {err}", "Could not write the edited copy: {err}"))?;
-                                std::fs::rename(&temporary, &path)
-                                    .map_err(|err| tr!("원본을 바꾸지 못했습니다: {err}", "Could not replace the original: {err}"))?;
-                                let mut identity = engine::file_identity(&path)?;
-                                identity.doc_id = doc_id.clone();
-                                open(engine, &mut cache, path, identity)
+                                replace_in_place(engine, &mut cache, &passwords, &doc_id, path, &backup, &bytes)
                             })
                             .unwrap_or_else(Err);
                             let _ = reply.send(result);
@@ -301,10 +330,21 @@ impl PdfThread {
                         Command::Open {
                             path,
                             identity,
+                            password,
                             reply,
                         } => {
                             let result = caught(&tr!("PDF 열기", "opening PDF"),|| match &engine {
-                                Ok(engine) => open(engine, &mut cache, path, identity),
+                                Ok(engine) => {
+                                    let key = path_key(&path);
+                                    let password = password.or_else(|| passwords.get(&key).cloned());
+                                    let doc_id = identity.doc_id.clone();
+                                    let meta = open_with_password(engine, &mut cache, path, identity, password.as_deref())?;
+                                    if let Some(password) = password {
+                                        passwords.insert(key, password.clone());
+                                        passwords.insert(doc_id, password);
+                                    }
+                                    Ok(meta)
+                                }
                                 Err(message) => Err(message.clone()),
                             })
                             // 잡은 패닉은 호출자가 이미 그릴 줄 아는 모양으로 바꾼다 —
@@ -437,6 +477,55 @@ impl PdfThread {
                             .unwrap_or_else(Err);
                             let _ = reply.send(result);
                         }
+                        Command::Tool { doc_id, op, target, reply } => {
+                            let result = caught(&tr!("PDF 도구", "PDF tool"), || {
+                                let engine = engine.as_ref().map_err(Clone::clone)?;
+                                let password = passwords.get(&doc_id).cloned();
+                                let (bytes, report) = match cache.get(&doc_id) {
+                                    Some(document) => engine.run_tool(
+                                        document.document(),
+                                        || document.to_bytes().map_err(|err| err.to_string()),
+                                        password.as_deref(),
+                                        &op,
+                                    )?,
+                                    None => return Err(PdfRenderError::UnknownDocument.to_string()),
+                                };
+                                match target {
+                                    ToolTarget::InPlace { path, backup } => {
+                                        let shown = path.display().to_string();
+                                        let meta = replace_in_place(engine, &mut cache, &passwords, &doc_id, path, &backup, &bytes)?;
+                                        Ok(ToolResult { path: shown, meta: Some(meta), report })
+                                    }
+                                    ToolTarget::NewFile { path } => {
+                                        if let Some(parent) = path.parent() {
+                                            std::fs::create_dir_all(parent)
+                                                .map_err(|err| tr!("폴더를 만들지 못했습니다: {err}", "Could not create the folder: {err}"))?;
+                                        }
+                                        std::fs::write(&path, &bytes)
+                                            .map_err(|err| tr!("새 PDF 를 쓰지 못했습니다: {err}", "Could not write the new PDF: {err}"))?;
+                                        Ok(ToolResult { path: path.display().to_string(), meta: None, report })
+                                    }
+                                }
+                            })
+                            .unwrap_or_else(Err);
+                            let _ = reply.send(result);
+                        }
+                        Command::BlankPages { doc_id, reply } => {
+                            let result = caught(&tr!("빈 쪽 찾기", "blank page scan"), || match cache.get(&doc_id) {
+                                Some(document) => tools::blank_pages(document.document()),
+                                None => Err(PdfRenderError::UnknownDocument.to_string()),
+                            })
+                            .unwrap_or_else(Err);
+                            let _ = reply.send(result);
+                        }
+                        Command::ExportImages { doc_id, folder, stem, dpi, reply } => {
+                            let result = caught(&tr!("그림으로 내보내기", "image export"), || match cache.get(&doc_id) {
+                                Some(document) => tools::export_page_images(document.document(), &folder, &stem, dpi),
+                                None => Err(PdfRenderError::UnknownDocument.to_string()),
+                            })
+                            .unwrap_or_else(Err);
+                            let _ = reply.send(result);
+                        }
                         Command::Status { reply } => {
                             let _ = reply.send(match &engine {
                                 Ok(_) => Ok(()),
@@ -465,6 +554,11 @@ impl PdfThread {
 
     /// [`Self::open_blocking`] 과 같되, 등록된 doc_id 가 있으면 내용 해시 대신 그것을 쓴다.
     pub fn open_with_id_blocking(&self, path: PathBuf, doc_id: Option<String>) -> Result<PdfDocMeta, String> {
+        self.open_with_password_blocking(path, doc_id, None)
+    }
+
+    /// [`Self::open_with_id_blocking`] 에 암호를 더한 것. 암호 PDF 를 처음 열 때 쓴다.
+    pub fn open_with_password_blocking(&self, path: PathBuf, doc_id: Option<String>, password: Option<String>) -> Result<PdfDocMeta, String> {
         // 해시는 PDFium 을 전혀 쓰지 않는데, 전용 스레드 안에서 돌리면 수백 MB 짜리 문서를
         // 읽는 수십 ms 동안 뒤에 줄 선 페이지 렌더가 전부 막힌다. 그래서 부르는 쪽에서 먼저
         // 구하고 결과만 실어 보낸다.
@@ -480,6 +574,7 @@ impl PdfThread {
             .send(Command::Open {
                 path,
                 identity,
+                password,
                 reply,
             })
             .map_err(|_| tr!("PDF 스레드가 죽었습니다. 앱을 다시 시작해 주세요.", "The PDF thread has stopped. Please restart the app."))?;
@@ -700,6 +795,33 @@ impl PdfThread {
             .map_err(|_| tr!("PDF 스레드가 답하지 못했습니다.", "The PDF thread did not respond."))?
     }
 
+    /// PDF 도구 하나를 돌린다.
+    pub fn tool_blocking(&self, doc_id: String, op: ToolOp, target: ToolTarget) -> Result<ToolResult, String> {
+        let (reply, answer) = channel();
+        self.tx
+            .send(Command::Tool { doc_id, op, target, reply })
+            .map_err(|_| tr!("PDF 스레드가 죽었습니다.", "The PDF thread has stopped."))?;
+        answer.recv().map_err(|_| tr!("PDF 스레드가 답하지 못했습니다.", "The PDF thread did not respond."))?
+    }
+
+    /// 빈 쪽 번호들(0 부터).
+    pub fn blank_pages_blocking(&self, doc_id: String) -> Result<Vec<i32>, String> {
+        let (reply, answer) = channel();
+        self.tx
+            .send(Command::BlankPages { doc_id, reply })
+            .map_err(|_| tr!("PDF 스레드가 죽었습니다.", "The PDF thread has stopped."))?;
+        answer.recv().map_err(|_| tr!("PDF 스레드가 답하지 못했습니다.", "The PDF thread did not respond."))?
+    }
+
+    /// 쪽마다 PNG 를 폴더에 쓴다. 쓴 파일 수.
+    pub fn export_images_blocking(&self, doc_id: String, folder: PathBuf, stem: String, dpi: f32) -> Result<usize, String> {
+        let (reply, answer) = channel();
+        self.tx
+            .send(Command::ExportImages { doc_id, folder, stem, dpi, reply })
+            .map_err(|_| tr!("PDF 스레드가 죽었습니다.", "The PDF thread has stopped."))?;
+        answer.recv().map_err(|_| tr!("PDF 스레드가 답하지 못했습니다.", "The PDF thread did not respond."))?
+    }
+
     /// PDFium 바인딩이 실제로 떴는지 묻는다. 못 떴으면 그 이유가 그대로 담긴다.
     ///
     /// 테스트가 "dll 이 있나" 를 경로로 짐작하지 않게 하려고 연다. 짐작은 빌드 프로파일마다
@@ -731,12 +853,43 @@ impl PdfThread {
     }
 }
 
+fn path_key(path: &Path) -> String {
+    path.display().to_string().to_lowercase()
+}
+
+/// 새 바이트로 원본을 덮고(덮기 전 원본은 backup 으로) 같은 doc_id 로 다시 연다.
+fn replace_in_place(
+    engine: &PdfEngine,
+    cache: &mut DocCache<OpenDocument>,
+    passwords: &HashMap<String, String>,
+    doc_id: &str,
+    path: PathBuf,
+    backup: &Path,
+    bytes: &[u8],
+) -> Result<PdfDocMeta, String> {
+    // 원본 핸들을 놓아야 Windows 에서 파일을 바꿀 수 있다.
+    drop(cache.remove(doc_id));
+    if let Some(parent) = backup.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|err| tr!("백업 폴더를 만들지 못했습니다: {err}", "Could not create the backup folder: {err}"))?;
+    }
+    std::fs::copy(&path, backup).map_err(|err| tr!("원본을 백업하지 못했습니다: {err}", "Could not back up the original: {err}"))?;
+    let temporary = path.with_extension("pdf.iwae-edit");
+    std::fs::write(&temporary, bytes).map_err(|err| tr!("편집본을 쓰지 못했습니다: {err}", "Could not write the edited copy: {err}"))?;
+    std::fs::rename(&temporary, &path).map_err(|err| tr!("원본을 바꾸지 못했습니다: {err}", "Could not replace the original: {err}"))?;
+    let mut identity = engine::file_identity(&path)?;
+    identity.doc_id = doc_id.to_string();
+    let password = passwords.get(doc_id).cloned();
+    open_with_password(engine, cache, path, identity, password.as_deref())
+}
+
 /// 이미 열어 둔 문서면 PDFium 을 다시 파싱시키지 않는다.
-fn open(
+fn open_with_password(
     engine: &PdfEngine,
     cache: &mut DocCache<OpenDocument>,
     path: PathBuf,
     identity: engine::FileIdentity,
+    password: Option<&str>,
 ) -> Result<PdfDocMeta, String> {
     // 문서는 내용으로 식별하지만 제목은 방금 연 파일의 것이어야 한다 — 같은 스펙을 다른
     // 이름으로 복사해 열었는데 탭에 옛 이름이 뜨면 거짓말이 된다. 캐시는 제목을 담지 않고
@@ -748,7 +901,7 @@ fn open(
     }
 
     let doc_id = identity.doc_id.clone();
-    let opened = engine.open(&path, identity)?;
+    let opened = engine.open(&path, identity, password)?;
 
     Ok(cache.put(doc_id, opened).meta(title))
 }

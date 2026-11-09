@@ -423,6 +423,11 @@ pub fn pdf_space_rect(
     (left, height - top_down_max, right, height - top_down_min)
 }
 
+/// 쪽이 시계 방향으로 몇 번 90° 돌아 보이는가(0..3).
+pub(crate) fn quarter_turns(page: &PdfPage) -> u8 {
+    quarter_turns_of(page)
+}
+
 fn quarter_turns_of(page: &PdfPage) -> u8 {
     match page.rotation() {
         Ok(PdfPageRenderRotation::Degrees90) => 1,
@@ -1460,6 +1465,11 @@ pub struct PdfEngine {
 }
 
 impl PdfEngine {
+    /// 바인딩. [`super::tools`] 가 새 문서를 만들 때 쓴다.
+    pub(crate) fn pdfium(&self) -> &'static Pdfium {
+        self.pdfium
+    }
+
     /// 쪽 순서·회전·끼워 넣기를 적용한 새 PDF 를 바이트로 만든다. 원본은 건드리지 않는다.
     pub fn rebuild_pages(&self, source: &PdfDocument, plan: &[PageEditOp]) -> Result<Vec<u8>, String> {
         if plan.is_empty() {
@@ -1479,7 +1489,7 @@ impl PdfEngine {
                         let other = self
                             .pdfium
                             .load_pdf_from_file(Path::new(path), None)
-                            .map_err(|err| describe_load_error(Path::new(path), &err))?;
+                            .map_err(|err| describe_load_error(Path::new(path), &err, false))?;
                         others.insert(path.clone(), other);
                     }
                     let other = others.get(path).expect("방금 넣었다");
@@ -1701,11 +1711,11 @@ impl PdfEngine {
     ///
     /// 파일 정체성을 인자로 받는 이유: 호출자가 캐시를 먼저 뒤지려면 어차피 해시가 필요하고,
     /// 같은 파일을 두 번 읽을 이유는 없다. [`file_identity`] 로 구한 값을 넘긴다.
-    pub fn open(&self, path: &Path, identity: FileIdentity) -> Result<OpenDocument, String> {
+    pub fn open(&self, path: &Path, identity: FileIdentity, password: Option<&str>) -> Result<OpenDocument, String> {
         let document = self
             .pdfium
-            .load_pdf_from_file(path, None)
-            .map_err(|err| describe_load_error(path, &err))?;
+            .load_pdf_from_file(path, password)
+            .map_err(|err| describe_load_error(path, &err, password.is_some()))?;
 
         let pages = document.pages();
         let page_count = pages.len();
@@ -1801,12 +1811,21 @@ fn hex(digest: &[u8]) -> String {
 }
 
 /// 암호 걸린 문서와 그냥 깨진 문서는 사용자가 할 수 있는 일이 다르므로 구분해서 말한다.
-fn describe_load_error(path: &Path, err: &PdfiumError) -> String {
+/// 암호가 필요하다는 오류의 머리말. 웹뷰가 이것을 보고 암호를 묻는다.
+pub const PASSWORD_REQUIRED: &str = "IWAE_PDF_PASSWORD_REQUIRED";
+/// 준 암호가 틀렸다는 오류의 머리말.
+pub const PASSWORD_WRONG: &str = "IWAE_PDF_PASSWORD_WRONG";
+
+fn describe_load_error(path: &Path, err: &PdfiumError, tried_password: bool) -> String {
     let name = path.display();
 
     match err {
         PdfiumError::PdfiumLibraryInternalError(PdfiumInternalError::PasswordError) => {
-            tr!("암호로 보호된 PDF 입니다: {name}", "This PDF is password-protected: {name}")
+            if tried_password {
+                format!("{PASSWORD_WRONG}: {}", tr!("암호가 맞지 않습니다: {name}", "Wrong password: {name}"))
+            } else {
+                format!("{PASSWORD_REQUIRED}: {}", tr!("암호로 보호된 PDF 입니다: {name}", "This PDF is password-protected: {name}"))
+            }
         }
         PdfiumError::PdfiumLibraryInternalError(PdfiumInternalError::FormatError) => {
             tr!(
