@@ -5,7 +5,7 @@ mod common;
 use std::fs;
 
 use app_lib::pdf::PdfThread;
-use common::{fixture_dir, pdfium_present, write_two_page_pdf};
+use common::{fixture_dir, pdfium_present, write_scanned_page_pdf, write_two_page_pdf};
 
 #[test]
 fn open_reports_page_count_and_a_size_per_page() {
@@ -85,4 +85,43 @@ fn a_missing_file_is_an_error_not_a_panic() {
     let result = pdf.open_blocking(fixture_dir().join("nope-does-not-exist.pdf"));
 
     assert!(result.is_err(), "없는 파일은 오류여야 한다");
+}
+
+/// 글자가 적어도(표지 한 줄) 쪽이 글자 위주면 텍스트 PDF 다. 스캔 배지가 뜨면 안 된다.
+#[test]
+fn a_short_text_page_still_counts_as_having_text() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    let meta = pdf
+        .open_blocking(write_scanned_page_pdf("short-text.pdf", Some("Annual Report 2026"), false))
+        .expect("열기");
+    assert!(meta.has_text, "짧은 제목 쪽도 텍스트 레이어가 있다");
+}
+
+/// 쪽 전체를 덮는 그림에 글자 몇 자가 박혀 있으면(워터마크) 여전히 스캔본이다.
+#[test]
+fn a_full_page_image_with_a_few_characters_is_still_a_scan() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    let meta = pdf
+        .open_blocking(write_scanned_page_pdf("scan-watermark.pdf", Some("DRAFT COPY"), true))
+        .expect("열기");
+    assert!(!meta.has_text, "그림 위주의 쪽은 글자가 조금 있어도 스캔본이다");
+}
+
+/// 글자가 없고 쪽을 그림이 덮으면 스캔본이다.
+#[test]
+fn a_full_page_image_without_text_is_a_scan() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    let meta = pdf
+        .open_blocking(write_scanned_page_pdf("scan-only.pdf", None, true))
+        .expect("열기");
+    assert!(!meta.has_text);
 }

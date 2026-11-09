@@ -208,6 +208,37 @@ pub fn write_single_page_pdf(name: &str, page_width: f32, page_height: f32) -> P
     write_pdf(name, objects)
 }
 
+/// 쪽 전체를 덮는 8x8 그림 한 장(스캔본)에, 원하면 글자 한 줄을 얹은 한 장짜리 PDF.
+/// `image` 가 false 면 그림 없이 글자만 둔다(짧은 글자뿐인 텍스트 PDF). `text` 가 None 이면 순수 스캔본, Some 이면 스캔본에 글자가 조금 박힌 꼴이다.
+pub fn write_scanned_page_pdf(name: &str, text: Option<&str>, with_image: bool) -> PathBuf {
+    let hex = "80".repeat(64);
+    let image = format!(
+        "<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray          /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length {} >>
+stream
+{}>
+endstream",
+        hex.len() + 1,
+        hex
+    );
+    let picture = if with_image { "q 612 0 0 792 0 0 cm /Im0 Do Q " } else { "" };
+    let content = match text {
+        Some(text) => format!("{picture}BT /F1 12 Tf 40 700 Td ({text}) Tj ET"),
+        None => picture.trim().to_string(),
+    };
+    let objects: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".into(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im0 4 0 R >> /Font << /F1 5 0 R >> >> /Contents 6 0 R >>".into(),
+        image,
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into(),
+        format!("<< /Length {} >>
+stream
+{}
+endstream", content.len(), content),
+    ];
+    write_pdf(name, objects)
+}
+
 /// 링크·주석·문서 정보를 가진 두 장짜리 PDF.
 ///
 /// 0번 페이지에 다섯 개의 주석을 단다 — 내부 링크(2쪽 y=500), https 링크, 열면 안 되는

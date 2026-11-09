@@ -1742,25 +1742,61 @@ impl PdfEngine {
     }
 }
 
-/// 앞쪽 몇 페이지의 글자 수로 텍스트 레이어 유무를 판정한다.
+/// 이 비율 이상을 한 장의 그림이 덮은 쪽은 「그림이 주인인 쪽」(스캔한 쪽)으로 본다.
+const IMAGE_DOMINATED_COVERAGE: f32 = 0.6;
+
+/// 앞쪽 몇 페이지로 텍스트 레이어 유무를 판정한다.
+///
+/// 글자가 [`TEXT_PROBE_MIN_CHARS`] 이상이면 있다. 글자가 하나도 없으면 없다. 그 사이(표지 한 줄,
+/// 스캔본에 박힌 워터마크 몇 글자)는 쪽이 그림으로 덮여 있는지로 가른다 — 글자가 조금뿐이어도
+/// 쪽이 글자 위주면 텍스트 PDF 이고, 앞쪽 대부분이 쪽 전체를 덮는 그림이면 스캔본이다.
 ///
 /// 글자 수 세기 자체가 실패하면(암호화된 텍스트 등) 없는 것으로 친다 — UI 가 "발췌할 수
 /// 있다"고 약속했다가 못 지키는 쪽이 더 나쁘다.
 fn probe_has_text(pages: &PdfPages) -> bool {
     let probe = TEXT_PROBE_PAGES.min(pages.len());
     let mut chars = 0usize;
+    let mut visible = 0usize;
+    let mut probed = 0usize;
+    let mut image_pages = 0usize;
 
     for index in 0..probe {
         let Ok(page) = pages.get(index) else { continue };
         let Ok(text) = page.text() else { continue };
+        probed += 1;
         chars += text.chars().len();
+        visible += text.all().chars().filter(|c| !c.is_whitespace()).count();
 
         if chars >= TEXT_PROBE_MIN_CHARS {
             return true;
         }
+        if page_is_image_dominated(&page) {
+            image_pages += 1;
+        }
     }
 
-    false
+    if visible == 0 || probed == 0 {
+        return false;
+    }
+    image_pages * 2 <= probed
+}
+
+/// 쪽 넓이의 [`IMAGE_DOMINATED_COVERAGE`] 이상을 덮는 그림이 있는가
+fn page_is_image_dominated(page: &PdfPage) -> bool {
+    let area = page.width().value * page.height().value;
+    if area <= 0.0 {
+        return false;
+    }
+    page.objects().iter().any(|object| {
+        object.object_type() == PdfPageObjectType::Image
+            && object
+                .bounds()
+                .map(|bounds| {
+                    let rect = bounds.to_rect();
+                    rect.width().value.abs() * rect.height().value.abs() / area >= IMAGE_DOMINATED_COVERAGE
+                })
+                .unwrap_or(false)
+    })
 }
 
 /// 확장자를 뗀 파일 이름.
