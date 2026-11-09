@@ -338,6 +338,42 @@ describe('SelectionLayer', () => {
     expect(view.getByRole('menuitem', { name: /이 문서에서 찾기/u })).not.toBeNull()
   })
 
+  it('우클릭 메뉴가 떠 있는 동안(그리고 닫힌 뒤에도) 고른 글의 칠을 그대로 둔다', () => {
+    const onSelectionChange = vi.fn()
+    const props = {
+      docId: '0123456789ab',
+      page: 2,
+      index: INDEX,
+      renderScale: 2,
+      width: 80,
+      height: 100,
+      sourceTitle: 'HTTP Semantics Guide v1.1',
+      pageSize: [612, 792] as [number, number],
+      onSelectionChange,
+    }
+    const view = render(<SelectionLayer {...props} resetKey={0} />)
+    const layer = view.getByTestId('selection-layer')
+    fireEvent.pointerDown(layer, { clientX: 22, clientY: 22, pointerId: 1 })
+    fireEvent.pointerUp(layer, { clientX: 58, clientY: 78, pointerId: 1 })
+    expect(view.container.querySelector('.selection-highlight')).not.toBeNull()
+
+    fireEvent.pointerDown(layer, { button: 2, buttons: 2, clientX: 30, clientY: 30, pointerId: 2 })
+    fireEvent.pointerUp(layer, { button: 2, clientX: 30, clientY: 30, pointerId: 2 })
+    fireEvent.contextMenu(layer, { clientX: 30, clientY: 30 })
+    expect(view.getByRole('menu', { name: '문서 메뉴' })).not.toBeNull()
+
+    // 메뉴가 초점을 가져가 빈 새 메모가 접히면 바깥이 선택을 내린다(resetKey) — 칠은 남아야 한다
+    view.rerender(<SelectionLayer {...props} resetKey={1} />)
+    expect(view.container.querySelector('.selection-highlight')).not.toBeNull()
+    expect(view.getByRole('menuitem', { name: /^복사/u })).not.toBeNull()
+
+    // 메뉴 안을 눌러도 칠은 그대로, 다른 곳을 누르면 걷는다
+    fireEvent.pointerDown(view.getByRole('menu', { name: '문서 메뉴' }))
+    expect(view.container.querySelector('.selection-highlight')).not.toBeNull()
+    fireEvent.pointerDown(document.body)
+    expect(view.container.querySelector('.selection-highlight')).toBeNull()
+  })
+
   it('우클릭 끌기는 고르지 않는다(앱의 마우스 제스처 몫)', () => {
     const onSelectionChange = vi.fn()
     const view = mount({ onSelectionChange })

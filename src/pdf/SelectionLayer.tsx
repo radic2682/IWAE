@@ -244,6 +244,9 @@ export function SelectionLayer({
   // 끌지 않은 우클릭으로 연 문서 메뉴(화면 좌표)
   const [docMenu, setDocMenu] = useState<{ x: number; y: number; selection: PdfExcerptSelection | null } | null>(null)
   const rightPressSelectionRef = useRef<PdfExcerptSelection | null>(null)
+  // 우클릭 메뉴를 연 글 선택. 메뉴가 초점을 가져가 빈 새 메모가 접히며 선택이 풀려도 화면에는 계속 칠해 둔다
+  // (다른 곳을 누르거나 새로 고를 때까지)
+  const [held, setHeld] = useState<PdfExcerptSelection | null>(null)
   /** 사용자가 마지막으로 고른 앵커(영역이었는가) */
   const userAnchorRef = useRef<{ readonly anchor: Anchor; readonly region: boolean } | null>(null)
 
@@ -277,13 +280,16 @@ export function SelectionLayer({
   const userRegion = draft !== null ? draft.mode === 'region' : committed !== null ? committed.mode === 'region' : lastUser?.region === true
   const showActions = userSelection !== null && !userRegion
 
+  const holding = held !== null
   useEffect(() => {
-    if (shown === null) return
+    if (shown === null && !holding) return
     const clearSelectionOutside = (event: PointerEvent) => {
       const target = event.target as Node | null
       if (target === null
         || interactionLayerRef.current?.contains(target)
-        || actionsRef.current?.contains(target)) return
+        || actionsRef.current?.contains(target)
+        || (target instanceof Element && target.closest('.app-context-menu') !== null)) return
+      setHeld(null)
       selectionEpochRef.current += 1
       setGesture(null)
       setDraft(null)
@@ -295,11 +301,11 @@ export function SelectionLayer({
     }
     document.addEventListener('pointerdown', clearSelectionOutside)
     return () => document.removeEventListener('pointerdown', clearSelectionOutside)
-  }, [onSelectionChange, shown])
+  }, [onSelectionChange, shown, holding])
 
   // Ctrl+C: 고른 PDF 글을 복사한다. 글을 고르면 메모 바의 새 메모 칸이 포커스를 가져가
   // 브라우저 기본 복사로는 아무것도 복사되지 않았다. 다른 칸에서 따로 고른 글이 있으면 그쪽을 둔다
-  const shownQuote = shown?.anchor.quote ?? ''
+  const shownQuote = (shown ?? held)?.anchor.quote ?? ''
   useEffect(() => {
     if (shownQuote.trim() === '') return
     const copyShown = (event: KeyboardEvent) => {
@@ -399,6 +405,7 @@ export function SelectionLayer({
   const handlePointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     // 오른쪽 단추는 앱의 마우스 제스처(위·아래로 끝까지, ㄴ 탭 닫기 …)가 쓴다
     if (event.altKey || event.button !== 0) return
+    setHeld(null)
     const point = localPoint(event)
     if (resizeEnabled && !event.ctrlKey) {
       const edge = regionEdgeAt(point)
@@ -602,13 +609,14 @@ export function SelectionLayer({
   const selectionIsRegion = draftRegion !== null || shown?.mode === 'region'
   // 손을 떼면 고른 자리가 새 메모의 형광펜으로 칠해진다. 그 위에 선택 색까지 겹치면 두 색이 섞여 탁해지므로
   // 끄는 동안(draft)만 선택 색을 보이고, 같은 자리의 형광펜이 생기면 선택 색은 걷는다.
-  const coveredByHighlight = draft === null && shown !== null && shown.mode !== 'region'
-    && persistentHighlights.some((highlight) => highlight.kind !== 'region' && sameSpot(highlight.anchor, shown.anchor))
-  const highlightRects = draftRegion !== null ? [draftRegion] : shown === null || coveredByHighlight
+  const visible = shown ?? held
+  const coveredByHighlight = draft === null && visible !== null && visible.mode !== 'region'
+    && persistentHighlights.some((highlight) => highlight.kind !== 'region' && sameSpot(highlight.anchor, visible.anchor))
+  const highlightRects = draftRegion !== null ? [draftRegion] : visible === null || coveredByHighlight
     ? []
-    : shown.mode === 'region'
-      ? [shown.crop]
-      : coalesceHighlightRects(shown.anchor.rects)
+    : visible.mode === 'region'
+      ? [visible.crop]
+      : coalesceHighlightRects(visible.anchor.rects)
 
   return (
     <>
@@ -715,7 +723,9 @@ export function SelectionLayer({
             return
           }
           // 끌지 않은 우클릭: 문서 메뉴(고른 글이 있으면 복사 등도)
-          setDocMenu({ x: event.clientX, y: event.clientY, selection: (showActions ? userSelection : null) ?? rightPressSelectionRef.current })
+          const picked = (showActions ? userSelection : null) ?? rightPressSelectionRef.current
+          if (picked !== null) setHeld(picked)
+          setDocMenu({ x: event.clientX, y: event.clientY, selection: picked })
         }}
         // 오른쪽 단추로 눌러도 초점을 옮기지 않는다: 새 메모 칸이 초점을 잃으면 빈 메모와 함께 고른 글이 사라져, 우클릭 메뉴에 복사가 안 나왔다
         onMouseDown={(event) => { if (event.button === 2) event.preventDefault() }}
