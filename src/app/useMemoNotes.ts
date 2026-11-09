@@ -1,3 +1,4 @@
+import { recordUndo } from './undoStack'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { VaultHandle } from '../bridge/vault'
 import {
@@ -168,10 +169,22 @@ export function useMemoNotes(
     }, SAVE_DELAY_MS))
   }, [vault])
 
-  const putNote = useCallback((path: string, note: MemoNote) => {
+  const writeNote = useCallback((path: string, note: MemoNote) => {
     setNotes((current) => new Map(current).set(path, note))
     persist(path, note)
   }, [persist])
+  // 노트 블록을 바꾸면 전·후를 되돌리기에 남긴다(지운 노트·옮긴 노트는 남기지 않는다)
+  const putNote = useCallback((path: string, note: MemoNote) => {
+    const before = notesRef.current.get(path)
+    if (before !== undefined && before !== note) {
+      recordUndo({
+        key: `note:${path}`,
+        undo: () => { if (notesRef.current.has(path)) writeNote(path, before) },
+        redo: () => { if (notesRef.current.has(path)) writeNote(path, note) },
+      })
+    }
+    writeNote(path, note)
+  }, [writeNote])
 
   // 처음 한 번: 예전 카테고리 → 노트
   const migratingRef = useRef(false)

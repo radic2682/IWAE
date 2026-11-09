@@ -35,6 +35,7 @@ export type AppShortcut =
   | 'print'
   | 'toggleSinglePane'
   | 'openSettings'
+  | 'commandPalette'
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -53,6 +54,8 @@ export function resolveAppShortcut(event: KeyboardEvent): AppShortcut | null {
   // 라이브러리 토글은 검색 칸에 커서가 있어도 동작해야 한다 — 라이브러리의
   // 필터 칸에서 바로 접을 수 있어야 하기 때문이다.
   if (modified && event.shiftKey && !event.altKey && key === 'l') return 'toggleLibrary'
+  // 명령 팔레트(Ctrl+Shift+P). 글 쓰는 칸에서도 연다
+  if (modified && event.shiftKey && !event.altKey && key === 'p') return 'commandPalette'
   // 문서 검색 화면(모든 PDF 본문). 그냥 Ctrl+F(문서 안 검색)보다 먼저 본다.
   if (modified && event.shiftKey && !event.altKey && key === 'f') return 'documentSearch'
   // 설정(Ctrl+,). 글 쓰는 칸에서도 연다(다른 데스크톱 앱과 같다)

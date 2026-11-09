@@ -563,7 +563,6 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     const scale = box.width / pageSize[0]
     const firstTop = Math.min(...rects.map((rect) => rect.y))
     const firstLine = rects.filter((rect) => rect.y < firstTop + 2)
-    const lineHeight = Math.min(Math.max(...firstLine.map((rect) => rect.h)), 14)
     const lineRight = Math.max(...firstLine.map((rect) => rect.x + rect.w))
     return [{
       key,
@@ -572,7 +571,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       top: box.top + firstTop * scale,
       // 표·그림 네모는 대상 바깥 4px 에 그린다(SelectionLayer REGION_OUTSET) — 선은 오른쪽 위 꺾쇠에서 나온다
       anchorX: contentLeft + box.left + lineRight * scale + (highlight.kind === 'region' ? 4 : 0),
-      anchorY: highlight.kind === 'region' ? box.top + firstTop * scale + 8 : box.top + (firstTop + lineHeight / 2) * scale,
+      // 글: 첫 줄 위 가장자리(오른쪽 위 모서리)에서 나온다. 줄 가운데서 나오면 같은 줄 뒷글자를 가로질러 취소선처럼 보인다
+      anchorY: highlight.kind === 'region' ? box.top + firstTop * scale + 8 : box.top + firstTop * scale - 1.5,
     }]
   }
 

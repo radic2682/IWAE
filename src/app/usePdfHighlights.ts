@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { recordUndo } from './undoStack'
 import { readPdfHighlights, writePdfHighlights, type VaultHandle } from '../bridge/vault'
 import {
   parsePersistentPdfHighlights,
@@ -74,9 +75,20 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
     }
   }, [storage])
 
+  // 되돌리기: 바꾸기 전·후 목록을 남기고, 되돌리면 그 목록을 다시 쓴다
+  const restore = useCallback((list: readonly PersistentPdfHighlight[]) => {
+    highlightsRef.current = list
+    setHighlights(list)
+    if (readyRef.current) void storage.save(list).catch(() => undefined)
+  }, [storage])
+  const remember = useCallback((before: readonly PersistentPdfHighlight[], after: readonly PersistentPdfHighlight[], key: string) => {
+    recordUndo({ key: `pdf-hl:${key}`, undo: () => restore(before), redo: () => restore(after) })
+  }, [restore])
+
   const add = useCallback((highlight: PersistentPdfHighlight) => {
     if (highlightsRef.current.some(({ id }) => id === highlight.id)) return
     const next = [...highlightsRef.current, highlight]
+    remember(highlightsRef.current, next, highlight.id)
     highlightsRef.current = next
     setHighlights(next)
     if (!readyRef.current) {
@@ -91,6 +103,7 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
 
   const remove = useCallback((highlightId: string) => {
     const next = removePersistentPdfHighlight(highlightsRef.current, highlightId)
+    remember(highlightsRef.current, next, highlightId)
     highlightsRef.current = next
     setHighlights(next)
     if (!readyRef.current) {
@@ -105,6 +118,7 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
   const update = useCallback((highlightId: string, patch: PersistentPdfHighlightPatch) => {
     if (!highlightsRef.current.some(({ id }) => id === highlightId)) return
     const next = highlightsRef.current.map((item) => item.id === highlightId ? updatePersistentPdfHighlight(item, patch) : item)
+    remember(highlightsRef.current, next, `edit:${highlightId}`)
     highlightsRef.current = next
     setHighlights(next)
     if (!readyRef.current) {
@@ -124,6 +138,7 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
     })
     if (fresh.length === 0) return 0
     const next = [...highlightsRef.current, ...fresh]
+    remember(highlightsRef.current, next, 'many')
     highlightsRef.current = next
     setHighlights(next)
     if (!readyRef.current) {
@@ -137,6 +152,7 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
   /** PDF 쪽을 편집한 뒤처럼 형광펜을 한꺼번에 고친다. null 을 돌려주면 그 형광펜은 지운다 */
   const mapAll = useCallback((map: (highlight: PersistentPdfHighlight) => PersistentPdfHighlight | null) => {
     const next = highlightsRef.current.flatMap((item) => map(item) ?? [])
+    remember(highlightsRef.current, next, 'map')
     highlightsRef.current = next
     setHighlights(next)
     if (readyRef.current) void storage.save(next).catch(() => undefined)

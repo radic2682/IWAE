@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ArrowRight, Check, Eraser, LineSegment, Minus, PencilSimple, Plus, TextB, Textbox, Trash } from '@phosphor-icons/react'
+import { ArrowRight, ArrowUpRight, Check, Circle, Eraser, LineSegment, Minus, PaintBucket, PencilSimple, Plus, Square, TextB, Textbox, Trash } from '@phosphor-icons/react'
 import { LINE_WIDTHS, OVERLAY_COLORS, TEXT_SIZES, type OverlayColor, type OverlayPatch, type PdfOverlay, type PdfTextBox } from '../core/pdfOverlays'
 import type { OverlayStyle, OverlayTool } from './PdfOverlayLayer'
 import { t } from '../i18n'
@@ -52,14 +52,19 @@ export const OVERLAY_TOOLS: readonly { id: OverlayTool; label: string; icon: (si
   { id: 'text', label: '글 상자', icon: (size, active) => <Textbox size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
   { id: 'pen', label: '펜', icon: (size, active) => <PencilSimple size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
   { id: 'line', label: '선', icon: (size, active) => <LineSegment size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
+  { id: 'arrow', label: '화살표', icon: (size, active) => <ArrowUpRight size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
+  { id: 'rect', label: '네모', icon: (size, active) => <Square size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
+  { id: 'ellipse', label: '동그라미', icon: (size, active) => <Circle size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
   { id: 'eraser', label: '지우개', icon: (size, active) => <Eraser size={size} weight={active ? 'bold' : 'regular'} aria-hidden="true" /> },
 ]
 
 export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null, onUpdateSelected, onRemoveSelected, onDone }: PdfOverlayPaletteProps) {
   // 서식 대상: 고른 덮개, 없으면 지금 도구로 새로 만들 것
-  const target: 'text' | 'stroke' | 'line' | null = selected !== null
-    ? selected.kind === 'text' ? 'text' : selected.kind === 'line' ? 'line' : 'stroke'
-    : tool === 'text' ? 'text' : tool === 'line' ? 'line' : tool === 'pen' ? 'stroke' : null
+  const target: 'text' | 'stroke' | 'line' | 'shape' | null = selected !== null
+    ? selected.kind === 'text' ? 'text' : selected.kind === 'line' ? 'line' : selected.kind === 'shape' ? 'shape' : 'stroke'
+    : tool === 'text' ? 'text' : tool === 'line' || tool === 'arrow' ? 'line' : tool === 'rect' || tool === 'ellipse' ? 'shape' : tool === 'pen' ? 'stroke' : null
+  const shapeFill = selected?.kind === 'shape' ? selected.fill === true : style.fill === true
+  const shapeDashed = selected?.kind === 'shape' ? selected.dashed === true : style.dashed
   const color: OverlayColor = selected?.color ?? style.color
   const setColor = (next: OverlayColor) => (selected !== null ? onUpdateSelected?.({ color: next }) : onStyleChange({ color: next }))
   const textSize = selected?.kind === 'text' ? selected.size : style.textSize
@@ -117,6 +122,15 @@ export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null,
               </span>
               <button type="button" className={`pdf-overlay-btn${selected.border === true ? ' pdf-overlay-btn-on' : ''}`} aria-label={t('테두리')} aria-pressed={selected.border === true} title={t('테두리')} onClick={() => onUpdateSelected?.({ border: selected.border !== true })}>
                 <span className="pdf-overlay-border-icon" aria-hidden="true" />
+              </button>
+            </>
+          ) : null}
+          {target === 'shape' ? (
+            <>
+              <span className="pdf-overlay-palette-sep" aria-hidden="true" />
+              <button type="button" className={`pdf-overlay-btn${shapeFill ? ' pdf-overlay-btn-on' : ''}`} aria-label={t('안 칠하기')} aria-pressed={shapeFill} title={t('안을 옅게 칠하기')} onClick={() => (selected?.kind === 'shape' ? onUpdateSelected?.({ fill: !shapeFill }) : onStyleChange({ fill: !shapeFill }))}><PaintBucket size={15} aria-hidden="true" /></button>
+              <button type="button" className={`pdf-overlay-btn${shapeDashed ? ' pdf-overlay-btn-on' : ''}`} aria-label={t('점선')} aria-pressed={shapeDashed} title={t('점선')} onClick={() => (selected?.kind === 'shape' ? onUpdateSelected?.({ dashed: !shapeDashed }) : onStyleChange({ dashed: !shapeDashed }))}>
+                <span className="pdf-overlay-dash-icon" aria-hidden="true" />
               </button>
             </>
           ) : null}

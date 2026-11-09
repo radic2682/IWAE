@@ -6,6 +6,11 @@
 .pdf-overlay-line-hit { stroke: transparent; stroke-width: 14px; stroke-linecap: round; pointer-events: stroke; cursor: move; }
 .pdf-overlay-line-selected line:not(.pdf-overlay-line-hit) { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent, #3b82f6) 80%, transparent)); }
 .pdf-overlay-line-preview { opacity: .75; }
+/* 도형: 테두리를 눌러 고르고 끈다(칠한 도형은 안쪽도). 빈 도형 안쪽은 새로 그릴 수 있게 비운다 */
+.pdf-overlay-shape-hit { stroke-linejoin: round; }
+.pdf-overlay-shape-filled .pdf-overlay-shape-hit { pointer-events: all; }
+.pdf-overlay-line-selected :is(rect, ellipse):not(.pdf-overlay-line-hit) { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent, #3b82f6) 80%, transparent)); }
+.pdf-overlay-shape-resize { cursor: nwse-resize; }
 .pdf-overlay-handle { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 2px; pointer-events: all; cursor: grab; }
 
 .pdf-overlay-text { position: absolute; box-sizing: border-box; min-height: 1.2em; padding: 1px 3px; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }

@@ -411,6 +411,10 @@ impl OllamaClient {
         &self,
         input: ExternalTranslationInput,
     ) -> Result<TranslationResult, String> {
+        // Google 번역(무료): 키 없이 쓴다
+        if input.provider.as_deref() == Some("google") {
+            return self.generate_google(&input).await;
+        }
         let api_key = input.api_key.trim();
         if api_key.is_empty() {
             return Err(tr!("외부 API key를 입력하세요.", "Enter the external API key."));
@@ -493,6 +497,28 @@ impl OllamaClient {
         parse_azure_translation_response(&body, elapsed_ms)
     }
 
+    /// Google 번역(무료, 키 없음): 웹 번역이 쓰는 translate_a/single(client=gtx). 글은 폼 본문으로 보낸다(긴 글도 주소에 싣지 않는다)
+    async fn generate_google(&self, input: &ExternalTranslationInput) -> Result<TranslationResult, String> {
+        let url = google_translate_url(&input.endpoint, &input.target_language, input.source_language.as_deref())?;
+        let text: String = input.text.chars().take(GOOGLE_MAX_CHARS).collect();
+        // 폼 본문(q=…)은 Url 의 query 인코더로 만든다
+        let mut form = Url::parse("http://form.invalid/").map_err(|_| tr!("요청을 만들지 못했습니다.", "Couldn't build the request."))?;
+        form.query_pairs_mut().append_pair("q", &text);
+        let body = form.query().unwrap_or_default().to_owned();
+        let started = Instant::now();
+        let response = self
+            .generate_client
+            .post(url)
+            .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+            .body(body)
+            .send()
+            .await
+            .map_err(external_request_error)?;
+        let text = external_response_body(response).await?;
+        let elapsed_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+        parse_google_translation_response(&text, elapsed_ms)
+    }
+
     /// DeepL: POST {endpoint}/v2/translate (Authorization: DeepL-Auth-Key ..). 무료 키는 api-free.deepl.com
     async fn generate_deepl(
         &self,
@@ -539,6 +565,53 @@ pub fn azure_translate_url(endpoint: &str, target_language: &str, source_languag
         }
     }
     Ok(url)
+}
+
+/// Google 번역 한 번에 보낼 글자 수(웹 번역의 한도)
+const GOOGLE_MAX_CHARS: usize = 5000;
+
+/// Google 은 중국어를 지역까지 적는다(zh → zh-CN)
+pub fn google_language(language: &str) -> String {
+    match language.trim().to_ascii_lowercase().as_str() {
+        "zh" | "zh-cn" | "zh-hans" => "zh-CN".to_owned(),
+        "zh-tw" | "zh-hant" => "zh-TW".to_owned(),
+        other => other.to_owned(),
+    }
+}
+
+pub fn google_translate_url(endpoint: &str, target_language: &str, source_language: Option<&str>) -> Result<Url, String> {
+    let target = target_language.trim();
+    if target.is_empty() {
+        return Err(tr!("번역할 언어가 비어 있습니다.", "The target language is empty."));
+    }
+    let base = validate_external_endpoint(endpoint)?;
+    let mut url = base
+        .join("translate_a/single")
+        .map_err(|_| tr!("Google 번역 주소를 만들지 못했습니다.", "Couldn't build the Google Translate URL."))?;
+    let source = source_language.map(str::trim).filter(|value| !value.is_empty()).map(google_language).unwrap_or_else(|| "auto".to_owned());
+    url.query_pairs_mut()
+        .append_pair("client", "gtx")
+        .append_pair("sl", &source)
+        .append_pair("tl", &google_language(target))
+        .append_pair("dt", "t");
+    Ok(url)
+}
+
+/// [[["번역","원문",…],["번역2","원문2",…]],null,"en",…] → 문장 조각을 이어 붙인다
+pub fn parse_google_translation_response(body: &str, elapsed_ms: u64) -> Result<TranslationResult, String> {
+    let value: serde_json::Value = serde_json::from_str(body)
+        .map_err(|error| tr!("Google 번역 응답을 읽지 못했습니다: {error}", "Couldn't read the Google Translate response: {error}"))?;
+    let translated_text: String = value
+        .get(0)
+        .and_then(serde_json::Value::as_array)
+        .map(|parts| parts.iter().filter_map(|part| part.get(0).and_then(serde_json::Value::as_str)).collect::<String>())
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    if translated_text.is_empty() {
+        return Err(tr!("Google 번역 응답이 비어 있습니다. 잠시 뒤 다시 하거나 다른 번역 방식을 고르세요.", "The Google Translate response is empty. Try again later or pick another translation engine."));
+    }
+    Ok(TranslationResult { translated_text, model: "Google".to_owned(), elapsed_ms })
 }
 
 pub fn deepl_translate_url(endpoint: &str) -> Result<Url, String> {
@@ -1222,6 +1295,17 @@ pub fn parse_pull_response(body: &str) -> Result<PullProgress, String> {
 
 #[cfg(test)]
 mod cloud_translator_tests {
+    #[test]
+    fn google_url_and_response() {
+        let url = super::google_translate_url("https://translate.googleapis.com", "zh", None).unwrap();
+        assert_eq!(url.as_str(), "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t");
+        let body = r#"[[["수면은 ","Sleep ",null,null,10],["기억을 돕는다.","helps memory.",null,null,10]],null,"en"]"#;
+        let result = super::parse_google_translation_response(body, 12).unwrap();
+        assert_eq!(result.translated_text, "수면은 기억을 돕는다.");
+        assert_eq!(result.model, "Google");
+        assert!(super::parse_google_translation_response("[null]", 1).is_err());
+    }
+
     use super::*;
 
     #[test]

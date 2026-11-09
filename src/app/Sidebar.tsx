@@ -514,6 +514,8 @@ export function Sidebar({
 
   const startRenaming = (id: string, name: string) => {
     if (onRenameEntry === undefined) return
+    // Enter 로 끝낸 앞 편집은 칸이 사라져 blur 가 오지 않으므로, 건너뛰기 표시가 남아 다음 편집의 blur 를 삼킨다
+    skipRenameBlurRef.current = false
     setEditingEntryId(id)
     setEditingName(name)
     setRenameError(null)
@@ -559,6 +561,7 @@ export function Sidebar({
   /** 폴더 이름도 파일처럼 그 자리에서 고친다. 편집 중인 항목 id 는 폴더 노드 id(folder:경로)다 */
   const startFolderRenaming = (folder: { id: string; name: string }) => {
     if (onRenameFolder === undefined) return
+    skipRenameBlurRef.current = false
     setEditingEntryId(folder.id)
     setEditingName(folder.name)
     setRenameError(null)
@@ -1537,6 +1540,7 @@ export function Sidebar({
           group={versionGroups[defaultMenu.groupId]!}
           anchor={defaultMenu.anchor}
           onPick={(docId) => versionActions.onPin(docId)}
+          onRename={versionActions.onRename}
           onClose={() => setDefaultMenu(null)}
         />
       ) : null}

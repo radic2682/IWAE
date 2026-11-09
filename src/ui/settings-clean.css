@@ -351,6 +351,8 @@
 
 /* 번역 캐시: 켜기·끄기 + 지우기 */
 .translation-cache-settings { display: flex; align-items: center; gap: 16px; margin-top: 18px; padding: 14px 16px; border: 1px solid var(--divider); border-radius: 10px; }
+.translation-enable-settings { margin: 0 0 14px; }
+.translation-settings-keyless { grid-column: 1 / -1; margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-strong); }
 .translation-cache-toggle { display: flex; flex: 1 1 auto; align-items: flex-start; gap: 10px; cursor: pointer; }
 .translation-cache-toggle input { margin-top: 3px; accent-color: var(--accent); }
 .translation-cache-toggle > span { display: grid; gap: 3px; color: var(--text-strong); font-size: 12.5px; line-height: 1.5; }

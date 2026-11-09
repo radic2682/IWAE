@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Columns, PushPin } from '@phosphor-icons/react'
+import { Check, Columns, PencilSimple, PushPin } from '@phosphor-icons/react'
 import type { VersionGroup } from '../core/versionGroups'
 import { t } from '../i18n'
 
@@ -132,15 +132,34 @@ export function VersionMenu({ group, openDocIds, currentDocId, anchor, onClose, 
 }
 
 /** 판 칩(a)의 드롭다운: 묶음 줄을 눌렀을 때 열릴 기본 판을 고른다 */
-export function DefaultVersionMenu({ group, anchor, onPick, onClose }: {
+export function DefaultVersionMenu({ group, anchor, onPick, onRename, onClose }: {
   readonly group: VersionGroup
   readonly anchor: DOMRect
   readonly onPick: (docId: string) => void
+  /** 판 이름 바꾸기(연필 단추 또는 두 번 누르기) */
+  readonly onRename?: (docId: string, label: string) => void
   readonly onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const startEdit = (docId: string, label: string) => {
+    if (onRename === undefined) return
+    setDraft(label)
+    setEditing(docId)
+  }
+  const commitEdit = (docId: string) => {
+    if (draft.trim() !== '') onRename?.(docId, draft)
+    setEditing(null)
+  }
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose() } }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      if (editing !== null) setEditing(null)
+      else onClose()
+    }
     const onDown = (event: PointerEvent) => {
       if (event.target instanceof Node && ref.current?.contains(event.target)) return
       onClose()
@@ -153,26 +172,58 @@ export function DefaultVersionMenu({ group, anchor, onPick, onClose }: {
       window.removeEventListener('pointerdown', onDown, true)
       window.removeEventListener('blur', onClose)
     }
-  }, [onClose])
-  const left = Math.min(Math.max(8, anchor.left), window.innerWidth - 188)
+  }, [editing, onClose])
+  const left = Math.min(Math.max(8, anchor.left), window.innerWidth - 228)
   const top = Math.min(anchor.bottom + 4, window.innerHeight - 40)
   return createPortal(
     <div ref={ref} className="version-menu version-default-menu" role="menu" aria-label={t('{title} 기본 버전', { title: group.title })} style={{ left, top }}>
       <div className="version-default-head">{t('기본 버전')}</div>
       {group.versions.map((version) => {
         const isDefault = version.docId === group.defaultDocId
+        if (editing === version.docId) {
+          return (
+            <div key={version.docId} className="version-default-row">
+              <input
+                className="version-menu-input version-default-input"
+                aria-label={t('버전 이름')}
+                value={draft}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setDraft(event.target.value)}
+                onBlur={() => commitEdit(version.docId)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') { event.preventDefault(); commitEdit(version.docId) }
+                }}
+              />
+            </div>
+          )
+        }
         return (
-          <button
-            key={version.docId}
-            type="button"
-            role="menuitemradio"
-            aria-checked={isDefault}
-            className={`version-default-item${isDefault ? ' version-default-item-on' : ''}`}
-            onClick={() => { onPick(version.docId); onClose() }}
-          >
-            <span className="version-default-check">{isDefault ? <Check size={12} weight="bold" aria-hidden="true" /> : null}</span>
-            <span>{version.label}</span>
-          </button>
+          <div key={version.docId} className="version-default-row">
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={isDefault}
+              className={`version-default-item${isDefault ? ' version-default-item-on' : ''}`}
+              title={onRename === undefined ? undefined : t('기본 버전으로 · 두 번 눌러 이름 바꾸기')}
+              onClick={() => { onPick(version.docId); onClose() }}
+              onDoubleClick={(event) => { event.preventDefault(); startEdit(version.docId, version.label) }}
+            >
+              <span className="version-default-check">{isDefault ? <Check size={12} weight="bold" aria-hidden="true" /> : null}</span>
+              <span>{version.label}</span>
+            </button>
+            {onRename === undefined ? null : (
+              <button
+                type="button"
+                className="version-default-rename"
+                aria-label={t('{label} 이름 바꾸기', { label: version.label })}
+                title={t('이름 바꾸기')}
+                onClick={() => startEdit(version.docId, version.label)}
+              >
+                <PencilSimple size={12} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         )
       })}
     </div>,

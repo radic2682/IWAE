@@ -47,6 +47,8 @@ const translationMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../bridge/translation', () => ({
+  loadTranslationApiKey: vi.fn().mockResolvedValue(''),
+  saveTranslationApiKey: vi.fn().mockResolvedValue(undefined),
   createOllamaTranslationProvider: () => ({
     status: vi.fn().mockResolvedValue({ available: true, version: 'test', deviceKey: 'test-device' }),
     listModels: vi.fn().mockResolvedValue([{ name: 'translategemma:4b', digest: 'test', size: 1 }]),
@@ -237,6 +239,11 @@ const notebooks: NotebookGroup[] = [
 function renderApp() {
   return render(<App library={library} notebooks={notebooks} />)
 }
+
+// 이 테스트들은 로컬(Ollama) 번역을 다룬다. 처음 기본값(Google 번역) 대신 로컬로 시작한다
+beforeEach(() => {
+  localStorage.setItem('iwae:translation-settings:v1', JSON.stringify({ executionMode: 'auto' }))
+})
 
 describe('App — 껍데기 배선', () => {
   beforeEach(() => {

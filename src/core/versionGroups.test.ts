@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addVersion, createGroup, defaultVersion, dissolveGroup, forgetDocs, groupOfDoc, guessVersionLabel, hiddenVersionDocIds,
+  addVersion, createGroup, defaultVersion, dissolveGroup, forgetDocs, groupOfDoc, guessVersionLabel, hiddenVersionDocIds, nextVersionNumberLabel,
   parseVersionGroups, removeVersion, renameVersion, setDefaultVersion, compareVersionLabels, groupTitleFromDocTitle, matchVersionPage, versionlessName, findVersionSibling, createSingleGroup, remapFolderVersions,
 } from './versionGroups'
 
@@ -81,9 +81,21 @@ describe('판 이름 추정', () => {
     ['XYZ5113_Jan 2025.pdf', 'Jan 2025'],
     ['report_2026-07-28.pdf', '2026-07-28'],
     ['manual 2024.pdf', '2024'],
-    ['Plain Name.pdf', 'Plain Name'],
+    ['Plain Name.pdf', 'v1'],
   ])('%s → %s', (file, label) => {
     expect(guessVersionLabel(file)).toBe(label)
+  })
+})
+
+describe('판 이름을 못 찾을 때', () => {
+  it('임시 번호를 쓴다', () => {
+    expect(guessVersionLabel('Neighborhood Library Survey Results.pdf')).toBe('v1')
+    expect(guessVersionLabel('Plain.pdf', undefined, 'v3')).toBe('v3')
+  })
+  it('다음 임시 번호는 쓰인 번호 다음', () => {
+    expect(nextVersionNumberLabel(['v1'])).toBe('v2')
+    expect(nextVersionNumberLabel(['1.4.0', '2.0'])).toBe('v3')
+    expect(nextVersionNumberLabel(['v1', 'v5'])).toBe('v6')
   })
 })
 

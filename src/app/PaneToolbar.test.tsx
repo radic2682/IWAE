@@ -71,7 +71,7 @@ describe('PaneToolbar', () => {
     const { container } = render(<PaneToolbar kind="pdf" mode="text" onModeChange={vi.fn()} />)
 
     expect(screen.queryByRole('searchbox', { name: 'PDF 검색' })).toBeNull()
-    expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['손 도구', '텍스트 선택', '영역 캡처', '형광펜', '박스 메모', '글 상자', '펜', '선', '지우개'])
+    expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['손 도구', '텍스트 선택', '영역 캡처', '형광펜', '박스 메모', '글 상자', '펜', '선', '화살표', '네모', '동그라미', '지우개'])
     expect(screen.getByRole('button', { name: '텍스트 선택' }).textContent).toBe('')
     expect(screen.getByRole('button', { name: '영역 캡처' }).textContent).toBe('')
     expect(container.querySelector('.pdf-mode-toggle-row')).not.toBeNull()

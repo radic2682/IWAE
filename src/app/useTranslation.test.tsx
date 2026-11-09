@@ -10,14 +10,16 @@ import {
   type TranslationResult,
 } from '../core/translation'
 import {
+  TRANSLATION_SETTINGS_KEY,
   saveTranslationSettings,
   type TranslationSettings,
   type TranslationSettingsStorage,
 } from '../core/translationSettings'
 import { useTranslation } from './useTranslation'
 
+// 이 테스트들은 로컬(Ollama) 자동 모드를 다룬다. 처음 기본값(Google 번역)이 아니라 로컬로 시작한다
 class MemoryStorage implements TranslationSettingsStorage {
-  readonly values = new Map<string, string>()
+  readonly values = new Map<string, string>([[TRANSLATION_SETTINGS_KEY, JSON.stringify({ executionMode: 'auto', externalProvider: 'compatible', externalEndpoint: 'https://api.openai.com/v1', externalModel: '' })]])
 
   getItem(key: string): string | null {
     return this.values.get(key) ?? null

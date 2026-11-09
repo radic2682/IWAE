@@ -15,6 +15,7 @@ function readyState(
       deviceKey: 'local-test-device',
     },
     settings: {
+      enabled: true,
       executionMode: 'auto',
       mode: 'auto',
       endpoint: 'http://127.0.0.1:11434',
@@ -89,6 +90,7 @@ describe('TranslationSettings', () => {
     rerender(<TranslationSettings state={readyState({
       updateSettings,
       settings: {
+        enabled: true,
         executionMode: 'auto',
         mode: 'custom',
         endpoint: 'http://127.0.0.1:11434',

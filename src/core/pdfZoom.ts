@@ -1,12 +1,12 @@
 /**
  * PDF 배율(%) 범위와 단계. 큰 확대는 보이는 부분만 타일로 기기 해상도 그대로 그리므로
- * (PageImage) 800% 까지 글자가 뭉개지지 않는다.
+ * (PageImage) 3200% 까지 글자가 뭉개지지 않는다(회로도·작은 글씨용).
  */
 export const ZOOM_MIN = 25
-export const ZOOM_MAX = 800
+export const ZOOM_MAX = 3200
 
 /** 확대·축소 단추와 Ctrl+휠이 밟는 단계. 큰 배율일수록 간격이 넓다 */
-const STEPS = [25, 33, 50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500, 600, 800] as const
+const STEPS = [25, 33, 50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500, 600, 800, 1000, 1200, 1600, 2000, 2400, 3200] as const
 
 export function clampZoom(value: number): number {
   if (!Number.isFinite(value)) return 100

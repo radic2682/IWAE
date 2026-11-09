@@ -238,6 +238,8 @@ export function SelectionLayer({
   const suppressContextMenuRef = useRef(false)
   const interactionLayerRef = useRef<SVGSVGElement | null>(null)
   const actionsRef = useRef<HTMLDivElement | null>(null)
+  /** 사용자가 마지막으로 고른 앵커(영역이었는가) */
+  const userAnchorRef = useRef<{ readonly anchor: Anchor; readonly region: boolean } | null>(null)
 
   useEffect(() => () => dragPreviewCleanupRef.current?.(), [])
   useEffect(() => () => { selectionEpochRef.current += 1 }, [docId, page])
@@ -260,6 +262,14 @@ export function SelectionLayer({
     ? null
     : createTextExcerptSelection(anchor, index, pageSize)
   const shown = draft ?? committed ?? external
+  // 글 고르기 메뉴(복사·번역 …)는 사용자가 글을 고른 때만. 검색 결과로 칠해 준 자리(external)와
+  // 영역 캡처(영역 메모 초안이 바로 열린다)에는 띄우지 않는다.
+  // 사용자가 고른 것은 바깥이 같은 앵커를 다시 내려 주므로(external), 마지막으로 고른 앵커와 같은지로 가린다
+  const lastUser = userAnchorRef.current
+  const externalIsUser = external !== null && lastUser !== null && anchor === lastUser.anchor
+  const userSelection = draft ?? committed ?? (externalIsUser ? external : null)
+  const userRegion = draft !== null ? draft.mode === 'region' : committed !== null ? committed.mode === 'region' : lastUser?.region === true
+  const showActions = userSelection !== null && !userRegion
 
   useEffect(() => {
     if (shown === null) return
@@ -539,6 +549,7 @@ export function SelectionLayer({
     const resolved = visualTextHeight === null ? completed : { ...completed, visualTextHeight }
     setExternalCleared(false)
     setCommitted(resolved)
+    userAnchorRef.current = { anchor: resolved.anchor, region: resolved.mode === 'region' }
     onSelectionChange?.(resolved)
     if (!hasGlyphs && image !== null) {
       const epoch = selectionEpochRef.current
@@ -713,7 +724,7 @@ export function SelectionLayer({
           />
         )
       })}
-      {shown === null || bounds === undefined ? null : (
+      {!showActions || shown === null || bounds === undefined ? null : (
         <>
           <div
             ref={actionsRef}

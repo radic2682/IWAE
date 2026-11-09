@@ -470,6 +470,9 @@ button.note-source-page:hover { color: var(--accent); }
 .pdf-search-docked .pdf-search-field:focus-within { border-color: var(--accent); }
 .pdf-search-docked .pdf-search-field input { flex: 1 1 auto; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text-strong); font: inherit; font-size: 14px; }
 .pdf-search-docked .pdf-search-field input::placeholder { color: var(--text-dim); }
+.pdf-search-docked .pdf-search-field input::-webkit-search-cancel-button { display: none; }
+.pdf-search-docked .pdf-search-clear { display: grid; flex: 0 0 auto; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--chrome-hover); color: var(--text-strong); cursor: pointer; }
+.pdf-search-docked .pdf-search-clear:hover { background: var(--selected-bg); }
 .pdf-search-docked .pdf-search-position { color: var(--text-strong); font-size: 12px; font-variant-numeric: tabular-nums; }
 .pdf-search-docked .pdf-search-option { min-width: 26px; height: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
 .pdf-search-docked .pdf-search-option[aria-pressed='true'] { background: var(--selected-bg); }

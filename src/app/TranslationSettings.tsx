@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { clearTranslationCache, setTranslationCacheEnabled, useTranslationCache } from './translationCacheStore'
 import { Select } from '../ui/Select'
 import type { ExternalTranslationProvider, PullProgress, TranslationExecutionMode, TranslationStatus } from '../core/translation'
-import { EXTERNAL_PROVIDERS, externalProviderInfo } from '../core/translationSettings'
+import { EXTERNAL_PROVIDERS, externalProviderInfo, isKeylessProvider } from '../core/translationSettings'
 import { RECOMMENDED_TRANSLATION_MODELS } from '../core/translation'
 import type { TranslationCoordinator } from './useTranslation'
 import { pick, t } from '../i18n'
@@ -110,6 +110,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
     )
   }
 
+  const keyless = isKeylessProvider(state.settings.externalProvider)
   return (
     <section className="translation-settings" aria-labelledby="translation-settings-title">
       <header className="translation-settings-header">
@@ -124,6 +125,17 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
         <ConnectionStatus status={state.status} external={external} />
       </header>
 
+      {/* 번역 기능 켜기·끄기: 끄면 글 고르기 메뉴의 「번역」과 노트 카드의 번역 단추가 사라진다 */}
+      <div className="translation-cache-settings translation-enable-settings">
+        <label className="translation-cache-toggle">
+          <input type="checkbox" checked={state.settings.enabled} onChange={(event) => state.updateSettings({ enabled: event.currentTarget.checked })} />
+          <span>
+            <strong>{t('번역 사용')}</strong>
+            <span>{t('끄면 글을 고를 때의 「번역」과 노트 카드의 번역 단추가 보이지 않습니다.')}</span>
+          </span>
+        </label>
+      </div>
+
       <div className="translation-settings-engine" role="radiogroup" aria-label={t('번역 방식')}>
         <button type="button" role="radio" aria-checked={!external} className={`translation-settings-engine-option${!external ? ' translation-settings-engine-on' : ''}`} onClick={() => chooseEngine(false)}>
           <strong>{t('로컬 (Ollama)')}</strong>
@@ -131,7 +143,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
         </button>
         <button type="button" role="radio" aria-checked={external} className={`translation-settings-engine-option${external ? ' translation-settings-engine-on' : ''}`} onClick={() => chooseEngine(true)}>
           <strong>{t('클라우드 API')}</strong>
-          <span>{t('Claude · Gemini · Azure 번역기 · DeepL 등으로 빠르게 번역합니다. 고른 글이 그 서비스로 전송됩니다.')}</span>
+          <span>{t('Google 번역(키 없음) · Azure 번역기 · DeepL · Claude 등으로 빠르게 번역합니다. 고른 글이 그 서비스로 전송됩니다.')}</span>
         </button>
       </div>
 
@@ -214,7 +226,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
               onChange={(event) => state.updateSettings({ externalEndpoint: event.currentTarget.value })}
             />
           </label>
-          {state.settings.externalProvider === 'deepl' ? null : <label className="translation-settings-field">
+          {state.settings.externalProvider === 'deepl' || keyless ? null : <label className="translation-settings-field">
             <span className="translation-settings-label">{state.settings.externalProvider === 'azure' ? t('리소스 지역 (예: global, koreacentral)') : 'API model'}</span>
             <input
               className="translation-settings-input"
@@ -228,7 +240,9 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
               {externalProviderInfo(state.settings.externalProvider).models.map((model) => <option key={model} value={model} />)}
             </datalist>
           </label>}
-          <label className="translation-settings-field">
+          {keyless ? (
+            <p className="translation-settings-keyless">{t('키 없이 바로 씁니다. 구글이 막거나 바꾸면 잠시 안 될 수 있으니, 그때는 다른 제공자를 고르세요.')}</p>
+          ) : <label className="translation-settings-field">
             <span className="translation-settings-label">API key</span>
             <input
               className="translation-settings-input"
@@ -239,7 +253,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
               spellCheck={false}
               onChange={(event) => state.updateExternalApiKey(event.currentTarget.value)}
             />
-          </label>
+          </label>}
         </div>
       )}
 

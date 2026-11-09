@@ -11,6 +11,7 @@ import {
 } from '../core/translation'
 import {
   externalProviderInfo,
+  isKeylessProvider,
   loadTranslationSettings,
   parseTranslationSettings,
   saveTranslationSettings,
@@ -149,9 +150,10 @@ export function useTranslation({ provider, storage }: UseTranslationOptions): Tr
     const initialize = async (): Promise<void> => {
       if (settings.executionMode === 'external-api') {
         // DeepL 은 고를 모델이 없다(모델 칸이 비어도 된다)
-        const externalModel = settings.externalModel !== '' ? settings.externalModel : settings.externalProvider === 'deepl' ? 'DeepL' : ''
+        const keyless = isKeylessProvider(settings.externalProvider)
+        const externalModel = settings.externalModel !== '' ? settings.externalModel : settings.externalProvider === 'deepl' ? 'DeepL' : keyless ? 'Google' : ''
         const configured = externalModel !== '' && provider.translateExternal !== undefined
-        const hasKey = externalApiKey.trim() !== ''
+        const hasKey = keyless || externalApiKey.trim() !== ''
         const message = !configured ? t('외부 API endpoint와 모델을 설정하세요.') : !hasKey ? t('API key 를 넣으세요.') : undefined
         setStatus({
           available: configured && hasKey,
@@ -425,6 +427,6 @@ async function translateWithExternalProvider(
   request: Parameters<NonNullable<TranslationProvider['translateExternal']>>[0],
 ): Promise<TranslationResult> {
   if (provider.translateExternal === undefined) throw new Error(t('외부 API 번역을 지원하지 않는 환경입니다.'))
-  if (request.apiKey.trim() === '') throw new Error(t('외부 API key를 입력하세요.'))
+  if (request.apiKey.trim() === '' && !(request.provider !== undefined && isKeylessProvider(request.provider))) throw new Error(t('외부 API key를 입력하세요.'))
   return provider.translateExternal(request)
 }

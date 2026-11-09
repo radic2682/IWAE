@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { recordUndo } from './undoStack'
 import { readMarkdownHighlights, writeMarkdownHighlights, type VaultHandle } from '../bridge/vault'
 import {
   markdownHighlightFile,
@@ -72,9 +73,20 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
     }
   }, [storage])
 
+  // 되돌리기: 바꾸기 전·후 목록을 남기고, 되돌리면 그 목록을 다시 쓴다
+  const restore = useCallback((list: readonly PersistentMarkdownHighlight[]) => {
+    highlightsRef.current = list
+    setHighlights(list)
+    if (readyRef.current) void storage.save(list).catch(() => undefined)
+  }, [storage])
+  const remember = useCallback((before: readonly PersistentMarkdownHighlight[], after: readonly PersistentMarkdownHighlight[], key: string) => {
+    recordUndo({ key: `md-hl:${key}`, undo: () => restore(before), redo: () => restore(after) })
+  }, [restore])
+
   const add = useCallback((highlight: PersistentMarkdownHighlight) => {
     if (highlightsRef.current.some(({ id }) => id === highlight.id)) return
     const next = [...highlightsRef.current, highlight]
+    remember(highlightsRef.current, next, highlight.id)
     highlightsRef.current = next
     setHighlights(next)
     if (!readyRef.current) {
@@ -89,6 +101,7 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
 
   const remove = useCallback((highlightId: string) => {
     const next = removePersistentMarkdownHighlight(highlightsRef.current, highlightId)
+    remember(highlightsRef.current, next, highlightId)
     highlightsRef.current = next
     setHighlights(next)
     if (!readyRef.current) {

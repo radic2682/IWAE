@@ -140,7 +140,7 @@ export interface DocumentViewProps {
   onSendToCanvas?: (selection: PdfExcerptSelection) => void
   onCopyWithSource?: (selection: PdfExcerptSelection) => void
   onSearchDocuments?: (selection: PdfExcerptSelection) => void
-  onTranslateSelection: (selection: PdfExcerptSelection) => Promise<PdfSelectionTranslation | null>
+  onTranslateSelection?: (selection: PdfExcerptSelection) => Promise<PdfSelectionTranslation | null>
   onSendTranslatedSelection?: (selection: PdfExcerptSelection, translated: PdfSelectionTranslation) => void
   onExternalLink: (url: string) => void
   onNavigateBack: () => void

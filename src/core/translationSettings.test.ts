@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_TRANSLATION_SETTINGS,
+  FIRST_RUN_TRANSLATION_SETTINGS,
   TRANSLATION_SETTINGS_KEY,
   loadTranslationSettings,
   parseTranslationSettings,
@@ -24,6 +25,7 @@ class MemoryStorage implements TranslationSettingsStorage {
 describe('parseTranslationSettings', () => {
   it('잘못된 저장값은 자동·한국어 기본값으로 복구한다', () => {
     expect(parseTranslationSettings({ mode: 'unknown' })).toEqual({
+      enabled: true,
       executionMode: 'auto',
       mode: 'auto',
       targetLanguage: 'ko',
@@ -69,6 +71,7 @@ describe('parseTranslationSettings', () => {
       endpoint: 'https://ollama.lan:11434',
       customModel: '  my-translator:v2  ',
     })).toEqual({
+      enabled: true,
       executionMode: 'gpu',
       mode: 'custom',
       targetLanguage: 'ja',
@@ -103,6 +106,7 @@ describe('parseTranslationSettings', () => {
       prompt: 'hidden prompt',
       translatedText: 'stored translation',
     })).toEqual({
+      enabled: true,
       executionMode: 'cpu',
       mode: '12b',
       targetLanguage: 'en',
@@ -136,6 +140,7 @@ describe('translation settings persistence', () => {
   it('고정된 v1 키로 설정만 저장하고 다시 불러온다', () => {
     const storage = new MemoryStorage()
     const settings: TranslationSettings = {
+      enabled: true,
       executionMode: 'external-api',
       mode: 'custom',
       targetLanguage: 'de',
@@ -154,12 +159,13 @@ describe('translation settings persistence', () => {
     expect(loadTranslationSettings(storage)).toEqual(settings)
   })
 
-  it('저장된 JSON이 없거나 손상됐으면 기본값을 반환한다', () => {
+  it('저장된 JSON이 없으면 처음 기본값(Google 번역), 손상됐으면 기본값을 반환한다', () => {
     const empty = new MemoryStorage()
     const malformed = new MemoryStorage()
     malformed.values.set(TRANSLATION_SETTINGS_KEY, '{invalid')
 
-    expect(loadTranslationSettings(empty)).toEqual(DEFAULT_TRANSLATION_SETTINGS)
+    expect(loadTranslationSettings(empty)).toEqual(FIRST_RUN_TRANSLATION_SETTINGS)
+    expect(loadTranslationSettings(empty).externalProvider).toBe('google')
     expect(loadTranslationSettings(malformed)).toEqual(DEFAULT_TRANSLATION_SETTINGS)
   })
 

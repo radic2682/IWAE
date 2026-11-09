@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  createInk, createLine, createTextBox, inkPath, isMeaningfulLine, snapLineEnd, TEXT_BOX_MIN_WIDTH,
-  type OverlayColor, type OverlayPatch, type PdfInk, type PdfLine, type PdfOverlay, type PdfTextBox,
+  createInk, createLine, createShape, createTextBox, inkPath, isMeaningfulLine, shapeBox, snapLineEnd, SHAPE_MIN_SIZE, TEXT_BOX_MIN_WIDTH,
+  type OverlayColor, type OverlayPatch, type PdfInk, type PdfLine, type PdfOverlay, type PdfShape, type PdfTextBox,
 } from '../core/pdfOverlays'
 import type { BoxPageLayout } from './PdfBoxMemos'
 import '../ui/pdf-overlay.css'
 import { t } from '../i18n'
 
-export type OverlayTool = 'text' | 'pen' | 'eraser' | 'line'
+export type OverlayTool = 'text' | 'pen' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse'
 
 export interface OverlayStyle {
   readonly color: OverlayColor
@@ -17,6 +17,13 @@ export interface OverlayStyle {
   readonly arrow: boolean
   /** 새 선을 점선으로 */
   readonly dashed: boolean
+  /** 새 도형 안을 옅게 칠할까 */
+  readonly fill?: boolean
+}
+
+/** 도형 도구인가 */
+function shapeOfTool(tool: OverlayTool): PdfShape['shape'] | null {
+  return tool === 'rect' ? 'rect' : tool === 'ellipse' ? 'ellipse' : null
 }
 
 interface PdfOverlayLayerProps {
@@ -69,7 +76,7 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
   const [editingId, setEditingId] = useState<string | null>(null)
   // 끄는 중(놓을 때 한 번만 저장): 옮기는 덮개의 임시 값, 새로 그리는 선
   const [moving, setMoving] = useState<{ id: string; patch: OverlayPatch } | null>(null)
-  const [drawing, setDrawing] = useState<{ page: number; from: Point; to: Point } | null>(null)
+  const [drawing, setDrawing] = useState<{ page: number; from: Point; to: Point; square?: boolean } | null>(null)
   // 펜으로 그리는 중인 획(쪽 좌표 점들)
   const [inking, setInking] = useState<{ page: number; points: [number, number][] } | null>(null)
   // 새 글 상자: 글을 쓰기 전에는 저장하지 않는다(빈 상자가 쌓이지 않게)
@@ -212,11 +219,14 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
     }
     const from = hit.point
     const page = hit.page
+    const shape = shapeOfTool(tool)
     setDrawing({ page, from, to: from })
+    // 선: Shift 면 수평·수직·45°. 도형: Shift 면 정사각형·원
+    const endOf = (raw: Point, shift: boolean) => (shape === null && shift ? snapLineEnd(from, raw) : raw)
     const onMove = (moveEvent: PointerEvent) => {
       const at = pageAt(moveEvent.clientX, moveEvent.clientY)
       const raw = at === null ? from : clampPoint(at.page === page ? at.point : from, page)
-      setDrawing({ page, from, to: moveEvent.shiftKey ? snapLineEnd(from, raw) : raw })
+      setDrawing({ page, from, to: endOf(raw, moveEvent.shiftKey), square: shape !== null && moveEvent.shiftKey })
     }
     const finish = (upEvent: PointerEvent) => {
       window.removeEventListener('pointermove', onMove)
@@ -224,10 +234,19 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
       window.removeEventListener('pointercancel', finish)
       const at = pageAt(upEvent.clientX, upEvent.clientY)
       const raw = at === null || at.page !== page ? from : clampPoint(at.point, page)
-      const to = upEvent.shiftKey ? snapLineEnd(from, raw) : raw
+      const to = endOf(raw, upEvent.shiftKey)
       setDrawing(null)
-      if (upEvent.type === 'pointercancel' || !isMeaningfulLine(from, to)) return
-      const line = createLine(page, from, to, { color: style.color, width: style.lineWidth, arrow: style.arrow, dashed: style.dashed })
+      if (upEvent.type === 'pointercancel') return
+      if (shape !== null) {
+        const box = shapeBox(from, to, upEvent.shiftKey)
+        if (box.w < SHAPE_MIN_SIZE || box.h < SHAPE_MIN_SIZE) return
+        const made = { ...createShape(page, shape, from, to, { color: style.color, width: style.lineWidth, fill: style.fill === true, dashed: style.dashed }), ...box }
+        onAdd(made)
+        setSelectedId(made.id)
+        return
+      }
+      if (!isMeaningfulLine(from, to)) return
+      const line = createLine(page, from, to, { color: style.color, width: style.lineWidth, arrow: tool === 'arrow' || style.arrow, dashed: style.dashed })
       onAdd(line)
       setSelectedId(line.id)
     }
@@ -254,6 +273,15 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
       }
       if (overlay.kind === 'ink') {
         return { points: overlay.points.map(([x, y]) => [x + dx, y + dy] as const) }
+      }
+      if (overlay.kind === 'shape') {
+        // 오른쪽 아래 손잡이: 크기(Shift 면 같은 길이 → 정사각형·원). 몸통: 옮기기
+        if (mode === 'resize') {
+          const w = Math.max(overlay.w + dx, SHAPE_MIN_SIZE)
+          const h = Math.max(overlay.h + dy, SHAPE_MIN_SIZE)
+          return shift ? { w: Math.max(w, h), h: Math.max(w, h) } : { w, h }
+        }
+        return { x: overlay.x + dx, y: overlay.y + dy }
       }
       if (mode === 'end1' || mode === 'end2') {
         const base = mode === 'end1' ? { x: overlay.x1 + dx, y: overlay.y1 + dy } : { x: overlay.x2 + dx, y: overlay.y2 + dy }
@@ -293,6 +321,38 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
       onPointerDownCapture={handleEraserDown}
     >
       <svg className="pdf-overlay-lines" width={width} height={height} aria-hidden="true">
+        {shown.filter((item): item is PdfShape => item.kind === 'shape').map((shape) => {
+          const layout = layoutOf(shape.page)
+          const size = pageSizes[shape.page]
+          if (layout === undefined || size === undefined || size[0] <= 0) return null
+          const scale = layout.width / size[0]
+          const box = { x: layout.left + shape.x * scale, y: layout.top + shape.y * scale, w: shape.w * scale, h: shape.h * scale }
+          const strokeWidth = Math.max(shape.width * scale, 1)
+          const look = {
+            stroke: shape.color,
+            strokeWidth,
+            fill: shape.fill === true ? shape.color : 'none',
+            fillOpacity: shape.fill === true ? 0.14 : undefined,
+            strokeDasharray: shape.dashed === true ? `${strokeWidth * 3} ${strokeWidth * 2}` : undefined,
+          }
+          const outline = (props: Record<string, unknown>) => shape.shape === 'ellipse'
+            ? <ellipse cx={box.x + box.w / 2} cy={box.y + box.h / 2} rx={box.w / 2} ry={box.h / 2} {...props} />
+            : <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={2} {...props} />
+          return (
+            <g key={shape.id} className={`pdf-overlay-line pdf-overlay-shape${shape.fill === true ? ' pdf-overlay-shape-filled' : ''}${selectedId === shape.id ? ' pdf-overlay-line-selected' : ''}`}>
+              {outline(look)}
+              {editMode ? outline({
+                className: 'pdf-overlay-line-hit pdf-overlay-shape-hit',
+                fill: 'transparent',
+                'data-overlay-id': shape.id,
+                onPointerDown: (event: React.PointerEvent<SVGElement>) => startMove(event as unknown as React.PointerEvent<HTMLElement>, shape, scale),
+              }) : null}
+              {editMode && selectedId === shape.id ? (
+                <circle className="pdf-overlay-handle pdf-overlay-shape-resize" cx={box.x + box.w} cy={box.y + box.h} r={5} onPointerDown={(event) => startMove(event as unknown as React.PointerEvent<HTMLElement>, shape, scale, 'resize')} />
+              ) : null}
+            </g>
+          )
+        })}
         {shown.filter((item): item is PdfLine => item.kind === 'line').map((line) => {
           const layout = layoutOf(line.page)
           const size = pageSizes[line.page]
@@ -364,13 +424,26 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
           const size = pageSizes[drawing.page]
           if (layout === undefined || size === undefined) return null
           const scale = layout.width / size[0]
-          const preview = createLine(drawing.page, drawing.from, drawing.to, { color: style.color, width: style.lineWidth, arrow: style.arrow })
+          const previewShape = shapeOfTool(tool)
+          if (previewShape !== null) {
+            const box = shapeBox(drawing.from, drawing.to, drawing.square === true)
+            const look = { stroke: style.color, strokeWidth: Math.max(style.lineWidth * scale, 1), fill: style.fill === true ? style.color : 'none', fillOpacity: style.fill === true ? 0.14 : undefined }
+            return (
+              <g className="pdf-overlay-line pdf-overlay-line-preview">
+                {previewShape === 'ellipse'
+                  ? <ellipse cx={layout.left + (box.x + box.w / 2) * scale} cy={layout.top + (box.y + box.h / 2) * scale} rx={box.w / 2 * scale} ry={box.h / 2 * scale} {...look} />
+                  : <rect x={layout.left + box.x * scale} y={layout.top + box.y * scale} width={box.w * scale} height={box.h * scale} rx={2} {...look} />}
+              </g>
+            )
+          }
+          const withArrow = tool === 'arrow' || style.arrow
+          const preview = createLine(drawing.page, drawing.from, drawing.to, { color: style.color, width: style.lineWidth, arrow: withArrow })
           const [a, b] = arrowHead(preview)
           const p = (x: number, y: number) => `${layout.left + x * scale},${layout.top + y * scale}`
           return (
             <g className="pdf-overlay-line pdf-overlay-line-preview">
               <line x1={layout.left + drawing.from.x * scale} y1={layout.top + drawing.from.y * scale} x2={layout.left + drawing.to.x * scale} y2={layout.top + drawing.to.y * scale} stroke={style.color} strokeWidth={Math.max(style.lineWidth * scale, 1)} strokeLinecap="round" />
-              {style.arrow ? <polyline points={`${p(a.x, a.y)} ${p(drawing.to.x, drawing.to.y)} ${p(b.x, b.y)}`} fill="none" stroke={style.color} strokeWidth={Math.max(style.lineWidth * scale, 1)} strokeLinecap="round" strokeLinejoin="round" /> : null}
+              {withArrow ? <polyline points={`${p(a.x, a.y)} ${p(drawing.to.x, drawing.to.y)} ${p(b.x, b.y)}`} fill="none" stroke={style.color} strokeWidth={Math.max(style.lineWidth * scale, 1)} strokeLinecap="round" strokeLinejoin="round" /> : null}
             </g>
           )
         })()}

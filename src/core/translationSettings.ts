@@ -4,6 +4,8 @@ import { t } from '../i18n'
 export type { TranslationExecutionMode } from './translation'
 
 export interface TranslationSettings {
+  /** 번역 기능을 쓰는가(끄면 글 고르기 메뉴·노트 카드의 번역 단추가 사라진다) */
+  readonly enabled: boolean
   readonly executionMode: TranslationExecutionMode
   readonly mode: TranslationModelMode
   readonly targetLanguage: string
@@ -21,7 +23,10 @@ export const EXTERNAL_PROVIDERS: readonly {
   readonly endpoint: string
   readonly models: readonly string[]
   readonly keyHint: string
+  /** API key 없이 쓰는 제공자 */
+  readonly keyless?: boolean
 }[] = [
+  { id: 'google', get label() { return t('Google 번역 (무료 · 키 없음)') }, endpoint: 'https://translate.googleapis.com', models: [], keyHint: '', keyless: true },
   { id: 'anthropic', label: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'], get keyHint() { return t('console.anthropic.com 에서 만든 API key') } },
   { id: 'openai', label: 'OpenAI', endpoint: 'https://api.openai.com/v1', models: [], get keyHint() { return t('platform.openai.com 에서 만든 API key') } },
   { id: 'gemini', label: 'Google Gemini', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', models: [], get keyHint() { return t('Google AI Studio 에서 만든 API key') } },
@@ -41,7 +46,9 @@ export interface TranslationSettingsStorage {
 
 export const TRANSLATION_SETTINGS_KEY = 'iwae:translation-settings:v1'
 
+// 저장값에 없는 칸을 채우는 기본값(예전 설정은 로컬 자동 그대로 읽는다)
 export const DEFAULT_TRANSLATION_SETTINGS: TranslationSettings = {
+  enabled: true,
   executionMode: 'auto',
   mode: 'auto',
   targetLanguage: 'ko',
@@ -52,7 +59,21 @@ export const DEFAULT_TRANSLATION_SETTINGS: TranslationSettings = {
   externalModel: 'claude-opus-5-5',
 }
 
-const EXTERNAL_PROVIDER_IDS = new Set<ExternalTranslationProvider>(['anthropic', 'openai', 'gemini', 'compatible', 'azure', 'deepl'])
+/** 처음 쓰는 사람(저장된 번역 설정이 없음): 설치·키 없이 바로 되는 Google 번역으로 시작한다 */
+export const FIRST_RUN_TRANSLATION_SETTINGS: TranslationSettings = {
+  ...DEFAULT_TRANSLATION_SETTINGS,
+  executionMode: 'external-api',
+  externalProvider: 'google',
+  externalEndpoint: 'https://translate.googleapis.com',
+  externalModel: '',
+}
+
+/** API key 없이 쓰는 제공자인가 */
+export function isKeylessProvider(id: ExternalTranslationProvider): boolean {
+  return externalProviderInfo(id).keyless === true
+}
+
+const EXTERNAL_PROVIDER_IDS = new Set<ExternalTranslationProvider>(['google', 'anthropic', 'openai', 'gemini', 'compatible', 'azure', 'deepl'])
 
 const MODES = new Set<TranslationModelMode>(['auto', '4b', '12b', '27b', 'custom'])
 const EXECUTION_MODES = new Set<TranslationExecutionMode>(['auto', 'cpu', 'gpu', 'external-api'])
@@ -93,6 +114,7 @@ export function parseTranslationSettings(raw: unknown): TranslationSettings {
     : DEFAULT_TRANSLATION_SETTINGS.executionMode
 
   return {
+    enabled: raw.enabled !== false,
     executionMode,
     mode,
     targetLanguage: nonEmptyString(raw.targetLanguage, DEFAULT_TRANSLATION_SETTINGS.targetLanguage),
@@ -138,7 +160,7 @@ export function loadTranslationSettings(
   try {
     const saved = storage.getItem(TRANSLATION_SETTINGS_KEY)
     return saved === null
-      ? { ...DEFAULT_TRANSLATION_SETTINGS }
+      ? { ...FIRST_RUN_TRANSLATION_SETTINGS }
       : parseTranslationSettings(JSON.parse(saved))
   } catch {
     return { ...DEFAULT_TRANSLATION_SETTINGS }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { recordUndo } from './undoStack'
 import { readPdfOverlays, writePdfOverlays, type VaultHandle } from '../bridge/vault'
 import { addOverlay, removeOverlay, remapOverlayPages, updateOverlay, type OverlayPatch, type PdfOverlay } from '../core/pdfOverlays'
 
@@ -28,8 +29,18 @@ export function usePdfOverlays(vault: VaultHandle | null) {
     return () => { active = false }
   }, [vault])
 
-  const commit = useCallback((next: Overlays) => {
+  const write = useCallback((next: Overlays) => {
+    ref.current = next
+    setOverlays(next)
+    if (vault === null) return
+    const handle = vault
+    queueRef.current = queueRef.current.catch(() => undefined).then(() => writePdfOverlays(handle, { version: 1, overlays: next }))
+  }, [vault])
+
+  const commit = useCallback((next: Overlays, key = 'all') => {
     if (next === ref.current) return
+    const before = ref.current
+    recordUndo({ key: `overlay:${key}`, undo: () => write(before), redo: () => write(next) })
     ref.current = next
     setOverlays(next)
     if (vault === null) return
@@ -40,7 +51,7 @@ export function usePdfOverlays(vault: VaultHandle | null) {
   return {
     overlays,
     add: useCallback((docId: string, overlay: PdfOverlay) => commit(addOverlay(ref.current, docId, overlay)), [commit]),
-    update: useCallback((docId: string, id: string, patch: OverlayPatch) => commit(updateOverlay(ref.current, docId, id, patch)), [commit]),
+    update: useCallback((docId: string, id: string, patch: OverlayPatch) => commit(updateOverlay(ref.current, docId, id, patch), id), [commit]),
     remove: useCallback((docId: string, id: string) => commit(removeOverlay(ref.current, docId, id)), [commit]),
     /** 쪽 편집 뒤 쪽 번호 옮기기 */
     remapPages: useCallback((docId: string, moves: ReadonlyMap<number, number>) => commit(remapOverlayPages(ref.current, docId, moves)), [commit]),

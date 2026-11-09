@@ -185,6 +185,21 @@ export function PdfSearchPanel({
               handleSearchKey(event)
             }}
           />
+          {/* 지우기: 검색어가 있으면 늘 보인다(브라우저 기본 ×는 칸을 눌러야만 보여서 끈다) */}
+          {queryValue !== '' ? (
+            <button
+              type="button"
+              className="pdf-search-clear"
+              aria-label={t('검색어 지우기')}
+              title={t('검색어 지우기')}
+              onClick={() => {
+                onQueryChange('')
+                searchInputRef.current?.focus()
+              }}
+            >
+              <X size={12} weight="bold" aria-hidden="true" />
+            </button>
+          ) : null}
           <output className="pdf-search-position" aria-label={t('검색 결과 위치')}>
             {current}/{search.matches.length}
           </output>

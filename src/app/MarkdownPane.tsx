@@ -543,6 +543,9 @@ export function MarkdownPane({
   const eraseHighlights = highlightTool.erase
   useEffect(() => { if (interactionMode !== 'highlight') setHighlightTool({ erase: false }) }, [interactionMode, setHighlightTool])
   const lassoStartRef = useRef<{ readonly x: number; readonly y: number } | null>(null)
+  /** 오른쪽 버튼으로 시작한 영역 잡기인가, 실제로 끌었는가(끌었으면 우클릭 메뉴를 띄우지 않는다) */
+  const rightLassoRef = useRef(false)
+  const rightDraggedRef = useRef(false)
 
   useEffect(() => {
     const clearSelectionOutside = (event: PointerEvent) => {
@@ -666,9 +669,9 @@ export function MarkdownPane({
         const line = rects.filter((rect) => rect.y < top + 2)
         // 영역 메모: 네모는 바깥 4px 에 그린다 — 선은 오른쪽 위 꺾쇠에서(PDF 와 같다)
         const right = Math.max(...line.map((rect) => rect.x + rect.w)) + (region === undefined ? 0 : 4 / paper.scale)
-        const lineHeight = Math.max(...line.map((rect) => rect.h))
         const anchorY = region === undefined
-          ? ar.top - article.scrollTop + (top + lineHeight / 2) * paper.scale
+          // 글: 첫 줄 위 가장자리에서 나온다(같은 줄 뒷글자를 가로지르지 않게, PDF 와 같다)
+          ? ar.top - article.scrollTop + top * paper.scale - 1.5
           : ar.top - article.scrollTop + top * paper.scale + 8
         if (anchorY < ar.top || anchorY > ar.bottom) continue
         next.push({
@@ -896,17 +899,22 @@ export function MarkdownPane({
   }, [action, onTranslateSelection, translationState.status])
 
   useEffect(() => {
-    if (interactionMode !== 'lasso') {
+    // 영역 도구가 아니어도 오른쪽 버튼으로 끌면 영역을 잡는다(PDF 와 같다). 영역 도구를 끄면 하던 것은 버린다
+    if (interactionMode !== 'lasso' && lassoStartRef.current !== null && !rightLassoRef.current) {
       lassoStartRef.current = null
       setLassoRect(null)
-      return
     }
     const move = (event: PointerEvent) => {
       const start = lassoStartRef.current
       if (start === null) return
+      if (rightLassoRef.current && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4) rightDraggedRef.current = true
       setLassoRect(normalizedRect(start.x, start.y, event.clientX, event.clientY))
     }
-    const finish = (event: PointerEvent) => finishLasso(event.clientX, event.clientY)
+    const finish = (event: PointerEvent) => {
+      if (lassoStartRef.current === null) return
+      rightLassoRef.current = false
+      finishLasso(event.clientX, event.clientY)
+    }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', finish)
     window.addEventListener('pointercancel', finish)
@@ -1137,13 +1145,22 @@ export function MarkdownPane({
           window.addEventListener('pointercancel', end)
           return
         }
-        if (interactionMode !== 'lasso' || event.button !== 0) return
+        const rightDrag = event.button === 2 && (interactionMode === 'text' || interactionMode === 'hand')
+        if (!rightDrag && (interactionMode !== 'lasso' || event.button !== 0)) return
+        rightLassoRef.current = rightDrag
+        rightDraggedRef.current = false
         event.preventDefault()
         setAction(null)
         setTranslationState({ status: 'idle' })
         window.getSelection()?.removeAllRanges()
         lassoStartRef.current = { x: event.clientX, y: event.clientY }
         setLassoRect({ left: event.clientX, top: event.clientY, width: 0, height: 0 })
+      }}
+      onContextMenu={(event) => {
+        // 오른쪽 버튼으로 영역을 끌었으면 우클릭 메뉴를 띄우지 않는다
+        if (!rightDraggedRef.current) return
+        event.preventDefault()
+        rightDraggedRef.current = false
       }}
       onClick={(event) => {
         // 링크: 바깥 주소는 확인 뒤 브라우저로, #제목은 이 문서 안에서, 다른 .md 는 IWAE 탭으로 연다

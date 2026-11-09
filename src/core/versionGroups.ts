@@ -182,10 +182,11 @@ export function forgetDocs(groups: Groups, docIds: ReadonlySet<string>): Groups 
 const MONTHS = 'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December'
 
 /**
- * 판 이름 추정: 파일 이름(없으면 제목)에서 버전·날짜를 찾는다. 못 찾으면 파일 이름 그대로.
+ * 판 이름 추정: 파일 이름(없으면 제목)에서 버전·날짜를 찾는다. 못 찾으면 임시 번호(fallback, 기본 v1).
+ * 파일 이름을 그대로 쓰면 칩이 길어져 문서 이름을 가린다 — 임시 번호는 칩 메뉴의 연필로 고친다.
  * 1.4.0 / v2.1 / Rev A / 2026-07 / Jul 2026 / 2026
  */
-export function guessVersionLabel(fileName: string, title?: string): string {
+export function guessVersionLabel(fileName: string, title?: string, fallback = 'v1'): string {
   // 앱에 보이는 제목에 「(3.2) …」「(July 2026) …」처럼 판이 적혀 있으면 그것이 가장 믿을 만하다
   if (title !== undefined) {
     const fromTitle = findVersionLabel(title)
@@ -194,8 +195,13 @@ export function guessVersionLabel(fileName: string, title?: string): string {
   const stem = fileName.replace(/\.[a-z0-9]{2,5}$/iu, '').trim()
   const found = findVersionLabel(stem)
   if (found !== null) return found
-  const plain = stem.replaceAll('_', ' ')
-  return plain.length > 40 ? `${plain.slice(0, 40)}…` : plain
+  return fallback
+}
+
+/** 묶음에 새로 넣을 판의 임시 번호: 이미 쓰인 vN 다음 번호 */
+export function nextVersionNumberLabel(labels: readonly string[]): string {
+  const used = labels.map((label) => /^v(\d+)$/iu.exec(label.trim())).filter((match) => match !== null).map((match) => Number(match![1]))
+  return `v${Math.max(labels.length, ...used) + 1}`
 }
 
 /** 글에서 판 이름(버전·날짜)을 찾는다. 없으면 null */

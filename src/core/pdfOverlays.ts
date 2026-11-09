@@ -53,9 +53,53 @@ export interface PdfInk {
   readonly width: number
 }
 
-export type PdfOverlay = PdfTextBox | PdfLine | PdfInk
+/** 도형(네모·동그라미). x, y 는 왼쪽 위, w, h 는 크기(쪽 좌표) */
+export interface PdfShape {
+  readonly id: string
+  readonly kind: 'shape'
+  readonly shape: 'rect' | 'ellipse'
+  readonly page: number
+  readonly x: number
+  readonly y: number
+  readonly w: number
+  readonly h: number
+  readonly color: OverlayColor
+  /** 선 굵기(points) */
+  readonly width: number
+  /** 안을 옅게 칠할까 */
+  readonly fill?: boolean
+  readonly dashed?: boolean
+}
+
+export type PdfOverlay = PdfTextBox | PdfLine | PdfInk | PdfShape
 /** 덮개 하나를 고칠 때 넘기는 값 */
-export type OverlayPatch = Partial<PdfTextBox> | Partial<PdfLine> | Partial<PdfInk>
+export type OverlayPatch = Partial<PdfTextBox> | Partial<PdfLine> | Partial<PdfInk> | Partial<PdfShape>
+
+/** 도형이 이보다 작으면(그냥 눌렀을 뿐이면) 만들지 않는다 */
+export const SHAPE_MIN_SIZE = 4
+
+/** 두 점(끈 시작·끝)으로 도형을 만든다. Shift 면 정사각형·원 */
+export function createShape(page: number, shape: PdfShape['shape'], from: { x: number; y: number }, to: { x: number; y: number }, init: Partial<Pick<PdfShape, 'color' | 'width' | 'fill' | 'dashed'>> = {}): PdfShape {
+  return {
+    id: newOverlayId(),
+    kind: 'shape',
+    shape,
+    page,
+    ...shapeBox(from, to),
+    color: init.color ?? '#d9363e',
+    width: init.width ?? 2,
+    ...(init.fill === true ? { fill: true } : {}),
+    ...(init.dashed === true ? { dashed: true } : {}),
+  }
+}
+
+/** 끈 두 점 → 왼쪽 위·크기 */
+export function shapeBox(from: { x: number; y: number }, to: { x: number; y: number }, square = false): { x: number; y: number; w: number; h: number } {
+  let w = Math.abs(to.x - from.x)
+  let h = Math.abs(to.y - from.y)
+  if (square) w = h = Math.max(w, h)
+  return { x: to.x < from.x ? from.x - w : from.x, y: to.y < from.y ? from.y - h : from.y, w, h }
+}
 
 export interface PdfOverlaysFile {
   readonly version: 1
@@ -234,6 +278,20 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
           ...(item.bold === true ? { bold: true } : {}),
           ...(item.fill === 'white' || item.fill === 'yellow' ? { fill: item.fill } : {}),
           ...(item.border === true ? { border: true } : {}),
+        }]
+      }
+      if (item.kind === 'shape') {
+        const x = num(item.x)
+        const y = num(item.y)
+        const w = num(item.w)
+        const h = num(item.h)
+        const width = num(item.width)
+        if (x === null || y === null || w === null || h === null || w <= 0 || h <= 0) return []
+        return [{
+          id, kind: 'shape', shape: item.shape === 'ellipse' ? 'ellipse' : 'rect', page, x, y, w, h, color,
+          width: Math.min(Math.max(width ?? 2, 0.5), 20),
+          ...(item.fill === true ? { fill: true } : {}),
+          ...(item.dashed === true ? { dashed: true } : {}),
         }]
       }
       if (item.kind === 'ink') {

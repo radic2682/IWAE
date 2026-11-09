@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { StackSimple, X } from '@phosphor-icons/react'
-import { compareVersionLabels, guessVersionLabel } from '../core/versionGroups'
+import { compareVersionLabels, guessVersionLabel, nextVersionNumberLabel } from '../core/versionGroups'
 import '../ui/version-groups.css'
 import { t } from '../i18n'
 
@@ -21,6 +21,8 @@ interface StackVersionsDialogProps {
   readonly candidates: readonly StackDoc[]
   /** 이미 묶음이면 묶음 이름(안내용) */
   readonly groupTitle?: string
+  /** 이미 묶음이면 그 판 이름들(판을 못 알아본 새 판에 다음 임시 번호를 붙인다) */
+  readonly existingLabels?: readonly string[]
   readonly onConfirm: (input: { added: StackDoc; baseLabel: string | null; addedLabel: string; makeDefault: boolean }) => void
   readonly onClose: () => void
   /** 가져온 파일이 같은 문서의 다른 판 같아서 앱이 먼저 묻는 경우(안내 한 줄) */
@@ -31,14 +33,16 @@ interface StackVersionsDialogProps {
  * 판으로 겹치기. 새 문서를 위에 겹치면 한 줄(<판 이름> 칩)로 보인다. 판 이름은 파일 이름의 버전·날짜에서 추정해 채우고 고칠 수 있다.
  * 기본 판(핀)은 판 이름으로 더 새것을 고르고, 비교할 수 없으면 새로 겹친 쪽을 권한다.
  */
-export function StackVersionsDialog({ base, added: given, candidates, groupTitle, onConfirm, onClose, suggested = false }: StackVersionsDialogProps) {
+export function StackVersionsDialog({ base, added: given, candidates, groupTitle, existingLabels, onConfirm, onClose, suggested = false }: StackVersionsDialogProps) {
   const [picked, setPicked] = useState<StackDoc | null>(given)
   const [query, setQuery] = useState('')
   const alreadyGroup = groupTitle !== undefined
   const [baseLabel, setBaseLabel] = useState(() => guessVersionLabel(base.fileName, base.title))
-  const [addedLabel, setAddedLabel] = useState(() => given === null ? '' : guessVersionLabel(given.fileName, given.title))
+  // 판을 못 알아보면 임시 번호: 새 묶음이면 v1(아래)·v2(위), 있던 묶음이면 그다음 번호
+  const guessAdded = (doc: StackDoc, below: string) => guessVersionLabel(doc.fileName, doc.title, nextVersionNumberLabel(existingLabels ?? [below]))
+  const [addedLabel, setAddedLabel] = useState(() => given === null ? '' : guessAdded(given, baseLabel))
   // 기본 판(핀): 판 이름으로 어느 쪽이 새것인지 알 수 있으면 새것, 모르면 위에 겹치는 쪽
-  const [makeDefault, setMakeDefault] = useState(() => given === null || compareVersionLabels(guessVersionLabel(given.fileName, given.title), guessVersionLabel(base.fileName, base.title)) >= 0)
+  const [makeDefault, setMakeDefault] = useState(() => given === null || compareVersionLabels(guessAdded(given, baseLabel), baseLabel) >= 0)
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose() } }
@@ -53,7 +57,7 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
 
   const choose = (doc: StackDoc) => {
     setPicked(doc)
-    const label = guessVersionLabel(doc.fileName, doc.title)
+    const label = guessAdded(doc, baseLabel)
     setAddedLabel(label)
     setMakeDefault(compareVersionLabels(label, baseLabel) >= 0)
   }

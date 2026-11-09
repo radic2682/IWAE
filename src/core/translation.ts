@@ -43,7 +43,7 @@ export interface TranslationResult {
 }
 
 /** 외부(클라우드) 번역 제공자. anthropic 은 Claude Messages API, 나머지는 OpenAI 호환 chat/completions */
-export type ExternalTranslationProvider = 'anthropic' | 'openai' | 'gemini' | 'compatible' | 'azure' | 'deepl'
+export type ExternalTranslationProvider = 'google' | 'anthropic' | 'openai' | 'gemini' | 'compatible' | 'azure' | 'deepl'
 
 export interface ExternalTranslationRequest {
   readonly provider?: ExternalTranslationProvider

@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
+import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
+import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { onOpenFiles, openDefaultAppsSettings, takeOpenFiles } from '../bridge/openFiles'
 import { dropZoneAt, type DropZone, type TreeDropPlace } from './dropZone'
@@ -60,7 +62,7 @@ import { useTheme } from './useTheme'
 import type { MarkdownExcerptDragPayload, MarkdownSourceJumpRequest } from '../core/markdownExcerpt'
 import type { MarkdownSelectionTranslation } from './MarkdownPane'
 import type { SourceOpenRequest } from './CanvasBlockShell'
-import { useAppShortcuts } from './useAppShortcuts'
+import { useAppShortcuts, type AppShortcutActions } from './useAppShortcuts'
 import { useNavigationHistory } from './useNavigationHistory'
 import type { NavLocation } from '../core/navigationHistory'
 import { useTranslation } from './useTranslation'
@@ -563,6 +565,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 알아야 하는데 그 값이 pdfTabs 에 있고, pdfTabs 는 여기서만 본다.
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('library')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   // 저절로 열 때 먼저 보일 설정 항목. 사용자가 열면 지난번 항목 그대로
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined)
@@ -800,7 +803,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const translationProviderKey = translation.settings.executionMode === 'external-api'
     ? translation.settings.externalProvider
     : `local:${translation.selectedModel ?? ''}`
-  useTranslationCacheBridge(vault, translateForCache, translation.settings.targetLanguage, translationProviderKey)
+  // 번역을 끄면 번역기를 넘기지 않는다 → 노트 카드의 번역 단추도 사라진다
+  useTranslationCacheBridge(vault, translation.settings.enabled ? translateForCache : null, translation.settings.targetLanguage, translationProviderKey)
   // 창을 닫을 때 쓰던 번역 모델을 내린다(닫기 갈고리는 한 번만 걸려 최신 함수를 ref 로 부른다)
   const releaseTranslationModelRef = useRef(translation.releaseLocalModel)
   releaseTranslationModelRef.current = translation.releaseLocalModel
@@ -889,7 +893,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return !open
     })
   }, [])
-  useAppShortcuts({
+  const shortcutActions: AppShortcutActions = {
     // Ctrl+F: 왼쪽 바를 「PDF 검색」 보기로 바꾸고 검색 칸으로
     // 글자를 골라 둔 채 누르면 그 글자로 바로 찾는다(PDF 는 고른 발췌, Markdown 등은 화면 선택)
     search: () => {
@@ -914,7 +918,56 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     print: () => window.dispatchEvent(new CustomEvent('iwae:print')),
     openSettings: () => { setSettingsSection(undefined); setSettingsOpen(true) },
     toggleSinglePane: () => { if (SPLIT_PANES_ENABLED) toggleSinglePaneRef.current() },
-  })
+    // 형광펜·메모·박스 메모·그림·노트 블록 되돌리기. 글 칸 안에서는 브라우저의 글자 되돌리기가 먼저다.
+    // 예전 캔버스 노트가 열려 있으면 그쪽 기록을 쓴다(NoteCanvas)
+    undo: () => {
+      if (document.querySelector('.note-canvas') !== null) return
+      if (!undoChange()) announceAction(t('되돌릴 것이 없습니다'))
+    },
+    redo: () => {
+      if (document.querySelector('.note-canvas') !== null) return
+      if (!redoChange()) announceAction(t('다시 할 것이 없습니다'))
+    },
+    commandPalette: () => setPaletteOpen((open) => !open),
+  }
+  useAppShortcuts(shortcutActions)
+  const shortcutActionsRef = useRef(shortcutActions)
+  shortcutActionsRef.current = shortcutActions
+  useEffect(() => { clearUndo() }, [vault])
+  /** 명령 팔레트(Ctrl+Shift+P)에 보일 동작과 문서 */
+  const paletteCommands = (): PaletteCommand[] => {
+    const act = (name: keyof AppShortcutActions) => () => shortcutActionsRef.current[name]?.()
+    const actions: PaletteCommand[] = [
+      { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: 'Ctrl+,', keywords: 'settings preferences', run: act('openSettings') },
+      { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
+      { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: 'Ctrl+Shift+F', keywords: 'search vault find', run: act('documentSearch') },
+      { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: 'Ctrl+F', keywords: 'find search', run: act('search') },
+      { id: 'goto', kind: 'action', label: t('쪽으로 가기'), shortcut: 'Ctrl+G', keywords: 'go to page', run: act('goTo') },
+      { id: 'library', kind: 'action', label: t('라이브러리 펼치기·접기'), shortcut: 'Ctrl+Shift+L', keywords: 'library', run: act('toggleLibrary') },
+      { id: 'sidebar', kind: 'action', label: t('왼쪽 바 접기·펴기'), keywords: 'sidebar', run: () => setSidebarCollapsed((value) => !value) },
+      { id: 'new-note', kind: 'action', label: t('새 노트 만들기'), keywords: 'new note', run: () => { void memoNotes.create() } },
+      { id: 'undo', kind: 'action', label: t('되돌리기'), shortcut: 'Ctrl+Z', keywords: 'undo', run: act('undo') },
+      { id: 'redo', kind: 'action', label: t('다시 하기'), shortcut: 'Ctrl+Shift+Z', keywords: 'redo', run: act('redo') },
+      { id: 'next-tab', kind: 'action', label: t('다음 탭'), shortcut: 'Ctrl+Tab', keywords: 'next tab', run: act('nextTab') },
+      { id: 'prev-tab', kind: 'action', label: t('이전 탭'), shortcut: 'Ctrl+Shift+Tab', keywords: 'previous tab', run: act('prevTab') },
+      { id: 'close-tab', kind: 'action', label: t('탭 닫기'), shortcut: 'Ctrl+W', keywords: 'close tab', run: act('closeTab') },
+      { id: 'back', kind: 'action', label: t('뒤로 (문서 점프)'), shortcut: 'Alt+←', keywords: 'back', run: act('navBack') },
+      { id: 'forward', kind: 'action', label: t('앞으로 (문서 점프)'), shortcut: 'Alt+→', keywords: 'forward', run: act('navForward') },
+      { id: 'print', kind: 'action', label: t('인쇄'), shortcut: 'Ctrl+P', keywords: 'print', run: act('print') },
+      { id: 'theme', kind: 'action', label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'), keywords: 'theme dark light', run: () => theme.setPreference(theme.resolvedTheme === 'dark' ? 'light' : 'dark') },
+      ...(SPLIT_PANES_ENABLED ? [{ id: 'split', kind: 'action' as const, label: t('화면 나누기 바꾸기'), shortcut: 'Ctrl+\\', keywords: 'split pane', run: act('toggleSinglePane') }] : []),
+    ]
+    const documents: PaletteCommand[] = searchRecords
+      .filter((record) => record.kind === 'pdf' || record.kind === 'markdown')
+      .map((record) => ({
+        id: `doc:${record.id}`,
+        kind: record.kind === 'pdf' ? 'pdf' as const : 'markdown' as const,
+        label: record.displayName,
+        keywords: record.path,
+        run: () => openVaultSearchResult({ record, page: null, snippet: '', query: '' }),
+      }))
+    return [...actions, ...documents]
+  }
   // 마우스 옆 단추(뒤로=3, 앞으로=4)는 어디서 누르든 문서 점프 기록을 오간다.
   useEffect(() => {
     const onMouseUp = (event: MouseEvent) => {
@@ -1932,7 +1985,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onSendToCanvas={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendPdfSelectionToCanvas}
         onCopyWithSource={(selection) => void copyPdfSelectionWithSource(selection)}
         onSearchDocuments={searchDocumentsFromSelection}
-        onTranslateSelection={translatePdfSelection}
+        onTranslateSelection={translation.settings.enabled ? translatePdfSelection : undefined}
         onSendTranslatedSelection={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendTranslatedPdfSelectionToCanvas}
         onExternalLink={openPdfLink}
         onNavigateBack={navigation.back}
@@ -1942,7 +1995,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         vaultRoot={vault?.root}
         onOpenMarkdownPath={openMarkdownPath}
         markdownTheme={markdownTheme}
-        onTranslateMarkdownSelection={translation.selectedModel === null ? undefined : translateMarkdownSelection}
+        onTranslateMarkdownSelection={!translation.settings.enabled || translation.selectedModel === null ? undefined : translateMarkdownSelection}
         onSearchDocumentsText={searchDocumentsFromText}
         onSendTranslatedMarkdownSelection={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendTranslatedMarkdownSelectionToCanvas}
         markdownHighlights={markdownHighlights.highlights}
@@ -2389,7 +2442,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           base={toDoc(baseDocId)}
           added={stackRequest.addedDocId === null ? null : { ...toDoc(stackRequest.addedDocId), ...(stackRequest.addedFileName === undefined ? {} : { fileName: stackRequest.addedFileName }) }}
           candidates={candidates}
-          {...(existing === null ? {} : { groupTitle: existing.title })}
+          {...(existing === null ? {} : { groupTitle: existing.title, existingLabels: existing.versions.map((version) => version.label) })}
           suggested={stackRequest.suggested === true}
           onClose={() => setStackRequest(null)}
           onConfirm={({ added, baseLabel, addedLabel, makeDefault }) => {
@@ -2490,6 +2543,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       />
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} /> : null}
+    {paletteOpen ? <CommandPalette commands={paletteCommands()} onClose={() => setPaletteOpen(false)} /> : null}
     <SettingsModal
       open={settingsOpen}
       initialSectionId={settingsSection}
