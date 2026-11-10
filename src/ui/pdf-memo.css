@@ -856,15 +856,15 @@
   display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
   min-height: 30px; padding: 4px 9px;
   border: 0; border-radius: 5px; background: transparent;
-  color: var(--text-strong); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+  color: var(--text-strong); font: inherit; font-family: var(--font-ui); font-size: 13px; text-align: left; cursor: pointer;
 }
 .pdf-memo-format-menu-item:hover { background: var(--chrome-hover); }
 .pdf-memo-format-menu-item[aria-checked='true'] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.pdf-memo-format-menu-hint { padding: 0 5px; border-radius: 4px; background: var(--field); color: var(--text-strong); font-family: 'Cascadia Mono', Consolas, monospace; font-size: 10.5px; line-height: 18px; white-space: nowrap; }
+.pdf-memo-format-menu-hint { padding: 0 5px; border-radius: 4px; background: var(--field); color: var(--text-strong); font-family: var(--font-ui); font-size: 10.5px; line-height: 18px; white-space: nowrap; }
 .pdf-memo-format-menu-h2 .pdf-memo-format-menu-name { font-size: 16px; font-weight: 750; }
 .pdf-memo-format-menu-h3 .pdf-memo-format-menu-name { font-size: 14.5px; font-weight: 750; }
 .pdf-memo-format-menu-h4 .pdf-memo-format-menu-name { font-weight: 750; }
-.pdf-memo-format-menu-pre .pdf-memo-format-menu-name { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; }
+.pdf-memo-format-menu-pre .pdf-memo-format-menu-name { font-size: 12.5px; }
 
 /* ---------- 메모·노트 글의 표 ---------- */
 :is(.pdf-memo-card-text, .pdf-memo-editor) table {
