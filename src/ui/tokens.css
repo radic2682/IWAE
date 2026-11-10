@@ -1,3 +1,20 @@
+/* 모서리 반경 스케일. 모든 border-radius 는 역할에 맞는 토큰을 쓴다(숫자로 가장 가까운 값을 고르지 않는다).
+   --r-xs   4px   작은 배지·kbd·인라인 코드·인용 줄·18px 안팎의 작은 단추
+   --r-sm   6px   단추·입력·셀렉트·메뉴 항목·툴바 단추·목록 행·탭 칩
+   --r-md   8px   카드·메모 블록·메뉴/팝오버/드롭다운·툴팁·단추 묶음 바(안쪽 단추는 sm)·탭 윗모서리
+   --r-lg  12px   대화상자·큰 패널·토스트
+   --r-full 999px 알약·스위치·진행 막대. 점·아바타·동그란 단추는 50%
+   바깥 둥근 상자 안쪽에 패딩을 두고 바싹 붙는 요소는 바깥 반경 - 패딩 으로 calc 한다.
+   의도적으로 토큰을 쓰지 않는 것: 메모 호버 탭과 오목 필렛(note-ticket.css 의 7px, --memo-border),
+   양쪽이 이어지는 분할/세그먼트(0), 텍스트 형광 표시·1~2px 가는 막대(1px/2px), PDF 핀 깃발(pdf-pins.css). */
+:root {
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+}
+
 :root {
   --grid: 8px;
 
@@ -39,14 +56,14 @@
   --highlight-blue: rgb(93 177 255 / 40%);
   --highlight-pink: rgb(255 126 181 / 40%);
   --toolbar-height: 38px;
-  --radius-control: 6px;
+  --radius-control: var(--r-sm);
   --shadow-page: 0 1px 3px rgb(18 24 33 / 18%);
 
   --topbar-h: var(--toolbar-height);
   --tabbar-h: 36px;
   --bottom-bar-height: 37px;
-  --radius: 6px;
-  --radius-lg: 10px;
+  --radius: var(--r-sm);
+  --radius-lg: var(--r-lg);
   --row-h: 28px;
 }
 

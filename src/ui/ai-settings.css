@@ -7,7 +7,7 @@
   height: 20px;
   padding: 0;
   border: 1px solid var(--divider);
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: var(--chrome-hover);
   cursor: pointer;
   transition: background-color 160ms ease;

@@ -10,7 +10,7 @@
   padding: 0 6px 0 7px;
   overflow: hidden;
   border: 1px solid var(--divider-strong);
-  border-radius: 999px;
+  border-radius: var(--r-full);
   /* 칩 안은 회색도, 줄의 켜짐 바탕도 비치지 않는다(사이드바 바탕 그대로) */
   background: var(--chrome);
   color: var(--text-strong, inherit);
@@ -29,7 +29,7 @@
 
 /* 묶음 줄: 제목 + 판 칩을 한 줄로 묶어 켜짐 바탕이 줄 전체에 깔린다 */
 .side-version-line-plain { display: contents; }
-.side-version-line { display: flex; flex: 1 0 100%; align-items: center; min-width: 0; max-width: 100%; border-radius: 8px; }
+.side-version-line { display: flex; flex: 1 0 100%; align-items: center; min-width: 0; max-width: 100%; border-radius: var(--r-sm); }
 .side-version-line > .side-item { flex: 1 1 0; min-width: 0; }
 .sidebar .side-version-line > .side-item.side-item-open,
 .sidebar .side-version-line > .side-item.side-item-open:hover { background: transparent; }
@@ -39,7 +39,7 @@
 
 /* 펼친 판 줄: 누르면 기본 판, 끌어서 묶음 밖에 놓으면 빼기 */
 .side-version-rows { display: grid; flex: 1 0 100%; gap: 1px; margin: 1px 0 3px; padding-left: calc(var(--side-tree-depth, 0) * 14px + 30px); padding-right: 30px; }
-.side-version-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong, inherit); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; touch-action: none; }
+.side-version-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 26px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong, inherit); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; touch-action: none; }
 .side-version-row:hover { background: var(--chrome-hover); }
 /* 펼친 판 줄: 지금 켜진(탭에 열린) 판은 하이라이팅, 기본 판은 굵게 */
 .side-version-row-open { background: var(--selected-bg); }
@@ -49,7 +49,7 @@
 .side-version-row-default .side-version-row-pin { opacity: 1; color: var(--accent); }
 .side-version-row-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-version-row-dragging { opacity: .45; }
-.side-version-drag-ghost { position: fixed; z-index: 120; padding: 4px 8px; border-radius: 6px; background: var(--paper, #fff); color: var(--text-strong, #111); box-shadow: 0 4px 14px rgb(0 0 0 / 30%); font-size: 12px; font-weight: 600; pointer-events: none; }
+.side-version-drag-ghost { position: fixed; z-index: 120; padding: 4px 8px; border-radius: var(--r-sm); background: var(--paper, #fff); color: var(--text-strong, #111); box-shadow: 0 4px 14px rgb(0 0 0 / 30%); font-size: 12px; font-weight: 600; pointer-events: none; }
 .side-version-drag-ghost-out { background: var(--accent); color: #fff; }
 
 /* 판 고르기 드롭다운 */
@@ -59,57 +59,57 @@
   width: 260px;
   padding: 6px;
   border: 1px solid var(--divider-strong);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--text-strong, var(--ink));
   box-shadow: 0 12px 32px rgb(0 0 0 / .35);
 }
 .version-menu-list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
-.version-menu-row { display: flex; align-items: center; gap: 2px; border-radius: 6px; }
+.version-menu-row { display: flex; align-items: center; gap: 2px; border-radius: var(--r-sm); }
 .version-menu-row:hover { background: var(--chrome-hover); }
-.version-menu-pin { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; opacity: .8; cursor: pointer; }
+.version-menu-pin { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; opacity: .8; cursor: pointer; }
 .version-menu-pin:hover { opacity: 1; }
 .version-menu-pin-on { opacity: 1; color: var(--accent); }
 .version-menu-name { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; padding: 5px 6px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .version-menu-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .version-menu-open { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--accent); }
-.version-menu-input { flex: 1 1 auto; min-width: 0; height: 26px; margin: 0 4px; padding: 0 6px; border: 1px solid var(--accent); border-radius: 5px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
-.version-menu-remove { flex: 0 0 auto; height: 22px; padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.version-menu-input { flex: 1 1 auto; min-width: 0; height: 26px; margin: 0 4px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
+.version-menu-remove { flex: 0 0 auto; height: 22px; padding: 0 6px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; }
 .version-menu-remove:hover { opacity: 1; background: var(--chrome-hover); }
 .version-menu-sep { height: 1px; margin: 5px 2px; background: var(--divider); }
-.version-menu-action { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.version-menu-action { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
 .version-menu-action:hover { background: var(--chrome-hover); }
 .version-menu-danger { color: var(--danger, #e5534b); }
 .version-menu-hint { display: flex; align-items: center; gap: 4px; margin: 4px 2px 0; font-size: 11px; }
 
 /* 판으로 겹치기 창 */
 .stack-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgb(0 0 0 / .4); }
-.stack-dialog { display: flex; flex-direction: column; width: min(480px, calc(100vw - 32px)); max-height: min(620px, calc(100vh - 48px)); border: 1px solid var(--divider-strong); border-radius: 12px; background: var(--paper); color: var(--text-strong, var(--ink)); box-shadow: 0 24px 60px rgb(0 0 0 / .35); }
+.stack-dialog { display: flex; flex-direction: column; width: min(480px, calc(100vw - 32px)); max-height: min(620px, calc(100vh - 48px)); border: 1px solid var(--divider-strong); border-radius: var(--r-lg); background: var(--paper); color: var(--text-strong, var(--ink)); box-shadow: 0 24px 60px rgb(0 0 0 / .35); }
 .stack-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 10px 18px; }
-.stack-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: var(--chrome-hover); }
+.stack-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--chrome-hover); }
 .stack-titles { flex: 1 1 auto; min-width: 0; }
 .stack-titles h2 { margin: 2px 0 0; font-size: 15px; font-weight: 700; }
 .stack-titles p { margin: 3px 0 0; overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
-.stack-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.stack-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .stack-close:hover { background: var(--chrome-hover); }
 .stack-body { display: grid; gap: 12px; padding: 4px 18px 14px; overflow-y: auto; }
 .stack-moving { margin: 0; overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
 .stack-picker { display: grid; gap: 8px; }
-.stack-picker input { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
+.stack-picker input { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
 .stack-picker input:focus, .stack-labels input[type='text']:focus, .stack-labels input:not([type]):focus { outline: none; border-color: var(--accent); }
-.stack-candidates { display: grid; gap: 1px; max-height: 190px; padding: 4px; overflow-y: auto; border: 1px solid var(--divider); border-radius: 8px; }
-.stack-candidate { padding: 6px 8px; overflow: hidden; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.stack-candidates { display: grid; gap: 1px; max-height: 190px; padding: 4px; overflow-y: auto; border: 1px solid var(--divider); border-radius: var(--r-md); }
+.stack-candidate { padding: 6px 8px; overflow: hidden; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .stack-candidate:hover { background: var(--chrome-hover); }
 .stack-candidate-on, .stack-candidate-on:hover { background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
 .stack-empty { margin: 0; padding: 8px; font-size: 12.5px; }
 .stack-labels { display: grid; gap: 10px; }
 .stack-labels label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
-.stack-labels label input:not([type='checkbox']) { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; font-weight: 400; }
+.stack-labels label input:not([type='checkbox']) { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; font-weight: 400; }
 .stack-labels label input:not([type='checkbox']):focus { outline: none; border-color: var(--accent); }
 .stack-check { display: flex !important; align-items: center; gap: 8px; font-weight: 400 !important; }
 .stack-error { margin: 0; color: var(--danger, #e5534b); font-size: 12.5px; }
 .stack-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 18px 16px; }
-.stack-primary, .stack-secondary { height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.stack-primary, .stack-secondary { height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .stack-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
 .stack-primary:disabled { opacity: .5; cursor: default; }
 .stack-secondary:hover { background: var(--chrome-hover); }
@@ -125,23 +125,23 @@
 .pane-version-chip,
 .pane-doc .pane-toolbar .pdf-compact-tool.pane-version-chip { display: inline-flex; align-items: center; gap: 4px; width: auto !important; max-width: 150px !important; padding: 0 7px !important; font-size: 11.5px; font-weight: 600; color: var(--text-strong, inherit); }
 .pane-version-chip span { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.version-menu-compare { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; cursor: pointer; }
+.version-menu-compare { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .version-menu-compare:hover { background: var(--chrome-hover); }
-.stack-suggested { margin: 0 0 10px; padding: 7px 9px; border-radius: 7px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 12.5px; }
+.stack-suggested { margin: 0 0 10px; padding: 7px 9px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 12.5px; }
 
 /* a 옆 펼치기 단추 */
-.side-version-expand { flex: 0 0 auto; display: grid; place-items: center; width: 20px; height: 20px; margin-left: 2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--text-strong, inherit); cursor: pointer; }
+.side-version-expand { flex: 0 0 auto; display: grid; place-items: center; width: 20px; height: 20px; margin-left: 2px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong, inherit); cursor: pointer; }
 .side-version-expand:hover { background: var(--chrome-hover); }
 /* 기본 판 고르기 드롭다운 */
 .version-default-menu { width: 220px; }
 .version-default-row { display: flex; align-items: center; gap: 2px; }
 .version-default-row > .version-default-item { flex: 1 1 auto; min-width: 0; }
 .version-default-item > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.version-default-rename { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--text-strong, inherit); cursor: pointer; }
+.version-default-rename { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong, inherit); cursor: pointer; }
 .version-default-rename:hover { background: var(--chrome-hover); }
 .version-default-input { margin: 1px 0; }
 .version-default-head { padding: 4px 8px 6px; font-size: 11px; font-weight: 700; }
-.version-default-item { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.version-default-item { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
 .version-default-item:hover { background: var(--chrome-hover); }
 .version-default-item-on { font-weight: 700; }
 .version-default-check { display: grid; place-items: center; width: 14px; color: var(--accent); }
@@ -159,13 +159,13 @@
 .side-doc-icon { position: relative; display: inline-grid; flex: 0 0 auto; place-items: center; }
 /* 이 PDF 에 노트가 있다는 표시: 아이콘 귀퉁이의 작은 점(앱 강조색) */
 .side-doc-note-dot { position: absolute; right: -3px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
-.side-doc-caret { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--text-strong, inherit); cursor: pointer; }
+.side-doc-caret { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong, inherit); cursor: pointer; }
 .side-doc-caret:hover { background: var(--chrome-hover); }
 /* 마우스를 올렸을 때만 나타나는 「+」(이 PDF 에 노트 만들기). 화살표가 있으면 그 왼쪽 */
 .sidebar .side-section .side-tree-row > .side-version-line > .side-doc-note-add,
 .sidebar .side-section .side-doc-note-add {
   position: absolute; top: 50%; right: 8px; z-index: 2; display: grid; place-items: center; width: 22px; height: 22px; margin: 0; padding: 0;
-  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); opacity: 0; transform: translateY(-50%); cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); opacity: 0; transform: translateY(-50%); cursor: pointer;
   transition: opacity 100ms ease;
 }
 .sidebar .side-section .side-doc-note-add-with-caret { right: 32px; }
@@ -176,10 +176,10 @@
 .side-doc-children { display: grid; flex: 1 0 100%; gap: 2px; margin: 1px 0 3px; }
 .side-version-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 10px 3px calc(var(--side-tree-depth, 0) * 14px + 30px); }
 .side-version-pills-label { margin-right: 2px; color: var(--text-strong); font-size: 12px; font-weight: 600; }
-.side-version-pill { height: 22px; padding: 0 10px; border: 1px solid var(--divider-strong); border-radius: 999px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; font-weight: 600; line-height: 1; cursor: pointer; touch-action: none; }
+.side-version-pill { height: 22px; padding: 0 10px; border: 1px solid var(--divider-strong); border-radius: var(--r-full); background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; font-weight: 600; line-height: 1; cursor: pointer; touch-action: none; }
 .side-version-pill:hover { border-color: var(--accent); }
 .side-version-pill-on, .side-version-pill-on:hover { border-color: var(--accent); background: var(--selected-bg); }
-.side-version-pill-input { width: 84px; height: 22px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 999px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; }
+.side-version-pill-input { width: 84px; height: 22px; padding: 0 8px; border: 1px solid var(--accent); border-radius: var(--r-full); background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; }
 .side-doc-notes { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
 .side-doc-note-item { min-width: 0; }
 .side-doc-note-item > .side-item { width: 100%; }

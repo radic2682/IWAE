@@ -85,7 +85,7 @@ body.pane-resizing .pane { transition: none !important; }
   padding: 0;
   transform: translate(-50%, -50%);
   border: 1px solid var(--divider-strong);
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: var(--paper);
   color: var(--text-strong, var(--ink));
   box-shadow: 0 2px 8px rgb(0 0 0 / 28%);

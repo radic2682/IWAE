@@ -15,7 +15,7 @@
   width: min(820px, calc(100vw - 32px));
   height: min(600px, calc(100vh - 32px));
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--paper);
   color: var(--text-strong);
   box-shadow: 0 24px 60px var(--shadow-floating, rgb(0 0 0 / 30%));
@@ -33,7 +33,7 @@
 }
 .pdf-tools-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; color: var(--text-strong); font-size: 15px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
 .pdf-tools-title small { margin-left: 6px; color: var(--text-strong); font-size: 12px; font-weight: 500; }
-.pdf-tools-close { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--text-strong); cursor: pointer; }
+.pdf-tools-close { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer; }
 .pdf-tools-close:is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); outline: none; }
 .pdf-tools-close:disabled { opacity: 0.4; cursor: default; }
 
@@ -50,7 +50,7 @@
   height: 32px;
   padding: 0 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong);
   font: inherit;
@@ -76,7 +76,7 @@
   height: 32px;
   padding: 0 10px;
   border: 1px solid var(--divider);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--chrome);
   color: var(--text-strong);
   font: inherit;
@@ -84,7 +84,7 @@
   font-weight: 400;
 }
 .pdf-tools-field input:focus, .pdf-tools-field select:focus { border-color: var(--accent); outline: none; }
-.pdf-tools-field input[type='color'] { width: 48px; height: 32px; padding: 2px; border: 1px solid var(--divider); border-radius: 8px; background: var(--chrome); }
+.pdf-tools-field input[type='color'] { width: 48px; height: 32px; padding: 2px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--chrome); }
 .pdf-tools-field input[type='range'] { height: 32px; accent-color: var(--accent); }
 .pdf-tools-search { position: relative; }
 .pdf-tools-search svg { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); color: var(--text-strong); }
@@ -92,24 +92,24 @@
 
 .pdf-tools-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
 
-.pdf-tools-checks { display: grid; gap: 2px; padding: 4px; border: 1px solid var(--divider); border-radius: 10px; }
-.pdf-tools-check { display: flex; align-items: center; gap: 9px; min-height: 32px; padding: 0 8px; border-radius: 7px; color: var(--text-strong); font-size: 13px; cursor: pointer; }
+.pdf-tools-checks { display: grid; gap: 2px; padding: 4px; border: 1px solid var(--divider); border-radius: var(--r-md); }
+.pdf-tools-check { display: flex; align-items: center; gap: 9px; min-height: 32px; padding: 0 8px; border-radius: var(--r-sm); color: var(--text-strong); font-size: 13px; cursor: pointer; }
 .pdf-tools-check:hover { background: var(--chrome-hover); }
 .pdf-tools-check span { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.pdf-tools-check b { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--chrome); font-size: 11.5px; font-weight: 650; text-align: center; }
+.pdf-tools-check b { min-width: 22px; padding: 1px 7px; border-radius: var(--r-full); background: var(--chrome); font-size: 11.5px; font-weight: 650; text-align: center; }
 .pdf-tools-check input { accent-color: var(--accent); }
 .pdf-tools-check input:disabled + span { opacity: 0.5; }
 .pdf-tools-check-inline { padding: 0; }
 .pdf-tools-check-inline:hover { background: transparent; }
 
-.pdf-tools-pick { display: grid; gap: 1px; max-height: 220px; margin: 0; padding: 4px; border: 1px solid var(--divider); border-radius: 10px; list-style: none; overflow-y: auto; }
-.pdf-tools-chapters { display: grid; gap: 2px; max-height: 240px; margin: 0; padding: 6px 8px; border: 1px solid var(--divider); border-radius: 10px; list-style: none; overflow-y: auto; font-size: 13px; }
+.pdf-tools-pick { display: grid; gap: 1px; max-height: 220px; margin: 0; padding: 4px; border: 1px solid var(--divider); border-radius: var(--r-md); list-style: none; overflow-y: auto; }
+.pdf-tools-chapters { display: grid; gap: 2px; max-height: 240px; margin: 0; padding: 6px 8px; border: 1px solid var(--divider); border-radius: var(--r-md); list-style: none; overflow-y: auto; font-size: 13px; }
 .pdf-tools-chapters li { display: flex; gap: 10px; justify-content: space-between; padding: 4px 2px; }
 .pdf-tools-chapters span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pdf-tools-chapters b { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.pdf-tools-seg { display: inline-flex; align-self: flex-start; gap: 2px; padding: 3px; border: 1px solid var(--divider); border-radius: 9px; background: var(--chrome); }
-.pdf-tools-seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer; }
+.pdf-tools-seg { display: inline-flex; align-self: flex-start; gap: 2px; padding: 3px; border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--chrome); }
+.pdf-tools-seg button { height: 28px; padding: 0 12px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer; }
 .pdf-tools-seg button:hover { background: var(--chrome-hover); }
 .pdf-tools-seg button.on, .pdf-tools-seg button.on:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); font-weight: 650; }
 
@@ -121,7 +121,7 @@
   height: var(--control-size-floating, 34px);
   padding: 0 16px;
   border: 1px solid var(--divider);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong);
   font: inherit;
@@ -133,19 +133,19 @@
 .pdf-tools-secondary:hover { background: var(--chrome-hover); }
 .pdf-tools-primary:disabled { opacity: 0.45; cursor: default; }
 
-.pdf-tools-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--divider); border-radius: 10px; background: var(--chrome); font-size: 12.5px; }
+.pdf-tools-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--chrome); font-size: 12.5px; }
 .pdf-tools-status > span:first-child { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .pdf-tools-status-done { border-color: color-mix(in srgb, var(--accent) 45%, var(--divider)); }
 .pdf-tools-status-error { border-color: color-mix(in srgb, var(--danger, #c0392b) 55%, var(--divider)); color: var(--danger, #c0392b); }
-.pdf-tools-meter { flex: 0 0 120px; height: 4px; border-radius: 999px; background: var(--divider); overflow: hidden; }
+.pdf-tools-meter { flex: 0 0 120px; height: 4px; border-radius: var(--r-full); background: var(--divider); overflow: hidden; }
 .pdf-tools-meter span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 160ms ease; }
-.pdf-tools-link { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px; border: 1px solid var(--divider); border-radius: 7px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.pdf-tools-link { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
 .pdf-tools-link:hover { background: var(--chrome-hover); }
 
 .pdf-tools-diff { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .pdf-tools-diff-note { font-size: 12px; }
-.pdf-tools-diff-hunk { display: grid; gap: 4px; padding: 6px; border: 1px solid var(--divider); border-radius: 9px; }
-.pdf-tools-diff-side { display: grid; gap: 2px; width: 100%; padding: 6px 8px; border: 0; border-radius: 6px; color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.pdf-tools-diff-hunk { display: grid; gap: 4px; padding: 6px; border: 1px solid var(--divider); border-radius: var(--r-md); }
+.pdf-tools-diff-side { display: grid; gap: 2px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--r-sm); color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
 .pdf-tools-diff-before { background: color-mix(in srgb, #d9363e 10%, transparent); }
 .pdf-tools-diff-after { background: color-mix(in srgb, #188038 11%, transparent); }
 .pdf-tools-diff-side:hover { filter: brightness(0.96); }
@@ -161,7 +161,7 @@
   height: 28px;
   padding: 0 4px 0 10px;
   border: 1px solid var(--divider);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--chrome);
   box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
   color: var(--text-strong);
@@ -171,10 +171,10 @@
   cursor: pointer;
 }
 .pdf-scan-action:disabled { padding-right: 10px; }
-.pdf-scan-cta { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
+.pdf-scan-cta { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--r-sm); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
 .pdf-scan-action:hover:not(:disabled) .pdf-scan-cta { background: color-mix(in srgb, var(--accent) 88%, var(--paper)); }
 .pdf-scan-action:disabled { cursor: progress; }
-.pdf-scan-action .pdf-scan-meter { width: 56px; height: 4px; border-radius: 999px; background: var(--divider); overflow: hidden; }
+.pdf-scan-action .pdf-scan-meter { width: 56px; height: 4px; border-radius: var(--r-full); background: var(--divider); overflow: hidden; }
 .pdf-scan-action .pdf-scan-meter span { display: block; height: 100%; background: var(--accent); }
 
 @keyframes pdf-tools-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

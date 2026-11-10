@@ -11,7 +11,7 @@
   --text-dim: var(--text);
   --text-muted: var(--text);
   --settings-line: var(--divider);
-  --settings-radius: 10px;
+  --settings-radius: var(--r-md);
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -85,7 +85,7 @@
 ) {
   margin: 0;
   border: 1px solid var(--settings-line);
-  border-radius: var(--settings-radius);
+  border-radius: var(--r-md);
   background: transparent;
   box-shadow: none;
 }
@@ -104,7 +104,7 @@
 .settings-modal .settings-modal-body .settings-toggle-row small { color: var(--text); font-size: 12px; }
 .settings-modal .settings-modal-body .settings-list > :is(.ai-settings-field, .ai-settings-model, .ai-settings-note) { display: flex; align-items: center; min-height: 48px; }
 .settings-modal .settings-modal-body .ai-settings-field { gap: 12px; color: var(--text-strong); font-size: 13px; }
-.settings-modal .settings-modal-body .ai-settings-field input { border-radius: 7px; }
+.settings-modal .settings-modal-body .ai-settings-field input { border-radius: var(--r-sm); }
 
 /* 체크 상자로 된 켜고 끄기(업데이트)도 다른 줄과 같은 스위치 모양으로 */
 .settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox'] {
@@ -114,7 +114,7 @@
   height: 20px;
   margin: 0;
   border: 1px solid var(--divider-strong);
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: var(--chrome-hover);
   cursor: pointer;
   appearance: none;
@@ -152,7 +152,7 @@
 .settings-modal .settings-modal-body .ai-settings-command textarea {
   padding: 10px 12px;
   border: 1px solid var(--settings-line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--field, var(--chrome));
   line-height: 1.5;
 }
@@ -188,11 +188,11 @@
 .settings-modal .settings-modal-body .translation-settings-model-copy strong { color: var(--text-strong); font-size: 13px; font-weight: 600; }
 .settings-modal .settings-modal-body .translation-settings-model-copy span { color: var(--text); font-size: 12px; }
 .settings-modal .settings-modal-body .translation-settings-label { color: var(--text-strong); font-size: 12.5px; font-weight: 600; }
-.settings-modal .settings-modal-body :is(.translation-settings-input, .translation-settings-select) { height: 32px; border-radius: 7px; }
+.settings-modal .settings-modal-body :is(.translation-settings-input, .translation-settings-select) { height: 32px; border-radius: var(--r-sm); }
 .settings-modal .settings-modal-body :is(.translation-settings-license, .translation-settings-alert) {
   padding: 10px 14px;
   border: 1px solid var(--settings-line);
-  border-radius: var(--settings-radius);
+  border-radius: var(--r-md);
   background: transparent;
   font-size: 12px;
   line-height: 1.55;
@@ -232,7 +232,7 @@
 /* 화면 및 문서: 고르는 상자들은 회색 바탕 없이 테두리만, 고른 것만 옅은 강조색 */
 .settings-modal .settings-modal-body :is(.theme-settings-option, .theme-palette-card) {
   border: 1px solid var(--settings-line);
-  border-radius: var(--settings-radius);
+  border-radius: var(--r-md);
   background: transparent;
   box-shadow: none;
 }
@@ -244,7 +244,7 @@
 }
 .settings-modal .settings-modal-body .theme-palette-copy small { color: var(--text); }
 .settings-modal .settings-modal-body .theme-accent-swatch small { color: var(--text); }
-.settings-modal .settings-modal-body .markdown-theme-grid label { border-radius: var(--settings-radius); }
+.settings-modal .settings-modal-body .markdown-theme-grid label { border-radius: var(--r-md); }
 .settings-modal .settings-modal-body .ui-scale-row { margin-top: 0; }
 .settings-modal .settings-modal-body .ui-scale-presets { margin-top: 0; }
 .settings-modal .settings-modal-body .default-app-settings p { font-size: 13px; }
@@ -257,7 +257,7 @@
 ) {
   min-height: 30px;
   padding: 0 12px;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   font-size: 12.5px;
 }
 .settings-modal .settings-modal-body :is(.ai-settings-actions button, .ai-settings-index button, .ai-settings-model button, .translation-settings button:not(.translation-settings-engine-option)) {
@@ -291,13 +291,13 @@
   min-width: 120px;
   height: 6px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   overflow: hidden;
   appearance: none;
 }
 .settings-modal .settings-modal-body .translation-settings-progress progress::-webkit-progress-bar { background: transparent; }
-.settings-modal .settings-modal-body .translation-settings-progress progress::-webkit-progress-value { border-radius: 999px; background: var(--accent); transition: width 0.25s ease; }
+.settings-modal .settings-modal-body .translation-settings-progress progress::-webkit-progress-value { border-radius: var(--r-full); background: var(--accent); transition: width 0.25s ease; }
 /* 크기를 아직 모를 때는 막대가 오간다 */
 .settings-modal .settings-modal-body .translation-settings-progress progress:indeterminate {
   background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
@@ -335,7 +335,7 @@
   flex-basis: calc(100% - 28px);
   margin-left: 28px;
   padding: 8px 8px 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text);
   font-size: 12px;
@@ -350,14 +350,14 @@
 .language-settings-restart { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; color: var(--text-strong); font-size: 13px; }
 
 /* 번역 캐시: 켜기·끄기 + 지우기 */
-.translation-cache-settings { display: flex; align-items: center; gap: 16px; margin-top: 18px; padding: 14px 16px; border: 1px solid var(--divider); border-radius: 10px; }
+.translation-cache-settings { display: flex; align-items: center; gap: 16px; margin-top: 18px; padding: 14px 16px; border: 1px solid var(--divider); border-radius: var(--r-md); }
 .translation-enable-settings { margin: 0 0 14px; }
 .translation-settings-keyless { grid-column: 1 / -1; margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-strong); }
 .translation-cache-toggle { display: flex; flex: 1 1 auto; align-items: flex-start; gap: 10px; cursor: pointer; }
 .translation-cache-toggle input { margin-top: 3px; accent-color: var(--accent); }
 .translation-cache-toggle > span { display: grid; gap: 3px; color: var(--text-strong); font-size: 12.5px; line-height: 1.5; }
 .translation-cache-toggle strong { font-size: 13.5px; }
-.translation-cache-clear { flex: 0 0 auto; height: 32px; padding: 0 12px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: 8px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer; }
+.translation-cache-clear { flex: 0 0 auto; height: 32px; padding: 0 12px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer; }
 .translation-cache-clear:hover:not(:disabled) { background: var(--chrome-hover); }
 .translation-cache-clear:disabled { cursor: default; opacity: .45; }
 
@@ -373,6 +373,6 @@
 .behavior-key-row { display: flex; align-items: center; gap: 10px; min-height: 24px; font-size: 12.5px; color: var(--text-strong); }
 .behavior-key-row dt { flex: 0 0 auto; margin: 0; }
 .behavior-key-row dd { margin: 0; }
-.behavior-key-row kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: 5px; font: inherit; font-size: 11.5px; font-weight: 700; text-align: center; }
+.behavior-key-row kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: var(--r-xs); font: inherit; font-size: 11.5px; font-weight: 700; text-align: center; }
 .behavior-rebuild { display: flex; align-items: center; gap: 12px; }
 .behavior-rebuild-note { font-size: 12.5px; color: var(--text-strong); }

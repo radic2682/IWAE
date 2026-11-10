@@ -5,7 +5,7 @@
   gap: 7px !important;
   padding: 11px 13px !important;
   border-color: transparent !important;
-  border-radius: 10px !important;
+  border-radius: var(--r-md) !important;
   background: var(--memo-card-bg) !important;
   box-shadow: none !important;
 }
@@ -29,7 +29,7 @@
 .note-ticket-id-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .note-ticket-id {
   display: inline-flex; align-items: center; max-width: 100%; height: 20px; padding: 0 7px; overflow: hidden;
-  border: 0; border-radius: 6px;
+  border: 0; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--accent) 16%, var(--paper));
   color: color-mix(in srgb, var(--accent) 62%, var(--ink));
   font: inherit; font-size: 11.5px; font-weight: 700; line-height: 20px; letter-spacing: .01em;
@@ -43,19 +43,19 @@
 .note-ticket-id-edit { position: relative; display: grid; justify-items: start; gap: 4px; }
 .note-ticket-id-input {
   height: 20px; padding: 0 7px; box-sizing: border-box;
-  border: 1.5px solid var(--accent); border-radius: 6px; outline: none;
+  border: 1.5px solid var(--accent); border-radius: var(--r-sm); outline: none;
   background: var(--paper); color: var(--text-strong);
   font: inherit; font-size: 11.5px; font-weight: 700;
 }
 .note-ticket-id-input[aria-invalid='true'] { border-color: var(--danger, #d1242f); }
 .note-ticket-id-suggest {
   position: absolute; z-index: 20; top: 24px; left: 0; display: grid; min-width: 160px; padding: 4px;
-  border: 1px solid var(--divider); border-radius: 8px; background: var(--paper);
+  border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper);
   box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
 }
 .note-ticket-id-suggest button {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 28px; padding: 0 8px;
-  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong);
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong);
   font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
 }
 .note-ticket-id-suggest button span { font-size: 11.5px; font-weight: 500; }
@@ -135,12 +135,12 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .note-block .note-source-chip .note-source-expand:focus-visible { display: inline-grid; }
 .note-block .note-source-chip .note-source-page,
 .note-block .pdf-memo-card-quote .note-source-page {
-  display: inline-flex; align-items: center; flex: 0 0 auto; height: 20px; margin-left: auto; padding: 0 7px; border-radius: 6px; line-height: 20px;
+  display: inline-flex; align-items: center; flex: 0 0 auto; height: 20px; margin-left: auto; padding: 0 7px; border-radius: var(--r-sm); line-height: 20px;
   background: var(--memo-chip-bg) !important; color: var(--text-strong); font-size: 11.5px; font-weight: 700;
 }
 /* 펼친 원문: 색 띠 대신 옅은 바탕 + 같은 색 점 */
 .note-block.note-block .pdf-memo-card-quote.note-source.note-source {
-  display: block; position: relative; padding: 6px 10px 6px 26px !important; border-radius: 8px;
+  display: block; position: relative; padding: 6px 10px 6px 26px !important; border-radius: var(--r-sm);
   background: var(--memo-chip-bg) !important; color: var(--text-strong) !important;
 
 }
@@ -166,7 +166,7 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .pane-doc .note-format-dock .pdf-memo-format-cluster::before {
   content: ''; position: absolute; top: 7px; bottom: 7px; left: 5px; width: 1px; background: var(--divider);
 }
-.pane-doc .note-format-dock .pdf-memo-format-button { width: 28px; height: 28px; border-radius: 6px; }
+.pane-doc .note-format-dock .pdf-memo-format-button { width: 28px; height: 28px; border-radius: var(--r-sm); }
 .pane-doc .note-format-dock .pdf-memo-format-button.pdf-memo-format-block { width: auto; gap: 4px; padding: 0 6px 0 8px; font-size: 13px; font-weight: 600; }
 .pane-doc .note-format-dock .pdf-memo-format-bar-idle .pdf-memo-format-button:disabled { opacity: .45; }
 .pane-doc .note-format-dock { min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
@@ -201,7 +201,7 @@ body.note-block-dragging .note-block-tabs { display: none; }
 /* 노트 카드: 잡아 둔 블록을 같은 종이 폭으로 놓고 네모만큼 잘라 카드 폭에 맞춘다 */
 .markdown-region-crop {
   --md-background: #ffffff; --md-foreground: #202124; --md-muted: #6b7280; --md-border: #e5e7eb; --md-link: #2563eb; --md-code-background: #f4f5f7; --md-quote-border: #a8b0bb;
-  position: relative; width: 100%; overflow: hidden; border-radius: 6px; background: var(--md-background); color: var(--md-foreground); box-shadow: 0 0 0 1px var(--divider);
+  position: relative; width: 100%; overflow: hidden; border-radius: var(--r-sm); background: var(--md-background); color: var(--md-foreground); box-shadow: 0 0 0 1px var(--divider);
 }
 .pane-doc .markdown-region-crop .markdown-pane.markdown-region-crop-paper {
   position: absolute; z-index: auto; height: auto; overflow: visible; padding: 0; margin: 0;
@@ -226,12 +226,12 @@ body.note-block-dragging .note-block-tabs { display: none; }
 /* 출처 줄 끝 「번역」 단추와 그 아래 번역 줄 */
 .note-block .note-source-translate {
   display: inline-grid; place-items: center; flex: 0 0 auto; width: 22px; height: 22px; padding: 0;
-  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer;
 }
 .note-block .note-source-translate:is(:hover, :focus-visible) { background: var(--memo-chip-bg, var(--chrome-hover)); outline: none; }
 .note-block .note-source-translate-on { color: var(--accent); }
 .note-block .note-source-translation {
-  margin: 2px 0 2px 17px; padding: 6px 9px; border-radius: 8px;
+  margin: 2px 0 2px 17px; padding: 6px 9px; border-radius: var(--r-md);
   background: var(--memo-chip-bg, var(--paper)); color: var(--text-strong);
   font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere;
 }

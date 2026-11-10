@@ -205,7 +205,7 @@
   gap: 8px;
   padding: 8px 8px 10px;
   border: 1px solid var(--divider);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: var(--chrome);
   cursor: pointer;
   transition: border-color 120ms ease, box-shadow 120ms ease;
@@ -224,7 +224,7 @@
   padding: 6px;
   overflow: hidden;
   border: 1px solid;
-  border-radius: 6px;
+  border-radius: var(--r-md);
 }
 .theme-palette-preview-side {
   width: 30%;
@@ -233,7 +233,7 @@
   gap: 4px;
   padding: 5px 4px;
   border: 1px solid;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
 }
 .theme-palette-preview-side i,
 .theme-palette-preview-page i { display: block; height: 4px; border-radius: 2px; }
@@ -246,11 +246,11 @@
   gap: 5px;
   padding: 7px 8px;
   border: 1px solid;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
 }
 .theme-palette-preview-page i:first-child { width: 55%; height: 5px; }
 .theme-palette-preview-page i:nth-child(3) { width: 75%; }
-.theme-palette-preview-page b { position: absolute; right: 7px; bottom: 7px; width: 22px; height: 9px; border-radius: 3px; }
+.theme-palette-preview-page b { position: absolute; right: 7px; bottom: 7px; width: 22px; height: 9px; border-radius: var(--r-xs); }
 .theme-palette-copy { min-width: 0; display: grid; gap: 1px; padding: 0 2px; }
 .theme-palette-copy strong { color: var(--text-strong); font-size: 12px; }
 .theme-palette-copy small { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -276,7 +276,7 @@
   justify-items: center;
   gap: 4px;
   padding: 6px 0 4px;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   cursor: pointer;
 }
 .theme-accent-swatch:hover { background: var(--chrome-hover); }

@@ -6,39 +6,39 @@
   width: min(520px, calc(100vw - 32px));
   max-height: min(600px, calc(100vh - 48px));
   border: 1px solid var(--divider-strong);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--paper);
   color: var(--text-strong, var(--ink));
   box-shadow: 0 24px 60px rgb(0 0 0 / .35);
 }
 .doc-sources-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 10px 18px; }
-.doc-sources-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: var(--chrome-hover); }
+.doc-sources-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--chrome-hover); }
 .doc-sources-titles { flex: 1 1 auto; min-width: 0; }
 .doc-sources-titles h2 { margin: 2px 0 0; font-size: 15px; font-weight: 700; }
 .doc-sources-titles p { margin: 3px 0 0; overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
-.doc-sources-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.doc-sources-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .doc-sources-close:hover { background: var(--chrome-hover); }
 .doc-sources-body { display: grid; gap: 10px; padding: 4px 18px 16px; overflow-y: auto; }
 .doc-sources-empty { margin: 0; font-size: 12.5px; }
 .doc-sources-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.doc-sources-item { display: flex; align-items: stretch; gap: 2px; border-radius: 8px; }
+.doc-sources-item { display: flex; align-items: stretch; gap: 2px; border-radius: var(--r-sm); }
 .doc-sources-item:hover { background: var(--chrome-hover); }
-.doc-sources-open { display: flex; flex: 1 1 auto; align-items: flex-start; gap: 10px; min-width: 0; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.doc-sources-open { display: flex; flex: 1 1 auto; align-items: flex-start; gap: 10px; min-width: 0; padding: 8px 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .doc-sources-open svg { flex: 0 0 auto; margin-top: 2px; }
 .doc-sources-text { display: grid; min-width: 0; gap: 2px; }
 .doc-sources-text strong { font-size: 13px; font-weight: 650; }
 .doc-sources-text small { overflow: hidden; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
 .doc-sources-text em { font-size: 11.5px; font-style: normal; overflow-wrap: anywhere; }
-.doc-sources-icon-btn { display: grid; place-items: center; width: 30px; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; opacity: .75; }
+.doc-sources-icon-btn { display: grid; place-items: center; width: 30px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; opacity: .75; }
 .doc-sources-icon-btn:hover { opacity: 1; background: var(--chrome-hover); }
-.doc-sources-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; border: 1px dashed var(--divider-strong); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.doc-sources-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; border: 1px dashed var(--divider-strong); border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .doc-sources-add:hover { background: var(--chrome-hover); }
 .doc-sources-form { display: grid; gap: 8px; }
-.doc-sources-form input { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
+.doc-sources-form input { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
 .doc-sources-form input:focus { outline: none; border-color: var(--accent); }
 .doc-sources-error { margin: 0; color: var(--danger, #e5534b); font-size: 12.5px; }
 .doc-sources-form-foot { display: flex; justify-content: flex-end; gap: 8px; }
-.doc-sources-primary, .doc-sources-secondary { height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.doc-sources-primary, .doc-sources-secondary { height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .doc-sources-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
 .doc-sources-secondary:hover { background: var(--chrome-hover); }
 
@@ -46,12 +46,12 @@
 .pane-sources { position: relative; }
 .pane-sources-count {
   position: absolute; top: 1px; right: 0; min-width: 12px; height: 12px; padding: 0 3px;
-  border-radius: 6px; background: var(--accent); color: var(--accent-contrast, #fff);
+  border-radius: var(--r-full); background: var(--accent); color: var(--accent-contrast, #fff);
   font-size: 9px; font-weight: 700; line-height: 12px; text-align: center;
 }
 
 /* 서지 정보에서 만든 출처 제안 */
-.doc-sources-suggest { display: grid; gap: 4px; margin: 0 0 8px; padding: 6px; list-style: none; border: 1px dashed var(--divider-strong); border-radius: 8px; }
+.doc-sources-suggest { display: grid; gap: 4px; margin: 0 0 8px; padding: 6px; list-style: none; border: 1px dashed var(--divider-strong); border-radius: var(--r-md); }
 .doc-sources-suggest .doc-sources-item { display: flex; align-items: center; gap: 8px; }
 .doc-sources-suggest-text { display: grid; flex: 1 1 auto; min-width: 0; }
 .doc-sources-suggest-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

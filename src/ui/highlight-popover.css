@@ -17,7 +17,7 @@
   margin: 0;
   padding: 4px 8px;
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   /* 형광펜 색은 왼쪽 테두리 대신 옅은 바탕으로 */
   background: var(--highlight-yellow);
   color: var(--text-dim);

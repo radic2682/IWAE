@@ -41,7 +41,7 @@
   gap: 4px;
   padding: 8px 10px 9px;
   border: 1px solid var(--divider);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--text-strong);
   box-shadow: 0 1px 3px var(--shadow-floating);
@@ -82,7 +82,7 @@
 .pdf-memo-card-quote {
   margin-top: 6px;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   color: var(--text-strong);
   font-size: 13px;
   line-height: 1.5;
@@ -97,7 +97,7 @@
 .pdf-memo-card-quote-blue { background: rgb(80 165 255 / 20%); }
 .pdf-memo-card-quote-pink { background: rgb(255 105 165 / 18%); }
 .pdf-memo-card-source { margin-top: 6px; }
-.pdf-memo-card-source .pdf-memo-list-crop { border-radius: 4px; }
+.pdf-memo-card-source .pdf-memo-list-crop { border-radius: var(--r-xs); }
 
 .pdf-memo-card-actions {
   display: none;
@@ -128,7 +128,7 @@
   margin-left: 2px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   background: transparent;
   color: var(--text-strong);
   cursor: pointer;
@@ -181,7 +181,7 @@
   height: 19px;
   padding: 0 8px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font: inherit;
@@ -206,7 +206,7 @@
   min-width: 180px;
   padding: 4px;
   border: 1px solid var(--divider);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--paper);
   box-shadow: 0 8px 22px var(--shadow-soft);
   font-size: 12.5px;
@@ -220,7 +220,7 @@
   gap: 4px;
   padding: 5px 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--ink);
   font: inherit;
@@ -236,7 +236,7 @@
   margin-top: 4px;
   padding: 5px 8px;
   border: 1px solid var(--divider);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: var(--paper);
   color: var(--ink);
   font: inherit;
@@ -305,7 +305,7 @@
 .pdf-memo-bar-nav p { margin: 0 0 2px; color: var(--text-strong); font-size: 14px; }
 .pdf-memo-bar-nav button {
   display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px;
-  border: 1px solid var(--divider); border-radius: 8px; background: var(--paper);
+  border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper);
   color: var(--ink); font: inherit; font-size: 13.5px; font-variant-numeric: tabular-nums; cursor: pointer;
 }
 .pdf-memo-bar-nav button:hover { background: var(--chrome-hover); }
@@ -320,7 +320,7 @@
   height: 30px;
   padding: 0 8px;
   border: 1px solid var(--divider);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--paper);
   color: var(--text-strong);
 }
@@ -351,7 +351,7 @@
   overflow: auto;
   padding: 4px;
   border: 1px solid var(--divider);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--paper);
   box-shadow: 0 8px 22px var(--shadow-soft);
 }
@@ -363,7 +363,7 @@
   gap: 1px;
   padding: 6px 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--ink);
   font: inherit;
@@ -386,7 +386,7 @@
   height: 30px;
   padding: 0 7px;
   border: 1px solid var(--divider);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--paper);
   color: var(--text-strong);
   font: inherit;
@@ -448,7 +448,7 @@
   gap: 1px;
   padding: 2px;
   border: 1px solid var(--divider);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: var(--paper);
 }
 
@@ -459,7 +459,7 @@
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong);
   cursor: pointer;
@@ -478,7 +478,7 @@
   gap: 4px;
   padding: 5px;
   border: 1px solid var(--divider);
-  border-radius: 7px;
+  border-radius: var(--r-md);
   background: var(--paper);
   box-shadow: 0 6px 18px var(--shadow-soft);
 }
@@ -488,7 +488,7 @@
   height: 22px;
   padding: 0;
   border: 1px solid var(--divider);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: var(--paper);
   font: inherit;
   font-size: 13px;
@@ -566,7 +566,7 @@
 .pane-doc .bottombar-actual { width: auto; padding: 0 6px; font-size: 12px; font-weight: 700; letter-spacing: -.02em; }
 
 .pdf-view-menu-backgrounds { grid-template-columns: 1fr 1fr; }
-.pdf-view-menu-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border: 1px solid var(--divider-strong); border-radius: 3px; vertical-align: -1px; }
+.pdf-view-menu-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border: 1px solid var(--divider-strong); border-radius: var(--r-xs); vertical-align: -1px; }
 .pdf-view-menu-swatch-normal { background: #fff; }
 .pdf-view-menu-swatch-night { background: #1e1e1e; }
 .pdf-view-menu-swatch-sepia { background: #f4e7c8; }
@@ -576,14 +576,14 @@
 
 /* ---------- 인쇄 ---------- */
 .pdf-print-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgb(0 0 0 / .4); }
-.pdf-print-dialog { width: min(600px, calc(100vw - 32px)); padding: 18px 20px 16px; border: 1px solid var(--divider-strong); border-radius: 12px; background: var(--paper); color: var(--ink); box-shadow: 0 18px 48px rgb(0 0 0 / .32); }
+.pdf-print-dialog { width: min(600px, calc(100vw - 32px)); padding: 18px 20px 16px; border: 1px solid var(--divider-strong); border-radius: var(--r-lg); background: var(--paper); color: var(--ink); box-shadow: 0 18px 48px rgb(0 0 0 / .32); }
 .pdf-print-dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .pdf-print-dialog h2 { margin: 0; font-size: 16px; font-weight: 700; }
-.pdf-print-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); }
+.pdf-print-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink); }
 .pdf-print-close:hover { background: var(--chrome-hover); }
 .pdf-print-body { display: flex; gap: 20px; align-items: flex-start; }
 /* 미리보기: 용지(흰 종이) 위에 여백 안쪽 칸, 그 가운데 쪽 그림 */
-.pdf-print-preview { flex: 0 0 auto; display: grid; justify-items: center; gap: 8px; margin: 0; padding: 12px; border-radius: 10px; background: var(--chrome, rgb(0 0 0 / .08)); }
+.pdf-print-preview { flex: 0 0 auto; display: grid; justify-items: center; gap: 8px; margin: 0; padding: 12px; border-radius: var(--r-md); background: var(--chrome, rgb(0 0 0 / .08)); }
 .pdf-print-paper { box-sizing: border-box; background: #fff; box-shadow: 0 2px 10px rgb(0 0 0 / .3); transition: width 160ms ease, height 160ms ease, padding 160ms ease; }
 .pdf-print-area { display: grid; place-items: center; width: 100%; height: 100%; outline: 1px dashed rgb(64 128 255 / .55); }
 .pdf-print-area img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -591,18 +591,18 @@
 .pdf-print-options { flex: 1 1 auto; display: grid; gap: 16px; min-width: 0; }
 .pdf-print-field { display: grid; gap: 7px; }
 .pdf-print-label { color: var(--ink); font-size: 12.5px; font-weight: 600; }
-.pdf-print-segments { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border: 1px solid var(--divider); border-radius: 8px; }
-.pdf-print-segments > button { flex: 1 1 auto; height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; white-space: nowrap; }
+.pdf-print-segments { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border: 1px solid var(--divider); border-radius: var(--r-md); }
+.pdf-print-segments > button { flex: 1 1 auto; height: 28px; padding: 0 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink); font: inherit; font-size: 13px; white-space: nowrap; }
 .pdf-print-segments > button:hover { background: var(--chrome-hover); }
 .pdf-print-segments > button[aria-checked='true'] { background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
 .pdf-print-mm { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; color: var(--ink); font-size: 13px; }
-.pdf-print-mm input { width: 52px; height: 26px; padding: 0 6px; border: 1px solid var(--divider); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
-.pdf-print-range { height: 30px; padding: 0 10px; border: 1px solid var(--divider); border-radius: 7px; background: var(--paper); color: var(--ink); font: inherit; }
+.pdf-print-mm input { width: 52px; height: 26px; padding: 0 6px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font: inherit; }
+.pdf-print-range { height: 30px; padding: 0 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font: inherit; }
 .pdf-print-range:focus, .pdf-print-mm input:focus { outline: none; border-color: var(--accent); }
 .pdf-print-error { margin: 0; color: var(--danger); font-size: 12.5px; }
 .pdf-print-dialog footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .pdf-print-hint { margin-right: auto; color: var(--ink); font-size: 12px; opacity: .8; }
-.pdf-print-dialog footer button { display: inline-flex; align-items: center; gap: 6px; height: var(--control-size-floating, 34px); padding: 0 14px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
+.pdf-print-dialog footer button { display: inline-flex; align-items: center; gap: 6px; height: var(--control-size-floating, 34px); padding: 0 14px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font: inherit; }
 .pdf-print-dialog footer .pdf-print-go { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
 .pdf-print-dialog footer .pdf-print-go:disabled { opacity: .5; }
 
@@ -641,7 +641,7 @@
 }
 .pdf-memo-card.pdf-memo-card-flow { position: relative; flex: 0 0 auto; top: auto; left: auto; width: auto; }
 .pdf-memo-links-flow { position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none; }
-.pdf-memo-card-jump { padding: 0 4px; margin-left: -4px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.pdf-memo-card-jump { padding: 0 4px; margin-left: -4px; border: 0; border-radius: var(--r-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .pdf-memo-card-jump:hover { background: var(--chrome-hover); color: var(--accent); }
 
 /* 어두운 테마: 메모 서식의 글자색(밝은 바탕용 진한 색)을 같은 계열의 밝은 색으로. 오른쪽 노트 바는 늘 흰 종이라 빼 둔다 */
@@ -678,12 +678,12 @@
 .pdf-bottom-more-backdrop { position: fixed; inset: 0; z-index: 90; }
 .pdf-bottom-more-menu {
   position: fixed; z-index: 91; min-width: 200px; padding: 6px;
-  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper);
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper);
   box-shadow: 0 12px 32px rgb(0 0 0 / 28%); color: var(--text-strong); font-size: 13px;
 }
 .pdf-bottom-more-menu > button {
   display: flex; align-items: center; gap: 9px; width: 100%; height: 30px; padding: 0 10px;
-  border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .pdf-bottom-more-menu > button:hover:not(:disabled) { background: var(--chrome-hover); }
 .pdf-bottom-more-menu > button:disabled { opacity: .45; cursor: default; }
@@ -713,7 +713,7 @@
 :is(.pdf-memo-card-text, .pdf-memo-editor) code:not(pre *) {
   padding: .08em .38em;
   border: 1px solid var(--memo-code-line);
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   background: var(--memo-code-bg);
   color: var(--text-strong);
   font-family: var(--memo-mono);
@@ -727,7 +727,7 @@
   margin: .5em 0;
   padding: 9px 12px;
   border: 1px solid var(--memo-code-line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--memo-code-bg);
   color: var(--text-strong);
   font-family: var(--memo-mono);
@@ -744,7 +744,7 @@
   position: relative;
   margin: .5em 0;
   padding: 7px 12px 7px 32px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text-strong);
 }
@@ -769,7 +769,7 @@
 :is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] > li::before {
   position: absolute; top: .32em; left: 1px;
   box-sizing: border-box; width: 15px; height: 15px;
-  border: 1.5px solid color-mix(in srgb, var(--text-strong) 45%, transparent); border-radius: 4px;
+  border: 1.5px solid color-mix(in srgb, var(--text-strong) 45%, transparent); border-radius: var(--r-xs);
   background: var(--paper); content: ''; cursor: pointer;
 }
 :is(.pdf-memo-card-text, .pdf-memo-editor) ul[data-type='check'] > li[data-checked='true']::before { border-color: var(--accent); background: var(--accent); }
@@ -791,18 +791,18 @@
 .pdf-memo-format-menu {
   position: absolute; z-index: 41; top: calc(100% + 4px); left: 0;
   display: grid; min-width: 196px; padding: 4px;
-  border: 1px solid var(--divider); border-radius: 8px;
+  border: 1px solid var(--divider); border-radius: var(--r-md);
   background: var(--paper); box-shadow: 0 8px 24px var(--shadow-soft);
 }
 .pdf-memo-format-menu-item {
   display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
   min-height: 30px; padding: 4px 9px;
-  border: 0; border-radius: 5px; background: transparent;
+  border: 0; border-radius: var(--r-sm); background: transparent;
   color: var(--text-strong); font: inherit; font-family: var(--font-ui); font-size: 13px; text-align: left; cursor: pointer;
 }
 .pdf-memo-format-menu-item:hover { background: var(--chrome-hover); }
 .pdf-memo-format-menu-item[aria-checked='true'] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.pdf-memo-format-menu-hint { padding: 0 5px; border-radius: 4px; background: var(--field); color: var(--text-strong); font-family: var(--font-ui); font-size: 10.5px; line-height: 18px; white-space: nowrap; }
+.pdf-memo-format-menu-hint { padding: 0 5px; border-radius: var(--r-xs); background: var(--field); color: var(--text-strong); font-family: var(--font-ui); font-size: 10.5px; line-height: 18px; white-space: nowrap; }
 .pdf-memo-format-menu-h2 .pdf-memo-format-menu-name { font-size: 16px; font-weight: 750; }
 .pdf-memo-format-menu-h3 .pdf-memo-format-menu-name { font-size: 14.5px; font-weight: 750; }
 .pdf-memo-format-menu-h4 .pdf-memo-format-menu-name { font-weight: 750; }
@@ -838,7 +838,7 @@
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong);
 }
@@ -846,8 +846,8 @@
 .pdf-memo-bar .pdf-memo-header .pdf-memo-header-button[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
 
 /* 메모 카드·블록 메뉴: 왼쪽 바·탭 메뉴와 같은 폭·높이·아이콘 칸. 마우스로 열면 첫 항목은 칠하지 않는다 */
-.note-menu.note-menu { width: 232px; padding: 5px; border-radius: 10px; }
-.note-menu.note-menu > button { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 0 9px; border-radius: 6px; color: var(--text-strong); font-size: 12.5px; }
+.note-menu.note-menu { width: 232px; padding: 5px; border-radius: var(--r-md); }
+.note-menu.note-menu > button { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 0 9px; border-radius: var(--r-sm); color: var(--text-strong); font-size: 12.5px; }
 .note-menu.note-menu > button:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
 .note-menu.note-menu > button:focus:not(:focus-visible):not(:hover) { background: transparent; outline: none; }
 .note-menu .note-menu-icon { display: grid; flex: 0 0 16px; place-items: center; }
@@ -862,22 +862,22 @@
 .note-head-switch { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; }
 .note-head-title-button {
   display: inline-flex; align-items: center; gap: 5px; flex: 0 1 auto; max-width: 100%; height: 30px;
-  padding: 0 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer;
+  padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; cursor: pointer;
 }
 .note-head-title-button:hover, .note-head-title-button[aria-expanded='true'] { border-color: var(--divider-strong); background: var(--chrome-hover); }
 .note-head-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-head-mine-chip {
-  flex: 0 0 auto; height: 20px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 999px;
+  flex: 0 0 auto; height: 20px; padding: 0 8px; border: 1px solid var(--accent); border-radius: var(--r-full);
   background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text-strong); font: inherit; font-size: 11.5px; font-weight: 700; line-height: 1; cursor: pointer; white-space: nowrap;
 }
 .note-switch-menu {
   position: absolute; z-index: 30; top: calc(100% - 2px); left: 10px; right: 10px; max-height: 360px; overflow: auto; padding: 6px;
-  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper); color: var(--text-strong);
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper); color: var(--text-strong);
   box-shadow: 0 12px 32px rgb(0 0 0 / .3);
 }
 .note-switch-head { padding: 6px 8px 4px; overflow: hidden; color: var(--text-strong); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .note-switch-item {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: 6px;
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: var(--r-sm);
   background: transparent; color: var(--text-strong); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
 }
 .note-switch-item > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -891,5 +891,5 @@
 .pdf-memo-bar :is(.pdf-memo-bar-scroll, .note-format-dock) { zoom: var(--bar-zoom, 1); }
 
 /* 영역 메모(표·그림) 잘라 보이기: 큰 쪽 그림을 칸 안에서 잘라 내고, 칸 폭을 넘지 않는다(f597864 에서 빠졌던 바탕 규칙) */
-.pdf-memo-list-crop { position: relative; max-width: 100%; overflow: hidden; border: 1px solid var(--divider); border-radius: 4px; background: #fff; box-sizing: border-box; }
+.pdf-memo-list-crop { position: relative; max-width: 100%; overflow: hidden; border: 1px solid var(--divider); border-radius: var(--r-xs); background: #fff; box-sizing: border-box; }
 .pdf-memo-list-crop img { position: absolute; max-width: none; user-select: none; }

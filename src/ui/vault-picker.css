@@ -6,7 +6,7 @@
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--divider);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--paper);
   color: var(--text-strong);
   box-shadow: 0 24px 60px var(--shadow-floating, rgb(0 0 0 / 25%));
@@ -36,7 +36,7 @@
 
 /* 단계 표시 */
 .vault-picker-steps { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
-.vault-picker-steps li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 5px; border: 1px solid var(--divider); border-radius: 999px; }
+.vault-picker-steps li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 5px; border: 1px solid var(--divider); border-radius: var(--r-full); }
 .vault-picker-steps li span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--chrome-hover); font-size: 11px; font-weight: 700; }
 .vault-picker-steps li.vault-picker-step-current { border-color: var(--accent); font-weight: 650; }
 .vault-picker-steps li.vault-picker-step-current span { background: var(--accent); color: var(--accent-contrast, #fff); }
@@ -49,7 +49,7 @@
   place-items: center;
   height: 84px;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--chrome);
   color: inherit;
   font: inherit;
@@ -71,7 +71,7 @@
 .vault-picker-ghost {
   height: var(--control-size-floating);
   padding: 0 16px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -90,7 +90,7 @@
   width: 100%;
   padding: 13px 16px;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -106,7 +106,7 @@
 .vault-picker-action-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--paper)); }
 
 /* 최근 Vault: 이름을 크게, 경로는 작게(회색 대신 크기로 구분) */
-.vault-picker-recent ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--divider); border-radius: 10px; overflow: hidden; }
+.vault-picker-recent ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--divider); border-radius: var(--r-md); overflow: hidden; }
 .vault-picker-recent li { display: flex; align-items: center; }
 .vault-picker-recent li + li { border-top: 1px solid var(--divider); }
 .vault-picker-recent-open {
@@ -135,14 +135,14 @@
   height: 28px;
   margin-right: 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 .vault-picker-recent-remove:hover { background: var(--chrome-hover); }
 
-.vault-picker-drop { margin: auto 0 0; padding: 10px 12px; border: 1px dashed var(--divider); border-radius: 10px; font-size: 12px; line-height: 1.5; }
+.vault-picker-drop { margin: auto 0 0; padding: 10px 12px; border: 1px dashed var(--divider); border-radius: var(--r-md); font-size: 12px; line-height: 1.5; }
 
 @media (max-width: 760px) {
   .vault-picker-card.vault-picker-two { grid-template-columns: 1fr; }

@@ -38,7 +38,7 @@
   letter-spacing: -0.02em;
   outline: none;
 }
-.side-brand:focus-visible { box-shadow: inset 0 0 0 1px #638598; border-radius: 6px; }
+.side-brand:focus-visible { box-shadow: inset 0 0 0 1px #638598; border-radius: var(--r-sm); }
 .side-brand-mark {
   position: absolute;
   top: 6px;
@@ -88,7 +88,7 @@
   width: auto;
   padding: 8px;
   border: 1px solid var(--divider-strong);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
   box-shadow: 0 14px 34px rgb(0 0 0 / 32%);
 }
@@ -101,7 +101,7 @@
   place-items: center;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
 }
@@ -120,7 +120,7 @@
   width: 100%;
   height: 32px;
   border: 1px solid var(--divider-strong);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--side-surface);
   color: var(--text-dim);
 }
@@ -152,7 +152,7 @@
   height: 22px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
 }
@@ -165,7 +165,7 @@
   height: 24px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
   font-size: 11px;
@@ -177,7 +177,7 @@
   max-width: 108px;
   height: 24px;
   border: 1px solid var(--divider);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--side-surface);
   color: var(--text-dim);
   font: inherit;
@@ -192,14 +192,14 @@
   padding: 5px;
   overflow: auto;
   border: 1px solid var(--divider-strong);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: var(--side-popover);
   box-shadow: 0 12px 30px rgb(0 0 0 / 32%);
 }
 .vault-search-results > [role="option"] {
   display: flex;
   align-items: center;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
 }
 .vault-search-results > [role="option"]:is(:hover, [aria-selected="true"]) { background: var(--chrome-hover); }
 .vault-search-result-main {
@@ -223,7 +223,7 @@
   margin-right: 4px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
 }
@@ -318,7 +318,7 @@
 .side-section .side-tree-toggle,
 .side-section .side-tree-item {
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.25;
@@ -371,7 +371,7 @@
   gap: 2px;
   padding: 5px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--paper);
   box-shadow: 0 12px 30px var(--shadow-soft);
   transform: translateY(-2px);
@@ -381,7 +381,7 @@
   min-height: 30px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -433,7 +433,7 @@
   margin-right: 4px;
   padding: 0 7px;
   border: 1px solid var(--accent);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   outline: 0;
   background: var(--paper);
   color: var(--text-strong);
@@ -477,7 +477,7 @@
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
   cursor: grab;
@@ -589,7 +589,7 @@
   gap: 6px;
   padding: 0 10px;
   border: 1px solid var(--control-border-floating);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: var(--control-surface-expanded);
   color: var(--text-strong);
   font: inherit;
@@ -606,7 +606,7 @@
 .markdown-translation-error {
   padding: 10px;
   border: 1px solid var(--control-border-floating);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--control-surface-expanded);
   color: var(--text-strong);
   box-shadow: 0 8px 24px var(--shadow-floating);
@@ -617,7 +617,7 @@
 .markdown-translation-result button {
   min-height: 28px;
   border: 1px solid var(--control-border-floating);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--chrome-hover);
   color: inherit;
 }
@@ -670,7 +670,7 @@
 .markdown-pane blockquote p { margin: 0; }
 
 .markdown-pane code {
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   background: var(--md-code-background, var(--chrome));
   font-family: 'Cascadia Mono', 'Consolas', monospace;
   font-size: 0.9em;
@@ -682,7 +682,7 @@
   overflow-x: auto;
   padding: 14px 16px;
   border: 1px solid var(--md-border, var(--hairline));
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-md);
   background: var(--md-code-background, var(--chrome));
   user-select: text;
 }
@@ -735,7 +735,7 @@
   min-height: 28px;
   padding: 0 9px;
   border: 1px solid var(--control-border-floating);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: var(--control-surface-expanded);
   color: var(--text-strong);
   box-shadow: 0 6px 18px var(--shadow-floating);
@@ -759,7 +759,7 @@
   margin: 0 12px 12px 0;
   padding: 4px 8px;
   border: 1px solid var(--divider);
-  border-radius: 999px;
+  border-radius: var(--r-full);
   color: var(--text-dim);
   background: color-mix(in srgb, var(--surface) 86%, transparent);
   font-size: 11px;
@@ -786,12 +786,12 @@
   min-height: 76px;
   padding: 10px;
   border: 1px solid var(--divider-strong);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   cursor: pointer;
 }
 .markdown-theme-grid input { position: absolute; inset: 7px 7px auto auto; }
 .markdown-theme-grid span { padding-right: 18px; font-size: 12px; font-weight: 700; }
-.markdown-theme-grid small { width: fit-content; padding: 3px 5px; border-radius: 4px; font-size: 10px; }
+.markdown-theme-grid small { width: fit-content; padding: 3px 5px; border-radius: var(--r-xs); font-size: 10px; }
 .markdown-capture-content { overflow: hidden; user-select: none; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -841,7 +841,7 @@
   height: 28px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--side-soft);
   font: inherit;
@@ -855,7 +855,7 @@
 .side-doc-target-side {
   flex: 0 0 auto;
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   background: var(--paper);
   color: var(--side-dim);
   font-size: 10.5px;
@@ -869,7 +869,7 @@
 /* 트리 안에서 바로 만들기(컨플루언스식): 새 줄 + 폴더 줄의 + 단추 */
 .side-tree-draft .side-draft-row {
   background: color-mix(in srgb, var(--accent) 7%, transparent);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 .side-tree-draft .side-inline-rename::placeholder { color: var(--text-dim); }
 .side-tree-add {
@@ -881,7 +881,7 @@
   margin-right: 2px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
   opacity: 0;
@@ -897,12 +897,12 @@
 .side-tree-drop-inside > .side-tree-row > .side-tree-toggle {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 .side-section-drop {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
-  border-radius: 8px;
+  border-radius: var(--r-md);
 }
 /* 노트 구역이 사이드바 아래 빈 곳까지 차지해, 그 빈 곳에 놓으면 Vault 맨 위(폴더 밖)로 간다 */
 .side-scroll:has(> .side-notes-section) { display: flex; flex-direction: column; }
@@ -938,7 +938,7 @@
   height: 28px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong);
   font: inherit;
@@ -967,7 +967,7 @@
 .side-memo-move-list > button {
   display: flex; align-items: center; gap: 7px;
   width: 100%; min-height: 28px; padding: 0 12px 0 10px;
-  border: 0; border-radius: 6px; background: transparent;
+  border: 0; border-radius: var(--r-sm); background: transparent;
   color: var(--text-strong); font: inherit; font-size: 13px; text-align: left; white-space: nowrap;
 }
 .side-memo-move-list > button:hover,
@@ -990,12 +990,12 @@
 .markdown-pane summary { cursor: pointer; font-weight: 600; }
 .markdown-pane li.md-task { list-style: none; }
 .markdown-pane ul:has(> li.md-task) { padding-left: 1.2em; }
-.markdown-pane .md-task-box { display: inline-block; width: 0.95em; height: 0.95em; margin: 0 0.5em 0 -1.3em; border: 1.5px solid var(--md-border); border-radius: 3px; vertical-align: -0.12em; background: var(--md-background, transparent); }
+.markdown-pane .md-task-box { display: inline-block; width: 0.95em; height: 0.95em; margin: 0 0.5em 0 -1.3em; border: 1.5px solid var(--md-border); border-radius: var(--r-xs); vertical-align: -0.12em; background: var(--md-background, transparent); }
 .markdown-pane .md-task-done { border-color: var(--accent); background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
-.markdown-pane kbd { padding: 1px 5px; border: 1px solid var(--md-border); border-radius: 4px; font-size: 0.9em; }
+.markdown-pane kbd { padding: 1px 5px; border: 1px solid var(--md-border); border-radius: var(--r-xs); font-size: 0.9em; }
 
 /* Markdown 은 아이콘 자리에 「MD」 */
-.side-file-badge { display: inline-grid; place-items: center; width: 16px; height: 14px; border: 1px solid currentColor; border-radius: 3px; font-size: 7.5px; font-weight: 800; letter-spacing: -.2px; line-height: 1; color: var(--text-strong); }
+.side-file-badge { display: inline-grid; place-items: center; width: 16px; height: 14px; border: 1px solid currentColor; border-radius: var(--r-xs); font-size: 7.5px; font-weight: 800; letter-spacing: -.2px; line-height: 1; color: var(--text-strong); }
 
 /* 목차·미리보기·검색 보기에도 탐색기와 같은 바닥 줄(Vault·설정) */
 .side-doc-target-wrap > .side-footer { flex: 0 0 auto; position: relative; }

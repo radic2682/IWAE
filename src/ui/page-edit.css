@@ -14,7 +14,7 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--paper);
   box-shadow: 0 24px 60px var(--shadow-floating);
 }
@@ -34,7 +34,7 @@
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong);
   cursor: pointer;
@@ -56,7 +56,7 @@
   height: 30px;
   padding: 0 10px;
   border: 1px solid var(--divider);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: var(--paper);
   color: var(--text);
   font: inherit;
@@ -86,7 +86,7 @@
   gap: 6px;
   padding: 8px;
   border: 2px solid transparent;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   cursor: grab;
   user-select: none;
 }
@@ -133,7 +133,7 @@
 .page-edit-save {
   height: 32px;
   padding: 0 16px;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   font: inherit;
   font-size: 13px;
   cursor: pointer;

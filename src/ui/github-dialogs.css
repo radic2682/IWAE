@@ -6,29 +6,29 @@
   width: min(520px, calc(100vw - 32px));
   max-height: min(640px, calc(100vh - 48px));
   border: 1px solid var(--divider-strong);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--paper);
   color: var(--text-strong, var(--ink));
   box-shadow: 0 24px 60px rgb(0 0 0 / .35);
 }
 .gh-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 10px 18px; }
-.gh-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: var(--chrome-hover); }
+.gh-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--chrome-hover); }
 .gh-titles { flex: 1 1 auto; min-width: 0; }
 .gh-titles h2 { margin: 2px 0 0; font-size: 15px; font-weight: 700; }
 .gh-titles p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }
-.gh-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.gh-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .gh-close:hover { background: var(--chrome-hover); }
 .gh-body { display: grid; gap: 10px; padding: 4px 18px 14px; overflow-y: auto; }
-.gh-url { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
+.gh-url { height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; }
 .gh-url:focus { outline: none; border-color: var(--accent); }
 .gh-hint { margin: 0; font-size: 12.5px; line-height: 1.5; }
-.gh-hint code { padding: 1px 5px; border-radius: 4px; background: var(--chrome-hover); font-size: 12px; }
+.gh-hint code { padding: 1px 5px; border-radius: var(--r-xs); background: var(--chrome-hover); font-size: 12px; }
 .gh-error { margin: 0; color: var(--danger, #e5534b); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
-.gh-preview { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--chrome-hover); font-size: 12.5px; }
+.gh-preview { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--chrome-hover); font-size: 12.5px; }
 .gh-preview dt { font-weight: 600; }
 .gh-preview dd { margin: 0; overflow-wrap: anywhere; }
 .gh-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 18px 16px; }
-.gh-primary, .gh-secondary { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 8px; background: var(--paper); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.gh-primary, .gh-secondary { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--paper); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .gh-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
 .gh-primary:disabled, .gh-secondary:disabled { opacity: .55; cursor: default; }
 .gh-secondary:hover:not(:disabled) { background: var(--chrome-hover); }
@@ -36,7 +36,7 @@
 .gh-refs { gap: 14px; }
 .gh-ref-group { display: grid; gap: 2px; }
 .gh-ref-group h3 { margin: 0 0 4px; font-size: 12px; font-weight: 700; }
-.gh-ref { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.gh-ref { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
 .gh-ref:hover:not(:disabled) { background: var(--chrome-hover); }
 .gh-ref-current, .gh-ref-current:hover { background: var(--accent); color: var(--accent-contrast, #fff); }
 .gh-ref-name { font-weight: 600; white-space: nowrap; }
@@ -44,14 +44,14 @@
 .gh-ref-date { white-space: nowrap; font-size: 11.5px; }
 
 .gh-changes { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.gh-change { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.gh-change { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
 .gh-change:hover:not(:disabled) { background: var(--chrome-hover); }
 .gh-change:disabled { cursor: default; }
 .gh-change span { overflow-wrap: anywhere; }
 .gh-change-more { padding: 4px 8px; font-size: 12px; }
 
 /* 왼쪽 바: GitHub 폴더 줄의 「⎇ main · ↓3」 */
-.side-github-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 0 6px; height: 18px; border-radius: 999px; background: color-mix(in srgb, var(--text-strong, #fff) 10%, transparent); font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+.side-github-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 0 6px; height: 18px; border-radius: var(--r-full); background: color-mix(in srgb, var(--text-strong, #fff) 10%, transparent); font-size: 10.5px; font-weight: 600; white-space: nowrap; }
 .side-github-badge-behind { background: var(--accent); color: var(--accent-contrast, #fff); }
 .side-top-action-spinning svg { animation: side-refresh-spin 700ms linear infinite; }
 @keyframes side-refresh-spin { to { transform: rotate(360deg); } }
@@ -60,4 +60,4 @@
 /* 넣을 곳 고르기 */
 .gh-target { display: grid; gap: 8px; margin-top: 10px; }
 .gh-target label { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
-.gh-target select, .gh-target input { height: 30px; padding: 0 8px; border: 1px solid var(--divider-strong); border-radius: 7px; background: var(--paper); color: var(--text-strong); font: inherit; font-weight: 400; }
+.gh-target select, .gh-target input { height: 30px; padding: 0 8px; border: 1px solid var(--divider-strong); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong); font: inherit; font-weight: 400; }

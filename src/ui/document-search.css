@@ -25,7 +25,7 @@
   padding: 0 7px 0 11px;
   gap: 8px;
   border: 1px solid var(--divider);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
@@ -67,7 +67,7 @@
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
@@ -97,7 +97,7 @@
   width: 100%;
   padding: 9px 11px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--text);
   font: inherit;
@@ -117,7 +117,7 @@
 .doc-results-help kbd {
   padding: 0 4px;
   border: 1px solid var(--divider);
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   background: var(--paper);
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
   font-size: 12px;

@@ -18,7 +18,7 @@
 :root .doc-search-bar,
 :root .pane-doc .pdf-search-floating-tool-expanded {
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: var(--field);
   color: var(--text);
   box-shadow: none;
@@ -63,7 +63,7 @@
 .side-recent { flex: 0 0 auto; max-height: 30%; overflow-y: auto; padding: 8px 8px 6px; border-top: 1px solid var(--divider); }
 .side-recent-title { margin: 0 6px 4px; color: var(--text-strong); font-size: 12.5px; font-weight: 650; }
 .side-recent ul { margin: 0; padding: 0; list-style: none; }
-.side-recent li { position: relative; display: flex; align-items: center; border-radius: 6px; }
+.side-recent li { position: relative; display: flex; align-items: center; border-radius: var(--r-sm); }
 .side-recent li:hover { background: var(--chrome-hover); }
 .side-recent-item {
   display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; height: 28px; padding: 0 6px;
@@ -71,14 +71,14 @@
 }
 .side-recent-item .side-item-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-recent-date { flex: 0 0 auto; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.side-recent-forget { display: grid; place-items: center; width: 22px; height: 22px; margin-right: 2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--text-muted); opacity: 0; }
+.side-recent-forget { display: grid; place-items: center; width: 22px; height: 22px; margin-right: 2px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-muted); opacity: 0; }
 .side-recent li:hover .side-recent-forget, .side-recent-forget:focus-visible { opacity: 1; }
 .side-recent-forget:hover { background: var(--chrome-active, var(--chrome-hover)); color: var(--text-strong); }
 
 /* 설정 › 기본 PDF 앱 */
 .default-app-settings { display: grid; gap: 10px; }
 .default-app-settings p { margin: 0; color: var(--text); font-size: 13.5px; line-height: 1.6; }
-.default-app-settings button { justify-self: start; height: 32px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: var(--accent-contrast); font: inherit; font-weight: 600; cursor: pointer; }
+.default-app-settings button { justify-self: start; height: 32px; padding: 0 14px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--accent); color: var(--accent-contrast); font: inherit; font-weight: 600; cursor: pointer; }
 
 /* PDF 스크롤 막대에 올리면 나오는 목차: 바탕은 더 비치게, 글자 칸만 살짝 깔아 읽히게 */
 .pdf-scrollbar-labels {
@@ -104,7 +104,7 @@ body.reader-drop-active .pane .pane-frame::after {
   display: grid;
   place-items: center;
   border: 2px dashed var(--accent);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--text-strong);
   font-size: 15px;
@@ -114,7 +114,7 @@ body.reader-drop-active .pane .pane-frame::after {
 
 /* 오류 알림: 닫기 단추 */
 .app-error { display: flex; align-items: center; gap: 8px; }
-.app-error-close { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; cursor: pointer; }
+.app-error-close { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .app-error-close:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
 
 /* 탭 줄 왼쪽(사이드바 단추 칸)도 탭 줄과 같은 색 — 왼쪽으로 가며 색이 바뀌지 않게 */
@@ -129,13 +129,13 @@ body.reader-drop-active .pane .pane-frame::after {
   gap: 6px;
   padding: 10px 12px 11px;
   border-color: transparent;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   box-shadow: none;
 }
 .pdf-memo-card-head { font-size: 12px; }
 .pdf-memo-card-quote {
   padding: 3px 8px;
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
@@ -151,13 +151,13 @@ body.reader-drop-active .pane .pane-frame::after {
 /* ---------- 메모 카드: 손잡이(순서), 접기, 별점 ---------- */
 .pdf-memo-grip {
   display: grid; place-items: center; flex: 0 0 auto; width: 16px; height: 18px; margin-left: -6px;
-  border-radius: 4px; color: var(--text-muted); cursor: grab; touch-action: none; opacity: .55;
+  border-radius: var(--r-xs); color: var(--text-muted); cursor: grab; touch-action: none; opacity: .55;
 }
 .pdf-memo-card:hover .pdf-memo-grip { opacity: 1; }
 .pdf-memo-grip:active { cursor: grabbing; }
 .pdf-memo-collapse {
   display: grid; place-items: center; flex: 0 0 auto; width: 18px; height: 18px; padding: 0;
-  border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); cursor: pointer;
+  border: 0; border-radius: var(--r-xs); background: transparent; color: var(--text-muted); cursor: pointer;
 }
 .pdf-memo-collapse:hover, .pdf-memo-grip:hover { background: var(--chrome-hover); color: var(--text-strong); }
 
@@ -192,7 +192,7 @@ body.reader-drop-active .pane .pane-frame::after {
   left: 0;
   right: 0;
   height: 18px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   pointer-events: none;
 }
@@ -220,15 +220,15 @@ body.reader-drop-active .pane .pane-frame::after {
 .note-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-strong); font-size: 14px; font-weight: 700; }
 .note-add-text {
   display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; height: 26px; padding: 0 10px;
-  border: 0; border-radius: 999px; background: var(--field); color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer;
+  border: 0; border-radius: var(--r-full); background: var(--field); color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer;
 }
 .note-add-text:hover { background: var(--field-hover); }
 .note-empty, .note-empty-hint { margin: 8px 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
 .note-empty p { margin: 0 0 8px; color: var(--text-strong); }
-.note-empty button { height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-contrast); font: inherit; font-weight: 600; cursor: pointer; }
+.note-empty button { height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-sm); background: var(--accent); color: var(--accent-contrast); font: inherit; font-weight: 600; cursor: pointer; }
 .note-text-card { background: var(--paper); }
 .note-text-label { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 12px; }
-.note-doc-label { margin-right: 4px; padding: 0 5px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-strong); font-weight: 600; }
+.note-doc-label { margin-right: 4px; padding: 0 5px; border-radius: var(--r-xs); background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-strong); font-weight: 600; }
 
 /* 왼쪽 바 「노트」 구역 */
 .side-memo-note-list { margin: 0; padding: 0; list-style: none; }
@@ -257,12 +257,12 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 .note-section:first-of-type { margin-top: 0; }
 .note-section-toggle {
   display: grid; place-items: center; flex: 0 0 auto; width: 22px; height: 22px; padding: 0;
-  border: 0; border-radius: 5px; background: transparent; color: var(--text-strong); cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer;
 }
 .note-section-toggle:hover { background: var(--chrome-hover); }
 .note-section-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
-.note-section-input { flex: 1 1 auto; min-width: 0; height: 26px; padding: 0 6px; border: 1px solid var(--accent); border-radius: 6px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 15px; font-weight: 700; }
-.note-section-count { flex: 0 0 auto; min-width: 20px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-muted); font-size: 11.5px; font-weight: 600; text-align: center; }
+.note-section-input { flex: 1 1 auto; min-width: 0; height: 26px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong); font: inherit; font-size: 15px; font-weight: 700; }
+.note-section-count { flex: 0 0 auto; min-width: 20px; padding: 0 6px; border-radius: var(--r-full); background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-muted); font-size: 11.5px; font-weight: 600; text-align: center; }
 .note-section .pdf-memo-card-actions { display: none; }
 .note-section:hover .pdf-memo-card-actions { display: inline-flex; }
 .note-section-collapsed { opacity: .92; }
@@ -288,9 +288,9 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
   font-size: 11.5px; line-height: 18px;
 }
 .note-source-region { position: relative; cursor: pointer; }
-.note-source-region .note-source-meta { position: absolute; top: 4px; right: 6px; z-index: 1; float: none; margin: 0; padding: 0 4px; border-radius: 4px; background: color-mix(in srgb, var(--paper) 85%, transparent); }
+.note-source-region .note-source-meta { position: absolute; top: 4px; right: 6px; z-index: 1; float: none; margin: 0; padding: 0 4px; border-radius: var(--r-xs); background: color-mix(in srgb, var(--paper) 85%, transparent); }
 .note-source-page {
-  padding: 0 4px; border: 0; border-radius: 4px;
+  padding: 0 4px; border: 0; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--paper) 55%, transparent);
   color: var(--text-strong); font: inherit; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer;
 }
@@ -298,7 +298,7 @@ button.note-source-page:hover { color: var(--accent); }
 .note-source-stars { color: #f5b301; letter-spacing: -1px; }
 .note-source-chip {
   display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; height: 24px; padding: 0 8px;
-  border: 0; border-radius: 5px; color: var(--text-muted); font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+  border: 0; border-radius: var(--r-sm); color: var(--text-muted); font: inherit; font-size: 12px; text-align: left; cursor: pointer;
 }
 .note-source-chip-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-source-chip .note-source-meta { float: none; margin: 0; }
@@ -308,12 +308,12 @@ button.note-source-page:hover { color: var(--accent); }
 .note-menu-backdrop { position: fixed; inset: 0; z-index: 90; }
 .note-menu {
   position: fixed; z-index: 91; min-width: 190px; padding: 6px;
-  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper);
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper);
   box-shadow: 0 12px 32px rgb(0 0 0 / 28%); color: var(--text-strong); font-size: 13px;
 }
 .note-menu > button {
   display: block; width: 100%; height: 30px; padding: 0 10px;
-  border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .note-menu > button:hover { background: var(--chrome-hover); }
 .note-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--divider); }
@@ -346,7 +346,7 @@ button.note-source-page:hover { color: var(--accent); }
 .note-source:hover, .note-source-chip:hover { filter: brightness(1.12); }
 .note-source-expand {
   display: grid; place-items: center; flex: 0 0 auto; width: 18px; height: 18px; padding: 0;
-  border: 0; border-radius: 4px; background: transparent; color: var(--text-strong); cursor: pointer;
+  border: 0; border-radius: var(--r-xs); background: transparent; color: var(--text-strong); cursor: pointer;
 }
 .note-source-expand:hover { background: color-mix(in srgb, var(--ink) 14%, transparent); }
 .note-source-chip { display: flex; }
@@ -359,7 +359,7 @@ button.note-source-page:hover { color: var(--accent); }
   position: absolute; z-index: 18;
   top: calc((var(--doc-card-h, 36px) - 26px) / 2); left: 34px;
   display: grid; place-items: center; width: 28px; height: 26px; padding: 0;
-  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer;
 }
 .pane-doc .pdf-print-corner:hover { background: var(--chrome-hover); }
 .pane-doc:has(.pdf-search-floating-tool-expanded) .pdf-print-corner { display: none; }
@@ -394,16 +394,16 @@ button.note-source-page:hover { color: var(--accent); }
 
 /* 표·그림은 카드 폭에 꽉 맞춘다 */
 .note-source-region { padding: 0; }
-.note-source-region .region-crop-fill { border-radius: 5px; }
+.note-source-region .region-crop-fill { border-radius: var(--r-sm); }
 
 /* 그림 크게 보기 */
 .note-zoom { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; background: rgb(0 0 0 / 72%); cursor: zoom-out; }
-.note-zoom-figure { max-width: 92vw; max-height: 86vh; border-radius: 8px; overflow: hidden; box-shadow: 0 20px 60px rgb(0 0 0 / 50%); background: #fff; }
+.note-zoom-figure { max-width: 92vw; max-height: 86vh; border-radius: var(--r-md); overflow: hidden; box-shadow: 0 20px 60px rgb(0 0 0 / 50%); background: #fff; }
 .note-zoom-figure .region-crop-fill { border-radius: 0; }
 
 /* 마우스 제스처: 그리는 동안 커서 옆에 할 일 */
 .mouse-gesture-hint {
-  position: fixed; left: 0; top: 0; z-index: 200; padding: 4px 10px; border-radius: 8px; will-change: transform;
+  position: fixed; left: 0; top: 0; z-index: 200; padding: 4px 10px; border-radius: var(--r-md); will-change: transform;
   background: rgb(20 20 20 / 88%); color: #f4f4f4; font-size: 13px; font-weight: 600;
   box-shadow: 0 6px 18px rgb(0 0 0 / 35%); pointer-events: none; white-space: nowrap;
 }
@@ -458,7 +458,7 @@ button.note-source-page:hover { color: var(--accent); }
 .pdf-search-docked { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 8px; }
 .pdf-search-docked .pdf-search-field {
   display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px 0 12px;
-  border: 1px solid transparent; border-radius: 999px; background: var(--field); color: var(--text-strong);
+  border: 1px solid transparent; border-radius: var(--r-full); background: var(--field); color: var(--text-strong);
 }
 .pdf-search-docked .pdf-search-field:focus-within { border-color: var(--accent); }
 .pdf-search-docked .pdf-search-field input { flex: 1 1 auto; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text-strong); font: inherit; font-size: 14px; }
@@ -467,7 +467,7 @@ button.note-source-page:hover { color: var(--accent); }
 .pdf-search-docked .pdf-search-clear { display: grid; flex: 0 0 auto; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--chrome-hover); color: var(--text-strong); cursor: pointer; }
 .pdf-search-docked .pdf-search-clear:hover { background: var(--selected-bg); }
 .pdf-search-docked .pdf-search-position { color: var(--text-strong); font-size: 12px; font-variant-numeric: tabular-nums; }
-.pdf-search-docked .pdf-search-option { min-width: 26px; height: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.pdf-search-docked .pdf-search-option { min-width: 26px; height: 24px; padding: 0 5px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
 .pdf-search-docked .pdf-search-option[aria-pressed='true'] { background: var(--selected-bg); }
 .pdf-search-docked .pdf-search-panel { position: static; flex: 1 1 auto; min-height: 0; overflow-y: auto; width: auto; max-height: none; border: 0; background: transparent; box-shadow: none; }
 .pdf-search-docked .pdf-search-result-row { color: var(--text-strong); }
@@ -520,13 +520,13 @@ button.note-source-page:hover { color: var(--accent); }
 .pdf-search-meter { display: block; height: 2px; border-radius: 2px; background: var(--field); overflow: hidden; }
 .pdf-search-meter > span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
 .pdf-search-groups { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 2px 12px 0; }
-.pdf-search-more { display: block; width: calc(100% - 8px); height: 30px; margin: 6px 4px 0; border: 1px solid var(--hairline); border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.pdf-search-more { display: block; width: calc(100% - 8px); height: 30px; margin: 6px 4px 0; border: 1px solid var(--hairline); border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
 .pdf-search-more:hover { background: var(--field-hover); }
 .pdf-search-group + .pdf-search-group { margin-top: 6px; }
 .pdf-search-group-head {
   position: sticky; top: 0; z-index: 1;
   display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 4px 6px;
-  border: 0; border-radius: 6px; background: var(--chrome); color: var(--text-strong);
+  border: 0; border-radius: var(--r-sm); background: var(--chrome); color: var(--text-strong);
   font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
 }
 .pdf-search-group-head:hover { background: var(--field-hover); }
@@ -536,7 +536,7 @@ button.note-source-page:hover { color: var(--accent); }
 .pdf-search-grouped .pdf-search-results { gap: 1px; margin: 2px 0 0; }
 .pdf-search-grouped .pdf-search-result-row {
   grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px;
-  padding: 5px 8px 5px 23px; border-radius: 6px; color: var(--text-strong); font-size: 12.5px; line-height: 1.45; cursor: pointer;
+  padding: 5px 8px 5px 23px; border-radius: var(--r-sm); color: var(--text-strong); font-size: 12.5px; line-height: 1.45; cursor: pointer;
 }
 .pdf-search-grouped .pdf-search-result-row:hover { background: var(--field-hover); }
 .pdf-search-grouped .pdf-search-result-row-active { background: var(--selected-bg); }
@@ -572,7 +572,7 @@ button.note-source-page:hover { color: var(--accent); }
 :root :is(.side-context-menu, .note-menu, .block-context-menu, .canvas-create-menu, .canvas-block-background-menu) {
   width: max-content; min-width: 176px; max-width: min(360px, calc(100vw - 16px));
   padding: 5px; gap: 1px;
-  border: 1px solid var(--divider-strong); border-radius: 9px;
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md);
   background: var(--paper); color: var(--text-strong);
   box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
   font-size: 13px; line-height: 1.3;
@@ -593,7 +593,7 @@ button.note-source-page:hover { color: var(--accent); }
 /* 왼쪽 바 아이콘(PDF·노트·폴더 그림)을 누르면 바로 이모지를 고른다 */
 .item-emoji-pick {
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
-  margin: -2px -3px; padding: 2px 3px; border-radius: 5px; cursor: pointer;
+  margin: -2px -3px; padding: 2px 3px; border-radius: var(--r-sm); cursor: pointer;
 }
 .item-emoji-pick:hover { background: var(--chrome-hover); box-shadow: 0 0 0 1px var(--divider-strong); }
 .item-emoji-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
@@ -601,17 +601,17 @@ button.note-source-page:hover { color: var(--accent); }
 /* ---------- 왼쪽 바: Ctrl·Shift 로 여러 개 고르기 ---------- */
 .sidebar .side-tree-node-selected > .side-tree-row > :is(.side-item, .side-tree-toggle),
 .sidebar .side-tree-node-selected > .side-tree-row > :is(.side-item, .side-tree-toggle):hover {
-  background: var(--selected-bg-strong); color: var(--text-strong); border-radius: 6px;
+  background: var(--selected-bg-strong); color: var(--text-strong); border-radius: var(--r-sm);
 }
 .side-tree :is(.side-item, .side-tree-toggle) { user-select: none; }
 
 /* ---------- 탐색기에서 파일 끌어 오기: 목록을 가리지 않고, 들어갈 폴더를 칠한다 ---------- */
 .sidebar-inner .side-document-drop-target {
   display: flex; align-items: flex-end; justify-content: center; padding: 0 10px 14px;
-  border: 2px dashed var(--accent); border-radius: 8px; background: transparent;
+  border: 2px dashed var(--accent); border-radius: var(--r-md); background: transparent;
 }
 .side-document-drop-banner {
-  max-width: 100%; padding: 7px 12px; border-radius: 8px;
+  max-width: 100%; padding: 7px 12px; border-radius: var(--r-sm);
   background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 700;
   box-shadow: 0 6px 18px rgb(0 0 0 / 30%); text-align: center;
 }
@@ -671,7 +671,7 @@ body.pdf-panning, body.pdf-panning * { cursor: grabbing !important; user-select:
 :root .pane-doc .pdf-memo-card-flow:is(.pdf-memo-card-active, .pdf-memo-card-editing, .pdf-memo-card-draft),
 .pane-doc .note-section.note-block {
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: transparent;
   box-shadow: none;
 }
@@ -686,14 +686,14 @@ body.pdf-panning, body.pdf-panning * { cursor: grabbing !important; user-select:
 .note-block-grip {
   position: absolute; top: 7px; left: -19px;
   display: grid; place-items: center; width: 18px; height: 22px;
-  border-radius: 5px; color: var(--text-muted); cursor: grab; opacity: 0;
+  border-radius: var(--r-sm); color: var(--text-muted); cursor: grab; opacity: 0;
   transition: opacity 100ms ease;
 }
 .note-block-grip:hover { background: var(--chrome-hover); color: var(--text-strong); }
 .note-block-menu {
   position: absolute; z-index: 3; top: 4px; right: 4px;
   display: grid; place-items: center; width: 26px; height: 22px; padding: 0;
-  border: 0; border-radius: 6px; background: var(--paper); box-shadow: 0 0 0 1px var(--divider-strong);
+  border: 0; border-radius: var(--r-sm); background: var(--paper); box-shadow: 0 0 0 1px var(--divider-strong);
   color: var(--text-strong); cursor: pointer; opacity: 0; pointer-events: none;
   transition: opacity 100ms ease;
 }
@@ -780,19 +780,19 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pdf-search-recent-head { display: flex; align-items: center; gap: 6px; padding: 0 4px; }
 .pdf-search-recent-docked .pdf-search-recent-label { flex: 1 1 auto; margin: 0; color: var(--text-strong); font-size: 12px; font-weight: 600; }
 .pdf-search-recent-count { margin-left: 2px; color: var(--text-strong); font-weight: 500; font-variant-numeric: tabular-nums; }
-.pdf-search-recent-clear { height: 22px; padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: var(--text-strong); font: inherit; font-size: 11.5px; cursor: pointer; }
+.pdf-search-recent-clear { height: 22px; padding: 0 6px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; font-size: 11.5px; cursor: pointer; }
 .pdf-search-recent-clear:hover { background: var(--field-hover); }
 .pdf-search-recent-list { display: flex; flex-direction: column; gap: 1px; min-height: 0; max-height: min(60vh, 560px); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
 .pdf-search-recent-row { position: relative; display: flex; align-items: center; }
 .pdf-search-docked .pdf-search-recent-row .pdf-search-recent-query {
   display: flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 28px 0 8px;
-  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
 }
 .pdf-search-docked .pdf-search-recent-row .pdf-search-recent-query:hover { background: var(--field-hover); }
 .pdf-search-recent-row .pdf-search-recent-query span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pdf-search-recent-remove {
   position: absolute; right: 4px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0;
-  border: 0; border-radius: 5px; background: transparent; color: var(--text-strong); opacity: 0; cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); opacity: 0; cursor: pointer;
 }
 .pdf-search-recent-row:hover .pdf-search-recent-remove,
 .pdf-search-recent-remove:focus-visible { opacity: 1; }
@@ -818,7 +818,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   width: 46px;
   overflow: hidden;
   border: 1px solid var(--divider-strong);
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   background: #fff;
 }
 .pdf-search-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -850,7 +850,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   gap: 4px;
   padding: 6px;
   border: 1px solid var(--divider-strong);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--chrome);
   box-shadow: 0 8px 22px rgb(0 0 0 / 30%);
 }
@@ -954,7 +954,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 
 /* Markdown 목차(왼쪽 바) */
 .markdown-outline ul { margin: 0; padding: 4px 6px; list-style: none; }
-.markdown-outline-item { display: block; width: 100%; min-height: 26px; padding: 3px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.markdown-outline-item { display: block; width: 100%; min-height: 26px; padding: 3px 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; font-size: 12.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .markdown-outline-item:hover { background: var(--chrome-hover); }
 .markdown-outline-current { background: var(--selected-bg); font-weight: 600; }
 
@@ -974,14 +974,14 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-search-panel { display: flex; flex-direction: column; gap: 6px; padding: 8px; color: var(--text-strong); }
 /* 왼쪽 바에 붙을 때: PDF 검색처럼 바 안에 놓는다(공용 .pdf-search-panel 의 떠 있는 자리 잡기를 끈다) */
 .side-pdf-search .markdown-search-panel { position: static; inset: auto; z-index: auto; flex: 1 1 auto; min-height: 0; width: auto; max-height: none; padding: 0; overflow-y: auto; border: 0; background: transparent; box-shadow: none; }
-.markdown-search-row { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid var(--divider-strong); border-radius: 8px; background: var(--paper); }
+.markdown-search-row { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid var(--divider-strong); border-radius: var(--r-sm); background: var(--paper); }
 .markdown-search-row input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; font-size: 13px; }
 .markdown-search-status { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; }
 .markdown-search-status span { margin-right: auto; }
-.markdown-search-icon { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.markdown-search-icon { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .markdown-search-icon:hover { background: var(--chrome-hover); }
 .markdown-search-results { margin: 0; padding: 0; list-style: none; overflow-y: auto; }
-.markdown-search-result { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12px; line-height: 1.45; text-align: left; cursor: pointer; }
+.markdown-search-result { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12px; line-height: 1.45; text-align: left; cursor: pointer; }
 .markdown-search-result:hover { background: var(--chrome-hover); }
 .markdown-search-result-active { background: var(--selected-bg); }
 .markdown-search-result mark { background: #ffd84d; color: #111; border-radius: 2px; }
@@ -995,7 +995,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* Markdown 절 미리보기(왼쪽 바 「미리보기」) */
 .markdown-section-preview { display: grid; gap: 10px; padding: 10px 14px 24px; }
 .markdown-section-card { display: grid; gap: 4px; justify-items: center; padding: 0; border: 0; background: transparent; color: var(--text-strong); font: inherit; cursor: pointer; }
-.markdown-section-card-paper { display: grid; gap: 4px; width: 100%; max-width: 220px; min-height: 92px; padding: 10px 12px; box-sizing: border-box; border: 2px solid transparent; border-radius: 3px; background: #fff; color: #1d1d1f; box-shadow: 0 2px 8px rgb(0 0 0 / 25%); text-align: left; }
+.markdown-section-card-paper { display: grid; gap: 4px; width: 100%; max-width: 220px; min-height: 92px; padding: 10px 12px; box-sizing: border-box; border: 2px solid transparent; border-radius: var(--r-xs); background: #fff; color: #1d1d1f; box-shadow: 0 2px 8px rgb(0 0 0 / 25%); text-align: left; }
 .markdown-section-card:hover .markdown-section-card-paper { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .markdown-section-card-current .markdown-section-card-paper { border-color: var(--accent); }
 .markdown-section-card-title { font-size: 11px; line-height: 1.3; }
@@ -1012,7 +1012,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .note-ticket-title svg { flex: 0 0 auto; margin-top: 4.5px; color: var(--accent); }
 .note-ticket-title-input {
   width: 100%; box-sizing: border-box; padding: 2px 6px;
-  border: 1px solid var(--accent); border-radius: 6px; outline: none;
+  border: 1px solid var(--accent); border-radius: var(--r-sm); outline: none;
   background: var(--paper); color: var(--text-strong); font: inherit; font-size: 14px; font-weight: 700;
 }
 .note-sources { display: flex; flex-direction: column; gap: 3px; }
@@ -1021,7 +1021,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .note-draft-ticket {
   position: absolute; z-index: 4; top: 4px; right: 6px;
   display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px;
-  border: 1px solid var(--divider-strong); border-radius: 6px; background: var(--paper);
+  border: 1px solid var(--divider-strong); border-radius: var(--r-sm); background: var(--paper);
   color: var(--text-strong); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer;
 }
 .note-draft-ticket:hover { border-color: var(--accent); }
@@ -1031,7 +1031,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* 더한 원문 떼기 */
 .note-source-remove {
   flex: 0 0 auto; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 4px; padding: 0;
-  border: 0; border-radius: 4px; background: transparent; color: var(--text-strong); cursor: pointer; opacity: 0;
+  border: 0; border-radius: var(--r-xs); background: transparent; color: var(--text-strong); cursor: pointer; opacity: 0;
 }
 .note-block:hover .note-source-remove, .note-source-remove:focus-visible { opacity: .75; }
 .note-source-remove:hover { opacity: 1; background: color-mix(in srgb, #fff 55%, transparent); }
@@ -1040,19 +1040,19 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 
 /* 원문 더하는 중 */
 :root .pane-doc .note-block.note-block-attaching { border-color: var(--accent); border-style: dashed; }
-.note-source-attach { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text-strong); font-size: 12.5px; }
-.note-source-attach button { margin-left: auto; padding: 0 8px; height: 22px; border: 1px solid var(--divider-strong); border-radius: 6px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.note-source-attach { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text-strong); font-size: 12.5px; }
+.note-source-attach button { margin-left: auto; padding: 0 8px; height: 22px; border: 1px solid var(--divider-strong); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
 
 /* 여러 블록 고르기 */
 :root .pane-doc .note-block.note-block.note-block-selected { box-shadow: 0 0 0 1.5px var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .note-selection-bar {
   position: sticky; top: 30px; z-index: 7; flex: 0 0 auto;
   display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 5px 8px;
-  border: 1px solid var(--accent); border-radius: 8px; background: var(--paper);
+  border: 1px solid var(--accent); border-radius: var(--r-md); background: var(--paper);
   box-shadow: 0 4px 14px rgb(0 0 0 / 18%); color: var(--text-strong); font-size: 12.5px; font-weight: 600;
 }
 .note-selection-bar span { flex: 1 1 auto; }
-.note-selection-bar button { height: 24px; padding: 0 10px; border: 1px solid var(--divider-strong); border-radius: 6px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
+.note-selection-bar button { height: 24px; padding: 0 10px; border: 1px solid var(--divider-strong); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer; }
 .note-selection-bar .note-selection-danger { border-color: var(--danger, #d1242f); background: var(--danger, #d1242f); color: #fff; }
 
 /* 표·그림 네모 크기 바꾸기(텍스트·영역 캡처 도구): 마우스를 올리면 테두리와 손잡이 */
@@ -1068,7 +1068,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* 노트 이름 바꾸기(머리에서 두 번 누르기) */
 .note-head-title-input {
   flex: 1 1 auto; min-width: 0; height: 26px; box-sizing: border-box; padding: 0 6px;
-  border: 1px solid var(--accent); border-radius: 6px; outline: none;
+  border: 1px solid var(--accent); border-radius: var(--r-sm); outline: none;
   background: var(--paper); color: var(--text-strong); font: inherit; font-size: 13.5px; font-weight: 700;
 }
 /* 노트가 없을 때 안내: PDF 메모 바와 같은 자리(왼쪽 20px, 위 10px) */
@@ -1080,7 +1080,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 
 /* 도구줄 형광펜: 형광펜 모드일 때 옆에 색 넷과 지우개 */
 .pane-highlighter { display: inline-flex; align-items: center; gap: 4px; }
-.pane-highlighter-palette { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; border-radius: 8px; background: var(--chrome-hover); }
+.pane-highlighter-palette { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; border-radius: var(--r-md); background: var(--chrome-hover); }
 .pane-highlighter-color {
   width: 16px; height: 16px; padding: 0; border: 2px solid transparent; border-radius: 50%; cursor: pointer;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 18%) inset;
@@ -1099,7 +1099,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .translation-settings-engine { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
 .translation-settings-engine-option {
   display: grid; align-content: start; gap: 5px; padding: 14px 16px; text-align: left; cursor: pointer;
-  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper);
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper);
   color: var(--text-strong); font: inherit;
 }
 .translation-settings-engine-option strong { font-size: 13.5px; }
@@ -1112,7 +1112,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .settings-modal .settings-modal-body .theme-palette-card { padding: 10px 10px 14px; gap: 8px; }
 .settings-modal .settings-modal-body .theme-palette-card > :not(.theme-palette-preview) { padding-inline: 4px; }
 .settings-modal .settings-modal-body .markdown-theme-grid > label { padding: 14px 16px; }
-.settings-modal .settings-modal-body button.translation-settings-engine-option { height: auto; min-height: 76px; padding: 14px 16px; border-radius: 10px; font-size: inherit; }
+.settings-modal .settings-modal-body button.translation-settings-engine-option { height: auto; min-height: 76px; padding: 14px 16px; border-radius: var(--r-md); font-size: inherit; }
 .settings-modal .settings-modal-body :is(.translation-settings-input, .translation-settings-select) { padding: 0 10px; }
 .settings-modal .settings-modal-body :is(.translation-settings-download, .translation-settings-benchmark-button) { padding: 0 14px; }
 
@@ -1134,7 +1134,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   margin: 0 2px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: transparent;
   cursor: pointer;
 }
@@ -1147,7 +1147,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   min-width: 220px;
   padding: 5px;
   border: 1px solid var(--hairline);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
   box-shadow: 0 12px 32px var(--shadow-soft, rgb(0 0 0 / 30%));
   color: var(--text-strong);
@@ -1161,7 +1161,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   width: 100%;
   padding: 7px 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -1191,7 +1191,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   width: 36px;
   height: 32px;
   margin: 0;
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--r-md) var(--r-md) 0 0;
   background: transparent;
   box-shadow: none;
 }
@@ -1237,7 +1237,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-highlighter-palette.pane-highlighter-floating {
   position: fixed; z-index: 60; transform: translateX(-50%);
   gap: 6px; height: 36px; padding: 0 8px; box-sizing: border-box;
-  border: 1px solid var(--divider); border-radius: 10px; background: var(--paper);
+  border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper);
   box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
 }
 .pane-highlighter-floating .pane-highlighter-color { width: 20px; height: 20px; }

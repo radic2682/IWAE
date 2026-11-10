@@ -32,7 +32,7 @@
   gap: 2px;
   padding: 3px 5px;
   border: 1px solid var(--divider-strong);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--paper, #fff);
   color: var(--text-strong, #111);
   box-shadow: 0 4px 14px rgb(0 0 0 / 30%);
@@ -42,7 +42,7 @@
 .pdf-overlay-colors { display: inline-flex; gap: 3px; margin-right: 4px; }
 .pdf-overlay-color { width: 14px; height: 14px; padding: 0; border: 1px solid rgb(128 128 128 / 55%); border-radius: 50%; cursor: pointer; }
 .pdf-overlay-color-on { box-shadow: 0 0 0 2px var(--accent, #3b82f6); }
-.pdf-overlay-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; min-width: 22px; height: 22px; padding: 0 4px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
+.pdf-overlay-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; min-width: 22px; height: 22px; padding: 0 4px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
 .pdf-overlay-btn:hover { background: var(--chrome-hover); }
 .pdf-overlay-btn-on { background: var(--selected-bg, var(--chrome-hover)); box-shadow: inset 0 0 0 1px var(--accent, #3b82f6); }
 .pdf-overlay-size { min-width: 18px; font-size: 11.5px; font-weight: 600; text-align: center; }
@@ -66,7 +66,7 @@
   scrollbar-width: none;
   transform: translateX(-50%);
   border: 1px solid var(--divider-strong);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--chrome);
   color: var(--text-strong);
   box-shadow: 0 8px 22px rgb(0 0 0 / 32%);
@@ -76,13 +76,13 @@
 .pdf-overlay-palette::-webkit-scrollbar { display: none; }
 .pdf-overlay-palette-sep { flex: 0 0 auto; width: 1px; height: 20px; margin: 0 4px; background: var(--divider-strong); }
 .pdf-overlay-group { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; }
-.pdf-overlay-palette .pdf-overlay-btn { min-width: 28px; height: 28px; border-radius: 7px; font-size: 12.5px; }
+.pdf-overlay-palette .pdf-overlay-btn { min-width: 28px; height: 28px; border-radius: var(--r-sm); font-size: 12.5px; }
 .pdf-overlay-palette .pdf-overlay-colors { gap: 5px; margin: 0 2px; }
 .pdf-overlay-palette .pdf-overlay-color { width: 16px; height: 16px; flex: 0 0 auto; }
 .pdf-overlay-palette .pdf-overlay-size { min-width: 22px; font-size: 12.5px; }
 .pdf-overlay-palette .pdf-overlay-width i { width: 16px; }
 .pdf-overlay-done { gap: 4px; padding: 0 10px !important; font-weight: 600; }
-.pdf-overlay-fill { flex: 0 0 auto; width: 18px; height: 18px; padding: 0; border: 1px solid rgb(128 128 128 / 60%); border-radius: 4px; cursor: pointer; }
+.pdf-overlay-fill { flex: 0 0 auto; width: 18px; height: 18px; padding: 0; border: 1px solid rgb(128 128 128 / 60%); border-radius: var(--r-xs); cursor: pointer; }
 .pdf-overlay-fill-none { background: linear-gradient(to top right, transparent calc(50% - 1px), #d9363e calc(50% - 1px), #d9363e calc(50% + 1px), transparent calc(50% + 1px)) !important; }
 .pdf-overlay-fills { gap: 4px; margin: 0 2px; }
 .pdf-overlay-border-icon { display: block; width: 13px; height: 13px; border: 1.6px solid currentColor; border-radius: 2px; }
@@ -93,7 +93,7 @@
 .pdf-box-format-slot { display: flex; align-items: center; min-width: 0; }
 /* 박스 메모 서식 단추를 도구창 높이에 맞춘다 */
 .pdf-box-format-slot .pdf-memo-format-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.pdf-box-format-slot .pdf-memo-format-button { min-width: 28px; height: 28px; border-radius: 7px; }
+.pdf-box-format-slot .pdf-memo-format-button { min-width: 28px; height: 28px; border-radius: var(--r-sm); }
 .pdf-overlay-layer-edit[data-overlay-tool='eraser'],
 .pdf-overlay-layer-edit[data-overlay-tool='eraser'] * { cursor: cell !important; }
 
@@ -117,7 +117,7 @@
 .pane-doc .pane-frame:has(.doc-format-strip) .markdown-pane { padding-top: 40px; }
 .doc-strip-chip {
   display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px;
-  border: 1px solid var(--accent); border-radius: 7px; background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+  border: 1px solid var(--accent); border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 14%, var(--paper));
   color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
 }
 .doc-strip-chip:hover { background: color-mix(in srgb, var(--accent) 22%, var(--paper)); }
@@ -133,12 +133,12 @@
 .doc-strip-swatch-on { box-shadow: 0 0 0 2px var(--workspace), 0 0 0 3.5px var(--accent); }
 .doc-strip-swatch-custom { background: conic-gradient(#f44, #fb3, #4c4, #3cf, #46f, #c4f, #f44); overflow: hidden; }
 .doc-strip-swatch-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.doc-strip-seg { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: color-mix(in srgb, var(--text-strong) 7%, transparent); }
+.doc-strip-seg { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 2px; border-radius: var(--r-md); background: color-mix(in srgb, var(--text-strong) 7%, transparent); }
 .doc-strip-opt, .doc-strip-toggle {
   display: grid; flex: 0 0 auto; place-items: center; min-width: 30px; height: 24px; padding: 0 6px;
-  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); font: inherit; cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; cursor: pointer;
 }
-.doc-strip-toggle { height: 28px; border-radius: 7px; }
+.doc-strip-toggle { height: 28px; border-radius: var(--r-sm); }
 .doc-strip-opt:hover, .doc-strip-toggle:hover { background: var(--chrome-hover); }
 .doc-strip-opt.doc-strip-opt-on, .doc-strip-toggle.doc-strip-opt-on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
 .doc-strip-line { display: block; width: 16px; height: 2px; border-radius: 2px; background: currentColor; }
@@ -149,16 +149,16 @@
 .doc-format-strip .doc-strip-select { flex: 0 0 auto; width: 86px; }
 .doc-format-strip .doc-strip-select button { height: 28px; }
 .doc-strip-hint { flex: 0 0 auto; margin-left: auto; padding-left: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
-.doc-strip-kbd { flex: 0 0 auto; margin-left: auto; padding: 1px 5px; border: 1px solid var(--divider-strong); border-radius: 4px; font: inherit; font-size: 10.5px; font-weight: 700; }
+.doc-strip-kbd { flex: 0 0 auto; margin-left: auto; padding: 1px 5px; border: 1px solid var(--divider-strong); border-radius: var(--r-xs); font: inherit; font-size: 10.5px; font-weight: 700; }
 .doc-strip-hint + .doc-strip-kbd { margin-left: 0; }
-.doc-strip-close { display: grid; flex: 0 0 auto; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); cursor: pointer; }
+.doc-strip-close { display: grid; flex: 0 0 auto; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer; }
 .doc-strip-close:hover { background: var(--chrome-hover); }
 /* 박스 메모 서식 칸(PdfBoxMemos 가 채운다)도 띠 안에서 한 줄로 */
 .doc-format-strip .pdf-box-format-slot { display: flex; align-items: center; gap: 6px; }
 .doc-format-strip .pdf-box-format-slot:empty { display: none; }
 
 /* ── 도구줄 그리기 ▾: 마지막 그리기 도구 + 고르기 화살표가 한 덩어리 ── */
-.pane-draw-split { display: inline-flex; align-items: center; border-radius: 6px; }
+.pane-draw-split { display: inline-flex; align-items: center; border-radius: var(--r-sm); }
 .pane-doc .pane-draw-split .pane-draw-caret { width: 16px; max-width: 16px; margin-left: -2px; }
 .pane-doc .pane-draw-split-on { box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--paper)); }
 .pane-doc .pane-toolbar .pane-draw-split-on .pane-draw-main.toolbar-tool-btn-active { border-color: transparent; background: transparent; }
@@ -167,10 +167,10 @@
 /* ── 문서 위: 고른 것 옆 작은 막대 · 네 모서리 손잡이 · 글 상자 끌어 만들기 ── */
 .pdf-overlay-mini {
   position: absolute; z-index: 6; display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 4px;
-  border: 1px solid var(--divider); border-radius: 9px; background: var(--paper); color: var(--text-strong);
+  border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper); color: var(--text-strong);
   box-shadow: 0 8px 22px rgb(0 0 0 / 22%); pointer-events: auto;
 }
-.pdf-overlay-mini-btn { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.pdf-overlay-mini-btn { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .pdf-overlay-mini-btn:hover { background: var(--chrome-hover); }
 .pdf-overlay-mini-btn.pdf-overlay-mini-on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
 .pdf-overlay-mini-sep { width: 1px; height: 16px; margin: 0 3px; background: var(--divider); }

@@ -13,7 +13,7 @@
   height: 22px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 .sidebar .side-section .side-head-row .side-top-action svg,
 .sidebar .side-top-row .side-top-action svg { width: 16px; height: 16px; }
@@ -35,7 +35,7 @@
   width: 22px;
   height: 22px;
   margin: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   transform: translateY(-50%);
 }
 .sidebar .side-section .side-tree-row > .side-tree-add { right: 4px; }
@@ -67,7 +67,7 @@
   gap: 1px;
   padding: 5px;
   border-color: var(--divider);
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 .sidebar .side-context-menu > button {
   display: flex;

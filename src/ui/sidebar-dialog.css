@@ -15,7 +15,7 @@
   width: min(400px, calc(100vw - 32px));
   overflow: hidden;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--paper);
   color: var(--text);
   box-shadow: 0 24px 60px var(--shadow-floating);
@@ -35,7 +35,7 @@
   display: grid;
   flex: 0 0 32px;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--accent) 13%, transparent);
   color: var(--accent);
 }
@@ -74,7 +74,7 @@
   margin-top: -2px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong);
   cursor: pointer;
@@ -105,7 +105,7 @@
   box-sizing: border-box;
   padding: 0 10px;
   border: 1px solid var(--divider-strong);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   outline: 0;
   background: var(--paper);
   color: var(--text-strong);
@@ -167,7 +167,7 @@
 .side-dialog-secondary {
   height: 32px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -221,7 +221,7 @@
   width: 100%;
   padding: 11px 12px;
   border: 1px solid var(--divider);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--text);
   font: inherit;
@@ -257,7 +257,7 @@
   padding: 4px;
   overflow-y: auto;
   border: 1px solid var(--divider);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: color-mix(in srgb, var(--paper) 92%, var(--ink) 4%);
 }
 .side-folder-picker-row {
@@ -267,7 +267,7 @@
   min-height: 30px;
   padding: 0 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-strong, var(--ink));
   font: inherit;
@@ -283,7 +283,7 @@
 .side-folder-picker-tag {
   margin-left: auto;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: color-mix(in srgb, currentColor 16%, transparent);
   font-size: 11px;
   font-weight: 500;

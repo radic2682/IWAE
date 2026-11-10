@@ -4,7 +4,7 @@
   z-index: 300;
   overflow: hidden;
   border: 1px solid var(--control-border-floating);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
   box-shadow: 0 12px 32px var(--shadow-floating);
   animation: crossref-in 120ms ease both;
