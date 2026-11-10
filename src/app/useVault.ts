@@ -59,6 +59,7 @@ import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
 import { captureSession, emptySession, parseSession, type SessionState } from '../core/session'
+import { currentWindowMode, ownsSession, sessionForWindow } from '../core/windowMode'
 import type { SyncCodec } from '../core/vaultSync'
 import { findStaleDocuments } from '../core/staleDocuments'
 import {
@@ -198,6 +199,8 @@ const READING_POSITION_WRITE_DELAY_MS = 1500
 const SIGNAL_CODEC: SyncCodec<string> = { serialize: (value) => value, parse: (text) => text }
 
 export function useVault(options: UseVaultOptions = {}) {
+  // 이 창의 역할(메인·떼어 낸 창·새 창). 창이 사는 동안 바뀌지 않는다
+  const windowMode = currentWindowMode()
   const injected = options.library !== undefined && options.notebooks !== undefined
   const [initializing, setInitializing] = useState(!injected)
   const [vault, setVault] = useState<VaultHandle | null>(null)
@@ -287,8 +290,9 @@ export function useVault(options: UseVaultOptions = {}) {
     setSessionReady(false)
     setError(null)
     try {
-      // 처음 여는 폴더(또는 탐색기로 PDF 를 넣은 뒤)도 PDF 가 목록·검색에 바로 오르게, 새로 고침과 같이 먼저 등록한다
-      await registerUnlistedVaultPdfs(handle).catch(() => [])
+      // 처음 여는 폴더(또는 탐색기로 PDF 를 넣은 뒤)도 PDF 가 목록·검색에 바로 오르게, 새로 고침과 같이 먼저 등록한다.
+      // 떼어 낸 창은 메인 창이 이미 한 일이라 건너뛴다
+      if (windowMode.role !== 'detached') await registerUnlistedVaultPdfs(handle).catch(() => [])
       const [
         libraryEntries,
         nextTreeEntries,
@@ -315,7 +319,8 @@ export function useVault(options: UseVaultOptions = {}) {
       if (JSON.stringify(reconciledIndex) !== JSON.stringify(savedIndex)) {
         await writeVaultIndex(handle, reconciledIndex)
       }
-      const session = parseSession(rawSession)
+      // 메인은 저장된 세션, 떼어 낸 창은 그 문서 하나, 새 창은 빈 탭에서 시작한다
+      const session = sessionForWindow(windowMode, parseSession(rawSession))
       const missing: string[] = []
       const notes = new Map<string, NotebookNote>()
       for (const group of groups) {
@@ -418,7 +423,10 @@ export function useVault(options: UseVaultOptions = {}) {
       setTreeOrder(savedTreeOrder)
       setVaultIndex(reconciledIndex.entries)
       setMarkdownThemeState(metadata.markdownTheme)
-      setFileActivity(metadata.fileActivity)
+      setFileActivity(windowMode.role === 'detached' && windowMode.docId !== null && windowMode.page !== null
+        // 떼어 내기 전에 보던 쪽에서 시작한다
+        ? { ...metadata.fileActivity, [windowMode.docId]: { ...(metadata.fileActivity[windowMode.docId] ?? { favorite: false, lastOpenedAt: null }), lastPage: windowMode.page } }
+        : metadata.fileActivity)
       setItemIcons(metadata.itemIcons)
       setItemColors(metadata.itemColors ?? {})
       setNoteOrderState(metadata.noteOrder ?? [])
@@ -472,7 +480,8 @@ export function useVault(options: UseVaultOptions = {}) {
         }))
       })
       // 설정 「Vault 를 열 때 모든 PDF 색인」을 끄면 미리 읽지 않는다(「색인 다시 만들기」로 따로 만든다)
-      const indexNow = getAppPrefs().autoIndex || forceIndexRef.current
+      // 색인은 메인 창이 만든다(다른 창은 저장된 색인을 쓴다 — 여러 창이 같은 캐시를 쓰면 서로 덮는다)
+      const indexNow = windowMode.role === 'main' && (getAppPrefs().autoIndex || forceIndexRef.current)
       forceIndexRef.current = false
       if (!indexNow) setSearchIndexProgress({ indexed: 0, total: 0 })
       if (indexNow) void (async () => {
@@ -660,7 +669,7 @@ export function useVault(options: UseVaultOptions = {}) {
       try {
         const roots = await recentVaults()
         if (alive) setRecentVaultPaths(roots)
-        root = roots[0]
+        root = windowMode.vaultRoot ?? roots[0]
         if (root === undefined) {
           if (alive) setInitializing(false)
           return
@@ -679,8 +688,25 @@ export function useVault(options: UseVaultOptions = {}) {
     }
   }, [injected, loadVault])
 
+  // 지금 탭·배치를 바로 session.json 에 쓴다(메인 창이 닫히면서 돌려받은 탭을 싣는 데 쓴다). 메인이 아니면 아무것도 안 한다
+  const sessionSnapshotRef = useRef<{ vault: VaultHandle | null; session: SessionState | null }>({ vault: null, session: null })
+  sessionSnapshotRef.current = {
+    vault,
+    session: vault === null || !sessionReady ? null : captureSession(pdfTabs, noteTabs, {
+      sidebarCollapsed,
+      sidebarPx: layout.sidebarPx,
+      leftFrac: layout.leftFrac,
+    }, panes.third, panes.fourth),
+  }
+  const flushSession = useCallback(async () => {
+    const { vault: handle, session } = sessionSnapshotRef.current
+    if (handle === null || session === null || !ownsSession(windowMode)) return
+    await writeSession(handle, session)
+  }, [windowMode])
+
   useEffect(() => {
-    if (vault === null || !sessionReady) return
+    // 탭·패널 배치(session.json)는 메인 창만 저장한다. 다른 창의 배치가 메인의 것을 덮으면 안 된다
+    if (vault === null || !sessionReady || !ownsSession(windowMode)) return
     const timer = window.setTimeout(() => {
       const session = captureSession(pdfTabs, noteTabs, {
         sidebarCollapsed,
@@ -690,7 +716,7 @@ export function useVault(options: UseVaultOptions = {}) {
       void writeSession(vault, session).catch((err: unknown) => setError(errorText(err)))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [layout, noteTabs, panes.third, panes.fourth, pdfTabs, sessionReady, sidebarCollapsed, vault])
+  }, [layout, noteTabs, panes.third, panes.fourth, pdfTabs, sessionReady, sidebarCollapsed, vault, windowMode])
 
   /** PDF 를 열어 탭에 띄운다. 연 문서의 메타를 돌려주고, 열지 못하면 null */
   /** openTab 이 false 면 PDF 를 열어 두기만 하고 탭은 만들지 않는다(탭 안에서 판을 바꿀 때) */
@@ -1737,6 +1763,7 @@ export function useVault(options: UseVaultOptions = {}) {
   }, [loadVault, vault])
 
   return {
+    flushSession,
     rebuildSearchIndex,
     initializing,
     vault,

@@ -219,4 +219,9 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '원문과 함께 복사했습니다': 'Copied with original',
   '번역 언어 바꾸기': 'Change translation language',
   '번역기': 'Translator',
+  // app/App.tsx, app/PaneTabsMenu.tsx, bridge/windows.ts (여러 창)
+  '창으로 떼어 내기': 'Open in a separate window',
+  '다시 붙이기': 'Reattach to the main window',
+  '이미 떼어 낸 창이 있어 그 창을 앞으로 가져왔습니다': 'That document already has its own window, so it was brought to the front',
+  '창을 열지 못했습니다: {error}': 'Could not open the window: {error}',
 }

@@ -39,7 +39,8 @@ pub fn call(app: &tauri::AppHandle, op: &str, args: &Value, timeout: Duration) -
         .lock()
         .map_err(|_| "요청 목록을 잠그지 못했습니다.".to_string())?
         .insert(request_id, sender);
-    let sent = app.emit("mcp-webview-request", WebviewRequest { request_id, op, args });
+    // 바깥 AI 의 요청은 메인 창이 받는다(창마다 메모리 상태가 달라 여럿이 답하면 어느 답이 쓰일지 알 수 없다)
+    let sent = app.emit_to(crate::windows::MAIN_LABEL, "mcp-webview-request", WebviewRequest { request_id, op, args });
     if let Err(err) = sent {
         forget(request_id);
         return Err(format!("IWAE 화면에 요청을 보내지 못했습니다: {err}"));

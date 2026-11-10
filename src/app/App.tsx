@@ -102,6 +102,7 @@ import { VaultPicker } from './VaultPicker'
 import { seedSampleVaultInto } from './sampleVaultDesktop'
 import { StartupShell } from './StartupShell'
 import { useVault } from './useVault'
+import type { DocZoom } from '../core/windowMode'
 import {
   emptyTabs,
   openTab,
@@ -173,6 +174,9 @@ import { createOllamaTranslationProvider } from '../bridge/translation'
 import { runAfterCanvasFlush } from './canvasClose'
 import { buildEvidenceHtml, createCanvasRasterizer, saveHtmlFile } from './exportEvidence'
 import { closeWindow, interceptWindowClose, isDesktop } from '../bridge/window'
+import { closeSecondaryWindows, focusThisWindow, onCloseNow, onReattach, openAppWindow, sendReattach } from '../bridge/windows'
+import { currentWindowMode, windowQuery } from '../core/windowMode'
+import { queueInitialZoom } from './pendingViewState'
 import { hasPendingVaultRecovery } from '../bridge/vaultRecovery'
 import { listenForDocumentDrop } from '../bridge/fileDrop'
 import {
@@ -333,6 +337,10 @@ function AutosavedNoteCanvas({
  * 강제한다. 문서는 pdfTabs 로만, 노트는 noteTabs 로만 들어간다.
  */
 export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
+  // 창의 역할: 메인 · 떼어 낸 창(PDF 하나 + 노트 바) · 새 창. 같은 화면을 쓰고 몇 가지만 다르다
+  const windowMode = currentWindowMode()
+  const isMainWindow = windowMode.role === 'main'
+  const isDetachedWindow = windowMode.role === 'detached'
   const theme = useTheme()
   const uiScale = useUiScale()
   const previewEnabled = developmentPreview
@@ -353,6 +361,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     markdownSources: previewEnabled ? DEVELOPMENT_MARKDOWN_SOURCES : undefined,
   })
   const {
+    flushSession,
     initializing,
     vault,
     library: shownLibrary,
@@ -554,7 +563,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   openExternalPdfRef.current = openExternalPdf
   const startupFilesTakenRef = useRef(false)
   useEffect(() => {
-    if (vault === null || startupFilesTakenRef.current) return
+    // 켤 때 받은 PDF 는 메인 창이 맡는다
+    if (vault === null || startupFilesTakenRef.current || !isMainWindow) return
     startupFilesTakenRef.current = true
     void takeOpenFiles()
       .then(async (paths) => {
@@ -563,6 +573,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       .catch(() => undefined)
   }, [vault])
   useEffect(() => {
+    if (!isMainWindow) return undefined
     let disposed = false
     let unlisten: () => void = () => undefined
     void onOpenFiles((paths) => {
@@ -600,7 +611,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 창 나누기 배치(PDF 안 화면 나누기와 같은 9가지). 처음엔 한 화면이고 다음 실행에도 기억한다.
   // 예전 값(단 수 1·2·3)이 있으면 좌우 배치로 옮긴다
   const [paneLayoutId, setPaneLayoutIdState] = useState<PdfSplitLayoutId>(() => {
-    if (!SPLIT_PANES_ENABLED) return 'single'
+    if (!SPLIT_PANES_ENABLED || isDetachedWindow) return 'single'
     try {
       const saved = window.localStorage.getItem('iwae:pane-layout:v1')
       if (isPdfSplitLayoutId(saved)) return saved
@@ -787,7 +798,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [excerptInsertRequest, setExcerptInsertRequest] = useState<ReaderExcerptInsertRequest>()
   const [markdownJumpRequest, setMarkdownJumpRequest] = useState<MarkdownSourceJumpRequest | null>(null)
   useEffect(() => {
-    if (vault === null) return
+    // 복구 안내는 메인 창만 띄운다(다른 창이 열릴 때마다 설정 창이 뜨지 않게)
+    if (vault === null || !isMainWindow) return
     let active = true
     void hasPendingVaultRecovery(vault)
       .then((needed) => {
@@ -827,7 +839,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const releaseTranslationModelRef = useRef(translation.releaseLocalModel)
   releaseTranslationModelRef.current = translation.releaseLocalModel
   const updater = useUpdater({
-    autoStart: !initializing && (injected || vault !== null),
+    // 업데이트 확인·내려받기는 메인 창만 한다(창마다 하면 알림과 내려받기가 겹친다)
+    autoStart: isMainWindow && !initializing && (injected || vault !== null),
     flushBeforeInstall: flushCanvasSaves,
   })
   const closeNoteTabSafely = useCallback((id: string) => {
@@ -852,17 +865,43 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       window.alert(t('노트를 저장하지 못해 앱을 종료하지 않았습니다: {error}', { error: cause instanceof Error ? cause.message : String(cause) }))
     })
   }, [])
+  // 떼어 낸 창이 닫힐 때 탭을 메인 창으로 돌려보낸다(아래에서 최신 함수로 채운다)
+  const sendTabsBackRef = useRef<() => Promise<void>>(async () => undefined)
+  // 메인 창이 닫히면서 돌려받은 탭을 세션에 싣는다(최신 함수를 ref 로 부른다)
+  const flushSessionRef = useRef(flushSession)
+  flushSessionRef.current = flushSession
   useEffect(() => {
     let unlisten: (() => void) | undefined
     void interceptWindowClose(
       async () => {
+        // 노트·메모 저장을 끝낸다. 이 창이 쓴 것은 파일에 있으니 다른 창이 이어서 쓴다
         await flushCanvasSaves()
+        if (isMainWindow) {
+          // 메인이 닫히면 떼어 낸 창·새 창도 저장하고 함께 닫는다(세션은 메인만 저장하므로 메인이 끝까지 남는다).
+          // 떼어 낸 창은 닫히면서 탭을 메인으로 돌려보낸다 — 그 탭이 다음 실행에 되살아나게 잠시 뒤 세션을 다시 저장한다
+          if (await closeSecondaryWindows() > 0) {
+            await new Promise((resolve) => window.setTimeout(resolve, 400))
+            await flushSessionRef.current()
+          }
+        } else if (isDetachedWindow) {
+          await sendTabsBackRef.current()
+        }
         // 번역용 로컬 모델(Ollama)도 메모리에서 내린다
         await releaseTranslationModelRef.current()
       },
       (cause) => window.alert(t('노트를 저장하지 못해 앱을 종료하지 않았습니다: {error}', { error: cause instanceof Error ? cause.message : String(cause) })),
     ).then((stop) => { unlisten = stop })
     return () => unlisten?.()
+  }, [])
+  useEffect(() => {
+    if (isMainWindow) return undefined
+    let disposed = false
+    let stop: (() => void) | undefined
+    void onCloseNow(() => closeWindow()).then((unlisten) => {
+      if (disposed) unlisten()
+      else stop = unlisten
+    })
+    return () => { disposed = true; stop?.() }
   }, [])
   // 점프 기록 훅은 활성 문서를 알아야 해서 아래에서 만든다. 그보다 위에서 선언되는
   // 콜백(검색 결과 열기·단축키)은 이 ref 로 최신 함수를 부른다.
@@ -911,6 +950,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return !open
     })
   }, [])
+  // 창 동작(새 창·떼어 내기·다시 붙이기). 패널 상태는 아래에서 만들어지므로 ref 로 잇는다
+  const windowActionsRef = useRef({
+    detachActive: () => undefined as void,
+    reattach: () => undefined as void,
+  })
   const shortcutActions: AppShortcutActions = {
     // Ctrl+F: 왼쪽 바를 「PDF 검색」 보기로 바꾸고 검색 칸으로
     // 글자를 골라 둔 채 누르면 그 글자로 바로 찾는다(PDF 는 고른 발췌, Markdown 등은 화면 선택)
@@ -924,7 +968,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     },
     navBack: () => navigationBackRef.current(),
     navForward: () => navigationForwardRef.current(),
-    toggleLibrary,
+    toggleLibrary: isDetachedWindow ? undefined : toggleLibrary,
     escape: libraryExpanded ? () => setLibraryExpanded(false) : docSearchMode ? () => setDocSearchMode(false) : undefined,
     documentSearch: toggleDocSearchMode,
     nextTab: () => paneShortcutsRef.current.cycleTab(1),
@@ -994,13 +1038,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const paletteCommands = (): PaletteCommand[] => {
     const act = (name: keyof AppShortcutActions) => () => shortcutActionsRef.current[name]?.()
     const actions: PaletteCommand[] = [
+      ...(isDetachedWindow
+        ? [{ id: 'reattach', kind: 'action' as const, label: t('다시 붙이기'), keywords: 'reattach attach back window main', run: () => windowActionsRef.current.reattach() }]
+        : activeDocumentTab?.kind === 'pdf'
+          ? [{ id: 'detach', kind: 'action' as const, label: t('창으로 떼어 내기'), keywords: 'detach window pop out separate', run: () => windowActionsRef.current.detachActive() }]
+          : []),
       { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: 'Ctrl+,', keywords: 'settings preferences', run: act('openSettings') },
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: 'Ctrl+Shift+F', keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: 'Ctrl+F', keywords: 'find search', run: act('search') },
       { id: 'goto', kind: 'action', label: t('쪽으로 가기'), shortcut: 'Ctrl+G', keywords: 'go to page', run: act('goTo') },
-      { id: 'library', kind: 'action', label: t('라이브러리 펼치기·접기'), shortcut: 'Ctrl+Shift+L', keywords: 'library', run: act('toggleLibrary') },
-      { id: 'sidebar', kind: 'action', label: t('왼쪽 바 접기·펴기'), keywords: 'sidebar', run: () => setSidebarCollapsed((value) => !value) },
+      ...(isDetachedWindow ? [] : [
+        { id: 'library', kind: 'action' as const, label: t('라이브러리 펼치기·접기'), shortcut: 'Ctrl+Shift+L', keywords: 'library', run: act('toggleLibrary') },
+        { id: 'sidebar', kind: 'action' as const, label: t('왼쪽 바 접기·펴기'), keywords: 'sidebar', run: () => setSidebarCollapsed((value) => !value) },
+      ]),
       { id: 'new-note', kind: 'action', label: t('새 노트 만들기'), keywords: 'new note', run: () => { void memoNotes.create() } },
       { id: 'undo', kind: 'action', label: t('되돌리기'), shortcut: 'Ctrl+Z', keywords: 'undo', run: act('undo') },
       { id: 'redo', kind: 'action', label: t('다시 하기'), shortcut: 'Ctrl+Shift+Z', keywords: 'redo', run: act('redo') },
@@ -1149,7 +1200,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    */
   const setPaneLayout = (next: PdfSplitLayoutId) => {
     setPaneLayoutIdState(next)
-    try { window.localStorage.setItem('iwae:pane-layout:v1', next) } catch { /* 이번 실행에만 */ }
+    // 나눔 배치는 다음 실행에 메인 창이 되살린다. 다른 창의 배치로 바꾸지 않는다
+    if (isMainWindow) {
+      try { window.localStorage.setItem('iwae:pane-layout:v1', next) } catch { /* 이번 실행에만 */ }
+    }
     if (next === 'single') setFocusedPane('split')
   }
   /** 패널 수만 정할 때(탭을 새 패널로 옮기기 등): 1 한 화면, 2 좌우 둘, 3 좌우 셋, 4 넷 */
@@ -1900,6 +1954,61 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (tab?.kind === 'note') closeNoteTabSafely(id)
     else setPanes((current) => closeTabEverywhere(current, id))
   }
+  /** 이 창이 지금 보는 쪽(1부터)과 배율. 활성 탭이 아니면 마지막으로 읽던 쪽 */
+  const viewOfDoc = (docId: string, tabId: string): { page: number; zoom: DocZoom | null } => {
+    const pane = PANE_IDS.find((candidate) => panes[candidate].tabs.some((tab) => tab.id === tabId))
+    const controller = pane === undefined ? undefined : docControllersRef.current[pane]
+    const view = pane === undefined ? undefined : docViews[pane]
+    return {
+      page: view?.docId === docId ? view.page : readingPositions[docId] ?? 1,
+      zoom: controller?.docId === docId ? controller.getZoom?.() ?? null : null,
+    }
+  }
+  /** PDF 탭을 새 창으로 떼어 낸다. 같은 문서의 창이 이미 있으면 그 창을 앞으로 가져온다 */
+  const detachPaneTab = async (id: string) => {
+    const tab = openTabIds.find((candidate) => candidate.id === id)
+    if (tab === undefined || tab.kind !== 'pdf' || vault === null) return
+    const docId = tabDocId(tab)
+    const { page, zoom } = viewOfDoc(docId, id)
+    try {
+      const opened = await openAppWindow('detached', windowQuery({ role: 'detached', docId, page, zoom, vaultRoot: vault.root }), docId)
+      if (opened === null) return
+      if (opened.existing) {
+        announceAction(t('이미 떼어 낸 창이 있어 그 창을 앞으로 가져왔습니다'))
+        return
+      }
+      closePaneTab(id)
+    } catch (cause) {
+      announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
+    }
+  }
+  windowActionsRef.current = {
+    detachActive: () => { if (activeDocumentTab?.kind === 'pdf') void detachPaneTab(activeDocumentTab.id) },
+    // 닫는 길(onCloseRequested)이 탭을 메인으로 돌려보낸다
+    reattach: () => closeWindowSafely(),
+  }
+  sendTabsBackRef.current = async () => {
+    for (const tab of openTabIds.filter((candidate) => candidate.kind === 'pdf')) {
+      const docId = tabDocId(tab)
+      const { page, zoom } = viewOfDoc(docId, tab.id)
+      await sendReattach({ docId, page, zoom })
+    }
+  }
+  // 메인 창: 떼어 낸 창이 닫히면서 돌려준 탭을 같은 쪽·배율로 연다
+  useEffect(() => {
+    if (!isMainWindow) return undefined
+    let disposed = false
+    let stop: (() => void) | undefined
+    void onReattach((request) => {
+      if (request.zoom !== null) queueInitialZoom(request.docId, request.zoom)
+      navigationJumpRef.current({ docId: request.docId, page: request.page })
+      void focusThisWindow()
+    }).then((unlisten) => {
+      if (disposed) unlisten()
+      else stop = unlisten
+    })
+    return () => { disposed = true; stop?.() }
+  }, [])
   const movePaneTab = (id: string, target: PaneId) => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
     // 보이지 않는 패널로 옮기면 그만큼 단을 늘려 나란히 보인다(안 그러면 다시 합쳐진다)
@@ -1955,7 +2064,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   // ---------- GitHub 문서 폴더 ----------
   // 자동 백업: n 일마다 Vault 전체를 zip 으로(설정 › 데이터 및 복구)
-  const autoBackup = useAutoBackup(vault?.root ?? null)
+  const autoBackup = useAutoBackup(isMainWindow ? vault?.root ?? null : null)
   const [githubSources, setGithubSources] = useState<ReadonlyMap<string, GithubSource>>(() => new Map())
   /** Vault 의 모든 폴더(Vault 기준 경로, 트리 차례) — GitHub 가져오기에서 넣을 곳을 고른다 */
   const vaultFolderPaths = useMemo(() => {
@@ -2122,6 +2231,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         const tab = openTabIds.find((candidate) => candidate.id === id)
         if (tab !== undefined) setPageEditDocId(tabDocId(tab))
       }}
+      onDetachTab={isDetachedWindow ? undefined : (id) => { void detachPaneTab(id) }}
+      onReattach={isDetachedWindow ? () => windowActionsRef.current.reattach() : undefined}
       onDuplicateTab={(id) => {
         const tab = openTabIds.find((candidate) => candidate.id === id)
         if (tab === undefined || tab.kind !== 'pdf') return
@@ -2564,6 +2675,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown'
               ? [{ id: 'print', label: t('인쇄'), hint: 'Ctrl+P', onSelect: () => window.dispatchEvent(new CustomEvent('iwae:print')) }]
               : [],
+            [
+              ...(isDetachedWindow
+                ? [{ id: 'reattach', label: t('다시 붙이기'), onSelect: () => windowActionsRef.current.reattach() }]
+                : activeDocumentTab?.kind === 'pdf'
+                  ? [{ id: 'detach', label: t('창으로 떼어 내기'), onSelect: () => windowActionsRef.current.detachActive() }]
+                  : []),
+            ],
             [{
               id: 'theme',
               label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'),
@@ -2589,9 +2707,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           onToggleDocSearch={toggleDocSearchMode}
           singlePane={singlePane}
           paneLayout={paneLayoutId}
-          onPaneLayoutChange={SPLIT_PANES_ENABLED ? setPaneLayout : undefined}
+          onPaneLayoutChange={SPLIT_PANES_ENABLED && !isDetachedWindow ? setPaneLayout : undefined}
           memoBar={(activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown') && !docSearchMode ? { visible: memoBarVisible, onToggle: () => setMemoBarVisible(!memoBarVisible) } : undefined}
           onCloseWindow={closeWindowSafely}
+          // 떼어 낸 창은 왼쪽 바 없이 시작한다(찾기 등으로 열렸을 때만 접을 수 있게 단추가 나온다)
+          hideSidebarToggle={isDetachedWindow && sidebarCollapsed}
         />
       )}
       sidebarCollapsed={sidebarCollapsed || docSearchMode}

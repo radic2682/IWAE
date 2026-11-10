@@ -7,12 +7,14 @@ describe('desktop window state', () => {
     const rust = readFileSync('src-tauri/src/lib.rs', 'utf8')
 
     expect(cargo).toContain('tauri-plugin-window-state')
-    expect(rust).toContain('tauri_plugin_window_state::Builder::default().build()')
+    expect(rust).toContain('tauri_plugin_window_state::Builder::default()')
+    // 새 창(label 이 매번 달라지는 window-…)은 기억하지 않는다
+    expect(rust).toContain('.with_filter(|label| !label.starts_with("window-"))')
   })
 
   it('창이 만들어지기 전(setup 앞)에 등록한다 — setup 안에서 등록하면 메인 창을 놓쳐 빈 상태만 저장된다', () => {
     const rust = readFileSync('src-tauri/src/lib.rs', 'utf8')
-    const plugin = rust.indexOf('tauri_plugin_window_state::Builder::default().build()')
+    const plugin = rust.indexOf('tauri_plugin_window_state::Builder::default()')
     const setup = rust.indexOf('.setup(')
     expect(plugin).toBeGreaterThan(-1)
     expect(setup).toBeGreaterThan(-1)

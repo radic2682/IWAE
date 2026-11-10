@@ -20,6 +20,7 @@ pub mod storage;
 pub mod translation;
 pub mod usage;
 pub mod vault_backup;
+pub mod windows;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -60,8 +61,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        // 창 위치·크기 기억. 창이 만들어지기 전에 등록해야 그 창을 기억한다(setup 안에서 등록하면 메인 창을 놓쳐 늘 빈 {} 가 저장됐다)
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // 창 위치·크기 기억. 창이 만들어지기 전에 등록해야 그 창을 기억한다(setup 안에서 등록하면 메인 창을 놓쳐 늘 빈 {} 가 저장됐다).
+        // 새 창(window-…)은 label 이 매번 달라 기억해 봐야 쌓이기만 하므로 뺀다. 떼어 낸 창(detached-<문서>)은 문서마다 같은 label 이라 기억한다
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_filter(|label| !label.starts_with("window-"))
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             usage::app_usage,
             pdf::pdf_open,
@@ -112,6 +118,8 @@ pub fn run() {
             translation::translation_api_key_set,
             locale::installer_language,
             window_state::save_window_state,
+            windows::open_app_window,
+            windows::close_secondary_windows,
             i18n::set_locale,
             translation::translation_install_ollama,
             storage::atomic_write_text,

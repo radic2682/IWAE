@@ -46,7 +46,7 @@ pub fn on_opened_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
         let _ = window.set_focus();
     }
     allow_in_scope(app, &files);
-    let _ = app.emit(EVENT, files);
+    let _ = app.emit_to(crate::windows::MAIN_LABEL, EVENT, files);
 }
 
 /// 인자 가운데 실제로 있는 PDF 파일만. 첫 인자(실행 파일)는 뺀다. 상대 경로는 cwd 기준
@@ -83,7 +83,7 @@ pub fn on_second_instance<R: Runtime>(app: &AppHandle<R>, argv: Vec<String>, cwd
         return;
     }
     allow_in_scope(app, &files);
-    let _ = app.emit(EVENT, files);
+    let _ = app.emit_to(crate::windows::MAIN_LABEL, EVENT, files);
 }
 
 /// 처음 켜질 때 받은 PDF 경로(한 번만 준다)

@@ -182,7 +182,7 @@ impl ToolContext for AiContext {
             received_at: now.to_string(),
         };
         self.app
-            .emit("ai-location", event)
+            .emit_to(crate::windows::MAIN_LABEL, "ai-location", event)
             .map_err(|err| format!("알림을 보내지 못했습니다: {err}"))?;
         // 창이 뒤에 있어도 사용자가 알아차리게 작업 표시줄을 깜빡인다(포커스는 빼앗지 않는다).
         if let Some(window) = tauri::Manager::get_webview_window(&self.app, "main") {

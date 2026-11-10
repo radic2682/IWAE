@@ -4,6 +4,7 @@ import { PaneShell } from './PaneShell'
 import { PaneToolbar, type PdfToolMode } from './PaneToolbar'
 import { PdfSearchPanel } from './PdfSearchPanel'
 import { clampZoom, stepZoom } from '../core/pdfZoom'
+import { peekInitialZoom } from './pendingViewState'
 import { usePdfSearch } from './usePdfSearch'
 import { PdfBottomBar } from './PdfBottomBar'
 import { PdfViewMenu } from './PdfViewMenu'
@@ -65,12 +66,12 @@ interface SplitState {
 /** 칸은 많아야 넷 */
 const MAX_SPLIT_CELLS = 4
 
-function singleSplit(page: number): SplitState {
+function singleSplit(page: number, zoom: ZoomState = { fit: 'width', actual: 100 }): SplitState {
   return {
     layout: 'single',
     cols: [1],
     rows: [1],
-    views: [{ page, request: { page, nonce: 0 }, viewport: { width: 0, height: 0 }, zoom: { fit: 'width', actual: 100 } }],
+    views: [{ page, request: { page, nonce: 0 }, viewport: { width: 0, height: 0 }, zoom }],
     focused: 0,
   }
 }
@@ -92,6 +93,8 @@ export interface DocumentViewState {
 export interface DocumentViewController {
   docId: string | null
   requestPage: (page: number) => void
+  /** 지금 칸의 배율(문서를 다른 창으로 떼어 낼 때 따라가게) */
+  getZoom?: () => ZoomState | null
 }
 
 export interface DocumentViewProps {
@@ -209,7 +212,7 @@ export function DocumentView(props: DocumentViewProps) {
   const [splits, setSplits] = useState<Readonly<Record<string, SplitState>>>({})
   // startPage 는 ref 만 읽는다
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const fallbackSplit = useMemo(() => singleSplit(startPage(docId)), [docId])
+  const fallbackSplit = useMemo(() => singleSplit(startPage(docId), peekInitialZoom(docId) ?? undefined), [docId])
   const split = (docId === null ? undefined : splits[docId]) ?? fallbackSplit
   const splitRef = useRef(split)
   splitRef.current = split
@@ -428,12 +431,13 @@ export function DocumentView(props: DocumentViewProps) {
       const next = startPage(docId)
       pendingPageRef.current = null
       if (!changed) return
-      if (!remembered) fitWidth()
+      if (!remembered && peekInitialZoom(docId) === null) fitWidth()
       requestPage(next)
       return
     }
     if (!changed || docId === null || remembered) return
-    fitWidth()
+    // 다른 창에서 돌아온 문서는 그 창의 배율을 이어 간다
+    if (peekInitialZoom(docId) === null) fitWidth()
     requestPage(startPage(docId))
     // startPage 는 ref 만 읽는다. splits 는 문서가 바뀐 때만 본다
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -450,7 +454,8 @@ export function DocumentView(props: DocumentViewProps) {
   useEffect(() => () => onViewChange(paneId, null), [onViewChange, paneId])
 
   useEffect(() => {
-    controllersRef.current[paneId] = { docId, requestPage }
+    const getZoom = () => splitRef.current.views[Math.min(splitRef.current.focused, splitRef.current.views.length - 1)]?.zoom ?? null
+    controllersRef.current[paneId] = { docId, requestPage, getZoom }
     return () => {
       if (controllersRef.current[paneId]?.requestPage === requestPage) delete controllersRef.current[paneId]
     }

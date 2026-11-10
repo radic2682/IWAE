@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowLineRight, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, X, XSquare } from '@phosphor-icons/react'
+import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
@@ -24,6 +24,10 @@ interface PaneTabsMenuProps {
   onDuplicateTab?: (id: string) => void
   /** 쪽 편집(순서·회전·끼워 넣기) 대화상자를 연다 */
   onEditPages?: (id: string) => void
+  /** PDF 탭을 별도 창으로 떼어 낸다 */
+  onDetachTab?: (id: string) => void
+  /** 떼어 낸 창에서: 탭을 메인 창으로 되돌리고 이 창을 닫는다 */
+  onReattach?: () => void
   /** 탭을 끌어 같은 줄의 toIndex 자리로 옮긴다 */
   onReorderTab?: (id: string, toIndex: number) => void
 }
@@ -174,7 +178,7 @@ function startTabDrag(
 }
 
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onReorderTab, onClosePane }: PaneTabsMenuProps) {
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onClosePane }: PaneTabsMenuProps) {
   const label = t(rawLabel)
   const [menuOpen, setMenuOpen] = useState(false)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -494,6 +498,16 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
               </button>
             ) : null}
             <div className="pane-tab-context-sep" role="separator" />
+            {tab.kind === 'pdf' && onDetachTab !== undefined ? (
+              <button type="button" role="menuitem" onClick={run(() => onDetachTab(tab.id))}>
+                <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('창으로 떼어 내기')}</span>
+              </button>
+            ) : null}
+            {onReattach === undefined ? null : (
+              <button type="button" role="menuitem" onClick={run(onReattach)}>
+                <ArrowSquareIn size={15} aria-hidden="true" /><span>{t('다시 붙이기')}</span>
+              </button>
+            )}
             {tab.kind === 'pdf' && onEditPages !== undefined ? (
               <button type="button" role="menuitem" onClick={run(() => onEditPages(tab.id))}>
                 <Files size={15} aria-hidden="true" /><span>{t('쪽 편집 (순서·회전·끼워 넣기)…')}</span>

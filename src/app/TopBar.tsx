@@ -46,6 +46,8 @@ interface TopBarProps {
   paneGrows?: readonly [number, number, number]
   /** 로고 메뉴의 항목들(인쇄·화면·설정 …). 주면 맨 왼쪽에 로고 메뉴 단추가 나온다 */
   appMenu?: AppMenuGroups
+  /** 사이드바 접기·펴기 단추를 숨긴다(왼쪽 바가 없는 떼어 낸 창) */
+  hideSidebarToggle?: boolean
   /** 오른쪽 메모 바 열기·닫기. 모든 칸의 메모 바가 함께 열리므로 상단바에 하나만 둔다. PDF·Markdown 을 볼 때만 준다 */
   memoBar?: { readonly visible: boolean; readonly onToggle: () => void }
 }
@@ -71,6 +73,7 @@ export function TopBar({
   paneGrows,
   appMenu,
   memoBar,
+  hideSidebarToggle = false,
 }: TopBarProps) {
   // 왼쪽 위 단추 묶음의 실제 폭. 사이드바가 이보다 좁으면 묶음이 첫 탭(왼쪽 모서리·곡선)을 덮었다 — 그만큼 탭을 민다
   const actionsRef = useRef<HTMLDivElement | null>(null)
@@ -111,15 +114,17 @@ export function TopBar({
       <div className="topbar-leftcluster">
         <div className="topbar-leftcluster-actions" ref={actionsRef}>
         {appMenu === undefined ? null : <AppMenu groups={appMenu} />}
-        <button
-          type="button"
-          className="sidebar-toggle"
-          aria-label={sidebarCollapsed ? t('사이드바 펼치기') : t('사이드바 접기')}
-          aria-expanded={!sidebarCollapsed}
-          onClick={onToggleSidebar}
-        >
-          <SidebarSimple size={15} weight={sidebarCollapsed ? 'regular' : 'fill'} aria-hidden="true" />
-        </button>
+        {hideSidebarToggle ? null : (
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label={sidebarCollapsed ? t('사이드바 펼치기') : t('사이드바 접기')}
+            aria-expanded={!sidebarCollapsed}
+            onClick={onToggleSidebar}
+          >
+            <SidebarSimple size={15} weight={sidebarCollapsed ? 'regular' : 'fill'} aria-hidden="true" />
+          </button>
+        )}
 
         {sidebarCollapsed || !sidebarVisible ? null : (
           // 사이드바 보기는 사이드바 바로 위에 탭으로 단다. 고른 탭이 아래 사이드바와 이어진다
