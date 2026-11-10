@@ -21,7 +21,7 @@ import { prewarmPdfTextDetector } from './ocrTextDetector'
 import { ScanBadge } from './ScanBadge'
 import { getAppPrefs } from '../app/appPrefs'
 import { useBarZoom, useBarZoomWheel } from '../app/useBarZoom'
-import { layoutPages, layoutSpread, pageUnitAt, spreadHeight, totalHeight, visibleRange, visibleRegions, type SpreadBox, type VisibleRegion } from './pageLayout'
+import { dominantPage, layoutPages, layoutSpread, pageUnitAt, spreadHeight, totalHeight, visibleRange, visibleRegions, type SpreadBox, type VisibleRegion } from './pageLayout'
 import { spreadColumns, type PdfRotation, type PdfSpread } from '../core/pdfViewPrefs'
 import { renderWidthFor } from './renderWidth'
 import { PageImage, prefetchPreviews } from './PageImage'
@@ -1007,9 +1007,10 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   // 노트 검색: 모든 PDF 의 메모에서 찾는다
 
   const [start, end] = unit !== null ? [unit.first, unit.last] : visibleRange(boxes, scrollTop, measured.height, OVERSCAN)
-  const [visibleStart] = unit !== null ? [unit.first] : visibleRange(boxes, scrollTop, measured.height, 0)
-  const visibleStartRef = useRef(visibleStart)
-  visibleStartRef.current = visibleStart
+  // 지금 보는 쪽: 맨 위에 걸친 앞쪽의 꼬리가 아니라 화면에서 가장 넓은 쪽
+  const currentPage = unit !== null ? unit.first : dominantPage(boxes, scrollTop, measured.height)
+  const visibleStartRef = useRef(currentPage)
+  visibleStartRef.current = currentPage
 
   // 넘긴 화면이 그려지면 정해 둔 자리로 스크롤한다
   useLayoutEffect(() => {
@@ -1339,7 +1340,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const currentMarkIndex = (() => {
     let found = -1
     scrollbarMarks.forEach((mark, index) => {
-      if ((mark.entry.page ?? 0) <= visibleStart) found = index
+      if ((mark.entry.page ?? 0) <= currentPage) found = index
     })
     return found
   })()
@@ -1396,8 +1397,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   }
 
   useEffect(() => {
-    if (pageSizes.length > 0) onPageChange?.(visibleStart + 1)
-  }, [onPageChange, pageSizes.length, visibleStart])
+    if (pageSizes.length > 0) onPageChange?.(currentPage + 1)
+  }, [onPageChange, pageSizes.length, currentPage])
 
   const settledRange = useSettledPageRange(start, end)
   useEffect(() => {

@@ -1,4 +1,4 @@
-//! Markdown 을 PDF 로 바꿔 PDF 리더로 연다(메모·형광펜·박스 메모·편집·화면 나누기·검색·목차·인쇄·판 관리가
+//! Markdown 을 PDF 로 바꿔 PDF 리더로 연다(메모·형광펜·박스 메모·편집·화면 나누기·검색·목차·인쇄·버전 관리가
 //! 모두 PDF 와 같이 동작하게). 웹 쪽이 그린 HTML 을 PC 의 Microsoft Edge(헤드리스)로 인쇄한다 — Windows 에 늘 있다.
 //! 만든 PDF 는 `.iwae/cache/md-pdf/<key>.pdf` 에 두고, 같은 key(문서 id + 원문 해시)면 다시 만들지 않는다.
 
@@ -80,6 +80,23 @@ fn remove_stale(dir: &Path, key: &str) {
     }
 }
 
+/// 인쇄 화면이 읽을 수 있는 것: 이 PC 의 파일·data 그림뿐. 원격 주소(추적 그림·원격 CSS)는 불러오지 않는다.
+/// 웹 쪽이 이미 같은 CSP 를 넣어 보내지만, 이 커맨드가 받은 HTML 은 그대로 믿지 않는다
+const PRINT_CSP: &str = "default-src 'none'; img-src file: data:; style-src 'unsafe-inline'; font-src file: data:";
+
+/// HTML 의 <head> 맨 앞에 CSP <meta> 를 넣는다(없으면 문서 맨 앞에). 상대 그림은 <base> + file: 로 읽는다 —
+/// 예전에는 `--allow-file-access-from-files` 가 필요하다고 여겼지만 <img> 는 그것 없이도 file: 주소를 읽는다
+fn with_print_csp(html: &str) -> String {
+    let meta = format!("<meta http-equiv=\"Content-Security-Policy\" content=\"{PRINT_CSP}\">");
+    match html.to_ascii_lowercase().find("<head>") {
+        Some(at) => {
+            let end = at + "<head>".len();
+            format!("{}{meta}{}", &html[..end], &html[end..])
+        }
+        None => format!("{meta}{html}"),
+    }
+}
+
 pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, String> {
     if !safe_key(key) {
         return Err(tr!("문서 키가 올바르지 않습니다.", "Invalid document key."));
@@ -106,7 +123,7 @@ pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, Strin
         }
     })?;
     let page = dir.join(format!("{key}.html"));
-    std::fs::write(&page, html).map_err(|err| tr!("HTML 을 쓰지 못했습니다: {err}", "Could not write the HTML: {err}"))?;
+    std::fs::write(&page, with_print_csp(html)).map_err(|err| tr!("HTML 을 쓰지 못했습니다: {err}", "Could not write the HTML: {err}"))?;
     let profile = dir.join("edge-profile");
     let page_url = file_url(&page);
     let mut command = Command::new(edge);
@@ -117,7 +134,6 @@ pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, Strin
         "--disable-sync",
         "--disable-extensions",
         "--no-pdf-header-footer",
-        "--allow-file-access-from-files",
         &format!("--user-data-dir={}", profile.to_string_lossy()),
         &format!("--print-to-pdf={}", pdf.to_string_lossy()),
         &page_url,
@@ -142,7 +158,8 @@ pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, Strin
 
 /// Markdown(웹 쪽이 그린 HTML 문서)을 PDF 로. 만든(또는 이미 있던) PDF 의 절대 경로
 #[tauri::command]
-pub async fn markdown_to_pdf(vault_root: String, key: String, html: String) -> Result<String, String> {
+pub async fn markdown_to_pdf(app: tauri::AppHandle, vault_root: String, key: String, html: String) -> Result<String, String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
     tauri::async_runtime::spawn_blocking(move || render(Path::new(&vault_root), &key, &html).map(|path| path.to_string_lossy().into_owned()))
         .await
         .map_err(|err| err.to_string())?
@@ -156,6 +173,56 @@ mod tests {
     fn file_urls_work_for_windows_and_macos_paths() {
         assert_eq!(file_url(Path::new(r"C:\vault\.iwae\a.html")), "file:///C:/vault/.iwae/a.html");
         assert_eq!(file_url(Path::new("/Users/me/vault/a.html")), "file:///Users/me/vault/a.html");
+    }
+
+    #[test]
+    fn the_print_csp_goes_first_in_the_head_and_blocks_remote_loads() {
+        let html = with_print_csp("<!doctype html><HTML><HEAD><title>t</title></HEAD><body></body></HTML>");
+        assert!(html.contains("<HEAD><meta http-equiv=\"Content-Security-Policy\""), "{html}");
+        assert!(with_print_csp("<p>no head</p>").starts_with("<meta http-equiv"));
+        assert!(!PRINT_CSP.contains("http"), "no remote source may be allowed");
+        assert!(PRINT_CSP.starts_with("default-src 'none'"));
+    }
+
+    /// 실제 브라우저로: 상대 그림은 <base> 로 읽히고(--allow-file-access-from-files 없이), 원격 그림은 요청조차 나가지 않는다.
+    /// 브라우저가 없는 PC 에서는 건너뛴다
+    #[test]
+    fn printing_loads_relative_images_but_never_touches_the_network() {
+        if edge_path().is_none() {
+            eprintln!("skipped: no Chromium-based browser");
+            return;
+        }
+        use std::io::Read;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let root = std::env::temp_dir().join(format!("iwae-mdpdf-live-{}", std::process::id()));
+        let images = root.join("docs/images");
+        std::fs::create_dir_all(&images).unwrap();
+        // 1x1 PNG
+        let png: &[u8] = &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 0x1f, 0x15, 0xc4, 0x89, 0, 0, 0, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9c, 0x63, 0xf8, 0xcf, 0xc0, 0xf0, 0x1f, 0, 5, 0, 1, 0xff, 0x89, 0x99, 0x3d, 0x1d, 0, 0, 0, 0, 0x49, 0x45, 0x4e,
+        ];
+        std::fs::write(images.join("a.png"), png).unwrap();
+        let base = file_url(&root.join("docs/x.md"));
+        let base = &base[..base.rfind('/').unwrap() + 1];
+        let html = format!(
+            "<!doctype html><html><head><meta charset=\"utf-8\"><base href=\"{base}\"></head><body><h1>t</h1><img src=\"images/a.png\"><img src=\"http://127.0.0.1:{port}/pixel.png\"></body></html>"
+        );
+        // 새 프로필로 처음 띄울 때 Edge 가 PDF 없이 끝나는 일이 가끔 있다(앱은 다음 열기에서 다시 만든다) — 몇 번 더 해 본다
+        let pdf = (0..4)
+            .find_map(|_| render(&root, "live-test", &html).ok().or_else(|| { std::thread::sleep(std::time::Duration::from_millis(800)); None }))
+            .expect("render");
+        assert!(pdf.is_file() && std::fs::metadata(&pdf).unwrap().len() > 1000);
+        let mut contacted = false;
+        if let Ok((mut stream, _)) = listener.accept() {
+            let mut buffer = [0u8; 64];
+            let _ = stream.read(&mut buffer);
+            contacted = true;
+        }
+        assert!(!contacted, "the remote image must not be requested while printing");
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

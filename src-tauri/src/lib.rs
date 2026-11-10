@@ -5,6 +5,8 @@ pub mod ai;
 pub mod bibliography;
 pub mod clipboard_files;
 pub mod fs_move;
+pub mod fs_scope;
+pub mod nav_guard;
 pub mod markdown_pdf;
 pub mod mcp;
 pub mod office;
@@ -62,11 +64,15 @@ pub fn run() {
         // 폴더 선택으로 열린 범위를 재시작 뒤에도 복원해야 최근 vault 를 다시 열 수 있다.
         // persisted-scope 는 fs 뒤에 등록해야 저장된 범위를 가져올 수 있다.
         .plugin(tauri_plugin_fs::init())
+        // 탐색기로 연 파일이 범위에 영구히 쌓이지 않게, 저장 파일을 읽히기 전에 정리한다(persisted-scope 보다 먼저)
+        .plugin(open_files::scope_log::pruner())
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // 웹뷰가 앱 화면 밖의 주소로 이동하지 못하게 막는다(가운데 클릭·location 변경 등)
+        .plugin(nav_guard::plugin())
         // 창 위치·크기 기억. 창이 만들어지기 전에 등록해야 그 창을 기억한다(setup 안에서 등록하면 메인 창을 놓쳐 늘 빈 {} 가 저장됐다).
         // 새 창(window-…)은 label 이 매번 달라 기억해 봐야 쌓이기만 하므로 뺀다. 떼어 낸 창(detached-<문서>)은 문서마다 같은 label 이라 기억한다
         .plugin(
@@ -151,6 +157,8 @@ pub fn run() {
             let ai_state = ai::AiState::new(app.path().app_data_dir()?);
             // 사용자가 켜 둔 경우에만 MCP 서버를 띄운다(기본은 꺼짐).
             ai_state.apply_api(app.handle());
+            #[cfg(debug_assertions)]
+            fs_scope::seed_dev_scope(app.handle());
             app.manage(ai_state);
             if let Some(window) = app.get_webview_window("main") {
                 browser_keys::lock_browser_keys(&window);

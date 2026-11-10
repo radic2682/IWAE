@@ -25,7 +25,8 @@ fn ps_quote(text: &str) -> String {
 }
 
 #[tauri::command]
-pub fn copy_file_to_clipboard(path: String) -> Result<(), String> {
+pub fn copy_file_to_clipboard(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    crate::fs_scope::ensure_allowed(&app, &path)?;
     let file = Path::new(&path);
     validate(file)?;
     #[cfg(windows)]

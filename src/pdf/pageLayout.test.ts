@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutPages, layoutSpread, spreadHeight, totalHeight, visibleRange, scrollTopForPage } from './pageLayout'
+import { dominantPage, layoutPages, layoutSpread, spreadHeight, totalHeight, visibleRange, scrollTopForPage } from './pageLayout'
 
 describe('layoutPages', () => {
   it('빈 문서는 빈 배열을 돌려준다', () => {
@@ -300,5 +300,23 @@ describe('pageUnitAt', () => {
     expect(pageUnitAt(spread, 0)).toMatchObject({ first: 0, last: 1 })
     expect(pageUnitAt(spread, 3)).toMatchObject({ first: 2, last: 3, height: 150 })
     expect(pageUnitAt([], 0)).toBeNull()
+  })
+})
+
+describe('dominantPage', () => {
+  // 세 쪽: 각 1000 높이, 쪽 사이 24
+  const boxes = layoutPages([[100, 100], [100, 100], [100, 100]].map((s) => [s[0]!, s[1]!] as const), 1000, 24)
+
+  it('picks the page that fills most of the viewport, not the tail of the previous page', () => {
+    // 쪽 1 맨 위(1024) 바로 앞 40px 만 쪽 0 의 꼬리가 보인다
+    expect(dominantPage(boxes, 1024 - 40, 800)).toBe(1)
+    expect(dominantPage(boxes, 0, 800)).toBe(0)
+  })
+
+  it('breaks ties toward the earlier page and survives out-of-range scrolling', () => {
+    expect(dominantPage(boxes, 612, 800)).toBe(0)
+    expect(dominantPage(boxes, -50, 800)).toBe(0)
+    expect(dominantPage(boxes, 99999, 800)).toBe(2)
+    expect(dominantPage([], 0, 800)).toBe(0)
   })
 })

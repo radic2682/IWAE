@@ -23,7 +23,8 @@
     "resources": [
       "binaries/libpdfium.dylib",
       "../LICENSE",
-      "../THIRD_PARTY_NOTICES.md"
+      "../THIRD_PARTY_NOTICES.md",
+      "licenses/pdfium-licenses.txt"
     ],
     "macOS": {
       "minimumSystemVersion": "12.0",

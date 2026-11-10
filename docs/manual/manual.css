@@ -45,6 +45,9 @@ td:first-child { font-weight: 700; white-space: nowrap; }
 
 code, kbd { font-family: "Cascadia Mono", Consolas, "Noto Sans KR", monospace; font-size: 8.6pt; background: var(--panel); border: .25mm solid var(--accent-line); border-radius: var(--r-xs); padding: 0 1.1mm; white-space: nowrap; }
 kbd { font-weight: 700; box-shadow: 0 .3mm 0 var(--accent-line); }
+/* ⌘·⌄ 글자는 글꼴에 따라 Microsoft 글꼴이 딸려 오므로 그림으로 그린다 */
+.chev, .cmd { width: .85em; height: .85em; vertical-align: -.08em; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.chev { stroke-width: 1.7; }
 
 /* 해 보기 */
 .try { border: .35mm solid var(--accent); background: var(--accent-soft); border-radius: var(--r-lg); padding: 3.2mm 4mm 2.6mm; margin: 3mm 0; break-inside: avoid; }

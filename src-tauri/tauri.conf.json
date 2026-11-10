@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: iwae: http://iwae.localhost; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost iwae: http://iwae.localhost http://127.0.0.1:11434 http://localhost:11434 ws://127.0.0.1:11434 ws://localhost:11434"
+      "csp": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; form-action 'none'; font-src 'self' data:; img-src 'self' data: blob: iwae: http://iwae.localhost; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost iwae: http://iwae.localhost http://127.0.0.1:11434 http://localhost:11434 ws://127.0.0.1:11434 ws://localhost:11434"
     }
   },
   "bundle": {
@@ -48,7 +48,8 @@
     "resources": [
       "binaries/pdfium.dll",
       "../LICENSE",
-      "../THIRD_PARTY_NOTICES.md"
+      "../THIRD_PARTY_NOTICES.md",
+      "licenses/pdfium-licenses.txt"
     ],
     "icon": [
       "icons/32x32.png",

@@ -45,3 +45,11 @@ test('이력 검사는 지워진 파일 내용·커밋 글·작성자 이메일�
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('verbatim upstream license texts may carry their authors\' emails, but the same line elsewhere is flagged', () => {
+  const line = 'Contact: author@somecorp.io' // release-scan-allow
+  assert.equal(scanText(line, null, 'src-tauri/licenses/pdfium-licenses.txt').length, 0)
+  assert.equal(scanText(line, null, String.raw`src-tauri\licenses\pdfium-licenses.txt`).length, 0)
+  assert.equal(scanText(line, null, 'src/notes.txt').length, 1)
+  assert.equal(scanText(line, null).length, 1)
+})

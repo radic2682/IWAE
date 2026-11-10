@@ -38,8 +38,18 @@ describe('annotationImport', () => {
 
   it('anchors a sticky note to the nearest character', () => {
     const result = importedToHighlights('doc', [annotation({ kind: 'text', rects: [{ x: 108, y: 90, w: 10, h: 10 }], contents: '쪽지' })], () => PAGE, [])
-    expect(result.highlights[0]?.anchor.quote).toBe('d')
+    expect(result.highlights[0]?.anchor.quote).toBe('')
+    expect(result.highlights[0]?.anchor.rects[0]).toEqual({ x: 108, y: 90, w: 10, h: 10 })
     expect(result.highlights[0]?.note).toBe('쪽지')
+  })
+
+  it('trims whitespace from a markup quote and drops quotes without two meaningful characters', () => {
+    // a rect starting on the space between the words is trimmed back to the word
+    const spaceFirst = importedToHighlights('doc', [annotation({ rects: [{ x: 58, y: 99, w: 62, h: 14 }] })], () => PAGE, [])
+    expect(spaceFirst.highlights[0]?.anchor.quote).toBe('world')
+    const tiny = importedToHighlights('doc', [annotation({ rects: [{ x: 10, y: 99, w: 10, h: 14 }] })], () => PAGE, [])
+    expect(tiny.highlights[0]?.anchor.quote).toBe('')
+    expect(tiny.highlights[0]?.anchor.rects.length).toBeGreaterThan(0)
   })
 
   it('skips pages without a text layer and annotations already imported', () => {

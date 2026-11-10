@@ -20,6 +20,10 @@ $source = $env:IWAE_PPT_SOURCE
 $target = $env:IWAE_PPT_TARGET
 $app = New-Object -ComObject PowerPoint.Application
 $before = $app.Presentations.Count
+# 3 = msoAutomationSecurityForceDisable: 출처가 불분명한 파일의 매크로는 열 때 돌지 않게 끈다.
+# 사용자가 켜 둔 PowerPoint 에 붙었을 수 있으니, 끝나면 원래 값으로 되돌린다
+$security = $app.AutomationSecurity
+$app.AutomationSecurity = 3
 try {
   # Open(FileName, ReadOnly, Untitled, WithWindow) — 창 없이 읽기 전용으로
   $deck = $app.Presentations.Open($source, -1, 0, 0)
@@ -30,6 +34,7 @@ try {
     $deck.Close()
   }
 } finally {
+  $app.AutomationSecurity = $security
   if ($before -eq 0 -and $app.Presentations.Count -eq 0) { $app.Quit() }
   [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($app)
 }
@@ -68,7 +73,8 @@ fn convert(source: &Path, target: &Path) -> Result<(), String> {
 
 /// source(.ppt/.pptx)를 target(.pdf)으로 바꾼다. 몇 초 걸리므로 블로킹 풀에서 돈다
 #[tauri::command]
-pub async fn office_to_pdf(source: String, target: String) -> Result<(), String> {
+pub async fn office_to_pdf(app: tauri::AppHandle, source: String, target: String) -> Result<(), String> {
+    crate::fs_scope::ensure_all_allowed(&app, [&source, &target])?;
     let lower = source.to_lowercase();
     if !(lower.ends_with(".ppt") || lower.ends_with(".pptx")) {
         return Err(tr!("PowerPoint 파일(.ppt, .pptx)만 바꿀 수 있습니다.", "Only PowerPoint files (.ppt, .pptx) can be converted."));
@@ -79,4 +85,15 @@ pub async fn office_to_pdf(source: String, target: String) -> Result<(), String>
     tauri::async_runtime::spawn_blocking(move || convert(Path::new(&source), Path::new(&target)))
         .await
         .map_err(|err| tr!("변환 작업이 멈췄습니다: {err}", "The conversion stopped: {err}"))?
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn script_disables_macros_before_opening_the_file() {
+        let security = super::SCRIPT.find("$app.AutomationSecurity = 3").expect("macros must be force-disabled");
+        let open = super::SCRIPT.find("Presentations.Open(").expect("script opens the deck");
+        assert!(security < open, "AutomationSecurity must be set before Open()");
+        assert!(super::SCRIPT.contains("$app.AutomationSecurity = $security"), "the user's own setting is restored");
+    }
 }

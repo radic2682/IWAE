@@ -72,7 +72,7 @@ fn respond(request: tiny_http::Request, status: u16, body: String) {
     let _ = request.respond(response);
 }
 
-fn serve_one(mut request: tiny_http::Request, token: &str, ctx: &dyn ToolContext, version: &str) {
+fn serve_one(mut request: tiny_http::Request, token: &str, ctx: &dyn ToolContext, version: &str, port: u16) {
     let headers: Vec<(String, String)> = request
         .headers()
         .iter()
@@ -86,7 +86,7 @@ fn serve_one(mut request: tiny_http::Request, token: &str, ctx: &dyn ToolContext
     let method = request.method().as_str().to_uppercase();
     let url = request.url().to_string();
     let declared = request.body_length().unwrap_or(0);
-    if let Err(rejection) = http::check_request(&method, &url, &headers, token, declared) {
+    if let Err(rejection) = http::check_request(&method, &url, &headers, token, declared, port) {
         let body = serde_json::json!({ "error": rejection.reason }).to_string();
         respond(request, rejection.status, body);
         return;
@@ -138,7 +138,7 @@ pub fn start(
         .name("iwae-mcp".into())
         .spawn(move || {
             for request in worker.incoming_requests() {
-                serve_one(request, &token, ctx.as_ref(), &version);
+                serve_one(request, &token, ctx.as_ref(), &version, bound);
             }
         })
         .map_err(|err| tr!("MCP 서버 스레드를 만들지 못했습니다: {err}", "Couldn't start the MCP server thread: {err}"))?;
@@ -202,7 +202,7 @@ mod tests {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
         write!(
             stream,
-            "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{headers}\r\n{body}",
+            "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{headers}\r\n{body}",
             body.len()
         )
         .unwrap();
@@ -249,6 +249,18 @@ mod tests {
             .0,
             403
         );
+        // DNS 리바인딩: 올바른 토큰이어도 이 서버 주소가 아닌 Host 는 거절한다
+        let mut stream = TcpStream::connect(("127.0.0.1", server.port)).unwrap();
+        write!(
+            stream,
+            "POST /mcp HTTP/1.1\r\nHost: evil.example:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{auth}\r\n{call}",
+            server.port,
+            call.len()
+        )
+        .unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+        assert!(response.starts_with("HTTP/1.1 403"), "{response}");
         assert!(
             fake.shown.lock().unwrap().is_empty(),
             "거절된 요청은 도구를 부르지 않는다"

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { folderFileUrl, markdownPdfHtml, markdownPdfKey } from './markdownPdf'
+import { folderFileUrl, markdownPdfHtml, markdownPdfKey, PRINT_CSP, stripRemoteImages } from './markdownPdf'
 
 describe('Markdown → PDF HTML', () => {
   it('원문 폴더를 base 로 두고 상대 그림을 그대로 읽게 한다', () => {
@@ -10,6 +10,24 @@ describe('Markdown → PDF HTML', () => {
     expect(html).toContain('src="images/a.png"')
     expect(html).not.toContain('data-md-src')
     expect(html).toContain('<h1')
+  })
+
+  it('인쇄 화면은 원격 주소를 읽지 못하게 CSP 를 붙이고 원격 그림은 뺀다', () => {
+    const html = markdownPdfHtml('![로고](https://tracker.example/pixel.png)\n\n![내 그림](images/a.png)\n\n<img src="//cdn.example/x.png" alt="없음">', 'Spec', 'C:\\Vault\\Docs\\Spec.md')
+    expect(html).toContain(`http-equiv="Content-Security-Policy" content="${PRINT_CSP}"`)
+    expect(html).not.toContain('tracker.example')
+    expect(html).not.toContain('cdn.example')
+    expect(html).toContain('src="images/a.png"')
+    expect(PRINT_CSP).not.toMatch(/https?:/u)
+  })
+
+  it('stripRemoteImages 는 원격 그림만 alt 글로 바꾼다', () => {
+    expect(stripRemoteImages('<p><img src="http://a.example/p.png" alt="점"></p>')).toBe('<p><span class="md-remote-image">점</span></p>')
+    expect(stripRemoteImages("<img alt='' src='https://a.example/p.png'>")).toBe('')
+    expect(stripRemoteImages('<img src=HTTP://a.example/p.png>')).toBe('')
+    for (const keep of ['<img src="images/a.png">', '<img src="file:///C:/x.png">', '<img src="data:image/png;base64,AAAA">', '<img alt="https://x" src="a.png">']) {
+      expect(stripRemoteImages(keep)).toBe(keep)
+    }
   })
 
   it('폴더 주소는 이름을 인코딩한다', () => {

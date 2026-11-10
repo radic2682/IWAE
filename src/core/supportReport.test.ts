@@ -4,7 +4,7 @@ import { clearRecordedErrors, recordedErrors, recordError } from './errorBuffer'
 
 describe('redactText', () => {
   it('Vault 경로와 파일 이름을 자리표시자로 바꾼다', () => {
-    const out = redactText('open C:\\Users\\kim\\Documents\\내 Vault\\논문.pdf failed', { vaultRoot: 'C:\\Users\\kim\\Documents\\내 Vault' })
+    const out = redactText('open C:\\Users\\kim\\Documents\\내 Vault\\논문.pdf failed', { vaultRoot: 'C:\\Users\\kim\\Documents\\내 Vault' }) // release-scan-allow
     expect(out).not.toContain('kim')
     expect(out).not.toContain('논문')
     expect(out).toContain('<vault>')
@@ -19,13 +19,13 @@ describe('redactText', () => {
     for (const secret of ['abcdefghijklmnop', 'sk-ant', 'XYZ12345', '12345678-1234']) expect(out).not.toContain(secret)
   })
   it('주소의 질의 문자열과 메일을 뗀다', () => {
-    const out = redactText('GET https://example.com/a/b?token=abc123&x=1 by me@mail.com')
+    const out = redactText('GET https://example.com/a/b?token=abc123&x=1 by me@mail.com') // release-scan-allow
     expect(out).toBe('GET https://example.com/a/b by <email>')
   })
 })
 
 describe('buildReport', () => {
-  const base = { description: '열면 멈춰요', appVersion: '0.1.10', os: 'Windows 10/11', includeLogs: true, logLines: ['INFO ok', 'ERROR C:\\Users\\a\\b.pdf'], errors: [], vaultRoot: null }
+  const base = { description: '열면 멈춰요', appVersion: '0.1.10', os: 'Windows 10/11', includeLogs: true, logLines: ['INFO ok', 'ERROR C:\\Users\\a\\b.pdf'], errors: [], vaultRoot: null } // release-scan-allow
   it('기록을 끄면 본문에 기록이 없다', () => {
     const report = buildReport({ ...base, includeLogs: false })
     expect(report.body).not.toContain('app log')
@@ -57,7 +57,7 @@ describe('error buffer', () => {
 
 describe('redactText file names with spaces', () => {
   it('hides the whole name of a file inside the vault even when it has spaces', () => {
-    const out = redactText('open C:\\Users\\kim\\Docs\\My Vault\\비밀 폴더\\비밀 문서.PDF failed', { vaultRoot: 'C:\\Users\\kim\\Docs\\My Vault' })
+    const out = redactText('open C:\\Users\\kim\\Docs\\My Vault\\비밀 폴더\\비밀 문서.PDF failed', { vaultRoot: 'C:\\Users\\kim\\Docs\\My Vault' }) // release-scan-allow
     expect(out).toBe('open <vault>/<file>.pdf failed')
   })
 })

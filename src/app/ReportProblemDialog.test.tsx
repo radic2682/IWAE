@@ -7,10 +7,10 @@ import { recordError, clearRecordedErrors } from '../core/errorBuffer'
 describe('ReportProblemDialog', () => {
   it('가려진 미리보기를 보이고, 기록을 끄면 기록이 빠진다. 이슈는 확인 창 요청으로 연다', () => {
     clearRecordedErrors()
-    recordError('error', new Error('failed to open C:\\Users\\kim\\Vault\\논문.pdf'))
+    recordError('error', new Error('failed to open C:\\Users\\kim\\Vault\\논문.pdf')) // release-scan-allow
     const requested: string[] = []
     window.addEventListener('iwae:request-external-link', (event) => requested.push((event as CustomEvent<string>).detail))
-    render(<ReportProblemDialog version="0.1.10" vaultRoot="C:\Users\kim\Vault" onClose={vi.fn()} />)
+    render(<ReportProblemDialog version="0.1.10" vaultRoot="C:\Users\kim\Vault" onClose={vi.fn()} />) // release-scan-allow
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '열면 멈춥니다' } })
     const preview = screen.getByLabelText('보내질 내용 미리 보기')

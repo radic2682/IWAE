@@ -2,11 +2,38 @@
 //! (그림·git 작업 폴더)를 옮기면 아주 느렸다. 여기서 한 번에 한다: 먼저 디렉터리째 이름 바꾸기, 안 되면
 //! (다른 드라이브, 누가 잡고 있는 폴더) 안쪽부터 파일을 옮기고 빈 폴더를 지운다. 실패하면 옮긴 것을 되돌린다.
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+
+/// 있는 가장 가까운 윗 폴더까지만 실제 경로로 바꾸고 나머지는 이어 붙인다(아직 없는 대상도 비교할 수 있게)
+fn resolve_existing_prefix(path: &Path) -> PathBuf {
+    let mut rest = Vec::new();
+    let mut probe = path.to_path_buf();
+    loop {
+        if let Ok(real) = probe.canonicalize() {
+            return rest.iter().rev().fold(real, |acc, part: &std::ffi::OsString| acc.join(part));
+        }
+        match (probe.file_name().map(|name| name.to_owned()), probe.parent().map(Path::to_path_buf)) {
+            (Some(name), Some(parent)) => {
+                rest.push(name);
+                probe = parent;
+            }
+            _ => return path.to_path_buf(),
+        }
+    }
+}
 
 /// 둘 다 Vault 안이고, 원본이 있고, 대상이 없어야 한다
 fn validate(vault_root: &Path, from: &Path, to: &Path) -> Result<(), String> {
-    let inside = |path: &Path| path.starts_with(vault_root) && path != vault_root;
+    // 글자 비교만 하면 `Vault/../다른폴더` 가 Vault 안으로 보인다 — `..` 가 든 경로는 받지 않는다
+    if [vault_root, from, to].iter().any(|path| path.components().any(|part| matches!(part, Component::ParentDir))) {
+        return Err(tr!("Vault 밖의 폴더는 옮길 수 없습니다.", "Folders outside the vault cannot be moved."));
+    }
+    // 바로가기·정션으로 Vault 밖을 가리키는 경로도 실제 위치로 풀어 다시 본다
+    let real_root = resolve_existing_prefix(vault_root);
+    let inside = |path: &Path| {
+        let real = resolve_existing_prefix(path);
+        path.starts_with(vault_root) && path != vault_root && real.starts_with(&real_root) && real != real_root
+    };
     if !inside(from) || !inside(to) {
         return Err(tr!("Vault 밖의 폴더는 옮길 수 없습니다.", "Folders outside the vault cannot be moved."));
     }
@@ -80,7 +107,8 @@ pub fn move_dir(vault_root: &Path, from: &Path, to: &Path) -> Result<(), String>
 }
 
 #[tauri::command]
-pub async fn vault_move_dir(vault_root: String, from: String, to: String) -> Result<(), String> {
+pub async fn vault_move_dir(app: tauri::AppHandle, vault_root: String, from: String, to: String) -> Result<(), String> {
+    crate::fs_scope::ensure_all_allowed(&app, [&vault_root, &from, &to])?;
     tauri::async_runtime::spawn_blocking(move || move_dir(Path::new(&vault_root), Path::new(&from), Path::new(&to)))
         .await
         .map_err(|err| err.to_string())?
@@ -105,5 +133,25 @@ mod tests {
         assert!(move_dir(&root, &to, &to.join("inner")).is_err());
         assert!(move_dir(&root, &to, Path::new("C:/outside-iwae-test")).is_err());
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn refuses_parent_dir_components_that_escape_the_vault() {
+        let base = std::env::temp_dir().join(format!("iwae-move-dotdot-{}", std::process::id()));
+        let root = base.join("Vault");
+        let outside = base.join("Other");
+        std::fs::create_dir_all(root.join("Docs")).unwrap();
+        std::fs::create_dir_all(outside.join("Secret")).unwrap();
+        // 글자로는 Vault 아래지만 실제로는 Vault 밖
+        let sneaky_from = root.join("..").join("Other").join("Secret");
+        assert!(move_dir(&root, &sneaky_from, &root.join("Stolen")).is_err());
+        assert!(outside.join("Secret").exists(), "outside folder must stay put");
+        let sneaky_to = root.join("..").join("Other").join("Moved");
+        assert!(move_dir(&root, &root.join("Docs"), &sneaky_to).is_err());
+        assert!(root.join("Docs").exists() && !outside.join("Moved").exists());
+        // `..` 없는 정상 이동은 그대로 된다
+        move_dir(&root, &root.join("Docs"), &root.join("Moved")).unwrap();
+        assert!(root.join("Moved").exists());
+        std::fs::remove_dir_all(&base).ok();
     }
 }

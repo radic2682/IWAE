@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, 
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
-import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, PencilSimple, Quotes, Smiley, Stack, Star, Toolbox, Trash } from '@phosphor-icons/react'
+import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, PencilSimple, Quotes, Smiley, Stack, Star, Toolbox, Trash, WarningCircle } from '@phosphor-icons/react'
 import {
   buildLegacyWorkspaceTree,
   projectVaultTree,
@@ -1341,9 +1341,13 @@ export function Sidebar({
                     {missingDocIds.includes(node.doc.docId) ? null : docNoteAdd(node.doc.docId, versionGroup, versionGroup?.title ?? node.name, versionGroup !== undefined || docNotesOf(node.doc.docId).length > 0)}
                     {missingDocIds.includes(node.doc.docId) && (
                       <>
-                        <span className="side-missing">{t('찾을 수 없음')}</span>
-                        <button type="button" className="side-relink" aria-label={t('{name} 다시 연결', { name: node.name })} onClick={() => onRelinkDoc?.(node.doc.docId)}>
-                          {t('다시 연결')}
+                        <span className="side-missing" title={t('찾을 수 없음')}>
+                          <WarningCircle className="side-missing-icon" size={14} aria-hidden="true" />
+                          <span className="side-missing-text">{t('찾을 수 없음')}</span>
+                        </span>
+                        <button type="button" className="side-relink" title={t('다시 연결')} aria-label={t('{name} 다시 연결', { name: node.name })} onClick={() => onRelinkDoc?.(node.doc.docId)}>
+                          <LinkSimple className="side-relink-icon" size={14} aria-hidden="true" />
+                          <span className="side-relink-text">{t('다시 연결')}</span>
                         </button>
                       </>
                     )}

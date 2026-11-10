@@ -467,6 +467,7 @@ pub async fn vault_backup_create(app: AppHandle, ai: State<'_, AiState>, state: 
     if !dest.is_absolute() {
         return Err(tr!("저장 위치가 올바르지 않습니다.", "Invalid save location."));
     }
+    crate::fs_scope::ensure_allowed(&app, &dest)?;
     begin(&state)?;
     let _guard = RunningGuard(&state.running);
     let cancel = state.cancel.clone();
@@ -485,6 +486,7 @@ pub async fn vault_backup_restore(app: AppHandle, state: State<'_, BackupState>,
     if !archive.is_absolute() || !dest.is_absolute() {
         return Err(tr!("경로가 올바르지 않습니다.", "Invalid path."));
     }
+    crate::fs_scope::ensure_all_allowed(&app, [&archive, &dest])?;
     begin(&state)?;
     let _guard = RunningGuard(&state.running);
     let cancel = state.cancel.clone();
@@ -683,6 +685,12 @@ pub fn prune_auto_backups(dir: &Path, prefix: &str, keep: usize) -> Vec<String> 
 
 /// 자동 백업: `dir` 폴더(없으면 만든다)에 전체 백업을 하나 만들고, 자동 백업을 `keep` 개만 남긴다.
 /// `stamp` 는 웹뷰가 준 현지 시각 글자(YYYY-MM-DD-HHMM)
+/// 자동 백업의 기본 폴더(문서\IWAE 백업)인가 — 프런트(useAutoBackup)가 처음 정하는 위치와 같아야 한다
+fn is_default_backup_dir(app: &AppHandle, dir: &Path) -> bool {
+    use tauri::Manager;
+    app.path().document_dir().is_ok_and(|documents| dir == documents.join("IWAE 백업"))
+}
+
 #[tauri::command]
 pub async fn vault_backup_auto(
     app: AppHandle,
@@ -698,6 +706,10 @@ pub async fn vault_backup_auto(
     let dir = PathBuf::from(dir);
     if !dir.is_absolute() {
         return Err(tr!("자동 백업 폴더가 올바르지 않습니다.", "Invalid auto-backup folder."));
+    }
+    // 처음 쓸 때의 기본 폴더(문서\IWAE 백업)는 사용자가 대화상자로 고른 적이 없어 범위에 없다. 그 폴더만 예외로 둔다
+    if !is_default_backup_dir(&app, &dir) {
+        crate::fs_scope::ensure_allowed(&app, &dir)?;
     }
     if !stamp.chars().all(|ch| ch.is_ascii_digit() || ch == '-') || stamp.len() > 20 {
         return Err(tr!("시각 형식이 올바르지 않습니다.", "Invalid timestamp format."));

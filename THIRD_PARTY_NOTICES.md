@@ -81,7 +81,10 @@ licensed under MIT OR Apache-2.0. IWAE bundles a PDFium runtime (a DLL on
 Windows, a dylib on macOS) and uses the Rust binding to render local documents.
 The PDFium binary distribution contains its own LICENSE and third-party notices
 (FreeType, ICU, lcms2, libjpeg-turbo, libpng, OpenJPEG, zlib, and others);
-those notices apply to the bundled runtime.
+those notices apply to the bundled runtime. The installer ships them unchanged
+as `pdfium-licenses.txt` next to this file. IWAE pins the PDFium release
+(`chromium/8086`, 157.0.8086.0) and verifies its SHA-256 when fetching
+(`scripts/fetch-pdfium.mjs`).
 
 ## Other Rust and JavaScript dependencies
 

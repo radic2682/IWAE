@@ -118,6 +118,30 @@ export function visibleRange(
   return [start, end]
 }
 
+/**
+ * 지금 "보고 있는" 쪽(0-based): 화면에서 가장 넓은 면적을 차지하는 쪽. 같으면 앞쪽.
+ * 첫 줄에 걸친 앞쪽의 꼬리(바닥글)가 아니라 화면 대부분을 채운 쪽을 가리키므로,
+ * 메모로 건너뛰어 쪽 맨 위 근처에 문장이 놓였을 때 쪽 번호가 하나 덜 나오지 않는다.
+ * 왼쪽 바 미리보기의 보고 있는 곳 사각형(visibleRegions)과 같은 기준이다.
+ */
+export function dominantPage(boxes: readonly PageBox[], scrollTop: number, viewportHeight: number): number {
+  if (boxes.length === 0) return 0
+  const viewStart = Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0
+  const viewEnd = viewStart + (Number.isFinite(viewportHeight) && viewportHeight > 0 ? viewportHeight : 0)
+  let best = -1
+  let bestArea = 0
+  for (let page = findFirstVisible(boxes, viewStart); page < boxes.length; page += 1) {
+    const box = boxes[page]!
+    if (box.top >= viewEnd) break
+    const area = Math.min(box.top + box.height, viewEnd) - Math.max(box.top, viewStart)
+    if (area > bestArea) {
+      best = page
+      bestArea = area
+    }
+  }
+  return best === -1 ? findFirstVisible(boxes, viewStart) : best
+}
+
 /** 특정 페이지의 맨 위로 가려면 얼마나 스크롤해야 하는가 */
 export function scrollTopForPage(boxes: readonly PageBox[], page: number): number {
   if (boxes.length === 0) return 0

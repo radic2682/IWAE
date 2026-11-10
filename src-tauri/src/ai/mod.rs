@@ -408,6 +408,7 @@ pub fn ai_set_vault(
 ) -> Result<(), String> {
     let root = match root {
         Some(root) => {
+            crate::fs_scope::ensure_allowed(&app, &root)?;
             let path = PathBuf::from(root);
             if !path.join(".iwae").is_dir() {
                 return Err(tr!("IWAE Vault 가 아닌 폴더입니다.", "This folder is not an IWAE vault."));

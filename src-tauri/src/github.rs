@@ -289,7 +289,8 @@ fn read_source(dir: &Path, target: &str) -> Result<GithubSource, String> {
 
 /// 가져온 저장소들(네트워크 없이 지금 상태만): 숨긴 연결 + 예전 방식 GitHub/<저장소>
 #[tauri::command]
-pub async fn github_list(vault_root: String) -> Result<Vec<GithubSource>, String> {
+pub async fn github_list(app: tauri::AppHandle, vault_root: String) -> Result<Vec<GithubSource>, String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut sources = Vec::new();
         for link in read_links(&vault_root) {
@@ -320,25 +321,31 @@ pub async fn github_list(vault_root: String) -> Result<Vec<GithubSource>, String
 
 /// 이어진 Vault 폴더를 옮겼다(이름 바꾸기·끌어 옮기기): 그 폴더(또는 그 안)와 이어진 연결을 따라 옮긴다
 #[tauri::command]
-pub fn github_move_target(vault_root: String, from: String, to: String) -> Result<(), String> {
-    let mut links = read_links(&vault_root);
+pub fn github_move_target(app: tauri::AppHandle, vault_root: String, from: String, to: String) -> Result<(), String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
+    move_target(&vault_root, &from, &to)
+}
+
+fn move_target(vault_root: &str, from: &str, to: &str) -> Result<(), String> {
+    let mut links = read_links(vault_root);
     let mut changed = false;
     for link in &mut links {
         if link.target == from {
-            link.target = to.clone();
+            link.target = to.to_owned();
             changed = true;
         } else if let Some(rest) = link.target.strip_prefix(&format!("{from}/")) {
             link.target = format!("{to}/{rest}");
             changed = true;
         }
     }
-    if changed { write_links(&vault_root, &links) } else { Ok(()) }
+    if changed { write_links(vault_root, &links) } else { Ok(()) }
 }
 
 /// 주소의 저장소(또는 그 안 폴더)를 받아, 그 파일을 Vault 의 `target` 폴더(Vault 기준 경로)에 넣는다.
 /// git 작업 폴더는 `.iwae/github/<저장소>` 에 숨긴다
 #[tauri::command]
-pub async fn github_clone(vault_root: String, url: String, target: String) -> Result<GithubSource, String> {
+pub async fn github_clone(app: tauri::AppHandle, vault_root: String, url: String, target: String) -> Result<GithubSource, String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
     let parsed = parse_github_url(&url)?;
     let target = target.trim().trim_matches('/').replace('\\', "/");
     if !safe_vault_path(&target) {
@@ -402,7 +409,8 @@ pub async fn github_clone(vault_root: String, url: String, target: String) -> Re
 
 /// 「새 소식 확인」: 받기만 하고 파일은 바꾸지 않는다. 바뀔 파일 목록도 함께 준다
 #[tauri::command]
-pub async fn github_fetch(vault_root: String, name: String) -> Result<GithubFetchResult, String> {
+pub async fn github_fetch(app: tauri::AppHandle, vault_root: String, name: String) -> Result<GithubFetchResult, String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         let place = place_of(&vault_root, &name)?;
         let dir = place.clone.clone();
@@ -439,7 +447,8 @@ fn changed_files(dir: &Path, from: &str, to: &str, path: Option<&str>, target: &
 
 /// 「최신으로」: 받은 것을 적용한다(fast-forward 만 — 강제로 덮지 않는다). 태그·커밋을 보는 중이면 브랜치로 돌아간다
 #[tauri::command]
-pub async fn github_pull(vault_root: String, name: String) -> Result<GithubFetchResult, String> {
+pub async fn github_pull(app: tauri::AppHandle, vault_root: String, name: String) -> Result<GithubFetchResult, String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         let place = place_of(&vault_root, &name)?;
         let dir = place.clone.clone();
@@ -474,7 +483,8 @@ pub struct GithubRef {
 
 /// 「다른 버전 보기」에 보일 목록: 브랜치, 태그, 받은 폴더에 닿은 최근 커밋
 #[tauri::command]
-pub async fn github_refs(vault_root: String, name: String) -> Result<Vec<GithubRef>, String> {
+pub async fn github_refs(app: tauri::AppHandle, vault_root: String, name: String) -> Result<Vec<GithubRef>, String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
     tauri::async_runtime::spawn_blocking(move || {
         let dir = place_of(&vault_root, &name)?.clone;
         let path = sparse_path(&dir);
@@ -515,7 +525,8 @@ pub async fn github_refs(vault_root: String, name: String) -> Result<Vec<GithubR
 
 /// 고른 브랜치·태그·커밋으로 바꿔 본다(브랜치면 그 브랜치를 따라간다)
 #[tauri::command]
-pub async fn github_checkout(vault_root: String, name: String, kind: String, reference: String) -> Result<GithubSource, String> {
+pub async fn github_checkout(app: tauri::AppHandle, vault_root: String, name: String, kind: String, reference: String) -> Result<GithubSource, String> {
+    crate::fs_scope::ensure_allowed(&app, &vault_root)?;
     if reference.is_empty() || reference.starts_with('-') || reference.contains("..") {
         return Err(tr!("버전 이름이 올바르지 않습니다.", "Invalid version name."));
     }
@@ -572,7 +583,7 @@ mod tests {
             GithubLink { name: "b".into(), target: "Docs/Spec/Sub".into() },
             GithubLink { name: "c".into(), target: "Other".into() },
         ]).unwrap();
-        github_move_target(vault.clone(), "Docs/Spec".into(), "Moved/Spec".into()).unwrap();
+        move_target(&vault, "Docs/Spec", "Moved/Spec").unwrap();
         let links = read_links(&vault);
         assert_eq!(links[0].target, "Moved/Spec");
         assert_eq!(links[1].target, "Moved/Spec/Sub");

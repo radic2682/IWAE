@@ -33,9 +33,13 @@ export function denylistMatcher(words) {
   return new RegExp(`(?<![\\p{L}\\p{N}])(?:${words.map(escapeRegExp).join('|')})(?![\\p{L}\\p{N}])`, 'iu')
 }
 
-/** 한 파일의 글에서 걸리는 줄들: { line, rule, text } */
-export function scanText(text, matcher) {
+/** 받아서 그대로 싣는 남의 라이선스 글(PDFium 묶음의 licenses/ 등): 저작권자 이메일이 원문에 들어 있다 */
+const UPSTREAM_TEXT = /(?:^|[\\/])src-tauri[\\/]licenses[\\/]/u
+
+/** 한 파일의 글에서 걸리는 줄들: { line, rule, text }. path 는 어느 파일인지(남의 라이선스 원문은 이메일 검사를 건너뛴다) */
+export function scanText(text, matcher, path = '') {
   const hits = []
+  const upstream = UPSTREAM_TEXT.test(path)
   const lines = text.split(/\r?\n/u)
   lines.forEach((content, index) => {
     const line = index + 1
@@ -45,7 +49,7 @@ export function scanText(text, matcher) {
     if (word) hits.push({ line, rule: `금지어 "${word[0]}"`, text: content.trim() })
     const userPath = /[A-Za-z]:[\\/]+Users[\\/]+(?!Public\b|Default\b|<|\$|%|you\b|me\b|name\b)[^\\/\s'"`]+/iu.exec(content)
     if (userPath) hits.push({ line, rule: '개인 폴더 경로', text: content.trim() })
-    for (const email of content.matchAll(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu)) {
+    for (const email of upstream ? [] : content.matchAll(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu)) {
       if (!ALLOWED_EMAIL.test(email[0]) && !/^[\w.+-]+@\d/u.test(email[0]) && /\.[a-z]{2,}$/iu.test(email[0])) {
         hits.push({ line, rule: `이메일 ${email[0]}`, text: content.trim() })
       }
@@ -89,7 +93,7 @@ export function scanHistory(root, matcher) {
       seen.add(blob)
       const content = git(['cat-file', 'blob', blob])
       if (content.length > 5_000_000) continue
-      for (const hit of scanText(content.toString('utf8'), matcher)) hits.push({ where: `커밋 ${short} ${path}`, ...hit })
+      for (const hit of scanText(content.toString('utf8'), matcher, path)) hits.push({ where: `커밋 ${short} ${path}`, ...hit })
     }
   }
   const tags = git(['for-each-ref', '--format=%(refname:short)%09%(taggername) %(taggeremail)%09%(contents)', 'refs/tags']).toString('utf8')
@@ -125,7 +129,7 @@ async function main() {
     if (BINARY.test(name) || name === denylistName) continue
     const path = join(target, file)
     if (!existsSync(path) || (await stat(path)).size > 5_000_000) continue
-    const hits = scanText(await readFile(path, 'utf8'), matcher)
+    const hits = scanText(await readFile(path, 'utf8'), matcher, name)
     for (const hit of hits) {
       count += 1
       console.log(`${name}:${hit.line}  [${hit.rule}]  ${hit.text.slice(0, 160)}`)

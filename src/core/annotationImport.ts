@@ -1,4 +1,4 @@
-import { buildAnchor } from './anchor'
+import { buildAnchor, type Anchor } from './anchor'
 import { DEFAULT_HIGHLIGHT_COLORS, nearestColorId, type HighlightColorDef } from './highlightColors'
 import type { PageTextIndex } from './textIndex'
 import type { ImportedPdfAnnotation, PdfLinkRect } from '../bridge/pdf'
@@ -47,6 +47,26 @@ function nearestChar(index: PageTextIndex, rect: PdfLinkRect): [number, number] 
   return best === -1 ? null : [best, best + 1]
 }
 
+/** 글자 층의 양끝 공백을 범위에서 덜어 낸다(밑줄이 앞 공백까지 덮은 경우 등) */
+function trimRange(index: PageTextIndex, [start, end]: [number, number]): [number, number] {
+  let from = start
+  let to = end
+  while (from < to && /\s/u.test(index.text[from] ?? '')) from += 1
+  while (to > from && /\s/u.test(index.text[to - 1] ?? '')) to -= 1
+  return [from, to]
+}
+
+/** 뜻 있는 글자(공백·기호 제외)가 둘 이상 있어야 인용으로 쓴다 */
+export function hasMeaningfulQuote(quote: string): boolean {
+  return (quote.match(/[\p{L}\p{N}]/gu) ?? []).length >= 2
+}
+
+/** 인용으로 쓸 만하지 않으면 글을 비운 앵커로 바꾼다(자리 사각형은 그대로). 빈 인용은 charRange 가 [끝,끝] 이라 그대로 맞는다 */
+function withoutQuote(anchor: Anchor): Anchor {
+  const at = anchor.charRange[0]
+  return { ...anchor, charRange: [at, at], quote: '', prefix: '', suffix: '' }
+}
+
 /**
  * PDF 에서 읽은 주석을 형광펜으로 바꾼다. 글자 층이 없는 페이지(스캔본)의 주석과 이미
  * 같은 글자에 칠해진 형광펜은 건너뛰고 그 수를 돌려준다.
@@ -76,8 +96,21 @@ export function importedToHighlights(
       skipped += 1
       continue
     }
+    let anchor: Anchor
+    if (annotation.kind === 'text') {
+      // 붙임 쪽지는 덮은 글이 없으니 인용도 없다. 가까운 글자 자리에 쪽지 네모만 건다
+      const rect = annotation.rects[0]!
+      anchor = withoutQuote({
+        ...buildAnchor(docId, annotation.page, index, range[0], range[1]),
+        rects: [{ x: rect.x, y: rect.y, w: rect.w, h: rect.h }],
+      })
+    } else {
+      const [from, to] = trimRange(index, range)
+      anchor = from === to ? buildAnchor(docId, annotation.page, index, range[0], range[1]) : buildAnchor(docId, annotation.page, index, from, to)
+      if (!hasMeaningfulQuote(anchor.quote)) anchor = withoutQuote(anchor)
+    }
     const highlight = createPersistentPdfHighlight(
-      buildAnchor(docId, annotation.page, index, range[0], range[1]),
+      anchor,
       nearestHighlightColor(annotation.color, colors),
       { note: annotation.contents ?? undefined, createdAt: importedAt, source: 'imported' },
     )

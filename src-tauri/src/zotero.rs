@@ -382,7 +382,8 @@ pub fn read_library(conn: &Connection, data_dir: &Path) -> Result<ZoteroLibrary,
 
 /// Zotero 데이터 폴더(또는 zotero.sqlite)를 읽는다. DB 는 임시 사본으로만 연다.
 #[tauri::command]
-pub async fn zotero_read(path: String) -> Result<ZoteroLibrary, String> {
+pub async fn zotero_read(app: tauri::AppHandle, path: String) -> Result<ZoteroLibrary, String> {
+    crate::fs_scope::ensure_allowed(&app, &path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let (dir, db) = locate(Path::new(&path))?;
         let temp = std::env::temp_dir().join(format!("iwae-zotero-{}.sqlite", std::process::id()));

@@ -25,6 +25,16 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
     a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
+/// `Host` 가 이 서버의 주소(`127.0.0.1:<port>`·`localhost:<port>`)인가. DNS 리바인딩으로 다른 이름이 이
+/// 주소를 가리키게 해도 `Host` 는 공격자의 이름이라 여기서 걸린다(토큰·`Origin` 검사에 더한 이중 방어).
+fn host_allowed(host: &str, port: u16) -> bool {
+    let host = host.trim();
+    let Some((name, number)) = host.rsplit_once(':') else {
+        return false;
+    };
+    (name.eq_ignore_ascii_case("127.0.0.1") || name.eq_ignore_ascii_case("localhost")) && number.parse::<u16>().ok() == Some(port)
+}
+
 /// 받아들일 요청이면 Ok. 아니면 돌려줄 상태 코드.
 ///
 /// `Origin` 이 붙은 요청은 브라우저 안의 웹페이지에서 온 것이다. 토큰이 없으면 어차피
@@ -36,12 +46,19 @@ pub fn check_request(
     headers: &[(String, String)],
     token: &str,
     body_len: usize,
+    port: u16,
 ) -> Result<(), Rejection> {
     let path = path.split('?').next().unwrap_or(path);
     if path != "/mcp" {
         return Err(Rejection {
             status: 404,
             reason: "없는 경로입니다.",
+        });
+    }
+    if !header(headers, "Host").is_some_and(|host| host_allowed(host, port)) {
+        return Err(Rejection {
+            status: 403,
+            reason: "이 서버 주소가 아닌 이름으로 온 요청은 받지 않습니다.",
         });
     }
     if let Some(origin) = header(headers, "Origin") {
@@ -86,11 +103,34 @@ mod tests {
 
     const TOKEN: &str = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
 
+    const PORT: u16 = 47821;
+
+    /// 시험 요청에는 늘 올바른 `Host` 를 붙인다(Host 검사는 따로 시험한다)
     fn headers(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
-        pairs
+        let mut list: Vec<(String, String)> = pairs
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
+            .collect();
+        if !list.iter().any(|(k, _)| k.eq_ignore_ascii_case("host")) {
+            list.push(("Host".into(), format!("127.0.0.1:{PORT}")));
+        }
+        list
+    }
+
+    #[test]
+    fn only_this_servers_own_host_is_accepted() {
+        let auth = format!("Bearer {TOKEN}");
+        for host in [format!("127.0.0.1:{PORT}"), format!("localhost:{PORT}"), format!("LOCALHOST:{PORT}")] {
+            let h = headers(&[("Authorization", &auth), ("Host", &host)]);
+            assert_eq!(check_request("POST", "/mcp", &h, TOKEN, 10, PORT), Ok(()), "{host}");
+        }
+        for host in ["evil.example:47821", "127.0.0.1", "localhost", "127.0.0.1:1", "127.0.0.1.evil.example:47821", "[::1]:47821", ""] {
+            let h = headers(&[("Authorization", &auth), ("Host", host)]);
+            assert_eq!(check_request("POST", "/mcp", &h, TOKEN, 10, PORT).unwrap_err().status, 403, "{host}");
+        }
+        // Host 가 아예 없는 요청도 받지 않는다
+        let no_host = vec![("Authorization".to_string(), auth.clone())];
+        assert_eq!(check_request("POST", "/mcp", &no_host, TOKEN, 10, PORT).unwrap_err().status, 403);
     }
 
     #[test]
@@ -102,7 +142,8 @@ mod tests {
                 "/mcp",
                 &headers(&[("authorization", &auth)]),
                 TOKEN,
-                10
+                10,
+                PORT
             ),
             Ok(())
         );
@@ -112,7 +153,8 @@ mod tests {
                 "/mcp",
                 &headers(&[("Authorization", &auth), ("Origin", "null")]),
                 TOKEN,
-                10
+                10,
+                PORT
             ),
             Ok(())
         );
@@ -121,14 +163,14 @@ mod tests {
     #[test]
     fn missing_or_wrong_tokens_are_401() {
         assert_eq!(
-            check_request("POST", "/mcp", &[], TOKEN, 10)
+            check_request("POST", "/mcp", &headers(&[]), TOKEN, 10, PORT)
                 .unwrap_err()
                 .status,
             401
         );
         let wrong = headers(&[("Authorization", "Bearer nope")]);
         assert_eq!(
-            check_request("POST", "/mcp", &wrong, TOKEN, 10)
+            check_request("POST", "/mcp", &wrong, TOKEN, 10, PORT)
                 .unwrap_err()
                 .status,
             401
@@ -140,7 +182,7 @@ mod tests {
         let auth = format!("Bearer {TOKEN}");
         let h = headers(&[("Authorization", &auth), ("Origin", "https://evil.example")]);
         assert_eq!(
-            check_request("POST", "/mcp", &h, TOKEN, 10)
+            check_request("POST", "/mcp", &h, TOKEN, 10, PORT)
                 .unwrap_err()
                 .status,
             403
@@ -152,19 +194,19 @@ mod tests {
         let auth = format!("Bearer {TOKEN}");
         let h = headers(&[("Authorization", &auth)]);
         assert_eq!(
-            check_request("POST", "/other", &h, TOKEN, 10)
+            check_request("POST", "/other", &h, TOKEN, 10, PORT)
                 .unwrap_err()
                 .status,
             404
         );
         assert_eq!(
-            check_request("GET", "/mcp", &h, TOKEN, 0)
+            check_request("GET", "/mcp", &h, TOKEN, 0, PORT)
                 .unwrap_err()
                 .status,
             405
         );
         assert_eq!(
-            check_request("POST", "/mcp", &h, TOKEN, MAX_BODY_BYTES + 1)
+            check_request("POST", "/mcp", &h, TOKEN, MAX_BODY_BYTES + 1, PORT)
                 .unwrap_err()
                 .status,
             413

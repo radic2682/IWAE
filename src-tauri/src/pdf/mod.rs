@@ -29,11 +29,13 @@ use tauri::State;
 /// 런타임의 워커를 막지 않도록 블로킹 풀로 넘긴다.
 #[tauri::command]
 pub async fn pdf_open(
+    app: tauri::AppHandle,
     state: State<'_, PdfThread>,
     path: String,
     doc_id: Option<String>,
     password: Option<String>,
 ) -> Result<PdfDocMeta, String> {
+    crate::fs_scope::ensure_allowed(&app, &path)?;
     let pdf = state.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || pdf.open_with_password_blocking(PathBuf::from(path), doc_id, password.filter(|p| !p.is_empty())))
@@ -44,7 +46,8 @@ pub async fn pdf_open(
 /// 파일의 내용 해시(doc_id·sha256·크기)만 잰다. PDFium 으로 열지 않는다 — 열면 열린 문서 캐시(8개)에서
 /// 사용자가 보고 있는 문서가 밀려나 쪽이 빈칸이 된다. 이미 등록된 PDF 인지 가릴 때 쓴다
 #[tauri::command]
-pub async fn pdf_file_hash(path: String) -> Result<serde_json::Value, String> {
+pub async fn pdf_file_hash(app: tauri::AppHandle, path: String) -> Result<serde_json::Value, String> {
+    crate::fs_scope::ensure_allowed(&app, &path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let identity = engine::file_identity(&PathBuf::from(path))?;
         Ok(serde_json::json!({"docId": identity.doc_id, "sha256": identity.sha256, "size": identity.size}))
@@ -304,12 +307,14 @@ mod tests {
 /// 쪽 순서·회전·끼워 넣기를 적용해 원본을 덮어쓴다. 덮기 전 원본은 `backup` 에 남긴다.
 #[tauri::command]
 pub async fn pdf_edit_pages(
+    app: tauri::AppHandle,
     state: State<'_, PdfThread>,
     doc_id: String,
     path: String,
     backup: String,
     plan: Vec<engine::PageEditOp>,
 ) -> Result<PdfDocMeta, String> {
+    crate::fs_scope::ensure_all_allowed(&app, [&path, &backup])?;
     let pdf = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         pdf.edit_pages_blocking(doc_id, PathBuf::from(path), PathBuf::from(backup), plan)
@@ -343,8 +348,14 @@ pub async fn pdf_tool(
     use tauri_plugin_dialog::DialogExt;
 
     let target = match output {
-        ToolOutput::InPlace { path, backup } => ToolTarget::InPlace { path: PathBuf::from(path), backup: PathBuf::from(backup) },
-        ToolOutput::NewFile { path } => ToolTarget::NewFile { path: PathBuf::from(path) },
+        ToolOutput::InPlace { path, backup } => {
+            crate::fs_scope::ensure_all_allowed(&app, [&path, &backup])?;
+            ToolTarget::InPlace { path: PathBuf::from(path), backup: PathBuf::from(backup) }
+        }
+        ToolOutput::NewFile { path } => {
+            crate::fs_scope::ensure_allowed(&app, &path)?;
+            ToolTarget::NewFile { path: PathBuf::from(path) }
+        }
         ToolOutput::Dialog { suggested_name } => {
             let file_name = sanitize_file_name(&suggested_name);
             let chosen = tauri::async_runtime::spawn_blocking(move || {

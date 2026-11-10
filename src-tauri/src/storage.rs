@@ -495,16 +495,22 @@ pub fn recover_transaction(
 }
 
 #[tauri::command]
-pub fn atomic_write_text(request: AtomicWriteRequest) -> Result<WriteReceipt, String> {
+pub fn atomic_write_text(app: tauri::AppHandle, request: AtomicWriteRequest) -> Result<WriteReceipt, String> {
+    crate::fs_scope::ensure_all_allowed(&app, [&request.target_path, &request.journal_root, &request.history_root])?;
     atomic_write(&request).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn scan_storage_recovery(journal_root: String) -> Result<Vec<RecoveryRecord>, String> {
+pub fn scan_storage_recovery(app: tauri::AppHandle, journal_root: String) -> Result<Vec<RecoveryRecord>, String> {
+    crate::fs_scope::ensure_allowed(&app, &journal_root)?;
     scan_recovery(journal_root).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn recover_storage_transaction(request: RecoveryRequest) -> Result<RecoveryResult, String> {
+pub fn recover_storage_transaction(app: tauri::AppHandle, request: RecoveryRequest) -> Result<RecoveryResult, String> {
+    crate::fs_scope::ensure_allowed(&app, &request.journal_path)?;
+    // 저널 안의 경로도 범위 안이어야 한다(저널은 디스크의 파일이라 손댄 것일 수 있다)
+    let record = read_recovery_record(Path::new(&request.journal_path)).map_err(|error| error.to_string())?;
+    crate::fs_scope::ensure_all_allowed(&app, [Some(&record.target_path), Some(&record.temporary_path), record.backup_path.as_ref()].into_iter().flatten())?;
     recover_transaction(request.journal_path, request.action).map_err(|error| error.to_string())
 }

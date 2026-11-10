@@ -24,14 +24,9 @@ jobs:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+      # 태그(chromium/NNNN)와 SHA-256 을 고정해 받는다(scripts/fetch-pdfium.mjs). 해시가 다르면 여기서 멈춘다
       - name: Install PDFium runtime
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
-          New-Item -ItemType Directory -Force .tmp/pdfium | Out-Null
-          Invoke-WebRequest https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz -OutFile .tmp/pdfium-win-x64.tgz
-          tar -xzf .tmp/pdfium-win-x64.tgz -C .tmp/pdfium
-          Copy-Item .tmp/pdfium/bin/pdfium.dll src-tauri/binaries/pdfium.dll
+        run: node scripts/fetch-pdfium.mjs
       - run: npm ci
       - run: npm run test:release-scripts
       - run: npm test
