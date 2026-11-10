@@ -165,3 +165,12 @@ export function mergeJsonText(base: string | null, local: string, remote: string
   if (jsonEqual(parsedBase.value, parsedLocal.value)) return remote
   return stringify(mergeValue(parsedBase.value ?? emptyLike(parsedLocal.value), parsedLocal.value, parsedRemote.value), local)
 }
+
+/**
+ * 되돌리기·다시 하기를 병합으로 적용한다. 되돌리기는 「그 동작 직후 상태(after)」에서 「동작 전 상태(before)」로 가는 변화만
+ * 현재 상태(current: 다른 창의 변경이 들어와 있을 수 있다)에 얹는다 — 옛 스냅숏으로 통째로 덮으면 남의 추가가 지워진다.
+ * 다시 하기는 before·after 를 바꿔 부른다: applySnapshotChange(before, after, current)
+ */
+export function applySnapshotChange<T>(from: T, to: T, current: T): T {
+  return mergeValue(from, to, current) as T
+}

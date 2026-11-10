@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { recordUndo } from './undoStack'
+import { applySnapshotChange } from '../core/jsonMerge'
 import { markdownHighlightsCodec, readMarkdownHighlights, subscribeVaultFile, writeMarkdownHighlights, type VaultHandle } from '../bridge/vault'
 import {
   markdownHighlightFile,
@@ -90,7 +91,8 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
     if (readyRef.current) void storage.save(list).catch(() => undefined)
   }, [storage])
   const remember = useCallback((before: readonly PersistentMarkdownHighlight[], after: readonly PersistentMarkdownHighlight[], key: string) => {
-    recordUndo({ key: `md-hl:${key}`, undo: () => restore(before), redo: () => restore(after) })
+    recordUndo({ key: `md-hl:${key}`, undo: () => restore(applySnapshotChange(after, before, highlightsRef.current)),
+      redo: () => restore(applySnapshotChange(before, after, highlightsRef.current)) })
   }, [restore])
 
   const add = useCallback((highlight: PersistentMarkdownHighlight) => {

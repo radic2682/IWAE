@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { recordUndo } from './undoStack'
+import { applySnapshotChange } from '../core/jsonMerge'
 import { pdfOverlaysCodec, readPdfOverlays, subscribeVaultFile, writePdfOverlays, type VaultHandle } from '../bridge/vault'
 import { addOverlay, removeOverlay, remapOverlayPages, updateOverlay, type OverlayPatch, type PdfOverlay } from '../core/pdfOverlays'
 
@@ -50,7 +51,7 @@ export function usePdfOverlays(vault: VaultHandle | null) {
   const commit = useCallback((next: Overlays, key = 'all') => {
     if (next === ref.current) return
     const before = ref.current
-    recordUndo({ key: `overlay:${key}`, undo: () => write(before), redo: () => write(next) })
+    recordUndo({ key: `overlay:${key}`, undo: () => write(applySnapshotChange(next, before, ref.current)), redo: () => write(applySnapshotChange(before, next, ref.current)) })
     ref.current = next
     setOverlays(next)
     if (vault === null) return

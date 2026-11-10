@@ -1,4 +1,5 @@
 import { recordUndo } from './undoStack'
+import { applySnapshotChange } from '../core/jsonMerge'
 import { registerSaveFlusher } from './useCanvasAutosave'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { subscribeVaultFolder, type VaultHandle } from '../bridge/vault'
@@ -246,8 +247,8 @@ export function useMemoNotes(
     if (before !== undefined && before !== note) {
       recordUndo({
         key: `note:${path}`,
-        undo: () => { if (notesRef.current.has(path)) writeNote(path, before) },
-        redo: () => { if (notesRef.current.has(path)) writeNote(path, note) },
+        undo: () => { const current = notesRef.current.get(path); if (current !== undefined) writeNote(path, applySnapshotChange(note, before, current)) },
+        redo: () => { const current = notesRef.current.get(path); if (current !== undefined) writeNote(path, applySnapshotChange(before, note, current)) },
       })
     }
     writeNote(path, note)

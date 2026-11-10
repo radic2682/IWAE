@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { recordUndo } from './undoStack'
+import { applySnapshotChange } from '../core/jsonMerge'
 import { pdfHighlightsCodec, readPdfHighlights, subscribeVaultFile, writePdfHighlights, type VaultHandle } from '../bridge/vault'
 import {
   parsePersistentPdfHighlights,
@@ -94,7 +95,9 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
     if (readyRef.current) void storage.save(list).catch(() => undefined)
   }, [storage])
   const remember = useCallback((before: readonly PersistentPdfHighlight[], after: readonly PersistentPdfHighlight[], key: string) => {
-    recordUndo({ key: `pdf-hl:${key}`, undo: () => restore(before), redo: () => restore(after) })
+    recordUndo({ key: `pdf-hl:${key}`, // 다른 창의 변경이 들어와 있어도 이 동작의 변화만 되돌린다(병합)
+      undo: () => restore(applySnapshotChange(after, before, highlightsRef.current)),
+      redo: () => restore(applySnapshotChange(before, after, highlightsRef.current)) })
   }, [restore])
 
   const add = useCallback((highlight: PersistentPdfHighlight) => {

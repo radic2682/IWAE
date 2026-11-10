@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mergeJsonText, mergeValue } from './jsonMerge'
+import { applySnapshotChange, mergeJsonText, mergeValue } from './jsonMerge'
 
 const file = (items: object[]) => `${JSON.stringify({ version: 1, highlights: items }, null, 2)}\n`
 const ids = (text: string | null) => (JSON.parse(text ?? '{}') as { highlights: { id: string }[] }).highlights.map((item) => item.id)
@@ -64,5 +64,46 @@ describe('mergeJsonText', () => {
 
   it('takes the other side when only one side changed', () => {
     expect(mergeValue({ a: 1 }, { a: 1 }, { a: 2 })).toEqual({ a: 2 })
+  })
+})
+
+describe('applySnapshotChange (undo / redo as a merge)', () => {
+  type Item = { id: string; memo?: string }
+  const ids = (items: Item[]) => items.map((item) => item.id).sort()
+  const undo = (before: Item[], after: Item[], current: Item[]) => applySnapshotChange(after, before, current)
+  const redo = (before: Item[], after: Item[], current: Item[]) => applySnapshotChange(before, after, current)
+
+  it('undo after a remote add keeps the remote item and removes only the local add', () => {
+    const before: Item[] = [{ id: 'a' }]
+    const after: Item[] = [{ id: 'a' }, { id: 'local' }]
+    const current: Item[] = [{ id: 'a' }, { id: 'local' }, { id: 'remote' }]
+    expect(ids(undo(before, after, current))).toEqual(['a', 'remote'])
+  })
+
+  it('undo of a local delete restores it even if another item was added remotely', () => {
+    const before: Item[] = [{ id: 'a' }, { id: 'b' }]
+    const after: Item[] = [{ id: 'a' }]
+    const current: Item[] = [{ id: 'a' }, { id: 'remote' }]
+    expect(ids(undo(before, after, current))).toEqual(['a', 'b', 'remote'])
+  })
+
+  it('undo of a local edit reverts only that edit', () => {
+    const before: Item[] = [{ id: 'a', memo: 'old' }]
+    const after: Item[] = [{ id: 'a', memo: 'new' }]
+    const current: Item[] = [{ id: 'a', memo: 'new' }, { id: 'remote' }]
+    expect(undo(before, after, current)).toEqual([{ id: 'a', memo: 'old' }, { id: 'remote' }])
+  })
+
+  it('redo is symmetric: it re-applies the action and keeps remote additions', () => {
+    const before: Item[] = [{ id: 'a' }]
+    const after: Item[] = [{ id: 'a' }, { id: 'local' }]
+    const undone = undo(before, after, [{ id: 'a' }, { id: 'local' }, { id: 'remote' }])
+    expect(ids(redo(before, after, undone))).toEqual(['a', 'local', 'remote'])
+    const afterDelete: Item[] = [{ id: 'a' }]
+    expect(ids(redo([{ id: 'a' }, { id: 'b' }], afterDelete, [{ id: 'a' }, { id: 'b' }, { id: 'remote' }]))).toEqual(['a', 'remote'])
+  })
+
+  it('works without remote changes', () => {
+    expect(undo([{ id: 'a' }], [{ id: 'a' }, { id: 'b' }], [{ id: 'a' }, { id: 'b' }])).toEqual([{ id: 'a' }])
   })
 })
