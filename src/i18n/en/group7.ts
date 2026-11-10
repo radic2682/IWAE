@@ -236,4 +236,7 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   "라이브러리 {percent}%": "Library {percent}%",
   "Finder 에서 연 PDF 는 Vault 로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 남습니다. 끌어서 Vault 폴더에 놓으면 그 폴더로 가져옵니다.": "PDFs opened from Finder open without being imported and appear under “Recent PDFs” at the bottom of the left bar. Drag one onto a vault folder to import it there.",
   '영역 그림': 'Region image',
+  '번역 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.': 'Too many translation requests. Please try again in a moment.',
+  '번역 요청에 실패했습니다 (HTTP {status}).': 'The translation request failed (HTTP {status}).',
+  '번역 요청에 실패했습니다. 잠시 뒤 다시 시도해 주세요.': 'The translation request failed. Please try again in a moment.',
 }

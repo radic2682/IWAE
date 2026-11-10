@@ -8,6 +8,7 @@ import type {
   TranslationStatus,
 } from '../core/translation'
 import { isDesktop } from './window'
+import { friendlyTranslationError } from '../core/translation'
 import { t } from '../i18n'
 
 const BENCHMARK_TEXT = 'Hello. This is a short translation benchmark.'
@@ -90,14 +91,18 @@ export function createOllamaTranslationProvider(
     translate: (endpoint, request) => invoke<TranslationResult>('translation_generate', {
       endpoint,
       request,
-    }),
+    }).catch(rethrowFriendly),
     ...(desktop ? { unload: (endpoint: string, model: string) => invokeTauri<void>('translation_unload', { endpoint, model }) } : {}),
-    translateExternal: (request) => desktop
+    translateExternal: (request) => (desktop
       ? invokeTauri<TranslationResult>('translation_external_generate', { request })
       : options.developmentFetch
         ? fetchExternalGenerate(options.fetch ?? globalThis.fetch, request)
-        : Promise.reject(browserPreviewDisabledError()),
+        : Promise.reject(browserPreviewDisabledError())).catch(rethrowFriendly),
   }
+}
+
+function rethrowFriendly(error: unknown): never {
+  throw new Error(friendlyTranslationError(error))
 }
 
 interface RawTranslationStatus {

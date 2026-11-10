@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use reqwest::{redirect::Policy, Client, Response, Url};
 use serde::{Deserialize, Serialize};
 
+const GOOGLE_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 pub const MAX_TRANSLATION_SCALARS: usize = 20_000;
 const STATUS_TIMEOUT: Duration = Duration::from_secs(5);
 const GENERATE_TIMEOUT: Duration = Duration::from_secs(120);
@@ -510,6 +511,8 @@ impl OllamaClient {
             .generate_client
             .post(url)
             .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+            // User-Agent 가 없으면(reqwest 기본) 웹 번역이 아닌 봇으로 보여 쉽게 429 를 받는다
+            .header("User-Agent", GOOGLE_USER_AGENT)
             .body(body)
             .send()
             .await
@@ -937,28 +940,31 @@ async fn external_response_body(response: Response) -> Result<String, String> {
     if status.is_success() {
         return Ok(body);
     }
-    let detail = serde_json::from_str::<serde_json::Value>(&body)
+    Err(external_http_error(status.as_u16(), &body))
+}
+
+/// 외부 번역 API 가 실패 응답을 줬을 때 화면에 보일 짧은 문장. 응답 본문(HTML 오류 페이지 등)은 싣지 않는다.
+/// 제공자가 JSON 으로 준 짧은 한 줄 설명(error.message)만 덧붙인다.
+pub fn external_http_error(status: u16, body: &str) -> String {
+    match status {
+        429 => return tr!("번역 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.", "Too many translation requests. Please try again in a moment."),
+        401 | 403 => return tr!(
+            "번역 서비스가 요청을 받아 주지 않았습니다 (HTTP {status}). API key 와 권한을 확인하세요.",
+            "The translation service refused the request (HTTP {status}). Check the API key and permissions."
+        ),
+        _ => {}
+    }
+    let detail = serde_json::from_str::<serde_json::Value>(body)
         .ok()
-        .and_then(|value| {
-            value
-                .get("error")?
-                .get("message")?
-                .as_str()
-                .map(str::to_owned)
-        })
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| body.trim().to_owned());
-    let detail = if detail.is_empty() {
-        tr!("응답 본문이 없습니다.", "The response body is empty.")
-    } else {
-        detail
-    };
-    Err(tr!(
-        "외부 번역 API 요청에 실패했습니다 (HTTP {}): {}",
-        "External translation API request failed (HTTP {}): {}",
-        status.as_u16(),
-        detail
-    ))
+        .and_then(|value| value.get("error")?.get("message")?.as_str().map(|m| m.split_whitespace().collect::<Vec<_>>().join(" ")))
+        .filter(|value| !value.is_empty() && value.chars().count() <= 160 && !value.contains('<'));
+    match detail {
+        Some(detail) => tr!(
+            "번역 요청에 실패했습니다 (HTTP {status}): {detail}",
+            "The translation request failed (HTTP {status}): {detail}"
+        ),
+        None => tr!("번역 요청에 실패했습니다 (HTTP {status}).", "The translation request failed (HTTP {status})."),
+    }
 }
 
 pub fn parse_tags_response(body: &str) -> Result<Vec<OllamaModel>, String> {
@@ -1335,4 +1341,17 @@ mod cloud_translator_tests {
         assert_eq!(deepl.translated_text, "안녕");
         assert!(parse_deepl_translation_response(r#"{"translations":[]}"#, 1).is_err());
     }
-}
+}    #[test]
+    fn external_http_errors_never_carry_a_response_body() {
+        let html = "<!DOCTYPE html><html><body><h1>Error 429</h1><p>Quota exceeded or too many requests</p></body></html>";
+        let message = crate::translation::external_http_error(429, html);
+        assert!(!message.contains('<') && message.chars().count() < 80, "{message}");
+        let message = crate::translation::external_http_error(503, html);
+        assert!(message.contains("503") && !message.contains('<') && !message.contains("Error 429"), "{message}");
+        let json = r#"{"error":{"message":"model not found"}}"#;
+        assert!(crate::translation::external_http_error(404, json).contains("model not found"));
+        let long = format!(r#"{{"error":{{"message":"{}"}}}}"#, "x".repeat(500));
+        assert!(crate::translation::external_http_error(400, &long).chars().count() < 80);
+    }
+
+

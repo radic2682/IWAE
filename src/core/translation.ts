@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 export type TranslationModelMode = 'auto' | '4b' | '12b' | '27b' | 'custom'
 export type TranslationExecutionMode = 'auto' | 'cpu' | 'gpu' | 'external-api'
 export type LocalTranslationExecutionMode = Exclude<TranslationExecutionMode, 'external-api'>
@@ -109,4 +110,20 @@ export function createBenchmarkCacheKey(
     .sort((left, right) => left.localeCompare(right))
     .join(',')
   return `iwae:translation-benchmark:v1:${endpoint}|${deviceKey}|${modelVersions}`
+}
+
+/**
+ * 번역 실패 문구를 화면에 보여도 되는 짧은 한두 줄로 줄인다.
+ * 제공자 응답 본문(HTML 오류 페이지 등)이 섞여 와도 그대로 싣지 않는다.
+ */
+export function friendlyTranslationError(raw: unknown): string {
+  const message = (raw instanceof Error ? raw.message : String(raw)).trim()
+  const status = /\bHTTP\s+(\d{3})\b/i.exec(message)?.[1]
+  const looksLikeMarkup = /<\/?[a-z!][^>]*>/i.test(message)
+  if (status === '429' || (looksLikeMarkup && /too many requests|quota exceeded/i.test(message))) {
+    return t('번역 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.')
+  }
+  if (!looksLikeMarkup && message.length <= 240) return message
+  if (status !== undefined) return t('번역 요청에 실패했습니다 (HTTP {status}).', { status })
+  return t('번역 요청에 실패했습니다. 잠시 뒤 다시 시도해 주세요.')
 }

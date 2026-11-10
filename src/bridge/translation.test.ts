@@ -225,3 +225,30 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { 'Content-Type': 'application/json' },
   })
 }
+
+describe('번역 실패 문구', () => {
+  const html = '<!DOCTYPE html><html><head><title>Error 429</title></head><body><h1>Error</h1><p>Quota exceeded or too many requests</p>' + 'x'.repeat(3000) + '</body></html>'
+
+  it('제공자의 HTML 오류 페이지는 짧은 안내 문장으로 바뀐다', async () => {
+    const { friendlyTranslationError } = await import('../core/translation')
+    const message = friendlyTranslationError(new Error(`외부 번역 API 요청에 실패했습니다 (HTTP 429): ${html}`))
+    expect(message).not.toContain('<')
+    expect(message.length).toBeLessThan(80)
+    const other = friendlyTranslationError(`The translation request failed (HTTP 503): ${html.replace('Quota exceeded or too many requests', 'Bad gateway')}`)
+    expect(other).toContain('503')
+    expect(other).not.toContain('<')
+    expect(friendlyTranslationError(html)).not.toContain('<')
+    expect(friendlyTranslationError(new Error('모델을 찾지 못했습니다'))).toBe('모델을 찾지 못했습니다')
+  })
+
+  it('외부 번역이 거절돼도 화면에는 본문 없이 짧은 문장만 전달된다', async () => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })
+    const invoke = vi.fn().mockRejectedValue(html)
+    vi.doMock('@tauri-apps/api/core', () => ({ invoke }))
+    const provider = createOllamaTranslationProvider()
+    const failure = await provider.translateExternal!({ provider: 'google', endpoint: 'https://translate.googleapis.com', apiKey: '', model: '', text: 'hi', targetLanguage: 'ko' }).catch((e: Error) => e)
+    expect(failure).toBeInstanceOf(Error)
+    expect((failure as Error).message).not.toContain('<')
+    expect((failure as Error).message.length).toBeLessThan(120)
+  })
+})
