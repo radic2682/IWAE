@@ -4,27 +4,7 @@
  * 내 메모는 틀 없이 캔버스에 바로 쓴 글처럼 보인다. 형광펜과 메모를 잇는 선도 여기서 정한다.
  */
 
-:root {
-  --hl-yellow: rgb(255 214 0 / 46%);
-  --hl-green: rgb(70 214 110 / 40%);
-  --hl-blue: rgb(80 165 255 / 38%);
-  --hl-pink: rgb(255 105 165 / 38%);
-  --hl-yellow-ink: #b8911a;
-  --hl-green-ink: #2f9358;
-  --hl-blue-ink: #2f78c4;
-  --hl-pink-ink: #c4467c;
-  --hl-yellow-solid: #ffd60a;
-  --hl-green-solid: #4cd47a;
-  --hl-blue-solid: #5aa9ff;
-  --hl-pink-solid: #ff6fa8;
-  --clip-paper: #ffffff;
-  --clip-shadow: 0 1px 2px rgb(60 45 20 / 18%), 0 6px 16px rgb(60 45 20 / 10%);
-}
-
-:root[data-theme='dark'] {
-  --clip-paper: #f4f1ea;
-  --clip-shadow: 0 1px 2px rgb(0 0 0 / 50%), 0 8px 20px rgb(0 0 0 / 35%);
-}
+/* 형광펜·종이 조각 색 토큰은 color-tokens.css 에 있다 */
 
 /* ---------- 원문 발췌 = 종이 조각 ---------- */
 .note-canvas .react-flow__node .canvas-block-shell.canvas-block-pdfExcerpt,
@@ -198,7 +178,7 @@
   width: 16px;
   height: 16px;
   padding: 0;
-  border: 1px solid rgb(0 0 0 / 14%);
+  border: 1px solid rgb(var(--rgb-black) / 14%);
   border-radius: 50%;
 }
 

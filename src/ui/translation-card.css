@@ -11,7 +11,7 @@
   border-radius: var(--r-md);
   background: var(--paper);
   color: var(--text-strong);
-  box-shadow: 0 12px 32px rgb(0 0 0 / .32);
+  box-shadow: 0 12px 32px rgb(var(--rgb-black) / .32);
   font-size: 12.5px;
   text-align: left;
   user-select: text;
@@ -143,7 +143,7 @@
   border: 1px solid var(--divider);
   border-radius: var(--r-md);
   background: var(--paper);
-  box-shadow: 0 12px 32px rgb(0 0 0 / .32);
+  box-shadow: 0 12px 32px rgb(var(--rgb-black) / .32);
 }
 
 .translation-card-menu > button {

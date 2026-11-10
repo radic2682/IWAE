@@ -4,24 +4,24 @@
 .pdf-overlay-layer-edit[data-overlay-tool='text'] { cursor: text; }
 .pdf-overlay-lines { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .pdf-overlay-line-hit { stroke: transparent; stroke-width: 14px; stroke-linecap: round; pointer-events: stroke; cursor: move; }
-.pdf-overlay-line-selected line:not(.pdf-overlay-line-hit) { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent, #3b82f6) 80%, transparent)); }
+.pdf-overlay-line-selected line:not(.pdf-overlay-line-hit) { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 80%, transparent)); }
 .pdf-overlay-line-preview { opacity: .75; }
 /* 도형: 테두리를 눌러 고르고 끈다(칠한 도형은 안쪽도). 빈 도형 안쪽은 새로 그릴 수 있게 비운다 */
 .pdf-overlay-shape-hit { stroke-linejoin: round; }
 .pdf-overlay-shape-filled .pdf-overlay-shape-hit { pointer-events: all; }
-.pdf-overlay-line-selected :is(rect, ellipse):not(.pdf-overlay-line-hit) { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent, #3b82f6) 80%, transparent)); }
+.pdf-overlay-line-selected :is(rect, ellipse):not(.pdf-overlay-line-hit) { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 80%, transparent)); }
 .pdf-overlay-shape-resize { cursor: nwse-resize; }
-.pdf-overlay-handle { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 2px; pointer-events: all; cursor: grab; }
+.pdf-overlay-handle { fill: var(--on-solid); stroke: var(--accent); stroke-width: 2px; pointer-events: all; cursor: grab; }
 
 .pdf-overlay-text { position: absolute; box-sizing: border-box; min-height: 1.2em; padding: 1px 3px; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; }
 .pdf-overlay-layer-edit .pdf-overlay-text { pointer-events: auto; cursor: move; }
 .pdf-overlay-text-border { border: 1px solid currentColor; border-radius: 2px; }
-.pdf-overlay-text-selected { outline: 1.5px dashed var(--accent, #3b82f6); outline-offset: 1px; }
+.pdf-overlay-text-selected { outline: 1.5px dashed var(--accent); outline-offset: 1px; }
 .pdf-overlay-text-editing { cursor: text !important; }
 .pdf-overlay-text-body { display: block; }
 .pdf-overlay-editor { min-height: 1.2em; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; caret-color: currentColor; }
 .pdf-overlay-resize { position: absolute; top: 0; right: -4px; bottom: 0; width: 8px; cursor: ew-resize; touch-action: none; }
-.pdf-overlay-resize::after { content: ''; position: absolute; top: 50%; right: 2px; width: 4px; height: 14px; border-radius: 2px; background: var(--accent, #3b82f6); transform: translateY(-50%); }
+.pdf-overlay-resize::after { content: ''; position: absolute; top: 50%; right: 2px; width: 4px; height: 14px; border-radius: 2px; background: var(--accent); transform: translateY(-50%); }
 
 /* 속성 막대(고른 덮개 위) */
 .pdf-overlay-bar {
@@ -33,18 +33,18 @@
   padding: 3px 5px;
   border: 1px solid var(--divider-strong);
   border-radius: var(--r-md);
-  background: var(--paper, #fff);
-  color: var(--text-strong, #111);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 30%);
+  background: var(--paper);
+  color: var(--text-strong);
+  box-shadow: 0 4px 14px rgb(var(--rgb-black) / 30%);
   pointer-events: auto;
   cursor: default;
 }
 .pdf-overlay-colors { display: inline-flex; gap: 3px; margin-right: 4px; }
-.pdf-overlay-color { width: 14px; height: 14px; padding: 0; border: 1px solid rgb(128 128 128 / 55%); border-radius: 50%; cursor: pointer; }
-.pdf-overlay-color-on { box-shadow: 0 0 0 2px var(--accent, #3b82f6); }
+.pdf-overlay-color { width: 14px; height: 14px; padding: 0; border: 1px solid rgb(var(--rgb-gray) / 55%); border-radius: 50%; cursor: pointer; }
+.pdf-overlay-color-on { box-shadow: 0 0 0 2px var(--accent); }
 .pdf-overlay-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; min-width: 22px; height: 22px; padding: 0 4px; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
 .pdf-overlay-btn:hover { background: var(--chrome-hover); }
-.pdf-overlay-btn-on { background: var(--selected-bg, var(--chrome-hover)); box-shadow: inset 0 0 0 1px var(--accent, #3b82f6); }
+.pdf-overlay-btn-on { background: var(--selected-bg, var(--chrome-hover)); box-shadow: inset 0 0 0 1px var(--accent); }
 .pdf-overlay-size { min-width: 18px; font-size: 11.5px; font-weight: 600; text-align: center; }
 .pdf-overlay-width i { display: block; width: 14px; background: currentColor; border-radius: 1px; }
 .pdf-overlay-delete { margin-left: 3px; }
@@ -69,7 +69,7 @@
   border-radius: var(--r-md);
   background: var(--chrome);
   color: var(--text-strong);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 32%);
+  box-shadow: 0 8px 22px rgb(var(--rgb-black) / 32%);
   font-size: 12.5px;
   white-space: nowrap;
 }
@@ -82,12 +82,12 @@
 .pdf-overlay-palette .pdf-overlay-size { min-width: 22px; font-size: 12.5px; }
 .pdf-overlay-palette .pdf-overlay-width i { width: 16px; }
 .pdf-overlay-done { gap: 4px; padding: 0 10px !important; font-weight: 600; }
-.pdf-overlay-fill { flex: 0 0 auto; width: 18px; height: 18px; padding: 0; border: 1px solid rgb(128 128 128 / 60%); border-radius: var(--r-xs); cursor: pointer; }
-.pdf-overlay-fill-none { background: linear-gradient(to top right, transparent calc(50% - 1px), #d9363e calc(50% - 1px), #d9363e calc(50% + 1px), transparent calc(50% + 1px)) !important; }
+.pdf-overlay-fill { flex: 0 0 auto; width: 18px; height: 18px; padding: 0; border: 1px solid rgb(var(--rgb-gray) / 60%); border-radius: var(--r-xs); cursor: pointer; }
+.pdf-overlay-fill-none { background: linear-gradient(to top right, transparent calc(50% - 1px), var(--annot-red) calc(50% - 1px), var(--annot-red) calc(50% + 1px), transparent calc(50% + 1px)) !important; }
 .pdf-overlay-fills { gap: 4px; margin: 0 2px; }
 .pdf-overlay-border-icon { display: block; width: 13px; height: 13px; border: 1.6px solid currentColor; border-radius: 2px; }
 .pdf-overlay-dash-icon { display: block; width: 16px; height: 0; border-top: 2px dashed currentColor; }
-.pdf-overlay-delete:hover { color: var(--danger, #e5534b); }
+.pdf-overlay-delete:hover { color: var(--danger); }
 .pdf-box-palette-label { flex: 0 0 auto; padding: 0 2px; font-weight: 700; }
 .pdf-box-palette-hint { flex: 0 0 auto; padding: 0 4px; }
 .pdf-box-format-slot { display: flex; align-items: center; min-width: 0; }
@@ -128,10 +128,10 @@
 .doc-strip-swatches { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; padding: 0 2px; }
 .doc-strip-swatch {
   position: relative; flex: 0 0 auto; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 22%); cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgb(var(--rgb-black) / 22%); cursor: pointer;
 }
 .doc-strip-swatch-on { box-shadow: 0 0 0 2px var(--workspace), 0 0 0 3.5px var(--accent); }
-.doc-strip-swatch-custom { background: conic-gradient(#f44, #fb3, #4c4, #3cf, #46f, #c4f, #f44); overflow: hidden; }
+.doc-strip-swatch-custom { background: var(--swatch-rainbow); overflow: hidden; }
 .doc-strip-swatch-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .doc-strip-seg { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 2px; border-radius: var(--r-md); background: color-mix(in srgb, var(--text-strong) 7%, transparent); }
 .doc-strip-opt, .doc-strip-toggle {
@@ -144,7 +144,7 @@
 .doc-strip-line { display: block; width: 16px; height: 2px; border-radius: 2px; background: currentColor; }
 .doc-strip-line-dash { background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 8px); }
 .doc-strip-line-dot { height: 2.5px; background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 50% / 4px 3px repeat-x; }
-.doc-strip-fill { display: block; width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 25%); }
+.doc-strip-fill { display: block; width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(var(--rgb-black) / 25%); }
 .doc-strip-fill-none { font-size: 11px; font-weight: 650; }
 .doc-format-strip .doc-strip-select { flex: 0 0 auto; width: 86px; }
 .doc-format-strip .doc-strip-select button { height: 28px; }
@@ -168,7 +168,7 @@
 .pdf-overlay-mini {
   position: absolute; z-index: 6; display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 4px;
   border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper); color: var(--text-strong);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 22%); pointer-events: auto;
+  box-shadow: 0 8px 22px rgb(var(--rgb-black) / 22%); pointer-events: auto;
 }
 .pdf-overlay-mini-btn { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
 .pdf-overlay-mini-btn:hover { background: var(--chrome-hover); }
@@ -178,9 +178,9 @@
 .pdf-overlay-mini-dash { display: block; width: 14px; height: 2px; background: currentColor; }
 .pdf-overlay-mini-dash-dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); }
 .pdf-overlay-mini-dash-dot { height: 2.5px; background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 50% / 4px 3px repeat-x; }
-.pdf-overlay-corner { fill: #fff; stroke: var(--accent, #3b82f6); stroke-width: 2px; pointer-events: all; }
+.pdf-overlay-corner { fill: var(--on-solid); stroke: var(--accent); stroke-width: 2px; pointer-events: all; }
 .pdf-overlay-corner-nw, .pdf-overlay-corner-se { cursor: nwse-resize; }
 .pdf-overlay-corner-ne, .pdf-overlay-corner-sw { cursor: nesw-resize; }
-.pdf-overlay-text-preview { fill: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent); stroke: var(--accent, #3b82f6); stroke-width: 1.5px; stroke-dasharray: 5 4; }
+.pdf-overlay-text-preview { fill: color-mix(in srgb, var(--accent) 8%, transparent); stroke: var(--accent); stroke-width: 1.5px; stroke-dasharray: 5 4; }
 .pdf-overlay-resize-left { right: auto; left: -4px; }
 .pdf-overlay-resize-left::after { right: auto; left: 2px; }

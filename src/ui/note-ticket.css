@@ -47,11 +47,11 @@
   background: var(--paper); color: var(--text-strong);
   font: inherit; font-size: 11.5px; font-weight: 700;
 }
-.note-ticket-id-input[aria-invalid='true'] { border-color: var(--danger, #d1242f); }
+.note-ticket-id-input[aria-invalid='true'] { border-color: var(--danger); }
 .note-ticket-id-suggest {
   position: absolute; z-index: 20; top: 24px; left: 0; display: grid; min-width: 160px; padding: 4px;
   border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+  box-shadow: 0 8px 24px rgb(var(--rgb-black) / 16%);
 }
 .note-ticket-id-suggest button {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 28px; padding: 0 8px;
@@ -61,7 +61,7 @@
 .note-ticket-id-suggest button span { font-size: 11.5px; font-weight: 500; }
 .note-ticket-id-suggest button:hover,
 .note-ticket-id-suggest .note-ticket-id-suggest-on { background: var(--chrome-hover); }
-.note-ticket-id-warn { margin: 0; color: var(--danger, #d1242f); font-size: 12px; font-weight: 600; }
+.note-ticket-id-warn { margin: 0; color: var(--danger); font-size: 12px; font-weight: 600; }
 
 /* 호버 탭(Jira 카드처럼): 테두리가 형광펜 색이 되고, 위 테두리 양 끝에 출처 탭(왼쪽)과 단추 탭(오른쪽)이 붙는다.
    테두리는 border 가 아니라 안쪽 box-shadow 로 그린다: border 폭은 화면 배율·글자 배율에서 기기 픽셀로 깎여
@@ -88,7 +88,7 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .note-block.pdf-memo-card-flow:not(.note-text-card).note-block-selected:is(:hover, :focus-within):not(.pdf-memo-card-dragging) { box-shadow: inset 0 0 0 var(--memo-border) var(--accent) !important; }
 .note-tab {
   position: relative; display: flex; align-items: stretch; height: 22px;
-  background: var(--memo-ink); color: #fff; border-radius: 7px 7px 0 0;
+  background: var(--memo-ink); color: var(--on-solid); border-radius: 7px 7px 0 0;
 }
 .note-tab-l { flex: 0 1 auto; min-width: 0; }
 .note-tab-l > span {
@@ -106,14 +106,14 @@ body.note-block-dragging .note-block-tabs { display: none; }
 }
 .note-tab-btn {
   display: flex; align-items: center; justify-content: center; height: 22px; padding: 0 9px; margin: 0;
-  border: 0; border-radius: 0; background: transparent; color: #fff; cursor: pointer;
+  border: 0; border-radius: 0; background: transparent; color: var(--on-solid); cursor: pointer;
   font: inherit; font-size: 11.5px; font-weight: 650; white-space: nowrap;
 }
-.note-tab-btn + .note-tab-btn { box-shadow: inset 1px 0 0 rgb(255 255 255 / 30%); }
+.note-tab-btn + .note-tab-btn { box-shadow: inset 1px 0 0 rgb(var(--rgb-white) / 30%); }
 .note-tab-btn:first-child { border-top-left-radius: 7px; }
 .note-tab-btn:last-child { border-top-right-radius: 7px; }
 .note-tab-more { padding: 0 8px; }
-.note-tab-btn:is(:hover, :focus-visible) { outline: none; background: rgb(255 255 255 / 20%); }
+.note-tab-btn:is(:hover, :focus-visible) { outline: none; background: rgb(var(--rgb-white) / 20%); }
 @media (prefers-reduced-motion: reduce) { .note-block-tabs { transition: none; } }
 
 /* 원문(출처): 맨 아래. 형광펜 색 점 + 따옴표 한 줄 + 쪽 번호. 색 띠 없이 */
@@ -124,12 +124,12 @@ body.note-block-dragging .note-block-tabs { display: none; }
 }
 .note-block .note-source-chip::before,
 .note-block .pdf-memo-card-quote.note-source::before {
-  content: ''; flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--memo-dot, #f2c418);
+  content: ''; flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--memo-dot, var(--memo-dot-yellow));
 }
-.note-block .pdf-memo-card-quote-yellow { --memo-dot: #f2c418; }
-.note-block .pdf-memo-card-quote-green { --memo-dot: #3fc06f; }
-.note-block .pdf-memo-card-quote-blue { --memo-dot: #4b9cf0; }
-.note-block .pdf-memo-card-quote-pink { --memo-dot: #f0609e; }
+.note-block .pdf-memo-card-quote-yellow { --memo-dot: var(--memo-dot-yellow); }
+.note-block .pdf-memo-card-quote-green { --memo-dot: var(--memo-dot-green); }
+.note-block .pdf-memo-card-quote-blue { --memo-dot: var(--memo-dot-blue); }
+.note-block .pdf-memo-card-quote-pink { --memo-dot: var(--memo-dot-pink); }
 .note-block .note-source-chip .note-source-expand { display: none; }
 .note-block .note-source-chip .note-source-expand:focus-visible { display: inline-grid; }
 .note-block .note-source-chip .note-source-page,
@@ -171,7 +171,7 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .pane-doc .note-format-dock { min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 
 /* ---------- 블록 단추(+ ID · + 제목 · 메모 쓰기 · …)는 블록 위 테두리에 걸쳐 바깥으로 띄운다(글을 가리지 않게) ---------- */
-.pane-doc .note-block > .note-block-menu { top: -15px; right: 8px; box-shadow: 0 0 0 1px var(--divider-strong), 0 2px 6px rgb(0 0 0 / 10%); }
+.pane-doc .note-block > .note-block-menu { top: -15px; right: 8px; box-shadow: 0 0 0 1px var(--divider-strong), 0 2px 6px rgb(var(--rgb-black) / 10%); }
 
 /* 맨 아래 빈 곳 안내: 회색 대신 같은 글자색 */
 .pane-doc .note-tail span { color: var(--text-strong); }
@@ -191,20 +191,20 @@ body.note-block-dragging .note-block-tabs { display: none; }
 
 /* ---------- Markdown 영역 메모 ---------- */
 /* 문서 위: PDF 영역 메모와 같은 옅은 바탕 + 얇은 선 + 귀퉁이 꺾쇠(곱하기 층 안이라 글자는 그대로) */
-.markdown-mark-region-group { --hl-fill: #ffe38c; --hl-edge: #e3b43c; }
-.markdown-mark-region-group[data-highlight-color='green'] { --hl-fill: #b9ebc6; --hl-edge: #4fb06c; }
-.markdown-mark-region-group[data-highlight-color='blue'] { --hl-fill: #c3defc; --hl-edge: #5d9be3; }
-.markdown-mark-region-group[data-highlight-color='pink'] { --hl-fill: #fcc6dc; --hl-edge: #de6f9c; }
-.markdown-mark-region { fill: color-mix(in srgb, var(--hl-fill) 14%, #fff); stroke: color-mix(in srgb, var(--hl-edge) 45%, #fff); stroke-width: 1px; }
+.markdown-mark-region-group { --hl-fill: var(--hl-soft-yellow); --hl-edge: var(--hl-edge-yellow); }
+.markdown-mark-region-group[data-highlight-color='green'] { --hl-fill: var(--hl-soft-green); --hl-edge: var(--hl-edge-green); }
+.markdown-mark-region-group[data-highlight-color='blue'] { --hl-fill: var(--hl-soft-blue); --hl-edge: var(--hl-edge-blue); }
+.markdown-mark-region-group[data-highlight-color='pink'] { --hl-fill: var(--hl-soft-pink); --hl-edge: var(--hl-edge-pink); }
+.markdown-mark-region { fill: color-mix(in srgb, var(--hl-fill) 14%, var(--mix-white)); stroke: color-mix(in srgb, var(--hl-edge) 45%, var(--mix-white)); stroke-width: 1px; }
 .markdown-mark-corners { fill: none; stroke: var(--hl-edge); stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; }
 /* 노트 카드: 잡아 둔 블록을 같은 종이 폭으로 놓고 네모만큼 잘라 카드 폭에 맞춘다 */
 .markdown-region-crop {
-  --md-background: #ffffff; --md-foreground: #202124; --md-muted: #6b7280; --md-border: #e5e7eb; --md-link: #2563eb; --md-code-background: #f4f5f7; --md-quote-border: #a8b0bb;
+  --md-background: var(--md-default-bg); --md-foreground: var(--md-default-fg); --md-muted: var(--md-default-muted); --md-border: var(--md-default-border); --md-link: var(--md-default-link); --md-code-background: var(--md-default-code-bg); --md-quote-border: var(--md-default-quote-border);
   position: relative; width: 100%; overflow: hidden; border-radius: var(--r-sm); background: var(--md-background); color: var(--md-foreground); box-shadow: 0 0 0 1px var(--divider);
 }
 .pane-doc .markdown-region-crop .markdown-pane.markdown-region-crop-paper {
   position: absolute; z-index: auto; height: auto; overflow: visible; padding: 0; margin: 0;
-  background: var(--md-background, #fff); transform-origin: 0 0; pointer-events: none; user-select: none;
+  background: var(--md-background); transform-origin: 0 0; pointer-events: none; user-select: none;
 }
 .pane-doc .markdown-region-crop .markdown-pane.markdown-region-crop-paper > * { zoom: 1; max-width: none; margin: 0; }
 .markdown-region-crop-body > :first-child { margin-top: 0 !important; }
@@ -235,12 +235,12 @@ body.note-block-dragging .note-block-tabs { display: none; }
   background: var(--memo-chip-bg, var(--paper)); color: var(--text-strong);
   font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere;
 }
-.note-block .note-source-translation-error { color: var(--danger, #d1242f); }
+.note-block .note-source-translation-error { color: var(--danger); }
 
 /* 영역 원문(OCR 글자 있음)의 번역 단추: 그림 오른쪽 위 */
 .note-source-region { position: relative; }
 .note-region-translate { position: absolute; top: 6px; right: 6px; z-index: 1; display: flex; }
-.note-region-translate .note-source-translate { background: var(--paper); box-shadow: 0 1px 4px rgb(0 0 0 / 18%); }
+.note-region-translate .note-source-translate { background: var(--paper); box-shadow: 0 1px 4px rgb(var(--rgb-black) / 18%); }
 
 /* 호버 탭(22px)이 위 카드에 겹치지 않게: 블록 사이 간격 = 탭 높이 + 2px */
 .pane-doc .note-gap { margin-block: 0; height: 24px; }

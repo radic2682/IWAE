@@ -1,0 +1,177 @@
+/* 색 토큰 — 하드코딩된 색을 한 곳에 모은다(tokens.css·app-themes.css 와 함께 "토큰 파일").
+   색이 필요한 CSS 는 #hex·rgb() 를 직접 쓰지 않고 여기 이름을 쓴다. 이 파일은 시드 토큰을
+   :root 인라인 스타일로 덮는 사용자 지정 테마의 대상이기도 하다.
+   값은 리팩터 전 각 파일에 있던 값 그대로다(화면이 같아야 한다). 라이트/다크가 다른 값만 다크 블록에 둔다. */
+
+:root {
+  /* ── 고정 흰/검정 ── */
+  --page-white: #fff;       /* PDF·Markdown 종이 바탕. 앱 테마와 무관하게 늘 흰색 */
+  --on-solid: #fff;         /* 진한 면(위험·메모 탭·창 닫기·선택 행) 위 글자·선 */
+  --mix-white: #fff;        /* color-mix 로 옅게 만들 때 섞는 흰색 */
+  --mix-black: #000;        /* color-mix 로 호버를 어둡게 만들 때 섞는 검정 */
+  --page-ink: #202124;      /* 종이 썸네일 글자 */
+
+  /* 그림자·막(scrim) 색 성분. rgb(var(--rgb-black) / 28%) 처럼 알파만 따로 쓴다 */
+  --rgb-black: 0 0 0;
+  --rgb-white: 255 255 255;
+  --rgb-gray: 128 128 128;
+  --rgb-cool: 18 24 33;     /* 푸른 먹색 그림자 */
+  --rgb-navy: 9 30 66;      /* 팝오버 테두리·그림자 */
+  --rgb-slate: 20 24 31;    /* 설정 대화상자 막 */
+  --rgb-night: 12 16 22;    /* 확인 대화상자 막 */
+  --rgb-deep: 8 18 28;      /* 호버 탭 그림자 */
+  --rgb-tool-shadow: 71 54 10; /* 형광펜 도구가 켜졌을 때 그림자 */
+
+  /* ── 상태·표시 ── */
+  --draw-red: #ef4444;      /* 캔버스 그리기 미리보기·기본 빨간 테두리 */
+  --redact-fill: #111111;   /* 가리기 상자 칠 */
+  --annot-red: #d9363e;     /* PDF 그리기 기본 빨강, 바뀐 글 비교(삭제) */
+  --annot-green: #188038;   /* 바뀐 글 비교(추가) */
+  --annot-print-line: rgb(64 128 255 / .55);
+  --status-ok: #18794e;     /* 번역 모듈 설치됨(라이트) */
+  --focus-blue: #2f6feb;    /* 형광펜 색 선택 표시 */
+  --focus-brand: #638598;   /* 사이드바 브랜드 단추 포커스 */
+  --star-fav: #e5b954;      /* 검색 즐겨찾기 별 */
+  --star-on: #f5b301;       /* 메모 별(중요) */
+  --match-em: #e59a8d;      /* 검색 결과 강조 */
+  --winclose: #e5484d;
+  --winclose-active: #c93b40;
+
+  /* 글에서 찾은 결과 표시 */
+  --search-mark: #ffe26a;
+  --search-mark-strong: #ffd84d;
+  --on-search-mark: #111;
+  --source-hl-fill: #cddfff;
+  --search-hit-fill: #ffe6c2;
+  --search-hit-active-fill: #ffbf73;
+  --drop-target-fill: rgb(115 183 255 / .24);
+  --drop-target-edge: rgb(147 201 255 / .5);
+
+  /* 둥근 알림·말풍선(어두운 면 위 밝은 글. 테마와 무관) */
+  --inverse-surface: #242424;
+  --inverse-ink: #f2f2f2;
+  --inverse-surface-glass: rgb(20 20 20 / 88%);
+  --inverse-ink-soft: #f4f4f4;
+
+  /* PDF 보기 배경(눈 보호) */
+  --tone-night: #1e1e1e;
+  --tone-sepia: #f4e7c8;
+  --tone-green: #cfe8cf;
+
+  /* PDF 위 도구 상자 색(형광펜 켜짐/지우개 켜짐) */
+  --tool-hl-active-border: #b78a16;
+  --tool-hl-active-bg: rgb(255 238 145 / 96%);
+  --tool-hl-active-ink: #5b4306;
+  --tool-hl-active-ring: rgb(236 188 42 / 24%);
+  --tool-erase-active-border: #7b8796;
+  --tool-erase-active-bg: rgb(240 243 247 / 96%);
+  --tool-erase-active-ink: #29313a;
+
+  /* 검색·도구 상자의 라이트 전용 회색(다크에서도 같은 값이 쓰인다. 테마화 대상) */
+  --ctl-ink: #343a43;
+  --ctl-border: #b8c1cc;
+  --ctl-hover-bg: #e7ecf2;
+  --ctl-chip-bg: #edf1f5;
+  --ctl-chip-ink: #49515b;
+  --tree-ink: #2e343c;
+  --tree-hover-bg: #e9edf2;
+  --tree-chevron: #727b86;
+  --tree-btn-hover-bg: #dfe5eb;
+  --top-btn-ink: #e6e6e6;
+  --top-btn-ink-2: #d5d5d5;
+
+  /* 박스 메모·메모 바 안의 "늘 밝은 종이" 카드가 안쪽에서 다시 정하는 값 */
+  --card-light-paper: #ffffff;
+  --card-light-ink: #1d1d1f;
+  --card-light-strong: #111111;
+  --card-light-muted: #45464a;
+  --card-light-divider: #dedcd6;
+  --card-light-hover: #ebe9e3;
+  --card-light-quote-bg: #efede6;
+  --card-light-glyph: #333;
+  --card-light-text: #111;
+  --card-light-dim: #555;
+
+  /* Markdown 종이(캡처 카드) 기본 색. 앱 테마와 무관 */
+  --md-default-bg: #ffffff;
+  --md-default-fg: #202124;
+  --md-default-muted: #6b7280;
+  --md-default-border: #e5e7eb;
+  --md-default-link: #2563eb;
+  --md-default-code-bg: #f4f5f7;
+  --md-default-quote-border: #a8b0bb;
+
+  /* 다크에서 메모 글씨(GitHub 기본 색)를 읽기 좋게 바꾼 값 */
+  --syn-dark-red: #ff7b72;
+  --syn-dark-orange: #ffa657;
+  --syn-dark-green: #56d364;
+  --syn-dark-blue: #79c0ff;
+  --syn-dark-purple: #d2a8ff;
+  --syn-ink-on-fill: #1f1f1f;
+  --syn-light-ink: rgb(31, 35, 40);
+  --syn-light-red: rgb(207, 34, 46);
+  --syn-light-orange: rgb(188, 76, 0);
+  --syn-light-green: rgb(26, 127, 55);
+  --syn-light-blue: rgb(9, 105, 218);
+  --syn-light-purple: rgb(130, 80, 223);
+
+  --swatch-rainbow: conic-gradient(#f44, #fb3, #4c4, #3cf, #46f, #c4f, #f44);
+
+  /* ── 형광펜 색(노랑·초록·파랑·분홍) ──
+     색마다 쓰임이 달라 값이 여러 벌이다. 사용자 지정 형광펜 색은 이 이름들을 런타임에 만들어 낸다
+     (theme/color-inventory.md 의 "형광펜 데이터화 계획" 참고). */
+  --hl-yellow: rgb(255 214 0 / 46%);        /* 캔버스 발췌 형광 칠 */
+  --hl-green: rgb(70 214 110 / 40%);
+  --hl-blue: rgb(80 165 255 / 38%);
+  --hl-pink: rgb(255 105 165 / 38%);
+  --hl-yellow-ink: #b8911a;                 /* 읽기 좋은 진한 색(흰 글자 탭·테두리·연결선) */
+  --hl-green-ink: #2f9358;
+  --hl-blue-ink: #2f78c4;
+  --hl-pink-ink: #c4467c;
+  --hl-yellow-solid: #ffd60a;
+  --hl-green-solid: #4cd47a;
+  --hl-blue-solid: #5aa9ff;
+  --hl-pink-solid: #ff6fa8;
+  --memo-ink-yellow: var(--hl-yellow-ink);
+  --memo-ink-green: var(--hl-green-ink);
+  --memo-ink-blue: var(--hl-blue-ink);
+  --memo-ink-pink: var(--hl-pink-ink);
+  --memo-dot-yellow: #f2c418;               /* 메모 카드 앞 점 */
+  --memo-dot-green: #3fc06f;
+  --memo-dot-blue: #4b9cf0;
+  --memo-dot-pink: #f0609e;
+  --memo-quote-yellow: rgb(255 214 0 / 26%); /* 메모 카드 인용 바탕 */
+  --memo-quote-green: rgb(70 214 110 / 22%);
+  --memo-quote-blue: rgb(80 165 255 / 20%);
+  --memo-quote-pink: rgb(255 105 165 / 18%);
+  --memo-quote-wash-yellow: rgb(255 214 0 / 13%); /* 웨일 테마에서 더 옅게 */
+  --memo-quote-wash-green: rgb(70 214 110 / 12%);
+  --memo-quote-wash-blue: rgb(80 165 255 / 12%);
+  --memo-quote-wash-pink: rgb(255 105 165 / 11%);
+  --hl-edge-yellow: #e3b43c;                /* PDF·Markdown 형광 테두리, 박스 메모 색 */
+  --hl-edge-green: #4fb06c;
+  --hl-edge-blue: #5d9be3;
+  --hl-edge-pink: #de6f9c;
+  --hl-soft-yellow: #ffe38c;                /* PDF·Markdown 형광 칠(옅은 색) */
+  --hl-soft-green: #b9ebc6;
+  --hl-soft-blue: #c3defc;
+  --hl-soft-pink: #fcc6dc;
+  --hl-pdf-swatch-yellow: #f7db61;          /* PDF 형광펜 상자의 색 단추 */
+  --hl-pdf-swatch-green: #80d4a5;
+  --hl-pdf-swatch-blue: #8bbce8;
+  --hl-pdf-swatch-pink: #e9a3bc;
+  --hl-pane-swatch-yellow: #ffd84d;         /* 노트 창 형광펜 색 단추 */
+  --hl-pane-swatch-green: #7ed69a;
+  --hl-pane-swatch-blue: #8ec5ff;
+  --hl-pane-swatch-pink: #ff9fc6;
+
+  /* 캔버스 발췌 조각 */
+  --clip-paper: #ffffff;
+  --clip-shadow: 0 1px 2px rgb(60 45 20 / 18%), 0 6px 16px rgb(60 45 20 / 10%);
+}
+
+:root[data-theme='dark'] {
+  --status-ok: #4ac26b;
+  --clip-paper: #f4f1ea;
+  --clip-shadow: 0 1px 2px rgb(0 0 0 / 50%), 0 8px 20px rgb(0 0 0 / 35%);
+}

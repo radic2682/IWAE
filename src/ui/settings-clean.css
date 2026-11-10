@@ -267,7 +267,7 @@
 }
 
 /* 어두운 화면에서 초록 상태 글자가 바탕에 묻히지 않게 */
-:root[data-theme='dark'] .settings-modal .settings-modal-body :is(.translation-settings-status-online, .translation-settings-installed) { color: #4ac26b; }
+:root[data-theme='dark'] .settings-modal .settings-modal-body :is(.translation-settings-status-online, .translation-settings-installed) { color: var(--status-ok); }
 
 /* 번역 모델 받기: 받는 중임이 바로 보이게 */
 .settings-modal .settings-modal-body .translation-settings-model-row { flex-wrap: wrap; row-gap: 8px; }

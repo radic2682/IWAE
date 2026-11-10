@@ -197,10 +197,10 @@
 }
 
 .pane-doc .pdf-highlighter-floating-tool.pdf-highlighter-active {
-  border-color: #b78a16;
-  background: rgb(255 238 145 / 96%);
-  color: #5b4306;
-  box-shadow: 0 0 0 2px rgb(236 188 42 / 24%), 0 5px 16px rgb(71 54 10 / 16%);
+  border-color: var(--tool-hl-active-border);
+  background: var(--tool-hl-active-bg);
+  color: var(--tool-hl-active-ink);
+  box-shadow: 0 0 0 2px var(--tool-hl-active-ring), 0 5px 16px rgb(var(--rgb-tool-shadow) / 16%);
 }
 
 .pane-doc .selection-layer.selection-mode-highlight {
@@ -353,9 +353,9 @@
 }
 
 .pane-doc .pdf-highlighter-floating-tool.pdf-highlighter-erase-active {
-  border-color: #7b8796;
-  background: rgb(240 243 247 / 96%);
-  color: #29313a;
+  border-color: var(--tool-erase-active-border);
+  background: var(--tool-erase-active-bg);
+  color: var(--tool-erase-active-ink);
 }
 
 .pane-doc .selection-mark-layer {
@@ -436,7 +436,7 @@
   position: fixed;
   z-index: 2147483647;
   pointer-events: none;
-  filter: drop-shadow(0 12px 18px rgba(8, 18, 28, .3));
+  filter: drop-shadow(0 12px 18px rgb(var(--rgb-deep) / .3));
   transform: rotate(-2deg);
   animation: pdf-excerpt-lift 140ms cubic-bezier(.16, 1, .3, 1) both;
 }
@@ -914,7 +914,7 @@
   font-size: 12px;
   white-space: nowrap;
   text-overflow: ellipsis;
-  box-shadow: 0 8px 22px var(--shadow-floating, rgb(0 0 0 / 18%));
+  box-shadow: 0 8px 22px var(--shadow-floating);
 }
 body.internal-dragging, body.internal-dragging * { cursor: copy !important; user-select: none !important; }
 [data-internal-drop].internal-drop-over { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent); }

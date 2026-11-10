@@ -32,7 +32,7 @@
   border-radius: 11px 4px 4px 11px;
   background: color-mix(in srgb, var(--paper) 94%, transparent);
   color: var(--text-strong);
-  box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
+  box-shadow: 0 2px 6px rgb(var(--rgb-black) / 22%);
   font: inherit;
   font-size: 11.5px;
   font-weight: 600;
@@ -89,7 +89,7 @@
   opacity: 1;
   border-style: solid;
   background: var(--paper);
-  box-shadow: 0 2px 6px rgb(0 0 0 / 24%);
+  box-shadow: 0 2px 6px rgb(var(--rgb-black) / 24%);
 }
 /* 막대를 끄는 동안은 새 핀을 감춘다 */
 .pdf-scrollbar:active .pdf-pin-ghost { display: none; }
@@ -112,7 +112,7 @@
   border-radius: var(--r-md);
   background: var(--paper);
   color: var(--text-strong);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 28%);
+  box-shadow: 0 6px 18px rgb(var(--rgb-black) / 28%);
 }
 .pdf-pin-editor-emoji,
 .pdf-pin-editor-remove {
@@ -149,7 +149,7 @@
 }
 
 /* 꾹 눌러 끄는 중인 핀: 살짝 떠서 손을 따라온다. 그동안 핀 줄이 숨지 않게 한다 */
-.pdf-pin.pdf-pin-dragging { z-index: 3; border-color: var(--accent); box-shadow: 0 6px 16px rgb(0 0 0 / 32%); cursor: grabbing; transform: translateY(-50%) scale(1.06); }
+.pdf-pin.pdf-pin-dragging { z-index: 3; border-color: var(--accent); box-shadow: 0 6px 16px rgb(var(--rgb-black) / 32%); cursor: grabbing; transform: translateY(-50%) scale(1.06); }
 body.pdf-pin-moving, body.pdf-pin-moving * { cursor: grabbing !important; user-select: none !important; }
 body.pdf-pin-moving .pdf-pins { opacity: 1 !important; pointer-events: auto !important; }
 

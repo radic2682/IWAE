@@ -8,13 +8,13 @@
   max-width: 280px;
   padding: 5px 9px;
   border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--text-strong, #1d1d1f) 92%, transparent);
-  color: var(--paper, #fff);
+  background: color-mix(in srgb, var(--text-strong) 92%, transparent);
+  color: var(--paper);
   font-size: 11.5px;
   font-weight: 500;
   line-height: 1.35;
   white-space: normal;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
+  box-shadow: 0 6px 18px rgb(var(--rgb-black) / 18%);
   pointer-events: none;
   opacity: 0;
   transform: translateY(2px);
@@ -27,8 +27,8 @@
 .iwae-tooltip kbd {
   padding: 0 5px;
   border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--paper, #fff) 18%, transparent);
-  color: color-mix(in srgb, var(--paper, #fff) 78%, transparent);
+  background: color-mix(in srgb, var(--paper) 18%, transparent);
+  color: color-mix(in srgb, var(--paper) 78%, transparent);
   font: inherit;
   font-size: 10.5px;
   white-space: nowrap;

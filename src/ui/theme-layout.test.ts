@@ -16,7 +16,7 @@ describe('앱 창 크롬 레이어', () => {
 describe('PDF 영구 형광펜 스타일', () => {
   it('저장된 형광펜을 투명한 노란색으로 표시한다', () => {
     const css = readFileSync('src/ui/theme-layout.css', 'utf8')
-    expect(css).toMatch(/\.selection-persistent-highlight\s*\{[^}]*fill:[^;}]*(?:#|rgb|color-mix)/su)
+    expect(css).toMatch(/\.selection-persistent-highlight\s*\{[^}]*fill:[^;}]*(?:#|rgb|color-mix|var\()/su)
     expect(css).toMatch(/\.selection-persistent-highlight\s*\{[^}]*pointer-events:\s*none/su)
   })
 })

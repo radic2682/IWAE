@@ -6,7 +6,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(12 16 22 / 30%);
+  background: rgb(var(--rgb-night) / 30%);
 }
 
 .confirm-dialog {
@@ -54,10 +54,10 @@
 .confirm-dialog-actions button:hover:not(:disabled) { background: var(--chrome-hover); }
 .confirm-dialog-actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
 .confirm-dialog-actions button:disabled { opacity: .6; cursor: default; }
-.confirm-dialog-actions .confirm-dialog-confirm { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
-.confirm-dialog-actions .confirm-dialog-confirm:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, black); }
-.confirm-dialog-danger .confirm-dialog-confirm { border-color: var(--danger-solid, var(--danger)); background: var(--danger-solid, var(--danger)); color: #fff; }
-.confirm-dialog-danger .confirm-dialog-confirm:hover:not(:disabled) { background: color-mix(in srgb, var(--danger-solid, var(--danger)) 86%, black); }
+.confirm-dialog-actions .confirm-dialog-confirm { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); font-weight: 650; }
+.confirm-dialog-actions .confirm-dialog-confirm:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--mix-black)); }
+.confirm-dialog-danger .confirm-dialog-confirm { border-color: var(--danger-solid, var(--danger)); background: var(--danger-solid, var(--danger)); color: var(--on-solid); }
+.confirm-dialog-danger .confirm-dialog-confirm:hover:not(:disabled) { background: color-mix(in srgb, var(--danger-solid, var(--danger)) 86%, var(--mix-black)); }
 
 @keyframes confirm-dialog-in { from { opacity: 0; transform: translateY(4px) scale(.99); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .confirm-dialog { animation: none; } }

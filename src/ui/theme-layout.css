@@ -685,7 +685,7 @@
 .pdf-search-result-row-active { background: var(--chrome-hover); }
 .pdf-search-result-page { color: var(--text-dim); font-size: 11px; }
 .pdf-search-result-snippet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; white-space: normal; overflow-wrap: anywhere; }
-.pdf-search-result-snippet mark { background: color-mix(in srgb, #ffe26a 72%, transparent); }
+.pdf-search-result-snippet mark { background: color-mix(in srgb, var(--search-mark) 72%, transparent); }
 .pdf-search-state { padding: 14px 8px; color: var(--text-dim); text-align: center; }
 .pdf-search-state-error { color: var(--danger); }
 
@@ -1082,19 +1082,19 @@
 .selection-layer.selection-mode-highlight { cursor: cell; }
 
 .selection-highlight {
-  --hl-fill: color-mix(in srgb, var(--accent) 26%, #fff);
+  --hl-fill: color-mix(in srgb, var(--accent) 26%, var(--mix-white));
   pointer-events: none;
 }
 
 .selection-persistent-highlight {
-  --hl-fill: #ffe38c;
-  --hl-edge: #e3b43c;
+  --hl-fill: var(--hl-soft-yellow);
+  --hl-edge: var(--hl-edge-yellow);
   pointer-events: none;
 }
 
-.selection-persistent-highlight[data-highlight-color="green"] { --hl-fill: #b9ebc6; --hl-edge: #4fb06c; }
-.selection-persistent-highlight[data-highlight-color="blue"] { --hl-fill: #c3defc; --hl-edge: #5d9be3; }
-.selection-persistent-highlight[data-highlight-color="pink"] { --hl-fill: #fcc6dc; --hl-edge: #de6f9c; }
+.selection-persistent-highlight[data-highlight-color="green"] { --hl-fill: var(--hl-soft-green); --hl-edge: var(--hl-edge-green); }
+.selection-persistent-highlight[data-highlight-color="blue"] { --hl-fill: var(--hl-soft-blue); --hl-edge: var(--hl-edge-blue); }
+.selection-persistent-highlight[data-highlight-color="pink"] { --hl-fill: var(--hl-soft-pink); --hl-edge: var(--hl-edge-pink); }
 
 /* 메모 카드에서 눌러 찾아간 형광펜: 잠깐 진해졌다가 돌아온다 */
 .selection-persistent-highlight.selection-highlight-flash { animation: selection-highlight-flash 1.2s ease-out 1; }
@@ -1128,7 +1128,7 @@
   left: 6px;
   height: 3px;
   border-radius: var(--r-full);
-  box-shadow: 0 0 0 1px rgb(9 30 66 / 12%);
+  box-shadow: 0 0 0 1px rgb(var(--rgb-navy) / 12%);
 }
 
 .note-color-popover {
@@ -1139,7 +1139,7 @@
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
   background: var(--paper);
-  box-shadow: 0 10px 30px rgb(9 30 66 / 18%);
+  box-shadow: 0 10px 30px rgb(var(--rgb-navy) / 18%);
 }
 
 .note-color-swatches {
@@ -1152,7 +1152,7 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid rgb(9 30 66 / 14%);
+  border: 1px solid rgb(var(--rgb-navy) / 14%);
   border-radius: var(--r-sm);
   cursor: pointer;
 }
@@ -1178,17 +1178,17 @@
 .note-color-popover .note-color-clear:hover { background: var(--chrome-hover); color: var(--ink); }
 
 .source-highlight {
-  --hl-fill: #cddfff;
+  --hl-fill: var(--source-hl-fill);
   fill: var(--hl-fill);
   pointer-events: none;
 }
 
 .selection-search-highlight {
-  --hl-fill: #ffe6c2;
+  --hl-fill: var(--search-hit-fill);
   pointer-events: none;
 }
 
-.selection-search-highlight-active { --hl-fill: #ffbf73; }
+.selection-search-highlight-active { --hl-fill: var(--search-hit-active-fill); }
 
 .pdf-source-target {
   position: absolute;
@@ -1207,7 +1207,7 @@
   white-space: nowrap;
 }
 
-.note-save-status-error { color: var(--danger, #b42318); }
+.note-save-status-error { color: var(--danger); }
 
 .note-canvas-loading {
   position: absolute;
@@ -1323,7 +1323,7 @@
   font-size: 11px;
 }
 
-.translation-settings-status-online { color: #18794e; }
+.translation-settings-status-online { color: var(--status-ok); }
 .translation-settings-status-offline,
 .translation-settings-alert { color: var(--danger); }
 
@@ -1414,7 +1414,7 @@
 
 .translation-settings button:hover:not(:disabled) { background: var(--chrome-hover); }
 .translation-settings button:disabled { color: var(--text-dim); opacity: 0.6; }
-.translation-settings-installed { color: #18794e; font-size: 11px; }
+.translation-settings-installed { color: var(--status-ok); font-size: 11px; }
 .translation-settings-progress { display: grid; gap: 2px; color: var(--text-dim); font-size: 10px; }
 .translation-settings-progress progress { width: 120px; }
 .translation-settings-custom-field { margin-top: 4px; }
@@ -1430,8 +1430,8 @@
 
 /* 영역(그림·표) 고르기: 옅게 물들이고 둥근 테두리 */
 .selection-mark-layer rect.selection-region {
-  fill: color-mix(in srgb, var(--accent) 10%, #fff);
-  stroke: color-mix(in srgb, var(--accent) 70%, #fff);
+  fill: color-mix(in srgb, var(--accent) 10%, var(--mix-white));
+  stroke: color-mix(in srgb, var(--accent) 70%, var(--mix-white));
   stroke-width: 1.5px;
   rx: 6px;
 }
@@ -1803,7 +1803,7 @@
   border: 0;
   border-radius: var(--r-sm);
   background: none;
-  color: #e6e6e6;
+  color: var(--top-btn-ink);
   cursor: default;
 }
 
@@ -1932,7 +1932,7 @@
   border-radius: var(--r-sm);
   appearance: none;
   background: none;
-  color: #d5d5d5;
+  color: var(--top-btn-ink-2);
   cursor: default;
 }
 
@@ -2345,7 +2345,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(20 24 31 / 34%);
+  background: rgb(var(--rgb-slate) / 34%);
   backdrop-filter: blur(3px);
 }
 
@@ -2567,7 +2567,7 @@
 }
 .update-banner-actions button:hover { background: var(--chrome-hover); color: var(--text-primary); }
 .update-banner-actions .update-banner-primary { background: var(--accent); color: var(--paper); font-weight: 700; }
-.update-banner-actions .update-banner-primary:hover { background: color-mix(in srgb, var(--accent) 88%, black); color: var(--paper); }
+.update-banner-actions .update-banner-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--mix-black)); color: var(--paper); }
 .update-banner-installing { padding: 0 8px; color: var(--text-muted); font-size: 10.5px; }
 
 @media (max-width: 680px) {
@@ -2690,7 +2690,7 @@
   border: 1px solid var(--control-border-floating);
   border-radius: var(--r-sm);
   background: var(--control-surface-floating);
-  color: #343a43;
+  color: var(--ctl-ink);
   box-shadow: 0 4px 14px var(--shadow-floating);
   backdrop-filter: blur(10px);
 }
@@ -2701,7 +2701,7 @@
 .pdf-highlighter-trigger:focus-visible,
 .pdf-highlighter-trigger[aria-pressed="true"] {
   border-color: var(--control-border-floating-hover);
-  background: #fff;
+  background: var(--page-white);
   color: var(--text-strong);
   outline: none;
 }
@@ -2713,7 +2713,7 @@
   align-items: center;
   gap: 5px;
   padding: 3px 5px 3px 10px;
-  border: 1px solid #b8c1cc;
+  border: 1px solid var(--ctl-border);
   border-radius: var(--r-sm);
   background: var(--control-surface-expanded);
   box-shadow: 0 4px 14px var(--shadow-floating);
@@ -2751,7 +2751,7 @@
 
 .pdf-search-option:hover,
 .pdf-search-option[aria-pressed="true"] {
-  background: #e7ecf2;
+  background: var(--ctl-hover-bg);
   color: var(--text-strong);
 }
 
@@ -2779,8 +2779,8 @@
   padding: 0 8px;
   border: 0;
   border-radius: var(--r-sm);
-  background: #edf1f5;
-  color: #49515b;
+  background: var(--ctl-chip-bg);
+  color: var(--ctl-chip-ink);
   font: inherit;
   font-size: 10.5px;
   text-overflow: ellipsis;
@@ -2802,7 +2802,7 @@
   align-items: center;
   gap: 5px;
   padding: 5px;
-  border: 1px solid #b8c1cc;
+  border: 1px solid var(--ctl-border);
   border-radius: var(--r-md);
   background: var(--control-surface-expanded);
   box-shadow: 0 4px 14px var(--shadow-floating);
@@ -2815,14 +2815,14 @@
   padding: 0;
   border: 2px solid transparent;
   border-radius: var(--r-sm);
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 9%);
+  box-shadow: inset 0 0 0 1px rgb(var(--rgb-black) / 9%);
 }
 
-.pdf-highlighter-color[aria-pressed="true"] { border-color: #2f6feb; }
-.pdf-highlighter-color-yellow { background: #f7db61; }
-.pdf-highlighter-color-green { background: #80d4a5; }
-.pdf-highlighter-color-blue { background: #8bbce8; }
-.pdf-highlighter-color-pink { background: #e9a3bc; }
+.pdf-highlighter-color[aria-pressed="true"] { border-color: var(--focus-blue); }
+.pdf-highlighter-color-yellow { background: var(--hl-pdf-swatch-yellow); }
+.pdf-highlighter-color-green { background: var(--hl-pdf-swatch-green); }
+.pdf-highlighter-color-blue { background: var(--hl-pdf-swatch-blue); }
+.pdf-highlighter-color-pink { background: var(--hl-pdf-swatch-pink); }
 
 .side-tree,
 .side-tree-children {
@@ -2855,18 +2855,18 @@
   border: 0;
   border-radius: var(--r-sm);
   background: transparent;
-  color: #2e343c;
+  color: var(--tree-ink);
   font: inherit;
   font-weight: 600;
   text-align: left;
 }
 
 .side-tree-toggle:hover,
-.side-tree-item:hover { background: #e9edf2; }
+.side-tree-item:hover { background: var(--tree-hover-bg); }
 
 .side-tree-chevron {
   width: 12px;
-  color: #727b86;
+  color: var(--tree-chevron);
   font-size: 10px;
   text-align: center;
 }
@@ -2891,7 +2891,7 @@
   font: inherit;
 }
 
-.side-tree-reorder-btn:hover:not(:disabled) { background: #dfe5eb; color: var(--text-strong); }
+.side-tree-reorder-btn:hover:not(:disabled) { background: var(--tree-btn-hover-bg); color: var(--text-strong); }
 .side-tree-reorder-btn:disabled { opacity: 0.25; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3179,8 +3179,8 @@
 }
 .winbtn:hover { background: var(--chrome-hover); color: var(--text-strong); }
 .winbtn:active { background: color-mix(in srgb, var(--chrome-hover) 70%, var(--text-strong) 8%); }
-.winbtn-close:hover { background: #e5484d; color: #fff; }
-.winbtn-close:active { background: #c93b40; color: #fff; }
+.winbtn-close:hover { background: var(--winclose); color: var(--on-solid); }
+.winbtn-close:active { background: var(--winclose-active); color: var(--on-solid); }
 /* 오른쪽 탭이 창 단추 밑으로 들어가지 않게 그만큼 비운다 */
 .topbar-panetab-zone-right .pane-tabs-menu { padding-right: 128px; }
 .topbar-single .topbar-panetab-zone-right { flex: 0 0 128px !important; }

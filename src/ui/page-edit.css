@@ -134,7 +134,7 @@
 .page-edit-thumb img {
   max-width: 132px;
   max-height: 170px;
-  background: #fff;
+  background: var(--page-white);
   box-shadow: var(--shadow-page);
   transition: transform 140ms ease;
 }
@@ -176,7 +176,7 @@
   cursor: pointer;
 }
 .page-edit-cancel { border: 1px solid var(--divider); background: var(--paper); color: var(--text); }
-.page-edit-save { border: 0; background: var(--accent); color: #fff; font-weight: 600; }
+.page-edit-save { border: 0; background: var(--accent); color: var(--on-solid); font-weight: 600; }
 .page-edit-save:disabled, .page-edit-cancel:disabled { opacity: .6; cursor: default; }
 
 /* 옆으로 돌린 쪽: 돌린 그림의 가로가 칸(132px)을 넘지 않게 정사각 안에 맞춘 뒤 돌린다 */

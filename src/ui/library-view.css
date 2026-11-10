@@ -189,8 +189,8 @@
   box-shadow: 0 0 0 1px var(--hairline) inset;
 }
 .library-card-icon { display: inline-flex; font-size: 32px; }
-.library-card-page { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; background: #fff; }
-.library-card-star { position: absolute; top: 6px; right: 6px; color: var(--accent); filter: drop-shadow(0 0 2px rgb(0 0 0 / 45%)); }
+.library-card-page { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; background: var(--page-white); }
+.library-card-star { position: absolute; top: 6px; right: 6px; color: var(--accent); filter: drop-shadow(0 0 2px rgb(var(--rgb-black) / 45%)); }
 .library-card-title {
   display: -webkit-box;
   -webkit-box-orient: vertical;

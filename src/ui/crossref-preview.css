@@ -31,7 +31,7 @@
 .crossref-preview-label { color: var(--text-strong); font-weight: 650; }
 .crossref-preview-page { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .crossref-preview-go { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; color: var(--accent); font-weight: 600; }
-.crossref-preview-body { overflow: hidden; background: #fff; cursor: pointer; }
+.crossref-preview-body { overflow: hidden; background: var(--page-white); cursor: pointer; }
 .crossref-preview-body img { display: block; height: auto; }
 :root[data-theme='dark'] .crossref-preview-body img { filter: none; }
 @media (prefers-reduced-motion: reduce) { .crossref-preview { animation: none; } }

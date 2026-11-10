@@ -25,9 +25,9 @@
   line-height: 1.5;
 }
 
-.highlight-popover-quote[data-highlight-color='green'] { background: var(--highlight-green, #8fd19e); }
-.highlight-popover-quote[data-highlight-color='blue'] { background: var(--highlight-blue, #8cc4f5); }
-.highlight-popover-quote[data-highlight-color='pink'] { background: var(--highlight-pink, #f5a3c7); }
+.highlight-popover-quote[data-highlight-color='green'] { background: var(--highlight-green); }
+.highlight-popover-quote[data-highlight-color='blue'] { background: var(--highlight-blue); }
+.highlight-popover-quote[data-highlight-color='pink'] { background: var(--highlight-pink); }
 
 .highlight-popover-colors { display: flex; gap: 6px; }
 
@@ -60,7 +60,7 @@
 }
 
 .highlight-popover-actions button:hover { background: var(--chrome-hover); }
-.highlight-popover-actions .highlight-popover-delete { margin-left: auto; color: var(--danger, #c0392b); }
+.highlight-popover-actions .highlight-popover-delete { margin-left: auto; color: var(--danger); }
 
 @keyframes highlight-popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .highlight-popover { animation: none; } }

@@ -54,7 +54,7 @@
 }
 .sidebar .side-doc-target-btn { height: 28px; padding: 0 6px; gap: 6px; color: var(--text-strong); }
 .sidebar .side-doc-target-btn-active { background: var(--selected-bg); box-shadow: none; }
-.sidebar .side-doc-target-btn-active .side-doc-target-side { background: var(--accent); color: #fff; }
+.sidebar .side-doc-target-btn-active .side-doc-target-side { background: var(--accent); color: var(--on-solid); }
 .sidebar .side-doc-target-side { color: var(--text-strong); }
 
 /* 미리보기: 「보고 있는 곳」 사각형. 쪽 전체를 칠하는 대신 PDF 창에 실제로 보이는 부분만 가는 강조색 테두리 + 아주 옅은 칠 */

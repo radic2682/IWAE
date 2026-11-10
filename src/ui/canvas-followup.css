@@ -182,7 +182,7 @@
 .canvas-image-content { display: block; width: 100%; height: 100%; object-fit: fill; pointer-events: none; user-select: none; }
 .canvas-drawing-hint { position: absolute; top: 12px; left: 50%; display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--r-md); transform: translateX(-50%); background: var(--paper); color: var(--ink); box-shadow: 0 3px 12px var(--shadow-soft); font-size: 12px; }
 .canvas-drawing-hint button { border: 0; border-radius: var(--r-sm); padding: 3px 6px; background: var(--chrome-hover); color: inherit; font: inherit; cursor: pointer; }
-.canvas-drawing-preview { position: absolute; border: 2px solid #ef4444; background: rgb(239 68 68 / 8%); pointer-events: none; }
+.canvas-drawing-preview { position: absolute; border: 2px solid var(--draw-red); background: color-mix(in srgb, var(--draw-red) 8%, transparent); pointer-events: none; }
 .canvas-drawing-preview-ellipse { border-radius: 50%; }
 .canvas-drawing-preview-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 
@@ -194,9 +194,9 @@
   max-width: min(320px, calc(100vw - 36px));
   padding: 9px 13px;
   border-radius: var(--r-lg);
-  background: #242424;
-  color: #f2f2f2;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  background: var(--inverse-surface);
+  color: var(--inverse-ink);
+  box-shadow: 0 8px 24px rgb(var(--rgb-black) / 24%);
   font-size: 12px;
   pointer-events: none;
   opacity: 0;

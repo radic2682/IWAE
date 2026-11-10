@@ -18,7 +18,7 @@
 
 /* 원문은 형광펜 색을 옅게 입혀 한눈에 구분한다(점 색과 같은 계열) */
 .pane-doc .note-wide .note-block.note-block .pdf-memo-card-quote.note-source.note-source {
-  background: color-mix(in srgb, var(--memo-dot, #f2c418) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--memo-dot, var(--memo-dot-yellow)) 22%, transparent) !important;
 }
 
 /* 목차 */

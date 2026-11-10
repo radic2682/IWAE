@@ -103,8 +103,8 @@
 .pdf-search-recent-query > svg { flex: 0 0 auto; }
 
 /* Markdown 절 축소판: PDF 쪽 축소판 틀 안에 작은 종이(제목 + 첫 줄들) */
-.thumb-item .thumb-frame.md-thumb-frame { position: relative; overflow: hidden; background: #fff; }
-.md-thumb-paper { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 4px; padding: 9% 10%; color: #202124; font-size: 7px; line-height: 1.4; text-align: left; overflow: hidden; }
+.thumb-item .thumb-frame.md-thumb-frame { position: relative; overflow: hidden; background: var(--page-white); }
+.md-thumb-paper { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 4px; padding: 9% 10%; color: var(--page-ink); font-size: 7px; line-height: 1.4; text-align: left; overflow: hidden; }
 .md-thumb-title { font-size: 9px; font-weight: 700; line-height: 1.25; }
 .md-thumb-title.md-thumb-h1 { font-size: 11px; }
 .md-thumb-text { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 9; -webkit-box-orient: vertical; }

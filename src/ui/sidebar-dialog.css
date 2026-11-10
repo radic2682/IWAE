@@ -7,7 +7,7 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgb(0 0 0 / 28%);
+  background: rgb(var(--rgb-black) / 28%);
   animation: side-dialog-fade 120ms ease both;
 }
 
@@ -184,7 +184,7 @@
 .side-dialog-primary {
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-solid);
   font-weight: 600;
 }
 
@@ -277,7 +277,7 @@
 }
 .side-folder-picker-row:hover { background: var(--chrome-hover); }
 .side-folder-picker-row-selected,
-.side-folder-picker-row-selected:hover { background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 600; }
+.side-folder-picker-row-selected:hover { background: var(--accent); color: var(--accent-contrast); font-weight: 600; }
 .side-folder-picker-row svg { flex: 0 0 auto; }
 .side-folder-picker-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-folder-picker-tag {

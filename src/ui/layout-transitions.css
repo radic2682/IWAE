@@ -156,7 +156,7 @@ body.pane-resizing .pane { transition: none !important; }
   border-radius: var(--r-full);
   background: var(--paper);
   color: var(--text-strong, var(--ink));
-  box-shadow: 0 2px 8px rgb(0 0 0 / 28%);
+  box-shadow: 0 2px 8px rgb(var(--rgb-black) / 28%);
   cursor: col-resize;
   opacity: 0;
   visibility: hidden;

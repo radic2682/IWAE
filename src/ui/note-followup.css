@@ -87,8 +87,8 @@
 .note-line-modes { display: flex; align-items: center; gap: 2px; }
 .note-line-modes > button { width: 28px; height: 28px; padding: 0; color: var(--text-strong, var(--ink)); }
 .note-toolbar-secondary-controls button[aria-pressed="true"] {
-  background: rgba(115, 183, 255, .24);
-  box-shadow: inset 0 0 0 1px rgba(147, 201, 255, .5);
+  background: var(--drop-target-fill);
+  box-shadow: inset 0 0 0 1px var(--drop-target-edge);
   border-radius: var(--r-sm);
 }
 
@@ -363,7 +363,7 @@
   border: 1px solid var(--divider);
   border-radius: var(--r-md);
   background: var(--paper);
-  box-shadow: 0 10px 28px var(--shadow-floating, rgb(0 0 0 / 16%));
+  box-shadow: 0 10px 28px var(--shadow-floating);
 }
 .note-select-option {
   display: grid;

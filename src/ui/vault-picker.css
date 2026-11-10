@@ -9,7 +9,7 @@
   border-radius: var(--r-lg);
   background: var(--paper);
   color: var(--text-strong);
-  box-shadow: 0 24px 60px var(--shadow-floating, rgb(0 0 0 / 25%));
+  box-shadow: 0 24px 60px var(--shadow-floating);
 }
 
 .vault-picker-brand {
@@ -39,7 +39,7 @@
 .vault-picker-steps li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 5px; border: 1px solid var(--divider); border-radius: var(--r-full); }
 .vault-picker-steps li span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--chrome-hover); font-size: 11px; font-weight: 700; }
 .vault-picker-steps li.vault-picker-step-current { border-color: var(--accent); font-weight: 650; }
-.vault-picker-steps li.vault-picker-step-current span { background: var(--accent); color: var(--accent-contrast, #fff); }
+.vault-picker-steps li.vault-picker-step-current span { background: var(--accent); color: var(--accent-contrast); }
 .vault-picker-steps li.vault-picker-step-done span { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 
 /* 언어 고르기 */
@@ -76,7 +76,7 @@
   font-size: 13px;
   cursor: pointer;
 }
-.vault-picker-card .vault-picker-primary { border: 0; background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
+.vault-picker-card .vault-picker-primary { border: 0; background: var(--accent); color: var(--accent-contrast); font-weight: 650; }
 .vault-picker-secondary { border: 1px solid var(--divider); background: transparent; color: inherit; }
 .vault-picker-ghost { border: 0; background: transparent; color: inherit; }
 .vault-picker-secondary:hover,
@@ -102,7 +102,7 @@
 .vault-picker-action span { display: grid; gap: 2px; min-width: 0; }
 .vault-picker-action strong { font-size: 14px; font-weight: 650; }
 .vault-picker-action small { font-size: 12px; }
-.vault-picker-action-primary { border: 0; background: var(--accent); color: var(--accent-contrast, #fff); }
+.vault-picker-action-primary { border: 0; background: var(--accent); color: var(--accent-contrast); }
 .vault-picker-action-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--paper)); }
 
 /* 최근 Vault: 이름을 크게, 경로는 작게(회색 대신 크기로 구분) */

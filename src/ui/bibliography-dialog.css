@@ -36,7 +36,7 @@
 .bib-dialog-row { display: flex; gap: 8px; }
 .bib-dialog-row label:first-child { width: 96px; }
 .bib-dialog-grow { flex: 1 1 auto; }
-.bib-dialog-error { margin: 0; color: var(--danger, #c0392b); font-size: 12px; }
+.bib-dialog-error { margin: 0; color: var(--danger); font-size: 12px; }
 .bib-dialog-actions { display: flex; align-items: center; gap: 8px; }
 .bib-dialog-spacer { flex: 1 1 auto; }
 
@@ -59,8 +59,8 @@
 
 /* ---------- 다른 대화상자(.side-dialog)와 같은 판 ----------
    둥근 모서리·어두운 바탕·닫기 단추·같은 입력칸과 단추 모양, 회색 글자 없음 */
-.bib-dialog-backdrop { padding: 16px; background: rgb(0 0 0 / 28%); }
-.bib-dialog.bib-dialog { gap: 12px; padding: 18px 20px 18px; border-radius: var(--r-lg); box-shadow: 0 24px 60px var(--shadow-floating, rgb(0 0 0 / 30%)); color: var(--text-strong); }
+.bib-dialog-backdrop { padding: 16px; background: rgb(var(--rgb-black) / 28%); }
+.bib-dialog.bib-dialog { gap: 12px; padding: 18px 20px 18px; border-radius: var(--r-lg); box-shadow: 0 24px 60px var(--shadow-floating); color: var(--text-strong); }
 .bib-dialog-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
 .bib-dialog-head .bib-dialog-title { flex: 1 1 auto; min-width: 0; color: var(--text-strong); font-size: 15px; font-weight: 700; }
 .bib-dialog-head .bib-dialog-title small { color: var(--text-strong); font-weight: 500; }
@@ -74,6 +74,6 @@
 .bib-dialog-actions { margin-top: 4px; }
 .bib-dialog.bib-dialog .bib-dialog-actions button { height: var(--control-size-floating, 34px); padding: 0 14px; border-radius: var(--r-sm); color: var(--text-strong); }
 .bib-dialog.bib-dialog .bib-dialog-actions button:hover:not(:disabled) { background: var(--chrome-hover); }
-.bib-dialog.bib-dialog .bib-dialog-actions .bib-dialog-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast, #fff); font-weight: 650; }
+.bib-dialog.bib-dialog .bib-dialog-actions .bib-dialog-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); font-weight: 650; }
 .bib-dialog.bib-dialog .bib-dialog-actions .bib-dialog-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--paper)); }
 .bib-dialog-note { margin: 0; color: var(--text-strong); font-size: 12px; line-height: 1.5; }

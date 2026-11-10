@@ -357,9 +357,9 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
           const redact = shape.shape === 'redact'
           // 가리기: 검게 덮고 빨간 점선 테두리(아직 정말 지운 것은 아니라는 표시)
           const look = redact ? {
-            stroke: '#d9363e',
+            stroke: 'var(--annot-red)',
             strokeWidth: 1.5,
-            fill: '#111111',
+            fill: 'var(--redact-fill)',
             fillOpacity: 0.86,
             strokeDasharray: '5 3',
             strokeLinecap: undefined,
