@@ -14,6 +14,8 @@ import { printPdfPages, printMarkdown } from './pdfPrint'
 import { MarkdownPane, type MarkdownSelectionTranslation } from './MarkdownPane'
 import { MarkdownSearchPanel, type MarkdownSearchHit } from './MarkdownSearchPanel'
 import { PdfPane, pageFitZoom, pageHeightFitZoom } from '../pdf/PdfPane'
+import { publishPdfViewport } from '../pdf/pdfViewportStore'
+import type { VisibleRegion } from '../pdf/pageLayout'
 import type { PdfSelectionTranslation } from '../pdf/SelectionActions'
 import type { PaneId, Tab, TabsState } from './tabs'
 import type { PdfDocMeta } from '../bridge/pdf'
@@ -452,6 +454,10 @@ export function DocumentView(props: DocumentViewProps) {
     onViewChange(paneId, docId === null ? null : { docId, page })
   }, [docId, onViewChange, page, paneId])
   useEffect(() => () => onViewChange(paneId, null), [onViewChange, paneId])
+  // 이 창의 PDF 가 화면에 보여 주는 부분(왼쪽 바 미리보기의 사각형). 칸을 나눴으면 만지고 있는 칸 것만
+  const publishViewport = useCallback((regions: readonly VisibleRegion[] | null) => {
+    publishPdfViewport(paneId, regions === null || docId === null ? null : { docId, regions })
+  }, [docId, paneId])
 
   useEffect(() => {
     const getZoom = () => splitRef.current.views[Math.min(splitRef.current.focused, splitRef.current.views.length - 1)]?.zoom ?? null
@@ -849,6 +855,7 @@ export function DocumentView(props: DocumentViewProps) {
                     key={`${meta.docId}:${meta.sha256}:${index}`}
                     primary={index === focused}
                     inSplit
+                    clean={props.pdfViewPrefs.clean === true}
                     docId={meta.docId}
                     title={meta.title}
                     pageSizes={meta.pageSizes}
@@ -856,6 +863,7 @@ export function DocumentView(props: DocumentViewProps) {
                     zoomPercent={cellZoom.paneZoom}
                     zoomScale={cellZoom.zoomScale}
                     onPageChange={handlers.onPageChange}
+                    onVisibleRegions={index === focused ? publishViewport : undefined}
                     pageRequest={cell.request}
                     viewKey={`${tab.id}:${index}`}
                     searchJumpNonce={searchJumpNonce}

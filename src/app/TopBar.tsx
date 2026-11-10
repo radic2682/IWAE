@@ -5,6 +5,7 @@ import {
   ListBullets,
   SidebarSimple,
   TreeStructure,
+  Toolbox,
 } from '@phosphor-icons/react'
 import { closeWindow } from '../bridge/window'
 import { WindowControls } from './WindowControls'
@@ -15,7 +16,7 @@ import { MemoPanelIcon } from '../pdf/MemoPanelIcon'
 import { isMacPlatform } from '../core/platform'
 import { t } from '../i18n'
 
-export type SidebarMode = 'library' | 'thumbnails' | 'outlinePreview' | 'outline' | 'search'
+export type SidebarMode = 'library' | 'thumbnails' | 'outlinePreview' | 'outline' | 'tools' | 'search'
 
 interface TopBarProps {
   sidebarCollapsed: boolean
@@ -141,6 +142,9 @@ export function TopBar({
             <button type="button" className={`topbar-navbtn${sidebarMode === 'outlinePreview' ? ' topbar-navbtn-active' : ''}`} aria-label={t('목차·미리보기')} title={t('목차·미리보기')} role="radio" aria-checked={sidebarMode === 'outlinePreview'} onClick={() => onSidebarModeChange('outlinePreview')}>
               <Newspaper size={15} weight="regular" aria-hidden="true" />
             </button>
+            <button type="button" className={`topbar-navbtn${sidebarMode === 'tools' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 도구')} title={t('PDF 도구')} role="radio" aria-checked={sidebarMode === 'tools'} onClick={() => onSidebarModeChange('tools')}>
+              <Toolbox size={15} weight="regular" aria-hidden="true" />
+            </button>
             <button type="button" className={`topbar-navbtn${sidebarMode === 'search' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 검색')} title={t('PDF 검색 (Ctrl+F)')} role="radio" aria-checked={sidebarMode === 'search'} onClick={() => onSidebarModeChange('search')}>
               <MagnifyingGlass size={15} weight="regular" aria-hidden="true" />
             </button>
@@ -187,18 +191,6 @@ export function TopBar({
         leading={(
           // 창 전체에 관한 단추(문서 검색·창 나누기)는 창 단추 곁에 둔다
           <div className="topbar-window-tools">
-            {onToggleDocSearch === undefined ? null : (
-              <button
-                type="button"
-                className={`topbar-navbtn topbar-docsearch-btn${docSearchActive ? ' topbar-navbtn-active' : ''}`}
-                aria-label={t('문서 검색')}
-                aria-pressed={docSearchActive}
-                title={t('문서 검색 (Ctrl+Shift+F)')}
-                onClick={onToggleDocSearch}
-              >
-                <ListMagnifyingGlass size={16} weight={docSearchActive ? 'bold' : 'regular'} aria-hidden="true" />
-              </button>
-            )}
             {onPaneLayoutChange === undefined ? null : (
               <PdfSplitPicker
                 value={paneLayout}
@@ -210,6 +202,18 @@ export function TopBar({
                 activeClassName="topbar-navbtn-active"
                 shortcut={t('(Ctrl+\\ 로 차례로)')}
               />
+            )}
+            {onToggleDocSearch === undefined ? null : (
+              <button
+                type="button"
+                className={`topbar-navbtn topbar-docsearch-btn${docSearchActive ? ' topbar-navbtn-active' : ''}`}
+                aria-label={t('문서 검색')}
+                aria-pressed={docSearchActive}
+                title={t('문서 검색 (Ctrl+Shift+F)')}
+                onClick={onToggleDocSearch}
+              >
+                <ListMagnifyingGlass size={16} weight={docSearchActive ? 'bold' : 'regular'} aria-hidden="true" />
+              </button>
             )}
             {memoBar === undefined ? null : (
               <button

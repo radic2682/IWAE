@@ -4,7 +4,10 @@ import type { PaneId, Tab, TabsState } from './tabs'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
 import { platformShortcut } from '../core/platform'
+import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
+import type { DockEdge } from './tabDock'
 import '../ui/tab-menu.css'
+import '../ui/tab-drag.css'
 
 interface PaneTabsMenuProps {
   state: TabsState
@@ -30,6 +33,16 @@ interface PaneTabsMenuProps {
   onReattach?: () => void
   /** 탭을 끌어 같은 줄의 toIndex 자리로 옮긴다 */
   onReorderTab?: (id: string, toIndex: number) => void
+  /** 탭을 다른 패널의 index 자리로 옮긴다(끌어서 다른 패널의 탭 줄·본문에 놓았을 때) */
+  onMoveTabAt?: (id: string, target: PaneId, index: number) => void
+  /** 탭을 패널의 edge 쪽을 갈라 새 패널로(끌어서 가장자리에 놓았을 때) */
+  onDockTab?: (id: string, target: PaneId, edge: DockEdge) => void
+  /** 그 패널에서 나눌 수 있는 가장자리들 */
+  dockEdges?: (target: PaneId, id: string) => readonly DockEdge[]
+  /** 창 밖으로 끌어낸 탭을 새 창으로 떼어 낸다. true 면 이어 받았다 */
+  onTearOffTab?: (id: string, info: TearOffInfo) => Promise<boolean> | boolean
+  /** 이 창에 탭이 이것뿐인 떼어 낸 창: 탭을 끌면 창 전체가 따라간다 */
+  dragWindow?: boolean
 }
 
 /**
@@ -41,144 +54,14 @@ export function shortTabTitle(title: string): string {
   return head === '' ? title : head
 }
 
-/** 끌기로 볼 만큼 움직였는지. 이보다 짧으면 클릭이다 */
-const TAB_DRAG_THRESHOLD_PX = 6
-
 function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
   if (kind === 'note') return <Graph size={13} aria-hidden="true" className="pane-top-tab-kind" />
   if (kind === 'markdown') return <FileText size={13} aria-hidden="true" className="pane-top-tab-kind" />
   return <FilePdf size={13} aria-hidden="true" className="pane-top-tab-kind" />
 }
 
-/**
- * 탭 끌기. 같은 탭 줄 안에서는 끄는 대로 자리를 바꾸고(크롬처럼 탭이 바로 따라 옮겨 간다),
- * 반대편 패널(2단일 때) 위에 놓으면 그 패널로 옮긴다. HTML 끌어놓기는 Tauri 창(파일 끌어놓기를 가로챔)에서
- * 동작하지 않아 포인터 이벤트로 직접 한다. 놓은 자리의 data-pane-id 가 대상 패널이다.
- */
-function startTabDrag(
-  event: React.PointerEvent<HTMLElement>,
-  tab: Tab,
-  strip: HTMLElement | null,
-  sourcePane: PaneId | undefined,
-  onMoveTab: ((id: string, target: PaneId) => void) | undefined,
-  onReorderTab: ((id: string, toIndex: number) => void) | undefined,
-  suppressClick: () => void,
-) {
-  if (event.button !== 0) return
-  const startX = event.clientX
-  const startY = event.clientY
-  let dragging = false
-  let ghost: HTMLDivElement | null = null
-  let target: HTMLElement | null = null
-  const mark = (next: HTMLElement | null) => {
-    if (target === next) return
-    target?.classList.remove('pane-drop-target')
-    target = next
-    target?.classList.add('pane-drop-target')
-  }
-  const zoneAt = (x: number, y: number) => {
-    if (sourcePane === undefined || onMoveTab === undefined) return null
-    const zone = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-pane-id]') ?? null
-    return zone !== null && zone.dataset.paneId !== sourcePane ? zone : null
-  }
-  const tabElements = () => Array.from(strip?.querySelectorAll<HTMLElement>('.pane-top-tab') ?? [])
-  /** 같은 줄 안에서: 끄는 탭이 이웃 탭의 가운데를 넘으면 그 자리로 옮긴다 */
-  const reorderAt = (x: number, y: number) => {
-    if (onReorderTab === undefined || strip === null) return
-    const rect = strip.getBoundingClientRect()
-    // 탭 줄 위아래로 조금 벗어나도 순서 바꾸기로 본다(손이 살짝 내려가도 끊기지 않게)
-    if (y < rect.top - 24 || y > rect.bottom + 24) return
-    const elements = tabElements()
-    const from = elements.findIndex((element) => element.dataset.tabId === tab.id)
-    if (from < 0) return
-    let to = from
-    elements.forEach((element, index) => {
-      const box = element.getBoundingClientRect()
-      const mid = box.left + box.width / 2
-      if (index > from && x > mid) to = index
-      if (index < from && x < mid && to === from) to = index
-    })
-    if (to !== from) onReorderTab(tab.id, to)
-  }
-  const draggedElement = () => strip?.querySelector<HTMLElement>(`.pane-top-tab[data-tab-id="${CSS.escape(tab.id)}"]`) ?? null
-  /** 끄는 탭이 손을 따라 가로로 움직인다. 자리(offsetLeft)가 바뀌어도 잡은 지점이 손 밑에 남는다 */
-  const grabOffset = (() => {
-    const element = draggedElement()
-    return element === null ? 0 : startX - element.getBoundingClientRect().left
-  })()
-  const follow = (clientX: number) => {
-    const element = draggedElement()
-    if (element === null || strip === null) return
-    const stripLeft = strip.getBoundingClientRect().left - strip.scrollLeft
-    const slotLeft = stripLeft + element.offsetLeft
-    const first = strip.querySelector<HTMLElement>('.pane-top-tab')
-    const last = strip.querySelector<HTMLElement>('.pane-top-tab:last-child')
-    // 탭 줄 양 끝 밖으로는 나가지 않는다
-    const min = first === null ? -Infinity : stripLeft + first.offsetLeft - slotLeft
-    const max = last === null ? Infinity : stripLeft + last.offsetLeft + last.offsetWidth - element.offsetWidth - slotLeft
-    const x = Math.min(Math.max(clientX - grabOffset - slotLeft, min), max)
-    element.dataset.dragX = String(x)
-    element.style.transform = `translateX(${x}px)`
-  }
-  const move = (moveEvent: PointerEvent) => {
-    if (!dragging) {
-      if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < TAB_DRAG_THRESHOLD_PX) return
-      dragging = true
-      document.body.classList.add('pane-tab-dragging')
-      draggedElement()?.classList.add('pane-top-tab-dragging')
-    }
-    const zone = zoneAt(moveEvent.clientX, moveEvent.clientY)
-    if (zone !== null) {
-      // 반대편 패널로 옮기려는 중: 탭 이름이 손을 따라온다
-      if (ghost === null) {
-        ghost = document.createElement('div')
-        ghost.className = 'pane-tab-drag-ghost'
-        ghost.textContent = tab.title
-        document.body.appendChild(ghost)
-      }
-      ghost.style.transform = `translate(${moveEvent.clientX + 12}px, ${moveEvent.clientY + 10}px)`
-    } else {
-      ghost?.remove()
-      ghost = null
-      follow(moveEvent.clientX)
-      reorderAt(moveEvent.clientX, moveEvent.clientY)
-    }
-    mark(zone)
-  }
-  const cleanup = () => {
-    window.removeEventListener('pointermove', move)
-    window.removeEventListener('pointerup', end)
-    window.removeEventListener('pointercancel', cancel)
-    mark(null)
-    document.body.classList.remove('pane-tab-dragging')
-    // 놓으면 제자리로 미끄러져 들어간다
-    strip?.querySelectorAll<HTMLElement>('.pane-top-tab-dragging').forEach((element) => {
-      element.classList.remove('pane-top-tab-dragging')
-      delete element.dataset.dragX
-      if (element.style.transform === '') return
-      element.style.transition = 'transform 160ms ease'
-      element.style.transform = ''
-      window.setTimeout(() => { element.style.transition = '' }, 180)
-    })
-    ghost?.remove()
-    ghost = null
-  }
-  const end = (endEvent: PointerEvent) => {
-    const zone = dragging ? zoneAt(endEvent.clientX, endEvent.clientY) : null
-    cleanup()
-    if (!dragging) return
-    suppressClick()
-    const pane = zone?.dataset.paneId
-    if ((pane === 'left' || pane === 'right' || pane === 'third' || pane === 'fourth') && onMoveTab !== undefined) onMoveTab(tab.id, pane)
-  }
-  const cancel = () => cleanup()
-  window.addEventListener('pointermove', move)
-  window.addEventListener('pointerup', end)
-  window.addEventListener('pointercancel', cancel)
-}
-
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onClosePane }: PaneTabsMenuProps) {
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane }: PaneTabsMenuProps) {
   const label = t(rawLabel)
   const [menuOpen, setMenuOpen] = useState(false)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -196,6 +79,22 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   }, [state.tabs.length])
   // 끌기를 마친 직후 따라오는 click 은 탭 전환이 아니다.
   const suppressClickRef = useRef(false)
+  // 끄는 동안 다시 그려져도 최신 값을 읽도록 ref 로 둔다
+  const dragHostRef = useRef<(tab: Tab) => TabDragHost>(() => { throw new Error('unset') })
+  dragHostRef.current = (tab) => ({
+    tab,
+    sourcePane: paneId,
+    reorder: onReorderTab,
+    moveAt: onMoveTabAt ?? (onMoveTab === undefined ? undefined : (id, pane) => onMoveTab(id, pane)),
+    dock: onDockTab,
+    dockEdges,
+    dragWindow: dragWindow === true && state.tabs.length === 1 && tab.kind === 'pdf',
+    tearOff: onTearOffTab === undefined || tab.kind !== 'pdf' ? undefined : (id, info) => onTearOffTab(id, info),
+    onDragged: () => {
+      suppressClickRef.current = true
+      window.setTimeout(() => { suppressClickRef.current = false }, 400)
+    },
+  })
   const otherPane: PaneId | null = paneId === undefined ? null : paneId === 'left' ? 'right' : 'left'
   // 탭 우클릭 메뉴: 어느 탭에서, 화면 어디에 열렸나
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -232,33 +131,36 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     announceAction(t('{label}을 닫았습니다', { label }))
   }
 
-  // 탭 순서가 바뀌면 이웃 탭이 새 자리로 미끄러진다(FLIP). 끄는 탭은 손 밑에 그대로 남긴다
+  // 탭 순서가 바뀌면 이웃 탭이 새 자리로 미끄러지고(FLIP), 새로 생긴 탭은 부드럽게 나타난다.
+  // 끄는 탭은 구멍이라 보이지 않고, 놓아서 옮긴 순간에는(이미 손이 만든 자리라) 미끄러지지 않는다
   const slotsRef = useRef<Map<string, number>>(new Map())
+  const mountedRef = useRef(false)
   const tabOrder = state.tabs.map((tab) => tab.id).join(' ')
   useLayoutEffect(() => {
     const elements = Array.from(stripRef.current?.querySelectorAll<HTMLElement>('.pane-top-tab') ?? [])
     const previous = slotsRef.current
     const next = new Map<string, number>()
+    const quiet = tabFlipSuppressed() || reducedMotion() || typeof HTMLElement.prototype.animate !== 'function'
     for (const element of elements) {
       const id = element.dataset.tabId ?? ''
       next.set(id, element.offsetLeft)
       const before = previous.get(id)
-      if (before === undefined || before === element.offsetLeft) continue
-      const delta = before - element.offsetLeft
-      if (element.dataset.dragX !== undefined) {
-        const x = Number(element.dataset.dragX) + delta
-        element.dataset.dragX = String(x)
-        element.style.transform = `translateX(${x}px)`
+      if (before === undefined) {
+        if (mountedRef.current && !quiet) {
+          element.animate(
+            [{ opacity: 0, transform: 'translateY(7px) scale(0.92)' }, { opacity: 1, transform: 'none' }],
+            { duration: 190, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+          )
+        }
         continue
       }
-      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) continue
-      element.style.transition = 'none'
-      element.style.transform = `translateX(${delta}px)`
-      void element.offsetWidth
-      element.style.transition = 'transform 160ms ease'
-      element.style.transform = ''
-      window.setTimeout(() => { if (element.dataset.dragX === undefined) element.style.transition = '' }, 180)
+      if (before === element.offsetLeft || quiet) continue
+      element.animate(
+        [{ transform: `translateX(${before - element.offsetLeft}px)` }, { transform: 'translateX(0)' }],
+        { duration: 170, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+      )
     }
+    mountedRef.current = true
     slotsRef.current = next
   }, [tabOrder])
 
@@ -317,12 +219,11 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 setMenuOpen(false)
                 setContextMenu({ id: tab.id, x: event.clientX, y: event.clientY })
               }}
-              onPointerDown={onReorderTab === undefined && (paneId === undefined || onMoveTab === undefined) ? undefined : (event) => {
+              onPointerDown={(event) => {
                 if ((event.target as HTMLElement).closest('.pane-top-tab-close') !== null || event.button !== 0) return
-                startTabDrag(event, tab, stripRef.current, paneId, onMoveTab, onReorderTab, () => {
-                  suppressClickRef.current = true
-                  window.setTimeout(() => { suppressClickRef.current = false }, 0)
-                })
+                // 크롬처럼 누르는 순간 그 탭이 보이는 탭이 된다
+                if (tab.id !== state.activeId) onActivate(tab.id)
+                startTabDrag(event, event.currentTarget, () => dragHostRef.current(tab))
               }}
             >
               <button

@@ -606,27 +606,7 @@
 .pane-top-tab-kind { flex: 0 0 auto; color: var(--text-dim); }
 .pane-top-tab-note .pane-top-tab-kind { color: var(--accent); }
 .pane-top-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pane-tab-drag-ghost {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 2147483647;
-  max-width: 240px;
-  padding: 5px 10px;
-  overflow: hidden;
-  border: 1px solid var(--divider-strong);
-  border-radius: var(--r-sm);
-  background: var(--paper);
-  color: var(--text);
-  font-size: 12px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  box-shadow: 0 8px 22px var(--shadow-floating);
-  pointer-events: none;
-}
-body.pane-tab-dragging, body.pane-tab-dragging * { cursor: grabbing !important; }
 .topbar-panetab-zone.pane-drop-target { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.pane-focus-scope.pane-drop-target > * { box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* 탭 바로 아래 도구줄 가운데의 문서 이름. 탭은 줄어들어 잘리므로 지금 보는 문서의 이름
    전체는 여기서 본다. 도구줄 높이 안에 넣어 PDF 를 더 가리지 않는다. */
@@ -1012,8 +992,6 @@ body.internal-dragging, body.internal-dragging * { cursor: copy !important; user
 /* 하단바 높이를 왼쪽 바·캔버스 하단바와 같은 공통 값으로 */
 .pane-doc .pane-bottom-bar { flex: 0 0 var(--bottom-bar-height); height: var(--bottom-bar-height); box-sizing: border-box; }
 .pane-doc .pdf-bottom-bar-surface { height: 100%; }
-/* 끄는 중인 탭: 손을 따라 자리를 바꾼다. 살짝 떠 보이게만 한다 */
-.pane-top-tab.pane-top-tab-dragging { z-index: 2; opacity: 0.88; box-shadow: 0 4px 14px var(--shadow-floating); }
 
 /* 키보드로 들어오면 어디에 있는지 보이게: 쪽 번호·배율 입력칸 */
 .pane-bottom-bar .bottombar-goto:focus-visible,

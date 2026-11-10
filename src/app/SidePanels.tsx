@@ -4,6 +4,8 @@ import type { PdfDocMeta, PdfOutlineEntry } from '../bridge/pdf'
 import { pageImageUrl, pdfOutline } from '../bridge/pdf'
 import type { PdfBookmark } from '../core/pdfBookmarks'
 import { pick, t } from '../i18n'
+import { usePdfViewport } from '../pdf/pdfViewportStore'
+import type { VisibleRegion } from '../pdf/pageLayout'
 
 /**
  * 상단바의 축소판·목차 버튼이 켜졌을 때 Sidebar 대신 뜨는 패널 두 개.
@@ -21,6 +23,8 @@ interface PanelProps {
   /** 지금 보고 있는 쪽(0-기반). 목차·축소판에서 그 자리를 칠한다 */
   currentPage?: number
   onSelectPage?: (page: number) => void
+  /** 보고 있는 곳을 알려 주는 문서 창(id). 주면 축소판 위에 그 창에 보이는 부분을 사각형으로 그린다 */
+  viewportPane?: string | null
   bookmarks?: readonly PdfBookmark[]
   onRemoveBookmark?: (bookmark: PdfBookmark) => void
 }
@@ -83,13 +87,15 @@ function useLazyThumbnails(
 }
 
 /** 축소판 하나(지연 로딩 그림 + 쪽 번호) */
-function ThumbnailItem({ activeDoc, page, current, visible, renderWidth, onSelectPage }: {
+function ThumbnailItem({ activeDoc, page, current, visible, renderWidth, onSelectPage, region }: {
   readonly activeDoc: PdfDocMeta
   readonly page: number
   readonly current: boolean
   readonly visible: boolean
   readonly renderWidth: number
   readonly onSelectPage?: (page: number) => void
+  /** PDF 창이 지금 이 쪽에서 보여 주는 부분 */
+  readonly region?: VisibleRegion
 }) {
   const [width, height] = activeDoc.pageSizes[page] ?? activeDoc.pageSizes[0] ?? [612, 792]
   return (
@@ -111,6 +117,14 @@ function ThumbnailItem({ activeDoc, page, current, visible, renderWidth, onSelec
             draggable={false}
           />
         ) : null}
+        {region === undefined ? null : (
+          // 보고 있는 곳: 쪽 크기에 대한 비율로 놓는다
+          <span
+            className="thumb-viewport"
+            aria-hidden="true"
+            style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.w * 100}%`, height: `${region.h * 100}%` }}
+          />
+        )}
       </span>
       <span className="thumb-num">{page + 1}</span>
     </button>
@@ -160,8 +174,20 @@ export function PreviewColumnsSwitch({ columns, onChange }: { readonly columns: 
   )
 }
 
-export function ThumbnailPanel({ activeDoc, currentPage, onSelectPage }: PanelProps) {
+/** 문서 창 viewportPane 이 지금 보여 주는 부분을 쪽 번호별로(그 창이 activeDoc 을 보고 있을 때만) */
+function useViewportRegions(viewportPane: string | null | undefined, activeDoc: PdfDocMeta | null): ReadonlyMap<number, VisibleRegion> {
+  const view = usePdfViewport(viewportPane ?? null)
+  return useMemo(() => {
+    const regions = new Map<number, VisibleRegion>()
+    if (view === null || activeDoc === null || view.docId !== activeDoc.docId) return regions
+    for (const region of view.regions) regions.set(region.page, region)
+    return regions
+  }, [activeDoc, view])
+}
+
+export function ThumbnailPanel({ activeDoc, currentPage, onSelectPage, viewportPane }: PanelProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const viewRegions = useViewportRegions(viewportPane, activeDoc)
   const [columns, changeColumns] = usePreviewColumns()
   const { visible, renderWidth } = useLazyThumbnails(scrollRef, activeDoc, columns)
 
@@ -196,6 +222,7 @@ export function ThumbnailPanel({ activeDoc, currentPage, onSelectPage }: PanelPr
             visible={visible.has(page)}
             renderWidth={renderWidth}
             onSelectPage={onSelectPage}
+            region={viewRegions.get(page)}
           />
         ))}
       </div>
@@ -261,8 +288,9 @@ export function outlinePageGroups(entries: readonly PdfOutlineEntry[], pageCount
  * 목차 + 미리보기. 목차 제목(세 단계까지)을 접힌 나무로 보이고, 펼친 제목 아래에 그 구간의 쪽 축소판을 늘어놓는다.
  * 맨 위에는 지금 쪽이 속한 장·절을 붙여 두어, 축소판을 훑어도 어디쯤인지 놓치지 않는다.
  */
-export function OutlinePreviewPanel({ activeDoc, currentPage, onSelectPage }: PanelProps) {
+export function OutlinePreviewPanel({ activeDoc, currentPage, onSelectPage, viewportPane }: PanelProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const viewRegions = useViewportRegions(viewportPane, activeDoc)
   const [columns, changeColumns] = usePreviewColumns()
   // 펼친 목차 항목(색인). -1 은 첫 목차 앞의 쪽들. 문서를 열면 모두 접힌 채로 시작한다
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set())
@@ -437,6 +465,7 @@ export function OutlinePreviewPanel({ activeDoc, currentPage, onSelectPage }: Pa
                   visible={visible.has(page)}
                   renderWidth={renderWidth}
                   onSelectPage={onSelectPage}
+                  region={viewRegions.get(page)}
                 />
               )
             })}

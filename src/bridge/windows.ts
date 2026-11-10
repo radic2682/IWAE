@@ -41,6 +41,9 @@ export interface ReattachRequest {
   readonly zoom: DocZoom | null
   /** 보낸 창 label */
   readonly source: string
+  /** 끌어서 붙일 때: 놓은 자리의 패널과 창 안 x 좌표(CSS 픽셀). 없으면 평소처럼 지금 패널 끝에 연다 */
+  readonly pane?: string
+  readonly x?: number
 }
 
 export async function sendReattach(request: Omit<ReattachRequest, 'source'>): Promise<void> {
@@ -67,4 +70,114 @@ export async function focusThisWindow(): Promise<void> {
   } catch {
     // 앞으로 못 가져와도 탭은 돌아왔다
   }
+}
+
+// ── 탭을 끌어 창을 떼어 내고 붙이기(Rust windows.rs 의 begin_tab_drag …) ──────────────────
+
+/** 창 안 탭 줄 한 칸. 창 안쪽 왼쪽 위에서 잰 물리 픽셀 */
+export interface TabZoneRect {
+  readonly pane: string
+  readonly left: number
+  readonly top: number
+  readonly width: number
+  readonly height: number
+}
+
+export async function reportTabZones(zones: readonly TabZoneRect[]): Promise<void> {
+  if (!isDesktop()) return
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('report_tab_zones', { zones })
+}
+
+/** 다른 창이 탭을 끌기 시작했다: 이 창의 탭 줄 자리를 알려 달라 */
+export async function onTabZonesRequest(handler: () => void): Promise<() => void> {
+  if (!isDesktop()) return () => undefined
+  const { listen } = await import('@tauri-apps/api/event')
+  return listen('iwae:tab-zones-request', () => handler())
+}
+
+export interface BeginTabDragArgs {
+  /** new: docId 의 PDF 를 떼어 낸 새 창이 마우스를 따라간다 · self: 이 창이 통째로 따라간다 */
+  readonly mode: 'new' | 'self'
+  readonly docId?: string
+  readonly query?: string
+  /** new: 새 창 안에서 마우스가 놓일 자리(왼쪽 위에서, 물리 픽셀) */
+  readonly grabX?: number
+  readonly grabY?: number
+  /** 'js': 마우스 자리·놓음을 웹뷰가 알려 준다(시험·버튼을 못 읽는 환경). 기본은 운영체제에서 읽는다 */
+  readonly source?: 'os' | 'js'
+  readonly x?: number
+  readonly y?: number
+}
+
+export interface BeganTabDrag {
+  readonly label: string
+  /** 같은 문서의 창이 이미 있어 앞으로 가져왔다(끌기는 시작하지 않았다) */
+  readonly existing: boolean
+}
+
+export async function beginTabDrag(args: BeginTabDragArgs): Promise<BeganTabDrag | null> {
+  if (!isDesktop()) return null
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke<BeganTabDrag>('begin_tab_drag', { args })
+}
+
+export async function tabDragMove(x: number, y: number): Promise<void> {
+  if (!isDesktop()) return
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('tab_drag_move', { x, y })
+}
+
+export async function tabDragEnd(cancel = false): Promise<void> {
+  if (!isDesktop()) return
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('tab_drag_end', { cancel })
+}
+
+/** 끄는 창을 닫는다(탭을 다른 창에 붙인 뒤). 떼어 낸 창·새 창만 닫힌다 */
+export async function destroyAppWindow(label: string): Promise<void> {
+  if (!isDesktop()) return
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('destroy_app_window', { label })
+}
+
+/** 끌던 창이 마우스를 놓았다(끌기를 시작한 창이 받는다). target 은 놓은 자리의 IWAE 창(탭 줄 위일 때만) */
+export interface TabDragReleased {
+  readonly dragged: string
+  readonly target: string | null
+  readonly pane: string | null
+  /** 대상 창 안쪽 왼쪽 위에서 잰 CSS 픽셀 */
+  readonly x: number
+  readonly y: number
+}
+
+export async function onTabDragReleased(handler: (event: TabDragReleased) => void): Promise<() => void> {
+  if (!isDesktop()) return () => undefined
+  const { listen } = await import('@tauri-apps/api/event')
+  return listen<TabDragReleased>('iwae:tab-drag-released', (event) => handler(event.payload))
+}
+
+/** 다른 창의 탭이 이 창의 탭 줄 위로 왔다 / 벗어났다 */
+export interface TabHover {
+  readonly source: string
+  readonly pane: string
+  readonly x: number
+  readonly y: number
+}
+
+export async function onTabHover(handler: (event: TabHover) => void, onEnd: () => void): Promise<() => void> {
+  if (!isDesktop()) return () => undefined
+  const { listen } = await import('@tauri-apps/api/event')
+  const stops = await Promise.all([
+    listen<TabHover>('iwae:tab-hover', (event) => handler(event.payload)),
+    listen('iwae:tab-hover-end', () => onEnd()),
+  ])
+  return () => { for (const stop of stops) stop() }
+}
+
+/** 탭을 target 창의 탭 줄(pane)에 붙여 달라고 보낸다 */
+export async function sendTabDrop(target: string, request: Omit<ReattachRequest, 'source'>): Promise<void> {
+  if (!isDesktop()) return
+  const { emitTo } = await import('@tauri-apps/api/event')
+  await emitTo(target, 'iwae:reattach', { ...request, source: currentWindowLabel() })
 }

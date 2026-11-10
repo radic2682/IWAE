@@ -1,4 +1,5 @@
 import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
@@ -32,7 +33,7 @@ import type { GithubSource } from '../bridge/github'
 import { defaultVersion, hiddenVersionDocIds, type VersionGroup } from '../core/versionGroups'
 import type { VersionMenuActions } from './VersionMenu'
 import { DocNoteRows } from './DocNoteRows'
-import { attachBarZoomWheel, useBarZoom } from './useBarZoom'
+import { useBarZoomWheel, attachBarZoomWheel, useBarZoom } from './useBarZoom'
 import { groupMemoNotesByDoc } from '../core/memoNote'
 import '../ui/version-groups.css'
 import { cleanEntryName } from '../bridge/vaultFiles'
@@ -44,6 +45,7 @@ import { isMacPlatform } from '../core/platform'
 import { announceAction } from './actionFeedback'
 import '../ui/vault-menu.css'
 import '../ui/sidebar-buttons.css'
+import '../ui/left-bar-rows.css'
 
 // 선택창과 이모지 데이터는 처음 열 때만 불러온다 — 시작 번들을 키우지 않는다.
 const LazyEmojiPicker = lazy(async () => {
@@ -153,6 +155,8 @@ interface SidebarProps {
   onRevealRecentPdf?: (path: string) => void
   /** 라이브러리 모드. 펼쳐지면 트리 대신 폴더·항목 표를 그린다 */
   libraryExpanded?: boolean
+  /** 펼친 라이브러리를 그릴 자리(왼쪽 바 오른쪽 영역). 왼쪽 바 자체는 그대로 두고 라이브러리만 이 자리에 올린다 */
+  libraryHost?: HTMLElement | null
   onToggleLibrary?: () => void
   onOpenLibraryItem?: (target: LibraryOpenTarget) => void
   /** PDF 서지 정보. 라이브러리 표의 저자·연도 칸에 쓴다 */
@@ -308,6 +312,7 @@ export function Sidebar({
   onForgetRecentPdf,
   onRevealRecentPdf,
   libraryExpanded = false,
+  libraryHost = null,
   onToggleLibrary,
   onOpenLibraryItem,
   bibliography,
@@ -1534,7 +1539,7 @@ export function Sidebar({
                 : <ArrowsOutLineHorizontal size={16} aria-hidden="true" />}
             </button>
           ) : null}
-          {libraryExpanded || allFolderKeys.length === 0 ? null : (
+          {allFolderKeys.length === 0 ? null : (
             <button
               type="button"
               className="side-top-action"
@@ -1597,7 +1602,7 @@ export function Sidebar({
   return (
     <nav
       ref={sidebarRef}
-      className={`sidebar-inner${libraryExpanded ? ' sidebar-inner-library' : ''}`}
+      className="sidebar-inner"
       style={{ '--bar-zoom': leftZoom } as CSSProperties}
       onKeyDown={(event) => {
         // 메뉴·이름 바꾸기가 열려 있을 때의 Escape 는 그것만 닫는다.
@@ -1654,12 +1659,8 @@ export function Sidebar({
         </div>
       ) : null}
       <div className="side-scroll">
-        {libraryExpanded ? (
-          // 라이브러리 화면에는 「문서」 제목 줄이 없으므로 단추 줄을 따로 둔다
-          <div className="side-top-row">{headActions}</div>
-        ) : null}
-        {libraryExpanded ? (
-          <>
+        {libraryExpanded && libraryHost !== null ? createPortal(
+          <LibraryHostFrame>
             <LibraryView
               tree={workspaceTree}
               records={searchRecords}
@@ -1684,8 +1685,10 @@ export function Sidebar({
               onStartFolderRename={onRenameFolder === undefined ? undefined : (folder) => startFolderRenaming({ id: `folder:${folder.path}`, name: folder.name })}
               renameRequest={libraryRenameRequest}
             />
-          </>
-        ) : (
+          </LibraryHostFrame>,
+          libraryHost,
+        ) : null}
+        {(
         <>
         <section className={`side-section side-documents-section${sectionDropClass('documents')}`} aria-labelledby="side-documents-heading" {...sectionDropProps('documents')}>
           <div className="side-head-row side-documents-head">
@@ -2262,4 +2265,19 @@ export function vaultFolderName(root: string): string {
 /** 화면에 보일 경로: Windows 에서는 \ 로, macOS 에서는 / 로 맞춘다(저장된 경로는 / 와 \ 가 섞여 있을 수 있다) */
 export function shownPath(path: string): string {
   return isMacPlatform() ? path.replace(/\\/gu, '/') : path.replace(/\//gu, '\\')
+}
+
+/**
+ * 펼친 라이브러리를 감싸는 틀. 왼쪽 바와 따로 Ctrl+휠 배율(libraryZoom)을 갖는다.
+ * 배율은 표·모음 트리에만 걸고 위쪽 줄은 100% 로 둔다(.library-host-frame 의 CSS)
+ */
+function LibraryHostFrame({ children }: { readonly children: ReactNode }) {
+  const [element, setElement] = useState<HTMLDivElement | null>(null)
+  const zoom = useBarZoom('library')
+  useBarZoomWheel(element, 'library')
+  return (
+    <div ref={setElement} className="library-host-frame" style={{ '--bar-zoom': zoom } as CSSProperties}>
+      {children}
+    </div>
+  )
 }

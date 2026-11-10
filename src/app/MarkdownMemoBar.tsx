@@ -29,6 +29,10 @@ interface MarkdownMemoBarProps {
   readonly onAddRef?: (key: string | null) => void
   /** 메모만 보기(바가 문서 자리를 덮는다) */
   readonly memoOnly?: boolean
+  /** 닫히는 전환 중(바를 지우기 전에 서서히 사라지게 한다) */
+  readonly exiting?: boolean
+  /** 메모만 보기에서 바가 문서 창까지 덮을 때, 노트 바 칸 왼쪽 기준 왼쪽 끝(음수) */
+  readonly wideLeft?: number
   readonly onMemoOnlyChange?: (memoOnly: boolean) => void
   /** 바 폭(px)과 왼쪽 가장자리 끌기·두 번 누르기(PDF 메모 바와 같은 폭을 쓴다) */
   readonly width?: number
@@ -40,7 +44,7 @@ interface MarkdownMemoBarProps {
  * Markdown 의 메모 바(PDF 메모 바와 같은 노트 카드): 열린 노트의 블록을 그대로 보이고, 고른 글로 만든 새 메모는
  * 노트 끝에 들어간다. 노트가 없으면 만들기 단추.
  */
-export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, onHighlightCreated, onHighlightUpdated, onHighlightRemoved, onJump, docTitles, attachingKey = null, onAddRef, memoOnly = false, onMemoOnlyChange, width, onResizeStart, onResizeReset }: MarkdownMemoBarProps) {
+export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, onHighlightCreated, onHighlightUpdated, onHighlightRemoved, onJump, docTitles, attachingKey = null, onAddRef, memoOnly = false, exiting = false, wideLeft = 0, onMemoOnlyChange, width, onResizeStart, onResizeReset }: MarkdownMemoBarProps) {
   const noteApi = useMemoNoteApi()
   // 오른쪽 바 안쪽 확대(Ctrl+휠): 메모만 보기(넓은 화면)에서는 쓰지 않는다
   const rightZoom = useBarZoom('right')
@@ -117,9 +121,9 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
   return (
     <aside
       ref={setBarEl}
-      className={`pdf-memo-bar markdown-memo-bar${memoOnly ? ' markdown-memo-bar-full' : ''}`}
+      className={`pdf-memo-bar markdown-memo-bar${memoOnly ? ' markdown-memo-bar-full' : ''}${exiting ? ' note-bar-exiting' : ''}`}
       aria-label={t('메모 바')}
-      style={memoOnly ? undefined : { ...(width === undefined ? {} : { width: `${width}px` }), '--bar-zoom': rightZoom } as CSSProperties}
+      style={memoOnly ? { left: `${wideLeft}px` } : { ...(width === undefined ? {} : { width: `${width}px` }), '--bar-zoom': rightZoom } as CSSProperties}
     >
       {memoOnly || onResizeStart === undefined ? null : (
         <div

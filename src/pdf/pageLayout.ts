@@ -201,3 +201,48 @@ export function pageUnitAt(boxes: readonly PageBox[], index: number): PageUnit |
   for (let page = first; page <= last; page++) height = Math.max(height, boxes[page]?.height ?? 0)
   return { first, last, top, height }
 }
+
+/** 한 쪽 안에서 지금 화면에 보이는 부분. 쪽 크기에 대한 0~1 비율 */
+export interface VisibleRegion {
+  readonly page: number
+  readonly x: number
+  readonly y: number
+  readonly w: number
+  readonly h: number
+}
+
+/**
+ * 스크롤 영역(view: 문서 좌표계의 left·top·width·height)에 걸치는 쪽마다 보이는 부분을 구한다.
+ * boxes 는 문서 좌표계의 쪽 자리(left 는 이미 가운데 맞춤 값을 더한 것). 왼쪽 바 미리보기의 「보고 있는 곳」 사각형이 쓴다.
+ */
+export function visibleRegions(
+  boxes: readonly SpreadBox[],
+  view: { readonly left: number; readonly top: number; readonly width: number; readonly height: number },
+): VisibleRegion[] {
+  const regions: VisibleRegion[] = []
+  if (!(view.width > 0) || !(view.height > 0)) return regions
+  const viewRight = view.left + view.width
+  const viewBottom = view.top + view.height
+  for (let page = 0; page < boxes.length; page += 1) {
+    const box = boxes[page]!
+    if (!(box.width > 0) || !(box.height > 0)) continue
+    if (box.top >= viewBottom) {
+      // 위에서부터 쌓인 쪽이라 한 줄(여러 쪽 펼침) 단위로 이어진다. 같은 줄의 다음 쪽은 계속 본다
+      if (regions.length > 0 && box.top > viewBottom) break
+      continue
+    }
+    const x0 = Math.max(box.left, view.left)
+    const x1 = Math.min(box.left + box.width, viewRight)
+    const y0 = Math.max(box.top, view.top)
+    const y1 = Math.min(box.top + box.height, viewBottom)
+    if (x1 <= x0 || y1 <= y0) continue
+    regions.push({
+      page,
+      x: (x0 - box.left) / box.width,
+      y: (y0 - box.top) / box.height,
+      w: (x1 - x0) / box.width,
+      h: (y1 - y0) / box.height,
+    })
+  }
+  return regions
+}

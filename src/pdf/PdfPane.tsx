@@ -1,12 +1,12 @@
 import { ChatTeardropText } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
-import { useIsNoteHostPane } from '../app/noteHostPane'
+import { useIsNoteHostPane, useNoteBarPresence, useNoteDock } from '../app/noteDock'
 import { MEMO_BAR_WIDTH, useMemoBarWidth } from './memoBarWidth'
 import { NoteBarHeader } from './NoteBarHeader'
 import { useHighlightTool } from './highlightToolStore'
 import { useOverlayTool, useToolStyle } from './overlayToolStore'
 import { HighlighterStrip } from './HighlighterTool'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { PdfPins, PinHead, type PlacedPin, type PdfPinPatchInput } from './PdfPins'
 import type { PdfBookmark } from '../core/pdfBookmarks'
 import type { Anchor } from '../core/anchor'
@@ -20,7 +20,7 @@ import { prewarmPdfTextDetector } from './ocrTextDetector'
 import { ScanBadge } from './ScanBadge'
 import { getAppPrefs } from '../app/appPrefs'
 import { useBarZoom, useBarZoomWheel } from '../app/useBarZoom'
-import { layoutPages, layoutSpread, pageUnitAt, spreadHeight, totalHeight, visibleRange, type SpreadBox } from './pageLayout'
+import { layoutPages, layoutSpread, pageUnitAt, spreadHeight, totalHeight, visibleRange, visibleRegions, type SpreadBox, type VisibleRegion } from './pageLayout'
 import { spreadColumns, type PdfRotation, type PdfSpread } from '../core/pdfViewPrefs'
 import { renderWidthFor } from './renderWidth'
 import { PageImage, prefetchPreviews } from './PageImage'
@@ -107,6 +107,8 @@ interface PdfPaneProps {
   /** zoomPercent(폭 맞춤 = 100) 1 이 화면에 보이는 실제 크기 배율로 얼마인가. Ctrl+휠이 실제 배율 단계를 밟게 한다 */
   zoomScale?: number
   onPageChange?: (page: number) => void
+  /** 지금 화면에 보이는 쪽 부분들(스크롤·확대마다). 왼쪽 바 미리보기가 보고 있는 곳을 그린다. 돌린 보기에서는 null */
+  onVisibleRegions?: (regions: readonly VisibleRegion[] | null) => void
   pageRequest?: { page: number; nonce: number }
   /**
    * 이 보기의 열쇠(탭 id + 칸 번호). 주면 다른 탭을 보고 돌아왔을 때 쪽 안의 스크롤 자리까지 되살린다.
@@ -172,6 +174,8 @@ interface PdfPaneProps {
    * 스크롤 상자를 따로 줄이지 않는다
    */
   inSplit?: boolean
+  /** 깨끗이 보기(눈 단추): 내가 단 표시를 모두 감춘다 — 노트 바로 잇는 선도 같이 감춘다 */
+  clean?: boolean
   /** 이 PDF 의 책갈피 핀. 스크롤 막대 옆에 꽂혀 보인다 */
   pins?: readonly PdfBookmark[]
   /** 막대 옆 흐린 핀을 눌러 새 핀을 꽂는다(쪽, 쪽 안의 높이 비율, 기본 이름). 새 핀 id 를 돌려준다 */
@@ -218,7 +222,7 @@ export function pageHeightFitZoom(pageSize: readonly [number, number], viewport:
   return Math.max(10, Math.round((viewport.height / widthFitHeight) * 100))
 }
 
-export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent = 100, zoomScale = 0, onPageChange, pageRequest, onViewportChange, onZoomChange, onAnchorCreated, onPersistentHighlightCreated, onPersistentHighlightRemoved, persistentHighlights = [], highlightAnchor = null, sourceHighlights = [], searchMatches = [], activeSearchMatchId = null, interactionMode = 'text', highlightColor, onInteractionModeChange, onHighlightColorChange, onSendToCanvas, onCopyWithSource, onSearchDocuments, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink, onPersistentHighlightUpdated, onPersistentHighlightsPatched, flashHighlightId = null, viewKey, onMovePin, overlays = [], onOverlayAdd, onOverlayUpdate, onOverlayRemove, searchJumpNonce = 0, spread = 'single', continuous = true, tone = 'none', rotation = 0, invert = false, onMemoJump, docTitles, primary = true, inSplit = false, pins = [], onAddPin, onUpdatePin, onRemovePin }: PdfPaneProps) {
+export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent = 100, zoomScale = 0, onPageChange, onVisibleRegions, pageRequest, onViewportChange, onZoomChange, onAnchorCreated, onPersistentHighlightCreated, onPersistentHighlightRemoved, persistentHighlights = [], highlightAnchor = null, sourceHighlights = [], searchMatches = [], activeSearchMatchId = null, interactionMode = 'text', highlightColor, onInteractionModeChange, onHighlightColorChange, onSendToCanvas, onCopyWithSource, onSearchDocuments, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink, onPersistentHighlightUpdated, onPersistentHighlightsPatched, flashHighlightId = null, viewKey, onMovePin, overlays = [], onOverlayAdd, onOverlayUpdate, onOverlayRemove, searchJumpNonce = 0, spread = 'single', continuous = true, tone = 'none', rotation = 0, invert = false, onMemoJump, docTitles, primary = true, inSplit = false, clean = false, pins = [], onAddPin, onUpdatePin, onRemovePin }: PdfPaneProps) {
   useEffect(() => {
     // OCR 엔진(수십 MB)은 스캔 쪽을 열었고 OCR 이 켜져 있을 때만, 화면이 한가할 때 미리 띄운다.
     // 꺼 두면 영역을 처음 잡을 때 그제야 띄운다.
@@ -359,7 +363,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       // 구분선을 끄는 동안 ResizeObserver 가 프레임마다 불리는데, 여기서
       // 거르지 않으면 폭이 안 바뀌는 세로 드래그에도 전체가 다시 그려진다.
       setMeasured((prev) => (prev.width === width && prev.height === height ? prev : { width, height }))
-      setFrameWidth(element.closest<HTMLElement>('.pane-frame')?.clientWidth ?? 0)
+      setFrameWidth(element.closest<HTMLElement>('.app')?.clientWidth ?? 0)
     }
 
     measure()
@@ -489,15 +493,36 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const memoBarSize = memoBar.size
   const memoBarWidth = memoColumn ? memoBarSize : 0
 
-  // 메모 바는 PDF 창 틀 전체(위 제목줄 ~ 아래 하단바)를 차지한다. PDF 의 제목·도구·하단바는 그 왼쪽만 쓴다
-  const [paneFrame, setPaneFrame] = useState<HTMLElement | null>(null)
+  // 노트 바는 창 맨 오른쪽 칸(dock)에 있고 문서 창들 전체(위 제목줄 ~ 아래 하단바)와 같은 높이다
+  const paneFrame = useNoteDock()
+  const noteBarPresence = useNoteBarPresence(memoColumn || memoOnly)
   const [barBodyTop, setBarBodyTop] = useState(0)
+  // 이 문서 창의 왼쪽 가장자리와 노트 바 칸 왼쪽의 가로 차이(선이 문서 창 밖 노트 바까지 이어진다), 메모만 보기에서 바가 문서 창까지 덮는 폭
+  const [linkGeometry, setLinkGeometry] = useState({ originX: 0, scrollerRight: 0, wideLeft: 0 })
+  const [, bumpLayout] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => {
+    if (paneFrame === null) return undefined
+    // 노트 바 칸이나 창 배치가 움직이면(열고 닫는 전환, 칸막이 끌기) 선을 다시 맞춘다
+    const again = () => bumpLayout()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(again)
+    observer?.observe(paneFrame)
+    const panes = paneFrame.parentElement?.querySelector(':scope > .panes')
+    if (panes != null) observer?.observe(panes)
+    paneFrame.addEventListener('transitionend', again)
+    window.addEventListener('resize', again)
+    window.addEventListener('iwae:pane-resize-end', again)
+    return () => {
+      observer?.disconnect()
+      paneFrame.removeEventListener('transitionend', again)
+      window.removeEventListener('resize', again)
+      window.removeEventListener('iwae:pane-resize-end', again)
+    }
+  }, [paneFrame])
   // 화면 나누기: 이 칸이 칸 상자 안에서 얼마나 아래에 있는가, 메모 바에 붙은 오른쪽 칸인가
   const [cellPlace, setCellPlace] = useState({ top: 0, atRight: true })
   useLayoutEffect(() => {
     const element = scrollerRef.current
-    const frame = element?.closest<HTMLElement>('.pane-frame') ?? null
-    if (frame !== paneFrame) setPaneFrame(frame)
+    const frame = paneFrame
     if (element === null || frame === null) return
     // 메모 바 몸통은 PDF 칸들 전체의 맨 위에 맞춘다(나누지 않았으면 이 스크롤 상자)
     const split = inSplit ? element.closest<HTMLElement>('.pdf-split') : null
@@ -505,18 +530,27 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     const area = split?.getBoundingClientRect() ?? box
     const top = Math.round(area.top - frame.getBoundingClientRect().top)
     if (top !== barBodyTop) setBarBodyTop(top)
+    const dockBox = frame.getBoundingClientRect()
+    const panesBox = frame.parentElement?.querySelector(':scope > .panes')?.getBoundingClientRect()
+    const geometry = {
+      originX: Math.round((box.left - dockBox.left) * 100) / 100,
+      scrollerRight: Math.round((box.right - dockBox.left) * 100) / 100,
+      wideLeft: panesBox === undefined ? 0 : Math.round(panesBox.left - dockBox.left),
+    }
+    if (geometry.originX !== linkGeometry.originX || geometry.scrollerRight !== linkGeometry.scrollerRight || geometry.wideLeft !== linkGeometry.wideLeft) setLinkGeometry(geometry)
     const place = { top: Math.round(box.top - area.top), atRight: area.right - box.right < 2 }
     if (place.top !== cellPlace.top || place.atRight !== cellPlace.atRight) setCellPlace(place)
   })
   useLayoutEffect(() => {
     if (!primary) return
-    const paneDoc = scrollerRef.current?.closest<HTMLElement>('.pane-doc')
-    if (paneDoc === null || paneDoc === undefined) return
-    paneDoc.style.setProperty('--memo-bar-w', `${memoBarWidth}px`)
+    // 노트 바 칸 폭: 바가 열려 있으면 바 폭, 아니면 0(CSS 가 폭 전환을 부드럽게 한다)
+    const dock = paneFrame
+    if (dock === null || !noteHost) return
+    dock.style.setProperty('--memo-bar-w', `${memoBarWidth}px`)
     return () => {
-      paneDoc.style.removeProperty('--memo-bar-w')
+      dock.style.removeProperty('--memo-bar-w')
     }
-  }, [memoBarWidth, primary])
+  }, [memoBarWidth, primary, paneFrame, noteHost])
   useLayoutEffect(() => {
     const element = scrollerRef.current
     if (element === null || typeof getComputedStyle !== 'function') return
@@ -1054,6 +1088,20 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     setScrollTop(targetTop)
   }, [boxes, contentWidth, pageRequest])
 
+  // 화면에 보이는 쪽 부분을 알린다(왼쪽 바 미리보기의 「보고 있는 곳」 사각형)
+  useEffect(() => {
+    if (onVisibleRegions === undefined) return
+    if (rotation !== 0) {
+      onVisibleRegions(null)
+      return
+    }
+    // 쪽은 스크롤 상자의 위 안쪽 여백(paneInsetTop) 아래에서 시작한다
+    onVisibleRegions(visibleRegions(
+      boxes.map((box) => ({ ...box, left: box.left + contentLeft })),
+      { left: scrollLeft, top: scrollTop - paneInsetTop, width: measured.width, height: measured.height },
+    ))
+  }, [boxes, contentLeft, measured.height, measured.width, onVisibleRegions, paneInsetTop, rotation, scrollLeft, scrollTop])
+  useEffect(() => () => onVisibleRegions?.(null), [onVisibleRegions])
   // 지금 자리를 적어 둔다(첫 이동을 처리한 뒤부터 — 그 전의 0 으로 덮지 않게)
   useEffect(() => {
     if (viewKey === undefined || handledPageRequestRef.current === null || boxes.length === 0) return
@@ -1528,13 +1576,13 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
 
   return (
     <>
-      {primary && noteHost && memoAvailable && (memoColumn || memoOnly) ? (() => {
+      {primary && noteHost && memoAvailable && noteBarPresence.rendered ? (() => {
         const bar = (
         <aside
           ref={setNoteBarEl}
-          className={`pdf-memo-bar${memoOnly ? ' pdf-memo-bar-wide' : ''}`}
+          className={`pdf-memo-bar${memoOnly ? ' pdf-memo-bar-wide' : ''}${noteBarPresence.exiting ? ' note-bar-exiting' : ''}`}
           aria-label={t('메모')}
-          style={memoOnly ? undefined : { width: `${memoBarSize}px`, '--bar-zoom': barZoom } as CSSProperties}
+          style={memoOnly ? { left: `${linkGeometry.wideLeft}px` } : { width: `${memoBarSize}px`, '--bar-zoom': barZoom } as CSSProperties}
           data-memo-bar={docId}
         >
         {memoOnly ? null : (
@@ -1581,12 +1629,13 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
 
             {memoOnly ? null : (() => {
               // 형광펜(PDF 화면 좌표) → 카드(바 화면 좌표). 둘 다 보일 때만 잇는다
-              const pageEdge = Math.min(contentLeft + contentWidth - scrollLeft - measured.width, 0)
+              // 페이지 오른쪽 끝(바 칸 왼쪽 기준, 보통 음수). 다른 문서 창이 사이에 있어도 그 위로 가로질러 카드까지 이어진다
+              const pageEdge = Math.min(linkGeometry.originX + contentLeft + contentWidth - scrollLeft, linkGeometry.scrollerRight)
               const cardEdge = MEMO_CARD_INSET * barZoom
               const bend = pageEdge + (cardEdge - pageEdge) / 2
               const lines = memoLinkLines
               return (
-                <svg className="pdf-memo-links pdf-memo-links-flow" width={memoBarSize} height={Math.max(memoBarScroll.height * barZoom + dockBottom, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
+                <svg className={`pdf-memo-links pdf-memo-links-flow${clean ? ' pdf-memo-links-clean' : ''}`} width={memoBarSize} height={Math.max(memoBarScroll.height * barZoom + dockBottom, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
                   {lines.map(({ target, anchorY, cardY, active }) => (
                     <g key={target.key} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
                       <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${cardEdge} ${cardY}`} />
@@ -1675,7 +1724,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       })() : null}
       <div
         className={`pdf-pane${interactionMode === 'hand' ? ' pdf-pane-hand' : ''}${invert ? ' pdf-pane-inverted' : ''}${!invert && tone !== 'none' ? ` pdf-pane-tone-${tone}` : ''}${paged ? ' pdf-pane-paged' : ''}${memoOnly ? ' pdf-pane-memo-hidden' : ''}`}
-        style={memoBarWidth > 0 && !inSplit ? { right: `${memoBarWidth}px` } : undefined}
+        
         data-pdf-pane={docId}
         ref={scrollerRef}
         onScroll={handleScroll}
@@ -1822,7 +1871,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
         </PdfFloatPalette>
       ) : null}
       {scrollableHeight > 0 && (
-        <div className="pdf-scrollbar" aria-hidden="true" style={memoBarWidth > 0 && !inSplit ? { right: `${memoBarWidth}px` } : undefined} onWheel={(event) => { if (!event.ctrlKey && scrollerRef.current !== null) scrollerRef.current.scrollTop += event.deltaY }} onPointerDown={handleScrollbarPointerDown} onPointerMove={(event) => { handleScrollbarPointerMove(event); trackGhost(event) }} onPointerLeave={() => setGhostY(null)} onPointerUp={finishScrollbarDrag} onPointerCancel={finishScrollbarDrag}>
+        <div className="pdf-scrollbar" aria-hidden="true" onWheel={(event) => { if (!event.ctrlKey && scrollerRef.current !== null) scrollerRef.current.scrollTop += event.deltaY }} onPointerDown={handleScrollbarPointerDown} onPointerMove={(event) => { handleScrollbarPointerMove(event); trackGhost(event) }} onPointerLeave={() => setGhostY(null)} onPointerUp={finishScrollbarDrag} onPointerCancel={finishScrollbarDrag}>
           {ghostY !== null && onAddPin !== undefined ? (
             <button
               type="button"
@@ -1895,7 +1944,6 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
             if (place !== null) onMovePin(id, place.index, place.y)
           }}
           onRemove={onRemovePin}
-          style={memoBarWidth > 0 && !inSplit ? { right: `${memoBarWidth + 12}px` } : undefined}
         />
       )}
       {/* 스캔본 표시. 화면 구석에 조용히 둔다 — 사용자가 고칠 수 있는 일이

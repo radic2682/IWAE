@@ -46,6 +46,7 @@ pub fn run() {
         .manage(open_files::OpenFilesTaken::default())
         // 전체 Vault 백업·복원 진행 상태(취소용)
         .manage(vault_backup::BackupState::default())
+        .manage(windows::TabDragState::default())
         // 동기 버전은 렌더(13–29ms) 동안 웹뷰를 멈춰 세운다.
         .register_asynchronous_uri_scheme_protocol(
             protocol::SCHEME,
@@ -120,6 +121,11 @@ pub fn run() {
             window_state::save_window_state,
             windows::open_app_window,
             windows::close_secondary_windows,
+            windows::report_tab_zones,
+            windows::begin_tab_drag,
+            windows::tab_drag_move,
+            windows::tab_drag_end,
+            windows::destroy_app_window,
             i18n::set_locale,
             translation::translation_install_ollama,
             storage::atomic_write_text,

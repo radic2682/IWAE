@@ -384,12 +384,7 @@ button.note-source-page:hover { color: var(--accent); }
    원문 바탕·접힌 원문 줄·메모만 보기의 원문/점·연결선 모두 한 가지 무채색 */
 :root { --note-quote-bg: color-mix(in srgb, var(--ink) 9%, transparent); --note-link: color-mix(in srgb, var(--ink) 55%, transparent); }
 .pdf-memo-bar :is(.pdf-memo-card-quote, .note-source-chip) { background: var(--note-quote-bg) !important; }
-.pdf-memo-links-flow .pdf-memo-link path,
-.pdf-memo-links-page .pdf-memo-link path { stroke: var(--note-link) !important; }
-.pdf-memo-links-flow .pdf-memo-link circle,
-.pdf-memo-links-page .pdf-memo-link circle { fill: var(--note-link) !important; }
-.pdf-memo-links .pdf-memo-link-active path { stroke: var(--accent) !important; }
-.pdf-memo-links .pdf-memo-link-active circle { fill: var(--accent) !important; }
+/* 연결선은 그 메모 형광펜 색(pdf-memo.css 의 --memo-link-color). 호버·선택이면 같은 색을 더 굵고 진하게 */
 
 
 /* 표·그림은 카드 폭에 꽉 맞춘다 */
@@ -434,19 +429,18 @@ button.note-source-page:hover { color: var(--accent); }
 :root[data-theme='dark'] .pdf-memo-bar-body .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(130, 80, 223)'] { color: rgb(130, 80, 223) !important; }
 
 /* ---------- 이어지는 선을 잘 보이게: 파란 링크·보라 줄이 많은 PDF 와 어두운 바 양쪽에서 튀는 주황빨강 ---------- */
-:root { --memo-link: #ff6a2b; --memo-link-active: #ff3d00; }
+/* 색은 그 메모 형광펜 색(--memo-link-color, pdf-memo.css) — 호버·선택은 같은 색을 더 굵고 또렷하게 */
 .pdf-memo-links .pdf-memo-link path {
-  stroke: var(--memo-link) !important;
+  stroke: var(--memo-link-color) !important;
   stroke-width: 2px !important;
   opacity: .92 !important;
 }
-.pdf-memo-links .pdf-memo-link circle { fill: var(--memo-link) !important; opacity: .9 !important; }
+.pdf-memo-links .pdf-memo-link circle { fill: var(--memo-link-color) !important; opacity: .9 !important; }
 .pdf-memo-links .pdf-memo-link-active path {
-  stroke: var(--memo-link-active) !important;
   stroke-width: 2.8px !important;
   opacity: 1 !important;
 }
-.pdf-memo-links .pdf-memo-link-active circle { fill: var(--memo-link-active) !important; opacity: 1 !important; }
+.pdf-memo-links .pdf-memo-link-active circle { opacity: 1 !important; }
 /* 페이지 안쪽 점선(형광펜 끝 → 페이지 가장자리)도 같이 */
 .pdf-memo-links .pdf-memo-link .pdf-memo-link-inner { stroke-width: 2px !important; opacity: .9 !important; }
 .pdf-memo-links .pdf-memo-link .pdf-memo-link-inner { stroke-width: 1.6px !important; stroke-dasharray: 3 3; opacity: .7 !important; }
@@ -456,10 +450,14 @@ button.note-source-page:hover { color: var(--accent); }
 .side-pdf-search { display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 10px 10px 0; }
 .side-pdf-search .side-section-empty { margin: 12px 4px; }
 .pdf-search-docked { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 8px; }
+/* 검색칸: 왼쪽 바 줄들과 같은 납작한 면. 그림자·블러 없이 채운 칸 + 1px 테두리, 줄(32px)과 같은 높이 */
 .pdf-search-docked .pdf-search-field {
-  display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px 0 12px;
-  border: 1px solid transparent; border-radius: var(--r-full); background: var(--field); color: var(--text-strong);
+  display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px 0 10px;
+  border: 1px solid var(--hairline); border-radius: var(--r-md); background: var(--field); color: var(--text-strong);
+  box-shadow: none; backdrop-filter: none;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out;
 }
+.pdf-search-docked .pdf-search-field:hover { background: var(--field-hover); }
 .pdf-search-docked .pdf-search-field:focus-within { border-color: var(--accent); }
 .pdf-search-docked .pdf-search-field input { flex: 1 1 auto; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text-strong); font: inherit; font-size: 14px; }
 .pdf-search-docked .pdf-search-field input::placeholder { color: var(--text-dim); }

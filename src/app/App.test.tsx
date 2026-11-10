@@ -904,8 +904,10 @@ describe('App — PDF 도구', () => {
     const pdfButton = within(documents).getAllByRole('button').find((button) => button.textContent?.includes(SAMPLE_TITLE))!
     fireEvent.contextMenu(pdfButton)
     fireEvent.click(screen.getByRole('menuitem', { name: 'PDF 도구…' }))
-    const dialog = await screen.findByRole('dialog', { name: /PDF 도구/ })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'OCR 로 글자 입히기' }))
+    // 도구는 팝업이 아니라 PDF 창 자리에 펼쳐진다. 고른 도구는 왼쪽 바 「PDF 도구」 목록에서 바꾼다
+    const dialog = await screen.findByRole('region', { name: /PDF 도구/ })
+    fireEvent.click(screen.getByRole('radio', { name: 'PDF 도구' }))
+    fireEvent.click(screen.getByRole('button', { name: 'OCR 로 글자 입히기' }))
     fireEvent.click(within(dialog).getByRole('button', { name: 'OCR 시작' }))
     expect((await within(dialog).findAllByText('이 PDF는 이미 모든 쪽에 글자가 있습니다')).length).toBeGreaterThan(0)
   })

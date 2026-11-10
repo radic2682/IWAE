@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowArcLeft, ArrowArcRight, CaretLeft, CaretRight, FilePlus, Trash, X } from '@phosphor-icons/react'
+import { ArrowArcLeft, ArrowArcRight, ArrowLeft, CaretLeft, CaretRight, FilePlus, Trash } from '@phosphor-icons/react'
 import { openPdf, pageImageUrl, pickPdfFile } from '../bridge/pdf'
 import {
   initialPageItems,
@@ -170,13 +170,13 @@ export function PageEditDialog({ docId, title, pageCount, onCancel, onSave }: Pa
 
   return (
     <div className="page-edit-backdrop" role="presentation">
-      <div className="page-edit" role="dialog" aria-modal="true" aria-label={t('{title} 쪽 편집', { title })}>
+      <div className="page-edit" role="region" aria-label={t('{title} 쪽 편집', { title })}>
         <header className="page-edit-head">
+          <button type="button" className="page-edit-back" onClick={onCancel} disabled={busy}><ArrowLeft size={15} aria-hidden="true" />{t('PDF 로 돌아가기')}</button>
           <div className="page-edit-title">
             <strong>{t('쪽 편집')}</strong>
             <span>{title}</span>
           </div>
-          <button type="button" className="page-edit-icon" aria-label={t('닫기')} onClick={onCancel} disabled={busy}><X size={16} aria-hidden="true" /></button>
         </header>
         <div className="page-edit-tools" role="toolbar" aria-label={t('쪽 편집 도구')}>
           <button type="button" disabled={selected.size === 0} onClick={() => rotate(-90)} title={t('왼쪽으로 돌리기')}><ArrowArcLeft size={16} aria-hidden="true" /> {t('왼쪽으로')}</button>

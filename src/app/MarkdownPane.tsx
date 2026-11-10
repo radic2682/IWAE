@@ -1,11 +1,12 @@
 import { t } from '../i18n'
-import { useIsNoteHostPane } from './noteHostPane'
+import { useIsNoteHostPane, useNoteBarPresence, useNoteDock } from './noteDock'
 import { startInternalDrag } from '../core/internalDrag'
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type CSSProperties,
@@ -567,31 +568,47 @@ export function MarkdownPane({
   // 창을 여러 칸으로 나눴으면 노트 바는 맨 오른쪽 위 칸에만
   const noteHost = useIsNoteHostPane(hostRef)
   const memoBarVisible = memoBarOpen && primary && noteHost
+  const [memoOnly, setMemoOnly] = useState(false)
   // PDF 와 같은 틀: 메모 바는 창 틀(.pane-frame) 전체(위 제목줄 ~ 아래 하단바)를 차지하고,
   // 글·도구줄·하단바는 --memo-bar-w 만큼 비운 왼쪽만 쓴다(PdfPane 과 같은 방식)
-  const [paneFrame, setPaneFrame] = useState<HTMLElement | null>(null)
+  // 노트 바는 창 맨 오른쪽 칸(dock)에 있다 — 어느 문서 창에 이 문서가 있든 같은 자리
+  const paneFrame = useNoteDock()
+  const noteBarPresence = useNoteBarPresence(memoBarVisible)
   const [frameWidth, setFrameWidth] = useState(0)
-  useLayoutEffect(() => {
-    const frame = hostRef.current?.closest<HTMLElement>('.pane-frame') ?? null
-    if (frame !== paneFrame) setPaneFrame(frame)
-  })
+  const [wideLeft, setWideLeft] = useState(0)
+  const [, bumpLayout] = useReducer((n: number) => n + 1, 0)
   useEffect(() => {
     if (paneFrame === null) return undefined
-    const measure = () => setFrameWidth(paneFrame.clientWidth)
+    const app = paneFrame.parentElement
+    const panes = app?.querySelector(':scope > .panes') ?? null
+    const measure = () => {
+      setFrameWidth(app?.clientWidth ?? 0)
+      setWideLeft(panes === null ? 0 : Math.round(panes.getBoundingClientRect().left - paneFrame.getBoundingClientRect().left))
+      // 노트 바 칸이나 창 배치가 움직이면 선을 다시 맞춘다(열고 닫는 전환, 칸막이 끌기)
+      bumpLayout()
+    }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(paneFrame)
-    return () => observer.disconnect()
+    if (panes !== null) observer.observe(panes)
+    paneFrame.addEventListener('transitionend', measure)
+    window.addEventListener('resize', measure)
+    window.addEventListener('iwae:pane-resize-end', measure)
+    return () => {
+      observer.disconnect()
+      paneFrame.removeEventListener('transitionend', measure)
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('iwae:pane-resize-end', measure)
+    }
   }, [paneFrame])
   // 바 폭은 PDF 메모 바와 같은 값(끌어 바꾸면 양쪽이 같이 바뀐다)
   const memoBar = useMemoBarWidth(frameWidth, memoBarVisible && frameWidth > 0)
   useLayoutEffect(() => {
-    if (!memoBarVisible) return undefined
-    const paneDoc = hostRef.current?.closest<HTMLElement>('.pane-doc')
-    if (paneDoc === null || paneDoc === undefined) return undefined
-    paneDoc.style.setProperty('--memo-bar-w', `${memoBar.size}px`)
-    return () => { paneDoc.style.removeProperty('--memo-bar-w') }
-  }, [memoBarVisible, memoBar.size])
+    // 노트 바 칸 폭(CSS 가 폭 전환을 부드럽게 한다). 메모만 보기에서는 바가 문서 창까지 덮으므로 칸 폭은 0
+    if (paneFrame === null || !noteHost) return undefined
+    paneFrame.style.setProperty('--memo-bar-w', `${memoBarOpen && primary && !memoOnly ? memoBar.size : 0}px`)
+    return () => { paneFrame.style.removeProperty('--memo-bar-w') }
+  }, [memoBarOpen, primary, memoOnly, memoBar.size, paneFrame, noteHost])
   const [draftMemo, setDraftMemo] = useState<PersistentPdfHighlight | null>(null)
   const jumpToMemo = (highlight: PersistentPdfHighlight) => {
     if (highlight.anchor.docId !== path) {
@@ -639,19 +656,17 @@ export function MarkdownPane({
   // 메모에 원문을 더하는 중인 블록, 메모만 보기(PDF 와 같다)
   const noteApi = useMemoNoteApi()
   const [attachKey, setAttachKey] = useState<string | null>(null)
-  const [memoOnly, setMemoOnly] = useState(false)
 
   // ---------- 형광펜 → 노트 카드 선(PDF 와 같은 모양): 형광펜 끝 → 종이 오른쪽 점선, 거기서 카드까지 곡선 ----------
   const [memoLinks, setMemoLinks] = useState<readonly MemoLink[]>([])
   const measureMemoLinks = () => {
     const frame = paneFrame
     const article = articleRef.current
-    const bar = frame?.querySelector<HTMLElement>('.markdown-memo-bar') ?? null
+    const bar = frame?.querySelector<HTMLElement>('.pdf-memo-bar') ?? null
     const scroller = bar?.querySelector<HTMLElement>('.pdf-memo-bar-scroll') ?? null
     const next: MemoLink[] = []
-    // 화면을 나눴으면 메모 바에 붙은 칸에서만 잇는다(다른 칸 위를 가로지르지 않게, PDF 와 같다)
-    const adjacent = article !== null && bar !== null && Math.abs(article.getBoundingClientRect().right - bar.getBoundingClientRect().left) < 40
-    if (memoBarOpen && !memoOnly && adjacent && frame !== null && article !== null && bar !== null && scroller !== null) {
+    // 노트 바 칸은 창 맨 오른쪽이라, 다른 문서 창이 사이에 있어도 그 위로 가로질러 카드까지 잇는다
+    if (memoBarOpen && primary && !memoOnly && bar?.classList.contains('pdf-memo-bar-wide') !== true && !bar?.classList.contains('markdown-memo-bar-full') && frame !== null && article !== null && bar !== null && scroller !== null) {
       const fr = frame.getBoundingClientRect()
       const ar = article.getBoundingClientRect()
       const br = bar.getBoundingClientRect()
@@ -694,7 +709,7 @@ export function MarkdownPane({
   useLayoutEffect(measureMemoLinks)
   // 노트 바를 굴리거나 카드 크기가 바뀌어도 다시 잰다
   useEffect(() => {
-    const scroller = paneFrame?.querySelector<HTMLElement>('.markdown-memo-bar .pdf-memo-bar-scroll')
+    const scroller = paneFrame?.querySelector<HTMLElement>('.pdf-memo-bar .pdf-memo-bar-scroll')
     if (scroller === null || scroller === undefined) return undefined
     const again = () => window.requestAnimationFrame(measureMemoLinks)
     scroller.addEventListener('scroll', again, { passive: true })
@@ -1275,8 +1290,10 @@ export function MarkdownPane({
         onModeChange={(mode) => onInteractionModeChange?.(mode)}
         draftMemo={draftMemo}
       />
-      {memoBarVisible && paneFrame !== null ? createPortal(
+      {noteBarPresence.rendered && paneFrame !== null ? createPortal(
         <MarkdownMemoBar
+          exiting={noteBarPresence.exiting}
+          wideLeft={wideLeft}
           docId={path}
           title={title}
           highlights={boxHighlights}
@@ -1301,7 +1318,7 @@ export function MarkdownPane({
         paneFrame,
       ) : null}
       {memoLinks.length > 0 && paneFrame !== null ? createPortal(
-        <svg className="pdf-memo-links pdf-memo-links-page markdown-memo-links" aria-hidden="true">
+        <svg className={`pdf-memo-links pdf-memo-links-page markdown-memo-links${clean ? ' pdf-memo-links-clean' : ''}`} aria-hidden="true">
           {memoLinks.map((link) => {
             const bend = link.edge + (link.cardX - link.edge) / 2
             return (
@@ -1415,7 +1432,6 @@ export function MarkdownPane({
           track={{ top: 0, bottom: trackHeight }}
           onMove={onMovePin === undefined ? undefined : (id, barY) => onMovePin(id, 0, pinRatioAt(barY))}
           onRemove={onRemovePin}
-          style={memoBarVisible ? { right: 'calc(var(--memo-bar-w, 0px) + 12px)' } : undefined}
         />
       ) : null}
       {searchQuery.trim() === '' ? null : (

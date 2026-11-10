@@ -164,21 +164,23 @@ body.library-resizing, body.library-resizing * { cursor: col-resize !important; 
   .library-view { animation: none; }
 }
 
-/* 펼친 사이드바 안에서는 목록 스크롤 대신 라이브러리가 남은 높이를 채우고,
-   스크롤은 표와 모음 트리가 각자 맡는다 — 겹 스크롤바가 생기지 않는다. */
-.sidebar-inner-library .side-scroll {
+/* 펼친 라이브러리. 왼쪽 바는 그대로 두고 그 오른쪽 영역 전체를 이 자리가 덮는다(패널은 아래에 마운트된 채 가려진다).
+   표와 모음 트리가 각자 스크롤하고, 배율(--bar-zoom = libraryZoom)은 왼쪽 바와 따로다. */
+.library-host {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: calc(var(--sidebar-width) + var(--sidebar-divider-width));
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  padding-bottom: 0;
+  min-width: 0;
+  background: var(--paper);
+  z-index: 2;
 }
-
-.sidebar-inner-library .side-top-row { flex: 0 0 auto; }
-
-.sidebar-inner-library .library-view {
-  margin: 0 -6px;
-  border-top: 1px solid var(--hairline);
-}
+.library-host-frame { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.library-host-frame > .library-view { zoom: var(--bar-zoom, 1); }
+.library-host-frame .library-view :is(.side-context-menu, .side-menu-backdrop) { zoom: calc(1 / var(--bar-zoom, 1)); }
 
 .library-cell-author { color: var(--text-dim); }
 
@@ -198,3 +200,6 @@ body.library-resizing, body.library-resizing * { cursor: col-resize !important; 
   font: inherit;
   outline: none;
 }
+
+/* 펼친 동안 오른쪽 노트 바 칸(다른 곳에서 그려 넣는다)도 가린다 */
+.shell-library-expanded [data-note-dock] { visibility: hidden; }

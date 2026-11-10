@@ -24,4 +24,13 @@ describe('appPrefs — 바 확대', () => {
     setAppPref('leftBarZoom', 1)
     setAppPref('rightBarZoom', 1)
   })
+
+  it('펼친 라이브러리 배율은 왼쪽 바와 따로 저장된다', () => {
+    setAppPref('libraryZoom', 1.4)
+    expect(getAppPrefs().libraryZoom).toBe(1.4)
+    expect(getAppPrefs().leftBarZoom).toBe(1)
+    expect(parseAppPrefs('{"libraryZoom":9}').libraryZoom).toBe(1.5)
+    expect(parseAppPrefs('{}').libraryZoom).toBe(1)
+    setAppPref('libraryZoom', 1)
+  })
 })

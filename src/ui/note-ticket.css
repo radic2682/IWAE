@@ -14,7 +14,7 @@
 }
 .note-block.pdf-memo-card-flow:not(.note-text-card).pdf-memo-card-editing {
   background: var(--paper) !important;
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent) !important;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--memo-ink) 60%, transparent) !important;
 }
 .note-block.pdf-memo-card-flow:not(.note-text-card).note-block-selected {
   background: color-mix(in srgb, var(--accent) 14%, var(--paper)) !important;
@@ -64,19 +64,17 @@
 .note-ticket-id-warn { margin: 0; color: var(--danger, #d1242f); font-size: 12px; font-weight: 600; }
 
 /* 호버 탭(Jira 카드처럼): 테두리가 형광펜 색이 되고, 위 테두리 양 끝에 출처 탭(왼쪽)과 단추 탭(오른쪽)이 붙는다.
-   테두리는 정수 px 이어야 한다: 1.5px 는 화면 배율에 따라 1px 로 그려져 탭(-1.5px)이 옆으로 반 픽셀 튀어나왔다 */
+   테두리는 border 가 아니라 안쪽 box-shadow 로 그린다: border 폭은 화면 배율·글자 배율에서 기기 픽셀로 깎여
+   (2px → 1.74px) 탭 줄(-2px 로 걸친 것)이 옆으로 0.3px 어긋났다. border 가 0 이면 탭 줄을 left/right 0 으로 둬
+   카드 바깥 가장자리와 항상 정확히 같다 */
 .note-block { --memo-border: 2px; }
 .note-block.pdf-memo-card-flow:not(.note-text-card) {
-  border-width: var(--memo-border) !important; padding: 10px 12px !important;
+  border-width: 0 !important; padding: 12px 14px !important;
 }
-.note-block { --memo-ink: var(--accent); }
-.note-block.pdf-memo-card-yellow { --memo-ink: #b8911a; }
-.note-block.pdf-memo-card-green { --memo-ink: #2f9358; }
-.note-block.pdf-memo-card-blue { --memo-ink: #2f78c4; }
-.note-block.pdf-memo-card-pink { --memo-ink: #c4467c; }
-.note-block.note-block.pdf-memo-card-editing, .note-block.note-block.pdf-memo-card-draft { --memo-ink: var(--accent); }
+/* 카드의 호버·선택 색 = 그 카드 형광펜 색(--memo-color, pdf-memo.css 의 --memo-ink-* 에서). 형광펜이 없는 블록은 강조색 */
+.note-block { --memo-ink: var(--memo-color, var(--accent)); }
 .note-block-tabs {
-  position: absolute; z-index: 3; left: calc(-1 * var(--memo-border)); right: calc(-1 * var(--memo-border)); bottom: 100%;
+  position: absolute; z-index: 3; left: 0; right: 0; bottom: 100%;
   display: flex; justify-content: space-between; gap: 16px;
   opacity: 0; pointer-events: none; transition: opacity 100ms ease;
 }
@@ -84,9 +82,10 @@
 .note-block:is(:hover, :focus-within):not(.pdf-memo-card-dragging) > .note-block-tabs .note-tab-r { pointer-events: auto; }
 body.note-block-dragging .note-block-tabs { display: none; }
 .note-block.pdf-memo-card-flow:not(.note-text-card):is(:hover, :focus-within):not(.pdf-memo-card-dragging) {
-  border-color: var(--memo-ink) !important;
+  box-shadow: inset 0 0 0 var(--memo-border) var(--memo-ink) !important;
   border-top-left-radius: 0 !important; border-top-right-radius: 0 !important;
 }
+.note-block.pdf-memo-card-flow:not(.note-text-card).note-block-selected:is(:hover, :focus-within):not(.pdf-memo-card-dragging) { box-shadow: inset 0 0 0 var(--memo-border) var(--accent) !important; }
 .note-tab {
   position: relative; display: flex; align-items: stretch; height: 22px;
   background: var(--memo-ink); color: #fff; border-radius: 7px 7px 0 0;
@@ -244,3 +243,24 @@ body.note-block-dragging .note-block-tabs { display: none; }
 
 /* 호버 탭(22px)이 앞 블록의 글을 덮지 않도록 블록 사이를 조금 더 벌린다 */
 .pane-doc .note-gap { margin-block: 0; }
+
+/* 한글은 음절 사이가 아니라 띄어쓰기 단위로 줄을 바꾼다(너무 긴 낱말만 마지막 수단으로 끊는다) */
+.note-block :is(.pdf-memo-card-text, .pdf-memo-editor, .note-ticket-title, .note-source, .note-source-translation) { word-break: keep-all; overflow-wrap: anywhere; }
+
+/* ---------- 소제목 줄: 제목 바로 옆에 접기 화살표, 이어서 개수 칩. 「…」는 줄 안 오른쪽 끝, 세로 가운데 ----------
+   (전엔 제목이 줄을 다 차지해 화살표·개수가 맨 오른쪽 멀리 떨어지고, 「…」는 줄 위로 떠 올랐다) */
+.pane-doc .note-section.note-block { gap: 4px; padding-right: 44px; }
+.pane-doc .note-section.note-block .note-section-title { order: 0; flex: 0 1 auto; }
+.pane-doc .note-section.note-block .note-section-toggle { order: 1; flex: 0 0 auto; width: 22px; height: 22px; margin-left: 0; }
+.pane-doc .note-section.note-block .note-section-count { order: 2; display: inline-grid; place-items: center; height: 20px; margin-left: 2px; line-height: 20px; color: var(--text-strong); }
+.pane-doc .note-section.note-block .note-section-input { order: 0; flex: 1 1 auto; }
+.pane-doc .note-section.note-block > .note-block-menu { order: 3; top: 50%; right: 8px; transform: translateY(-50%); }
+/* 글 블록의 「…」도 줄 안(오른쪽 위 모서리 안쪽)에 둔다 */
+.pane-doc .note-block.note-text-card > .note-block-menu { top: 6px; right: 6px; box-shadow: 0 0 0 1px var(--divider-strong); }
+
+/* 오른쪽 스크롤 막대는 평소엔 숨겨 둬 좌우 여백이 눈으로도 같다(막대 자리 10px 는 그대로 비워 둔다). 마우스를 올리면 나타난다 */
+.pane-doc .pdf-memo-bar-scroll { scrollbar-color: transparent transparent; }
+.pane-doc .pdf-memo-bar:hover .pdf-memo-bar-scroll,
+.pane-doc .pdf-memo-bar-scroll:is(:hover, :focus-within) { scrollbar-color: color-mix(in srgb, var(--ink) 35%, transparent) transparent; }
+/* 좌우 여백 = 12px(바 배율 --bar-zoom 만큼 같이 커진다). 스크롤 막대(10px, 배율 안 탐) 자리까지 합쳐 오른쪽도 같게 맞춘다 */
+.pane-doc .pdf-memo-bar-scroll.pdf-memo-bar-scroll { padding-left: 12px; padding-right: calc(12px - 10px / var(--bar-zoom, 1)); }

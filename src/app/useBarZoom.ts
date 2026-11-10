@@ -4,9 +4,9 @@ import { announceAction } from './actionFeedback'
 import { getAppPrefs, setAppPref, useAppPrefs } from './appPrefs'
 import { t } from '../i18n'
 
-export type BarSide = 'left' | 'right'
+export type BarSide = 'left' | 'right' | 'library'
 
-const PREF_KEY = { left: 'leftBarZoom', right: 'rightBarZoom' } as const
+const PREF_KEY = { left: 'leftBarZoom', right: 'rightBarZoom', library: 'libraryZoom' } as const
 
 /** 그 바의 확대 배율(1 = 100%) */
 export function useBarZoom(side: BarSide): number {
@@ -20,7 +20,7 @@ export function stepBarZoomPref(side: BarSide, direction: 1 | -1): number {
   if (next === getAppPrefs()[key]) return next
   setAppPref(key, next)
   const percent = Math.round(next * 100)
-  announceAction(side === 'left' ? t('왼쪽 바 {percent}%', { percent }) : t('오른쪽 바 {percent}%', { percent }))
+  announceAction(side === 'left' ? t('왼쪽 바 {percent}%', { percent }) : side === 'right' ? t('오른쪽 바 {percent}%', { percent }) : t('라이브러리 {percent}%', { percent }))
   return next
 }
 

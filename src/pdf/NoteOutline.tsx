@@ -7,8 +7,18 @@ import '../ui/note-wide.css'
 
 /** 메모만 보기의 글 칸 폭(Markdown 글 칸과 같다). 목차는 그 왼쪽 빈 곳에 놓는다 */
 export const NOTE_WIDE_COLUMN = 708
-const OUTLINE_WIDTH = 184
-const OUTLINE_GAP = 12
+/** 목차 칸 폭 = 노트 바 폭의 18%, 160~240px (note-wide.css 의 --nw-out 과 같은 식) */
+export const OUTLINE_MIN = 160
+export const OUTLINE_MAX = 240
+export const OUTLINE_GAP = 28
+const OUTLINE_SIDE_PAD = 16
+export function outlineWidthFor(paneWidth: number): number {
+  return Math.min(OUTLINE_MAX, Math.max(OUTLINE_MIN, Math.round(paneWidth * 0.18)))
+}
+/** 글 칸 + 목차 + 사이 + 양쪽 여백이 들어가는 폭인가(아니면 목차를 감추고 글 칸만 가운데) */
+export function outlineFits(paneWidth: number): boolean {
+  return paneWidth >= NOTE_WIDE_COLUMN + outlineWidthFor(paneWidth) + OUTLINE_GAP + 2 * OUTLINE_SIDE_PAD
+}
 
 /**
  * 메모만 보기로 들어가면 원문을 모두 펼치고, 나올 때 전에 펼쳐 둔 것으로 되돌린다
@@ -61,7 +71,9 @@ function matchesQuery(item: NoteFlowItem, needle: string): boolean {
 }
 
 const clip = (text: string): string => (text.length > 80 ? `${text.slice(0, 80)}…` : text)
-const firstLine = (text: string | undefined): string => clip((text ?? '').split('\n').map((line) => line.trim()).find((line) => line !== '') ?? '')
+/** 목차 글: 첫 줄에서 **굵게**·`코드` 같은 표시 기호만 걷어 낸다 */
+export const plainLine = (line: string): string => line.replace(/(\*\*|__|~~|`)/gu, '')
+const firstLine = (text: string | undefined): string => clip(plainLine((text ?? '').split('\n').map((line) => line.trim()).find((line) => line !== '') ?? ''))
 
 /** 목차 줄: 소제목은 제목, 메모는 ID·제목 → 메모 첫 줄 → 원문 앞부분, 글 블록은 첫 줄 */
 export function outlineEntries(items: readonly NoteFlowItem[], query = ''): readonly OutlineEntry[] {
@@ -117,7 +129,7 @@ export function NoteOutline({
     const scroller = scrollerRef.current
     if (scroller === null) return
     const measure = () => {
-      setFits(scroller.clientWidth >= NOTE_WIDE_COLUMN + 2 * (OUTLINE_WIDTH + OUTLINE_GAP))
+      setFits(outlineFits(scroller.offsetWidth))
       setTop(scroller.offsetTop)
     }
     measure()
@@ -172,7 +184,17 @@ export function NoteOutline({
     else if (rowBox.bottom > listBox.bottom - 24) list.scrollTop += rowBox.bottom - listBox.bottom + 24
   }, [activeKey])
 
-  if (!fits || entries.length === 0) return null
+  const shown = fits && entries.length > 0
+  // 글 칸을 목차 몫만큼 옆으로 옮기는 CSS 가 켜지게 바깥 칸에 표시한다
+  useLayoutEffect(() => {
+    const host = scrollerRef.current?.parentElement
+    if (host === null || host === undefined) return
+    if (shown) host.setAttribute('data-note-outline', '')
+    else host.removeAttribute('data-note-outline')
+    return () => host.removeAttribute('data-note-outline')
+  }, [scrollerRef, shown])
+
+  if (!shown) return null
 
   const go = (key: string) => {
     const scroller = scrollerRef.current
@@ -189,7 +211,7 @@ export function NoteOutline({
       ref={listRef}
       className="note-outline"
       aria-label={t('노트 목차')}
-      style={{ top, width: OUTLINE_WIDTH, left: OUTLINE_GAP }}
+      style={{ top }}
     >
       {entries.map((entry) => (
         <div key={entry.key} className={`note-outline-row${entry.nested ? ' note-outline-nested' : ''}${entry.kind === 'section' ? ' note-outline-section' : ''}`}>

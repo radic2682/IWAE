@@ -9,7 +9,7 @@ import {
   type PersistentPdfHighlight,
 } from './persistentHighlight'
 import { MemoColumn, type MemoTarget } from './MemoColumn'
-import { NoteOutline, outlineEntries } from './NoteOutline'
+import { NoteOutline, outlineEntries, outlineFits, outlineWidthFor, plainLine } from './NoteOutline'
 
 const anchor = (docId: string, page: number, y: number, quote = `quote ${y}`) => ({
   docId, page, coordSpace: 'pdfium-page' as const,
@@ -155,7 +155,7 @@ describe('메모만 보기 목차', () => {
 
   it('목차는 줄을 누르면 그 블록으로 스크롤한다(좁으면 감춘다)', () => {
     const scroller = document.createElement('div')
-    Object.defineProperty(scroller, 'clientWidth', { value: 1400 })
+    Object.defineProperty(scroller, 'offsetWidth', { value: 1400 })
     scroller.scrollTo = vi.fn() as never
     scroller.innerHTML = '<div data-note-block="b1"></div>'
     document.body.append(scroller)
@@ -184,5 +184,21 @@ describe('메모 서식', () => {
       editingId={null} activeId={null} onActivate={vi.fn()} onRecolor={vi.fn()} onDelete={vi.fn()} onEdit={vi.fn()} onSave={vi.fn()} />)
     expect(container.querySelector('.pdf-memo-card-text b')?.textContent).toBe('굵게')
     expect(updatePersistentPdfHighlight(card, { note: 'MCP 가 고친 글' }).noteHtml).toBeUndefined()
+  })
+})
+
+describe('목차 폭 계산·표시 기호', () => {
+  it('목차 폭은 칸 폭의 18% 를 160~240px 로 자른다', () => {
+    expect(outlineWidthFor(600)).toBe(160)
+    expect(outlineWidthFor(1280)).toBe(230)
+    expect(outlineWidthFor(1920)).toBe(240)
+  })
+  it('글 칸 + 목차 + 사이 + 양쪽 여백이 안 들어가면 목차를 감춘다', () => {
+    expect(outlineFits(900)).toBe(false)
+    expect(outlineFits(960)).toBe(true)
+    expect(outlineFits(1920)).toBe(true)
+  })
+  it('목차 글에서 굵게 기호를 걷어 낸다', () => {
+    expect(plainLine('메모에는 **ID** 와 `코드`')).toBe('메모에는 ID 와 코드')
   })
 })

@@ -34,7 +34,6 @@ function highlightTerms(text: string, terms: readonly string[]): ReactNode {
 
 interface DocumentSearchPanelProps {
   state: DocumentSearchState
-  onClose: () => void
   /** 찾을 본문 글자(앱이 추출해 둔 것) */
   records: readonly VaultSearchRecord[]
   /** 본문 추출이 어디까지 됐나 */
@@ -47,7 +46,7 @@ interface DocumentSearchPanelProps {
  * 문서 검색 화면의 왼쪽 패널. 검색창과 결과 카드. 카드를 누르면 오른쪽 패널에
  * 원본 PDF 가 그 쪽으로 열리고 찾은 자리가 칠해진다.
  */
-export function DocumentSearchPanel({ state, onClose, records, indexProgress, onOpenHit }: DocumentSearchPanelProps) {
+export function DocumentSearchPanel({ state, records, indexProgress, onOpenHit }: DocumentSearchPanelProps) {
   const hits = useMemo(
     () => state.submitted !== '' ? searchVaultPages(records, state.submitted, { kind: 'pdf', limit: 300 }).filter((hit) => hit.page !== null) : [],
     [records, state.submitted],
@@ -93,7 +92,7 @@ export function DocumentSearchPanel({ state, onClose, records, indexProgress, on
 
   return (
     <div
-      className="doc-search"
+      className="doc-search pdf-search-docked"
       onKeyDown={(event) => {
         if (event.target instanceof HTMLInputElement && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -107,24 +106,24 @@ export function DocumentSearchPanel({ state, onClose, records, indexProgress, on
     >
       <div className="doc-search-head">
         <form
-          className="doc-search-bar"
+          className="pdf-search-field doc-search-bar"
           role="search"
           onSubmit={(event) => {
             event.preventDefault()
             run(query)
           }}
         >
-          <MagnifyingGlass size={16} aria-hidden="true" className="doc-search-icon" />
+          <MagnifyingGlass size={15} aria-hidden="true" className="doc-search-icon" />
           <input
             ref={inputRef}
             type="text"
             aria-label={t('문서 검색어')}
-            placeholder={t('모든 PDF 본문에서 찾을 글자')}
+            placeholder={t('모든 문서에서 검색')}
             value={query}
             spellCheck={false}
             onChange={(event) => state.setQuery(event.target.value)}
             onKeyDown={(event) => {
-              // 검색어가 있으면 Esc 는 먼저 검색어만 지운다(한 번 더 누르면 화면을 닫는다)
+              // Esc 는 검색어를 지운다
               if (event.key === 'Escape' && query !== '') {
                 event.preventDefault()
                 event.stopPropagation()
@@ -135,7 +134,7 @@ export function DocumentSearchPanel({ state, onClose, records, indexProgress, on
           {query !== '' ? (
             <button
               type="button"
-              className="doc-search-clear"
+              className="pdf-search-clear doc-search-clear"
               aria-label={t('검색어 지우기')}
               onClick={() => {
                 state.setQuery('')
@@ -146,9 +145,6 @@ export function DocumentSearchPanel({ state, onClose, records, indexProgress, on
             </button>
           ) : null}
         </form>
-        <button type="button" className="doc-search-close" aria-label={t('검색 화면 닫기 (Esc)')} onClick={onClose}>
-          <X size={15} aria-hidden="true" />
-        </button>
       </div>
 
       <div className="doc-search-status" role="status" aria-live="polite">
@@ -187,6 +183,33 @@ export function DocumentSearchPanel({ state, onClose, records, indexProgress, on
           </div>
         ) : null}
       </div>
+    </div>
+  )
+}
+
+/**
+ * 왼쪽 바 검색 보기 맨 위의 범위 전환: 지금 PDF 만 / Vault 의 모든 문서.
+ * 다른 왼쪽 바 보기의 머리 줄(문서·목차·미리보기 …)과 같은 높이·밑선을 쓴다.
+ */
+export function SearchScopeSwitch({ scope, onChange }: { readonly scope: 'pdf' | 'vault'; readonly onChange: (scope: 'pdf' | 'vault') => void }) {
+  const options = [
+    { id: 'pdf', label: t('이 PDF') },
+    { id: 'vault', label: t('모든 문서') },
+  ] as const
+  return (
+    <div className="side-panel-head side-search-scope" role="radiogroup" aria-label={t('검색 범위')}>
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          role="radio"
+          aria-checked={scope === option.id}
+          className={`side-search-scope-option${scope === option.id ? ' side-search-scope-option-on' : ''}`}
+          onClick={() => onChange(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }

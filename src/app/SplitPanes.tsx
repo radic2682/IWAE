@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { SIDEBAR_DEFAULT, clampLeftFrac, clampSidebar, fracFromPointer } from './splitLayout'
 import { evenFractions, fractionOffset, moveSplitBoundary, splitDividers, type PdfSplitLayout } from '../core/pdfSplit'
+import { NoteDockContext } from './noteDock'
 import '../ui/layout-transitions.css'
 import { t } from '../i18n'
 
@@ -31,10 +32,14 @@ interface SplitPanesProps {
    * 마운트된 채 가려진다 — 돌아왔을 때 PDF 위치와 캔버스 상태가 그대로다.
    */
   libraryExpanded?: boolean
+  /** 라이브러리를 올릴 자리 요소를 알려 준다(펼친 동안만 있다). 왼쪽 바 오른쪽 영역 전체를 덮는 자리 */
+  onLibraryHost?: (element: HTMLElement | null) => void
   /** 1단 보기. 오른쪽 패널과 가운데 구분선을 접고 왼쪽 패널이 작업 영역을 다 쓴다 */
   singlePane?: boolean
   /** 3단 보기. 있으면 오른쪽에 세 번째 패널을 둔다(singlePane 보다 뒤에 본다) */
   threePane?: boolean
+  /** 노트 바를 그릴 문서 창(창 맨 오른쪽 노트 바 칸에 그린다). 문서가 없으면 null */
+  noteHostPane?: string | null
   left: React.ReactNode
   right: React.ReactNode
   third?: React.ReactNode
@@ -103,8 +108,10 @@ export function SplitPanes({
   onLayoutChange,
   focusedPane = 'split',
   libraryExpanded = false,
+  onLibraryHost,
   singlePane = false,
   threePane = false,
+  noteHostPane = null,
   left,
   right,
   third,
@@ -122,6 +129,9 @@ export function SplitPanes({
   const sidebarPx = sidebarUserSized || fitSidebarPx === null ? storedSidebarPx : fitSidebarPx
   const [leftFrac, setLeftFrac] = useState(() => clampLeftFrac(layout?.leftFrac ?? 0.5))
   const panesRef = useRef<HTMLDivElement>(null)
+  // 창 맨 오른쪽 노트 바 칸. 문서 창(PdfPane·MarkdownPane)이 여기에 노트 바를 그린다
+  const [noteDock, setNoteDock] = useState<HTMLElement | null>(null)
+  const noteDockValue = useMemo(() => ({ dock: noteDock, hostPane: noteHostPane }), [noteDock, noteHostPane])
   const dragController = useRef<AbortController | null>(null)
 
   useEffect(() => () => dragController.current?.abort(), [])
@@ -296,7 +306,7 @@ export function SplitPanes({
     </button>
   )
 
-  const sidebarHidden = !libraryExpanded && (sidebarCollapsed || focusedPane !== 'split')
+  const sidebarHidden = sidebarCollapsed || focusedPane !== 'split'
   const three = threePane && !singlePane && focusedPane === 'split'
   const leftGrow = singlePane ? 1 : focusedPane === 'note' ? 0 : focusedPane === 'reader' ? 1 : three ? threeFracs[0] : leftFrac
   const rightGrow = singlePane ? 0 : focusedPane === 'reader' ? 0 : focusedPane === 'note' ? 1 : three ? threeFracs[1] - threeFracs[0] : 1 - leftFrac
@@ -320,7 +330,7 @@ export function SplitPanes({
     'shell',
     // 라이브러리는 접힌 사이드바도 펼쳐 보인다. 접힘 표시가 남으면
     // .shell-sidebar-collapsed .sidebar { pointer-events: none } 때문에 아무것도 눌리지 않는다.
-    sidebarCollapsed && !libraryExpanded ? 'shell-sidebar-collapsed' : '',
+    sidebarCollapsed ? 'shell-sidebar-collapsed' : '',
     focusedPane === 'note' ? 'shell-note-focused' : '',
     focusedPane === 'reader' ? 'shell-reader-focused' : '',
     libraryExpanded ? 'shell-library-expanded' : '',
@@ -335,18 +345,19 @@ export function SplitPanes({
   ].filter(Boolean).join(' ')
 
   return (
+    <NoteDockContext.Provider value={noteDockValue}>
     <div
       ref={shellRef}
       className={shellClassName}
       style={{
-        '--sidebar-width': libraryExpanded ? '100%' : sidebarHidden ? '0px' : `${sidebarPx}px`,
-        '--sidebar-divider-width': libraryExpanded || sidebarHidden ? '0px' : '1px',
+        '--sidebar-width': sidebarHidden ? '0px' : `${sidebarPx}px`,
+        '--sidebar-divider-width': sidebarHidden ? '0px' : '1px',
       } as CSSProperties}
     >
       {topBar({
         sidebarPx,
         leftFrac: leftGrow,
-        sidebarVisible: !sidebarHidden && !libraryExpanded,
+        sidebarVisible: !sidebarHidden,
         paneGrows: [leftGrow, rightGrow, thirdGrow],
         gridZones: gridLayout === undefined || gridFractions === null || libraryExpanded ? undefined : gridTopZones(gridLayout, gridFractions.cols),
       })}
@@ -354,7 +365,7 @@ export function SplitPanes({
         <div className="sidebar" aria-hidden={sidebarHidden} inert={sidebarHidden}>
           {sidebar}
         </div>
-        {libraryExpanded ? null : (
+        {(
           <div
             className="divider sidebar-divider"
             role={sidebarHidden ? undefined : 'separator'}
@@ -421,8 +432,12 @@ export function SplitPanes({
           </div>
         </div>
         )}
+        {/* 노트 바 칸: 어느 창에 문서가 있든, 창이 비었든 늘 맨 오른쪽. 열고 닫을 때 폭이 부드럽게 움직인다 */}
+        <div ref={setNoteDock} className="note-dock pane-doc" data-note-dock="" aria-hidden={libraryExpanded || undefined} inert={libraryExpanded} />
+        {libraryExpanded ? <div ref={onLibraryHost} className="library-host" /> : null}
       </div>
     </div>
+    </NoteDockContext.Provider>
   )
 }
 

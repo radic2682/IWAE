@@ -1,0 +1,128 @@
+/* 탭 끌기(크롬·엣지처럼): 들린 탭, 자리 구멍, 구역 미리보기, 새로 나뉜 패널. 시간은 150–220ms ease-out */
+:root { --tab-drag-ease: cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+body.pane-tab-dragging,
+body.pane-tab-dragging * { cursor: grabbing !important; user-select: none !important; }
+
+/* 손에 붙어 따라오는 탭. 탭 줄 안에서만 맞는 모양 규칙이 걸리도록 같은 껍질(.topbar-panetab-zone …) 안에 그린다 */
+.tab-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  opacity: 1;
+  pointer-events: none;
+  overflow: visible;
+  background: transparent;
+  will-change: transform;
+  transition: none;
+}
+.tab-drag-ghost .pane-tabs-menu { padding: 0; margin: 0; align-items: flex-start; }
+.tab-drag-ghost .pane-tabs-strip { padding: 0 20px; overflow: visible; }
+.tab-drag-ghost .pane-top-tab,
+.tab-drag-ghost .pane-top-tab:not(.pane-top-tab-active),
+.tab-drag-ghost .pane-top-tab.pane-top-tab-active {
+  margin: 0 !important;
+  border-radius: var(--r-md) !important;
+  border: 1px solid var(--divider-strong) !important;
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  transform-origin: 50% 70%;
+  transition: scale 170ms var(--tab-drag-ease), box-shadow 170ms var(--tab-drag-ease);
+}
+.tab-drag-ghost .pane-top-tab::before,
+.tab-drag-ghost .pane-top-tab::after { display: none !important; }
+.tab-drag-ghost .pane-top-tab .pane-top-tab-close { opacity: 0 !important; }
+.tab-drag-ghost.tab-drag-ghost-lifted .pane-top-tab {
+  scale: 1.05;
+  box-shadow: 0 12px 28px var(--shadow-floating), 0 2px 6px var(--shadow-soft) !important;
+}
+.tab-drag-ghost.tab-drag-ghost-settling .pane-top-tab {
+  scale: 1;
+  box-shadow: 0 1px 4px var(--shadow-soft) !important;
+}
+
+/* 원래 탭: 자리만 남은 구멍. 이웃 탭이 비켜 간 자리에 들린 탭이 내려앉는다 */
+.pane-top-tab[data-dragging] > * { opacity: 0; }
+.topbar-panetab-zone .pane-tabs-menu .pane-top-tab[data-dragging]::before,
+.pane-top-tab[data-dragging]::before {
+  content: '';
+  display: block !important;
+  position: absolute;
+  inset: 3px 2px 0 2px;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+  opacity: 1 !important;
+}
+.pane-top-tab[data-dragging]::after { display: none !important; }
+/* 다른 패널로 옮겨 가는 중이면 원래 줄에서는 구멍이 접힌다 */
+.pane-top-tab[data-collapsed] {
+  flex: 0 0 0 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  margin-inline: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none;
+}
+/* 들린 탭이 내려앉는 동안 새로 생긴 탭은 숨는다 */
+.pane-top-tab[data-landing] { visibility: hidden; }
+
+/* 다른 줄·창의 탭이 들어올 자리: 벌어진 틈에 점선 칸 */
+.tab-gap-hint {
+  position: absolute;
+  z-index: 0;
+  box-sizing: border-box;
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  border-bottom: 0;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  opacity: 0;
+  scale: 0.94;
+  pointer-events: none;
+  transition: opacity 160ms var(--tab-drag-ease), scale 170ms var(--tab-drag-ease), left 170ms var(--tab-drag-ease);
+}
+.tab-gap-hint.tab-gap-hint-on { opacity: 1; scale: 1; }
+
+/* 구역 미리보기: 패널 가장자리 절반(가운데는 패널 전체)을 옅게 칠해 놓일 자리를 보인다 */
+.tab-dock-preview {
+  position: fixed;
+  z-index: 2147482000;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, var(--accent) 62%, transparent);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 16%, transparent);
+  opacity: 0;
+  scale: 0.97;
+  pointer-events: none;
+  transition:
+    left 200ms var(--tab-drag-ease),
+    top 200ms var(--tab-drag-ease),
+    width 200ms var(--tab-drag-ease),
+    height 200ms var(--tab-drag-ease),
+    opacity 160ms var(--tab-drag-ease),
+    scale 200ms var(--tab-drag-ease);
+}
+.tab-dock-preview.tab-dock-preview-on { opacity: 1; scale: 1; }
+
+/* 나눠서 새로 생긴 패널은 자라듯 나타난다 */
+@keyframes pane-grow-in {
+  from { opacity: 0; scale: 0.975; }
+  to { opacity: 1; scale: 1; }
+}
+.pane-focus-scope[data-pane-fresh] > * { animation: pane-grow-in 230ms var(--tab-drag-ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-drag-ghost .pane-top-tab,
+  .tab-dock-preview,
+  .tab-gap-hint { transition: none; }
+  .pane-focus-scope[data-pane-fresh] > * { animation: none; }
+}

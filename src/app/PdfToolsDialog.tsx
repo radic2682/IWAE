@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT, Toolbox, X,
+  ArrowLeft, ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT,
 } from '@phosphor-icons/react'
 import type { PdfToolOp } from '../bridge/pdf'
 import { formatBytes } from '../bridge/vaultBackup'
@@ -17,6 +17,9 @@ export type PdfToolId =
   | 'extract' | 'split' | 'merge' | 'blanks' | 'orient'
   | 'numbers' | 'watermark' | 'crop' | 'nup' | 'compress'
   | 'images' | 'markdown' | 'unlock'
+
+/** 왼쪽 바 「PDF 도구」 목록·PDF 창 안 도구 화면이 고르는 도구. 쪽 편집(PageEditDialog)도 그 하나다 */
+export type PdfToolViewId = PdfToolId | 'pageEdit'
 
 /** 도구 창이 App 에 부탁하는 일. 모두 끝나면 사람에게 보일 한 줄을 돌려준다 */
 export interface PdfToolActions {
@@ -58,12 +61,16 @@ export interface PdfToolsDialogProps {
   readonly marks: FlattenCounts
   readonly buildFlatten: (choice: FlattenChoice) => PdfToolOp
   readonly initialTool?: PdfToolId
+  /** 주면 고른 도구를 바깥(왼쪽 바 목록)이 정한다. 도구 안에서 다른 도구로 가면 onToolChange 로 알린다 */
+  readonly tool?: PdfToolId
+  readonly onToolChange?: (tool: PdfToolId) => void
   readonly actions: PdfToolActions
   readonly onClose: () => void
 }
 
-interface ToolInfo { readonly id: PdfToolId; readonly label: string; readonly icon: ReactNode }
-const GROUPS: readonly { readonly title: string; readonly tools: readonly ToolInfo[] }[] = [
+export interface ToolInfo { readonly id: PdfToolViewId; readonly label: string; readonly icon: ReactNode }
+/** 도구 묶음 — 왼쪽 바 목록과 도구 화면 제목이 함께 쓴다 */
+export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools: readonly ToolInfo[] }[] = [
   { title: '글자', tools: [
     { id: 'ocr', label: 'OCR 로 글자 입히기', icon: <TextT size={16} /> },
     { id: 'compare', label: '다른 판과 글자 비교', icon: <GitDiff size={16} /> },
@@ -73,6 +80,7 @@ const GROUPS: readonly { readonly title: string; readonly tools: readonly ToolIn
     { id: 'redact', label: '가린 사본', icon: <Rectangle size={16} weight="fill" /> },
   ] },
   { title: '쪽', tools: [
+    { id: 'pageEdit', label: '쪽 편집', icon: <NotePencil size={16} /> },
     { id: 'extract', label: '쪽 뽑아 새 PDF', icon: <Copy size={16} /> },
     { id: 'split', label: '목차 단위로 나누기', icon: <Scissors size={16} /> },
     { id: 'merge', label: '다른 PDF 와 합치기', icon: <Stack size={16} /> },
@@ -98,12 +106,18 @@ const MM = 72 / 25.4
 type Status = { readonly kind: 'idle' } | { readonly kind: 'busy'; readonly text: string } | { readonly kind: 'done'; readonly text: string; readonly path?: string } | { readonly kind: 'error'; readonly text: string }
 
 /**
- * PDF 도구 창. 왼쪽에서 도구를 고르고 오른쪽에서 고른 뒤 실행한다.
+ * PDF 도구 화면. 왼쪽 바 「PDF 도구」(또는 PDF 창 위 도구 단추)에서 고른 도구가 PDF 창 자리를 그대로 대신한다(모달 아님).
+ * 「PDF 로 돌아가기」(또는 Esc)로 닫으면 PDF 가 보던 자리 그대로 다시 보인다.
  * 원본에 적용하는 도구는 늘 덮기 전 원본을 .iwae/history/pdf-edits 에 남기고, 사본을 만드는 도구는 원본 옆에 새 PDF 를 둔다.
  */
 export function PdfToolsDialog(props: PdfToolsDialogProps) {
   const { docId, title, onClose, initialTool } = props
-  const [tool, setTool] = useState<PdfToolId>(initialTool ?? (props.hasText ? 'flatten' : 'ocr'))
+  const [toolState, setToolState] = useState<PdfToolId>(initialTool ?? (props.hasText ? 'flatten' : 'ocr'))
+  const tool = props.tool ?? toolState
+  const setTool = (next: PdfToolId) => {
+    setToolState(next)
+    props.onToolChange?.(next)
+  }
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const job = usePdfToolJob(docId)
   const dialogRef = useRef<HTMLDivElement | null>(null)
@@ -120,80 +134,54 @@ export function PdfToolsDialog(props: PdfToolsDialogProps) {
     }
   }
   const busy = status.kind === 'busy' || job !== undefined
-  // 작업 중 눌렀던 단추가 잠겨 포커스를 잃으면 Esc 가 안 먹으므로, 끝나면 창으로 되돌린다
+  // 작업 중 눌렀던 단추가 잠겨 포커스를 잃으면 Esc 가 안 먹으므로, 끝나면 화면으로 되돌린다
   useEffect(() => {
     if (!busy && document.activeElement === document.body) dialogRef.current?.focus()
   }, [busy])
-  const info = GROUPS.flatMap((group) => group.tools).find((item) => item.id === tool)!
+  const info = PDF_TOOL_GROUPS.flatMap((group) => group.tools).find((item) => item.id === tool)!
 
   return (
-    <div className="pdf-tools-backdrop" onClick={busy ? undefined : onClose}>
-      <div
-        ref={dialogRef}
-        className="pdf-tools"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('PDF 도구 — {title}', { title })}
-        tabIndex={-1}
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => {
-          if (event.key !== 'Escape' || busy) return
-          event.preventDefault()
-          event.stopPropagation()
-          onClose()
-        }}
-      >
-        <header className="pdf-tools-head">
-          <Toolbox size={17} aria-hidden="true" />
-          <h2 className="pdf-tools-title">{t('PDF 도구')} <small>{title}</small></h2>
-          <button type="button" className="pdf-tools-close" aria-label={t('닫기')} disabled={busy} onClick={onClose}><X size={14} aria-hidden="true" /></button>
-        </header>
-        <div className="pdf-tools-body">
-          <nav className="pdf-tools-list" aria-label={t('도구')}>
-            {GROUPS.map((group) => (
-              <div key={group.title} className="pdf-tools-group">
-                <div className="pdf-tools-group-title">{t(group.title)}</div>
-                {group.tools.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`pdf-tools-item${item.id === tool ? ' pdf-tools-item-on' : ''}`}
-                    aria-current={item.id === tool ? 'true' : undefined}
-                    disabled={busy}
-                    onClick={() => setTool(item.id)}
-                  >
-                    <span className="pdf-tools-item-icon" aria-hidden="true">{item.icon}</span>
-                    <span>{t(item.label)}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </nav>
-          <section className="pdf-tools-pane" aria-label={t(info.label)}>
-            <h3 className="pdf-tools-pane-title"><span aria-hidden="true">{info.icon}</span>{t(info.label)}</h3>
-            <ToolPane key={tool} tool={tool} props={props} busy={busy} run={run} setTool={setTool} />
-            {job !== undefined ? (
-              <div className="pdf-tools-status" role="status">
-                <span>{t(job.label)} {job.total > 0 ? `${job.done}/${job.total}` : ''}</span>
-                {job.total > 0 ? <span className="pdf-tools-meter"><span style={{ width: `${(job.done / job.total) * 100}%` }} /></span> : null}
-              </div>
-            ) : status.kind === 'busy' ? (
-              <div className="pdf-tools-status" role="status"><span>{status.text}</span></div>
-            ) : status.kind === 'done' ? (
-              <div className="pdf-tools-status pdf-tools-status-done" role="status">
-                <span>{status.text}</span>
-                {status.path !== undefined ? (
-                  <button type="button" className="pdf-tools-link" onClick={() => { props.actions.openPath(status.path!); onClose() }}>
-                    <ArrowSquareOut size={13} aria-hidden="true" />{t('열기')}
-                  </button>
-                ) : null}
-              </div>
-            ) : status.kind === 'error' ? (
-              <div className="pdf-tools-status pdf-tools-status-error" role="alert">{status.text}</div>
+    <div
+      ref={dialogRef}
+      className="pdf-tools pdf-tools-inline"
+      role="region"
+      aria-label={t('PDF 도구 — {title}', { title })}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || busy) return
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
+      }}
+    >
+      <header className="pdf-tools-head">
+        <button type="button" className="pdf-tools-back" disabled={busy} onClick={onClose}>
+          <ArrowLeft size={15} aria-hidden="true" />{t('PDF 로 돌아가기')}
+        </button>
+        <h2 className="pdf-tools-title">{t(info.label)} <small>{title}</small></h2>
+      </header>
+      <section className="pdf-tools-pane" aria-label={t(info.label)}>
+        <ToolPane key={tool} tool={tool} props={props} busy={busy} run={run} setTool={setTool} />
+        {job !== undefined ? (
+          <div className="pdf-tools-status" role="status">
+            <span>{t(job.label)} {job.total > 0 ? `${job.done}/${job.total}` : ''}</span>
+            {job.total > 0 ? <span className="pdf-tools-meter"><span style={{ width: `${(job.done / job.total) * 100}%` }} /></span> : null}
+          </div>
+        ) : status.kind === 'busy' ? (
+          <div className="pdf-tools-status" role="status"><span>{status.text}</span></div>
+        ) : status.kind === 'done' ? (
+          <div className="pdf-tools-status pdf-tools-status-done" role="status">
+            <span>{status.text}</span>
+            {status.path !== undefined ? (
+              <button type="button" className="pdf-tools-link" onClick={() => { props.actions.openPath(status.path!); onClose() }}>
+                <ArrowSquareOut size={13} aria-hidden="true" />{t('열기')}
+              </button>
             ) : null}
-          </section>
-        </div>
-      </div>
+          </div>
+        ) : status.kind === 'error' ? (
+          <div className="pdf-tools-status pdf-tools-status-error" role="alert">{status.text}</div>
+        ) : null}
+      </section>
     </div>
   )
 }

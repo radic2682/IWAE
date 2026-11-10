@@ -13,6 +13,7 @@
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  position: relative;
 }
 
 /* 탭바는 종이색이다. 진짜로 이어져야 할 상대는 그 아래 떠 있는 PDF
@@ -3082,8 +3083,7 @@
 .ui-scale-preset-active { border-color: var(--accent); color: var(--accent); font-weight: 650; }
 
 /* 1단 보기: 오른쪽 패널·구분선을 접고, 상단바 오른쪽 칸은 창 단추 자리만 남긴다 */
-.app-single-pane .pane-right,
-.app-single-pane .pane-divider { display: none; }
+/* (오른쪽 패널·구분선은 display 로 지우지 않고 폭을 0 으로 접는다 — layout-transitions.css, 그래야 접고 펼 때 움직인다) */
 .topbar-single .topbar-pane-divider { display: none; }
 .topbar-single .topbar-panetab-zone-right { flex: 0 0 146px !important; }
 .topbar-single .topbar-panetab-zone-right > * { display: none; }

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
@@ -15,7 +15,8 @@ import { registerLiveCanvas } from './liveCanvasRegistry'
 import { useMcpCanvasBridge } from './useMcpCanvasBridge'
 import { announceAction } from './actionFeedback'
 import { exportPdfImages, isPasswordProtectedDoc, pageTextIndex, pdfBlankPages, pdfOutline, setPdfPasswordPrompt, type SearchablePdfPage } from '../bridge/pdf'
-import { PdfToolsDialog, type PdfToolId } from './PdfToolsDialog'
+import { PdfToolsDialog, type PdfToolId, type PdfToolViewId } from './PdfToolsDialog'
+import { PdfToolsPanel } from './PdfToolsPanel'
 import { PdfPasswordDialog } from './PdfPasswordDialog'
 import { buildFlattenOp, countMarks } from '../core/pdfToolOps'
 import { diffLines, pageLines } from '../core/pdfTextDiff'
@@ -39,7 +40,7 @@ import type { MemoCategorySummary } from './Sidebar'
 import { Sidebar, SidebarFooter } from './Sidebar'
 import { PaneShell } from './PaneShell'
 import { DocumentView, type DocumentViewController, type DocumentViewState } from './DocumentView'
-import { DocumentSearchPanel, useDocumentSearch } from './DocumentSearchPanel'
+import { DocumentSearchPanel, SearchScopeSwitch, useDocumentSearch } from './DocumentSearchPanel'
 import { PageEditDialog } from './PageEditDialog'
 import { pageMoves, remapAnchor, remapDocumentReferences, type PageEditItem, type PageRotation } from '../core/pdfPageEdit'
 import type { CanvasTranslationResult, ReaderExcerptInsertRequest } from './NoteCanvas'
@@ -94,6 +95,7 @@ import {
 } from './usePdfBookmarks'
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
+import { collapseEmptyPane, dockTab, dockableEdges, moveTabToPaneAt, type DockEdge } from './tabDock'
 import { closeSplitCell, isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePreviewPanel, OutlinePanel, ThumbnailPanel } from './SidePanels'
@@ -116,6 +118,7 @@ import {
   PANE_IDS,
   allPaneTabs,
   mergeHiddenPanes,
+  paneOfTab,
   visiblePanes,
   paneLabel,
   type PaneCount,
@@ -173,8 +176,9 @@ import { createDevelopmentCanvasDocument } from '../fixtures/developmentCanvasDo
 import { createOllamaTranslationProvider } from '../bridge/translation'
 import { runAfterCanvasFlush } from './canvasClose'
 import { buildEvidenceHtml, createCanvasRasterizer, saveHtmlFile } from './exportEvidence'
-import { closeWindow, interceptWindowClose, isDesktop } from '../bridge/window'
-import { closeSecondaryWindows, focusThisWindow, onCloseNow, onReattach, openAppWindow, sendReattach } from '../bridge/windows'
+import { closeWindow, currentWindowLabel, interceptWindowClose, isDesktop } from '../bridge/window'
+import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, sendReattach, sendTabDrop, type ReattachRequest } from '../bridge/windows'
+import { clearExternalTabHover, holdTabFlip, insertionIndexInPane, showExternalTabHover, tabZoneRects, type TearOffInfo } from './tabDrag'
 import { currentWindowMode, windowQuery } from '../core/windowMode'
 import { queueInitialZoom } from './pendingViewState'
 import { hasPendingVaultRecovery } from '../bridge/vaultRecovery'
@@ -193,6 +197,9 @@ const NOTE_EMPTY = '사이드바에서 노트를 여세요'
 /** 나눈 창의 빈 칸. 탭을 끌어 오거나 사이드바에서 문서를 열면 된다 */
 const SPLIT_PANE_EMPTY = '탭을 여기로 끌어 오거나 사이드바에서 문서를 여세요'
 /** 좌우로만 나누는 배치(탭이 상단바에 놓인다) */
+/** 떼어 낸 새 창에서 첫 탭이 놓이는 자리(창 왼쪽 위에서, CSS 픽셀). 탭을 끌어 떼어 낼 때 마우스가 그 탭 위에 오게 한다 */
+const DETACHED_TAB_LEFT = 54
+const DETACHED_TAB_TOP = 5
 const COLUMN_LAYOUTS: ReadonlySet<string> = new Set(['single', 'cols2', 'cols3'])
 
 const LazyNoteCanvas = lazy(async () => {
@@ -603,11 +610,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   draftPdfHighlightRef.current = draftPdfHighlight
   const [focusedPane, setFocusedPane] = useState<FocusedPane>('split')
   const [libraryExpanded, setLibraryExpanded] = useState(false)
-  // 쪽 편집 중인 PDF. 저장하면 열린 노트 캔버스를 새로 읽게 canvasEpoch 를 올린다.
-  const [pageEditDocId, setPageEditDocId] = useState<string | null>(null)
+  /** 펼친 라이브러리가 올라갈 자리(왼쪽 바 오른쪽 영역). Sidebar 가 여기에 그린다 */
+  const [libraryHost, setLibraryHost] = useState<HTMLElement | null>(null)
+  // 저장하면 열린 노트 캔버스를 새로 읽게 canvasEpoch 를 올린다(쪽 편집).
   const [canvasEpoch, setCanvasEpoch] = useState(0)
-  // 문서 검색 화면. 왼쪽 패널 자리에 검색 결과, 오른쪽 패널에 원본 PDF 를 띄운다.
-  const [docSearchMode, setDocSearchMode] = useState(false)
+  // 왼쪽 바 검색 보기의 범위: 지금 문서(pdf) / Vault 의 모든 문서(vault)
+  const [searchScope, setSearchScope] = useState<'pdf' | 'vault'>('pdf')
   // 창 나누기 배치(PDF 안 화면 나누기와 같은 9가지). 처음엔 한 화면이고 다음 실행에도 기억한다.
   // 예전 값(단 수 1·2·3)이 있으면 좌우 배치로 옮긴다
   const [paneLayoutId, setPaneLayoutIdState] = useState<PdfSplitLayoutId>(() => {
@@ -787,7 +795,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 사이드바 없는 화면으로 돌아가서, 방금 정리한 트리가 보이지 않는다.
   const toggleLibrary = useCallback(() => {
     setLibraryExpanded((open) => {
-      if (!open) setFocusedPane('split')
+      if (!open) {
+        setFocusedPane('split')
+        // 왼쪽 바는 그대로 두고 오른쪽만 라이브러리가 된다 — 바가 접혀 있거나 다른 보기여도 문서 트리 보기로 편다
+        setSidebarCollapsed(false)
+        setSidebarMode('library')
+      }
       return !open
     })
   }, [])
@@ -941,15 +954,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     else if (CANVAS_ENABLED) openInPane({ id: target.note.path, title: target.note.title, kind: 'note' })
     setLibraryExpanded(false)
   }, [openDocument, openInPane, openMarkdown])
+  /** 상단바 「문서 검색」: 왼쪽 바 검색 보기를 모든 문서 범위로 연다(이미 그 상태면 이 PDF 범위로 돌려놓는다) */
   const toggleDocSearchMode = useCallback(() => {
-    setDocSearchMode((open) => {
-      if (!open) {
-        setLibraryExpanded(false)
-        setFocusedPane('split')
-      }
-      return !open
-    })
-  }, [])
+    if (!sidebarCollapsed && sidebarMode === 'search' && searchScope === 'vault') {
+      setSearchScope('pdf')
+      return
+    }
+    setLibraryExpanded(false)
+    setFocusedPane('split')
+    setSidebarCollapsed(false)
+    setSidebarMode('search')
+    setSearchScope('vault')
+  }, [searchScope, sidebarCollapsed, sidebarMode])
   // 창 동작(새 창·떼어 내기·다시 붙이기). 패널 상태는 아래에서 만들어지므로 ref 로 잇는다
   const windowActionsRef = useRef({
     newWindow: () => undefined as void,
@@ -966,12 +982,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setLibraryExpanded(false)
       setSidebarCollapsed(false)
       setSidebarMode('search')
+      setSearchScope('pdf')
       window.setTimeout(() => window.dispatchEvent(new CustomEvent('iwae:pdf-search', { detail: { query } })), 30)
     },
     navBack: () => navigationBackRef.current(),
     navForward: () => navigationForwardRef.current(),
     toggleLibrary: isDetachedWindow ? undefined : toggleLibrary,
-    escape: libraryExpanded ? () => setLibraryExpanded(false) : docSearchMode ? () => setDocSearchMode(false) : undefined,
+    escape: libraryExpanded ? () => setLibraryExpanded(false) : undefined,
     documentSearch: toggleDocSearchMode,
     nextTab: () => paneShortcutsRef.current.cycleTab(1),
     prevTab: () => paneShortcutsRef.current.cycleTab(-1),
@@ -1003,7 +1020,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const detail = (event as CustomEvent<{ name?: string; docId?: string; tool?: string }>).detail
       const name = detail?.name
       if (name === 'search' || name === 'documentSearch' || name === 'commandPalette') shortcutActionsRef.current[name]?.()
-      if (name === 'pdfTools' && detail?.docId !== undefined) setPdfToolsTarget({ docId: detail.docId, ...(detail.tool === undefined ? {} : { tool: detail.tool as PdfToolId }) })
+      if (name === 'pdfTools' && detail?.docId !== undefined) setPdfToolsTarget({ docId: detail.docId, ...(detail.tool === undefined ? {} : { tool: detail.tool as PdfToolViewId }) })
       if (name === 'ocrDocument' && detail?.docId !== undefined) {
         void ocrDocumentRef.current(detail.docId).catch((cause: unknown) => announceAction(t('OCR 하지 못했습니다: {error}', { error: errorText(cause) })))
       }
@@ -1141,6 +1158,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const pdfBookmarks = usePdfBookmarks(pdfBookmarkStorage)
   // 마지막으로 만진 패널. 사이드바 목차·축소판·주석과 Ctrl+F 가 이 패널의 문서를 따른다.
   const [activePaneId, setActivePaneId] = useState<PaneId>('left')
+  /** 방금 나눠서 생긴 패널(자라듯 나타나는 동안만) */
+  const [freshPane, setFreshPane] = useState<PaneId | null>(null)
   // 패널마다 지금 보이는 PDF 와 쪽. DocumentView 가 알려 준다.
   const [docViews, setDocViews] = useState<Partial<Record<PaneId, DocumentViewState>>>({})
   const docControllersRef = useRef<Partial<Record<PaneId, DocumentViewController>>>({})
@@ -1164,6 +1183,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ? activePaneId
     : activeTab(panes[otherPane(activePaneId)])?.kind === 'note' ? otherPane(activePaneId) : null
   const activeDocumentTab = docPaneId === null ? null : activeTab(panes[docPaneId])
+  // 노트 바(창 맨 오른쪽)를 그리는 문서 창. 만진 문서 창이 기본이지만, PDF 가 다른 창에 있으면 그 PDF 창이 그린다 —
+  // 그래야 만지는 창이 바뀌어도 바가 다시 만들어지지 않고, PDF 형광펜 선이 카드까지 이어진다(Markdown 창의 선은 바를 보고 따로 그린다)
+  const noteHostPaneId: PaneId | null = docPaneId === null
+    ? null
+    : activeTab(panes[docPaneId])?.kind === 'pdf' || activeTab(panes[otherPane(docPaneId)])?.kind !== 'pdf' ? docPaneId : otherPane(docPaneId)
   // Markdown 탭마다 지금 절(왼쪽 바 「목차」에 지금 자리로 보인다)
   const [markdownSectionState, setMarkdownSectionState] = useState<Readonly<Record<string, number>>>({})
   useEffect(() => {
@@ -1214,8 +1238,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // Ctrl+\ : 한 화면 → 좌우 둘 → 좌우 셋 → 한 화면
   const toggleSinglePaneRef = useRef(() => setPaneCount(paneCount >= 3 ? 1 : (paneCount + 1) as PaneCount))
   toggleSinglePaneRef.current = () => setPaneCount(paneCount >= 3 ? 1 : (paneCount + 1) as PaneCount)
-  // 문서 검색 화면은 오른쪽(2번) 패널을 잠깐 빌려 쓴다(그동안은 좌우 둘)
-  const shownLayoutId: PdfSplitLayoutId = docSearchMode && (paneCount < 2 || !COLUMN_LAYOUTS.has(paneLayoutId)) ? 'cols2' : paneLayoutId
+  const shownLayoutId: PdfSplitLayoutId = paneLayoutId
   const shownPaneCount = pdfSplitLayout(shownLayoutId).cells.length as PaneCount
   // 위아래·2×2 같은 격자 배치: 패널마다 바로 위에 탭 줄을 둔다(좌우 배치는 상단바에 탭)
   const gridLayout = !COLUMN_LAYOUTS.has(shownLayoutId) && focusedPane === 'split' ? pdfSplitLayout(shownLayoutId) : null
@@ -1239,6 +1262,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setActivePaneId(pane)
     const tab = activeTab(panes[pane])
     if (tab !== null) setPaneRoute(tab.kind === 'note' ? 'note' : 'doc', pane)
+    else {
+      // 빈 창을 눌렀다: 다음에 여는 문서·노트가 이 창으로 온다
+      setPaneRoute('doc', pane)
+      setPaneRoute('note', pane)
+    }
   }, [panes, setPaneRoute])
   const workspaceSources = useWorkspaceSources({
     scopeId: activeNoteId,
@@ -1250,66 +1278,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 꺼내 쓴다 — 없으면 다른 문서로의 출처 이동이 언제나 마지막으로 읽던 쪽에서 멈춘다.
   const pendingDocPageRef = useRef<NavLocation | null>(null)
 
-  // 문서 검색이 새로 연 PDF 탭. 다른 결과로 넘어가면 이 탭을 닫아 탭이 쌓이지 않게 한다
-  // (미리보기 탭). 사용자가 원래 열어 둔 탭은 건드리지 않는다.
-  const searchPreviewDocRef = useRef<string | null>(null)
-  // 문서 검색을 닫으면 마지막 미리보기 탭은 사용자 탭이 된다. 다음 검색에서 닫지 않는다.
-  useEffect(() => {
-    if (!docSearchMode) searchPreviewDocRef.current = null
-  }, [docSearchMode])
-  /**
-   * 검색 화면에서 고른 자리를 오른쪽 패널에 연다: 그 PDF 를 그 쪽으로 열고 anchor 자리를 칠한다.
-   * 검색이 새로 연 탭은 미리보기 탭이라 다른 결과로 넘어가면 닫힌다.
-   */
-  const showInRightPane = useCallback((record: { id: string; displayName: string }, page: number, anchor: Anchor | null) => {
-    const docId = record.id
-    setDraftPdfHighlight(anchor)
-    setActivePaneId('right')
-    setPaneRoute('doc', 'right')
-    if (docControllersRef.current.right?.docId === docId) {
-      docControllersRef.current.right.requestPage(page)
-      return
-    }
-    pendingDocPageRef.current = { docId, page }
-    const alreadyOpen = allPaneTabs(panes).some((tab) => tabDocId(tab) === docId)
-    const previous = searchPreviewDocRef.current
-    if (!alreadyOpen) {
-      if (previous !== null && previous !== docId) setPanes((current) => closeTabEverywhere(current, previous))
-      searchPreviewDocRef.current = docId
-    }
-    if (panes.left.tabs.some((tab) => tab.id === docId)) moveTab(docId, 'right')
-    const opened = openedDocs.find((doc) => doc.docId === docId)
-    if (opened !== undefined) {
-      openInPane({ id: docId, title: record.displayName || opened.title, kind: 'pdf' }, 'right')
-      return
-    }
-    const libraryDoc = shownLibrary.find((doc) => doc.docId === docId)
-    if (libraryDoc === undefined) {
-      pendingDocPageRef.current = null
-      announceAction(t('Vault 에서 이 PDF 를 열 수 없습니다: {name}', { name: record.displayName }))
-      return
-    }
-    void openDocument(libraryDoc)
-  }, [moveTab, openDocument, openInPane, openedDocs, panes.left.tabs, panes.right.tabs, setPanes, setPaneRoute, shownLibrary])
-
-  /** 문서 검색 결과: 그 쪽을 열고 검색어가 처음 나오는 자리를 칠한다 */
-  const openVaultHit = useCallback(async (hit: VaultSearchHit) => {
-    if (hit.page === null) return
-    const pageIndex = hit.page
-    showInRightPane(hit.record, pageIndex + 1, null)
-    // 쪽 글자는 문서가 열린 뒤에야 읽힌다. 처음 여는 문서면 조금 기다렸다 다시 묻는다.
-    const query = hit.query.trim().toLocaleLowerCase()
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      try {
-        const index = await pageTextIndex(hit.record.id, pageIndex)
-        const at = index.text.toLocaleLowerCase().indexOf(query)
-        if (at >= 0) setDraftPdfHighlight(buildAnchor(hit.record.id, pageIndex, index, at, at + query.length))
-        return
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-      }
-    }
-  }, [showInRightPane])
 
   const requestPdfPage = useCallback((page: number) => {
     if (docPaneId !== null) docControllersRef.current[docPaneId]?.requestPage(page)
@@ -1343,6 +1311,25 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     exists: (location) => openedDocs.some((doc) => doc.docId === location.docId)
       || shownLibrary.some((doc) => doc.docId === location.docId),
   })
+  /** 모든 문서 검색 결과: 그 쪽을 열고(이미 열린 탭이면 그 쪽으로) 검색어가 처음 나오는 자리를 칠한다 */
+  const openVaultHit = useCallback(async (hit: VaultSearchHit) => {
+    if (hit.page === null) return
+    const pageIndex = hit.page
+    setDraftPdfHighlight(null)
+    navigation.jump({ docId: hit.record.id, page: pageIndex + 1 })
+    // 쪽 글자는 문서가 열린 뒤에야 읽힌다. 처음 여는 문서면 조금 기다렸다 다시 묻는다.
+    const query = hit.query.trim().toLocaleLowerCase()
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      try {
+        const index = await pageTextIndex(hit.record.id, pageIndex)
+        const at = index.text.toLocaleLowerCase().indexOf(query)
+        if (at >= 0) setDraftPdfHighlight(buildAnchor(hit.record.id, pageIndex, index, at, at + query.length))
+        return
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+    }
+  }, [navigation])
   // 왼쪽 바 「PDF 검색」 보기의 칸. 지금 문서의 검색 칸·결과가 여기에 붙는다
   const memoBarVisible = useMemoBarVisible()
   const [pdfSearchSlot, setPdfSearchSlot] = useState<HTMLElement | null>(null)
@@ -1491,8 +1478,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (range !== null) setDraftPdfHighlight(buildAnchor(location.docId, pageIndex, index, range[0], range[1]))
     }).catch(() => undefined)
   }, [docTitles, navigation, openMarkdown, searchRecords])
-  /** PDF 도구 창(대상 문서·먼저 고를 도구) */
-  const [pdfToolsTarget, setPdfToolsTarget] = useState<{ docId: string; tool?: PdfToolId } | null>(null)
+  /** PDF 도구 화면(대상 문서·펼친 도구). 있으면 그 문서를 보이던 PDF 창 자리를 도구 화면이 대신한다. 쪽 편집도 도구 하나다 */
+  const [pdfToolsTarget, setPdfToolsTarget] = useState<{ docId: string; tool?: PdfToolViewId } | null>(null)
   /** 암호 PDF 를 열 때 묻는 창 */
   const [passwordRequest, setPasswordRequest] = useState<{ path: string; wrong: boolean; nonce: number; resolve: (password: string | null) => void } | null>(null)
   const passwordNonce = useRef(0)
@@ -1643,7 +1630,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     documentSearch.setQuery(query)
     setLibraryExpanded(false)
     setFocusedPane('split')
-    setDocSearchMode(true)
+    setSidebarCollapsed(false)
+    setSidebarMode('search')
+    setSearchScope('vault')
     documentSearch.run(query)
   }, [documentSearch])
   const searchDocumentsFromSelection = useCallback((selection: PdfExcerptSelection) => {
@@ -1652,7 +1641,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     documentSearch.setQuery(query)
     setLibraryExpanded(false)
     setFocusedPane('split')
-    setDocSearchMode(true)
+    setSidebarCollapsed(false)
+    setSidebarMode('search')
+    setSearchScope('vault')
     documentSearch.run(query)
   }, [documentSearch])
   const translatePdfSelection = useCallback(async (selection: PdfExcerptSelection, options?: { readonly force?: boolean; readonly targetLanguage?: string }) => {
@@ -1799,14 +1790,27 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     })
     setDraftPdfHighlight(null)
     setCanvasEpoch((epoch) => epoch + 1)
-    setPageEditDocId(null)
+    setPdfToolsTarget(null)
     announceAction(t('쪽 편집을 저장했습니다. 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다'))
   }
   /** PDF 도구 창. 문서의 표시 수·목차·다른 PDF 를 모아 넘기고, 창이 부탁하는 일을 해 준다 */
-  const renderPdfTools = (target: { docId: string; tool?: PdfToolId }) => {
+  const renderPdfTools = (target: { docId: string; tool?: PdfToolViewId }) => {
     const docId = target.docId
     const meta = openedDocs.find((doc) => doc.docId === docId)
     const title = docTitles[docId] ?? meta?.title ?? 'PDF'
+    if (target.tool === 'pageEdit') {
+      if (meta === undefined) return null
+      return (
+        <PageEditDialog
+          key={docId}
+          docId={docId}
+          title={title}
+          pageCount={meta.pageCount}
+          onCancel={() => setPdfToolsTarget(null)}
+          onSave={(items) => savePageEdit(meta.docId, meta.pageSizes, items)}
+        />
+      )
+    }
     const docOverlays = pdfOverlays.overlays[docId] ?? []
     const group = groupOfDoc(versionGroups.groups, docId)
     const siblings = new Set(group?.versions.map((version) => version.docId) ?? [])
@@ -1827,6 +1831,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         marks={countMarks(docId, pdfHighlights.highlights, docOverlays)}
         buildFlatten={(choice) => buildFlattenOp(docId, pdfHighlights.highlights, docOverlays, choice)}
         initialTool={target.tool}
+        tool={target.tool}
+        onToolChange={(next) => setPdfToolsTarget({ docId, tool: next })}
         onClose={() => setPdfToolsTarget(null)}
         actions={{
           ocr: () => ocrDocument(docId),
@@ -1998,28 +2004,188 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     // 닫는 길(onCloseRequested)이 탭을 메인으로 돌려보낸다
     reattach: () => closeWindowSafely(),
   }
+  // 탭을 다른 창에 붙이고 이 창을 닫는 중이면 닫히면서 메인으로 또 돌려보내지 않는다
+  const skipSendBackRef = useRef(false)
   sendTabsBackRef.current = async () => {
+    if (skipSendBackRef.current) return
     for (const tab of openTabIds.filter((candidate) => candidate.kind === 'pdf')) {
       const docId = tabDocId(tab)
       const { page, zoom } = viewOfDoc(docId, tab.id)
       await sendReattach({ docId, page, zoom })
     }
   }
-  // 메인 창: 떼어 낸 창이 닫히면서 돌려준 탭을 같은 쪽·배율로 연다
+  // 떼어 낸 창이 아닌 창(메인·새 창): 돌려받은(또는 끌어서 붙인) 탭을 같은 쪽·배율로 연다.
+  // 끌어서 붙였으면 놓은 자리(패널·x)에 들어가고, 탭 줄이 그 자리를 벌려 둔 채 기다린다
+  const pendingPlacementRef = useRef<{ docId: string; pane: PaneId; index: number } | null>(null)
+  const acceptTabDropRef = useRef<(request: ReattachRequest) => void>(() => undefined)
+  acceptTabDropRef.current = (request) => {
+    if (request.zoom !== null) queueInitialZoom(request.docId, request.zoom)
+    const pane = visiblePanes(shownPaneCount).find((candidate) => candidate === request.pane)
+    if (pane !== undefined && request.x !== undefined) {
+      pendingPlacementRef.current = { docId: request.docId, pane, index: insertionIndexInPane(pane, request.x) }
+      setPaneRoute('doc', pane)
+      // 탭이 끝내 안 열리면(문서를 못 찾음 등) 벌려 둔 자리를 닫는다
+      window.setTimeout(() => {
+        if (pendingPlacementRef.current?.docId !== request.docId) return
+        pendingPlacementRef.current = null
+        clearExternalTabHover()
+      }, 6000)
+    } else {
+      clearExternalTabHover()
+    }
+    navigationJumpRef.current({ docId: request.docId, page: request.page })
+    void focusThisWindow()
+  }
   useEffect(() => {
-    if (!isMainWindow) return undefined
+    if (isDetachedWindow) return undefined
     let disposed = false
     let stop: (() => void) | undefined
-    void onReattach((request) => {
-      if (request.zoom !== null) queueInitialZoom(request.docId, request.zoom)
-      navigationJumpRef.current({ docId: request.docId, page: request.page })
-      void focusThisWindow()
+    void onReattach((request) => acceptTabDropRef.current(request)).then((unlisten) => {
+      if (disposed) unlisten()
+      else stop = unlisten
+    })
+    return () => { disposed = true; stop?.() }
+  }, [])
+  // 붙인 탭이 열리면 놓은 자리로 옮긴다(벌려 둔 자리가 닫히는 것과 같은 그리기 안에서, 탭이 미끄러져 날아가 보이지 않게)
+  useLayoutEffect(() => {
+    const pending = pendingPlacementRef.current
+    if (pending === null || paneOfTab(panes, pending.docId) === null) return
+    pendingPlacementRef.current = null
+    holdTabFlip()
+    clearExternalTabHover(true)
+    setPanes((current) => moveTabToPaneAt(current, pending.docId, pending.pane, pending.index))
+    setActivePaneId(pending.pane)
+  }, [panes, setPanes])
+  // 다른 창에서 탭을 끌어 이 창 탭 줄 위로 왔을 때: 자리를 벌려 보이고, 탭 줄 자리를 알려 준다
+  useEffect(() => {
+    if (isDetachedWindow) return undefined
+    let disposed = false
+    const stops: (() => void)[] = []
+    const keep = (unlisten: () => void) => { if (disposed) unlisten(); else stops.push(unlisten) }
+    void onTabZonesRequest(() => { void reportTabZones(tabZoneRects()) }).then(keep)
+    void onTabHover((hover) => showExternalTabHover(hover.pane, hover.x), () => clearExternalTabHover()).then(keep)
+    return () => { disposed = true; stops.forEach((stop) => stop()) }
+  }, [])
+  /**
+   * 탭을 창 밖으로 끌어냈다. 떼어 낸 창이 아니면 새 창을 만들어 마우스를 따라가게 하고(탭은 이 창에서 닫힌다),
+   * 떼어 낸 창에서 탭이 하나뿐이면 창 자신이 따라간다. 놓은 자리가 다른 창의 탭 줄이면 그 창에 붙는다(아래 onTabDragReleased)
+   */
+  const tearRef = useRef<{ label: string; mode: 'new' | 'self'; docId: string; page: number; zoom: DocZoom | null } | null>(null)
+  const tearOffTab = async (id: string, info: TearOffInfo): Promise<boolean> => {
+    const tab = openTabIds.find((candidate) => candidate.id === id)
+    if (tab === undefined || tab.kind !== 'pdf' || vault === null) return false
+    const docId = tabDocId(tab)
+    const { page, zoom } = viewOfDoc(docId, id)
+    const ratio = window.devicePixelRatio || 1
+    try {
+      if (isDetachedWindow) {
+        if (allPaneTabs(panes).length !== 1) return false
+        const began = await beginTabDrag({ mode: 'self' })
+        if (began === null) return false
+        tearRef.current = { label: began.label, mode: 'self', docId, page, zoom }
+        return true
+      }
+      const began = await beginTabDrag({
+        mode: 'new',
+        docId,
+        query: windowQuery({ role: 'detached', docId, page, zoom, vaultRoot: vault.root }),
+        // 새 창의 첫 탭이 놓이는 자리(왼쪽 위에서)에 마우스가 오게 한다
+        grabX: Math.round((info.grabX + DETACHED_TAB_LEFT) * ratio),
+        grabY: Math.round((info.grabY + DETACHED_TAB_TOP) * ratio),
+      })
+      if (began === null) return false
+      if (began.existing) {
+        announceAction(t('이미 떼어 낸 창이 있어 그 창을 앞으로 가져왔습니다'))
+        return true
+      }
+      tearRef.current = { label: began.label, mode: 'new', docId, page, zoom }
+      closePaneTab(id)
+      return true
+    } catch (cause) {
+      announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
+      return false
+    }
+  }
+  useEffect(() => {
+    let disposed = false
+    let stop: (() => void) | undefined
+    void onTabDragReleased((event) => {
+      const drag = tearRef.current
+      if (drag === null || drag.label !== event.dragged) return
+      tearRef.current = null
+      // 빈 곳에 놓았다: 창은 놓인 자리에 그대로 둔다
+      if (event.target === null) return
+      const request = { docId: drag.docId, page: drag.page, zoom: drag.zoom, pane: event.pane ?? undefined, x: event.x }
+      void (async () => {
+        try {
+          if (drag.mode === 'new') {
+            if (event.target === currentWindowLabel()) acceptTabDropRef.current({ ...request, source: drag.label })
+            else await sendTabDrop(event.target!, request)
+            await destroyAppWindow(drag.label)
+          } else {
+            // 떼어 낸 창을 통째로 끌어 다른 창의 탭 줄에 놓았다: 저장하고 탭을 보낸 뒤 이 창을 닫는다
+            await flushCanvasSaves()
+            skipSendBackRef.current = true
+            await sendTabDrop(event.target!, request)
+            await destroyAppWindow(currentWindowLabel())
+          }
+        } catch (cause) {
+          skipSendBackRef.current = false
+          announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
+        }
+      })()
     }).then((unlisten) => {
       if (disposed) unlisten()
       else stop = unlisten
     })
     return () => { disposed = true; stop?.() }
   }, [])
+  /** 탭을 다른 패널의 탭 줄 index 자리(또는 본문)로 끌어 놓았다 */
+  const movePaneTabAt = (id: string, target: PaneId, index: number) => {
+    const tab = openTabIds.find((candidate) => candidate.id === id)
+    const source = paneOfTab(panes, id)
+    const moved = moveTabToPaneAt(panes, id, target, index)
+    // 탭을 다 끌어낸 패널은 닫힌다(크롬에서 창의 탭을 다 끌어내면 그 창이 닫히듯). 남은 패널이 그 자리를 채운다
+    const collapsed = SPLIT_PANES_ENABLED && !isDetachedWindow && source !== null && source !== target ? collapseEmptyPane(moved, shownLayoutId, source) : null
+    const landed = collapsed === null ? target : collapsed.remap(target)
+    setPanes(collapsed === null ? moved : collapsed.panes)
+    if (collapsed !== null) setPaneLayout(collapsed.layout)
+    setActivePaneId(landed)
+    if (tab !== undefined) setPaneRoute(tab.kind === 'note' ? 'note' : 'doc', landed)
+    if (collapsed !== null) {
+      window.setTimeout(() => {
+        window.dispatchEvent(new Event('resize'))
+        window.dispatchEvent(new Event('iwae:pane-resize-end'))
+      }, 280)
+    }
+  }
+  /** 이 패널에서 탭을 가장자리로 끌어 나눌 수 있는 쪽들(창 모드·배치·탭 수에 따라 달라진다) */
+  const dockEdgesFor = (pane: PaneId, id: string): readonly DockEdge[] => {
+    if (!SPLIT_PANES_ENABLED || isDetachedWindow || focusedPane !== 'split' || libraryExpanded) return []
+    if (!visiblePanes(shownPaneCount).includes(pane)) return []
+    if (paneOfTab(panes, id) === pane && panes[pane].tabs.length <= 1) return []
+    return dockableEdges(shownLayoutId, PANE_IDS.indexOf(pane))
+  }
+  /** 탭을 패널의 edge 쪽을 갈라 새 패널에 넣는다 */
+  const dockPaneTab = (id: string, target: PaneId, edge: DockEdge) => {
+    const result = dockTab(panes, shownLayoutId, id, target, edge)
+    if (result === null) return
+    const tab = openTabIds.find((candidate) => candidate.id === id)
+    // 하나뿐인 탭을 다른 패널의 가장자리로 끌어 나누면, 비어 버린 원래 패널은 닫힌다
+    const collapsed = collapseEmptyPane(result.panes, result.layout, result.sourcePane)
+    const landed = collapsed === null ? result.newPane : collapsed.remap(result.newPane)
+    setPanes(collapsed === null ? result.panes : collapsed.panes)
+    setPaneLayout(collapsed === null ? result.layout : collapsed.layout)
+    setActivePaneId(landed)
+    if (tab !== undefined) setPaneRoute(tab.kind === 'note' ? 'note' : 'doc', landed)
+    // 새 패널은 자라듯 나타나고, 끝나면 노트 바·연결선이 새 자리를 다시 잰다
+    setFreshPane(landed)
+    window.setTimeout(() => setFreshPane(null), 320)
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+      window.dispatchEvent(new Event('iwae:pane-resize-end'))
+    }, 280)
+  }
   const movePaneTab = (id: string, target: PaneId) => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
     // 보이지 않는 패널로 옮기면 그만큼 단을 늘려 나란히 보인다(안 그러면 다시 합쳐진다)
@@ -2225,7 +2391,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   const renderPaneTabs = (pane: PaneId) => (
     <PaneTabsMenu
-      onClosePane={shownPaneCount > 1 && !docSearchMode ? () => closePane(pane) : undefined}
+      onClosePane={shownPaneCount > 1 ? () => closePane(pane) : undefined}
       state={tabsWithVersion(panes[pane])}
       label={t('탭')}
       paneId={pane}
@@ -2238,9 +2404,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       onMoveTab={SPLIT_PANES_ENABLED ? movePaneTab : undefined}
       moveTargets={SPLIT_PANES_ENABLED ? paneMoveTargets(pane) : undefined}
       onReorderTab={(id, toIndex) => setPanes((current) => ({ ...current, [pane]: reorderTab(current[pane], id, toIndex) }))}
+      onMoveTabAt={SPLIT_PANES_ENABLED ? movePaneTabAt : undefined}
+      onDockTab={SPLIT_PANES_ENABLED && !isDetachedWindow ? dockPaneTab : undefined}
+      dockEdges={dockEdgesFor}
+      onTearOffTab={isDesktop() ? tearOffTab : undefined}
+      dragWindow={isDetachedWindow}
       onEditPages={(id) => {
         const tab = openTabIds.find((candidate) => candidate.id === id)
-        if (tab !== undefined) setPageEditDocId(tabDocId(tab))
+        if (tab !== undefined) setPdfToolsTarget({ docId: tabDocId(tab), tool: 'pageEdit' })
       }}
       onDetachTab={isDetachedWindow ? undefined : (id) => { void detachPaneTab(id) }}
       onReattach={isDetachedWindow ? () => windowActionsRef.current.reattach() : undefined}
@@ -2272,8 +2443,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const state = panes[pane]
     const tab = activeTab(state)
     if (tab === null) {
-      // 문서 검색 화면의 오른쪽 칸은 결과를 누르면 원본이 열리는 자리다
-      const hint = docSearchMode && pane !== 'left' ? t('왼쪽 결과를 누르면 원본 PDF 가 여기에 열립니다') : pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
+      const hint = pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
       return <PaneShell state={state} emptyHint={hint} placeholder="" />
     }
     if (tab.kind === 'note') {
@@ -2392,16 +2562,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           return source === undefined ? undefined : { name: source.name, behind: source.behind, onAction: (action) => githubAction(action, source.name) }
         })()}
         onCopyFile={() => void copyPdfFile(tabDocId(tab))}
-        onEditPages={(id) => setPageEditDocId(id)}
+        onEditPages={(id) => setPdfToolsTarget({ docId: id, tool: 'pageEdit' })}
         versionLabel={tab.kind === 'pdf' ? versionLabelOf(tabDocId(tab)) : undefined}
         onOpenVersions={tab.kind === 'pdf' ? (anchor) => setTabVersionMenu({ tabId: tab.id, docId: tabDocId(tab), anchor }) : undefined}
       />
     )
   }
   // 패널 안 어디를 누르든 그 패널이 "지금 만지는 패널"이 된다. display: contents 라 배치에는 끼지 않는다.
+  // PDF 도구 화면이 대신할 창: 그 문서를 보이는 창(없으면 지금 문서 창)
+  const pdfToolsPane: PaneId | null = pdfToolsTarget === null ? null
+    : PANE_IDS.find((pane) => { const tab = activeTab(panes[pane]); return tab?.kind === 'pdf' && tabDocId(tab) === pdfToolsTarget.docId }) ?? docPaneId
   const renderPane = (pane: PaneId) => (
-    <div className="pane-focus-scope" data-pane-id={pane} onPointerDownCapture={() => focusPane(pane)}>
+    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && shownPaneCount > 1 ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
       {renderPaneBody(pane)}
+      {pdfToolsTarget !== null && pdfToolsPane === pane ? renderPdfTools(pdfToolsTarget) : null}
     </div>
   )
 
@@ -2453,7 +2627,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             library={shownLibrary}
             notebooks={shownNotebooks}
             showNotes={CANVAS_ENABLED}
-            onOpenDoc={(doc) => void openDocument(doc)}
+            onOpenDoc={(doc) => { setLibraryExpanded(false); void openDocument(doc) }}
             memoNotes={vault === null ? undefined : {
               docOwner: noteDocOwner,
               onCreateForDoc: (docId) => { void createNoteForDoc(docId) },
@@ -2599,6 +2773,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             onRevealRecentPdf={(path) => void revealInFolder(path).catch((cause: unknown) => announceAction(errorText(cause)))}
             onItemColorChange={setItemColor}
             libraryExpanded={libraryExpanded}
+            libraryHost={libraryHost}
             showVaultSearch={false}
             onToggleLibrary={toggleLibrary}
             onOpenLibraryItem={openLibraryItem}
@@ -2611,9 +2786,33 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           <div className="side-doc-target-wrap">
           {renderDocTargetSwitch()}
           {sidebarMode === 'search' ? (
-          <div className="side-pdf-search" ref={setPdfSearchSlot} aria-label={t('PDF 검색')}>
-            {activePdfDoc === null && activeDocumentTab?.kind !== 'markdown' ? <p className="side-section-empty">{t('PDF·Markdown 을 열면 여기서 검색합니다')}</p> : null}
+          <div className="side-search-tab">
+            <SearchScopeSwitch scope={searchScope} onChange={setSearchScope} />
+            <div className="side-pdf-search" ref={setPdfSearchSlot} aria-label={t('PDF 검색')} hidden={searchScope === 'vault'}>
+              {activePdfDoc === null && activeDocumentTab?.kind !== 'markdown' ? <p className="side-section-empty">{t('PDF·Markdown 을 열면 여기서 검색합니다')}</p> : null}
+            </div>
+            {searchScope === 'vault' ? (
+              <div className="side-pdf-search side-vault-search" aria-label={t('모든 문서 검색')}>
+                <DocumentSearchPanel
+                  state={documentSearch}
+                  records={searchRecords}
+                  indexProgress={searchIndexProgress}
+                  onOpenHit={(hit) => void openVaultHit(hit)}
+                />
+              </div>
+            ) : null}
           </div>
+        ) : sidebarMode === 'tools' ? (
+          <PdfToolsPanel
+            docTitle={activePdfDoc === null ? null : docTitles[activePdfDoc.docId] ?? activePdfDoc.title}
+            activeTool={pdfToolsTarget === null || pdfToolsTarget.docId !== activePdfDoc?.docId ? null : pdfToolsTarget.tool ?? (activePdfDoc?.hasText === false ? 'ocr' : 'flatten')}
+            onPick={(tool) => {
+              if (activePdfDoc === null) return
+              // 펼친 도구를 다시 누르면 접고 PDF 로 돌아간다
+              if (pdfToolsTarget?.docId === activePdfDoc.docId && (pdfToolsTarget.tool ?? (activePdfDoc.hasText === false ? 'ocr' : 'flatten')) === tool) setPdfToolsTarget(null)
+              else setPdfToolsTarget({ docId: activePdfDoc.docId, tool })
+            }}
+          />
         ) : sidebarMode === 'thumbnails' && activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
           <MarkdownSectionPreview
             source={markdownSources[activeDocumentTab.id]!}
@@ -2622,6 +2821,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           />
         ) : sidebarMode === 'thumbnails' ? (
           <ThumbnailPanel
+            viewportPane={docPaneId}
             activeDoc={activePdfDoc}
             currentPage={currentPdfPage - 1}
             onSelectPage={(page) => jumpToPage(page + 1)}
@@ -2634,6 +2834,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           />
         ) : sidebarMode === 'outlinePreview' ? (
           <OutlinePreviewPanel
+            viewportPane={docPaneId}
             activeDoc={activePdfDoc}
             currentPage={currentPdfPage - 1}
             onSelectPage={(page) => jumpToPage(page + 1)}
@@ -2670,18 +2871,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       layout={layout}
       onLayoutChange={setLayout}
       focusedPane={focusedPane}
+      noteHostPane={noteHostPaneId}
       libraryExpanded={libraryExpanded}
-      singlePane={singlePane && !docSearchMode}
+      onLibraryHost={setLibraryHost}
+      singlePane={singlePane}
       threePane={shownPaneCount === 3 && gridLayout === null}
       grid={gridLayout === null ? undefined : { layout: gridLayout, tabs: visiblePanes(shownPaneCount).map((pane) => renderPaneTabs(pane)) }}
-      onSwapPanes={docSearchMode ? undefined : swapPanes}
+      onSwapPanes={swapPanes}
       topBar={({ sidebarPx, leftFrac, sidebarVisible, paneGrows, gridZones }) => (
         <TopBar
           sidebarCollapsed={sidebarCollapsed}
           sidebarVisible={sidebarVisible}
           onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
           sidebarMode={sidebarMode}
-          onSidebarModeChange={setSidebarMode}
+          onSidebarModeChange={(mode) => { setLibraryExpanded(false); setSidebarMode(mode) }}
           appMenu={[
             activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown'
               ? [{ id: 'print', label: t('인쇄'), hint: 'Ctrl+P', onSelect: () => window.dispatchEvent(new CustomEvent('iwae:print')) }]
@@ -2701,13 +2904,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             }],
             [
               { id: 'updates', label: t('업데이트 확인'), onSelect: () => { setSettingsSection('updates'); setSettingsOpen(true) } },
-              { id: 'about', label: t('정보 보기'), onSelect: () => setAboutOpen(true) },
               { id: 'settings', label: t('설정'), hint: 'Ctrl+,', onSelect: () => { setSettingsSection(undefined); setSettingsOpen(true) } },
+              { id: 'about', label: t('정보 보기'), onSelect: () => setAboutOpen(true) },
             ],
           ]}
           sidebarPx={sidebarPx}
           leftFrac={leftFrac}
-          leftTabs={docSearchMode ? <span className="topbar-docsearch-label">{t('문서 검색')}</span> : gridLayout !== null ? null : renderPaneTabs('left')}
+          leftTabs={gridLayout !== null ? null : renderPaneTabs('left')}
           rightTabs={gridLayout !== null ? null : renderPaneTabs('right')}
           thirdTabs={shownPaneCount === 3 && gridLayout === null ? renderPaneTabs('third') : undefined}
           gridZones={gridLayout === null || gridZones === undefined ? undefined : gridZones.map((zone) => {
@@ -2715,27 +2918,19 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             return { paneId: pane, tabs: renderPaneTabs(pane), grow: zone.grow }
           })}
           paneGrows={paneGrows}
-          docSearchActive={docSearchMode}
+          docSearchActive={!sidebarCollapsed && sidebarMode === 'search' && searchScope === 'vault'}
           onToggleDocSearch={toggleDocSearchMode}
           singlePane={singlePane}
           paneLayout={paneLayoutId}
           onPaneLayoutChange={SPLIT_PANES_ENABLED && !isDetachedWindow ? setPaneLayout : undefined}
-          memoBar={(activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown') && !docSearchMode ? { visible: memoBarVisible, onToggle: () => setMemoBarVisible(!memoBarVisible) } : undefined}
+          memoBar={(activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown') ? { visible: memoBarVisible, onToggle: () => setMemoBarVisible(!memoBarVisible) } : undefined}
           onCloseWindow={closeWindowSafely}
           // 떼어 낸 창은 왼쪽 바 없이 시작한다(찾기 등으로 열렸을 때만 접을 수 있게 단추가 나온다)
           hideSidebarToggle={isDetachedWindow && sidebarCollapsed}
         />
       )}
-      sidebarCollapsed={sidebarCollapsed || docSearchMode}
-      left={docSearchMode ? (
-        <DocumentSearchPanel
-          state={documentSearch}
-          records={searchRecords}
-          indexProgress={searchIndexProgress}
-          onOpenHit={(hit) => void openVaultHit(hit)}
-          onClose={() => setDocSearchMode(false)}
-        />
-      ) : renderPane('left')}
+      sidebarCollapsed={sidebarCollapsed}
+      left={renderPane('left')}
       right={renderPane('right')}
       third={renderPane('third')}
       fourth={renderPane('fourth')}
@@ -2751,21 +2946,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       onOpen={openAiLocation}
       onDismiss={(id) => setAiLocations((current) => current.filter((item) => item.id !== id))}
     />
-    {pageEditDocId !== null ? (() => {
-      const meta = openedDocs.find((doc) => doc.docId === pageEditDocId)
-      if (meta === undefined) return null
-      return (
-        <PageEditDialog
-          key={pageEditDocId}
-          docId={pageEditDocId}
-          title={docTitles[pageEditDocId] ?? meta.title}
-          pageCount={meta.pageCount}
-          onCancel={() => setPageEditDocId(null)}
-          onSave={(items) => savePageEdit(meta.docId, meta.pageSizes, items)}
-        />
-      )
-    })() : null}
-    {pdfToolsTarget !== null ? renderPdfTools(pdfToolsTarget) : null}
     {passwordRequest !== null ? (
       <PdfPasswordDialog
         key={passwordRequest.nonce}

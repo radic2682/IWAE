@@ -1,0 +1,78 @@
+/* 왼쪽 바 둘째 줄 = PDF 창 도구 줄(손·선택 도구가 있는 줄)과 같은 높이.
+   윗줄(로고·바 단추 … 탭 줄)은 상단바이고 38px(밑선 포함)이다. 그 바로 아래 줄을 37px 로 맞추고 밑선(--divider)을 긋는다:
+   PDF 창 도구 줄·노트 바 머리 줄의 밑선과 한 가로선으로 이어진다(y = 38 + 37).
+   머리 줄은 배율(--bar-zoom)을 받지 않는다 — 배율은 그 아래 목록에만 걸린다(version-groups.css) */
+.sidebar { --left-row2-h: 37px; }
+
+.sidebar .side-panel-head,
+.sidebar .side-documents-head,
+.sidebar .outline-section-head,
+.sidebar .outline-preview-bar {
+  box-sizing: border-box;
+  height: var(--left-row2-h);
+  min-height: var(--left-row2-h);
+  margin: 0 -8px 6px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--divider);
+  background: var(--chrome);
+}
+.sidebar .side-panel-head { margin: 0; padding: 0 8px; flex: 0 0 auto; }
+
+/* 문서 구역: 머리 줄이 스크롤 영역 맨 위에 붙는다 */
+.sidebar-inner > .side-scroll:has(> .side-documents-section) { padding-top: 0; }
+.sidebar .side-section .side-documents-head { margin-bottom: 6px; position: sticky; top: 0; z-index: 3; }
+.sidebar .side-documents-head .side-head { padding: 0 2px; }
+.sidebar .side-documents-head .side-top-action { flex: 0 0 22px; }
+
+/* 목차 */
+.sidebar .side-scroll:has(> .outline-section) { padding-top: 0; }
+.sidebar .outline-section-head { justify-content: space-between; position: sticky; top: 0; z-index: 3; }
+.sidebar .outline-section-head .side-panel-section-title { padding: 0 2px; }
+.sidebar .outline-section-head .outline-expand-all { margin-right: 0; }
+
+/* 미리보기 · 목차·미리보기: 한 줄로 고정(위치 줄이 길면 줄여 보인다) */
+.sidebar .outline-preview-bar { margin: 0 -8px 4px; gap: 8px; z-index: 3; }
+.sidebar .outline-preview-bar .outline-preview-trail { min-width: 0; flex: 1 1 auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* 검색: 범위 전환이 머리 줄. 아래 검색칸은 10px 안쪽 */
+.sidebar .side-search-tab > .side-panel-head { margin: 0; }
+
+/* 두 창에 문서가 열려 있을 때 맨 위에 나오는 「어느 창의 문서를 볼지」 고르는 줄: 한 줄(37px)에 두 칸 */
+.sidebar .side-doc-target {
+  box-sizing: border-box;
+  height: var(--left-row2-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--divider);
+}
+.sidebar .side-doc-target-btn { height: 28px; padding: 0 6px; gap: 6px; color: var(--text-strong); }
+.sidebar .side-doc-target-btn-active { background: var(--selected-bg); box-shadow: none; }
+.sidebar .side-doc-target-btn-active .side-doc-target-side { background: var(--accent); color: #fff; }
+.sidebar .side-doc-target-side { color: var(--text-strong); }
+
+/* 미리보기: 「보고 있는 곳」 사각형. 쪽 전체를 칠하는 대신 PDF 창에 실제로 보이는 부분만 가는 강조색 테두리 + 아주 옅은 칠 */
+.sidebar .thumb-frame { position: relative; }
+.sidebar .thumb-viewport {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  pointer-events: none;
+}
+/* 현재 쪽은 번호만 강조한다(쪽 단위 칠은 사각형이 대신한다) */
+.sidebar .thumb-item-current { background: transparent; }
+.sidebar .thumb-item-current:hover { background: var(--chrome-hover); }
+.sidebar .thumb-item-current .thumb-frame { border-color: var(--hairline); box-shadow: none; }
+
+/* PDF 도구 보기 */
+.sidebar .side-tools-head { gap: 8px; margin: 0 -8px 0; padding: 0 12px; position: sticky; top: 0; z-index: 3; }
+.sidebar .side-tools-title { flex: 0 0 auto; font-size: 13px; font-weight: 650; color: var(--text-strong); }
+.sidebar .side-tools-doc { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-strong); }
+.sidebar .side-scroll.side-tools-panel { padding-top: 0; }
+.sidebar .side-tools-panel .pdf-tools-list { padding: 8px 0 14px; }

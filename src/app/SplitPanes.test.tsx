@@ -189,19 +189,21 @@ describe('SplitPanes — 집중 모드와 라이브러리', () => {
     expect(right.style.flexGrow).toBe('0')
   })
 
-  it('라이브러리를 펼치면 사이드바가 전체 폭이 되고 패널은 inert 가 된다', () => {
-    const { container } = renderPanes(true, undefined, 'split', true)
+  it('라이브러리를 펼쳐도 왼쪽 바는 그대로이고, 패널은 inert 가 되며 그 자리에 라이브러리 틀이 생긴다', () => {
+    const { container } = renderPanes(false, undefined, 'split', true)
     const shell = container.querySelector('.shell') as HTMLElement
     expect(shell.classList.contains('shell-library-expanded')).toBe(true)
-    expect(shell.style.getPropertyValue('--sidebar-width')).toBe('100%')
+    // 왼쪽 바 폭·구분선은 펼치기 전과 같다(전체 폭이 되지 않는다)
+    expect(shell.style.getPropertyValue('--sidebar-width')).not.toBe('100%')
     const panes = container.querySelector('.panes') as HTMLElement
     expect(panes.hasAttribute('inert')).toBe(true)
     expect(panes.getAttribute('aria-hidden')).toBe('true')
-    expect(screen.queryByRole('separator', { name: '사이드바 너비 조절' })).toBeNull()
+    expect(screen.queryByRole('separator', { name: '사이드바 너비 조절' })).not.toBeNull()
+    expect(container.querySelector('.library-host')).not.toBeNull()
   })
 
-  it('접힌 사이드바에서 라이브러리를 펼쳐도 접힘 표시(클릭 차단)를 붙이지 않는다', () => {
-    const { container } = renderPanes(true, undefined, 'split', true)
+  it('라이브러리를 펼쳐도 왼쪽 바는 눌린다(inert·접힘 표시가 붙지 않는다)', () => {
+    const { container } = renderPanes(false, undefined, 'split', true)
     const shell = container.querySelector('.shell') as HTMLElement
     expect(shell.classList.contains('shell-sidebar-collapsed')).toBe(false)
     const sidebar = container.querySelector('.sidebar') as HTMLElement

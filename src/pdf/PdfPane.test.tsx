@@ -552,7 +552,9 @@ describe('PdfPane — 형광펜 메모', () => {
     const { container, findByRole } = mount({ pageCount: 2, persistentHighlights: [highlight], onPersistentHighlightUpdated: vi.fn() })
     expect(await findByRole('button', { name: '노트 검색' })).toBeTruthy()
     act(() => setMemoBarVisible(false))
-    expect(container.querySelector('.pdf-memo-card')).toBeNull()
+    // 닫는 동안(전환) 바는 서서히 사라지도록 잠깐 남아 있다가 지워진다
+    expect(container.querySelector('.pdf-memo-bar')?.classList.contains('note-bar-exiting')).toBe(true)
+    await waitFor(() => expect(container.querySelector('.pdf-memo-card')).toBeNull())
     act(() => setMemoBarVisible(true))
     await waitFor(() => expect(container.querySelector('.pdf-memo-card')).not.toBeNull())
     fireEvent.click(await findByRole('button', { name: '메모만 보기' }))

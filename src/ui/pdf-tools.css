@@ -1,45 +1,53 @@
 /* PDF 도구 창: 다른 대화상자(.bib-dialog)와 같은 판. 회색 글자·왼쪽 띠 강조 없음 */
-.pdf-tools-backdrop {
-  position: fixed;
+/* PDF 도구 화면: PDF 창 자리를 그대로 대신한다(창 위에 덮는 모달이 아니다) */
+.pdf-tools-inline {
+  position: absolute;
   inset: 0;
-  z-index: 70;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgb(0 0 0 / 28%);
-}
-
-.pdf-tools {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  width: min(820px, calc(100vw - 32px));
-  height: min(600px, calc(100vh - 32px));
-  border: 1px solid var(--divider);
-  border-radius: var(--r-lg);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
   background: var(--paper);
   color: var(--text-strong);
-  box-shadow: 0 24px 60px var(--shadow-floating, rgb(0 0 0 / 30%));
   outline: none;
   overflow: hidden;
   animation: pdf-tools-in 140ms var(--layout-ease, ease) both;
 }
+.pane-focus-scope > .pdf-tools-inline.pdf-tools-inline { position: absolute; }
+.pane-focus-scope > .pdf-tools-inline::after { display: none; }
 
 .pdf-tools-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px 12px 18px;
+  gap: 12px;
+  height: var(--left-row2-h, 37px);
+  min-height: var(--left-row2-h, 37px);
+  box-sizing: border-box;
+  padding: 0 14px 0 8px;
   border-bottom: 1px solid var(--divider);
+  background: var(--chrome);
 }
-.pdf-tools-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; color: var(--text-strong); font-size: 15px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
-.pdf-tools-title small { margin-left: 6px; color: var(--text-strong); font-size: 12px; font-weight: 500; }
-.pdf-tools-close { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer; }
-.pdf-tools-close:is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); outline: none; }
-.pdf-tools-close:disabled { opacity: 0.4; cursor: default; }
+.pdf-tools-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; color: var(--text-strong); font-size: 14px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.pdf-tools-title small { margin-left: 8px; color: var(--text-strong); font-size: 12px; font-weight: 500; }
+.pdf-tools-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--divider);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.pdf-tools-back:is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); outline: none; }
+.pdf-tools-back:disabled { opacity: 0.4; cursor: default; }
 
-.pdf-tools-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; }
-
-.pdf-tools-list { padding: 10px 8px 14px; border-right: 1px solid var(--divider); background: var(--chrome); overflow-y: auto; }
+/* 왼쪽 바 「PDF 도구」 목록 */
+.pdf-tools-list { padding: 10px 8px 14px; overflow-y: auto; }
 .pdf-tools-group + .pdf-tools-group { margin-top: 10px; }
 .pdf-tools-group-title { padding: 2px 10px 4px; color: var(--text-strong); font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
 .pdf-tools-item {
@@ -64,7 +72,7 @@
 .pdf-tools-item-icon { display: grid; place-items: center; width: 18px; color: var(--text-strong); }
 .pdf-tools-item-on .pdf-tools-item-icon { color: var(--accent); }
 
-.pdf-tools-pane { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 16px 20px 18px; overflow-y: auto; }
+.pdf-tools-pane { display: flex; flex-direction: column; flex: 1 1 auto; gap: 12px; min-height: 0; padding: 16px max(20px, calc((100% - 720px) / 2)) 18px; overflow-y: auto; }
 .pdf-tools-pane-title { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text-strong); font-size: 14px; font-weight: 700; }
 .pdf-tools-pane-title > span { display: grid; place-items: center; color: var(--accent); }
 .pdf-tools-note { margin: 0; color: var(--text-strong); font-size: 12.5px; line-height: 1.55; }
@@ -179,3 +187,4 @@
 
 @keyframes pdf-tools-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .pdf-tools { animation: none; } }
+.pane { position: relative; }

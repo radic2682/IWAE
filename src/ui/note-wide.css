@@ -1,8 +1,17 @@
 /* ---------- 메모만 보기: 노트 바와 같은 블록을 글 칸 폭(708px)으로 가운데에 놓고, 왼쪽 빈 곳에 목차 ---------- */
-.pane-doc .markdown-memo-bar-body.note-wide { position: relative; }
+.pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body).note-wide { position: relative; container-type: inline-size; }
+/* 목차가 있으면 (목차 + 사이 + 글 칸) 묶음을 칸 가운데에 두고, 목차는 글 칸 왼쪽 바로 옆(위 끝은 첫 블록과 같은 높이)에 붙인다.
+   폭은 모두 칸 폭에서 계산: 목차 = 18%(160~240px), 사이 28px, 양쪽 최소 16px. 좁으면 목차를 감추고 글 칸만 가운데(note-outline 이 판단) */
+.pane-doc .note-wide > :is(.pdf-memo-bar-scroll, .note-format-dock, .note-outline) {
+  --nw-col: 708px; --nw-gap: 28px;
+  --nw-out: clamp(160px, 18cqw, 240px);
+  --nw-left: max(16px, calc((100cqw - var(--nw-out) - var(--nw-gap) - var(--nw-col)) / 2));
+}
 .pane-doc .note-wide > .pdf-memo-bar-scroll { padding-left: 12px; }
 .pane-doc .note-wide > .pdf-memo-bar-scroll > * { box-sizing: border-box; width: min(100%, 708px); align-self: center; flex-shrink: 0; }
 .pane-doc .note-wide > .note-format-dock { padding-inline: max(12px, calc((100% - 708px) / 2)); }
+.pane-doc .note-wide[data-note-outline] > .pdf-memo-bar-scroll > * { align-self: flex-start; margin-left: max(0px, calc(var(--nw-left) + var(--nw-out) + var(--nw-gap) - 12px)); }
+.pane-doc .note-wide[data-note-outline] > .note-format-dock { padding-left: calc(var(--nw-left) + var(--nw-out) + var(--nw-gap)); }
 
 /* 검색어에 맞지 않는 블록은 흐리게 두지 않고 걸러 낸다(전엔 목록이 그랬다) */
 .pane-doc .note-wide .pdf-memo-card-dim { display: none; }
@@ -14,9 +23,9 @@
 
 /* 목차 */
 .note-outline {
-  position: absolute; z-index: 3; bottom: 0; box-sizing: border-box;
+  position: absolute; z-index: 3; bottom: 0; left: var(--nw-left, 16px); width: var(--nw-out, 184px); box-sizing: border-box;
   display: flex; flex-direction: column; gap: 1px;
-  padding: 14px 4px 24px 0; overflow-x: hidden; overflow-y: auto;
+  padding: 26px 4px 24px 0; overflow-x: hidden; overflow-y: auto;
   scrollbar-width: thin;
 }
 .note-outline-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
