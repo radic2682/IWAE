@@ -76,9 +76,9 @@ function mount(
     hasText?: boolean
     pageCount?: number
     onAnchorCreated?: (anchor: Anchor | null) => void
-    onPersistentHighlightCreated?: (highlight: { id: string; anchor: Anchor; color: 'yellow' | 'green' | 'blue' | 'pink' }) => void
+    onPersistentHighlightCreated?: (highlight: { id: string; anchor: Anchor; color: string }) => void
     onPersistentHighlightRemoved?: (highlightId: string) => void
-    persistentHighlights?: readonly { id: string; anchor: Anchor; color: 'yellow' | 'green' | 'blue' | 'pink' }[]
+    persistentHighlights?: readonly { id: string; anchor: Anchor; color: string }[]
     interactionMode?: 'hand' | 'text' | 'lasso' | 'highlight'
     pageRequest?: { page: number; nonce: number }
     sourceHighlights?: readonly VisiblePdfSourceReference[]

@@ -1,8 +1,10 @@
 import type { Anchor } from '../core/anchor'
 import { parseMemoBox, type MemoBox } from '../core/boxMemo'
+import { isHighlightColorId } from '../core/highlightColors'
 import { t } from '../i18n'
 
-export type PdfHighlightColor = 'yellow' | 'green' | 'blue' | 'pink'
+/** 형광펜 색의 id. 기본 4색은 yellow|green|blue|pink, 새로 만든 색은 c_xxxxxx. 목록에 없는 id 도 문서에는 그대로 남는다 */
+export type PdfHighlightColor = string
 
 /** 주제 이름 길이 상한 */
 export const MEMO_TOPIC_LIMIT = 40
@@ -212,7 +214,7 @@ export function removePersistentPdfHighlight(
 }
 
 function isHighlightColor(value: unknown): value is PdfHighlightColor {
-  return value === 'yellow' || value === 'green' || value === 'blue' || value === 'pink'
+  return isHighlightColorId(value)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

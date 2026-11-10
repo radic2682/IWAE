@@ -1,3 +1,5 @@
+import { defaultHighlightColorId } from '../core/highlightColors'
+import { getHighlightColors } from './highlightColorStyle'
 import { t } from '../i18n'
 import { useIsNoteHostPane, useNoteBarPresence, useNoteDock } from './noteDock'
 import { startInternalDrag } from '../core/internalDrag'
@@ -270,7 +272,8 @@ function highlightMarkdownRanges(
         continue
       }
       const mark = document.createElement('mark')
-      mark.className = `markdown-persistent-highlight markdown-persistent-highlight-${active.color}`
+      mark.className = 'markdown-persistent-highlight'
+      mark.dataset.hl = active.color
       mark.dataset.markdownHighlightId = active.id
       mark.textContent = text
       fragment.append(mark)
@@ -764,7 +767,7 @@ export function MarkdownPane({
             quote: selection.toString(),
             prefix: '',
             suffix: '',
-          }, 'yellow', { createdAt: new Date().toISOString(), source: 'iwae' })
+          }, defaultHighlightColorId(getHighlightColors()), { createdAt: new Date().toISOString(), source: 'iwae' })
           const existing = boxHighlights.find((item) => item.id === highlight.id)
           if (existing === undefined) onBoxHighlightCreated?.(highlight)
           const key = attachKey
@@ -805,7 +808,7 @@ export function MarkdownPane({
             quote: selection.toString(),
             prefix: '',
             suffix: '',
-          }, 'yellow', { createdAt: new Date().toISOString(), source: 'iwae' }))
+          }, defaultHighlightColorId(getHighlightColors()), { createdAt: new Date().toISOString(), source: 'iwae' }))
         }
       }
     }
@@ -887,7 +890,7 @@ export function MarkdownPane({
           prefix: '',
           suffix: '',
         }
-        setDraftMemo(createPersistentPdfHighlight(anchor, 'yellow', {
+        setDraftMemo(createPersistentPdfHighlight(anchor, defaultHighlightColorId(getHighlightColors()), {
           kind: 'region',
           // 글 칸의 자리·폭도 잰다(종이 안 글 칸 위치는 배율·창 폭에 따라 다르다)
           snapshot: html.length <= REGION_SNAPSHOT_LIMIT ? {
@@ -1343,7 +1346,7 @@ export function MarkdownPane({
           {memoLinks.map((link) => {
             const bend = link.edge + (link.cardX - link.edge) / 2
             return (
-              <g key={link.id} className={`pdf-memo-link pdf-memo-link-${link.color}`}>
+              <g key={link.id} className="pdf-memo-link" data-hl={link.color}>
                 <path className="pdf-memo-link-inner" d={`M ${link.anchorX} ${link.anchorY} H ${link.edge}`} />
                 <circle cx={link.anchorX} cy={link.anchorY} r={2.2} />
                 <circle className="pdf-memo-link-edge" cx={link.edge} cy={link.anchorY} r={2} />

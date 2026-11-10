@@ -656,8 +656,8 @@ export function SelectionLayer({
                 const h = rect.h * renderScale + REGION_OUTSET * 2
                 return (
                   <Fragment key={`${id}:${rectIndex}`}>
-                    <rect className={className} data-persistent-highlight={id} data-highlight-color={color} x={x} y={y} width={w} height={h} />
-                    <path className="selection-persistent-highlight selection-region-corners" data-highlight-color={color} d={regionCornersPath(x, y, w, h)} />
+                    <rect className={className} data-persistent-highlight={id} data-hl={color} x={x} y={y} width={w} height={h} />
+                    <path className="selection-persistent-highlight selection-region-corners" data-hl={color} d={regionCornersPath(x, y, w, h)} />
                   </Fragment>
                 )
               })
@@ -666,7 +666,7 @@ export function SelectionLayer({
                   key={id}
                   className={className}
                   data-persistent-highlight={id}
-                  data-highlight-color={color}
+                  data-hl={color}
                   d={rectsPath(coalesceHighlightRects(persistentAnchor.rects), renderScale)}
                 />
               )
@@ -711,7 +711,7 @@ export function SelectionLayer({
         className={`selection-layer selection-interaction-layer selection-mode-${mode}${gesture?.mode === 'region' ? ' selection-gesture-region' : ''}${eraseHighlights ? ' selection-highlight-eraser' : ''}`}
         data-testid="selection-layer"
         data-page={page}
-        data-highlight-color={highlightColor}
+        data-hl={highlightColor}
         style={{ cursor: resize !== null ? edgeCursor(resize.edges) : resizeEnabled && gesture === null && hoverEdge !== null ? edgeCursor(hoverEdge.edges) : gesture === null && hoverHighlight ? 'pointer' : gesture?.mode === 'region' || mode === 'lasso' || eraseHighlights ? 'crosshair' : mode === 'hand' ? (gesture !== null || hoverText ? 'text' : 'grab') : index.chars.length === 0 ? 'crosshair' : 'text' }}
         width={width}
         height={height}

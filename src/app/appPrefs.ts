@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { BAR_ZOOM_DEFAULT, clampBarZoom } from '../core/barZoom'
+import { DEFAULT_HIGHLIGHT_COLORS, parseHighlightColors, type HighlightColorDef } from '../core/highlightColors'
 
 /**
  * 앱 동작 설정(이 PC 에만, localStorage). 설정 창의 「단축키·마우스」「검색·OCR」이 바꾸고,
@@ -25,10 +26,12 @@ export interface AppPrefs extends AppFlagPrefs {
   readonly libraryZoom: number
   /** 펼친 라이브러리 보기: 목록(표) 또는 카드 */
   readonly libraryView: 'list' | 'grid'
+  /** 형광펜 색 목록(순서 = 선택 순서, 첫 색 = 새 형광펜의 기본 색). 문서에는 id 만 저장된다 */
+  readonly highlightColors: readonly HighlightColorDef[]
 }
 
 const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true }
-export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT, libraryZoom: BAR_ZOOM_DEFAULT, libraryView: 'list' }
+export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT, libraryZoom: BAR_ZOOM_DEFAULT, libraryView: 'list', highlightColors: DEFAULT_HIGHLIGHT_COLORS }
 const KEY = 'iwae:app-prefs:v1'
 
 /** 저장된 JSON 에서 읽는다. 모르는 값·잘못된 값은 기본값, 확대는 80~150% 로 바로잡는다 */
@@ -36,7 +39,7 @@ export function parseAppPrefs(text: string | null): AppPrefs {
   try {
     const saved = JSON.parse(text ?? '{}') as Partial<Record<keyof AppPrefs, unknown>>
     const flags = Object.fromEntries(Object.entries(DEFAULT_FLAGS).map(([key, base]) => [key, typeof saved[key as keyof AppFlagPrefs] === 'boolean' ? saved[key as keyof AppFlagPrefs] : base])) as unknown as AppFlagPrefs
-    return { ...flags, leftBarZoom: clampBarZoom(saved.leftBarZoom), rightBarZoom: clampBarZoom(saved.rightBarZoom), libraryZoom: clampBarZoom(saved.libraryZoom), libraryView: saved.libraryView === 'grid' ? 'grid' : 'list' }
+    return { ...flags, leftBarZoom: clampBarZoom(saved.leftBarZoom), rightBarZoom: clampBarZoom(saved.rightBarZoom), libraryZoom: clampBarZoom(saved.libraryZoom), libraryView: saved.libraryView === 'grid' ? 'grid' : 'list', highlightColors: parseHighlightColors(saved.highlightColors) }
   } catch {
     return { ...DEFAULT_APP_PREFS }
   }
@@ -63,6 +66,23 @@ export function setAppPref<K extends keyof AppPrefs>(key: K, value: AppPrefs[K])
   for (const listener of listeners) listener()
 }
 
+/**
+ * 다른 창(같은 앱의 떼어 낸 창·새 창)이 설정을 바꾸면 localStorage 의 storage 이벤트가 온다.
+ * 그때 다시 읽어 이 창의 화면도 바로 따라가게 한다.
+ */
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== KEY && event.key !== null) return
+    prefs = read()
+    for (const listener of listeners) listener()
+  })
+}
+
+export function subscribeAppPrefs(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
 export function useAppPrefs(): AppPrefs {
-  return useSyncExternalStore((listener) => { listeners.add(listener); return () => listeners.delete(listener) }, () => prefs, () => prefs)
+  return useSyncExternalStore(subscribeAppPrefs, () => prefs, () => prefs)
 }

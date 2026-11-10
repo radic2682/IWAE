@@ -1,3 +1,4 @@
+import { rangeFillStyle } from '../ui/rangeFill'
 import { INTERNAL_DROP_EVENT, type InternalDropDetail } from '../core/internalDrag'
 import {
   useCallback,
@@ -110,8 +111,9 @@ import {
 } from '../core/canvasInteraction'
 import { scheduleNodeInternalsUpdate, type CanvasSide } from '../core/canvasPorts'
 import { t } from '../i18n'
+import { defaultHighlightColorId, highlightColorLabel, highlightInkOf, knownHighlightColorId } from '../core/highlightColors'
+import { useHighlightColors } from './highlightColorStyle'
 import {
-  EXCERPT_HIGHLIGHT_COLORS,
   highlightBounds,
   highlightHandleId,
   highlightIdFromHandle,
@@ -644,7 +646,7 @@ function NoteBottomBar({ status, error }: { status?: CanvasSaveStatus; error?: s
           <button type="button" className="bottombar-btn" aria-label={t('캔버스 화면 맞춤')} onClick={() => void fitView({ padding: 0.18, duration: 180 })}><CornersOut size={16} aria-hidden="true" /></button>
           <span className="bottombar-divider" />
           <button type="button" className="bottombar-btn" aria-label={t('캔버스 축소')} onClick={() => void zoomOut({ duration: 120 })}><Minus size={16} aria-hidden="true" /></button>
-          <input aria-label={t('캔버스 배율')} type="range" min="20" max="250" step="10" value={zoomPercent} onChange={(event) => void zoomTo(Number(event.target.value) / 100, { duration: 80 })} />
+          <input aria-label={t('캔버스 배율')} type="range" min="20" max="250" step="10" value={zoomPercent} style={rangeFillStyle(zoomPercent, 20, 250)} onChange={(event) => void zoomTo(Number(event.target.value) / 100, { duration: 80 })} />
           <button type="button" className="bottombar-btn" aria-label={t('캔버스 확대')} onClick={() => void zoomIn({ duration: 120 })}><Plus size={16} aria-hidden="true" /></button>
           <span className="note-bottom-zoom">{zoomPercent}%</span>
         </div>
@@ -954,7 +956,8 @@ function NoteFlow({
   const [drawingTool, setDrawingTool] = useState<ShapeCanvasBlock['kind'] | null>(null)
   // 형광펜 도구: 켜져 있으면 발췌 위를 끌어 칠한다. 색은 마지막에 쓴 색을 기억한다
   const [highlightTool, setHighlightTool] = useState<ExcerptHighlightColor | null>(null)
-  const [highlightColor, setHighlightColor] = useState<ExcerptHighlightColor>('yellow')
+  const highlightColors = useHighlightColors()
+  const [highlightColor, setHighlightColor] = useState<ExcerptHighlightColor>(() => defaultHighlightColorId(highlightColors))
   const [autoEditBlockId, setAutoEditBlockId] = useState<string | null>(null)
   // 형광펜에서 만든 메모: 아무것도 안 쓰고 나가면 지운다
   const highlightNoteIds = useRef(new Set<string>())
@@ -1031,12 +1034,11 @@ function NoteFlow({
   const displayedEdges = useMemo(() => edges.map((edge) => {
     let className = setClassNameToken(edge.className, 'canvas-edge-joined', joinedEdges.has(edge.id))
     const color = highlightLinkColor(edge, nodes)
-    for (const candidate of EXCERPT_HIGHLIGHT_COLORS) {
-      className = setClassNameToken(className, `canvas-edge-highlight-${candidate}`, color === candidate)
-    }
     className = setClassNameToken(className, 'canvas-edge-highlight', color !== null)
-    return { ...edge, className }
-  }), [edges, joinedEdges, nodes])
+    // 선 요소에는 data-hl 을 달 수 없어, 그 색의 진한 색을 변수로 넘긴다(canvas-paper.css 의 .canvas-edge-highlight)
+    if (color === null) return { ...edge, className }
+    return { ...edge, className, style: { ...edge.style, '--edge-hl-ink': highlightInkOf(highlightColors, color) } as CSSProperties }
+  }), [edges, joinedEdges, nodes, highlightColors])
   const displayedNodes = useMemo(() => nodes.map((node) => {
     const linkedSides = edges.flatMap((edge) => edge.source === node.id && edge.sourceHandle
       ? [edge.sourceHandle]
@@ -2335,7 +2337,7 @@ function NoteFlow({
         highlightToolActive={highlightTool !== null}
         onToggleHighlightTool={() => {
           setDrawingTool(null)
-          setHighlightTool((current) => current === null ? highlightColor : null)
+          setHighlightTool((current) => current === null ? knownHighlightColorId(highlightColors, highlightColor) : null)
         }}
         userPresets={userPresets}
         onAddUserPreset={addUserPreset}
@@ -2435,12 +2437,13 @@ function NoteFlow({
         {highlightTool === null ? null : (
           <div className="canvas-highlight-hint" role="toolbar" aria-label={t('형광펜 도구')}>
             <span>{t('발췌 위를 끌어서 칠하기')}</span>
-            {EXCERPT_HIGHLIGHT_COLORS.map((color) => (
+            {highlightColors.map(({ id: color }) => (
               <button
                 key={color}
                 type="button"
-                className={`excerpt-highlight-swatch excerpt-highlight-swatch-${color}`}
-                aria-label={t('{color} 형광펜', { color: t({ yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍' }[color]) })}
+                data-hl={color}
+                className="excerpt-highlight-swatch"
+                aria-label={t('{color} 형광펜', { color: highlightColorLabel(highlightColors, color) })}
                 aria-pressed={highlightTool === color}
                 onClick={() => {
                   setHighlightTool(color)

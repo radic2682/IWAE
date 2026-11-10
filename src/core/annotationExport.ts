@@ -1,12 +1,14 @@
 import type { PdfHighlightColor, PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { t } from '../i18n'
 
-const COLOR_MARK: Record<PdfHighlightColor, string> = {
+/** 기본 4색의 이모지. 내가 만든 색은 ⬜ */
+const COLOR_MARK: Readonly<Record<string, string>> = {
   yellow: '🟨',
   green: '🟩',
   blue: '🟦',
   pink: '🟪',
 }
+const colorMark = (color: PdfHighlightColor): string => COLOR_MARK[color] ?? '⬜'
 
 /** 쪽 순서, 같은 쪽에서는 위에서 아래로 — 문서를 읽는 순서다 */
 export function sortAnnotations(highlights: readonly PersistentPdfHighlight[]): PersistentPdfHighlight[] {
@@ -51,7 +53,7 @@ export function annotationsToMarkdown(title: string, highlights: readonly Persis
       page = highlight.anchor.page
       lines.push(`## p.${page + 1}`, '')
     }
-    lines.push(quoteBlock(highlight.anchor.quote, COLOR_MARK[highlight.color]), '')
+    lines.push(quoteBlock(highlight.anchor.quote, colorMark(highlight.color)), '')
     const note = highlight.note?.trim()
     if (note !== undefined && note !== '') lines.push(note.replace(/\r\n?/gu, '\n'), '')
   }

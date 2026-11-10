@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { isDesktop } from '../bridge/window'
 import { t } from '../i18n'
+import { rangeFillStyle } from '../ui/rangeFill'
 
 const STORAGE_KEY = 'iwae:ui-scale:v1'
 export const UI_SCALE_MIN = 0.8
@@ -75,6 +76,7 @@ export function UiScaleSettings({ scale, onChange }: UiScaleSettingsProps) {
           max={UI_SCALE_MAX * 100}
           step={5}
           value={percent}
+          style={rangeFillStyle(percent, UI_SCALE_MIN * 100, UI_SCALE_MAX * 100)}
           aria-label={t('화면 크기')}
           onChange={(event) => onChange(Number(event.target.value) / 100)}
         />

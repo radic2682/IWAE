@@ -1,4 +1,5 @@
 import { buildAnchor } from './anchor'
+import { DEFAULT_HIGHLIGHT_COLORS, nearestColorId, type HighlightColorDef } from './highlightColors'
 import type { PageTextIndex } from './textIndex'
 import type { ImportedPdfAnnotation, PdfLinkRect } from '../bridge/pdf'
 import {
@@ -7,26 +8,9 @@ import {
   type PersistentPdfHighlight,
 } from '../pdf/persistentHighlight'
 
-const PALETTE: readonly (readonly [PdfHighlightColor, readonly [number, number, number]])[] = [
-  ['yellow', [255, 226, 77]],
-  ['green', [110, 200, 120]],
-  ['blue', [90, 160, 245]],
-  ['pink', [245, 120, 185]],
-]
-
-/** 다른 프로그램의 색을 네 가지 형광펜 색 중 가장 가까운 것으로 바꾼다 */
-export function nearestHighlightColor(color: readonly [number, number, number] | null): PdfHighlightColor {
-  if (color === null) return 'yellow'
-  let best: PdfHighlightColor = 'yellow'
-  let bestDistance = Number.POSITIVE_INFINITY
-  for (const [name, [r, g, b]] of PALETTE) {
-    const distance = (color[0] - r) ** 2 + (color[1] - g) ** 2 + (color[2] - b) ** 2
-    if (distance < bestDistance) {
-      best = name
-      bestDistance = distance
-    }
-  }
-  return best
+/** 다른 프로그램의 색을 내 형광펜 색 목록 중 가장 가까운 것으로 바꾼다 */
+export function nearestHighlightColor(color: readonly [number, number, number] | null, colors: readonly HighlightColorDef[] = DEFAULT_HIGHLIGHT_COLORS): PdfHighlightColor {
+  return nearestColorId(colors, color)
 }
 
 const overlaps = (box: { x: number; y: number; w: number; h: number }, rect: PdfLinkRect) =>
@@ -72,6 +56,7 @@ export function importedToHighlights(
   imported: readonly ImportedPdfAnnotation[],
   pageIndexFor: (page: number) => PageTextIndex | null,
   existing: readonly PersistentPdfHighlight[],
+  colors: readonly HighlightColorDef[] = DEFAULT_HIGHLIGHT_COLORS,
 ): { highlights: PersistentPdfHighlight[]; skipped: number } {
   const seen = new Set(existing.map(({ id }) => id))
   const highlights: PersistentPdfHighlight[] = []
@@ -93,7 +78,7 @@ export function importedToHighlights(
     }
     const highlight = createPersistentPdfHighlight(
       buildAnchor(docId, annotation.page, index, range[0], range[1]),
-      nearestHighlightColor(annotation.color),
+      nearestHighlightColor(annotation.color, colors),
       { note: annotation.contents ?? undefined, createdAt: importedAt, source: 'imported' },
     )
     if (seen.has(highlight.id)) {

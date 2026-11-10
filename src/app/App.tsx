@@ -19,6 +19,9 @@ import { PdfToolForm, type PdfToolId, type PdfToolViewId } from './PdfToolsDialo
 import { PdfToolsPanel } from './PdfToolsPanel'
 import { PdfPasswordDialog } from './PdfPasswordDialog'
 import { buildFlattenOp, countMarks } from '../core/pdfToolOps'
+import { getHighlightColors } from './highlightColorStyle'
+import { setHighlightColorUsage } from './highlightColorUsage'
+import { countByHighlightColor } from '../core/highlightColors'
 import { diffLines, pageLines } from '../core/pdfTextDiff'
 import { getPdfToolJob, setPdfToolJob } from '../pdf/pdfToolJobs'
 import { setOverlayTool } from '../pdf/overlayToolStore'
@@ -1137,6 +1140,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     [vault],
   )
   const pdfHighlights = usePdfHighlights(pdfHighlightStorage)
+  // 설정 창의 「형광펜 색」이 색을 지울 때 몇 개가 영향받는지 알려 주려고 색별 개수를 넘긴다
+  useEffect(() => { setHighlightColorUsage(countByHighlightColor(pdfHighlights.highlights)) }, [pdfHighlights.highlights])
   // MCP memo_* 도구(Claude 가 PDF 에 형광펜 메모를 만들고 고친다)
   const markdownHighlightStorage = useMemo(
     () => vault === null
@@ -1838,7 +1843,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         outline={pdfToolsOutline[docId] ?? []}
         otherPdfs={others}
         marks={countMarks(docId, pdfHighlights.highlights, docOverlays)}
-        buildFlatten={(choice) => buildFlattenOp(docId, pdfHighlights.highlights, docOverlays, choice)}
+        buildFlatten={(choice) => buildFlattenOp(docId, pdfHighlights.highlights, docOverlays, choice, getHighlightColors())}
         onToolChange={(next) => setPdfToolsTarget({ docId, tool: next })}
         actions={{
           ocr: () => ocrDocument(docId),

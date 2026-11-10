@@ -233,7 +233,7 @@ export function NoteOutline({
             title={entry.text}
             onClick={() => go(entry.key)}
           >
-            {entry.color === undefined ? null : <span className={`pdf-memo-dot pdf-memo-dot-${entry.color}`} aria-hidden="true" />}
+            {entry.color === undefined ? null : <span className="pdf-memo-dot" data-hl={entry.color} aria-hidden="true" />}
             {entry.id === undefined ? null : <span className="note-outline-id">{entry.id}</span>}
             <span className="note-outline-text">{entry.text}</span>
             {entry.kind === 'section' ? <span className="note-section-count">{entry.count}</span> : null}

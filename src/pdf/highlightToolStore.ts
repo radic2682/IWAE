@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from 'react'
+import { subscribeAppPrefs, getAppPrefs } from '../app/appPrefs'
+import { defaultHighlightColorId, findHighlightColor } from '../core/highlightColors'
 import type { PdfHighlightColor } from './persistentHighlight'
 
 /**
@@ -9,7 +11,7 @@ export interface HighlightToolState {
   readonly erase: boolean
 }
 
-let current: HighlightToolState = { color: 'yellow', erase: false }
+let current: HighlightToolState = { color: defaultHighlightColorId(getAppPrefs().highlightColors), erase: false }
 const listeners = new Set<() => void>()
 
 export function getHighlightTool(): HighlightToolState {
@@ -22,6 +24,12 @@ export function setHighlightTool(patch: Partial<HighlightToolState>): void {
   current = next
   for (const listener of listeners) listener()
 }
+
+// 칠하던 색을 목록에서 지우면(다른 창에서 지운 것도) 첫 색으로 돌아간다
+subscribeAppPrefs(() => {
+  const colors = getAppPrefs().highlightColors
+  if (findHighlightColor(colors, current.color) === undefined) setHighlightTool({ color: defaultHighlightColorId(colors) })
+})
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)

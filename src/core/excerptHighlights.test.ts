@@ -56,9 +56,13 @@ describe('highlight helpers', () => {
   it('parses stored highlights and drops broken ones', () => {
     expect(parseExcerptHighlights([
       { id: 'a', color: 'green', rects: [{ x: 1, y: 2, w: 3, h: 4 }, { x: 1, y: 2, w: 0, h: 4 }] },
-      { id: 'b', color: 'purple', rects: [{ x: 1, y: 2, w: 3, h: 4 }] },
+      { id: 'b', color: 3, rects: [{ x: 1, y: 2, w: 3, h: 4 }] },
+      { id: 'c', color: 'c_abc123', rects: [{ x: 1, y: 2, w: 3, h: 4 }] },
       { id: '', color: 'yellow', rects: [] },
-    ])).toEqual([{ id: 'a', color: 'green', rects: [{ x: 1, y: 2, w: 3, h: 4 }] }])
+    ])).toEqual([
+      { id: 'a', color: 'green', rects: [{ x: 1, y: 2, w: 3, h: 4 }] },
+      { id: 'c', color: 'c_abc123', rects: [{ x: 1, y: 2, w: 3, h: 4 }] },
+    ])
     expect(parseExcerptHighlights(undefined)).toBeUndefined()
   })
 

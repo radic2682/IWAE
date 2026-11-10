@@ -724,10 +724,7 @@
   -webkit-box-decoration-break: clone;
 }
 
-.markdown-persistent-highlight-yellow { background: color-mix(in srgb, var(--highlight-yellow) 56%, transparent); }
-.markdown-persistent-highlight-green { background: color-mix(in srgb, var(--highlight-green) 48%, transparent); }
-.markdown-persistent-highlight-blue { background: color-mix(in srgb, var(--highlight-blue) 44%, transparent); }
-.markdown-persistent-highlight-pink { background: color-mix(in srgb, var(--highlight-pink) 46%, transparent); }
+.markdown-persistent-highlight { background: color-mix(in srgb, var(--hlc-text) var(--hlc-text-mix), transparent); }
 
 .markdown-highlight-delete {
   position: absolute;

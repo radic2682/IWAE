@@ -1,3 +1,4 @@
+import { rangeFillStyle } from '../ui/rangeFill'
 import { t } from '../i18n'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -229,7 +230,7 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
         {onActualSize !== undefined && shown('fitExtra') ? <button type="button" data-collapse="fitExtra" className="bottombar-btn bottombar-fit bottombar-fit-extra bottombar-actual" aria-label={t('실제 크기')} title={t('실제 크기 (100%)')} onClick={onActualSize}>1:1</button> : null}
         {shown('fit') || (shown('fitExtra') && (onFitHeight !== undefined || onActualSize !== undefined)) ? <span className="bottombar-divider" /> : null}
         <button type="button" className="bottombar-btn" aria-label={t('축소')} title={t('축소 (Ctrl+-)')} onClick={onZoomOut}><Minus size={16} aria-hidden="true" /></button>
-        {shown('zoomRange') ? <input aria-label={t('배율')} data-collapse="zoomRange" className="pdf-bottom-zoom-range" type="range" min={ZOOM_MIN} max={ZOOM_MAX} step="5" value={zoomPercent} onChange={(event) => onZoomChange(Number(event.target.value))} /> : null}
+        {shown('zoomRange') ? <input aria-label={t('배율')} data-collapse="zoomRange" className="pdf-bottom-zoom-range" type="range" min={ZOOM_MIN} max={ZOOM_MAX} step="5" value={zoomPercent} style={rangeFillStyle(zoomPercent, ZOOM_MIN, ZOOM_MAX)} onChange={(event) => onZoomChange(Number(event.target.value))} /> : null}
         <button type="button" className="bottombar-btn" aria-label={t('확대')} title={t('확대 (Ctrl+=)')} onClick={onZoomIn}><Plus size={16} aria-hidden="true" /></button>
         <label className="pdf-bottom-zoom">
           <input aria-label={t('배율 직접 입력')} type="number" min={ZOOM_MIN} max={ZOOM_MAX} value={zoomInput} onChange={(event) => setZoomInput(event.target.value)} onBlur={commitZoom} onKeyDown={(event) => { if (event.key === 'Enter') commitZoom() }} />
@@ -289,7 +290,7 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
             {collapsed.has('zoomRange') ? (
               <label className="pdf-bottom-more-range">
                 <span>{t('배율 {percent}%', { percent: zoomPercent })}</span>
-                <input aria-label={t('배율')} type="range" min={ZOOM_MIN} max={ZOOM_MAX} step="5" value={zoomPercent} onChange={(event) => onZoomChange(Number(event.target.value))} />
+                <input aria-label={t('배율')} type="range" min={ZOOM_MIN} max={ZOOM_MAX} step="5" value={zoomPercent} style={rangeFillStyle(zoomPercent, ZOOM_MIN, ZOOM_MAX)} onChange={(event) => onZoomChange(Number(event.target.value))} />
               </label>
             ) : null}
             {collapsed.has('usage') ? (

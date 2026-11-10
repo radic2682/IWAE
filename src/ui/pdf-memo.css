@@ -25,19 +25,13 @@
 .pdf-memo-link-active path { stroke-width: 2px; opacity: 1; }
 .pdf-memo-link-active .pdf-memo-link-inner { opacity: .9; }
 
-/* 형광펜 색 → 읽기 좋은 진한 색(흰 글자 탭·테두리·연결선 공용). TS 쪽은 src/pdf/memoColors.ts */
-/* --memo-ink-* 는 color-tokens.css */
-.pdf-memo-card-yellow { --memo-color: var(--memo-ink-yellow); }
-.pdf-memo-card-green { --memo-color: var(--memo-ink-green); }
-.pdf-memo-card-blue { --memo-color: var(--memo-ink-blue); }
-.pdf-memo-card-pink { --memo-color: var(--memo-ink-pink); }
+/* 형광펜 색 → 읽기 좋은 진한 색(흰 글자 탭·테두리·연결선 공용). 색은 요소의 data-hl 이 정하고,
+   --hlc-* 변수는 런타임에 만든 <style id="iwae-highlight-colors"> 에 있다(src/core/highlightColors.ts) */
+.pdf-memo-card:where([data-hl]) { --memo-color: var(--hlc-ink); }
 
 /* 선 색 = 그 메모 형광펜 색. 카드 호버·선택 색과 같은 원천(--memo-ink-*, 위 :root)에서 온다 */
 .pdf-memo-link { --memo-link-color: var(--accent); }
-.pdf-memo-link-yellow { --memo-link-color: var(--memo-ink-yellow); }
-.pdf-memo-link-green { --memo-link-color: var(--memo-ink-green); }
-.pdf-memo-link-blue { --memo-link-color: var(--memo-ink-blue); }
-.pdf-memo-link-pink { --memo-link-color: var(--memo-ink-pink); }
+.pdf-memo-link:where([data-hl]) { --memo-link-color: var(--hlc-ink); }
 .pdf-memo-link path { stroke: var(--memo-link-color); }
 .pdf-memo-link circle { fill: var(--memo-link-color); }
 
@@ -83,10 +77,7 @@
   border-radius: 50%;
 }
 
-.pdf-memo-dot-yellow { background: var(--memo-dot-yellow); }
-.pdf-memo-dot-green { background: var(--memo-dot-green); }
-.pdf-memo-dot-blue { background: var(--memo-dot-blue); }
-.pdf-memo-dot-pink { background: var(--memo-dot-pink); }
+.pdf-memo-dot, .pdf-memo-swatch:where([data-hl]) { background: var(--hlc-dot); }
 
 .pdf-memo-card-page { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -103,10 +94,7 @@
   overflow: hidden;
 }
 
-.pdf-memo-card-quote-yellow { background: var(--memo-quote-yellow); }
-.pdf-memo-card-quote-green { background: var(--memo-quote-green); }
-.pdf-memo-card-quote-blue { background: var(--memo-quote-blue); }
-.pdf-memo-card-quote-pink { background: var(--memo-quote-pink); }
+.pdf-memo-card-quote, .note-source-chip:where([data-hl]) { background: var(--hlc-quote); }
 .pdf-memo-card-source { margin-top: 6px; }
 .pdf-memo-card-source .pdf-memo-list-crop { border-radius: var(--r-xs); }
 

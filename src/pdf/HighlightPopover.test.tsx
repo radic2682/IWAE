@@ -36,7 +36,7 @@ describe('HighlightPopover', () => {
 
   it('changes color immediately', () => {
     const props = setup()
-    fireEvent.click(screen.getByRole('button', { name: 'blue 형광펜' }))
+    fireEvent.click(screen.getByRole('button', { name: '파랑 형광펜' }))
     expect(props.onUpdate).toHaveBeenCalledWith('h1', { color: 'blue' })
   })
 

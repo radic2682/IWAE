@@ -69,14 +69,16 @@ describe('CSS 색 리터럴 가드', () => {
     expect(scan('/* #fff 설명 */ .a { color: var(--text); }')).toEqual([])
   })
 
-  it('color-tokens.css 가 쓰는 하이라이트 역할 토큰이 네 색 모두에 있다', () => {
-    const tokens = readFileSync('src/ui/color-tokens.css', 'utf8')
-    const roles = ['hl', 'hl-ink', 'hl-solid', 'memo-ink', 'memo-dot', 'memo-quote', 'memo-quote-wash', 'hl-edge', 'hl-soft', 'hl-pdf-swatch', 'hl-pane-swatch']
-    for (const role of roles) {
-      for (const color of ['yellow', 'green', 'blue', 'pink']) {
-        const name = role === 'hl' ? `--hl-${color}:` : role === 'hl-ink' ? `--hl-${color}-ink:` : role === 'hl-solid' ? `--hl-${color}-solid:` : `--${role}-${color}:`
-        expect(tokens, name).toContain(name)
-      }
+  it('형광펜 색은 색 이름 클래스가 아니라 data-hl + --hlc-* 변수로만 칠한다', () => {
+    // 색별 CSS 규칙(예: .pdf-memo-card-yellow)이 다시 생기면 목록에 새로 만든 색이 칠해지지 않는다
+    const perName = /\.[a-z][a-z-]*-(?:yellow|green|blue|pink)\b|data-highlight-color\s*=/
+    for (const file of files.filter((name) => !TOKEN_FILES.has(name))) {
+      const hits = readFileSync(`src/ui/${file}`, 'utf8').split('\n').filter((line) => perName.test(line) && !/tone-green|swatch-green|annot-green/.test(line))
+      expect(hits, file).toEqual([])
     }
+  })
+
+  it('역할 변수(--hlc-*)는 color-tokens.css 가 아니라 런타임 <style> 이 만든다', () => {
+    expect(readFileSync('src/ui/color-tokens.css', 'utf8')).not.toMatch(/--hlc-[a-z-]+:/)
   })
 })

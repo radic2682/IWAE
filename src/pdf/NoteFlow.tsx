@@ -566,7 +566,7 @@ export function NoteFlow({
           if (collapsed) {
             return (
               <Fragment key={source.id}>
-              <div className={`note-source-chip pdf-memo-card-quote-${source.color}`} title={t('원문에서 보기')} onClick={draft ? undefined : () => onJump(source)}>
+              <div className="note-source-chip" data-hl={source.color} title={t('원문에서 보기')} onClick={draft ? undefined : () => onJump(source)}>
                 <button type="button" className="note-source-expand" aria-label={t('원문 펼치기')} title={t('원문 펼치기')} onClick={(event) => {
                   event.stopPropagation()
                   onToggleCollapse(source.id, false)
@@ -610,7 +610,8 @@ export function NoteFlow({
           return (
             <div
               key={source.id}
-              className={`pdf-memo-card-quote pdf-memo-card-quote-${source.color} note-source`}
+              className="pdf-memo-card-quote note-source"
+              data-hl={source.color}
               title={t('원문에서 보기')}
               onClick={draft ? undefined : () => onJump(source)}
             >
@@ -747,7 +748,6 @@ export function NoteFlow({
               'note-block',
               hasHead ? 'note-ticket' : '',
               region ? 'note-memo-region' : '',
-              `pdf-memo-card-${highlight.color}`,
               active ? 'pdf-memo-card-active' : '',
               editing ? 'pdf-memo-card-editing' : '',
               draft ? 'pdf-memo-card-draft' : '',
@@ -758,6 +758,7 @@ export function NoteFlow({
               ...shellClass(item.key, index),
             ].filter(Boolean).join(' ')}
             data-memo-id={highlight.id}
+            data-hl={highlight.color}
             data-note-block={item.key}
             onPointerDown={headEdit?.key === item.key ? undefined : startBlockDrag(item.key)}
             onClickCapture={pickBlock(item.key)}

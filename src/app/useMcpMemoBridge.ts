@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { defaultHighlightColorId, highlightColorIdFromInput } from '../core/highlightColors'
+import { getHighlightColors } from './highlightColorStyle'
 import { pageTextIndex, type PdfDocMeta } from '../bridge/pdf'
 import { isDesktop } from '../bridge/window'
 import { buildAnchor } from '../core/anchor'
@@ -62,8 +64,6 @@ interface MemoInput {
   readonly color?: unknown
 }
 
-const COLORS: readonly PdfHighlightColor[] = ['yellow', 'green', 'blue', 'pink']
-
 function summary(highlight: PersistentPdfHighlight) {
   return {
     id: highlight.id,
@@ -93,7 +93,8 @@ async function createMemo(input: MemoInput, deps: McpMemoBridgeDeps): Promise<Pe
   const pageSize = meta.pageSizes[page]
   if (pageSize === undefined) throw new Error('쪽 크기를 알 수 없습니다.')
   const index = await pageTextIndex(meta.docId, page)
-  const color = COLORS.includes(input.color as PdfHighlightColor) ? input.color as PdfHighlightColor : 'yellow'
+  const colors = getHighlightColors()
+  const color: PdfHighlightColor = highlightColorIdFromInput(colors, input.color) ?? defaultHighlightColorId(colors)
   const extras = { createdAt: new Date().toISOString(), source: 'iwae' as const }
   let highlight: PersistentPdfHighlight
   if (input.kind === 'region') {
@@ -234,7 +235,7 @@ export async function handleMcpMemoRequest(op: string, args: Record<string, unkn
           // note:"" 은 메모 글을 지운다(서식도 함께). note_html 이 오면 그 서식을 쓴다
           ...(typeof item.note === 'string' ? { note: item.note, noteHtml: typeof item.note_html === 'string' ? sanitizeMemoHtml(item.note_html) : '' } : {}),
           ...(typeof item.topic === 'string' ? { topic: item.topic } : {}),
-          ...(COLORS.includes(item.color as PdfHighlightColor) ? { color: item.color as PdfHighlightColor } : {}),
+          ...(highlightColorIdFromInput(getHighlightColors(), item.color) === undefined ? {} : { color: highlightColorIdFromInput(getHighlightColors(), item.color)! }),
         })
         updated.push(item.id)
       }

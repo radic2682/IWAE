@@ -1648,7 +1648,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                   {linkMask.defs}
                   <g mask={`url(#${linkMask.id})`}>
                   {lines.map(({ target, anchorY, cardY, active }) => (
-                    <g key={target.key} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
+                    <g key={target.key} data-hl={target.highlight.color} className={`pdf-memo-link${active ? ' pdf-memo-link-active' : ''}`}>
                       <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${cardEdge} ${cardY}`} />
                     </g>
                   ))}
@@ -1836,7 +1836,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 const active = target.key === activeMemoId || target.key === editingMemoId || target.draft === true
                 const pageRight = contentLeft + contentWidth
                 return (
-                  <g key={target.highlight.id} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
+                  <g key={target.highlight.id} data-hl={target.highlight.color} className={`pdf-memo-link${active ? ' pdf-memo-link-active' : ''}`}>
                     {/* 형광펜 끝 → 페이지 가장자리 점선: 노트 쪽 선이 보이는 메모마다(가리키는 것은 진하게) */}
                     {active || linkedKeys.has(target.key) ? <path className="pdf-memo-link-inner" d={`M ${target.anchorX} ${target.anchorY} H ${pageRight}`} /> : null}
                     {active || linkedKeys.has(target.key) ? <circle cx={target.anchorX} cy={target.anchorY} r={active ? 3 : 2.2} /> : null}

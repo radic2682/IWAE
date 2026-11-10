@@ -5,10 +5,10 @@ import { BOX_MAX_WIDTH, BOX_MIN_WIDTH, boxConnector, clampBox, type MemoBox } fr
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
 import { t } from '../i18n'
+import { useHighlightColors } from '../app/highlightColorStyle'
+import { highlightColorLabel } from '../core/highlightColors'
 import '../ui/pdf-box-memo.css'
 import '../ui/context-menu.css'
-
-const COLORS: readonly PdfHighlightColor[] = ['yellow', 'green', 'blue', 'pink']
 
 export interface BoxPageLayout {
   /** 문서 안 이 쪽의 위쪽(px) */
@@ -70,6 +70,7 @@ export function anchorPoint(memo: PersistentPdfHighlight, box?: MemoBox, boxHeig
  * 메모 바·노트로는 가지 않는다. 눈 단추(깨끗이 보기)가 켜져 있으면 CSS 로 함께 감춘다.
  */
 export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, width, height, onEdit, onSave, onCancelDraft, onChange, onDelete, onSendToNote }: PdfBoxMemosProps) {
+  const colors = useHighlightColors()
   // 우클릭 메뉴(화면 좌표)
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   useEffect(() => {
@@ -155,7 +156,7 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
           const from = px(line.from)
           const to = px(line.to)
           return (
-            <g key={memo.id} className={`pdf-box-link pdf-box-link-${memo.color}`}>
+            <g key={memo.id} className="pdf-box-link" data-hl={memo.color}>
               <path d={`M ${from.x} ${from.y} L ${to.x} ${to.y}`} />
               <circle cx={from.x} cy={from.y} r={2.6} />
               <circle className="pdf-box-link-end" cx={to.x} cy={to.y} r={2.6} />
@@ -173,7 +174,8 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
               if (element === null) cardRefs.current.delete(memo.id)
               else cardRefs.current.set(memo.id, element)
             }}
-            className={`pdf-box-card pdf-box-card-${memo.color}${editing ? ' pdf-box-card-editing' : ''}${drag?.id === memo.id ? ' pdf-box-card-dragging' : ''}`}
+            data-hl={memo.color}
+            className={`pdf-box-card${editing ? ' pdf-box-card-editing' : ''}${drag?.id === memo.id ? ' pdf-box-card-dragging' : ''}`}
             data-box-memo={memo.id}
             style={{
               left: layout.left + box.x * scale,
@@ -209,12 +211,13 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
                 <DotsSixVertical size={14} weight="bold" aria-hidden="true" />
               </span>
               <span className="pdf-box-colors" role="group" aria-label={t('색')}>
-                {COLORS.map((color) => (
+                {colors.map(({ id: color }) => (
                   <button
                     key={color}
                     type="button"
-                    className={`pdf-box-color pdf-box-color-${color}${memo.color === color ? ' pdf-box-color-on' : ''}`}
-                    aria-label={t('색 {color}', { color })}
+                    data-hl={color}
+                    className={`pdf-box-color${memo.color === color ? ' pdf-box-color-on' : ''}`}
+                    aria-label={t('색 {color}', { color: highlightColorLabel(colors, color) })}
                     aria-pressed={memo.color === color}
                     onClick={() => onChange(memo.id, { color })}
                   />

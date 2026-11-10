@@ -13,7 +13,13 @@ import {
   type ThemePreference,
   type ThemeStorage,
   migrateToWhaleDefault,
+  ACCENT_STORAGE_KEY,
+  PALETTE_STORAGE_KEY,
+  THEME_STORAGE_KEY,
 } from '../core/theme'
+import { deriveAccentVars, deriveThemeVars, resolvePanelColor, type UserTheme } from '../core/userTheme'
+import { setActiveUserTheme, useUserThemes } from './userThemeStore'
+import '../ui/user-theme.css'
 
 interface UseThemeOptions {
   readonly storage?: ThemeStorage
@@ -41,6 +47,15 @@ function markThemeSwitching(): void {
   switchingTimer = setTimeout(() => root.classList.remove('theme-switching'), 260)
 }
 
+/** 사용자 테마·직접 고른 강조색이 :root 인라인 변수로 덮은 이름들(다음 적용 때 안 쓰는 것은 걷어 낸다) */
+let appliedVars = new Set<string>()
+
+function applyInlineVars(root: HTMLElement, vars: Record<string, string>): void {
+  for (const key of appliedVars) if (!(key in vars)) root.style.removeProperty(key)
+  for (const [key, value] of Object.entries(vars)) root.style.setProperty(key, value)
+  appliedVars = new Set(Object.keys(vars))
+}
+
 function browserMatchMedia(query: string): MediaQueryList | null {
   return typeof window === 'undefined' || typeof window.matchMedia !== 'function'
     ? null
@@ -65,6 +80,10 @@ export function useTheme(options: UseThemeOptions = {}): ThemeState {
   const [accent, setAccentState] = useState<ThemeAccent>(() => loadThemeAccent(storage))
   const [systemPrefersDark, setSystemPrefersDark] = useState(media?.matches ?? false)
   const resolvedTheme = resolveTheme(preference, systemPrefersDark)
+  const userThemes = useUserThemes()
+  const activeTheme: UserTheme | null = userThemes.draft ?? userThemes.themes.find((item) => item.id === userThemes.activeId) ?? null
+  const basePalette: ThemePalette = activeTheme?.base ?? palette
+  const customAccent = userThemes.customAccent
 
   useEffect(() => {
     if (preference !== 'system' || media === null) return
@@ -81,15 +100,36 @@ export function useTheme(options: UseThemeOptions = {}): ThemeState {
 
   useEffect(() => {
     const root = document.documentElement
-    if (palette === 'default') delete root.dataset.palette
-    else root.dataset.palette = palette
-  }, [palette])
+    if (basePalette === 'default') delete root.dataset.palette
+    else root.dataset.palette = basePalette
+  }, [basePalette])
 
   useEffect(() => {
     const root = document.documentElement
-    if (accent === 'auto') delete root.dataset.accent
+    if (accent === 'auto' || accent === 'custom') delete root.dataset.accent
     else root.dataset.accent = accent
   }, [accent])
+
+  // 사용자 지정 테마(시드 8개에서 계산한 값)와 직접 고른 강조색을 :root 인라인 변수로 덮는다
+  useEffect(() => {
+    const vars: Record<string, string> = {}
+    if (activeTheme !== null) Object.assign(vars, deriveThemeVars(activeTheme[resolvedTheme], resolvedTheme))
+    if (accent === 'custom') {
+      Object.assign(vars, deriveAccentVars(customAccent, resolvedTheme, resolvePanelColor(basePalette, activeTheme, resolvedTheme)))
+    }
+    applyInlineVars(document.documentElement, vars)
+  }, [activeTheme, accent, customAccent, resolvedTheme, basePalette])
+
+  // 다른 창에서 바꾼 밝기·색 구성·강조색을 바로 따라간다
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === THEME_STORAGE_KEY) setPreferenceState(loadThemePreference(storage))
+      else if (event.key === PALETTE_STORAGE_KEY) setPaletteState(loadThemePalette(storage))
+      else if (event.key === ACCENT_STORAGE_KEY) setAccentState(loadThemeAccent(storage))
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [storage])
 
   const setPreference = useCallback((next: ThemePreference) => {
     markThemeSwitching()
@@ -99,6 +139,7 @@ export function useTheme(options: UseThemeOptions = {}): ThemeState {
 
   const setPalette = useCallback((next: ThemePalette) => {
     markThemeSwitching()
+    setActiveUserTheme(null)
     setPaletteState(next)
     saveThemePalette(next, storage)
   }, [storage])

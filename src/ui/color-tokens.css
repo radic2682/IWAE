@@ -117,53 +117,10 @@
 
   --swatch-rainbow: conic-gradient(#f44, #fb3, #4c4, #3cf, #46f, #c4f, #f44);
 
-  /* ── 형광펜 색(노랑·초록·파랑·분홍) ──
-     색마다 쓰임이 달라 값이 여러 벌이다. 사용자 지정 형광펜 색은 이 이름들을 런타임에 만들어 낸다
-     (theme/color-inventory.md 의 "형광펜 데이터화 계획" 참고). */
-  --hl-yellow: rgb(255 214 0 / 46%);        /* 캔버스 발췌 형광 칠 */
-  --hl-green: rgb(70 214 110 / 40%);
-  --hl-blue: rgb(80 165 255 / 38%);
-  --hl-pink: rgb(255 105 165 / 38%);
-  --hl-yellow-ink: #b8911a;                 /* 읽기 좋은 진한 색(흰 글자 탭·테두리·연결선) */
-  --hl-green-ink: #2f9358;
-  --hl-blue-ink: #2f78c4;
-  --hl-pink-ink: #c4467c;
-  --hl-yellow-solid: #ffd60a;
-  --hl-green-solid: #4cd47a;
-  --hl-blue-solid: #5aa9ff;
-  --hl-pink-solid: #ff6fa8;
-  --memo-ink-yellow: var(--hl-yellow-ink);
-  --memo-ink-green: var(--hl-green-ink);
-  --memo-ink-blue: var(--hl-blue-ink);
-  --memo-ink-pink: var(--hl-pink-ink);
-  --memo-dot-yellow: #f2c418;               /* 메모 카드 앞 점 */
-  --memo-dot-green: #3fc06f;
-  --memo-dot-blue: #4b9cf0;
-  --memo-dot-pink: #f0609e;
-  --memo-quote-yellow: rgb(255 214 0 / 26%); /* 메모 카드 인용 바탕 */
-  --memo-quote-green: rgb(70 214 110 / 22%);
-  --memo-quote-blue: rgb(80 165 255 / 20%);
-  --memo-quote-pink: rgb(255 105 165 / 18%);
-  --memo-quote-wash-yellow: rgb(255 214 0 / 13%); /* 웨일 테마에서 더 옅게 */
-  --memo-quote-wash-green: rgb(70 214 110 / 12%);
-  --memo-quote-wash-blue: rgb(80 165 255 / 12%);
-  --memo-quote-wash-pink: rgb(255 105 165 / 11%);
-  --hl-edge-yellow: #e3b43c;                /* PDF·Markdown 형광 테두리, 박스 메모 색 */
-  --hl-edge-green: #4fb06c;
-  --hl-edge-blue: #5d9be3;
-  --hl-edge-pink: #de6f9c;
-  --hl-soft-yellow: #ffe38c;                /* PDF·Markdown 형광 칠(옅은 색) */
-  --hl-soft-green: #b9ebc6;
-  --hl-soft-blue: #c3defc;
-  --hl-soft-pink: #fcc6dc;
-  --hl-pdf-swatch-yellow: #f7db61;          /* PDF 형광펜 상자의 색 단추 */
-  --hl-pdf-swatch-green: #80d4a5;
-  --hl-pdf-swatch-blue: #8bbce8;
-  --hl-pdf-swatch-pink: #e9a3bc;
-  --hl-pane-swatch-yellow: #ffd84d;         /* 노트 창 형광펜 색 단추 */
-  --hl-pane-swatch-green: #7ed69a;
-  --hl-pane-swatch-blue: #8ec5ff;
-  --hl-pane-swatch-pink: #ff9fc6;
+  /* ── 형광펜 색 ──
+     색별 값(--hlc-fill/ink/solid/dot/quote/wash/edge/soft/pdf-swatch/pane-swatch/text…)은 목록(설정 > 형광펜 색)에서
+     런타임에 만들어 <style id="iwae-highlight-colors"> 에 [data-hl="id"] 규칙으로 넣는다.
+     기본 4색의 값은 src/core/highlightColors.ts 에 있다. */
 
   /* 캔버스 발췌 조각 */
   --clip-paper: #ffffff;

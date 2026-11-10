@@ -1,9 +1,8 @@
 import type { PdfExcerptCrop, PdfExcerptSelection } from './pdfExcerpt'
+import { isHighlightColorId } from './highlightColors'
 
 /** 발췌 위 형광펜 색 */
-export type ExcerptHighlightColor = 'yellow' | 'green' | 'blue' | 'pink'
-
-export const EXCERPT_HIGHLIGHT_COLORS: readonly ExcerptHighlightColor[] = ['yellow', 'green', 'blue', 'pink']
+export type ExcerptHighlightColor = string
 
 /**
  * 발췌 이미지 위에 칠한 형광펜. 좌표는 PDF 쪽 좌표(발췌 crop 과 같은 기준)라
@@ -27,7 +26,7 @@ export function highlightIdFromHandle(handle: string | null | undefined): string
 }
 
 export function isExcerptHighlightColor(value: unknown): value is ExcerptHighlightColor {
-  return typeof value === 'string' && (EXCERPT_HIGHLIGHT_COLORS as readonly string[]).includes(value)
+  return isHighlightColorId(value)
 }
 
 function isFiniteRect(value: unknown): value is PdfExcerptCrop {

@@ -21,11 +21,11 @@ const INDEX: PageTextIndex = {
 
 function mount(options: {
   anchor?: Anchor
-  persistentHighlights?: readonly { id: string; anchor: Anchor; color: 'yellow' | 'green' | 'blue' | 'pink' }[]
+  persistentHighlights?: readonly { id: string; anchor: Anchor; color: string }[]
   passiveHighlights?: readonly { blockId: string; anchor: Anchor }[]
   searchHighlights?: readonly { id: string; rects: Anchor['rects']; active: boolean }[]
   mode?: 'hand' | 'text' | 'lasso' | 'highlight'
-  highlightColor?: 'yellow' | 'green' | 'blue' | 'pink'
+  highlightColor?: string
   onAnchorCreated?: (anchor: Anchor) => void
   onPersistentHighlightCreated?: (highlight: { id: string; anchor: Anchor }) => void
   onPersistentHighlightRemoved?: (highlightId: string) => void
@@ -134,8 +134,8 @@ describe('SelectionLayer', () => {
     expect(view.container.querySelectorAll('.selection-persistent-highlight')).toHaveLength(2)
     expect(view.container.querySelector('[data-persistent-highlight="highlight-a"]')).not.toBeNull()
     expect(view.container.querySelector('[data-persistent-highlight="highlight-b"]')).not.toBeNull()
-    expect(view.container.querySelector('[data-persistent-highlight="highlight-a"]')?.getAttribute('data-highlight-color')).toBe('green')
-    expect(view.container.querySelector('[data-persistent-highlight="highlight-b"]')?.getAttribute('data-highlight-color')).toBe('blue')
+    expect(view.container.querySelector('[data-persistent-highlight="highlight-a"]')?.getAttribute('data-hl')).toBe('green')
+    expect(view.container.querySelector('[data-persistent-highlight="highlight-b"]')?.getAttribute('data-hl')).toBe('blue')
   })
 
   it('드래그 중 선택 범위를 줄별 사각형으로 그리고 pointerup 에 앵커를 올린다', () => {

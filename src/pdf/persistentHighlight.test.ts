@@ -35,6 +35,11 @@ describe('persistentHighlight', () => {
     expect(parsed[0]?.color).toBe('yellow')
   })
 
+  it('목록에 없는 색(지웠거나 다른 PC 에서 만든 색)의 id 도 파일에 그대로 남는다', () => {
+    const highlight = createPersistentPdfHighlight(anchor, 'c_gone42')
+    expect(parsePersistentPdfHighlights(persistentPdfHighlightFile([highlight]))[0]?.color).toBe('c_gone42')
+  })
+
   it('식별자로 영구 형광펜 하나만 제거한다', () => {
     const first = createPersistentPdfHighlight(anchor)
     const second = createPersistentPdfHighlight({ ...anchor, charRange: [20, 30], quote: 'second' }, 'blue')

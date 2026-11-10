@@ -41,4 +41,13 @@ describe('appPrefs — 바 확대', () => {
     expect(parseAppPrefs('{"libraryView":"x"}').libraryView).toBe('list')
     setAppPref('libraryView', 'list')
   })
+
+  it('형광펜 색 목록: 없으면 기본 4색, 있으면 읽고, 바꾸면 저장된다', () => {
+    expect(parseAppPrefs('{}').highlightColors).toEqual(DEFAULT_APP_PREFS.highlightColors)
+    expect(parseAppPrefs('{"highlightColors":[{"id":"c_a","name":"반론","fill":"#c7a8ff"}]}').highlightColors).toEqual([{ id: 'c_a', name: '반론', fill: '#c7a8ff' }])
+    expect(parseAppPrefs('{"highlightColors":"깨짐"}').highlightColors).toEqual(DEFAULT_APP_PREFS.highlightColors)
+    setAppPref('highlightColors', [{ id: 'c_b', name: '근거', fill: '#4cd47a' }])
+    expect(parseAppPrefs(window.localStorage.getItem('iwae:app-prefs:v1')).highlightColors[0]?.id).toBe('c_b')
+    setAppPref('highlightColors', DEFAULT_APP_PREFS.highlightColors)
+  })
 })

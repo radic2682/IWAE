@@ -97,10 +97,7 @@
 }
 
 .excerpt-highlight-layer-drawing .excerpt-highlight { pointer-events: none; }
-.excerpt-highlight-yellow { background: var(--hl-yellow); }
-.excerpt-highlight-green { background: var(--hl-green); }
-.excerpt-highlight-blue { background: var(--hl-blue); }
-.excerpt-highlight-pink { background: var(--hl-pink); }
+.excerpt-highlight { background: var(--hlc-fill); }
 .excerpt-highlight-draft { opacity: .75; }
 .excerpt-highlight-active { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--ink) 45%, transparent); }
 
@@ -122,17 +119,12 @@
 .note-canvas .canvas-block-affordances-visible .react-flow__handle.excerpt-highlight-port { opacity: 1; }
 .note-canvas .react-flow__handle.excerpt-highlight-port-linked { opacity: 1; width: 7px; height: 7px; border-width: 1.5px; }
 .note-canvas .excerpt-highlight-layer-drawing .react-flow__handle.excerpt-highlight-port { pointer-events: none; }
-.note-canvas .react-flow__handle.excerpt-highlight-port-yellow { background: var(--hl-yellow-ink); }
-.note-canvas .react-flow__handle.excerpt-highlight-port-green { background: var(--hl-green-ink); }
-.note-canvas .react-flow__handle.excerpt-highlight-port-blue { background: var(--hl-blue-ink); }
-.note-canvas .react-flow__handle.excerpt-highlight-port-pink { background: var(--hl-pink-ink); }
+.note-canvas .react-flow__handle.excerpt-highlight-port { background: var(--hlc-ink); }
 
 /* 형광펜에서 메모로 가는 선 */
 .note-canvas .react-flow__edge.canvas-edge-highlight .react-flow__edge-path { stroke-width: 1.6px; }
-.note-canvas .react-flow__edge.canvas-edge-highlight-yellow .react-flow__edge-path { stroke: var(--hl-yellow-ink); }
-.note-canvas .react-flow__edge.canvas-edge-highlight-green .react-flow__edge-path { stroke: var(--hl-green-ink); }
-.note-canvas .react-flow__edge.canvas-edge-highlight-blue .react-flow__edge-path { stroke: var(--hl-blue-ink); }
-.note-canvas .react-flow__edge.canvas-edge-highlight-pink .react-flow__edge-path { stroke: var(--hl-pink-ink); }
+/* 선 색: 선 요소에 data-hl 을 달 수 없어 NoteCanvas 가 --edge-hl-ink 로 그 색의 진한 색을 넘긴다 */
+.note-canvas .react-flow__edge.canvas-edge-highlight .react-flow__edge-path { stroke: var(--edge-hl-ink, var(--hlc-ink)); }
 
 /* 형광펜을 눌렀을 때 뜨는 작은 메뉴 */
 .excerpt-highlight-menu {
@@ -183,14 +175,8 @@
 }
 
 .excerpt-highlight-swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--accent); }
-.excerpt-highlight-menu button.excerpt-highlight-swatch-yellow,
-.canvas-highlight-hint button.excerpt-highlight-swatch-yellow { background: var(--hl-yellow-solid); }
-.excerpt-highlight-menu button.excerpt-highlight-swatch-green,
-.canvas-highlight-hint button.excerpt-highlight-swatch-green { background: var(--hl-green-solid); }
-.excerpt-highlight-menu button.excerpt-highlight-swatch-blue,
-.canvas-highlight-hint button.excerpt-highlight-swatch-blue { background: var(--hl-blue-solid); }
-.excerpt-highlight-menu button.excerpt-highlight-swatch-pink,
-.canvas-highlight-hint button.excerpt-highlight-swatch-pink { background: var(--hl-pink-solid); }
+.excerpt-highlight-menu button.excerpt-highlight-swatch,
+.canvas-highlight-hint button.excerpt-highlight-swatch { background: var(--hlc-solid); }
 
 /* 형광펜 도구가 켜져 있을 때 위에 뜨는 안내 */
 .canvas-highlight-hint {

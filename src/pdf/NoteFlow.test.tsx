@@ -65,7 +65,7 @@ describe('NoteFlow — 소제목', () => {
     expect(document.querySelector('.note-source-float')).toBeNull()
     expect(document.querySelector('.note-source-float')).toBeNull()
     const memoText = card.querySelector('.pdf-memo-card-text')!
-    const chip = card.querySelector('.note-source-chip.pdf-memo-card-quote-green')!
+    const chip = card.querySelector('.note-source-chip[data-hl="green"]')!
     expect(chip.textContent).toContain('원문 글')
     expect(chip.textContent).toContain('p.31')
     expect(chip.querySelector('.note-source-stars')?.textContent).toBe('★★')
@@ -79,7 +79,7 @@ describe('NoteFlow — 소제목', () => {
     expect(props.onToggleCollapse).toHaveBeenCalledWith('h1', false)
     // 펼쳐 두면 원문 전체, 메뉴는 「원문 접기」
     rerender(<NoteFlow {...props} items={items} openQuotes={new Set(['h1'])} />)
-    expect(container.querySelector('.note-source.pdf-memo-card-quote-green')?.textContent).toContain('원문 글')
+    expect(container.querySelector('.note-source[data-hl="green"]')?.textContent).toContain('원문 글')
     fireEvent.contextMenu(container.querySelector('.pdf-memo-card-flow')!)
     expect(screen.queryByRole('menuitemradio', { name: '파랑으로 바꾸기' })).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: '원문 접기' }))

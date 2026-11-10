@@ -1,7 +1,9 @@
 import { isMarkdownExcerptSelection, type MarkdownExcerptSelection } from './markdownExcerpt'
+import { isHighlightColorId } from './highlightColors'
 import { t } from '../i18n'
 
-export type MarkdownHighlightColor = 'yellow' | 'green' | 'blue' | 'pink'
+/** 형광펜 색의 id(목록에 없는 id 도 그대로 둔다) */
+export type MarkdownHighlightColor = string
 
 export interface PersistentMarkdownHighlight {
   readonly id: string
@@ -43,7 +45,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isHighlightColor(value: unknown): value is MarkdownHighlightColor {
-  return value === 'yellow' || value === 'green' || value === 'blue' || value === 'pink'
+  return isHighlightColorId(value)
 }
 
 export function parsePersistentMarkdownHighlights(value: unknown): PersistentMarkdownHighlight[] {

@@ -1,6 +1,6 @@
 /* 노트의 메모 블록(ID·제목 → 내 글 → 원문). 테두리 없이 옅은 바탕과 둥근 모서리로만 나눈다 */
 .note-block.pdf-memo-card-flow:not(.note-text-card) {
-  --memo-card-bg: color-mix(in srgb, var(--ink) 4%, var(--paper));
+  --memo-card-bg: var(--memo-card, color-mix(in srgb, var(--ink) 4%, var(--paper)));
   --memo-chip-bg: var(--paper);
   gap: 7px !important;
   padding: 11px 13px !important;
@@ -10,7 +10,7 @@
   box-shadow: none !important;
 }
 .note-block.pdf-memo-card-flow:not(.note-text-card):is(:hover, .pdf-memo-card-active) {
-  background: color-mix(in srgb, var(--ink) 7%, var(--paper)) !important;
+  background: var(--memo-card-hover, color-mix(in srgb, var(--ink) 7%, var(--paper))) !important;
 }
 .note-block.pdf-memo-card-flow:not(.note-text-card).pdf-memo-card-editing {
   background: var(--paper) !important;
@@ -124,12 +124,8 @@ body.note-block-dragging .note-block-tabs { display: none; }
 }
 .note-block .note-source-chip::before,
 .note-block .pdf-memo-card-quote.note-source::before {
-  content: ''; flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--memo-dot, var(--memo-dot-yellow));
+  content: ''; flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--hlc-dot);
 }
-.note-block .pdf-memo-card-quote-yellow { --memo-dot: var(--memo-dot-yellow); }
-.note-block .pdf-memo-card-quote-green { --memo-dot: var(--memo-dot-green); }
-.note-block .pdf-memo-card-quote-blue { --memo-dot: var(--memo-dot-blue); }
-.note-block .pdf-memo-card-quote-pink { --memo-dot: var(--memo-dot-pink); }
 .note-block .note-source-chip .note-source-expand { display: none; }
 .note-block .note-source-chip .note-source-expand:focus-visible { display: inline-grid; }
 .note-block .note-source-chip .note-source-page,
@@ -191,10 +187,7 @@ body.note-block-dragging .note-block-tabs { display: none; }
 
 /* ---------- Markdown 영역 메모 ---------- */
 /* 문서 위: PDF 영역 메모와 같은 옅은 바탕 + 얇은 선 + 귀퉁이 꺾쇠(곱하기 층 안이라 글자는 그대로) */
-.markdown-mark-region-group { --hl-fill: var(--hl-soft-yellow); --hl-edge: var(--hl-edge-yellow); }
-.markdown-mark-region-group[data-highlight-color='green'] { --hl-fill: var(--hl-soft-green); --hl-edge: var(--hl-edge-green); }
-.markdown-mark-region-group[data-highlight-color='blue'] { --hl-fill: var(--hl-soft-blue); --hl-edge: var(--hl-edge-blue); }
-.markdown-mark-region-group[data-highlight-color='pink'] { --hl-fill: var(--hl-soft-pink); --hl-edge: var(--hl-edge-pink); }
+.markdown-mark-region-group { --hl-fill: var(--hlc-soft); --hl-edge: var(--hlc-edge); }
 .markdown-mark-region { fill: color-mix(in srgb, var(--hl-fill) 14%, var(--mix-white)); stroke: color-mix(in srgb, var(--hl-edge) 45%, var(--mix-white)); stroke-width: 1px; }
 .markdown-mark-corners { fill: none; stroke: var(--hl-edge); stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; }
 /* 노트 카드: 잡아 둔 블록을 같은 종이 폭으로 놓고 네모만큼 잘라 카드 폭에 맞춘다 */

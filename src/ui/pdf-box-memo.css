@@ -1,12 +1,9 @@
 /* 박스 메모: PDF 쪽 위에 떠 있는 메모와 형광펜에서 이어진 선. 카드는 밝은 종이(어두운 테마에서도 읽히게) */
 .pdf-box-layer { position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none; }
 .pdf-box-links { position: absolute; inset: 0; overflow: visible; }
-.pdf-box-link path { fill: none; stroke: var(--hl-edge, var(--hl-edge-yellow)); stroke-width: 1.4px; stroke-linecap: round; }
-.pdf-box-link circle { fill: var(--hl-edge, var(--hl-edge-yellow)); }
-.pdf-box-link-yellow { --hl-edge: var(--hl-edge-yellow); }
-.pdf-box-link-green { --hl-edge: var(--hl-edge-green); }
-.pdf-box-link-blue { --hl-edge: var(--hl-edge-blue); }
-.pdf-box-link-pink { --hl-edge: var(--hl-edge-pink); }
+.pdf-box-link path { fill: none; stroke: var(--hl-edge, var(--hlc-edge)); stroke-width: 1.4px; stroke-linecap: round; }
+.pdf-box-link circle { fill: var(--hl-edge, var(--hlc-edge)); }
+.pdf-box-link { --hl-edge: var(--hlc-edge); }
 
 .pdf-box-card {
   display: flex;
@@ -16,31 +13,25 @@
   position: absolute;
   box-sizing: border-box;
   pointer-events: auto;
-  border: 1px solid color-mix(in srgb, var(--box-tint, var(--hl-edge-yellow)) 55%, var(--mix-white));
+  border: 1px solid color-mix(in srgb, var(--box-tint, var(--hlc-edge)) 55%, var(--mix-white));
   border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--box-tint, var(--hl-edge-yellow)) 10%, var(--mix-white));
+  background: color-mix(in srgb, var(--box-tint, var(--hlc-edge)) 10%, var(--mix-white));
   color: var(--card-light-text);
   box-shadow: 0 2px 10px rgb(var(--rgb-black) / 22%);
   color-scheme: light;
   user-select: text;
 }
-.pdf-box-card-yellow { --box-tint: var(--hl-edge-yellow); }
-.pdf-box-card-green { --box-tint: var(--hl-edge-green); }
-.pdf-box-card-blue { --box-tint: var(--hl-edge-blue); }
-.pdf-box-card-pink { --box-tint: var(--hl-edge-pink); }
+.pdf-box-card { --box-tint: var(--hlc-edge); }
 .pdf-box-card-dragging { box-shadow: 0 8px 22px rgb(var(--rgb-black) / 34%); cursor: grabbing; }
 .pdf-box-card-editing { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
 
-.pdf-box-head { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; height: 22px; cursor: grab; touch-action: none; padding: 0 3px; border-bottom: 1px solid color-mix(in srgb, var(--box-tint, var(--hl-edge-yellow)) 30%, transparent); border-radius: var(--r-md) var(--r-md) 0 0; background: color-mix(in srgb, var(--box-tint, var(--hl-edge-yellow)) 22%, var(--mix-white)); }
+.pdf-box-head { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; height: 22px; cursor: grab; touch-action: none; padding: 0 3px; border-bottom: 1px solid color-mix(in srgb, var(--box-tint, var(--hlc-edge)) 30%, transparent); border-radius: var(--r-md) var(--r-md) 0 0; background: color-mix(in srgb, var(--box-tint, var(--hlc-edge)) 22%, var(--mix-white)); }
 .pdf-box-grip { display: grid; place-items: center; width: 18px; height: 18px; border-radius: var(--r-xs); color: var(--card-light-glyph); cursor: grab; touch-action: none; }
 .pdf-box-grip:hover { background: rgb(var(--rgb-black) / 8%); }
 .pdf-box-colors { display: inline-flex; align-items: center; gap: 3px; margin: 0 auto 0 4px; }
 .pdf-box-color { width: 10px; height: 10px; padding: 0; border: 1px solid rgb(var(--rgb-black) / 25%); border-radius: 50%; cursor: pointer; opacity: 0; transition: opacity 120ms ease; }
 .pdf-box-card:hover .pdf-box-color, .pdf-box-card-editing .pdf-box-color { opacity: 1; }
-.pdf-box-color-yellow { background: var(--hl-soft-yellow); }
-.pdf-box-color-green { background: var(--hl-soft-green); }
-.pdf-box-color-blue { background: var(--hl-soft-blue); }
-.pdf-box-color-pink { background: var(--hl-soft-pink); }
+.pdf-box-color { background: var(--hlc-soft); }
 .pdf-box-color-on { box-shadow: 0 0 0 2px rgb(var(--rgb-black) / 45%); }
 .pdf-box-btn { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: var(--r-xs); background: transparent; color: var(--card-light-glyph); cursor: pointer; opacity: 0; transition: opacity 120ms ease; }
 .pdf-box-card:hover .pdf-box-btn, .pdf-box-card-editing .pdf-box-btn { opacity: .85; }
@@ -51,7 +42,7 @@
 .pdf-box-body .pdf-memo-editor { min-height: 1.6em; outline: none; }
 .pdf-box-card-collapsed .pdf-box-body { max-height: 2.4em; overflow: hidden; }
 .pdf-box-resize { position: absolute; top: 22px; right: -3px; bottom: 6px; width: 6px; cursor: ew-resize; touch-action: none; }
-.pdf-box-resize:hover { background: color-mix(in srgb, var(--box-tint, var(--hl-edge-yellow)) 55%, transparent); border-radius: var(--r-xs); }
+.pdf-box-resize:hover { background: color-mix(in srgb, var(--box-tint, var(--hlc-edge)) 55%, transparent); border-radius: var(--r-xs); }
 
 /* 깨끗이 보기(눈 단추)가 켜지면 박스와 선도 함께 감춘다 */
 .pdf-clean-view .pdf-box-layer { display: none !important; }
@@ -64,7 +55,7 @@
 
 /* 크기 조절: 오른쪽 가장자리(너비), 오른쪽 아래 모서리(너비·높이) */
 .pdf-box-resize-corner { position: absolute; right: -4px; bottom: -4px; width: 12px; height: 12px; cursor: nwse-resize; touch-action: none; }
-.pdf-box-resize-corner::after { content: ''; position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px; border-right: 2px solid color-mix(in srgb, var(--box-tint, var(--hl-edge-yellow)) 80%, var(--card-light-dim)); border-bottom: 2px solid color-mix(in srgb, var(--box-tint, var(--hl-edge-yellow)) 80%, var(--card-light-dim)); border-radius: 0 0 2px 0; opacity: .55; }
+.pdf-box-resize-corner::after { content: ''; position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px; border-right: 2px solid color-mix(in srgb, var(--box-tint, var(--hlc-edge)) 80%, var(--card-light-dim)); border-bottom: 2px solid color-mix(in srgb, var(--box-tint, var(--hlc-edge)) 80%, var(--card-light-dim)); border-radius: 0 0 2px 0; opacity: .55; }
 .pdf-box-card:hover .pdf-box-resize-corner::after { opacity: 1; }
 
 /* ---------- 박스 메모: 머리줄 없이 글만. 옮기기·색·지우기는 박스 위 오른쪽 바깥에 떠 있다 ---------- */

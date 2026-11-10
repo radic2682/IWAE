@@ -7,6 +7,8 @@ import {
   applyBlockMarkdown, applyInlineMarkdown, checkItemAt, checkItemIndex, currentBlockKind, handleMemoBackspace, handleMemoEnter, handleMemoTab,
   insideCodeBlock, looksLikeMarkdown, memoPlainText, setBlockKind, toggleCheckItem, toggleChecklist, toggleInlineCode, type MemoBlockKind,
 } from './memoEditing'
+import { useHighlightColors } from '../app/highlightColorStyle'
+import { highlightColorLabel } from '../core/highlightColors'
 import { sortMemosForList, type PersistentPdfHighlight } from './persistentHighlight'
 import type { PdfHighlightColor } from './SelectionLayer'
 import { RegionCrop } from './RegionCrop'
@@ -45,8 +47,6 @@ export function stackMemoCards(targets: readonly MemoTarget[], heights: Readonly
   return placed
 }
 
-const COLOR_LABEL: Record<PdfHighlightColor, string> = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍' }
-const COLORS: readonly PdfHighlightColor[] = ['yellow', 'green', 'blue', 'pink']
 
 /** 메모 내용: 글(검색·MCP 용)과 서식 HTML(꾸밈이 없으면 빈 문자열) */
 export interface MemoContent {
@@ -662,6 +662,7 @@ export function MemoColumn({
   /** 목록에서 손잡이로 끌어 순서를 바꿨다(바뀐 뒤 카드 id 차례) */
   readonly onReorder?: (ids: readonly string[]) => void
 }) {
+  const colors = useHighlightColors()
   const cardRefs = useRef(new Map<string, HTMLDivElement>())
   const reportedLayoutRef = useRef('')
   const [heights, setHeights] = useState<ReadonlyMap<string, number>>(new Map())
@@ -743,7 +744,7 @@ export function MemoColumn({
           const bend = pageRight + (columnLeft - pageRight) / 2
           const active = target.highlight.id === activeId || target.highlight.id === editingId || target.draft === true
           return (
-            <g key={target.highlight.id} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
+            <g key={target.highlight.id} data-hl={target.highlight.color} className={`pdf-memo-link${active ? ' pdf-memo-link-active' : ''}`}>
               {/* 페이지 안쪽(형광펜 끝 → 페이지 가장자리)은 카드를 가리킬 때만 그린다. 늘 그리면 본문 글자를 가로지른다 */}
               {active && showInnerLink ? <path className="pdf-memo-link-inner" d={`M ${target.anchorX} ${target.anchorY} H ${pageRight}`} /> : null}
               {active && showInnerLink ? <circle cx={target.anchorX} cy={target.anchorY} r={2.5} /> : null}
@@ -774,7 +775,6 @@ export function MemoColumn({
             }}
             className={[
               'pdf-memo-card',
-              `pdf-memo-card-${highlight.color}`,
               active ? 'pdf-memo-card-active' : '',
               editing ? 'pdf-memo-card-editing' : '',
               draft ? 'pdf-memo-card-draft' : '',
@@ -787,6 +787,7 @@ export function MemoColumn({
             ].filter(Boolean).join(' ')}
             style={flow ? undefined : { top: `${top}px`, left: `${columnLeft}px`, width: `${columnWidth}px` }}
             data-memo-id={highlight.id}
+            data-hl={highlight.color}
             onPointerEnter={() => onActivate(highlight.id)}
             onPointerLeave={() => onActivate(null)}
           >
@@ -819,7 +820,7 @@ export function MemoColumn({
                   {collapsed ? <CaretRight size={12} weight="bold" aria-hidden="true" /> : <CaretDown size={12} weight="bold" aria-hidden="true" />}
                 </button>
               ) : null}
-              <span className={`pdf-memo-dot pdf-memo-dot-${highlight.color}`} aria-hidden="true" />
+              <span className="pdf-memo-dot" data-hl={highlight.color} aria-hidden="true" />
               {onJump !== undefined && !draft ? (
                 <button type="button" className="pdf-memo-card-page pdf-memo-card-jump" title={t('PDF 의 이 자리로')} onClick={() => onJump(highlight)}>
                   p.{highlight.anchor.page + 1}{highlight.kind === 'region' ? ` · ${t('표/그림')}` : ''}
@@ -859,12 +860,13 @@ export function MemoColumn({
                 </span>
               ) : null}
               <span className="pdf-memo-card-actions">
-                {COLORS.map((color) => (
+                {colors.map(({ id: color }) => (
                   <button
                     key={color}
                     type="button"
-                    className={`pdf-memo-swatch pdf-memo-dot-${color}`}
-                    aria-label={t('{color}으로 바꾸기', { color: t(COLOR_LABEL[color]) })}
+                    data-hl={color}
+                    className="pdf-memo-swatch"
+                    aria-label={t('{color}으로 바꾸기', { color: highlightColorLabel(colors, color) })}
                     aria-pressed={highlight.color === color}
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={() => onRecolor(highlight.id, color)}
@@ -890,7 +892,7 @@ export function MemoColumn({
                 return <div className="pdf-memo-card-source"><RegionCrop highlight={highlight} pageSize={pageSize} maxWidth={columnWidth - 24} /></div>
               }
               const quote = highlight.anchor.quote.replace(/\s+/gu, ' ').trim()
-              return quote === '' ? null : <div className={`pdf-memo-card-quote pdf-memo-card-quote-${highlight.color}`}>{quote}</div>
+              return quote === '' ? null : <div className="pdf-memo-card-quote" data-hl={highlight.color}>{quote}</div>
             })()}
             {editing ? (
               <MemoEditor

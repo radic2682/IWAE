@@ -6,6 +6,7 @@ import { LaunchSplashHost } from './app/LaunchSplashHost'
 import { initLocale } from './i18n/bootstrap'
 import { setSessionWriter } from './bridge/vault'
 import { currentWindowMode, ownsSession } from './core/windowMode'
+import { installHighlightColorStyle } from './app/highlightColorStyle'
 import { installNativeContextMenuSuppressor } from './core/suppressNativeContextMenu'
 import './ui/theme.css'
 
@@ -13,6 +14,8 @@ import './ui/theme.css'
 setSessionWriter(ownsSession(currentWindowMode()))
 // 우클릭 메뉴가 없는 곳에서는 웹뷰 기본 메뉴가 뜨지 않게 한다(글 입력 자리만 예외)
 installNativeContextMenuSuppressor()
+// 형광펜 색 변수(<style id="iwae-highlight-colors">)를 첫 그림 전에 만든다
+installHighlightColorStyle()
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root 가 없다 — index.html 이 바뀌었는지 확인할 것')

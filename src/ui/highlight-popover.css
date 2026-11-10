@@ -19,15 +19,11 @@
   overflow: hidden;
   border-radius: var(--r-xs);
   /* 형광펜 색은 왼쪽 테두리 대신 옅은 바탕으로 */
-  background: var(--highlight-yellow);
+  background: var(--hlc-text);
   color: var(--text-dim);
   font-size: 12px;
   line-height: 1.5;
 }
-
-.highlight-popover-quote[data-highlight-color='green'] { background: var(--highlight-green); }
-.highlight-popover-quote[data-highlight-color='blue'] { background: var(--highlight-blue); }
-.highlight-popover-quote[data-highlight-color='pink'] { background: var(--highlight-pink); }
 
 .highlight-popover-colors { display: flex; gap: 6px; }
 

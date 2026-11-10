@@ -1,12 +1,9 @@
 import { Eraser, Highlighter } from '@phosphor-icons/react'
 import { t } from '../i18n'
+import { useHighlightColors } from '../app/highlightColorStyle'
+import { highlightColorLabel } from '../core/highlightColors'
 import { useHighlightTool } from './highlightToolStore'
-import type { PdfHighlightColor } from './persistentHighlight'
 import { DocFormatStrip, StripSep, StripToggle } from './PdfOverlayPalette'
-
-export const HIGHLIGHT_COLORS: readonly PdfHighlightColor[] = ['yellow', 'green', 'blue', 'pink']
-
-const COLOR_LABEL: Record<PdfHighlightColor, string> = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍' }
 
 /**
  * 문서 도구줄의 형광펜(PDF·Markdown 공통): 누르면 형광펜 모드. 색과 지우개는 다른 도구처럼
@@ -41,6 +38,7 @@ export function HighlighterToolbarControl({ active, onActiveChange, buttonClassN
 /** 형광펜 서식 띠: 색 넷 + 형광펜 지우개 */
 export function HighlighterStrip({ onDone }: { readonly onDone: () => void }) {
   const [tool, setTool] = useHighlightTool()
+  const colors = useHighlightColors()
   return (
     <DocFormatStrip
       icon={<Highlighter size={15} aria-hidden="true" />}
@@ -49,13 +47,14 @@ export function HighlighterStrip({ onDone }: { readonly onDone: () => void }) {
       hint={tool.erase ? t('형광펜을 누르면 지웁니다') : t('글을 끌면 칠합니다')}
     >
       <span className="doc-strip-swatches" role="group" aria-label={t('형광펜 색상')}>
-        {HIGHLIGHT_COLORS.map((value) => (
+        {colors.map(({ id: value }) => (
           <button
             key={value}
             type="button"
-            className={`doc-strip-swatch pane-highlighter-color-${value}${!tool.erase && tool.color === value ? ' doc-strip-swatch-on' : ''}`}
-            aria-label={t('{color} 형광펜', { color: t(COLOR_LABEL[value]) })}
-            title={t(COLOR_LABEL[value])}
+            data-hl={value}
+            className={`doc-strip-swatch${!tool.erase && tool.color === value ? ' doc-strip-swatch-on' : ''}`}
+            aria-label={t('{color} 형광펜', { color: highlightColorLabel(colors, value) })}
+            title={highlightColorLabel(colors, value)}
             aria-pressed={!tool.erase && tool.color === value}
             onClick={() => setTool({ color: value, erase: false })}
           />

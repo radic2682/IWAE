@@ -7,7 +7,12 @@ import {
   type ThemePalette,
   type ThemePreference,
 } from '../core/theme'
+import { resolvePanelColor } from '../core/userTheme'
 import { t } from '../i18n'
+import { CustomAccentControl } from './CustomAccentControl'
+import { HighlightColorSettings } from './HighlightColorSettings'
+import { UserThemeCards } from './UserThemeCards'
+import { setActiveUserTheme, useUserThemes } from './userThemeStore'
 
 interface ThemeSettingsProps {
   readonly preference: ThemePreference
@@ -34,6 +39,9 @@ export function ThemeSettings({
   accent = 'auto',
   onAccentChange,
 }: ThemeSettingsProps) {
+  const userThemes = useUserThemes()
+  const activeUserTheme = userThemes.themes.find((item) => item.id === userThemes.activeId) ?? null
+  const panelColor = resolvePanelColor(activeUserTheme?.base ?? (palette === 'whale' || palette === 'paper' || palette === 'navy' ? palette : 'default'), activeUserTheme, resolvedTheme)
   const paletteAccent = THEME_PALETTES.find((item) => item.id === palette)?.preview[resolvedTheme].accent
   return (
     <section className="theme-settings" aria-labelledby="theme-settings-title">
@@ -71,8 +79,8 @@ export function ThemeSettings({
                     name="theme-palette"
                     value={item.id}
                     aria-label={item.label}
-                    checked={palette === item.id}
-                    onChange={() => onPaletteChange(item.id)}
+                    checked={palette === item.id && activeUserTheme === null}
+                    onChange={() => { setActiveUserTheme(null); onPaletteChange(item.id) }}
                   />
                   <span className="theme-palette-preview" aria-hidden="true" style={{ background: swatch.workspace, borderColor: swatch.line }}>
                     <span className="theme-palette-preview-side" style={{ background: swatch.chrome, borderColor: swatch.line }}>
@@ -95,6 +103,7 @@ export function ThemeSettings({
                 </label>
               )
             })}
+            <UserThemeCards resolvedTheme={resolvedTheme} palette={palette} onFallback={() => onPaletteChange('whale')} />
           </div>
         </div>
       ) : null}
@@ -122,9 +131,12 @@ export function ThemeSettings({
                 </label>
               )
             })}
+            <CustomAccentControl accent={accent} resolvedTheme={resolvedTheme} panelColor={panelColor} onSelect={() => onAccentChange('custom')} />
           </div>
         </div>
       ) : null}
+
+      <HighlightColorSettings />
     </section>
   )
 }

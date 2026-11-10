@@ -1,3 +1,5 @@
+import { defaultHighlightColorId } from '../core/highlightColors'
+import { getHighlightColors } from './highlightColorStyle'
 import { t } from '../i18n'
 import { coalesceHighlightRects } from '../core/anchor'
 import { useEffect, useMemo, useState, type RefObject } from 'react'
@@ -157,7 +159,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
       quote: boxRequest.quote,
       prefix: '',
       suffix: '',
-    }, 'yellow', { createdAt: new Date().toISOString(), source: 'iwae' })
+    }, defaultHighlightColorId(getHighlightColors()), { createdAt: new Date().toISOString(), source: 'iwae' })
     setDraftBox({ ...created, box })
     setEditingBoxId(created.id)
     // 요청이 바뀔 때만
@@ -200,7 +202,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
               <path
                 key={mark.id}
                 className="markdown-mark"
-                data-highlight-color={mark.color}
+                data-hl={mark.color}
                 d={roundedRectsPath(coalesceHighlightRects(mark.rects).map((rect) => ({ x: paper.left + rect.x * paper.scale, y: rect.y * paper.scale, w: rect.w * paper.scale, h: rect.h * paper.scale })))}
               />
             ))}
@@ -210,7 +212,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
             const w = mark.rect.w * paper.scale + 8
             const h = mark.rect.h * paper.scale + 8
             return (
-              <g key={`region:${mark.id}`} data-highlight-color={mark.color} className="markdown-mark-region-group">
+              <g key={`region:${mark.id}`} data-hl={mark.color} className="markdown-mark-region-group">
                 <rect className="markdown-mark-region" x={x} y={y} width={w} height={h} rx={6} />
                 <path className="markdown-mark-corners" d={regionCornersPath(x, y, w, h)} />
               </g>

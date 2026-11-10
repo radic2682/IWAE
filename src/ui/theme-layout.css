@@ -1087,14 +1087,11 @@
 }
 
 .selection-persistent-highlight {
-  --hl-fill: var(--hl-soft-yellow);
-  --hl-edge: var(--hl-edge-yellow);
+  --hl-fill: var(--hlc-soft);
+  --hl-edge: var(--hlc-edge);
   pointer-events: none;
 }
 
-.selection-persistent-highlight[data-highlight-color="green"] { --hl-fill: var(--hl-soft-green); --hl-edge: var(--hl-edge-green); }
-.selection-persistent-highlight[data-highlight-color="blue"] { --hl-fill: var(--hl-soft-blue); --hl-edge: var(--hl-edge-blue); }
-.selection-persistent-highlight[data-highlight-color="pink"] { --hl-fill: var(--hl-soft-pink); --hl-edge: var(--hl-edge-pink); }
 
 /* 메모 카드에서 눌러 찾아간 형광펜: 잠깐 진해졌다가 돌아온다 */
 .selection-persistent-highlight.selection-highlight-flash { animation: selection-highlight-flash 1.2s ease-out 1; }
@@ -2819,10 +2816,7 @@
 }
 
 .pdf-highlighter-color[aria-pressed="true"] { border-color: var(--focus-blue); }
-.pdf-highlighter-color-yellow { background: var(--hl-pdf-swatch-yellow); }
-.pdf-highlighter-color-green { background: var(--hl-pdf-swatch-green); }
-.pdf-highlighter-color-blue { background: var(--hl-pdf-swatch-blue); }
-.pdf-highlighter-color-pink { background: var(--hl-pdf-swatch-pink); }
+.pdf-highlighter-color { background: var(--hlc-pdf-swatch); }
 
 .side-tree,
 .side-tree-children {

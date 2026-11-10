@@ -52,7 +52,7 @@ export function saveThemePreference(
    data-palette / data-accent 로 정한다. 여기 값은 설정 화면 미리보기용이다. */
 
 export type ThemePalette = 'whale' | 'default' | 'paper' | 'navy'
-export type ThemeAccent = 'auto' | 'blue' | 'teal' | 'green' | 'violet' | 'rose' | 'amber'
+export type ThemeAccent = 'auto' | 'custom' | 'blue' | 'teal' | 'green' | 'violet' | 'rose' | 'amber'
 
 export const PALETTE_STORAGE_KEY = 'iwae.theme.palette'
 export const ACCENT_STORAGE_KEY = 'iwae.theme.accent'
@@ -100,7 +100,7 @@ export const THEME_PALETTES: readonly { id: ThemePalette; label: string; descrip
   },
 ]
 
-export const THEME_ACCENTS: readonly { id: ThemeAccent; label: string; color: Record<ResolvedTheme, string> | null }[] = [
+export const THEME_ACCENTS: readonly { id: Exclude<ThemeAccent, 'custom'>; label: string; color: Record<ResolvedTheme, string> | null }[] = [
   { id: 'auto', get label() { return t('테마 기본') }, color: null },
   { id: 'blue', get label() { return t('파랑') }, color: { light: '#2f6fb0', dark: '#79addd' } },
   { id: 'teal', get label() { return t('청록') }, color: { light: '#0f7a7d', dark: '#5ec8c4' } },
@@ -115,7 +115,7 @@ export function parseThemePalette(value: unknown): ThemePalette {
 }
 
 export function parseThemeAccent(value: unknown): ThemeAccent {
-  return THEME_ACCENTS.some((accent) => accent.id === value) ? value as ThemeAccent : DEFAULT_ACCENT
+  return value === 'custom' || THEME_ACCENTS.some((accent) => accent.id === value) ? value as ThemeAccent : DEFAULT_ACCENT
 }
 
 function loadKey<T>(key: string, parse: (value: unknown) => T, fallback: T, storage: ThemeStorage | undefined): T {

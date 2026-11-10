@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { NotePencil, Trash } from '@phosphor-icons/react'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { HIGHLIGHT_NOTE_LIMIT } from './persistentHighlight'
+import { useHighlightColors } from '../app/highlightColorStyle'
+import { highlightColorLabel } from '../core/highlightColors'
 import '../ui/highlight-popover.css'
 
-const COLORS: readonly PdfHighlightColor[] = ['yellow', 'green', 'blue', 'pink']
 const WIDTH = 300
 const EDGE = 8
 /** 입력을 멈추고 이만큼 지나면 메모를 저장한다 */
@@ -27,6 +28,7 @@ interface HighlightPopoverProps {
  * 저장한다 — 저장 버튼을 두면 닫다가 잃어버리는 메모가 생긴다.
  */
 export function HighlightPopover({ highlight, point, onUpdate, onDelete, onClose, onSendToCanvas }: HighlightPopoverProps) {
+  const colors = useHighlightColors()
   const [note, setNote] = useState(highlight.note ?? '')
   const savedNoteRef = useRef(highlight.note ?? '')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -64,16 +66,17 @@ export function HighlightPopover({ highlight, point, onUpdate, onDelete, onClose
           onClose()
         }}
       >
-        <blockquote className="highlight-popover-quote" data-highlight-color={highlight.color}>
+        <blockquote className="highlight-popover-quote" data-hl={highlight.color}>
           {highlight.anchor.quote}
         </blockquote>
         <div className="highlight-popover-colors" aria-label={t('형광펜 색상')}>
-          {COLORS.map((color) => (
+          {colors.map(({ id: color }) => (
             <button
               key={color}
               type="button"
-              className={`pdf-highlighter-color pdf-highlighter-color-${color}`}
-              aria-label={t('{color} 형광펜', { color })}
+              data-hl={color}
+              className="pdf-highlighter-color"
+              aria-label={t('{color} 형광펜', { color: highlightColorLabel(colors, color) })}
               aria-pressed={highlight.color === color}
               onClick={() => onUpdate(highlight.id, { color })}
             />

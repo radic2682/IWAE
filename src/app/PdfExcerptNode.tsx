@@ -3,9 +3,10 @@ import { Handle, Position, useUpdateNodeInternals, useViewport, type Node, type 
 import { NotePencil, Trash } from '@phosphor-icons/react'
 import { pageImageUrl } from '../bridge/pdf'
 import type { PdfExcerptCanvasBlock } from '../core/canvasDocument'
+import { useHighlightColors } from './highlightColorStyle'
+import { highlightColorLabel } from '../core/highlightColors'
 import { createSourceJumpRequest, type PdfExcerptCrop } from '../core/pdfExcerpt'
 import {
-  EXCERPT_HIGHLIGHT_COLORS,
   highlightBounds,
   highlightHandleId,
   highlightRectsFromDrag,
@@ -36,7 +37,6 @@ export type { ActiveSourceTrace }
 
 export const PdfExcerptRuntimeProvider = CanvasBlockRuntimeProvider
 
-const HIGHLIGHT_COLOR_LABEL = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍' } as const
 const NO_LINKS: ReadonlySet<string> = new Set()
 
 function percentBox(rect: PdfExcerptCrop, crop: PdfExcerptCrop): CSSProperties {
@@ -67,6 +67,7 @@ function ExcerptHighlightLayer({ id, highlights, crop, glyphs, selected, linked 
   readonly linked: ReadonlySet<string>
 }) {
   const runtime = useCanvasBlockRuntime()
+  const colors = useHighlightColors()
   const layerRef = useRef<HTMLDivElement | null>(null)
   const [draft, setDraft] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -150,18 +151,16 @@ function ExcerptHighlightLayer({ id, highlights, crop, glyphs, selected, linked 
         const middle = `${((bounds.y + bounds.h / 2 - crop.y) / crop.h) * 100}%`
         const portClass = [
           'excerpt-highlight-port',
-          `excerpt-highlight-port-${highlight.color}`,
           linked.has(highlight.id) ? 'excerpt-highlight-port-linked' : '',
           'nodrag',
         ].filter(Boolean).join(' ')
         return (
-          <div key={highlight.id} className="excerpt-highlight-group" data-highlight-id={highlight.id}>
+          <div key={highlight.id} className="excerpt-highlight-group" data-highlight-id={highlight.id} data-hl={highlight.color}>
             {highlight.rects.map((rect, index) => (
               <div
                 key={index}
                 className={[
                   'excerpt-highlight',
-                  `excerpt-highlight-${highlight.color}`,
                   highlight.id === activeId ? 'excerpt-highlight-active' : '',
                   tool === null ? 'nodrag' : '',
                 ].filter(Boolean).join(' ')}
@@ -204,7 +203,8 @@ function ExcerptHighlightLayer({ id, highlights, crop, glyphs, selected, linked 
       })}
       {draft === null || tool === null ? null : (
         <div
-          className={`excerpt-highlight excerpt-highlight-${tool} excerpt-highlight-draft`}
+          className="excerpt-highlight excerpt-highlight-draft"
+          data-hl={tool}
           style={percentBox({
             x: Math.min(draft.x1, draft.x2),
             y: Math.min(draft.y1, draft.y2),
@@ -239,12 +239,13 @@ function ExcerptHighlightLayer({ id, highlights, crop, glyphs, selected, linked 
             <span>{t('메모')}</span>
           </button>
           <span className="excerpt-highlight-menu-divider" aria-hidden="true" />
-          {EXCERPT_HIGHLIGHT_COLORS.map((color) => (
+          {colors.map(({ id: color }) => (
             <button
               key={color}
               type="button"
-              className={`excerpt-highlight-swatch excerpt-highlight-swatch-${color}`}
-              aria-label={t('{color} 형광펜', { color: t(HIGHLIGHT_COLOR_LABEL[color]) })}
+              data-hl={color}
+              className="excerpt-highlight-swatch"
+              aria-label={t('{color} 형광펜', { color: highlightColorLabel(colors, color) })}
               aria-pressed={active.color === color}
               onClick={() => runtime.onSetHighlightColor?.(id, active.id, color)}
             />

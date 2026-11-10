@@ -1,0 +1,82 @@
+/* 설정 > 화면 테마 > 형광펜 색. 색 변수(--hlc-*)는 행의 data-hl 이 정한다(런타임 <style id="iwae-highlight-colors">) */
+.hlc-settings h3 small { margin-left: 6px; color: var(--text); font-size: 11.5px; font-weight: 400; }
+.hlc-list { border: 1px solid var(--divider); border-radius: var(--r-md); overflow: hidden; background: var(--field); }
+
+.hlc-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 26px minmax(80px, 1fr) 96px 132px 24px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--paper);
+}
+.hlc-row[data-dragging='true'] { background: var(--chrome-hover); }
+.hlc-row[data-drop='before']::before,
+.hlc-row[data-drop='after']::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); }
+.hlc-row[data-drop='before']::before { top: -1px; }
+.hlc-row[data-drop='after']::after { bottom: -1px; }
+
+.hlc-grip {
+  display: grid; place-items: center; width: 18px; height: 28px; padding: 0; border: 0; border-radius: var(--r-xs);
+  background: transparent; color: var(--text); cursor: grab; touch-action: none;
+}
+.hlc-grip:hover { background: var(--chrome-hover); }
+.hlc-grip:active { cursor: grabbing; }
+.hlc-grip:focus-visible, .hlc-swatch:focus-visible, .hlc-remove:focus-visible, .hlc-add:focus-visible, .hlc-name:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px;
+}
+
+.hlc-swatch-wrap { position: relative; display: grid; }
+.hlc-swatch {
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--r-sm); cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgb(var(--rgb-black) / 18%);
+}
+.hlc-native { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+
+.hlc-name {
+  box-sizing: border-box; width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--divider-strong); border-radius: var(--r-sm);
+  background: var(--field); color: var(--text-strong); font: inherit; font-size: 12.5px;
+}
+
+.hlc-sample-cell { display: flex; min-width: 0; align-items: flex-end; }
+/* 본문 표시: PDF 글 위 형광펜과 같은 칠, 글자는 검정 */
+.hlc-sample-mark { padding: 1px 3px; border-radius: 2px; background: var(--hlc-soft); color: var(--page-ink); font-size: 12px; white-space: nowrap; }
+/* 카드 탭: 흰 글자가 읽히는 진한 색 */
+.hlc-sample-tab {
+  display: inline-flex; max-width: 100%; height: 20px; align-items: center; padding: 0 8px; border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: var(--hlc-ink); color: var(--on-solid); font-size: 11px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.hlc-remove {
+  display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-xs);
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.hlc-remove:hover:not(:disabled) { background: var(--chrome-hover); color: var(--text-strong); }
+.hlc-remove:disabled { opacity: .35; cursor: default; }
+
+.hlc-confirm { grid-column: 4 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; font-size: 12px; color: var(--text-strong); }
+.hlc-confirm > span { flex: 1 1 auto; min-width: 0; text-align: right; }
+.hlc-confirm button {
+  flex: 0 0 auto; height: 26px; padding: 0 10px; border: 1px solid var(--divider-strong); border-radius: var(--r-sm);
+  background: var(--field); color: var(--text-strong); font: inherit; font-size: 12px; cursor: pointer;
+}
+.hlc-confirm button:hover { background: var(--field-hover); }
+.hlc-confirm .hlc-confirm-yes { border-color: var(--danger); background: var(--danger); color: var(--accent-contrast); }
+
+.hlc-add {
+  display: flex; align-items: center; gap: 6px; width: 100%; height: 36px; padding: 0 12px; border: 0;
+  background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.hlc-add:hover { background: var(--chrome-hover); }
+.hlc-row:last-child, .hlc-add:last-child { border-bottom: 0; }
+
+.hlc-caption { margin: 0; color: var(--text); font-size: 12px; line-height: 1.5; }
+
+@media (max-width: 640px) {
+  .hlc-row { grid-template-columns: 18px 26px minmax(60px, 1fr) 24px; }
+  .hlc-sample-cell { display: none; }
+  .hlc-confirm { grid-column: 3 / -1; }
+}

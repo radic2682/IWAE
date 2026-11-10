@@ -1,14 +1,8 @@
 import type { ExportPdfHighlight, PdfFlatOverlay, PdfToolOp } from '../bridge/pdf'
-import type { PersistentPdfHighlight, PdfHighlightColor } from '../pdf/persistentHighlight'
+import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
+import { DEFAULT_HIGHLIGHT_COLORS, highlightExportRgb, type HighlightColorDef } from './highlightColors'
 import { isRedaction, type PdfOverlay } from './pdfOverlays'
 
-/** 형광펜 색 → PDF 주석 RGB(가져올 때의 팔레트와 같다) */
-const HIGHLIGHT_RGB: Record<PdfHighlightColor, [number, number, number]> = {
-  yellow: [255, 226, 77],
-  green: [110, 200, 120],
-  blue: [90, 160, 245],
-  pink: [245, 120, 185],
-}
 
 /** 내 표시 굽기에 넣을 것 */
 export interface FlattenChoice {
@@ -58,6 +52,7 @@ export function buildFlattenOp(
   highlights: readonly PersistentPdfHighlight[],
   overlays: readonly PdfOverlay[],
   choice: FlattenChoice,
+  colors: readonly HighlightColorDef[] = DEFAULT_HIGHLIGHT_COLORS,
 ): Extract<PdfToolOp, { kind: 'flatten' }> {
   const mine = highlights.filter((highlight) => highlight.anchor.docId === docId)
   const textMarks: ExportPdfHighlight[] = choice.highlights
@@ -66,7 +61,7 @@ export function buildFlattenOp(
         .map((highlight) => ({
           page: highlight.anchor.page,
           rects: highlight.anchor.rects.map((rect) => ({ x: rect.x, y: rect.y, w: rect.w, h: rect.h })),
-          color: HIGHLIGHT_RGB[highlight.color] ?? HIGHLIGHT_RGB.yellow,
+          color: highlightExportRgb(colors, highlight.color),
           note: (highlight.note ?? '').trim() === '' ? null : highlight.note!.trim(),
         }))
     : []

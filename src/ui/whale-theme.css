@@ -140,10 +140,7 @@ body.reader-drop-active .pane .pane-frame::after {
   font-size: 12px;
   line-height: 1.5;
 }
-.pdf-memo-card-quote-yellow { background: var(--memo-quote-wash-yellow); }
-.pdf-memo-card-quote-green { background: var(--memo-quote-wash-green); }
-.pdf-memo-card-quote-blue { background: var(--memo-quote-wash-blue); }
-.pdf-memo-card-quote-pink { background: var(--memo-quote-wash-pink); }
+.pdf-memo-card-quote, .note-source-chip:where([data-hl]) { background: var(--hlc-wash); }
 .pdf-memo-card-text,
 .pane-doc .pdf-memo-card .pdf-memo-editor { font-size: 13px; line-height: 1.55; }
 .pdf-memo-bar-scroll { gap: 8px; }
@@ -726,10 +723,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .pdf-memo-bar-scroll { padding-bottom: 0; }
 
 /* 메모 블록: 메모가 먼저, 원문은 형광펜 색 한 줄 칩(펼치면 전부). 위의 「노트에는 형광펜 색을 쓰지 않는다」를 노트 블록에서는 되돌린다 */
-.pane-doc .note-block .pdf-memo-card-quote-yellow { background: color-mix(in srgb, var(--hl-soft-yellow) 55%, var(--mix-white)) !important; }
-.pane-doc .note-block .pdf-memo-card-quote-green { background: color-mix(in srgb, var(--hl-soft-green) 60%, var(--mix-white)) !important; }
-.pane-doc .note-block .pdf-memo-card-quote-blue { background: color-mix(in srgb, var(--hl-soft-blue) 65%, var(--mix-white)) !important; }
-.pane-doc .note-block .pdf-memo-card-quote-pink { background: color-mix(in srgb, var(--hl-soft-pink) 60%, var(--mix-white)) !important; }
+.pane-doc .note-block :is(.pdf-memo-card-quote, .note-source-chip):where([data-hl]) { background: color-mix(in srgb, var(--hlc-soft) var(--hlc-note-mix), var(--mix-white)) !important; }
 .pane-doc .note-block .note-source-chip { height: 26px; color: var(--text-muted); font-size: 12.5px; }
 .pane-doc .note-block .pdf-memo-card-quote { margin-top: 0; padding: 5px 9px; color: var(--text-muted); font-size: 12.5px; line-height: 1.55; -webkit-line-clamp: unset; }
 .pane-doc .note-block .pdf-memo-card-quote .note-source-expand { display: inline-grid; vertical-align: -3px; margin: 0 4px 0 -3px; }
@@ -945,10 +939,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* Markdown 형광펜: 글 위에 곱하기로 섞는 층(종이만 물들고 글자는 그대로 — PDF 와 같은 색·모양) */
 .markdown-mark-host { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; mix-blend-mode: multiply; }
 .markdown-box-marks { position: absolute; top: 0; left: 0; pointer-events: none; }
-.markdown-mark { --hl-fill: var(--hl-soft-yellow); fill: var(--hl-fill); stroke: var(--hl-fill); stroke-width: 1.5px; stroke-linejoin: round; }
-.markdown-mark[data-highlight-color='green'] { --hl-fill: var(--hl-soft-green); }
-.markdown-mark[data-highlight-color='blue'] { --hl-fill: var(--hl-soft-blue); }
-.markdown-mark[data-highlight-color='pink'] { --hl-fill: var(--hl-soft-pink); }
+.markdown-mark { --hl-fill: var(--hlc-soft); fill: var(--hl-fill); stroke: var(--hl-fill); stroke-width: 1.5px; stroke-linejoin: round; }
 .pane-doc .markdown-pane-host[data-reader-mode='hand'] .markdown-pane { cursor: grab; user-select: none; }
 
 /* Markdown 목차(왼쪽 바) */
@@ -1085,10 +1076,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   box-shadow: 0 0 0 1px rgb(var(--rgb-black) / 18%) inset;
 }
 .pane-highlighter-color[aria-pressed='true'] { border-color: var(--text-strong); }
-.pane-highlighter-color-yellow { background: var(--hl-pane-swatch-yellow); }
-.pane-highlighter-color-green { background: var(--hl-pane-swatch-green); }
-.pane-highlighter-color-blue { background: var(--hl-pane-swatch-blue); }
-.pane-highlighter-color-pink { background: var(--hl-pane-swatch-pink); }
+.doc-strip-swatch[data-hl] { background: var(--hlc-pane-swatch); }
 
 /* 번역 설정의 클라우드 API 칸: 두 열 격자(넓은 칸 + 120px)에 넣으면 주소·키 칸이 눌린다. 한 줄에 하나씩 넓게 */
 .translation-settings-fields.translation-settings-external-fields { grid-template-columns: minmax(0, 1fr); }

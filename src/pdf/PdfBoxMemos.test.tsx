@@ -43,7 +43,7 @@ describe('PdfBoxMemos', () => {
   it('색 바꾸기·지우기를 알린다(접기 단추는 없다)', () => {
     const { handlers } = mount()
     expect(screen.queryByRole('button', { name: '박스 접기' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: '색 pink' }))
+    fireEvent.click(screen.getByRole('button', { name: '색 분홍' }))
     expect(handlers.onChange).toHaveBeenCalledWith('h1', { color: 'pink' })
     fireEvent.click(screen.getByRole('button', { name: '박스 메모 지우기' }))
     expect(handlers.onDelete).toHaveBeenCalledWith('h1')

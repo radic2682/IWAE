@@ -1,3 +1,4 @@
+import { rangeFillStyle } from '../ui/rangeFill'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, EyeSlash, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Scissors, SquaresFour, Stack, Stamp, TextT,
@@ -458,7 +459,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
             </label>
             <label className="pdf-tools-field">
               <span>{t('진하기 {value}%', { value: Math.round(mark.opacity * 100) })}</span>
-              <input type="range" min={5} max={60} value={Math.round(mark.opacity * 100)} onChange={(event) => setMark({ ...mark, opacity: Number(event.target.value) / 100 })} />
+              <input type="range" min={5} max={60} value={Math.round(mark.opacity * 100)} style={rangeFillStyle(Math.round(mark.opacity * 100), 5, 60)} onChange={(event) => setMark({ ...mark, opacity: Number(event.target.value) / 100 })} />
             </label>
             <label className="pdf-tools-field">
               <span>{t('색')}</span>
