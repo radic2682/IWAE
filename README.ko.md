@@ -19,9 +19,8 @@
 
 <p align="center"><a href="README.md">English</a></p>
 
-<!-- 대표 영상 자리: 아래 파일을 docs/images/hero.ko.gif 로 바꿉니다 (20~30초: PDF 열기, 칠하기, 연결선이 있는 메모, 눌러서 돌아가기, 나누고 탭 끌기, 테마 바꾸기). 영어 README 는 docs/images/hero.gif. -->
 <p align="center">
-  <img src="docs/images/open-and-split.ko.gif" width="900" alt="왼쪽 폴더에서 PDF 를 눌러 탭으로 열고, 창을 나눠 두 문서를 나란히 보는 모습">
+  <img src="docs/images/hero.ko.gif" width="900" alt="논문의 문장을 칠하면 메모가 생기고, 메모를 누르면 그 자리로 돌아오고, 탭을 끌어 화면을 나누면 연결선이 두 칸을 가로지르고, 밝은 테마로 바꿨다 돌아오는 모습">
 </p>
 
 > **상태:** 알파. 읽기·메모·노트·저장은 잘 동작하지만, 화면과 파일 형식은 바뀔 수 있습니다.
@@ -36,7 +35,7 @@ PDF 뷰어는 대개 파일을 하나씩 열 뿐이고, 정리는 탐색기에 �
 - **내 것이고, 내 PC 안입니다.** 모든 기록은 Vault 폴더에 저장됩니다. 클라우드 번역을 골랐을 때 고른 글, 직접 연결한 외부 AI 말고는 PC 밖으로 나가는 것이 없습니다.
 
 <p align="center">
-  <img src="docs/images/split-view.ko.png" width="900" alt="왼쪽에 폴더 목록, 오른쪽에 PDF 두 개를 나란히 연 IWAE 화면">
+  <img src="docs/images/split-view.ko.png" width="900" alt="왼쪽에 폴더 목록, 가운데에 논문 두 개를 나란히 열고, 노트의 연결선이 두 칸을 가로지르는 IWAE 화면">
 </p>
 
 ## 빠른 시작
@@ -57,7 +56,11 @@ PDF 뷰어는 대개 파일을 하나씩 열 뿐이고, 정리는 탐색기에 �
 - **버전 묶기**: 같은 문서의 초안·수정본·최종본을 묶어 오갑니다.
 - **GitHub 에서 가져오기**: Markdown 문서 폴더를 가져오고, 새 커밋이 있으면 상단바가 알려 줍니다.
 
-<!-- 영상 필요: docs/images/library.ko.gif (라이브러리 펼치기, 표와 카드), docs/images/versions.ko.gif -->
+<p align="center">
+  <img src="docs/images/library.ko.gif" width="900" alt="라이브러리를 펼쳐 카드와 표로 바꿔 보고, 최근 열람만 걸러 본 뒤 카드를 눌러 논문을 여는 모습">
+</p>
+
+<!-- 영상 필요: docs/images/versions.ko.gif -->
 
 ### 나란히 읽기
 
@@ -68,10 +71,8 @@ PDF 뷰어는 대개 파일을 하나씩 열 뿐이고, 정리는 탐색기에 �
 - 링크나 `Table 5`, `Section 3.2` 같은 참조에 마우스를 올리면 미리 보고, 누르면 이동하며, 마우스 뒤로 단추로 돌아옵니다.
 
 <p align="center">
-  <img src="docs/images/open-and-split.ko.gif" width="900" alt="왼쪽 폴더에서 PDF 를 눌러 탭으로 열고, 창을 나눠 두 문서를 나란히 보는 모습">
+  <img src="docs/images/tab-drag.ko.gif" width="900" alt="탭 순서를 바꾸고, 칸 가장자리로 끌어 화면을 나누고, 노트를 연 채로 탭을 다른 칸으로 옮기는 모습">
 </p>
-
-<!-- 영상 필요: docs/images/tab-drag.ko.gif (순서 바꾸기, 가장자리에 놓아 나누기, 창으로 떼어 내기, 다시 붙이기) -->
 
 ### 칠하고, 메모하고, 돌아오기
 
@@ -136,7 +137,9 @@ PDF 뷰어는 대개 파일을 하나씩 열 뿐이고, 정리는 탐색기에 �
 | 모양 | 쪽 번호, 워터마크, 여백 자르기, 모아찍기, 압축 |
 | 내보내기 | 쪽 그림(PNG), 글을 Markdown 으로, 암호 푼 사본 |
 
-<!-- 영상 필요: docs/images/pdf-tools.ko.gif (PDF 도구 탭에서 도구를 펼쳐 쪽 번호를 사본으로 넣기) -->
+<p align="center">
+  <img src="docs/images/pdf-tools.ko.gif" width="900" alt="PDF 도구에서 쪽 번호 넣기를 사본으로 실행하고, 쪽 편집 화면을 잠깐 여는 모습">
+</p>
 
 ### 번역
 
@@ -166,7 +169,9 @@ Markdown 파일도 PDF 옆 탭으로 열리고, 제목·표·코드·할 일 목
 - **내 형광펜 색**: 이름 붙인 색을 최대 8가지.
 - 화면 크기, 한국어·English, Markdown 문서 테마 여섯 가지.
 
-<!-- 영상 필요: docs/images/themes.ko.gif (밝기, 색 구성, 강조색, 테마 편집기) -->
+<p align="center">
+  <img src="docs/images/themes.ko.gif" width="900" alt="밝기, 색 구성, 강조색을 바꾸고, 새 테마 편집기에서 색을 바꿔 보는 모습">
+</p>
 
 ### 안전하게
 

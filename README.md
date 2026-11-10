@@ -19,9 +19,8 @@
 
 <p align="center"><a href="README.ko.md">한국어</a></p>
 
-<!-- HERO MEDIA: replace the file below with docs/images/hero.gif (20-30 s: open PDF, highlight, memo with connector, click to jump back, split and drag a tab, switch theme). Korean README uses docs/images/hero.ko.gif. -->
 <p align="center">
-  <img src="docs/images/open-and-split.gif" width="900" alt="Opening PDFs from the folder tree into tabs, then splitting the window to read two side by side">
+  <img src="docs/images/hero.gif" width="900" alt="Highlighting a sentence in a paper to get a memo, clicking a memo to jump back, dragging a tab to split the view so connector lines cross panes, and switching to the light theme and back">
 </p>
 
 > **Status:** alpha. Reading, memos, notes and storage work well, but the interface and file formats may still change.
@@ -36,7 +35,7 @@ Most PDF readers open one file at a time and leave the organizing to your file m
 - **Yours, and local.** Everything is stored in your Vault folder. Only text you choose to translate with a cloud service, or an external AI you connect yourself, ever leaves your PC.
 
 <p align="center">
-  <img src="docs/images/split-view.png" width="900" alt="IWAE with a folder tree on the left and two PDFs open side by side">
+  <img src="docs/images/split-view.png" width="900" alt="IWAE with a folder tree on the left, two papers side by side and a note whose connector lines cross both panes">
 </p>
 
 ## Quick start
@@ -57,7 +56,11 @@ The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public
 - **Versions:** group the draft, revised and final files of one document and switch between them.
 - **Import from GitHub:** bring in a folder of Markdown documents; the toolbar tells you when there are new commits.
 
-<!-- MEDIA TODO: docs/images/library.gif (library expand, table and cards), docs/images/versions.gif -->
+<p align="center">
+  <img src="docs/images/library.gif" width="900" alt="Expanding the library, switching between cards and a table, filtering to recently opened documents, and opening a paper from its card">
+</p>
+
+<!-- MEDIA TODO: docs/images/versions.gif -->
 
 ### Read side by side
 
@@ -68,10 +71,8 @@ The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public
 - Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump and go back with the mouse back button.
 
 <p align="center">
-  <img src="docs/images/open-and-split.gif" width="900" alt="Opening PDFs from the folder tree into tabs, then splitting the window to read two side by side">
+  <img src="docs/images/tab-drag.gif" width="900" alt="Reordering tabs, dragging a tab to a pane edge to split the view, and moving tabs between panes while the note stays open">
 </p>
-
-<!-- MEDIA TODO: docs/images/tab-drag.gif (reorder, dock to edge, drag out to a window, drag back) -->
 
 ### Highlight, memo, and jump back
 
@@ -136,7 +137,9 @@ Everything runs on your PC. Most tools can apply to the original or write a copy
 | Layout | Page numbers, watermark, crop margins, N-up, compress |
 | Export | Pages as PNG, text as Markdown, unlocked copy of a password-protected PDF |
 
-<!-- MEDIA TODO: docs/images/pdf-tools.gif (open the PDF tools tab, expand a tool, run page numbers as a copy) -->
+<p align="center">
+  <img src="docs/images/pdf-tools.gif" width="900" alt="Running Add page numbers as a copy from PDF tools, then briefly opening the page editor">
+</p>
 
 ### Translation
 
@@ -166,7 +169,9 @@ Markdown files open in tabs next to your PDFs, with headings, tables, code, task
 - **Your own highlight colors:** up to eight named colors.
 - Interface size, Korean or English, and six Markdown document themes.
 
-<!-- MEDIA TODO: docs/images/themes.gif (brightness, color scheme, accent, theme editor) -->
+<p align="center">
+  <img src="docs/images/themes.gif" width="900" alt="Changing brightness, color scheme and accent color, then trying colors in the new-theme editor">
+</p>
 
 ### Safe by design
 
