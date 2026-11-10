@@ -44,7 +44,7 @@ export interface TranslationCoordinator {
   readonly externalApiKey: string
   readonly updateSettings: (update: Partial<TranslationSettings>) => void
   readonly updateExternalApiKey: (apiKey: string) => void
-  readonly translate: (text: string, sourceLanguage?: string) => Promise<TranslationResult | null>
+  readonly translate: (text: string, sourceLanguage?: string, targetLanguage?: string) => Promise<TranslationResult | null>
   readonly cancelTranslation: () => void
   readonly pullModel: (model: string) => Promise<void>
   readonly installRuntime: () => Promise<void>
@@ -282,6 +282,7 @@ export function useTranslation({ provider, storage }: UseTranslationOptions): Tr
   const translate = useCallback(async (
     text: string,
     sourceLanguage?: string,
+    targetOverride?: string,
   ): Promise<TranslationResult | null> => {
     if (selectedModel === null) {
       const message = status === null
@@ -309,12 +310,12 @@ export function useTranslation({ provider, storage }: UseTranslationOptions): Tr
             apiKey: externalApiKey,
             model: selectedModel,
             text,
-            targetLanguage: settings.targetLanguage,
+            targetLanguage: targetOverride ?? settings.targetLanguage,
             ...(sourceLanguage === undefined ? {} : { sourceLanguage }),
           })
         : await provider.translate(settings.endpoint, {
             text,
-            targetLanguage: settings.targetLanguage,
+            targetLanguage: targetOverride ?? settings.targetLanguage,
             model: selectedModel,
             executionMode: settings.executionMode,
             ...(sourceLanguage === undefined ? {} : { sourceLanguage }),

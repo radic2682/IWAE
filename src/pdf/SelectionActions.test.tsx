@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { PdfExcerptSelection } from '../core/pdfExcerpt'
+import { TranslationCardSettingsContext } from '../ui/TranslationCard'
 import { SelectionActions } from './SelectionActions'
 
 function selection(
@@ -241,5 +242,18 @@ ${translated.text}`)
     await screen.findByLabelText('번역 결과')
     fireEvent.click(screen.getByRole('button', { name: '닫기' }))
     expect(screen.queryByRole('region', { name: '번역 결과 패널' })).toBeNull()
+  })
+
+  it('원문이 이미 설정의 번역 언어면 다른 언어로 번역하고 그 쌍을 칩에 보인다', async () => {
+    const onTranslate = vi.fn().mockResolvedValue({ ...translated, targetLanguage: 'en' })
+    render(
+      <TranslationCardSettingsContext.Provider value={{ targetLanguage: 'ko', providerLabel: 'Azure', onChangeTargetLanguage: vi.fn() }}>
+        <SelectionActions selection={selection('text', '이번 주에 읽은 논문 정리')} onCopy={vi.fn()} onTranslate={onTranslate} />
+      </TranslationCardSettingsContext.Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '번역' }))
+    await screen.findByLabelText('번역 결과')
+    expect(onTranslate).toHaveBeenCalledWith(expect.anything(), { targetLanguage: 'en' })
+    expect(screen.getByRole('button', { name: '번역 언어 바꾸기' }).textContent).toBe('한국어English')
   })
 })

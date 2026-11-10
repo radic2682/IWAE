@@ -3,7 +3,7 @@ import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import { announceAction } from '../app/actionFeedback'
 import { t } from '../i18n'
 
-import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCard } from '../ui/TranslationCard'
+import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCard, useEffectiveTargetLanguage } from '../ui/TranslationCard'
 
 export { OPEN_TRANSLATION_SETTINGS_EVENT }
 
@@ -21,7 +21,7 @@ export interface SelectionActionsProps {
   readonly onCopyWithSource?: (selection: PdfExcerptSelection) => void
   /** 고른 글자로 문서 검색 화면을 연다 */
   readonly onSearchDocuments?: (selection: PdfExcerptSelection) => void
-  readonly onTranslate?: (selection: PdfExcerptSelection, options?: { readonly force?: boolean }) => Promise<PdfSelectionTranslation | null>
+  readonly onTranslate?: (selection: PdfExcerptSelection, options?: { readonly force?: boolean; readonly targetLanguage?: string }) => Promise<PdfSelectionTranslation | null>
   readonly onSendTranslationToCanvas?: (
     selection: PdfExcerptSelection,
     translation: PdfSelectionTranslation,
@@ -78,13 +78,15 @@ export function SelectionActions({
     setTranslationState({ status: 'idle' })
   }, [])
 
+  const { override } = useEffectiveTargetLanguage(selection.anchor.quote)
   const handleTranslate = async (force = false, supersede = false): Promise<void> => {
     if (!canTranslate || (isTranslating && !supersede)) return
     const currentRequest = requestId.current + 1
     requestId.current = currentRequest
     setTranslationState({ status: 'pending' })
     try {
-      const translation = await (force ? onTranslate(selection, { force: true }) : onTranslate(selection))
+      const options = { ...(force ? { force: true } : {}), ...(override === undefined ? {} : { targetLanguage: override }) }
+      const translation = await (Object.keys(options).length > 0 ? onTranslate(selection, options) : onTranslate(selection))
       if (translation === null) throw new Error(t('번역 결과를 받지 못했습니다.'))
       if (requestId.current === currentRequest) setTranslationState({ status: 'result', translation })
     } catch (error) {

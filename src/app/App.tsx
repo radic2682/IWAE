@@ -74,6 +74,7 @@ import type { SourceOpenRequest } from './CanvasBlockShell'
 import { useAppShortcuts, type AppShortcutActions } from './useAppShortcuts'
 import { useNavigationHistory } from './useNavigationHistory'
 import type { NavLocation } from '../core/navigationHistory'
+import { normalizeSelectionText } from '../core/translationText'
 import { externalProviderInfo } from '../core/translationSettings'
 import { useTranslation } from './useTranslation'
 import {
@@ -813,8 +814,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const translation = useTranslation({ provider: translationProvider })
   // 번역 캐시(번역 기록): 같은 글·언어·번역기면 다시 묻지 않는다. 노트 카드·글 고르기·설정이 함께 쓴다
   const translateText = translation.translate
-  const translateForCache = useCallback(async (text: string) => {
-    const result = await translateText(text)
+  const translateForCache = useCallback(async (text: string, targetLanguage?: string) => {
+    const result = await translateText(text, undefined, targetLanguage)
     return result === null ? null : { text: result.translatedText }
   }, [translateText])
   const translationProviderKey = translation.settings.executionMode === 'external-api'
@@ -1576,11 +1577,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setDocSearchMode(true)
     documentSearch.run(query)
   }, [documentSearch])
-  const translatePdfSelection = useCallback(async (selection: PdfExcerptSelection, options?: { readonly force?: boolean }) => {
-    if (selection.anchor.quote.trim() === '') return null
-    const text = await translateWithCacheUsing(translateForCache, selection.anchor.quote, { docId: selection.anchor.docId, page: selection.anchor.page }, options?.force === true)
+  const translatePdfSelection = useCallback(async (selection: PdfExcerptSelection, options?: { readonly force?: boolean; readonly targetLanguage?: string }) => {
+    const source = normalizeSelectionText(selection.anchor.quote)
+    if (source === '') return null
+    const text = await translateWithCacheUsing(translateForCache, source, { docId: selection.anchor.docId, page: selection.anchor.page }, options?.force === true, options?.targetLanguage)
     if (text === null) return null
-    return { text, targetLanguage: translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
+    return { text, targetLanguage: options?.targetLanguage ?? translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
   }, [translation, translateForCache])
 
   const sendTranslatedPdfSelectionToCanvas = useCallback((
@@ -1597,11 +1599,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }))
   }, [activeNoteId, activePdfDoc, docTitles])
 
-  const translateMarkdownSelection = useCallback(async (text: string, options?: { readonly force?: boolean }) => {
-    if (text.trim() === '') return null
-    const translated = await translateWithCacheUsing(translateForCache, text, { docId: activeMarkdownPath ?? undefined }, options?.force === true)
+  const translateMarkdownSelection = useCallback(async (text: string, options?: { readonly force?: boolean; readonly targetLanguage?: string }) => {
+    const source = normalizeSelectionText(text)
+    if (source === '') return null
+    const translated = await translateWithCacheUsing(translateForCache, source, { docId: activeMarkdownPath ?? undefined }, options?.force === true, options?.targetLanguage)
     if (translated === null) return null
-    return { text: translated, targetLanguage: translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
+    return { text: translated, targetLanguage: options?.targetLanguage ?? translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
   }, [translation, translateForCache, activeMarkdownPath])
 
   const sendTranslatedMarkdownSelectionToCanvas = useCallback((

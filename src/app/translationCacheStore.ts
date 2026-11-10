@@ -14,7 +14,7 @@ function readEnabled(): boolean {
   try { return window.localStorage.getItem(ENABLED_KEY) !== 'off' } catch { return true }
 }
 
-type TranslateFn = (text: string) => Promise<{ readonly text: string } | null>
+type TranslateFn = (text: string, targetLanguage?: string) => Promise<{ readonly text: string } | null>
 
 let entries: readonly TranslationCacheEntry[] = []
 let enabled = readEnabled()
@@ -42,27 +42,27 @@ function scheduleSave() {
 }
 
 /** 캐시에 있는 번역(지금 언어·번역기 기준). 없으면 undefined */
-export function cachedTranslation(text: string): string | undefined {
+export function cachedTranslation(text: string, targetOverride?: string): string | undefined {
   if (!enabled || provider === '') return undefined
-  return findTranslation(entries, text, target, provider)?.translated
+  return findTranslation(entries, text, targetOverride ?? target, provider)?.translated
 }
 
 /** 번역: 캐시에 있으면 꺼내고, 없으면 번역기에 묻고 캐시에 남긴다. force 면 캐시를 건너뛰고 새로 받는다 */
-export async function translateWithCache(text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false): Promise<string | null> {
-  return translateWithCacheUsing(translateFn, text, meta, force)
+export async function translateWithCache(text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false, targetOverride?: string): Promise<string | null> {
+  return translateWithCacheUsing(translateFn, text, meta, force, targetOverride)
 }
 
 /** 번역기를 직접 넘겨 쓰는 판(App 은 자기 번역기를 쓴다) */
-export async function translateWithCacheUsing(fn: TranslateFn | null, text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false): Promise<string | null> {
+export async function translateWithCacheUsing(fn: TranslateFn | null, text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false, targetOverride?: string): Promise<string | null> {
   if (!force) {
-    const hit = cachedTranslation(text)
+    const hit = cachedTranslation(text, targetOverride)
     if (hit !== undefined) return hit
   }
   if (fn === null) return null
-  const result = await fn(text)
+  const result = await fn(text, targetOverride)
   if (result === null) return null
   if (enabled && provider !== '') {
-    entries = upsertTranslation(entries, { source: text, translated: result.text, target, provider, at: new Date().toISOString(), ...meta })
+    entries = upsertTranslation(entries, { source: text, translated: result.text, target: targetOverride ?? target, provider, at: new Date().toISOString(), ...meta })
     scheduleSave()
     emit()
   }

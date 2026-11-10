@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import { ArrowClockwise, ArrowRight, CaretDown, Check, Copy, Plus, X } from '@phosphor-icons/react'
 import { announceAction } from '../app/actionFeedback'
 import { t } from '../i18n'
+import { guessLanguage, normalizeSelectionText, sameLanguageFallback } from '../core/translationText'
 import './translation-card.css'
 
 /** 번역 설정 화면을 연다(App 이 듣는다) */
@@ -31,28 +32,6 @@ export function languageLabel(code: string): string {
   return TRANSLATION_LANGUAGES.find((language) => language.code === code)?.label ?? code
 }
 
-/** 원문의 글자로 어느 언어인지 어림한다(번역기는 원문 언어를 알려 주지 않는다). 모르면 null */
-export function guessSourceLanguage(text: string): string | null {
-  let hangul = 0
-  let kana = 0
-  let han = 0
-  let latin = 0
-  for (const char of text) {
-    const code = char.codePointAt(0) ?? 0
-    if ((code >= 0xac00 && code <= 0xd7a3) || (code >= 0x1100 && code <= 0x11ff) || (code >= 0x3130 && code <= 0x318f)) hangul += 1
-    else if (code >= 0x3040 && code <= 0x30ff) kana += 1
-    else if (code >= 0x4e00 && code <= 0x9fff) han += 1
-    else if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a) || (code >= 0xc0 && code <= 0x24f)) latin += 1
-  }
-  const total = hangul + kana + han + latin
-  if (total === 0) return null
-  if (kana > 0 && kana >= total * 0.1) return 'ja'
-  if (hangul >= total * 0.3) return 'ko'
-  if (han >= total * 0.3) return 'zh'
-  if (latin >= total * 0.6) return 'en'
-  return null
-}
-
 /** App 이 알려 주는 번역 설정: 카드의 언어·번역기 칩이 쓴다. 없으면 결과에 딸린 값을 보이고 언어 칩은 설정을 연다 */
 export interface TranslationCardSettings {
   readonly targetLanguage: string
@@ -61,6 +40,14 @@ export interface TranslationCardSettings {
 }
 
 export const TranslationCardSettingsContext = createContext<TranslationCardSettings | null>(null)
+
+/** 번역에 실제로 쓸 언어: 원문이 이미 설정의 언어면 다른 언어(저장된 설정은 그대로). 설정 정보가 없으면 null */
+export function useEffectiveTargetLanguage(original: string): { readonly target: string | null; readonly override: string | undefined } {
+  const settings = useContext(TranslationCardSettingsContext)
+  if (settings === null) return { target: null, override: undefined }
+  const fallback = sameLanguageFallback(normalizeSelectionText(original), settings.targetLanguage)
+  return { target: fallback ?? settings.targetLanguage, override: fallback ?? undefined }
+}
 
 /** 단추를 눌러도 포커스를 옮기지 않는다(고른 글이 풀리지 않게) */
 const keepFocus = (event: SyntheticEvent) => event.preventDefault()
@@ -85,9 +72,11 @@ export function TranslationCard({ original, state, ariaLabel, onClose, onRetry, 
   const pendingLanguageChange = useRef(false)
   const retranslateRef = useRef(onRetranslateAfterLanguageChange)
   retranslateRef.current = onRetranslateAfterLanguageChange
-  const target = settings?.targetLanguage ?? (state.status === 'result' ? state.translation.targetLanguage : '')
+  const normalizedOriginal = normalizeSelectionText(original)
+  const effective = useEffectiveTargetLanguage(original)
+  const target = effective.target ?? (state.status === 'result' ? state.translation.targetLanguage : '')
   const providerLabel = settings?.providerLabel ?? (state.status === 'result' ? state.translation.model : '')
-  const source = guessSourceLanguage(original)
+  const source = guessLanguage(normalizedOriginal)
   const pending = state.status === 'pending'
 
   // Esc · 바깥 누르기로 닫는다(카드를 연 작업 줄을 누르는 것은 바깥이 아니다)
@@ -118,7 +107,7 @@ export function TranslationCard({ original, state, ariaLabel, onClose, onRetry, 
     pendingLanguageChange.current = false
     const timer = window.setTimeout(() => retranslateRef.current(), 0)
     return () => window.clearTimeout(timer)
-  }, [target])
+  }, [settings?.targetLanguage])
 
   // 화면 밖으로 나가지 않게: 오른쪽이 넘치면 왼쪽으로 밀고, 아래가 넘치면 작업 줄 위로 올린다
   useLayoutEffect(() => {
@@ -217,7 +206,7 @@ export function TranslationCard({ original, state, ariaLabel, onClose, onRetry, 
       </div>
 
       <div className="translation-card-body">
-        <p className="translation-card-original" title={original}>{original}</p>
+        <p className="translation-card-original" title={normalizedOriginal}>{normalizedOriginal}</p>
         {state.status === 'result' ? (
           <p className="translation-card-translation" aria-label={t('번역 결과')}>{state.translation.text}</p>
         ) : null}
@@ -253,7 +242,7 @@ export function TranslationCard({ original, state, ariaLabel, onClose, onRetry, 
           <button
             type="button"
             className="translation-card-button"
-            onClick={() => copy(`${original.trim()}\n\n${resultText}`, t('원문과 함께 복사했습니다'))}
+            onClick={() => copy(`${normalizedOriginal}\n\n${resultText}`, t('원문과 함께 복사했습니다'))}
           >
             {t('원문과 함께 복사')}
           </button>
