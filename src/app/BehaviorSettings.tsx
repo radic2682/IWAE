@@ -23,6 +23,7 @@ const MOD = isMacPlatform() ? '⌘' : 'Ctrl'
 const SHORTCUT_GROUPS: readonly { title: string; items: readonly [string, string][] }[] = [
   { title: '일반', items: [
     [`${MOD}+Shift+P`, '명령 팔레트'],
+    [`${MOD}+Shift+N`, '새 창'],
     [`${MOD}+,`, '설정'],
     [`${MOD}+Shift+F`, '모든 문서에서 찾기'],
     [`${MOD}+F`, '이 문서에서 찾기'],

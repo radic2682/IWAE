@@ -952,10 +952,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [])
   // 창 동작(새 창·떼어 내기·다시 붙이기). 패널 상태는 아래에서 만들어지므로 ref 로 잇는다
   const windowActionsRef = useRef({
+    newWindow: () => undefined as void,
     detachActive: () => undefined as void,
     reattach: () => undefined as void,
   })
   const shortcutActions: AppShortcutActions = {
+    newWindow: () => windowActionsRef.current.newWindow(),
     // Ctrl+F: 왼쪽 바를 「PDF 검색」 보기로 바꾸고 검색 칸으로
     // 글자를 골라 둔 채 누르면 그 글자로 바로 찾는다(PDF 는 고른 발췌, Markdown 등은 화면 선택)
     search: () => {
@@ -1038,6 +1040,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const paletteCommands = (): PaletteCommand[] => {
     const act = (name: keyof AppShortcutActions) => () => shortcutActionsRef.current[name]?.()
     const actions: PaletteCommand[] = [
+      { id: 'new-window', kind: 'action', label: t('새 창'), shortcut: 'Ctrl+Shift+N', keywords: 'new window', run: act('newWindow') },
       ...(isDetachedWindow
         ? [{ id: 'reattach', kind: 'action' as const, label: t('다시 붙이기'), keywords: 'reattach attach back window main', run: () => windowActionsRef.current.reattach() }]
         : activeDocumentTab?.kind === 'pdf'
@@ -1982,7 +1985,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
     }
   }
+  const openNewWindow = async () => {
+    try {
+      await openAppWindow('extra', windowQuery({ role: 'extra', docId: null, page: null, vaultRoot: vault?.root ?? null }))
+    } catch (cause) {
+      announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
+    }
+  }
   windowActionsRef.current = {
+    newWindow: () => { void openNewWindow() },
     detachActive: () => { if (activeDocumentTab?.kind === 'pdf') void detachPaneTab(activeDocumentTab.id) },
     // 닫는 길(onCloseRequested)이 탭을 메인으로 돌려보낸다
     reattach: () => closeWindowSafely(),
@@ -2676,6 +2687,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               ? [{ id: 'print', label: t('인쇄'), hint: 'Ctrl+P', onSelect: () => window.dispatchEvent(new CustomEvent('iwae:print')) }]
               : [],
             [
+              { id: 'new-window', label: t('새 창'), hint: 'Ctrl+Shift+N', onSelect: () => windowActionsRef.current.newWindow() },
               ...(isDetachedWindow
                 ? [{ id: 'reattach', label: t('다시 붙이기'), onSelect: () => windowActionsRef.current.reattach() }]
                 : activeDocumentTab?.kind === 'pdf'

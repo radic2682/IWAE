@@ -220,6 +220,7 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '번역 언어 바꾸기': 'Change translation language',
   '번역기': 'Translator',
   // app/App.tsx, app/PaneTabsMenu.tsx, bridge/windows.ts (여러 창)
+  '새 창': 'New window',
   '창으로 떼어 내기': 'Open in a separate window',
   '다시 붙이기': 'Reattach to the main window',
   '이미 떼어 낸 창이 있어 그 창을 앞으로 가져왔습니다': 'That document already has its own window, so it was brought to the front',
