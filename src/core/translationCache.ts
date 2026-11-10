@@ -3,7 +3,11 @@
  * Vault 의 `.iwae/translations.json` 에 남는다(이 PC·이 Vault 밖으로 나가지 않는다).
  */
 
-export const TRANSLATION_CACHE_VERSION = 1
+/**
+ * 2: 번역하기 전에 줄바꿈을 이어 붙이게 됐다. 1 에서 줄바꿈 그대로 번역해 결과가 여러 줄로 끊긴 항목은
+ * 열쇠가 같아 계속 꺼내 쓰이므로, 읽을 때 버리고 다시 번역하게 한다.
+ */
+export const TRANSLATION_CACHE_VERSION = 2
 /** 너무 커지지 않게: 오래된 것부터 버린다 */
 export const TRANSLATION_CACHE_LIMIT = 5000
 
@@ -49,11 +53,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function parseTranslationCache(value: unknown): TranslationCacheEntry[] {
   if (!isRecord(value) || !Array.isArray(value.entries)) return []
+  const legacy = typeof value.version !== 'number' || value.version < 2
   const seen = new Set<string>()
   return value.entries.flatMap((item: unknown): TranslationCacheEntry[] => {
     if (!isRecord(item)) return []
     const { source, translated, target, provider, at } = item
     if (typeof source !== 'string' || typeof translated !== 'string' || typeof target !== 'string' || typeof provider !== 'string' || typeof at !== 'string') return []
+    if (legacy && translated.trim().includes('\n')) return []
     const key = translationCacheKey(source, target, provider)
     if (seen.has(key)) return []
     seen.add(key)
