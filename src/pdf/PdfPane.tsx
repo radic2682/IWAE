@@ -1,7 +1,7 @@
 import { createPinPressTracker } from './pinGesture'
 import { ChatTeardropText } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
-import { useIsNoteHostPane, useNoteBarPresence, useNoteDock } from '../app/noteDock'
+import { noteBarAnchorTop, useIsNoteHostPane, useNoteBarPresence, useNoteDock } from '../app/noteDock'
 import { useClearMask, useClearZones } from './clearZones'
 import { MEMO_BAR_WIDTH, MEMO_LINK_GUTTER, useMemoBarWidth } from './memoBarWidth'
 import { NoteBarHeader } from './NoteBarHeader'
@@ -555,7 +555,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     const split = inSplit ? element.closest<HTMLElement>('.pdf-split') : null
     const box = element.getBoundingClientRect()
     const area = split?.getBoundingClientRect() ?? box
-    const top = Math.round(area.top - frame.getBoundingClientRect().top)
+    // 앱 창을 위아래로 나눈 배치(격자)에서도 노트 바는 문서 창들 전체 높이를 쓴다 — 아래 칸의 PDF 가 호스트여도 바 윗부분이 비지 않는다
+    const areaTop = noteBarAnchorTop(area.top, element.closest<HTMLElement>('.panes-grid')?.getBoundingClientRect().top, element.closest<HTMLElement>('.pane-grid-body')?.getBoundingClientRect().top)
+    const top = Math.round(areaTop - frame.getBoundingClientRect().top)
     if (top !== barBodyTop) setBarBodyTop(top)
     const dockBox = frame.getBoundingClientRect()
     const panesBox = frame.parentElement?.querySelector(':scope > .panes')?.getBoundingClientRect()
@@ -565,7 +567,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       wideLeft: panesBox === undefined ? 0 : Math.round(panesBox.left - dockBox.left),
     }
     if (geometry.originX !== linkGeometry.originX || geometry.scrollerRight !== linkGeometry.scrollerRight || geometry.wideLeft !== linkGeometry.wideLeft) setLinkGeometry(geometry)
-    const place = { top: Math.round(box.top - area.top), atRight: area.right - box.right < 2, nextToDock: dockBox.left - box.right < 2 }
+    const place = { top: Math.round(box.top - areaTop), atRight: area.right - box.right < 2, nextToDock: dockBox.left - box.right < 2 }
     if (place.top !== cellPlace.top || place.atRight !== cellPlace.atRight || place.nextToDock !== cellPlace.nextToDock) setCellPlace(place)
   })
   useLayoutEffect(() => {

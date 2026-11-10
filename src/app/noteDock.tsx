@@ -49,3 +49,12 @@ export function useNoteBarPresence(open: boolean): { readonly rendered: boolean;
   }, [open, rendered])
   return { rendered: open || rendered, exiting: !open && rendered }
 }
+
+/**
+ * 노트 바 몸통의 윗선(화면 y). 문서 창이 앱 격자(위아래로 나눈 배치)의 아래 칸에 있어도 바는 위 칸과 같은 높이에서 시작한다 —
+ * 아래 칸의 PDF 가 바를 그리는 호스트여도 노트 바 윗부분이 비지 않는다.
+ * areaTop: 이 창(또는 PDF 안 나눔 상자)의 윗선, gridTop: 격자 상자 윗선(격자가 아니면 undefined), cellTop: 이 창이 든 칸 몸통의 윗선
+ */
+export function noteBarAnchorTop(areaTop: number, gridTop: number | undefined, cellTop: number | undefined): number {
+  return gridTop === undefined || cellTop === undefined ? areaTop : gridTop + (areaTop - cellTop)
+}

@@ -2,7 +2,7 @@
 import { act, render, renderHook } from '@testing-library/react'
 import { useRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { NoteDockContext, NOTE_BAR_TRANSITION_MS, useIsNoteHostPane, useNoteBarPresence } from './noteDock'
+import { NoteDockContext, NOTE_BAR_TRANSITION_MS, noteBarAnchorTop, useIsNoteHostPane, useNoteBarPresence } from './noteDock'
 
 function Probe({ onHost }: { readonly onHost: (host: boolean) => void }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -41,5 +41,18 @@ describe('노트 바 칸', () => {
     expect(result.current).toEqual({ rendered: false, exiting: false })
     rerender({ open: true })
     expect(result.current.rendered).toBe(true)
+  })
+})
+
+describe('noteBarAnchorTop', () => {
+  it('격자가 아니면 창 윗선 그대로', () => {
+    expect(noteBarAnchorTop(75, undefined, undefined)).toBe(75)
+  })
+  it('위 칸 문서 창: 격자 윗선 + 칸 안 오프셋', () => {
+    expect(noteBarAnchorTop(75, 38, 38)).toBe(75)
+  })
+  it('아래 칸 문서 창이 호스트여도 노트 바는 위 칸과 같은 높이에서 시작한다', () => {
+    // 아래 칸 몸통 윗선 558, 그 안 PDF 창 윗선 595 → 오프셋 37 만 얹는다
+    expect(noteBarAnchorTop(595, 38, 558)).toBe(75)
   })
 })
