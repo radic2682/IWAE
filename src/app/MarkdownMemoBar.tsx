@@ -1,6 +1,6 @@
-import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NoteBarHeader } from '../pdf/NoteBarHeader'
-import { MemoListView } from '../pdf/MemoListView'
+import { NoteOutline, useExpandQuotesWhileWide } from '../pdf/NoteOutline'
 import { NoteFlow, type NoteFlowItem } from '../pdf/NoteFlow'
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from '../pdf/MemoColumn'
 import { useMemoNoteApi } from '../pdf/memoNoteContext'
@@ -45,6 +45,7 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [openQuotes, setOpenQuotes] = useState<ReadonlySet<string>>(() => new Set())
   const [formatSlot, setFormatSlot] = useState<HTMLDivElement | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const [query, setQuery] = useState('')
   const highlightById = useMemo(() => new Map(highlights.map((item) => [item.id, item])), [highlights])
   const blocks: readonly MemoNoteBlock[] = noteApi?.openNote?.blocks ?? []
@@ -99,6 +100,8 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
 
   const noteMemos = items.flatMap((item) => (item.kind === 'memo' && item.draft !== true ? [item.highlight] : []))
   const anyQuoteOpen = noteMemos.some((highlight) => openQuotes.has(highlight.id))
+  // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
+  useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
   const appendText = () => {
     const block = textBlock()
     updateNote((note) => insertBlock(note, block, note.blocks.length))
@@ -150,30 +153,13 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
           <p>{t('열린 노트가 없습니다.')}</p>
           {noteApi === null ? null : <button type="button" onClick={() => void noteApi.create()}>{t('새 노트 만들기')}</button>}
         </div>
-      ) : memoOnly ? (
-        <div className="markdown-memo-only">
-          <MemoListView
-            title={noteApi.openTitle ?? t('노트 없음')}
-            items={items}
-            currentDocId={docId}
-            query={query}
-            docTitle={(id) => docTitles?.[id] ?? ''}
-            pageSizeOf={(highlight) => highlight.pageSize}
-            onSave={(id, content) => onHighlightUpdated?.(id, { note: content.text, noteHtml: content.html })}
-            onSaveText={(key, content) => updateNote((note) => content.text.trim() === '' ? removeBlock(note, key) : updateTextBlock(note, key, content.text, content.html))}
-            onOpen={(highlight) => {
-              onMemoOnlyChange?.(false)
-              window.setTimeout(() => onJump(highlight), 0)
-            }}
-          />
-        </div>
       ) : (
-        <div className="markdown-memo-bar-body">
+        <div className={`markdown-memo-bar-body${memoOnly ? ' note-wide' : ''}`}>
           <div className="note-format-dock">
             <div className="note-format-slot" ref={setFormatSlot} />
             {draft === null && editingKey === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
           </div>
-          <div className="pdf-memo-bar-scroll" style={{ paddingLeft: 12 }}>
+          <div ref={scrollRef} className="pdf-memo-bar-scroll" style={memoOnly ? undefined : { paddingLeft: 12 }}>
           {items.length === 0 ? <p className="note-empty-hint">{t('Markdown 에서 글을 고르면 이 노트에 메모가 생깁니다.')}</p> : null}
           <MemoFormatSlotContext.Provider value={formatSlot}>
             <NoteFlow
@@ -213,7 +199,12 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
               openQuotes={openQuotes}
               onRate={(id, rating) => onHighlightUpdated?.(id, { rating })}
               onMove={(keys, beforeKey) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note))}
-              onJump={onJump}
+              onJump={(highlight) => {
+                // 메모만 보기에서 원문을 누르면 문서와 같이 보기로 돌아가 그 자리로 간다
+                if (!memoOnly) { onJump(highlight); return }
+                onMemoOnlyChange?.(false)
+                window.setTimeout(() => onJump(highlight), 0)
+              }}
               onCardLayout={() => undefined}
               onRenameSection={(key, sectionTitle) => updateNote((note) => updateSection(note, key, { title: sectionTitle }))}
               onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
@@ -229,6 +220,9 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
             />
           </MemoFormatSlotContext.Provider>
           </div>
+          {memoOnly ? (
+            <NoteOutline items={items} query={query} scrollerRef={scrollRef} onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))} />
+          ) : null}
         </div>
       )}
     </aside>

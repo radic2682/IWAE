@@ -195,8 +195,7 @@
 
 .pdf-memo-topic-empty { border: 1px dashed var(--divider); background: transparent; color: var(--text-strong); font-weight: 500; opacity: 0; }
 .pdf-memo-card:hover .pdf-memo-topic-empty,
-.pdf-memo-card-editing .pdf-memo-topic-empty,
-.pdf-memo-list-row .pdf-memo-topic-empty { opacity: 1; }
+.pdf-memo-card-editing .pdf-memo-topic-empty { opacity: 1; }
 
 .pdf-memo-category-menu {
   position: absolute;
@@ -295,7 +294,6 @@
   background: inherit;
 }
 
-.pdf-memo-bar-wide .pdf-memo-header { padding: 8px 24px; }
 .pdf-memo-bar-body { position: absolute; top: 0; right: 0; bottom: 0; left: 0; clip-path: inset(0 0 0 -4000px); }
 .pdf-memo-bar-wide .pdf-memo-bar-body { clip-path: none; overflow: hidden; }
 .pdf-memo-bar-inner { position: absolute; top: 0; left: 0; width: 100%; will-change: transform; }
@@ -404,61 +402,6 @@
 
 /* ---------- 메모만 보기 ---------- */
 .pdf-pane-memo-hidden { visibility: hidden; }
-
-.pane-doc .pdf-memo-only {
-  position: absolute;
-  inset: 47px 0 0;
-  overflow: auto;
-  padding: 6px 24px 40px;
-}
-
-.pdf-memo-list { display: grid; gap: 10px; max-width: 1100px; margin: 0 auto; }
-.pdf-memo-list-scope { color: var(--text-strong); font-size: 13px; }
-.pdf-memo-list-empty { margin: 40px 0; color: var(--text-strong); text-align: center; }
-
-.pdf-memo-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
-  overflow: hidden;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  background: var(--paper);
-}
-
-.pdf-memo-list-source { min-width: 0; padding: 12px 14px; border-right: 1px solid var(--divider); }
-
-.pdf-memo-list-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  color: var(--text-strong);
-  font-size: 12.5px;
-}
-
-.pdf-memo-list-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: auto;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.pdf-memo-list-quote { padding: 2px 6px; border-radius: 3px; color: var(--text-strong); font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
-.pdf-memo-list-quote-yellow { background: rgb(255 214 0 / 22%); }
-.pdf-memo-list-quote-green { background: rgb(70 214 110 / 18%); }
-.pdf-memo-list-quote-blue { background: rgb(80 165 255 / 16%); }
-.pdf-memo-list-quote-pink { background: rgb(255 105 165 / 15%); }
-
-.pdf-memo-list-crop { position: relative; max-width: 100%; overflow: hidden; border: 1px solid var(--divider); border-radius: 4px; background: #fff; }
-.pdf-memo-list-crop img { position: absolute; max-width: none; user-select: none; }
-
-.pdf-memo-list-note { display: grid; align-content: start; gap: 4px; padding: 12px 14px; background: color-mix(in srgb, var(--paper) 92%, var(--workspace)); }
 
 /* ---------- 메모 바 너비 조절(왼쪽 가장자리를 끈다) ---------- */
 .pdf-memo-bar-resize {
@@ -597,7 +540,6 @@
   border-bottom: 1px solid var(--divider);
   background: var(--paper);
 }
-.pane-doc .pdf-memo-bar-wide .pdf-memo-header { padding: 0 24px; }
 .pane-doc .pdf-memo-header .pdf-memo-search { height: 28px; }
 .pane-doc .pdf-memo-header .pdf-memo-header-button { width: 28px; height: 28px; }
 

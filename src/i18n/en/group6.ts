@@ -264,12 +264,11 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '형광펜과 메모 지우기': 'Delete highlight and memo',
   '글 지우기': 'Delete text',
   '소제목 지우기(블록은 남김)': 'Delete section (keep blocks)',
-  // MemoListView
+  // 메모만 보기 · NoteOutline
   '메모만 보기': 'Memos only',
-  '노트가 비어 있습니다. PDF에서 글을 끌거나, 표·그림을 영역 캡처 도구(또는 Ctrl+끌기)로 감싸 메모를 만드세요.': 'The note is empty. Drag text in the PDF, or box a table or figure with the region capture tool (or Ctrl+drag), to make a memo.',
+  '노트 목차': 'Note outline',
   '다른 PDF': 'Other PDF',
   '표/그림': 'Table/figure',
-  '원문 보기': 'View source',
   // PdfPins · PdfOverlayLayer · PageImage
   '{title} · {page}쪽': '{title} · p. {page}',
   '책갈피 {title} {page}쪽': 'Bookmark {title}, page {page}',

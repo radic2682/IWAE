@@ -9,7 +9,7 @@ import {
   type PersistentPdfHighlight,
 } from './persistentHighlight'
 import { MemoColumn, type MemoTarget } from './MemoColumn'
-import { MemoListView } from './MemoListView'
+import { NoteOutline, outlineEntries } from './NoteOutline'
 
 const anchor = (docId: string, page: number, y: number, quote = `quote ${y}`) => ({
   docId, page, coordSpace: 'pdfium-page' as const,
@@ -129,26 +129,41 @@ describe('메모 카드 열', () => {
   })
 })
 
-describe('메모만 보기', () => {
+describe('메모만 보기 목차', () => {
   const highlights = [
     memo('doc-a', 30, 380, '펄스 폭으로 구분'),
-    memo('doc-b', 5, 200, '다른 문서의 TODO'),
+    memo('doc-a', 5, 200, ''),
   ]
   const items = [
-    { kind: 'text' as const, key: 't1', text: '머리말 글' },
-    { kind: 'memo' as const, key: 'b1', highlight: highlights[0]! },
-    { kind: 'memo' as const, key: 'b2', highlight: highlights[1]!, docLabel: '다른 스펙' },
+    { kind: 'text' as const, key: 't1', text: '머리말 글\n둘째 줄' },
+    { kind: 'section' as const, key: 's1', title: '실험', collapsed: false, count: 2 },
+    { kind: 'memo' as const, key: 'b1', highlight: highlights[0]!, ticket: { id: 'REQ-01', title: '펄스 폭' } },
+    { kind: 'memo' as const, key: 'b2', highlight: highlights[1]! },
+    { kind: 'memo' as const, key: 'draft', highlight: highlights[1]!, draft: true },
   ]
 
-  it('노트의 차례대로: 글 블록은 한 줄 전체, 메모는 원문과 나란히. 원문 보기로 돌아간다', () => {
-    const onOpen = vi.fn()
-    const { container } = render(<MemoListView title="TODO" items={items} currentDocId="doc-a" query="" docTitle={(id) => (id === 'doc-b' ? '다른 스펙' : '이 스펙')}
-      pageSizeOf={() => [612, 792] as const} onSave={vi.fn()} onOpen={onOpen} />)
-    expect([...container.querySelectorAll('.pdf-memo-list-row .pdf-memo-card-text')].map((el) => el.textContent)).toEqual(['머리말 글', '펄스 폭으로 구분', '다른 문서의 TODO'])
-    expect(screen.getByText('TODO')).toBeTruthy()
-    expect(container.textContent).toContain('다른 스펙 · p.6')
-    fireEvent.click(screen.getAllByRole('button', { name: /원문 보기/ })[1]!)
-    expect(onOpen).toHaveBeenCalledWith(highlights[1])
+  it('줄 이름: 소제목은 제목, 메모는 ID·제목 → 메모 첫 줄 → 원문 앞부분, 글은 첫 줄. 소제목 아래는 안쪽으로, 새 메모(초안)는 뺀다', () => {
+    const entries = outlineEntries(items)
+    expect(entries.map((entry) => [entry.kind, entry.id, entry.text, entry.nested])).toEqual([
+      ['text', undefined, '머리말 글', false],
+      ['section', undefined, '실험', false],
+      ['memo', 'REQ-01', '펄스 폭', true],
+      ['memo', undefined, highlights[1]!.anchor.quote.replace(/\s+/gu, ' ').trim(), true],
+    ])
+    expect(outlineEntries([{ kind: 'memo', key: 'n', highlight: { ...highlights[0]!, note: '\n  첫 줄 메모\n다음' } }])[0]?.text).toBe('첫 줄 메모')
+  })
+
+  it('목차는 줄을 누르면 그 블록으로 스크롤한다(좁으면 감춘다)', () => {
+    const scroller = document.createElement('div')
+    Object.defineProperty(scroller, 'clientWidth', { value: 1400 })
+    scroller.scrollTo = vi.fn() as never
+    scroller.innerHTML = '<div data-note-block="b1"></div>'
+    document.body.append(scroller)
+    const { container } = render(<NoteOutline items={items} scrollerRef={{ current: scroller }} />)
+    fireEvent.click(screen.getByRole('button', { name: /펄스 폭/ }))
+    expect(scroller.scrollTo).toHaveBeenCalled()
+    expect(container.querySelector('.note-outline')).not.toBeNull()
+    scroller.remove()
   })
 })
 

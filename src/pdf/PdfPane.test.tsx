@@ -537,7 +537,7 @@ describe('PdfPane — 형광펜 메모', () => {
     await waitFor(() => expect(renderedPages(spread.container).sort()).toEqual([2, 3]))
   })
 
-  it('메모 바는 맨 위 줄 단추(공유 상태)로 닫았다 열고, 메모만 보기로 바꾸면 PDF 자리에 메모 목록이 나온다', async () => {
+  it('메모 바는 맨 위 줄 단추(공유 상태)로 닫았다 열고, 메모만 보기로 바꾸면 PDF 자리에 같은 노트 블록이 넓게 나온다', async () => {
     window.localStorage.removeItem('iwae:pdf-memo-column:v1')
     resetMemoStore()
     const highlight = {
@@ -556,10 +556,12 @@ describe('PdfPane — 형광펜 메모', () => {
     act(() => setMemoBarVisible(true))
     await waitFor(() => expect(container.querySelector('.pdf-memo-card')).not.toBeNull())
     fireEvent.click(await findByRole('button', { name: '메모만 보기' }))
-    expect(await findByRole('region', { name: '메모만 보기' })).toBeTruthy()
-    expect(container.querySelector('.pdf-memo-list-quote')?.textContent).toBe('Tstrpw')
+    await waitFor(() => expect(container.querySelector('.pdf-memo-bar-body.note-wide .pdf-memo-card')).not.toBeNull())
+    expect(container.querySelector('.pdf-memo-bar-wide')).not.toBeNull()
+    // 원문은 펼쳐 보인다
+    expect(container.querySelector('.pdf-memo-bar-wide .pdf-memo-card-quote')?.textContent).toContain('Tstrpw')
     fireEvent.click(await findByRole('button', { name: '문서와 같이 보기' }))
-    expect(container.querySelector('.pdf-memo-list')).toBeNull()
+    expect(container.querySelector('.pdf-memo-bar-wide')).toBeNull()
   })
 
   it('형광펜을 클릭하면 오른쪽 메모 카드가 글쓰기로 열리고 고친 메모를 올려 보낸다', async () => {

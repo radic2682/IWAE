@@ -135,12 +135,12 @@ export function NoteBarHeader({
       >
         <MagnifyingGlass size={15} aria-hidden="true" />
       </button>
-      {noteOpen && memoOnly !== true && onAddText !== undefined ? (
+      {noteOpen && onAddText !== undefined ? (
         <button type="button" className="pdf-memo-header-button" aria-label={t('글 블록 넣기')} title={t('글 블록 넣기')} onClick={onAddText}>
           <Plus size={15} weight="bold" aria-hidden="true" />
         </button>
       ) : null}
-      {memoOnly === true || onToggleQuotes === undefined || anyQuoteOpen === undefined ? null : (
+      {onToggleQuotes === undefined || anyQuoteOpen === undefined ? null : (
         <button
           type="button"
           className="pdf-memo-header-button"

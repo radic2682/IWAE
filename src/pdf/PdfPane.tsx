@@ -35,7 +35,7 @@ import { PdfFloatPalette, PdfOverlayPalette } from './PdfOverlayPalette'
 import type { OverlayPatch, PdfOverlay } from '../core/pdfOverlays'
 import { announceAction } from '../app/actionFeedback'
 import { BOX_DEFAULT_WIDTH, placeBoxMemo } from '../core/boxMemo'
-import { MemoListView } from './MemoListView'
+import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
 import { useMemoBarVisible, setMemoBarVisible } from './memoStore'
 import { useMemoNoteApi } from './memoNoteContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
@@ -465,6 +465,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   })
   if (draftMemo !== null && draftIndex >= noteBlocks.length) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true })
   const noteMemos = noteItems.flatMap((item) => item.kind === 'memo' && item.draft !== true ? [item.highlight] : [])
+  // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
+  useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
   // 창을 여러 칸으로 나눴으면 노트 바는 맨 오른쪽 위 칸에만
   const noteHost = useIsNoteHostPane(scrollerRef)
   const memoColumn = primary && noteHost && memoAvailable && memoColumnVisible && !memoOnly
@@ -1565,27 +1567,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
             noteApi.close?.()
           }}
         />
-        {memoOnly ? (
-          <div className="pdf-memo-only">
-            <MemoListView
-              title={noteApi === null ? (docTitles?.[docId] ?? t('이 PDF')) : noteApi.openTitle ?? t('노트 없음')}
-              items={noteItems}
-              currentDocId={docId}
-              query={memoQuery}
-              docTitle={(id) => docTitles?.[id] ?? ''}
-              pageSizeOf={(highlight) => highlight.anchor.docId === docId ? pageSizes[highlight.anchor.page] : highlight.pageSize}
-              onSave={(id, content) => onPersistentHighlightUpdated?.(id, { note: content.text, noteHtml: content.html })}
-              onSaveText={saveTextBlock}
-              onOpen={(highlight) => {
-                setMemoOnly(false)
-                window.setTimeout(() => jumpToMemo(highlight), 0)
-              }}
-            />
-          </div>
-        ) : (
-          <div className="pdf-memo-bar-body" style={{ top: `${barBodyTop}px` }}>
+          <div className={`pdf-memo-bar-body${memoOnly ? ' note-wide' : ''}`} style={{ top: `${barBodyTop}px` }}>
 
-            {(() => {
+            {memoOnly ? null : (() => {
               // 형광펜(PDF 화면 좌표) → 카드(바 화면 좌표). 둘 다 보일 때만 잇는다
               const pageEdge = Math.min(contentLeft + contentWidth - scrollLeft - measured.width, 0)
               const bend = pageEdge + (MEMO_CARD_INSET - pageEdge) / 2
@@ -1610,7 +1594,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
             <div
               ref={memoBarScrollRef}
               className="pdf-memo-bar-scroll"
-              style={{ paddingLeft: `${MEMO_CARD_INSET}px` }}
+              style={memoOnly ? undefined : { paddingLeft: `${MEMO_CARD_INSET}px` }}
               onScroll={(event) => {
                 const element = event.currentTarget
                 setMemoBarScroll({ top: element.scrollTop, height: element.clientHeight })
@@ -1653,7 +1637,12 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 openQuotes={openQuotes}
                 onRate={(id, rating) => patchMemo(id, { rating })}
                 onMove={(keys, beforeKey) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note))}
-                onJump={jumpToMemo}
+                onJump={(highlight) => {
+                  // 메모만 보기에서 원문·쪽을 누르면 문서와 같이 보기로 돌아가 그 자리로 간다
+                  if (!memoOnly) { jumpToMemo(highlight); return }
+                  setMemoOnly(false)
+                  window.setTimeout(() => jumpToMemo(highlight), 0)
+                }}
                 onCardLayout={setMemoCardLayout}
                 onRenameSection={(key, title) => updateNote((note) => updateSection(note, key, { title }))}
                 onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
@@ -1665,8 +1654,10 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               />
               </MemoFormatSlotContext.Provider>
             </div>
+            {memoOnly ? (
+              <NoteOutline items={noteItems} query={memoQuery} scrollerRef={memoBarScrollRef} onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))} />
+            ) : null}
           </div>
-        )}
         </aside>
         )
         return paneFrame === null ? bar : createPortal(bar, paneFrame)

@@ -1,0 +1,41 @@
+/* ---------- 메모만 보기: 노트 바와 같은 블록을 글 칸 폭(708px)으로 가운데에 놓고, 왼쪽 빈 곳에 목차 ---------- */
+.pane-doc .markdown-memo-bar-body.note-wide { position: relative; }
+.pane-doc .note-wide > .pdf-memo-bar-scroll { padding-left: 12px; }
+.pane-doc .note-wide > .pdf-memo-bar-scroll > * { box-sizing: border-box; width: min(100%, 708px); align-self: center; flex-shrink: 0; }
+.pane-doc .note-wide > .note-format-dock { padding-inline: max(12px, calc((100% - 708px) / 2)); }
+
+/* 검색어에 맞지 않는 블록은 흐리게 두지 않고 걸러 낸다(전엔 목록이 그랬다) */
+.pane-doc .note-wide .pdf-memo-card-dim { display: none; }
+
+/* 원문은 형광펜 색을 옅게 입혀 한눈에 구분한다(점 색과 같은 계열) */
+.pane-doc .note-wide .note-block.note-block .pdf-memo-card-quote.note-source.note-source {
+  background: color-mix(in srgb, var(--memo-dot, #f2c418) 22%, transparent) !important;
+}
+
+/* 목차 */
+.note-outline {
+  position: absolute; z-index: 3; bottom: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 14px 4px 24px 0; overflow-x: hidden; overflow-y: auto;
+  scrollbar-width: thin;
+}
+.note-outline-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.note-outline-nested { padding-left: 22px; }
+.note-outline-section { margin-top: 6px; }
+.note-outline-toggle {
+  display: inline-grid; place-items: center; flex: 0 0 18px; width: 18px; height: 22px; padding: 0;
+  border: 0; border-radius: 5px; background: transparent; color: var(--text-strong); cursor: pointer;
+}
+.note-outline-toggle:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
+.note-outline-item {
+  display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; height: 26px; padding: 0 8px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong);
+  font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+}
+.note-outline-section .note-outline-item { font-weight: 650; }
+.note-outline-item:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
+.note-outline-item[aria-current='true'] { background: var(--selected-bg); color: var(--text-strong); }
+.note-outline-item .pdf-memo-dot { flex: 0 0 9px; }
+.note-outline-id { flex: 0 0 auto; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.note-outline-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-outline-item .note-section-count { flex: 0 0 auto; }
