@@ -6,7 +6,7 @@ import { NoteBarHeader } from './NoteBarHeader'
 import { useHighlightTool } from './highlightToolStore'
 import { useOverlayTool, useToolStyle } from './overlayToolStore'
 import { HighlighterStrip } from './HighlighterTool'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { PdfPins, PinHead, type PlacedPin, type PdfPinPatchInput } from './PdfPins'
 import type { PdfBookmark } from '../core/pdfBookmarks'
 import type { Anchor } from '../core/anchor'
@@ -19,6 +19,7 @@ import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import { prewarmPdfTextDetector } from './ocrTextDetector'
 import { ScanBadge } from './ScanBadge'
 import { getAppPrefs } from '../app/appPrefs'
+import { useBarZoom, useBarZoomWheel } from '../app/useBarZoom'
 import { layoutPages, layoutSpread, pageUnitAt, spreadHeight, totalHeight, visibleRange, type SpreadBox } from './pageLayout'
 import { spreadColumns, type PdfRotation, type PdfSpread } from '../core/pdfViewPrefs'
 import { renderWidthFor } from './renderWidth'
@@ -418,6 +419,11 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   })
   const memoAvailable = rotation === 0 && onPersistentHighlightUpdated !== undefined
   const [memoOnly, setMemoOnly] = useState(false)
+  // 오른쪽 노트 바 안쪽 확대(Ctrl+휠). 메모만 보기(넓은 화면)에서는 쓰지 않는다
+  const rightZoom = useBarZoom('right')
+  const barZoom = memoOnly ? 1 : rightZoom
+  const [noteBarEl, setNoteBarEl] = useState<HTMLElement | null>(null)
+  useBarZoomWheel(noteBarEl, 'right', !memoOnly)
   const [memoQuery, setMemoQuery] = useState('')
   const [localFlashId, setLocalFlashId] = useState<string | null>(null)
   // 오른쪽 바는 열린 「노트」를 보인다(PDF 와 따로 열리고, 여러 PDF 의 메모와 글 블록을 담는다).
@@ -600,7 +606,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       setMemoBarScroll({ top: element.scrollTop, height: element.clientHeight })
     }
     // 노트 목록은 맨 위 서식 도구 아래에서 시작한다. 선은 그 아래에만 그린다
-    const bottom = element.offsetTop
+    // (확대한 목록의 offsetTop 은 확대 전 단위라서 화면에 보이는 자리로 잰다)
+    const parentTop = element.parentElement?.getBoundingClientRect().top ?? 0
+    const bottom = Math.round(element.getBoundingClientRect().top - parentTop)
     if (bottom !== dockBottom) setDockBottom(bottom)
   })
   // 쓰기 시작한 카드(새 메모·PDF 에서 누른 형광펜)는 메모 바에서 보이게 굴린다
@@ -641,8 +649,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (unit !== null && (target.highlight.anchor.page < unit.first || target.highlight.anchor.page > unit.last)) return []
     const inCellY = target.anchorY - scrollTop + paneInsetTop
     const anchorY = inCellY + cellPlace.top
-    const cardY = box.top - memoBarScroll.top + 18 + dockBottom
-    if (inCellY < 0 || inCellY > measured.height || cardY < dockBottom || cardY > dockBottom + memoBarScroll.height) return []
+    // 카드 자리(box.top·scrollTop·높이)는 확대 전 단위라서 바 확대 배율을 곱해 화면 자리로 바꾼다
+    const cardY = (box.top - memoBarScroll.top + 18) * barZoom + dockBottom
+    if (inCellY < 0 || inCellY > measured.height || cardY < dockBottom || cardY > dockBottom + memoBarScroll.height * barZoom) return []
     const active = target.key === activeMemoId || target.key === editingMemoId || target.draft === true
     return [{ target, anchorY, cardY, active }]
   }).sort((a, b) => Number(a.active) - Number(b.active))
@@ -1522,9 +1531,10 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       {primary && noteHost && memoAvailable && (memoColumn || memoOnly) ? (() => {
         const bar = (
         <aside
+          ref={setNoteBarEl}
           className={`pdf-memo-bar${memoOnly ? ' pdf-memo-bar-wide' : ''}`}
           aria-label={t('메모')}
-          style={memoOnly ? undefined : { width: `${memoBarSize}px` }}
+          style={memoOnly ? undefined : { width: `${memoBarSize}px`, '--bar-zoom': barZoom } as CSSProperties}
           data-memo-bar={docId}
         >
         {memoOnly ? null : (
@@ -1572,13 +1582,14 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
             {memoOnly ? null : (() => {
               // 형광펜(PDF 화면 좌표) → 카드(바 화면 좌표). 둘 다 보일 때만 잇는다
               const pageEdge = Math.min(contentLeft + contentWidth - scrollLeft - measured.width, 0)
-              const bend = pageEdge + (MEMO_CARD_INSET - pageEdge) / 2
+              const cardEdge = MEMO_CARD_INSET * barZoom
+              const bend = pageEdge + (cardEdge - pageEdge) / 2
               const lines = memoLinkLines
               return (
-                <svg className="pdf-memo-links pdf-memo-links-flow" width={memoBarSize} height={Math.max(memoBarScroll.height + dockBottom, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
+                <svg className="pdf-memo-links pdf-memo-links-flow" width={memoBarSize} height={Math.max(memoBarScroll.height * barZoom + dockBottom, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
                   {lines.map(({ target, anchorY, cardY, active }) => (
                     <g key={target.key} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
-                      <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${MEMO_CARD_INSET} ${cardY}`} />
+                      <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${cardEdge} ${cardY}`} />
                     </g>
                   ))}
                 </svg>

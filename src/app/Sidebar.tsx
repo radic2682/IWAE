@@ -32,6 +32,7 @@ import type { GithubSource } from '../bridge/github'
 import { defaultVersion, hiddenVersionDocIds, type VersionGroup } from '../core/versionGroups'
 import type { VersionMenuActions } from './VersionMenu'
 import { DocNoteRows } from './DocNoteRows'
+import { attachBarZoomWheel, useBarZoom } from './useBarZoom'
 import { groupMemoNotesByDoc } from '../core/memoNote'
 import '../ui/version-groups.css'
 import { cleanEntryName } from '../bridge/vaultFiles'
@@ -535,6 +536,9 @@ export function Sidebar({
   const [selectedNodes, setSelectedNodes] = useState<ReadonlySet<string>>(() => new Set())
   const selectionAnchorRef = useRef<string | null>(null)
   const sidebarRef = useRef<HTMLElement | null>(null)
+  // 왼쪽 바 안쪽 확대: Ctrl+휠을 이 바 위에서 굴리면 목록만 커지고 작아진다(문서·오른쪽 바와 따로)
+  const leftZoom = useBarZoom('left')
+  useEffect(() => (sidebarRef.current === null ? undefined : attachBarZoomWheel(sidebarRef.current, 'left')), [])
   const [reorderAnnouncement, setReorderAnnouncement] = useState('')
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -1594,6 +1598,7 @@ export function Sidebar({
     <nav
       ref={sidebarRef}
       className={`sidebar-inner${libraryExpanded ? ' sidebar-inner-library' : ''}`}
+      style={{ '--bar-zoom': leftZoom } as CSSProperties}
       onKeyDown={(event) => {
         // 메뉴·이름 바꾸기가 열려 있을 때의 Escape 는 그것만 닫는다.
         // 라이브러리 모드를 접는 앱 단축키까지 가면 정리하던 화면이 사라진다.

@@ -193,3 +193,8 @@
 .sidebar .side-version-line-open:hover { background: var(--selected-bg-strong); }
 .sidebar .side-section .side-tree-row > .side-version-line > .side-doc-note-add.side-doc-note-add-with-caret { right: 34px; }
 .sidebar .side-section .side-version-line:hover > .side-item:has(~ .side-doc-note-add) { padding-right: 30px; }
+
+/* ---------- 바 안쪽 확대(Ctrl+휠): 왼쪽 바 목록 ---------- */
+.sidebar-inner > .side-scroll { zoom: var(--bar-zoom, 1); }
+/* 확대된 목록 안의 떠 있는 메뉴(마우스 자리에 놓는다)는 확대에서 빼 마우스 자리와 어긋나지 않게 */
+.sidebar-inner > .side-scroll :is(.side-context-menu, .side-menu-backdrop) { zoom: calc(1 / var(--bar-zoom, 1)); }

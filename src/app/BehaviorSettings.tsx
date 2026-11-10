@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { t } from '../i18n'
 import { isMacPlatform } from '../core/platform'
-import { setAppPref, useAppPrefs, type AppPrefs } from './appPrefs'
+import { setAppPref, useAppPrefs, type AppFlagPrefs } from './appPrefs'
 import { GESTURES } from './useMouseGestures'
 
 /** 켜기·끄기 한 줄(번역 캐시와 같은 카드 꼴) */
-function PrefToggle({ pref, title, description }: { readonly pref: keyof AppPrefs; readonly title: string; readonly description: string }) {
+function PrefToggle({ pref, title, description }: { readonly pref: keyof AppFlagPrefs; readonly title: string; readonly description: string }) {
   const prefs = useAppPrefs()
   return (
     <label className="translation-cache-toggle behavior-toggle">

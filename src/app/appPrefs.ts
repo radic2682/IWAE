@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from 'react'
+import { BAR_ZOOM_DEFAULT, clampBarZoom } from '../core/barZoom'
 
 /**
  * 앱 동작 설정(이 PC 에만, localStorage). 설정 창의 「단축키·마우스」「검색·OCR」이 바꾸고,
  * 도구줄·마우스 제스처·색인·OCR 이 읽는다.
  */
-export interface AppPrefs {
+export interface AppFlagPrefs {
   /** 한 글자 도구 단축키(T·P·L·A·R·O·E) */
   readonly singleKeyShortcuts: boolean
   /** 오른쪽 버튼으로 그리는 마우스 제스처 */
@@ -15,13 +16,31 @@ export interface AppPrefs {
   readonly ocr: boolean
 }
 
-export const DEFAULT_APP_PREFS: AppPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true }
+export interface AppPrefs extends AppFlagPrefs {
+  /** 왼쪽 바 안쪽 확대(Ctrl+휠, 0.8~1.5) */
+  readonly leftBarZoom: number
+  /** 오른쪽 노트 바 안쪽 확대(Ctrl+휠, 0.8~1.5) */
+  readonly rightBarZoom: number
+}
+
+const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true }
+export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT }
 const KEY = 'iwae:app-prefs:v1'
+
+/** 저장된 JSON 에서 읽는다. 모르는 값·잘못된 값은 기본값, 확대는 80~150% 로 바로잡는다 */
+export function parseAppPrefs(text: string | null): AppPrefs {
+  try {
+    const saved = JSON.parse(text ?? '{}') as Partial<Record<keyof AppPrefs, unknown>>
+    const flags = Object.fromEntries(Object.entries(DEFAULT_FLAGS).map(([key, base]) => [key, typeof saved[key as keyof AppFlagPrefs] === 'boolean' ? saved[key as keyof AppFlagPrefs] : base])) as unknown as AppFlagPrefs
+    return { ...flags, leftBarZoom: clampBarZoom(saved.leftBarZoom), rightBarZoom: clampBarZoom(saved.rightBarZoom) }
+  } catch {
+    return { ...DEFAULT_APP_PREFS }
+  }
+}
 
 function read(): AppPrefs {
   try {
-    const saved = JSON.parse(window.localStorage.getItem(KEY) ?? '{}') as Partial<Record<keyof AppPrefs, unknown>>
-    return Object.fromEntries(Object.entries(DEFAULT_APP_PREFS).map(([key, base]) => [key, typeof saved[key as keyof AppPrefs] === 'boolean' ? saved[key as keyof AppPrefs] : base])) as unknown as AppPrefs
+    return parseAppPrefs(window.localStorage.getItem(KEY))
   } catch {
     return { ...DEFAULT_APP_PREFS }
   }
@@ -35,7 +54,7 @@ export function getAppPrefs(): AppPrefs {
 }
 
 export function setAppPref<K extends keyof AppPrefs>(key: K, value: AppPrefs[K]): void {
-  prefs = { ...prefs, [key]: value }
+  prefs = { ...prefs, [key]: key === 'leftBarZoom' || key === 'rightBarZoom' ? clampBarZoom(value) : value }
   try { window.localStorage.setItem(KEY, JSON.stringify(prefs)) } catch { /* 이번 실행만 */ }
   for (const listener of listeners) listener()
 }

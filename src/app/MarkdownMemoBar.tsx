@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type CSSProperties } from 'react'
 import { NoteBarHeader } from '../pdf/NoteBarHeader'
 import { NoteOutline, useExpandQuotesWhileWide } from '../pdf/NoteOutline'
 import { NoteFlow, type NoteFlowItem } from '../pdf/NoteFlow'
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from '../pdf/MemoColumn'
 import { useMemoNoteApi } from '../pdf/memoNoteContext'
+import { useBarZoom, useBarZoomWheel } from './useBarZoom'
 import { t } from '../i18n'
 import { insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
@@ -41,6 +42,10 @@ interface MarkdownMemoBarProps {
  */
 export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, onHighlightCreated, onHighlightUpdated, onHighlightRemoved, onJump, docTitles, attachingKey = null, onAddRef, memoOnly = false, onMemoOnlyChange, width, onResizeStart, onResizeReset }: MarkdownMemoBarProps) {
   const noteApi = useMemoNoteApi()
+  // 오른쪽 바 안쪽 확대(Ctrl+휠): 메모만 보기(넓은 화면)에서는 쓰지 않는다
+  const rightZoom = useBarZoom('right')
+  const [barEl, setBarEl] = useState<HTMLElement | null>(null)
+  useBarZoomWheel(barEl, 'right', !memoOnly)
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [openQuotes, setOpenQuotes] = useState<ReadonlySet<string>>(() => new Set())
@@ -110,7 +115,12 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
 
   // PDF 메모 바와 같은 머리·같은 구조(맨 위 서식 줄 고정, 왼쪽 손잡이 자리)
   return (
-    <aside className={`pdf-memo-bar markdown-memo-bar${memoOnly ? ' markdown-memo-bar-full' : ''}`} aria-label={t('메모 바')} style={memoOnly || width === undefined ? undefined : { width: `${width}px` }}>
+    <aside
+      ref={setBarEl}
+      className={`pdf-memo-bar markdown-memo-bar${memoOnly ? ' markdown-memo-bar-full' : ''}`}
+      aria-label={t('메모 바')}
+      style={memoOnly ? undefined : { ...(width === undefined ? {} : { width: `${width}px` }), '--bar-zoom': rightZoom } as CSSProperties}
+    >
       {memoOnly || onResizeStart === undefined ? null : (
         <div
           className="pdf-memo-bar-resize"

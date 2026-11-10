@@ -662,7 +662,9 @@ export function MarkdownPane({
         if (highlight.anchor.docId !== path || highlight.box !== undefined) continue
         const card = scroller.querySelector<HTMLElement>(`[data-memo-id="${CSS.escape(highlight.id)}"]`)
         if (card === null) continue
-        const cardY = card.getBoundingClientRect().top + 18
+        // 오른쪽 바를 확대했으면 카드 안쪽 여백(18)도 같은 배율로 커진다
+        const barZoom = scroller.clientHeight > 0 ? sr.height / scroller.clientHeight : 1
+        const cardY = card.getBoundingClientRect().top + 18 * barZoom
         if (cardY < sr.top || cardY > sr.bottom) continue
         const region = highlight.kind === 'region' ? highlight.anchor.rects[0] : undefined
         const rects = region === undefined ? rectsOf(highlight.anchor.charRange) : [region]
@@ -682,7 +684,7 @@ export function MarkdownPane({
           anchorX: Math.round(ar.left + paper.left + right * paper.scale - fr.left),
           anchorY: Math.round(anchorY - fr.top),
           edge: Math.round(edge),
-          cardX: Math.round(br.left - fr.left + 12),
+          cardX: Math.round(br.left - fr.left + 12 * barZoom),
           cardY: Math.round(cardY - fr.top),
         })
       }

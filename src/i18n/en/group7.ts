@@ -208,6 +208,9 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '이 버전 열기': 'Open this version',
   '버전 이름 바꾸기': 'Rename version',
   '이 버전을 묶음에서 빼기': 'Remove this version from the group',
+  // 바 안쪽 확대 (app/useBarZoom.ts)
+  '왼쪽 바 {percent}%': 'Left bar {percent}%',
+  '오른쪽 바 {percent}%': 'Right bar {percent}%',
   // ui/TranslationCard.tsx (번역 카드)
   '노트에 넣기': 'Add to note',
   '다시': 'Again',
