@@ -1,21 +1,27 @@
 name: Feature request
-description: Propose a focused improvement to IWAE.
+description: Propose a focused improvement to IWAE. / 개선 제안을 남겨 주세요.
 title: "[Feature]: "
 labels:
   - enhancement
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Korean or English is fine. 한국어도 괜찮습니다.
+
+        Please check the [roadmap](https://github.com/radic2682/IWAE/blob/main/docs/ROADMAP.md) and search existing issues first. For open-ended ideas or "is this possible?" questions, start a [Discussion](https://github.com/radic2682/IWAE/discussions) instead.
   - type: textarea
     id: problem
     attributes:
       label: Problem
-      description: What reading, evidence, or note-taking problem should this solve?
+      description: What reading, evidence, or note-taking problem should this solve? Describe your workflow, not only the feature.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposed behavior
-      description: Describe the interaction and expected result.
+      description: Describe the interaction and expected result. A sketch or screenshot helps.
     validations:
       required: true
   - type: textarea
@@ -23,6 +29,14 @@ body:
     attributes:
       label: Alternatives considered
       description: Explain current workarounds or other approaches you considered.
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you like to help build it?
+      options:
+        - No, I am only suggesting it
+        - I can test it
+        - I can send a pull request
   - type: checkboxes
     id: local_first
     attributes:

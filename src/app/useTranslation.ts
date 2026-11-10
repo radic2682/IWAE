@@ -10,6 +10,7 @@ import {
   type TranslationStatus,
 } from '../core/translation'
 import {
+  deeplEndpointForKey,
   externalProviderInfo,
   isKeylessProvider,
   loadTranslationSettings,
@@ -306,7 +307,7 @@ export function useTranslation({ provider, storage }: UseTranslationOptions): Tr
       const result = settings.executionMode === 'external-api'
         ? await translateWithExternalProvider(provider, {
             provider: settings.externalProvider,
-            endpoint: settings.externalEndpoint,
+            endpoint: settings.externalProvider === 'deepl' ? deeplEndpointForKey(settings.externalEndpoint, externalApiKey) : settings.externalEndpoint,
             apiKey: externalApiKey,
             model: selectedModel,
             text,
@@ -330,7 +331,7 @@ export function useTranslation({ provider, storage }: UseTranslationOptions): Tr
       if (activeTranslations.get(provider) === token) activeTranslations.delete(provider)
       if (requestId.current === currentRequest && mounted.current) setIsTranslating(false)
     }
-  }, [externalApiKey, provider, selectedModel, settings.endpoint, settings.executionMode, settings.externalEndpoint, settings.targetLanguage, status])
+  }, [externalApiKey, provider, selectedModel, settings.endpoint, settings.executionMode, settings.externalEndpoint, settings.externalProvider, settings.targetLanguage, status])
 
   const pullModel = useCallback(async (model: string): Promise<void> => {
     if (pullingRef.current !== null) throw new Error(t('{model} 모델을 받는 중입니다.', { model: pullingRef.current }))

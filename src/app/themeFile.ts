@@ -1,4 +1,5 @@
 import { isDesktop } from '../bridge/window'
+import { THEME_FILE_EXTENSION } from '../core/themeFile'
 
 /**
  * 테마 파일(JSON)을 저장한다. 데스크톱에서는 저장 위치를 묻고 그 경로를 돌려준다(취소하면 null).
@@ -15,7 +16,7 @@ export async function saveThemeFile(suggestedName: string, text: string): Promis
     return suggestedName
   }
   const { save } = await import('@tauri-apps/plugin-dialog')
-  const path = await save({ defaultPath: suggestedName, filters: [{ name: 'IWAE 테마', extensions: ['json'] }] })
+  const path = await save({ defaultPath: suggestedName, filters: [{ name: 'IWAE 테마', extensions: ['iwtheme', 'json'] }] })
   if (path === null) return null
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
   await writeTextFile(path, text)
@@ -25,5 +26,9 @@ export async function saveThemeFile(suggestedName: string, text: string): Promis
 /** 파일 이름에 못 쓰는 글자를 빼서 "테마-이름.json" 으로 */
 export function themeFileName(name: string): string {
   const clean = name.replace(/[\/:*?"<>|]+/g, '').trim() || '테마'
-  return `IWAE-테마-${clean}.json`
+  return `IWAE-테마-${clean}${THEME_FILE_EXTENSION}`
+}
+
+export function templateFileName(): string {
+  return `IWAE-테마-템플릿${THEME_FILE_EXTENSION}`
 }

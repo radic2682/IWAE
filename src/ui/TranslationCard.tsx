@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type SyntheticEvent } from 'react'
+import { explainTranslationError, isTranslationNotConfigured } from '../core/translationErrors'
 import { ArrowClockwise, ArrowRight, CaretDown, Check, Copy, Plus, X } from '@phosphor-icons/react'
 import { announceAction } from '../app/actionFeedback'
 import { t } from '../i18n'
@@ -212,13 +213,15 @@ export function TranslationCard({ original, state, ariaLabel, onClose, onRetry, 
         ) : null}
         {pending ? <p className="translation-card-pending" role="status">{t('번역 중…')}</p> : null}
         {state.status === 'error' ? (
-          <p className="translation-card-error" role="alert">{t('번역 실패: {message}', { message: state.message })}</p>
+          isTranslationNotConfigured(state.message)
+            ? <p className="translation-card-error translation-card-setup" role="alert">{t('번역기를 아직 설정하지 않았습니다. 설정에서 번역기(키 없이 쓰는 Google 번역 포함)를 고르세요.')}</p>
+            : <p className="translation-card-error" role="alert">{t('번역 실패: {message}', { message: friendlyCardError(state.message) })}</p>
         ) : null}
       </div>
 
       <div className="translation-card-footer">
         {state.status === 'error' ? (
-          <button type="button" className="translation-card-button" onClick={() => window.dispatchEvent(new Event(OPEN_TRANSLATION_SETTINGS_EVENT))}>
+          <button type="button" className={`translation-card-button${isTranslationNotConfigured(state.message) ? ' translation-card-primary' : ''}`} onClick={() => window.dispatchEvent(new Event(OPEN_TRANSLATION_SETTINGS_EVENT))}>
             {t('번역 설정 열기')}
           </button>
         ) : (
@@ -250,4 +253,10 @@ export function TranslationCard({ original, state, ariaLabel, onClose, onRetry, 
       </div>
     </div>
   )
+}
+
+/** 키·한도·지역 문제는 고칠 곳을 알려 주고, 나머지는 받은 메시지를 그대로 보인다 */
+function friendlyCardError(message: string): string {
+  const explained = explainTranslationError(message, /ollama/iu.test(message))
+  return explained.kind === 'key' || explained.kind === 'quota' || explained.kind === 'region' ? explained.text : message
 }

@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
+import { ShortcutOverlay } from './ShortcutOverlay'
+import { shortcutText } from '../core/shortcutRegistry'
 import { InputSettings, SearchSettings } from './BehaviorSettings'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
@@ -67,6 +69,7 @@ import { useWorkspaceSources, type WorkspaceSourceState } from './useWorkspaceSo
 import { TranslationSettings } from './TranslationSettings'
 import { SettingsModal } from './SettingsModal'
 import { AboutDialog } from './AboutDialog'
+import { ReportProblemDialog } from './ReportProblemDialog'
 import { ThemeSettings } from './ThemeSettings'
 import { UiScaleSettings, useUiScale } from './UiScaleSettings'
 import { LanguageSettings } from './LanguageSettings'
@@ -163,9 +166,12 @@ import { isPowerPointPath, officeToPdf } from '../bridge/office'
 import { isMacPlatform } from '../core/platform'
 import { BibliographyDialog } from './BibliographyDialog'
 import { useBibliography } from './useBibliography'
+import { useInteropActions } from './useInteropActions'
+import { exportNotesAsMarkdown } from './markdownExportActions'
+import { AnnotationOfferBanner } from './AnnotationOfferBanner'
 import { toBibtex } from '../core/bibliography'
 import { readPdfViewPrefs, writePdfViewPrefs, type PdfRotation, type PdfViewPrefs } from '../core/pdfViewPrefs'
-import { openExternalUrl } from '../bridge/external'
+import { EXTERNAL_LINK_REQUEST_EVENT, openExternalUrl } from '../bridge/external'
 import { aiSetVault, listenAiLocation, ragIndex, type AiLocation } from '../bridge/ai'
 import { AiLocationInbox } from './AiLocationInbox'
 import { AiSettings } from './AiSettings'
@@ -186,6 +192,10 @@ import { currentWindowMode, windowQuery } from '../core/windowMode'
 import { queueInitialZoom } from './pendingViewState'
 import { hasPendingVaultRecovery } from '../bridge/vaultRecovery'
 import { listenForDocumentDrop } from '../bridge/fileDrop'
+import { ThemeIntakeHost } from './ThemeIntakeHost'
+import { isOverThemeSection, offerThemePaths, partitionThemeDrop, setThemeDropHover } from './themeIntake'
+import { useThemeFolder } from './themeFolder'
+import { isThemeFileName } from '../core/themeFile'
 import {
   SAMPLE_DOC_ID,
   SAMPLE_HAS_TEXT,
@@ -446,6 +456,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     openPdfAtPath,
     loadPdfById,
   } = vaultState
+  useThemeFolder(vault?.root ?? null)
   const injected = effectiveLibrary !== undefined && effectiveNotebooks !== undefined
   // 사이드바의 표시 이름이 파일 이름보다 앞선다(뒤에 오는 값이 이긴다).
   const docTitles = useMemo(() => Object.fromEntries([
@@ -550,7 +561,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     let disposed = false
     let unlisten: () => void = () => undefined
     void listenForDocumentDrop(
-      (paths, point) => routeDropRef.current(paths, dropZoneAt(point)),
+      (paths, point) => {
+        // 테마 파일은 문서로 가져오지 않고 「추가할까요?」 를 묻는다(.json 은 설정의 테마 구역 위에서만)
+        const { themePaths, rest } = partitionThemeDrop(paths, isOverThemeSection(point))
+        if (themePaths.length > 0) void offerThemePaths(themePaths)
+        if (rest.length > 0) routeDropRef.current(rest, dropZoneAt(point))
+      },
       (active, point) => {
         const zone = active ? dropZoneAt(point) : null
         setDocumentDropActive(zone?.kind === 'vault')
@@ -559,6 +575,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         setDocumentDropPlace((current) => current?.nodeId === place?.nodeId && current?.position === place?.position ? current : place)
         setReaderDropActive(zone?.kind === 'reader')
       },
+      setThemeDropHover,
     ).then((nextUnlisten) => {
       if (disposed) nextUnlisten()
       else unlisten = nextUnlisten
@@ -578,7 +595,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     startupFilesTakenRef.current = true
     void takeOpenFiles()
       .then(async (paths) => {
-        for (const path of paths) await openExternalPdfRef.current(path)
+        const themes = paths.filter((path) => isThemeFileName(path))
+        if (themes.length > 0) await offerThemePaths(themes)
+        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalPdfRef.current(path)
       })
       .catch(() => undefined)
   }, [vault])
@@ -588,7 +607,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     let unlisten: () => void = () => undefined
     void onOpenFiles((paths) => {
       void (async () => {
-        for (const path of paths) await openExternalPdfRef.current(path)
+        // 탐색기에서 연 .iwtheme 는 문서가 아니라 「테마를 추가할까요?」 로
+        const themes = paths.filter((path) => isThemeFileName(path))
+        if (themes.length > 0) await offerThemePaths(themes)
+        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalPdfRef.current(path)
       })()
     }).then((next) => {
       if (disposed) next()
@@ -605,7 +627,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('library')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   // 저절로 열 때 먼저 보일 설정 항목. 사용자가 열면 지난번 항목 그대로
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined)
   const [draftPdfHighlight, setDraftPdfHighlight] = useState<Anchor | null>(null)
@@ -637,6 +661,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const singlePane = paneCount === 1
   const documentSearch = useDocumentSearch()
   const [pendingExternalLink, setPendingExternalLink] = useState<string | null>(null)
+  // 다른 화면(문제 보고·번역 설정 …)이 열려는 링크도 같은 확인 창을 거친다
+  useEffect(() => {
+    const request = (event: Event) => { if (typeof (event as CustomEvent<string>).detail === 'string') setPendingExternalLink((event as CustomEvent<string>).detail) }
+    window.addEventListener(EXTERNAL_LINK_REQUEST_EVENT, request)
+    return () => window.removeEventListener(EXTERNAL_LINK_REQUEST_EVENT, request)
+  }, [])
   // 원본 출처: 문서(판)별 목록과 출처 창
   const docSources = useDocSources(vault)
   // 문서 판 묶음: 같은 문서의 여러 판을 왼쪽 바에서 한 줄로 겹쳐 보인다
@@ -1009,6 +1039,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (!redoChange()) announceAction(t('다시 할 것이 없습니다'))
     },
     commandPalette: () => setPaletteOpen((open) => !open),
+    showShortcuts: () => setShortcutsOpen((open) => !open),
+    // 마지막으로 만진 문서 칸(PDF·Markdown)의 확대. 옛 캔버스 노트는 NoteCanvas 가 따로 받는다
+    zoomIn: () => { if (document.querySelector('.note-canvas') === null) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'in' })) },
+    zoomOut: () => { if (document.querySelector('.note-canvas') === null) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'out' })) },
+    zoomReset: () => { if (document.querySelector('.note-canvas') === null) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'fit' })) },
   }
   useAppShortcuts(shortcutActions)
   const shortcutActionsRef = useRef(shortcutActions)
@@ -1050,38 +1085,43 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       { id: 'pdf-nup', kind: 'action', label: t('PDF: 모아찍기'), keywords: 'n-up layout print', run: open('nup') },
       { id: 'pdf-images', kind: 'action', label: t('PDF: 쪽 그림(PNG)으로 내보내기'), keywords: 'images png export', run: open('images') },
       { id: 'pdf-markdown', kind: 'action', label: t('PDF: 글을 Markdown 으로'), keywords: 'markdown text export', run: open('markdown') },
+      { id: 'pdf-import-marks', kind: 'action', label: t('PDF: 안의 기존 표시 가져오기'), keywords: 'import annotations highlights acrobat preview zotero', run: open('importMarks') },
+      { id: 'pdf-notes-markdown', kind: 'action', label: t('PDF: 노트를 Markdown 으로'), keywords: 'markdown export obsidian notion notes', run: open('notesMarkdown') },
     ]
   }
   /** 명령 팔레트(Ctrl+Shift+P)에 보일 동작과 문서 */
   const paletteCommands = (): PaletteCommand[] => {
     const act = (name: keyof AppShortcutActions) => () => shortcutActionsRef.current[name]?.()
     const actions: PaletteCommand[] = [
-      { id: 'new-window', kind: 'action', label: t('새 창'), shortcut: 'Ctrl+Shift+N', keywords: 'new window', run: act('newWindow') },
+      { id: 'new-window', kind: 'action', label: t('새 창'), shortcut: shortcutText('newWindow'), keywords: 'new window', run: act('newWindow') },
       ...(isDetachedWindow
         ? [{ id: 'reattach', kind: 'action' as const, label: t('다시 붙이기'), keywords: 'reattach attach back window main', run: () => windowActionsRef.current.reattach() }]
         : activeDocumentTab?.kind === 'pdf'
           ? [{ id: 'detach', kind: 'action' as const, label: t('창으로 떼어 내기'), keywords: 'detach window pop out separate', run: () => windowActionsRef.current.detachActive() }]
           : []),
-      { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: 'Ctrl+,', keywords: 'settings preferences', run: act('openSettings') },
+      { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: shortcutText('openSettings'), keywords: 'settings preferences', run: act('openSettings') },
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
-      { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: 'Ctrl+Shift+F', keywords: 'search vault find', run: act('documentSearch') },
-      { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: 'Ctrl+F', keywords: 'find search', run: act('search') },
-      { id: 'goto', kind: 'action', label: t('쪽으로 가기'), shortcut: 'Ctrl+G', keywords: 'go to page', run: act('goTo') },
+      { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
+      { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
+      { id: 'goto', kind: 'action', label: t('쪽으로 가기'), shortcut: shortcutText('goTo'), keywords: 'go to page', run: act('goTo') },
       ...(isDetachedWindow ? [] : [
-        { id: 'library', kind: 'action' as const, label: t('라이브러리 펼치기·접기'), shortcut: 'Ctrl+Shift+L', keywords: 'library', run: act('toggleLibrary') },
+        { id: 'library', kind: 'action' as const, label: t('라이브러리 펼치기·접기'), shortcut: shortcutText('toggleLibrary'), keywords: 'library', run: act('toggleLibrary') },
         { id: 'sidebar', kind: 'action' as const, label: t('왼쪽 바 접기·펴기'), keywords: 'sidebar', run: () => setSidebarCollapsed((value) => !value) },
       ]),
       { id: 'new-note', kind: 'action', label: t('새 노트 만들기'), keywords: 'new note', run: () => { void memoNotes.create() } },
-      { id: 'undo', kind: 'action', label: t('되돌리기'), shortcut: 'Ctrl+Z', keywords: 'undo', run: act('undo') },
-      { id: 'redo', kind: 'action', label: t('다시 하기'), shortcut: 'Ctrl+Shift+Z', keywords: 'redo', run: act('redo') },
-      { id: 'next-tab', kind: 'action', label: t('다음 탭'), shortcut: 'Ctrl+Tab', keywords: 'next tab', run: act('nextTab') },
-      { id: 'prev-tab', kind: 'action', label: t('이전 탭'), shortcut: 'Ctrl+Shift+Tab', keywords: 'previous tab', run: act('prevTab') },
-      { id: 'close-tab', kind: 'action', label: t('탭 닫기'), shortcut: 'Ctrl+W', keywords: 'close tab', run: act('closeTab') },
-      { id: 'back', kind: 'action', label: t('뒤로 (문서 점프)'), shortcut: 'Alt+←', keywords: 'back', run: act('navBack') },
-      { id: 'forward', kind: 'action', label: t('앞으로 (문서 점프)'), shortcut: 'Alt+→', keywords: 'forward', run: act('navForward') },
-      { id: 'print', kind: 'action', label: t('인쇄'), shortcut: 'Ctrl+P', keywords: 'print', run: act('print') },
+      { id: 'zotero-import', kind: 'action', label: t('Zotero 에서 가져오기…'), keywords: 'zotero import library references pdf', run: () => { void interop.runZotero() } },
+      { id: 'export-vault-markdown', kind: 'action', label: t('모든 노트를 Markdown 으로 내보내기…'), keywords: 'markdown export obsidian notion vault notes', run: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
+      { id: 'undo', kind: 'action', label: t('되돌리기'), shortcut: shortcutText('undo'), keywords: 'undo', run: act('undo') },
+      { id: 'redo', kind: 'action', label: t('다시 하기'), shortcut: shortcutText('redo'), keywords: 'redo', run: act('redo') },
+      { id: 'next-tab', kind: 'action', label: t('다음 탭'), shortcut: shortcutText('nextTab'), keywords: 'next tab', run: act('nextTab') },
+      { id: 'prev-tab', kind: 'action', label: t('이전 탭'), shortcut: shortcutText('prevTab'), keywords: 'previous tab', run: act('prevTab') },
+      { id: 'close-tab', kind: 'action', label: t('탭 닫기'), shortcut: shortcutText('closeTab'), keywords: 'close tab', run: act('closeTab') },
+      { id: 'back', kind: 'action', label: t('뒤로 (문서 점프)'), shortcut: shortcutText('navBack'), keywords: 'back', run: act('navBack') },
+      { id: 'forward', kind: 'action', label: t('앞으로 (문서 점프)'), shortcut: shortcutText('navForward'), keywords: 'forward', run: act('navForward') },
+      { id: 'print', kind: 'action', label: t('인쇄'), shortcut: shortcutText('print'), keywords: 'print', run: act('print') },
+      { id: 'shortcuts', kind: 'action', label: t('단축키 보기'), shortcut: shortcutText('showShortcuts'), keywords: 'keyboard shortcuts help', run: act('showShortcuts') },
       { id: 'theme', kind: 'action', label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'), keywords: 'theme dark light', run: () => theme.setPreference(theme.resolvedTheme === 'dark' ? 'light' : 'dark') },
-      ...(SPLIT_PANES_ENABLED ? [{ id: 'split', kind: 'action' as const, label: t('화면 나누기 바꾸기'), shortcut: 'Ctrl+\\', keywords: 'split pane', run: act('toggleSinglePane') }] : []),
+      ...(SPLIT_PANES_ENABLED ? [{ id: 'split', kind: 'action' as const, label: t('화면 나누기 바꾸기'), shortcut: shortcutText('toggleSinglePane'), keywords: 'split pane', run: act('toggleSinglePane') }] : []),
       ...(activePdfDoc === null ? [] : pdfToolPaletteCommands(activePdfDoc.docId)),
     ]
     const documents: PaletteCommand[] = searchRecords
@@ -1358,6 +1398,19 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     return path
   }, [memoNotes, noteDocLabel, noteDocOwner])
   const memoNoteApi: MemoNoteApi = { ...memoNotes, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc }
+  // 들여오기·내보내기: PDF 안의 기존 표시, Zotero, Markdown
+  const interop = useInteropActions({
+    vault,
+    highlights: pdfHighlights.highlights,
+    addManyHighlights: pdfHighlights.addMany,
+    memoNotes,
+    docOwner: noteDocOwner,
+    docLabel: noteDocLabel,
+    bibliography,
+    activePdfDocId: activePdfDoc?.docId ?? null,
+    activePdfPages: activePdfDoc?.pageCount ?? 0,
+    setMemoBarVisible,
+  })
   /** 노트·폴더 경로가 바뀌면(이름 바꾸기·옮기기) 이모지·색·차례도 새 경로로 옮긴다 */
   const remapMemoPaths = (moved: ReadonlyMap<string, string>, order = true) => {
     for (const [from, to] of moved) {
@@ -1898,6 +1951,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           exportImages: async (dpi) => {
             const result = await exportPdfImages(docId, title, dpi)
             return result === null ? t('취소했습니다') : t('그림 {count}장을 저장했습니다: {folder}', { count: result.count, folder: result.folder })
+          },
+          importMarks: async () => interop.importMarksMessage(await interop.importPdfMarks(docId)),
+          exportNotesMarkdown: async (scope) => {
+            if (vault === null) throw new Error(t('먼저 Vault 를 열어 주세요'))
+            const result = await exportNotesAsMarkdown(vault, scope === 'doc' ? { kind: 'doc', docId } : { kind: 'vault' })
+            return result === null ? t('취소했습니다') : t('Markdown {count}개를 내보냈습니다: {folder}', { count: result.files.length, folder: result.folder })
           },
           exportMarkdown: async () => {
             const pageCount = meta?.pageCount ?? 0
@@ -2617,6 +2676,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           }}
           version={packageMetadata.version}
         />
+        <ThemeIntakeHost resolvedTheme={theme.resolvedTheme} />
         {error !== null && (
           <div className="app-error" role="alert">
             <span>{error}</span>
@@ -2632,6 +2692,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     <TranslationCardSettingsContext.Provider value={translationCardSettings}>
     <ActionToast />
     <UpdateBanner state={updater} />
+    {interop.offer === null ? null : <AnnotationOfferBanner count={interop.offer.count} onImport={interop.acceptOffer} onDismiss={interop.dismissOffer} />}
     {error !== null && (
           <div className="app-error" role="alert">
             <span>{error}</span>
@@ -2905,6 +2966,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                   ? [{ id: 'detach', label: t('창으로 떼어 내기'), onSelect: () => windowActionsRef.current.detachActive() }]
                   : []),
             ],
+            [
+              { id: 'zotero-import', label: t('Zotero 에서 가져오기…'), onSelect: () => { void interop.runZotero() } },
+              { id: 'export-markdown', label: t('모든 노트를 Markdown 으로 내보내기…'), onSelect: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
+            ],
             [{
               id: 'theme',
               label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'),
@@ -2913,6 +2978,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             [
               { id: 'updates', label: t('업데이트 확인'), onSelect: () => { setSettingsSection('updates'); setSettingsOpen(true) } },
               { id: 'settings', label: t('설정'), hint: 'Ctrl+,', onSelect: () => { setSettingsSection(undefined); setSettingsOpen(true) } },
+              { id: 'report', label: t('문제 보고…'), onSelect: () => setReportOpen(true) },
               { id: 'about', label: t('정보 보기'), onSelect: () => setAboutOpen(true) },
             ],
           ]}
@@ -3126,7 +3192,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       />
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} /> : null}
+    {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
     {paletteOpen ? <CommandPalette commands={paletteCommands()} onClose={() => setPaletteOpen(false)} /> : null}
+    {shortcutsOpen ? <ShortcutOverlay onClose={() => setShortcutsOpen(false)} onOpenSettings={() => { setSettingsSection('input'); setSettingsOpen(true) }} /> : null}
+    <ThemeIntakeHost resolvedTheme={theme.resolvedTheme} />
     <SettingsModal
       open={settingsOpen}
       initialSectionId={settingsSection}
@@ -3148,6 +3217,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                 onPaletteChange={theme.setPalette}
                 accent={theme.accent}
                 onAccentChange={theme.setAccent}
+                vaultRoot={vault?.root ?? null}
               />
               <LanguageSettings />
               <UiScaleSettings scale={uiScale.scale} onChange={uiScale.setScale} />

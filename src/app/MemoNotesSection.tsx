@@ -1,9 +1,10 @@
 import { t } from '../i18n'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { ArrowSquareIn, ArrowSquareOut, ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, ClipboardText, Eraser, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, PencilSimple, Plus, Smiley, Trash } from '@phosphor-icons/react'
+import { ArrowSquareIn, ArrowSquareOut, ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, ClipboardText, Eraser, Export, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, PencilSimple, Plus, Smiley, Trash } from '@phosphor-icons/react'
 import { MEMO_NOTES_FOLDER, isInsideMemoFolder, memoParentOf, type MemoNoteEntry } from '../core/memoNote'
 import { FOLDER_COLORS, folderColorHex, type FolderColor } from '../core/folderColors'
 import { ItemEmoji } from './ItemEmoji'
+import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { DeleteFolderDialog } from './SidebarDialogs'
 
 /** 노트 이모지·색의 열쇠(파일·폴더 이모지와 같은 표에 둔다) */
@@ -630,6 +631,12 @@ export function MemoNotesSection({
                 ) : null}
               </>
             )}
+            {menu.kind === 'note' ? (
+              <button type="button" role="menuitem" onClick={() => {
+                window.dispatchEvent(new CustomEvent(APP_COMMAND_EVENT, { detail: { name: 'exportMarkdown', scope: { kind: 'note', path: menu.path } } }))
+                setMenu(null)
+              }}><span className="side-context-icon" aria-hidden="true"><Export size={15} /></span><span className="side-context-label">{t('Markdown 으로 내보내기…')}</span></button>
+            ) : null}
             {menu.kind === 'note' || onRenameFolder !== undefined ? (
               <button type="button" role="menuitem" onClick={() => {
                 setRenaming({ kind: menu.kind, path: menu.path, value: menu.title })

@@ -59,4 +59,32 @@ describe('MarkdownExcerptNode', () => {
       quote: '중요한 제목',
     })
   })
+
+  it('저장된 렌더 스냅샷에 스크립트·이벤트 속성·바깥 그림이 섞여 있어도 그릴 때 걸러 낸다', () => {
+    const hostile: MarkdownExcerptCanvasBlock = {
+      ...block,
+      capture: {
+        sourceFileId: 'f1',
+        sourceHash: 'h1',
+        anchor: { startOffset: 0, endOffset: 6 },
+        plainText: '중요한 제목',
+        renderedSnapshot: '<p onclick="x()">본문<script>window.__pwned = 1</script><img src="https://evil.test/a.png" onerror="x()"><a href="javascript:x()">링크</a></p>',
+        width: 280,
+        height: 70,
+        aspectRatio: 4,
+      },
+    }
+    const props = { id: 'markdown-excerpt-1', data: { block: hostile }, selected: false } as unknown as Parameters<typeof MarkdownExcerptNode>[0]
+    const view = render(
+      <CanvasBlockRuntimeProvider value={{}}>
+        <MarkdownExcerptNode {...props} />
+      </CanvasBlockRuntimeProvider>,
+    )
+    const capture = view.container.querySelector('.markdown-capture-content') as HTMLElement
+    expect(capture.textContent).toContain('본문')
+    expect(capture.querySelector('script')).toBeNull()
+    expect(capture.querySelector('[onclick], [onerror]')).toBeNull()
+    expect(capture.querySelector('img')?.getAttribute('src')).toBeNull()
+    expect(capture.querySelector('a')?.getAttribute('href')).toBeNull()
+  })
 })

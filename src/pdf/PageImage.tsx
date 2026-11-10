@@ -30,6 +30,8 @@ const UNDERLAY_STEP = 400
 const UNDERLAY_MAX = 2000
 /** 폭이 이만큼 머문 뒤에야 새 해상도를 요청한다(패널 끌기·확대 연타 중 요청 폭주 방지) */
 const SETTLE_MS = 140
+/** 새로 나타난 쪽의 본 그림을 이만큼(ms) 머문 뒤에야 요청한다 */
+const BITMAP_START_DELAY_MS = 45
 
 /** 한 번 풀어 본 주소. 다시 마운트돼도(스크롤로 나갔다 들어옴) 바로 보인다 */
 const decoded = new Set<string>()
@@ -135,7 +137,10 @@ function useSharedBitmap(request: SharedBitmapRequest | null): SharedShown | nul
       return
     }
     let alive = true
-    void loadSharedBitmap(current).then((bitmap) => {
+    // 스크롤바를 끌어 쪽이 스치듯 지나갈 때는 쪽 그리기를 요청하지 않는다(미리보기만 뜬다). 잠깐이라도 머문 쪽만 그린다.
+    // 이미 요청이 나간 그림은 그대로 이어 받는다.
+    const timer = window.setTimeout(() => void startLoad(), BITMAP_START_DELAY_MS)
+    const startLoad = () => loadSharedBitmap(current).then((bitmap) => {
       if (!alive) return
       if (bitmap === null) {
         // 공유 메모리를 못 쓰면 PNG 로 — 다 풀린 뒤 바꾼다
@@ -152,6 +157,7 @@ function useSharedBitmap(request: SharedBitmapRequest | null): SharedShown | nul
     })
     return () => {
       alive = false
+      window.clearTimeout(timer)
     }
   }, [key, shown?.key])
   return shown

@@ -39,3 +39,10 @@ export async function openExternalUrl(url: string): Promise<void> {
   const { openUrl } = await import('@tauri-apps/plugin-opener')
   await openUrl(url.trim())
 }
+
+/** 앱 어디서든 「외부 링크 열기」 확인 창을 거쳐 열게 한다(App 이 이 이벤트를 받아 확인 창을 띄운다) */
+export const EXTERNAL_LINK_REQUEST_EVENT = 'iwae:request-external-link'
+
+export function requestExternalLink(url: string): void {
+  window.dispatchEvent(new CustomEvent<string>(EXTERNAL_LINK_REQUEST_EVENT, { detail: url }))
+}

@@ -104,6 +104,7 @@ fn build_app_window(
         .map_err(|error| error.to_string())?
         .build()
         .map_err(|error| error.to_string())?;
+    crate::browser_keys::lock_browser_keys(&window);
     Ok((window, label, false))
 }
 

@@ -1,10 +1,10 @@
-import { ClipboardText, Copy, MagnifyingGlass, Files, TerminalWindow, Toolbox, TextT } from '@phosphor-icons/react'
+import { ClipboardText, Copy, MagnifyingGlass, Files, TerminalWindow, Toolbox, TextT, Highlighter } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import type { ContextMenuEntry } from './ContextMenu'
 
 /** 앱 명령을 실행해 달라고 App 에 알린다(문서 칸은 App 의 함수를 직접 모른다) */
 export const APP_COMMAND_EVENT = 'iwae:app-command'
-export type AppCommandName = 'search' | 'documentSearch' | 'commandPalette' | 'pdfTools' | 'ocrDocument'
+export type AppCommandName = 'search' | 'documentSearch' | 'commandPalette' | 'pdfTools' | 'ocrDocument' | 'importPdfMarks' | 'zoteroImport' | 'exportMarkdown'
 
 /** `docId`: PDF 도구·OCR 의 대상 문서, `tool`: 도구 창에서 먼저 고를 도구 */
 export function runAppCommand(name: AppCommandName, detail: { readonly docId?: string; readonly tool?: string } = {}): void {
@@ -37,6 +37,7 @@ export function documentContextEntries(options: {
     ...(options.pdf === undefined ? [] : [
       { key: 'sep-pdf', separator: true as const },
       ...(options.pdf.hasText ? [] : [{ key: 'ocr', icon: <TextT size={15} />, label: t('OCR 로 글자 입히기'), onSelect: () => runAppCommand('ocrDocument', { docId: options.pdf!.docId }) }]),
+      { key: 'import-marks', icon: <Highlighter size={15} />, label: t('PDF 안의 기존 표시 가져오기'), onSelect: () => runAppCommand('importPdfMarks', { docId: options.pdf!.docId }) },
       { key: 'pdf-tools', icon: <Toolbox size={15} />, label: t('PDF 도구…'), onSelect: () => runAppCommand('pdfTools', { docId: options.pdf!.docId }) },
     ]),
     { key: 'sep-hint', separator: true as const },

@@ -1,0 +1,39 @@
+{
+  "format": "iwae-theme",
+  "version": 1,
+  "description": "이 파일을 고쳐 .iwtheme 로 저장한 뒤 IWAE 창에 끌어 놓거나, Vault 의 .iwae/themes 폴더에 넣으세요.\nEdit this file, save it as .iwtheme, then drop it onto the IWAE window or put it in your vault's .iwae/themes folder.\n색은 모두 #rrggbb. theme.light / theme.dark 에 시드 8개씩, 나머지 색은 앱이 계산합니다. All colours are #rrggbb; the app derives the rest.\n설명은 docs/themes/README.md. Guide: docs/themes/README.md",
+  "seedGuide": {
+    "workspace": "작업 공간 바탕: 문서 뒤, 칸 사이 / Workspace: behind the documents, between panes",
+    "panel": "패널: 왼쪽 바, 노트 바, 대화상자 / Panels: left bar, note bar, dialogs",
+    "tabstrip": "탭 줄: 맨 위 줄 / Tab strip: the top row",
+    "field": "입력칸: 검색칸, 선택칸 / Fields: search box, selects",
+    "text": "글자: 기본 글자색(패널·작업 공간 위에서 읽혀야 함) / Text: main text colour (must read on panels and workspace)",
+    "divider": "구분선: 칸·목록 사이 선 / Divider: lines between panes and rows",
+    "accent": "강조색: 선택·버튼·링크 / Accent: selection, buttons, links",
+    "memoCard": "메모 카드: 노트 바 카드 바탕(늘 밝은 종이 느낌 권장) / Memo card: note-bar card background (a light paper tone is recommended)"
+  },
+  "theme": {
+    "name": "내 테마",
+    "base": "default",
+    "light": {
+      "workspace": "#f1f2f3",
+      "panel": "#f7f7f6",
+      "tabstrip": "#f7f7f6",
+      "field": "#ffffff",
+      "text": "#1a1a1a",
+      "divider": "#d0d0cb",
+      "accent": "#2f6fb0",
+      "memoCard": "#f6f6f6"
+    },
+    "dark": {
+      "workspace": "#171a1e",
+      "panel": "#24282d",
+      "tabstrip": "#24282d",
+      "field": "#1d2024",
+      "text": "#e7e9ec",
+      "divider": "#464e57",
+      "accent": "#79addd",
+      "memoCard": "#f6f6f6"
+    }
+  }
+}

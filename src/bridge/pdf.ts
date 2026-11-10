@@ -24,9 +24,9 @@ import type { PageTextIndex } from '../core/textIndex'
 
 /**
  * 쪽 글자(글자마다 상자) 캐시에 들고 있는 쪽 수. 한 쪽이 수백 KB 라, 다 들고 있으면 3000쪽 PDF 를
- * 한 번 검색하는 것만으로 1GB 가 남았다. 최근에 쓴 쪽부터 남긴다.
+ * 한 번 검색하는 것만으로 1GB 가 남았다. 최근에 쓴 쪽부터 남긴다. 보이는 쪽(앞뒤 몇 쪽)만 있으면 되므로 80쪽이면 넉넉하다.
  */
-export const TEXT_INDEX_CACHE_PAGES = 240
+export const TEXT_INDEX_CACHE_PAGES = 80
 const textIndexCache = new Map<string, Promise<PageTextIndex>>()
 const outlineCache = new Map<string, Promise<readonly PdfOutlineEntry[]>>()
 

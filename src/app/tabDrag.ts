@@ -1,6 +1,7 @@
 import { flushSync } from 'react-dom'
 import { dockZoneAt, dockZoneBox, insertionIndexAt, type Box, type DockEdge, type DockZone } from './tabDock'
 import type { PaneId, Tab } from './tabs'
+import { EASE_SPRING_FIRM, SPRING_FIRM_MS, springSoft } from './motion'
 
 /**
  * 탭 끌기(크롬·엣지처럼). 포인터 이벤트로 직접 한다 — Tauri 창은 HTML 끌어놓기를 파일 끌어놓기로 가로채 쓸 수 없다.
@@ -22,7 +23,7 @@ export const TAB_DRAG_THRESHOLD_PX = 6
 export const TEAR_OFF_MARGIN_PX = 28
 /** 창 가장자리 1px 에 이 시간 머물러도(최대화 창에서 화면 끝에 닿았을 때) 떼어 낸다 */
 const TEAR_OFF_EDGE_DWELL_MS = 360
-const SETTLE_MS = 190
+const SETTLE_MS = 300
 
 /** 끌기를 시작한 쪽(탭 줄을 그린 컴포넌트)이 대 주는 것들. 끄는 동안의 최신 값을 읽도록 함수로 준다 */
 export interface TabDragHost {
@@ -132,7 +133,7 @@ function translateXOf(transform: string): number {
 }
 
 /** 탭 줄 안의 탭들을 mutate 전후로 재서, 자리가 바뀐 것은 이전 자리에서 새 자리로 미끄러지게 한다(FLIP) */
-export function flip(elements: readonly HTMLElement[], mutate: () => void, duration = 170): void {
+export function flip(elements: readonly HTMLElement[], mutate: () => void, duration = SPRING_FIRM_MS): void {
   const before = new Map(elements.map((element) => [element, layoutBox(element).left]))
   mutate()
   if (reducedMotion() || typeof HTMLElement.prototype.animate !== 'function') return
@@ -143,7 +144,7 @@ export function flip(elements: readonly HTMLElement[], mutate: () => void, durat
     if (Math.abs(delta) < 0.5) continue
     element.animate(
       [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
-      { duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+      { duration, easing: EASE_SPRING_FIRM },
     )
   }
 }
@@ -153,10 +154,10 @@ export function setStripGap(strip: HTMLElement, index: number | null, width: num
   // 줄 상자는 탭 폭만큼만 자라 있어서(overflow 가 잘린다) 벌어지는 만큼 오른쪽 안쪽 여백도 함께 늘려 준다
   if (index !== null) {
     if (strip.dataset.gapBase === undefined) strip.dataset.gapBase = String(parseFloat(getComputedStyle(strip).paddingRight) || 0)
-    strip.style.transition = immediate || reducedMotion() ? 'none' : 'padding-right 170ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+    strip.style.transition = immediate || reducedMotion() ? 'none' : `padding-right ${SPRING_FIRM_MS}ms ${EASE_SPRING_FIRM}`
     strip.style.paddingRight = `${Number(strip.dataset.gapBase) + width}px`
   } else if (strip.dataset.gapBase !== undefined) {
-    strip.style.transition = immediate || reducedMotion() ? 'none' : 'padding-right 170ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+    strip.style.transition = immediate || reducedMotion() ? 'none' : `padding-right ${SPRING_FIRM_MS}ms ${EASE_SPRING_FIRM}`
     strip.style.paddingRight = `${strip.dataset.gapBase}px`
     const done = () => {
       if (strip.dataset.gapBase !== undefined) return
@@ -165,16 +166,16 @@ export function setStripGap(strip: HTMLElement, index: number | null, width: num
     }
     delete strip.dataset.gapBase
     if (immediate) done()
-    else window.setTimeout(done, 200)
+    else window.setTimeout(done, SPRING_FIRM_MS + 30)
   }
   tabsIn(strip).forEach((element, at) => {
     const shift = index === null || at < index ? 0 : width
     if (element.dataset.gapShift === String(shift) || (shift === 0 && element.dataset.gapShift === undefined)) return
     if (shift === 0) delete element.dataset.gapShift
     else element.dataset.gapShift = String(shift)
-    element.style.transition = immediate || reducedMotion() ? 'none' : 'transform 170ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+    element.style.transition = immediate || reducedMotion() ? 'none' : `transform ${SPRING_FIRM_MS}ms ${EASE_SPRING_FIRM}`
     element.style.transform = shift === 0 ? '' : `translateX(${shift}px)`
-    if (shift === 0) window.setTimeout(() => { if (element.dataset.gapShift === undefined) element.style.transition = '' }, 200)
+    if (shift === 0) window.setTimeout(() => { if (element.dataset.gapShift === undefined) element.style.transition = '' }, SPRING_FIRM_MS + 30)
   })
   updateGapHint(strip, index, width, immediate)
 }
@@ -425,7 +426,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     element.classList.add('tab-drag-ghost-settling')
     const tick = (now: number) => {
       const t = Math.min(1, (now - begin) / SETTLE_MS)
-      const eased = 1 - (1 - t) ** 3
+      const eased = springSoft(t)
       const to = target()
       if (to !== null) {
         const x = fromX + (to.left - insetX - fromX) * eased

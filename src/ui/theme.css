@@ -10,6 +10,8 @@
 @import './canvas-paper.css';
 @import './pdf-memo.css';
 @import './whale-theme.css';
+/* 움직임(토큰·스프링·눌림·메뉴/대화상자 등장·동작 줄이기)은 맨 끝: 앞선 파일의 옛 전환을 같은 선택자로 덮는다 */
+@import './motion.css';
 
 * { box-sizing: border-box; }
 

@@ -9,11 +9,21 @@ import { currentWindowMode, ownsSession } from './core/windowMode'
 import { installHighlightColorStyle } from './app/highlightColorStyle'
 import { installNativeContextMenuSuppressor } from './core/suppressNativeContextMenu'
 import './ui/theme.css'
+import './ui/focus-ring.css'
+import { installTreeKeyboard } from './ui/treeKeyboard'
+import { installNativeKeyGuard } from './core/nativeKeyGuard'
+import { installErrorBuffer } from './core/errorBuffer'
 
 // 탭·패널 배치(session.json)는 메인 창만 저장한다. 떼어 낸 창·새 창은 자기 배치를 메모리에만 둔다
 setSessionWriter(ownsSession(currentWindowMode()))
 // 우클릭 메뉴가 없는 곳에서는 웹뷰 기본 메뉴가 뜨지 않게 한다(글 입력 자리만 예외)
 installNativeContextMenuSuppressor()
+// 왼쪽 바 트리의 방향키 이동·roving tabindex
+installTreeKeyboard()
+// 웹뷰 기본 단축키(인쇄·새로고침·찾기 창 …)가 새지 않게
+installNativeKeyGuard()
+// 화면 오류를 기록해 둔다(문제 보고에서 사용자가 미리 보고 낼 때만 쓴다)
+installErrorBuffer()
 // 형광펜 색 변수(<style id="iwae-highlight-colors">)를 첫 그림 전에 만든다
 installHighlightColorStyle()
 

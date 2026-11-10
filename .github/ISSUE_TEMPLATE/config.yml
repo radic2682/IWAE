@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or help using IWAE / 사용법 질문
+    url: https://github.com/radic2682/IWAE/discussions/categories/q-a
+    about: Ask how to do something, or share how you use IWAE, in Discussions. Check the FAQ first (docs/FAQ.md).
+  - name: Idea or open-ended discussion / 아이디어
+    url: https://github.com/radic2682/IWAE/discussions/categories/ideas
+    about: Not sure it is a feature request yet? Talk it through in Discussions first.
+  - name: Report a security vulnerability / 보안 취약점 제보
+    url: https://github.com/radic2682/IWAE/security/advisories/new
+    about: Report privately. Do not open a public issue for vulnerabilities (see SECURITY.md).

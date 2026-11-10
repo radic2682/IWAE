@@ -91,3 +91,46 @@ export function importedToHighlights(
 
   return { highlights, skipped }
 }
+
+// ───────────── 열 때 한 번 권하기 ─────────────
+
+const OFFER_KEY = 'iwae:annotation-offer:v1'
+const OFFER_LIMIT = 500
+
+type OfferStorage = Pick<Storage, 'getItem' | 'setItem'>
+
+/** 이 문서에 대해 가져오기를 이미 권했는가(권하고 나면 사용자가 무시해도 다시 권하지 않는다) */
+export function annotationOfferSeen(docId: string, storage: OfferStorage = window.localStorage): boolean {
+  try {
+    const list = JSON.parse(storage.getItem(OFFER_KEY) ?? '[]') as unknown
+    return Array.isArray(list) && list.includes(docId)
+  } catch {
+    return false
+  }
+}
+
+export function markAnnotationOfferSeen(docId: string, storage: OfferStorage = window.localStorage): void {
+  try {
+    const parsed = JSON.parse(storage.getItem(OFFER_KEY) ?? '[]') as unknown
+    const list = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+    if (list.includes(docId)) return
+    storage.setItem(OFFER_KEY, JSON.stringify([...list, docId].slice(-OFFER_LIMIT)))
+  } catch {
+    // 저장할 수 없으면 다음에 또 권할 뿐이다
+  }
+}
+
+/**
+ * 열린 PDF 에 다른 프로그램이 남긴 표시가 있어 가져오기를 권할 것인가: 표시가 있고, 이 문서에 이미 가져온 표시가
+ * 없고, 아직 권한 적이 없을 때. 권할 때 보일 표시 수를 돌려준다(권하지 않으면 0).
+ */
+export function annotationOfferCount(
+  docId: string,
+  found: readonly ImportedPdfAnnotation[],
+  existing: readonly PersistentPdfHighlight[],
+  seen: boolean,
+): number {
+  if (seen || found.length === 0) return 0
+  if (existing.some((highlight) => highlight.anchor.docId === docId && highlight.source === 'imported')) return 0
+  return found.length
+}

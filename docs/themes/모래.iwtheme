@@ -1,0 +1,29 @@
+{
+  "format": "iwae-theme",
+  "version": 1,
+  "description": "IWAE 테마 파일. 이 파일을 IWAE 창에 끌어 놓거나, Vault 의 .iwae/themes 폴더에 넣으세요.\nIWAE theme file. Drop it onto the IWAE window or put it in your vault's .iwae/themes folder.",
+  "theme": {
+    "name": "모래",
+    "base": "paper",
+    "light": {
+      "workspace": "#ece2cf",
+      "panel": "#f6efe1",
+      "tabstrip": "#e3d7bf",
+      "field": "#fffaf0",
+      "text": "#3a2f22",
+      "divider": "#d6c7a8",
+      "accent": "#a64f1c",
+      "memoCard": "#f6f6f6"
+    },
+    "dark": {
+      "workspace": "#1f1a14",
+      "panel": "#2c251d",
+      "tabstrip": "#17130e",
+      "field": "#231e17",
+      "text": "#efe5d3",
+      "divider": "#4f4434",
+      "accent": "#e8a46a",
+      "memoCard": "#f6f6f6"
+    }
+  }
+}

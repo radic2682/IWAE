@@ -6,6 +6,8 @@ import { EXTERNAL_PROVIDERS, externalProviderInfo, isKeylessProvider } from '../
 import { RECOMMENDED_TRANSLATION_MODELS } from '../core/translation'
 import type { TranslationCoordinator } from './useTranslation'
 import { pick, t } from '../i18n'
+import { requestExternalLink } from '../bridge/external'
+import { explainTranslationError } from '../core/translationErrors'
 
 export type TranslationSettingsState = Pick<
   TranslationCoordinator,
@@ -106,7 +108,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
       (result) => setTest(result === null
         ? { status: 'error', message: t('응답이 없습니다.') }
         : { status: 'ok', text: result.translatedText, ms: result.elapsedMs, model: result.model }),
-      (cause: unknown) => setTest({ status: 'error', message: cause instanceof Error ? cause.message : String(cause) }),
+      (cause: unknown) => setTest({ status: 'error', message: explainTranslationError(cause instanceof Error ? cause.message : String(cause), !external).text }),
     )
   }
 
@@ -165,17 +167,14 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
               {state.isInstallingRuntime ? t('Ollama 설치 중') : t('Ollama 설치')}
             </button>
           ) : (
-            <a
-              className="translation-settings-download"
-              href="https://ollama.com/download"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <button type="button" className="translation-settings-download" onClick={() => requestExternalLink('https://ollama.com/download')}>
               {t('Ollama 받기')}
-            </a>
+            </button>
           )}
         </div>
       )}
+
+      {!external && online && <OllamaDetected endpoint={state.settings.endpoint} models={state.models} />}
 
       <div className="translation-settings-fields">
         {!external && <label className="translation-settings-field">
@@ -203,19 +202,36 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
 
       {external && (
         <div className="translation-settings-fields translation-settings-external-fields">
-          <label className="translation-settings-field">
-            <span className="translation-settings-label">{t('제공자')}</span>
-            <Select
-              className="translation-settings-input"
-              ariaLabel={t('제공자')}
-              value={state.settings.externalProvider}
-              options={EXTERNAL_PROVIDERS.map((item) => ({ value: item.id, label: t(item.label) }))}
-              onChange={(value) => {
-                const next = externalProviderInfo(value as ExternalTranslationProvider)
-                state.updateSettings({ externalProvider: next.id, externalEndpoint: next.endpoint || state.settings.externalEndpoint, externalModel: next.models[0] ?? '' })
-              }}
-            />
-          </label>
+          <div className="translation-settings-providers" role="radiogroup" aria-label={t('제공자')}>
+            {EXTERNAL_PROVIDERS.map((item) => {
+              const on = item.id === state.settings.externalProvider
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className={`translation-settings-engine-option translation-settings-provider${on ? ' translation-settings-engine-on' : ''}`}
+                  onClick={() => {
+                    if (on) return
+                    setTest({ status: 'idle' })
+                    state.updateSettings({ externalProvider: item.id, externalEndpoint: item.endpoint || state.settings.externalEndpoint, externalModel: item.models[0] ?? '' })
+                  }}
+                >
+                  <strong>{t(item.label)}</strong>
+                  <span>{item.need}</span>
+                </button>
+              )
+            })}
+          </div>
+          {externalProviderInfo(state.settings.externalProvider).keyUrl === undefined ? null : (
+            <p className="translation-settings-keylink">
+              <button type="button" className="translation-settings-link" onClick={() => requestExternalLink(externalProviderInfo(state.settings.externalProvider).keyUrl ?? '')}>
+                {t('키 받는 곳 열기')}
+              </button>
+              <span>{state.settings.externalProvider === 'deepl' ? t('Free 키(:fx 로 끝남)와 Pro 키 모두 됩니다. 알맞은 주소는 자동으로 맞춥니다.') : t('열기 전에 주소를 한 번 더 확인합니다.')}</span>
+            </p>
+          )}
           <label className="translation-settings-field">
             <span className="translation-settings-label">API endpoint</span>
             <input
@@ -282,10 +298,11 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
       {state.translate === undefined ? null : (
         <div className="translation-settings-test">
           <button type="button" className="translation-settings-download" disabled={test.status === 'pending'} onClick={runTest}>
-            {test.status === 'pending' ? t('시험하는 중…') : t('연결 시험')}
+            {test.status === 'pending' ? t('확인하는 중…') : t('연결 확인')}
           </button>
           {test.status === 'ok' ? (
             <p className="translation-settings-test-result" role="status">
+              <strong>{t('연결됐습니다. 번역이 잘 됩니다.')}</strong>
               <span>{t('{ms}ms · {model}', { ms: test.ms, model: test.model })}</span>
               <q>{test.text}</q>
             </p>
@@ -429,16 +446,14 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
             IWAE는 모델 가중치를 포함하지 않습니다. TranslateGemma는 별도로 내려받으며,
             다운로드 전에 <a
               href="https://ai.google.dev/gemma/terms"
-              target="_blank"
-              rel="noreferrer"
+              onClick={(event) => { event.preventDefault(); requestExternalLink('https://ai.google.dev/gemma/terms') }}
             >Gemma 이용 약관</a>을 검토하세요.
           </p>,
           en: <p>
             IWAE does not include model weights. TranslateGemma is downloaded separately;
             review the <a
               href="https://ai.google.dev/gemma/terms"
-              target="_blank"
-              rel="noreferrer"
+              onClick={(event) => { event.preventDefault(); requestExternalLink('https://ai.google.dev/gemma/terms') }}
             >Gemma Terms of Use</a> before downloading.
           </p>,
         })}
@@ -541,3 +556,17 @@ function TranslationCacheSettings() {
   )
 }
 
+
+/** Ollama 가 켜져 있으면 설치된 모델을 모두 보여 준다(어느 모델로 번역할지 고르는 데 쓴다) */
+function OllamaDetected({ endpoint, models }: { readonly endpoint: string; readonly models: readonly { readonly name: string; readonly size: number }[] }) {
+  return (
+    <div className="translation-settings-detected" role="status">
+      <strong>{t('Ollama 를 찾았습니다 ({endpoint})', { endpoint: endpoint.replace(/^https?:[/][/]/u, '') })}</strong>
+      <p>
+        {models.length === 0
+          ? t('설치된 모델이 없습니다. 아래에서 추천 모델을 받으세요.')
+          : t('설치된 모델 {count}개: {names}', { count: models.length, names: models.map((model) => model.name).join(', ') })}
+      </p>
+    </div>
+  )
+}

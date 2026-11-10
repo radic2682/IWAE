@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FileMd, FilePdf, MagnifyingGlass, TerminalWindow } from '@phosphor-icons/react'
 import { t } from '../i18n'
+import { useFocusTrap } from '../ui/useFocusTrap'
 import '../ui/command-palette.css'
 
 export interface PaletteCommand {
@@ -38,6 +39,9 @@ export function CommandPalette({ commands, onClose }: {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLUListElement | null>(null)
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  // 닫히면 열기 전 자리로 초점이 돌아간다. 명령은 그 뒤에 실행되므로(run) 명령이 초점을 옮기면 그쪽이 이긴다
+  useFocusTrap(dialogRef)
 
   const shown = useMemo(() => {
     const scored = commands.flatMap((command) => {
@@ -64,7 +68,7 @@ export function CommandPalette({ commands, onClose }: {
 
   return createPortal(
     <div className="command-palette-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <div className="command-palette" role="dialog" aria-modal="true" aria-label={t('명령 팔레트')}>
+      <div ref={dialogRef} className="command-palette" role="dialog" aria-modal="true" aria-label={t('명령 팔레트')}>
         <div className="command-palette-field">
           <MagnifyingGlass size={16} aria-hidden="true" />
           <input

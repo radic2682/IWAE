@@ -10,8 +10,6 @@ import {
   THEME_NAME_MAX,
   contrastChecks,
   deriveThemeVars,
-  parseThemeFile,
-  serializeThemeFile,
   type BasePaletteId,
   type Brightness,
   type SeedKey,
@@ -19,6 +17,7 @@ import {
   type UserTheme,
 } from '../core/userTheme'
 import { THEME_PALETTES } from '../core/theme'
+import { parseThemeFile, serializeThemeFile } from '../core/themeFile'
 import { t } from '../i18n'
 import { Select } from '../ui/Select'
 import { saveThemeFile, themeFileName } from './themeFile'
@@ -269,7 +268,7 @@ export function ThemeEditorDialog({ initial, isNew, initialMode, takenNames, onS
           <input
             ref={fileInput}
             type="file"
-            accept=".json,application/json"
+            accept=".iwtheme,.json,application/json"
             className="ut-file"
             tabIndex={-1}
             aria-hidden="true"

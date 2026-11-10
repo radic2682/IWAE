@@ -1,0 +1,51 @@
+{
+  "format": "iwae-theme",
+  "version": 1,
+  "description": "IWAE 테마 파일. 이 파일을 IWAE 창에 끌어 놓거나, Vault 의 .iwae/themes 폴더에 넣으세요.\nIWAE theme file. Drop it onto the IWAE window or put it in your vault's .iwae/themes folder.",
+  "theme": {
+    "name": "자정",
+    "base": "navy",
+    "light": {
+      "workspace": "#e4e7f5",
+      "panel": "#f0f2fb",
+      "tabstrip": "#d8dcf0",
+      "field": "#fbfbff",
+      "text": "#1c2040",
+      "divider": "#c2c8e6",
+      "accent": "#4b4fd1",
+      "memoCard": "#f6f6f6"
+    },
+    "dark": {
+      "workspace": "#0a0d1f",
+      "panel": "#131735",
+      "tabstrip": "#070918",
+      "field": "#0e1229",
+      "text": "#e6e9ff",
+      "divider": "#2f3667",
+      "accent": "#9aa2ff",
+      "memoCard": "#f6f6f6"
+    }
+  },
+  "highlightColors": [
+    {
+      "id": "yellow",
+      "name": "노랑",
+      "fill": "#ffd60a"
+    },
+    {
+      "id": "green",
+      "name": "초록",
+      "fill": "#4cd47a"
+    },
+    {
+      "id": "blue",
+      "name": "파랑",
+      "fill": "#5aa9ff"
+    },
+    {
+      "id": "pink",
+      "name": "분홍",
+      "fill": "#ff6fa8"
+    }
+  ]
+}

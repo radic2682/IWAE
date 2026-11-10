@@ -132,6 +132,10 @@ function matchesAt(
   return !options.wholeWord || hasWholeWordBoundaries(text, query, start, end)
 }
 
+function asciiLower(code: number): number {
+  return code >= 65 && code <= 90 ? code + 32 : code
+}
+
 export function searchPageIndex(
   docId: string,
   page: number,
@@ -148,8 +152,18 @@ export function searchPageIndex(
     ? undefined
     : new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' })
   const lastStart = normalizedIndex.text.length - normalizedQuery.length
+  // 쪽 하나가 수천 자라 자리마다 Collator 를 부르면 600쪽 문서에서 수 초가 든다. 첫 글자가 둘 다 ASCII 인데
+  // 대소문자를 빼고도 다르면 어떤 비교로도 같을 수 없으므로 바로 건너뛴다(그 밖의 글자는 예전대로 비교한다).
+  const firstCode = normalizedQuery.charCodeAt(0)
+  const firstAscii = firstCode < 128
+  const firstLower = firstAscii ? asciiLower(firstCode) : -1
+  const haystack = normalizedIndex.text
 
   for (let normalizedStart = 0; normalizedStart <= lastStart; normalizedStart += 1) {
+    if (firstAscii) {
+      const code = haystack.charCodeAt(normalizedStart)
+      if (code < 128 && (options.caseSensitive ? code !== firstCode : asciiLower(code) !== firstLower)) continue
+    }
     const normalizedEnd = normalizedStart + normalizedQuery.length
     const start = normalizedIndex.originalBoundaryByNormalizedBoundary.get(normalizedStart)
     const end = normalizedIndex.originalBoundaryByNormalizedBoundary.get(normalizedEnd)

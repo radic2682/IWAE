@@ -20,6 +20,7 @@ import {
   type PersistentPdfHighlight,
 } from './persistentHighlight'
 import { t } from '../i18n'
+import { isFreshHighlight } from './freshHighlight'
 
 export type { PdfHighlightColor } from './persistentHighlight'
 
@@ -646,7 +647,7 @@ export function SelectionLayer({
         ))}
         {persistentHighlights.map(({ id, anchor: rawAnchor, color, kind }) => {
           const persistentAnchor = resize?.id === id && resizeRect !== null ? { ...rawAnchor, rects: [resizeRect] } : rawAnchor
-          const className = `selection-persistent-highlight${kind === 'region' ? ' selection-persistent-region' : ''}${id === flashHighlightId ? ' selection-highlight-flash' : ''}`
+          const className = `selection-persistent-highlight${kind === 'region' ? ' selection-persistent-region' : ''}${id === flashHighlightId ? ' selection-highlight-flash' : ''}${isFreshHighlight(id) ? ' selection-highlight-new' : ''}`
           return kind === 'region'
             ? coalesceHighlightRects(persistentAnchor.rects).map((rect, rectIndex) => {
                 // 대상 테두리 바깥에 옅은 바탕 + 얇은 선, 네 귀퉁이에만 형광펜 색 꺾쇠(표 전체가 노랗게 물들지 않게)

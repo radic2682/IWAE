@@ -17,10 +17,13 @@ pub mod pdf;
 pub mod protocol;
 pub mod rag;
 pub mod storage;
+pub mod support;
 pub mod translation;
 pub mod usage;
 pub mod vault_backup;
 pub mod windows;
+mod browser_keys;
+pub mod zotero;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -70,6 +73,7 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            support::support_log_tail,
             usage::app_usage,
             pdf::pdf_open,
             pdf::pdf_file_hash,
@@ -93,6 +97,7 @@ pub fn run() {
             pdf::pdf_page_links,
             pdf::pdf_metadata,
             pdf::pdf_annotations,
+            zotero::zotero_read,
             pdf::pdf_export_annotated,
             pdf::pdf_export_searchable,
             pdf::pdf_tool,
@@ -145,12 +150,29 @@ pub fn run() {
             // 사용자가 켜 둔 경우에만 MCP 서버를 띄운다(기본은 꺼짐).
             ai_state.apply_api(app.handle());
             app.manage(ai_state);
-            if cfg!(debug_assertions) {
+            if let Some(window) = app.get_webview_window("main") {
+                browser_keys::lock_browser_keys(&window);
+            }
+            // 앱 기록: 로그 파일(iwae.log, 1MB 에서 돌려 씀). 「문제 보고」가 끝부분을 읽는다. 문서 내용은 남기지 않는다
+            {
+                let mut targets = vec![tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                    file_name: Some("iwae".to_owned()),
+                })];
+                if cfg!(debug_assertions) {
+                    targets.push(tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout));
+                }
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
+                        .max_file_size(1_000_000)
+                        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
+                        .targets(targets)
                         .build(),
                 )?;
+                std::panic::set_hook(Box::new(|info| {
+                    let place = info.location().map(|l| format!("{}:{}", l.file(), l.line())).unwrap_or_default();
+                    log::error!("panic at {place}");
+                }));
             }
             Ok(())
         })

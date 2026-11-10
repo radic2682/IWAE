@@ -10,8 +10,13 @@ import { GROUP_4 } from './en/group4'
 import { GROUP_5 } from './en/group5'
 import { GROUP_6 } from './en/group6'
 import { GROUP_7 } from './en/group7'
+import { INTEROP } from './en/interop'
+import { SHORTCUTS } from './en/shortcuts'
+import { SUPPORT } from './en/support'
+import { THEME_FILES } from './en/themeFiles'
 
 export const EN: Readonly<Record<string, string>> = {
+  ...SHORTCUTS,
   ...GROUP_1,
   ...GROUP_2,
   ...GROUP_3,
@@ -19,5 +24,8 @@ export const EN: Readonly<Record<string, string>> = {
   ...GROUP_5,
   ...GROUP_6,
   ...GROUP_7,
+  ...INTEROP,
+  ...THEME_FILES,
+  ...SUPPORT,
   ...COMMON,
 }

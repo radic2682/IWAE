@@ -6,6 +6,7 @@ import { t } from '../i18n'
 import { platformShortcut } from '../core/platform'
 import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
 import type { DockEdge } from './tabDock'
+import { popIn, slideFrom } from './motion'
 import '../ui/tab-menu.css'
 import '../ui/tab-drag.css'
 
@@ -64,6 +65,23 @@ function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
 export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane }: PaneTabsMenuProps) {
   const label = t(rawLabel)
   const [menuOpen, setMenuOpen] = useState(false)
+  const overflowRef = useRef<HTMLButtonElement>(null)
+  // 열린 탭 목록: 열리면 첫 항목으로 초점(방향키로 고른다), Esc 로 닫으면 목록 단추로 돌아간다
+  useEffect(() => {
+    if (!menuOpen) return
+    document.querySelector<HTMLElement>('.pane-tabs-popover [role="menuitem"]')?.focus()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setMenuOpen(false)
+      window.setTimeout(() => {
+        overflowRef.current?.focus()
+        // 탭이 다 보일 때는 목록 단추가 숨겨져 있다: 현재 탭으로 돌려보낸다
+        if (document.activeElement !== overflowRef.current) stripRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus()
+      }, 0)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menuOpen])
   const stripRef = useRef<HTMLDivElement>(null)
   // 탭이 줄에 다 들어가면 개수 단추(⌄ n)를 숨긴다. 넘칠 때만 보여 상단바를 조용하게 둔다
   const [overflowing, setOverflowing] = useState(false)
@@ -147,18 +165,12 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
       const before = previous.get(id)
       if (before === undefined) {
         if (mountedRef.current && !quiet) {
-          element.animate(
-            [{ opacity: 0, transform: 'translateY(7px) scale(0.92)' }, { opacity: 1, transform: 'none' }],
-            { duration: 190, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
-          )
+          popIn(element, 'translateY(7px) scale(0.92)')
         }
         continue
       }
       if (before === element.offsetLeft || quiet) continue
-      element.animate(
-        [{ transform: `translateX(${before - element.offsetLeft}px)` }, { transform: 'translateX(0)' }],
-        { duration: 170, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
-      )
+      slideFrom(element, 'x', before - element.offsetLeft)
     }
     mountedRef.current = true
     slotsRef.current = next
@@ -231,7 +243,20 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 className="pane-top-tab-title"
                 role="tab"
                 aria-selected={active}
+                tabIndex={active || (state.activeId === null && tab === state.tabs[0]) ? 0 : -1}
                 title={tab.title}
+                onKeyDown={(event) => {
+                  // 탭 줄 방향키: ←→ 이웃 탭(자동으로 보이게), Home·End 처음·끝
+                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return
+                  const buttons = [...(event.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [])]
+                  const here = buttons.indexOf(event.currentTarget)
+                  if (here < 0) return
+                  event.preventDefault()
+                  const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (here + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length
+                  buttons[next]?.focus()
+                  const nextTab = state.tabs[next]
+                  if (nextTab !== undefined && nextTab.id !== state.activeId) onActivate(nextTab.id)
+                }}
                 onClick={() => {
                   if (suppressClickRef.current) return
                   onActivate(tab.id)
@@ -253,6 +278,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
         })}
       </div>
       <button
+        ref={overflowRef}
         type="button"
         className={`pane-tabs-overflow${overflowing || menuOpen ? '' : ' pane-tabs-overflow-idle'}`}
         aria-label={t('열린 {label} 탭 목록 ({count}개)', { label, count: state.tabs.length })}

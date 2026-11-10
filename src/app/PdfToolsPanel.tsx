@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowSquareOut, CaretDown, CaretRight, FilePdf, Toolbox } from '@phosphor-icons/react'
 import { PDF_TOOL_GROUPS, type PdfToolViewId } from './PdfToolsDialog'
 import { t } from '../i18n'
+import { Collapse } from './Collapse'
 
 interface PdfToolsPanelProps {
   /** 도구를 쓸 PDF 의 제목. 열린 PDF 가 없으면 null */
@@ -56,7 +57,7 @@ export function PdfToolsPanel({ docTitle, activeTool, onPick, renderTool }: PdfT
                       {item.id === 'pageEdit' ? <ArrowSquareOut size={13} /> : open ? <CaretDown size={11} weight="bold" /> : <CaretRight size={11} weight="bold" />}
                     </span>
                   </button>
-                  {body !== null ? <div className="pdf-tools-body">{body}</div> : null}
+                  <Collapse open={body !== null}><div className="pdf-tools-body">{body}</div></Collapse>
                 </div>
               )
             })}

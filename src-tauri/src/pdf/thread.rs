@@ -272,16 +272,21 @@ impl PdfThread {
                 // 화면 렌더는 바로 그리지 않고 모아 두었다가 순서를 골라 그린다(아래 next_screen_job).
                 // 다른 명령은 들어온 순서대로 바로 처리한다.
                 let mut screen: Vec<ScreenJob> = Vec::new();
+                // 글자 읽기·색인 같은 다른 명령이 줄지어 들어와도 화면 렌더가 굶지 않게, 다른 명령을
+                // 하나 처리할 때마다 모아 둔 화면 렌더를 하나 먼저 그린다(600쪽 색인 중에 첫 쪽이 몇 초 늦던 문제)
+                let mut ran_other = false;
                 loop {
                     let command = if screen.is_empty() {
+                        ran_other = false;
                         match rx.recv() {
                             Ok(command) => command,
                             Err(_) => break,
                         }
                     } else {
-                        match rx.try_recv() {
+                        match if ran_other { Err(std::sync::mpsc::TryRecvError::Empty) } else { rx.try_recv() } {
                             Ok(command) => command,
                             Err(_) => {
+                                ran_other = false;
                                 // 줄 선 명령이 없을 때만 화면 렌더 하나를 그린다. 그사이 새 요청이
                                 // 오면 다음 바퀴에 먼저 모아서 다시 고른다.
                                 if let Some(job) = next_screen_job(&mut screen) {
@@ -296,6 +301,9 @@ impl PdfThread {
                             }
                         }
                     };
+                    if !matches!(command, Command::RenderRaw { .. }) {
+                        ran_other = true;
+                    }
                     match command {
                         Command::RenderRaw { doc_id, page, width, tile, reply } => {
                             screen.push(ScreenJob { doc_id, page, width, tile, reply, seq: next_seq });

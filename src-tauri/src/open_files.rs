@@ -1,4 +1,4 @@
-//! 파일 탐색기에서 PDF 를 열었을 때(IWAE 를 기본 PDF 앱·연결 프로그램으로 쓸 때) 그 경로를 화면에 넘긴다.
+//! 파일 탐색기에서 PDF(또는 테마 파일 .iwtheme)를 열었을 때(IWAE 를 기본 PDF 앱·연결 프로그램으로 쓸 때) 그 경로를 화면에 넘긴다.
 //!
 //! - 처음 켜질 때의 명령줄 인자는 화면이 준비된 뒤 `take_open_files` 로 가져간다.
 //! - 이미 켜져 있으면 두 번째 실행은 곧바로 끝나고(single-instance), 그 인자를 이 창에 `iwae:open-files` 로 보낸다.
@@ -25,7 +25,7 @@ pub struct OpenFilesTaken(pub std::sync::atomic::AtomicBool);
 pub fn on_opened_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
     let files: Vec<String> = paths
         .into_iter()
-        .filter(|path| path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("pdf")))
+        .filter(|path| is_openable(path))
         .filter(|path| path.is_file())
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
@@ -49,11 +49,18 @@ pub fn on_opened_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
     let _ = app.emit_to(crate::windows::MAIN_LABEL, EVENT, files);
 }
 
-/// 인자 가운데 실제로 있는 PDF 파일만. 첫 인자(실행 파일)는 뺀다. 상대 경로는 cwd 기준
+/// 탐색기에서 열 수 있는 파일: PDF, 테마 파일(.iwtheme). 화면이 종류별로 갈라 처리한다
+fn is_openable(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf") || ext.eq_ignore_ascii_case("iwtheme"))
+}
+
+/// 인자 가운데 실제로 있는 PDF·테마 파일만. 첫 인자(실행 파일)는 뺀다. 상대 경로는 cwd 기준
 pub fn pdf_args<I: IntoIterator<Item = String>>(args: I, cwd: Option<&Path>) -> Vec<String> {
     args.into_iter()
         .skip(1)
-        .filter(|arg| arg.to_lowercase().ends_with(".pdf"))
+        .filter(|arg| is_openable(Path::new(arg)))
         .map(|arg| {
             let path = PathBuf::from(&arg);
             match (path.is_absolute(), cwd) {
@@ -118,6 +125,10 @@ mod tests {
         ];
         let files = pdf_args(args, Some(&dir));
         assert_eq!(files, vec![pdf.to_string_lossy().into_owned()]);
+        let theme = dir.join("숲.IWTHEME");
+        std::fs::write(&theme, b"{}").unwrap();
+        let files = pdf_args(vec!["iwae.exe".to_string(), "숲.IWTHEME".to_string(), "notes.txt".to_string()], Some(&dir));
+        assert_eq!(files, vec![theme.to_string_lossy().into_owned()]);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

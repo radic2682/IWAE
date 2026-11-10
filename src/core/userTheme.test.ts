@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parseThemeFile, serializeThemeFile } from './themeFile'
 import { contrastRatio, distance, ensureContrast, mix, normalizeHex, parseColor, toHex } from './colorMath'
 import {
   BASE_PALETTE_IDS,
@@ -8,8 +9,6 @@ import {
   contrastChecks,
   deriveAccentVars,
   deriveThemeVars,
-  parseThemeFile,
-  serializeThemeFile,
   themeFromPalette,
   uniqueThemeName,
 } from './userTheme'
@@ -187,8 +186,8 @@ describe('테마 파일', () => {
   })
 
   it('이름이 겹치면 번호를 붙인다', () => {
-    expect(uniqueThemeName('숲', ['숲'])).toBe('숲 2')
-    expect(uniqueThemeName('숲', ['숲', '숲 2'])).toBe('숲 3')
+    expect(uniqueThemeName('숲', ['숲'])).toBe('숲 (2)')
+    expect(uniqueThemeName('숲', ['숲', '숲 (2)'])).toBe('숲 (3)')
     expect(uniqueThemeName('  ', [])).toBe('내 테마')
   })
 })

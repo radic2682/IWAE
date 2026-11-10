@@ -3,127 +3,585 @@
 <head>
 <meta charset="utf-8">
 <title>IWAE 사용 설명서</title>
-<style>
-  @page { size: A4; margin: 22mm 20mm 22mm 20mm; }
-  :root { --ink: #1f2328; --line: #d0d7de; --soft: #f3f5f8; --accent: #2f6fde; }
-  html { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.7; word-break: keep-all; }
-  body { margin: 0; }
-  h1 { font-size: 26pt; margin: 0 0 6pt; letter-spacing: -.02em; }
-  h2 { font-size: 16pt; margin: 0 0 10pt; padding-bottom: 6pt; border-bottom: 1.5pt solid var(--ink); letter-spacing: -.01em; }
-  h3 { font-size: 12pt; margin: 16pt 0 6pt; }
-  p { margin: 0 0 8pt; }
-  section { break-before: page; }
-  section:first-of-type { break-before: auto; }
-  table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10pt; }
-  th, td { border: 0.75pt solid var(--line); padding: 5pt 8pt; text-align: left; vertical-align: top; }
-  th { background: var(--soft); font-weight: 700; }
-  code, kbd { font-family: "Cascadia Mono", Consolas, monospace; font-size: 9.5pt; background: var(--soft); border: 0.5pt solid var(--line); border-radius: 3pt; padding: 0 3pt; }
-  .cover { height: 230mm; display: flex; flex-direction: column; justify-content: center; }
-  .cover .sub { font-size: 13pt; margin-bottom: 28pt; }
-  .cover .box { border: 1pt solid var(--line); border-radius: 6pt; padding: 12pt 16pt; background: var(--soft); }
-  .req { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; margin: 0 0 8pt; }
-  .req b { display: inline-block; min-width: 60pt; }
-  .note { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; background: var(--soft); margin: 8pt 0; }
-  ol, ul { margin: 0 0 8pt; padding-left: 18pt; }
-  li { margin: 2pt 0; }
-</style>
+<link rel="stylesheet" href="manual.css">
 </head>
 <body>
 
-<section class="cover">
-  <h1>IWAE 사용 설명서</h1>
-  <p class="sub">긴 PDF 를 읽고, 표시하고, 메모를 노트로 엮는 데스크톱 앱</p>
-  <div class="box">
-    <p>이 설명서는 새 Vault 에 예시로 들어 있습니다. 직접 형광펜을 칠하고 메모를 달아 보면서 읽어 보세요.</p>
-    <p>왼쪽 「노트」의 <b>IWAE 둘러보기</b> 노트에는 이 설명서에 단 메모와 티켓이 들어 있습니다.</p>
+<!-- 1. 표지 · 차례 -->
+<section class="page" id="p1">
+  <div class="cover-top">
+    <img src="logo.png" alt="">
+    <div>
+      <h1>IWAE 사용 설명서</h1>
+    </div>
   </div>
+  <p class="cover-sub">읽고, 칠하고, 메모로 엮고, 원문으로 돌아오는 PDF 리더</p>
+
+  <div class="start">
+    <h3 style="margin-top:0">이 설명서는 연습장입니다</h3>
+    <p>새 Vault 에 예시로 들어 있는 이 PDF 위에서 직접 형광펜을 칠하고, 캡처하고, 번역해 보세요. 곳곳의 「해 보기」 상자가 따라 할 일을 알려 줍니다. 연습으로 남긴 표시는 <kbd>Ctrl</kbd>+<kbd>Z</kbd> 로 되돌리거나 언제든 지울 수 있습니다.</p>
+    <h3>먼저 이렇게 시작해 보세요</h3>
+    <ol>
+      <li>왼쪽 바 아래쪽 「노트」에서 <b>IWAE 둘러보기</b>를 누르면 이 설명서에 미리 달아 둔 메모가 오른쪽에 열립니다.</li>
+      <li>메모 카드를 하나 눌러 보세요. PDF 가 그 메모를 단 문장으로 바로 이동합니다.</li>
+      <li>아래 차례의 쪽 번호를 눌러 장으로 건너가고, 「해 보기」를 따라 해 보세요.</li>
+    </ol>
+  </div>
+
+  <div class="cols3" style="margin-bottom:5mm">
+    <div class="card"><h4>칠하면 메모가 됩니다</h4><p>글을 고르면 형광펜과 메모 칸이 함께 생기고, 원문과 선으로 이어집니다.</p></div>
+    <div class="card"><h4>나란히 읽습니다</h4><p>탭과 칸 나누기, 창 떼어 내기로 여러 문서를 한눈에 봅니다.</p></div>
+    <div class="card"><h4>내 PC 안에서 씁니다</h4><p>문서는 내 폴더에 그대로 있고, 기록도 그 폴더 안에만 남습니다.</p></div>
+  </div>
+
+  <h3 style="margin-top:0">차례</h3>
+  <table class="toc">
+    <tr><th>쪽</th><th>장</th><th>배우는 것</th></tr>
+    <tr><td><a href="#p2">2</a></td><td><a href="#p2">한눈에 보기</a></td><td>화면 구성, 핵심 흐름, 기능 지도</td></tr>
+    <tr><td><a href="#p3">3</a></td><td><a href="#p3">1. Vault 와 화면</a></td><td>폴더가 곧 서재, 문서 열고 정리하기</td></tr>
+    <tr><td><a href="#p4">4</a></td><td><a href="#p4">2. 탭과 화면 나누기</a></td><td>나란히 읽기, 탭 끌기, 창 떼어 내기, 새 창</td></tr>
+    <tr><td><a href="#p5">5</a></td><td><a href="#p5">3. 형광펜과 메모</a></td><td>칠하면 메모가 생기고 선으로 이어진다</td></tr>
+    <tr><td><a href="#p6">6</a></td><td><a href="#p6">4. 캡처 · 박스 메모 · 그리기</a></td><td>표와 그림 담기, 쪽 위에 쓰고 그리기</td></tr>
+    <tr><td><a href="#p7">7</a></td><td><a href="#p7">5. 노트와 티켓</a></td><td>블록으로 엮기, ID 와 제목, 메모만 보기</td></tr>
+    <tr><td><a href="#p8">8</a></td><td><a href="#p8">6. 왼쪽 바 · 라이브러리 · 버전</a></td><td>목차, 미리보기, 검색, 표로 보기, 버전 묶음</td></tr>
+    <tr><td><a href="#p9">9</a></td><td><a href="#p9">7. PDF 도구</a></td><td>OCR, 비교, 쪽 편집, 합치기, 내보내기</td></tr>
+    <tr><td><a href="#p10">10</a></td><td><a href="#p10">8. 번역과 Markdown</a></td><td>번역 캐시, Markdown 문서, GitHub 가져오기</td></tr>
+    <tr><td><a href="#p11">11</a></td><td><a href="#p11">9. 모양 · 설정 · 내 데이터</a></td><td>테마, 형광펜 색, 백업, 업데이트, 외부 AI</td></tr>
+    <tr><td><a href="#p12">12</a></td><td><a href="#p12">10. 단축키와 마우스</a></td><td>자주 쓰는 키, 마우스 제스처</td></tr>
+  </table>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">1</span></div>
 </section>
 
-<section>
-  <h2>1. Vault 와 화면</h2>
-  <p>IWAE 는 Vault 라는 폴더 하나를 엽니다. PDF 와 Markdown 은 이 폴더에 그대로 두고, 앱이 쓰는 기록은 폴더 안의 .iwae 에 따로 둡니다.</p>
-  <p>Vault 는 평범한 폴더라서 탐색기로 복사하거나 백업할 수 있습니다.</p>
-  <h3>화면 구성</h3>
-  <table>
-    <tr><th>자리</th><th>하는 일</th></tr>
-    <tr><td>왼쪽 바</td><td>문서 목록과 노트 목록. 폴더로 묶고 끌어서 차례를 바꿉니다.</td></tr>
-    <tr><td>가운데</td><td>PDF·Markdown 보기. 탭으로 여러 문서를 열고, 둘로 나눠 나란히 볼 수 있습니다.</td></tr>
-    <tr><td>오른쪽 바</td><td>열린 노트. PDF 와 따로 스크롤하며, 메모와 PDF 형광펜이 선으로 이어집니다.</td></tr>
+<!-- 2. 한눈에 보기 -->
+<section class="page" id="p2">
+  <div class="ch"><div class="no">★</div><h2>한눈에 보기</h2></div>
+  <p class="lead">IWAE 는 PDF 와 Markdown 을 읽으면서 남긴 표시를 원문과 이어진 노트로 엮는 데스크톱 앱입니다.</p>
+
+  <svg class="shot" viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans KR','Malgun Gothic',sans-serif">
+    <defs><clipPath id="w"><rect width="700" height="300" rx="12"/></clipPath></defs>
+    <g clip-path="url(#w)">
+      <rect width="700" height="300" fill="#ffffff"/>
+      <rect width="700" height="30" fill="#eaf2fb"/>
+      <rect y="30" width="150" height="270" fill="#f4f7fb"/>
+      <rect x="520" y="30" width="180" height="270" fill="#f4f7fb"/>
+      <path d="M150 30V300M520 30V300M0 30H700" stroke="#b9cde4" stroke-width="1"/>
+      <!-- 왼쪽 바 -->
+      <g>
+        <rect x="10" y="38" width="22" height="22" rx="6" fill="#dbe8f7" stroke="#2f6fb0"/>
+        <rect x="38" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <rect x="66" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <rect x="94" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <rect x="122" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <text x="12" y="86" font-size="10" font-weight="700" fill="#1d5190">문서</text>
+        <rect x="8" y="92" width="134" height="22" rx="6" fill="#dbe8f7"/>
+        <text x="16" y="107" font-size="10" font-weight="700" fill="#171a1f">IWAE 사용 설명서</text>
+        <text x="16" y="131" font-size="10" fill="#171a1f">Markdown 예시</text>
+        <text x="12" y="166" font-size="10" font-weight="700" fill="#1d5190">노트</text>
+        <rect x="8" y="172" width="134" height="22" rx="6" fill="#dbe8f7"/>
+        <text x="16" y="187" font-size="10" font-weight="700" fill="#171a1f">IWAE 둘러보기</text>
+      </g>
+      <!-- 탭 줄 · 도구줄 -->
+      <rect x="160" y="6" width="130" height="24" rx="8" fill="#ffffff"/>
+      <text x="170" y="22" font-size="10" font-weight="700" fill="#171a1f">IWAE 사용 설명서</text>
+      <text x="304" y="22" font-size="10" fill="#171a1f">Markdown 예시</text>
+      <rect x="150" y="31" width="370" height="25" fill="#ffffff"/>
+      <g fill="#ffffff" stroke="#b9cde4">
+        <rect x="160" y="35" width="18" height="18" rx="6"/><rect x="184" y="35" width="18" height="18" rx="6" fill="#dbe8f7" stroke="#2f6fb0"/><rect x="208" y="35" width="18" height="18" rx="6"/><rect x="232" y="35" width="18" height="18" rx="6"/><rect x="256" y="35" width="18" height="18" rx="6"/><rect x="280" y="35" width="18" height="18" rx="6"/><rect x="304" y="35" width="18" height="18" rx="6"/><rect x="328" y="35" width="18" height="18" rx="6"/>
+      </g>
+      <!-- 쪽 -->
+      <rect x="196" y="66" width="278" height="204" fill="#ffffff" stroke="#b9cde4"/>
+      <rect x="214" y="82" width="150" height="12" rx="3" fill="#171a1f"/>
+      <g fill="#b9cde4"><rect x="214" y="108" width="240" height="5" rx="2"/><rect x="214" y="120" width="220" height="5" rx="2"/><rect x="214" y="168" width="240" height="5" rx="2"/><rect x="214" y="204" width="200" height="5" rx="2"/><rect x="214" y="216" width="236" height="5" rx="2"/></g>
+      <rect x="214" y="140" width="226" height="8" rx="2" fill="#bcd9f6"/>
+      <rect x="214" y="152" width="170" height="8" rx="2" fill="#bcd9f6"/>
+      <rect x="214" y="184" width="206" height="8" rx="2" fill="#ffc9df"/>
+      <!-- 연결선 -->
+      <path d="M440 146 C486 146 490 104 532 104" fill="none" stroke="#5aa0e8" stroke-width="2"/>
+      <path d="M420 188 C470 188 490 170 532 170" fill="none" stroke="#e6679f" stroke-width="2"/>
+      <!-- 노트 바 -->
+      <text x="532" y="48" font-size="10" font-weight="700" fill="#171a1f">IWAE 둘러보기 ⌄</text>
+      <g fill="#ffffff" stroke="#b9cde4">
+        <rect x="530" y="64" width="160" height="62" rx="8"/><rect x="530" y="136" width="160" height="62" rx="8"/><rect x="530" y="208" width="160" height="62" rx="8"/>
+      </g>
+      <g fill="#171a1f"><rect x="540" y="76" width="96" height="6" rx="2"/><rect x="540" y="148" width="108" height="6" rx="2"/><rect x="540" y="220" width="84" height="6" rx="2"/></g>
+      <g fill="#b9cde4"><rect x="540" y="88" width="136" height="5" rx="2"/><rect x="540" y="160" width="120" height="5" rx="2"/><rect x="540" y="232" width="130" height="5" rx="2"/></g>
+      <rect x="540" y="104" width="6" height="6" rx="3" fill="#5aa0e8"/><rect x="552" y="104" width="100" height="5" rx="2" fill="#bcd9f6"/>
+      <rect x="540" y="176" width="6" height="6" rx="3" fill="#e6679f"/><rect x="552" y="176" width="100" height="5" rx="2" fill="#ffc9df"/>
+      <!-- 아래 막대 -->
+      <rect x="150" y="272" width="370" height="28" fill="#ffffff"/>
+      <path d="M150 272H520" stroke="#b9cde4"/>
+      <rect x="170" y="278" width="46" height="16" rx="6" fill="#f4f7fb" stroke="#b9cde4"/>
+      <text x="193" y="290" font-size="10" text-anchor="middle" fill="#171a1f">1 / 12</text>
+      <rect x="360" y="284" width="100" height="4" rx="2" fill="#b9cde4"/><circle cx="410" cy="286" r="6" fill="#2f6fb0"/>
+      <!-- 번호 -->
+      <g font-size="11" font-weight="700" text-anchor="middle" fill="#ffffff">
+        <circle cx="76" cy="212" r="10" fill="#2f6fb0"/><text x="76" y="216">1</text>
+        <circle cx="420" cy="15" r="10" fill="#2f6fb0"/><text x="420" y="19">2</text>
+        <circle cx="330" cy="130" r="10" fill="#2f6fb0"/><text x="330" y="134">3</text>
+        <circle cx="440" cy="44" r="10" fill="#2f6fb0"/><text x="440" y="48">4</text>
+        <circle cx="640" cy="48" r="10" fill="#2f6fb0"/><text x="640" y="52">5</text>
+        <circle cx="300" cy="286" r="10" fill="#2f6fb0"/><text x="300" y="290">6</text>
+      </g>
+    </g>
+    <rect x=".5" y=".5" width="699" height="299" rx="12" fill="none" stroke="#2f6fb0"/>
+  </svg>
+
+  <table class="free">
+    <tr><td>1 왼쪽 바</td><td>탐색기 · 목록 · 미리보기 · PDF 도구 · 검색, 다섯 탭. 문서와 노트 목록도 여기 있습니다.</td></tr>
+    <tr><td>2 탭</td><td>문서마다 탭이 생깁니다. 끌어서 순서를 바꾸고, 다른 칸으로 옮기고, 창으로 떼어 냅니다.</td></tr>
+    <tr><td>3 문서 칸</td><td>PDF · Markdown 을 읽습니다. 좌우, 위아래, 셋, 넷으로 나눠 여러 문서를 나란히 봅니다.</td></tr>
+    <tr><td>4 도구줄</td><td>손 · 텍스트 선택 · 영역 캡처 · 형광펜 · 박스 메모 · 글 상자 · 펜 · 지우개 · 쪽 편집.</td></tr>
+    <tr><td>5 노트 바</td><td>창 오른쪽 끝에 고정됩니다. 메모 카드가 PDF 의 형광펜과 선으로 이어집니다.</td></tr>
+    <tr><td>6 아래 막대</td><td>쪽 이동, 폭 · 쪽 · 높이 맞춤, 확대와 축소.</td></tr>
   </table>
-  <h3>폴더 구조</h3>
+
+  <h3 style="margin-top:2mm">핵심 흐름</h3>
+  <div class="flow">
+    <div class="st"><b>1 칠하기</b>글을 끌어 고르면 형광펜이 칠해집니다.</div><div class="ar">›</div>
+    <div class="st"><b>2 메모</b>노트에 메모 카드가 생기고 바로 쓸 수 있습니다.</div><div class="ar">›</div>
+    <div class="st"><b>3 이어짐</b>카드와 형광펜이 선으로 이어집니다.</div><div class="ar">›</div>
+    <div class="st"><b>4 돌아가기</b>카드를 누르면 PDF 가 그 자리로 갑니다.</div>
+  </div>
+
+  <h3 style="margin-top:2mm">기능 지도</h3>
+  <table class="free">
+    <tr><th>무엇을 하려면</th><th>어디를 보나요</th></tr>
+    <tr><td>문서를 열고 나란히 놓기</td><td><a href="#p3">3쪽</a> · <a href="#p4">4쪽</a></td></tr>
+    <tr><td>칠하고, 캡처하고, 메모하기</td><td><a href="#p5">5쪽</a> · <a href="#p6">6쪽</a></td></tr>
+    <tr><td>노트로 엮고 요구사항 챙기기</td><td><a href="#p7">7쪽</a></td></tr>
+    <tr><td>찾기, 목차, 라이브러리, 버전</td><td><a href="#p8">8쪽</a></td></tr>
+    <tr><td>PDF 고치고 내보내기</td><td><a href="#p9">9쪽</a></td></tr>
+    <tr><td>번역, Markdown, 설정, 데이터</td><td><a href="#p10">10쪽</a> · <a href="#p11">11쪽</a></td></tr>
+    <tr><td>키보드와 마우스</td><td><a href="#p12">12쪽</a></td></tr>
+  </table>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">2</span></div>
+</section>
+
+<!-- 3. Vault 와 화면 -->
+<section class="page" id="p3">
+  <div class="ch"><div class="no">1</div><h2>Vault 와 화면</h2></div>
+  <p class="lead">IWAE 는 Vault 라는 폴더 하나를 엽니다.</p>
+  <p>PDF 와 Markdown 은 이 폴더에 그대로 두고, 앱이 쓰는 기록은 폴더 안의 <code>.iwae</code> 에 따로 둡니다. Vault 는 평범한 폴더라서 탐색기로 복사하거나 백업할 수 있습니다. 문서를 앱 안에 가두지 않으니, IWAE 를 지워도 파일은 그대로 남습니다.</p>
+
+  <h3>Vault 폴더 안</h3>
   <table>
     <tr><th>경로</th><th>내용</th></tr>
-    <tr><td><code>*.pdf</code>, <code>*.md</code></td><td>내 문서</td></tr>
+    <tr><td><code>*.pdf</code> · <code>*.md</code></td><td>내 문서. 하위 폴더도 그대로 왼쪽 목록에 나타납니다.</td></tr>
     <tr><td><code>노트/*.iwnote</code></td><td>노트 파일</td></tr>
-    <tr><td><code>.iwae/</code></td><td>형광펜, 책갈피, 색인 같은 앱 기록</td></tr>
+    <tr><td><code>.iwae/</code></td><td>형광펜, 책갈피, 검색 색인, 번역 캐시, 이력, 휴지통 같은 앱 기록</td></tr>
   </table>
-</section>
 
-<section>
-  <h2>2. PDF 도구</h2>
-  <p>문서 위 도구줄의 단추로 도구를 바꿉니다.</p>
-  <table>
-    <tr><th>도구</th><th>하는 일</th></tr>
-    <tr><td>손 도구</td><td>빈 곳을 잡고 끌어 화면을 옮깁니다. 글자 위에서 끌면 글을 골라 복사만 합니다.</td></tr>
-    <tr><td>텍스트 선택</td><td>글을 끌면 형광펜이 칠해지고 오른쪽 노트에 메모 칸이 열립니다.</td></tr>
-    <tr><td>영역 캡처</td><td>표나 그림을 네모로 잡아 노트에 그림으로 넣습니다.</td></tr>
-    <tr><td>박스 메모</td><td>PDF 여백에 선으로 이어진 메모 상자를 붙입니다.</td></tr>
-    <tr><td>글 상자 · 펜 · 지우개 · 선</td><td>PDF 위에 직접 쓰고 그립니다. 떠 있는 서식 창에서 색과 굵기를 고릅니다.</td></tr>
-    <tr><td>쪽 편집</td><td>쪽 미리보기에서 순서를 바꾸고, 다른 PDF 의 쪽을 끼우고, 빼고, 돌립니다.</td></tr>
+  <h3>문서 열고 정리하기</h3>
+  <ul>
+    <li>왼쪽 「탐색기」에서 문서를 누르면 탭으로 열립니다. 새 폴더 만들기, 이름 바꾸기, 끌어서 옮기기도 여기서 합니다.</li>
+    <li>「문서 추가」로 파일을 가져오거나, 탐색기에서 문서를 Vault 폴더 위로 끌어다 놓습니다.</li>
+    <li>GitHub 단추로 저장소의 Markdown 문서 폴더를 가져올 수 있습니다 (<a href="#p10">10쪽</a>).</li>
+    <li>탐색기에서 PDF 를 직접 열면 Vault 로 가져오지 않고 열립니다. 왼쪽 아래 「최근 연 PDF」에 남고, 끌어서 Vault 폴더에 놓으면 가져옵니다.</li>
+    <li>왼쪽 아래의 Vault 이름을 누르면 다른 Vault 로 바꿉니다. 읽던 쪽과 열어 둔 탭은 다음 실행에도 이어집니다.</li>
+  </ul>
+
+  <h3>화면의 세 부분</h3>
+  <table class="free">
+    <tr><td>왼쪽 바</td><td>문서와 노트 목록, 목차, 쪽 미리보기, PDF 도구, 검색. 폭은 경계를 끌어 바꿉니다.</td></tr>
+    <tr><td>가운데</td><td>탭으로 여러 문서를 열고, 칸으로 나눠 나란히 봅니다.</td></tr>
+    <tr><td>오른쪽 노트 바</td><td>열린 노트. PDF 와 따로 스크롤되고, 메모가 형광펜과 선으로 이어집니다.</td></tr>
   </table>
-  <div class="note">
-    <p>잡아 둔 표·그림 네모는 텍스트 선택이나 영역 캡처 도구에서 변과 모서리를 끌어 크기를 바꿀 수 있습니다.</p>
+
+  <div class="tip"><b class="k">알아 두기</b>자료가 PC 밖으로 나가는 경우는 두 가지뿐입니다. 클라우드 번역을 골랐을 때 고른 글, 그리고 외부 AI 연결을 직접 켰을 때입니다. 자세한 내용은 <a href="#p11">11쪽</a>에 있습니다.</div>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li>왼쪽 「탐색기」에서 <b>Markdown 예시</b>를 눌러 새 탭으로 엽니다.</li>
+      <li>탭을 눌러 이 설명서와 Markdown 예시를 오가 봅니다.</li>
+      <li>「새 폴더」 단추로 폴더를 하나 만들고 이름을 「연습」으로 바꿔 봅니다. 해 본 뒤에는 지워도 됩니다.</li>
+    </ol>
   </div>
-  <h3>찾기와 이동</h3>
-  <p>Ctrl+F 로 PDF 안을 찾고, 목차와 쪽 미리보기로 원하는 곳에 갑니다. 문서 안의 링크를 누르면 그 자리로 가고, 마우스를 올리면 미리 보입니다.</p>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">3</span></div>
 </section>
 
-<section>
-  <h2>3. 메모와 노트</h2>
-  <p>노트는 블록을 쌓아 만드는 문서입니다. 한 노트에 여러 PDF 의 메모를 섞어 담을 수 있습니다.</p>
-  <table>
-    <tr><th>블록</th><th>설명</th></tr>
-    <tr><td>소제목</td><td>아래 블록을 묶습니다. 접으면 숨고, 끌면 묶인 블록과 함께 옮겨집니다.</td></tr>
-    <tr><td>글</td><td>노트에 직접 쓰는 글입니다. 굵게, 목록, 표, 코드를 쓸 수 있습니다.</td></tr>
-    <tr><td>메모</td><td>PDF 형광펜과 그 메모입니다. 누르면 PDF 의 그 자리로 갑니다.</td></tr>
-    <tr><td>티켓</td><td>제목, 내 글, 원문 순서로 보이는 메모입니다. 요구사항을 정리할 때 씁니다.</td></tr>
+<!-- 4. 탭과 화면 나누기 -->
+<section class="page" id="p4">
+  <div class="ch"><div class="no">2</div><h2>탭과 화면 나누기</h2></div>
+  <p class="lead">문서마다 탭이 생기고, 칸을 나눠 여러 문서를 나란히 읽습니다.</p>
+  <p>화면을 나누는 방법은 두 가지이고, 둘 다 같은 아홉 가지 배치를 씁니다.</p>
+
+  <div class="layouts">
+    <div class="lay"><div class="box" style="grid-template:1fr/1fr"><i class="on"></i></div>한 화면</div>
+    <div class="lay"><div class="box" style="grid-template:1fr/1fr 1fr"><i></i><i class="on"></i></div>좌우 둘</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr"><i></i><i class="on"></i></div>위아래 둘</div>
+    <div class="lay"><div class="box" style="grid-template:1fr/1fr 1fr 1fr"><i></i><i class="on"></i><i></i></div>좌우 셋</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i></i><i class="on"></i><i style="grid-column:1/3"></i></div>위 둘 · 아래 하나</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i style="grid-column:1/3"></i><i class="on"></i><i></i></div>위 하나 · 아래 둘</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i style="grid-row:1/3"></i><i class="on"></i><i></i></div>왼쪽 하나 · 오른쪽 둘</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i></i><i style="grid-row:1/3" class="on"></i><i></i></div>왼쪽 둘 · 오른쪽 하나</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i></i><i class="on"></i><i></i><i></i></div>넷 (2×2)</div>
+  </div>
+  <table class="free">
+    <tr><td>창 나누기</td><td>오른쪽 위 단추. 서로 다른 문서를 칸마다 엽니다. <kbd>Ctrl</kbd>+<kbd>\</kbd> 를 누를 때마다 한 칸, 두 칸, 세 칸으로 돌아갑니다.</td></tr>
+    <tr><td>화면 나누기</td><td>PDF 도구줄 단추. 같은 PDF 의 서로 다른 쪽을 함께 봅니다. 칸마다 쪽과 배율이 따로입니다.</td></tr>
   </table>
-  <p>블록에 마우스를 올리면 블록 오른쪽 위에 출처가 보입니다.</p>
-  <p>왼쪽 손잡이를 잡고 끌면 블록 차례를 바꿀 수 있습니다.</p>
-  <p>메모 블록의 메뉴에서 티켓으로 바꾸기를 누르면 티켓이 됩니다.</p>
+
+  <h3>탭은 브라우저 탭처럼 끕니다</h3>
+  <table class="free">
+    <tr><td>같은 칸에서 끌기</td><td>탭 순서가 바뀝니다.</td></tr>
+    <tr><td>다른 칸의 탭 줄로 끌기</td><td>그 칸으로 탭이 옮겨 갑니다.</td></tr>
+    <tr><td>칸 가장자리로 끌기</td><td>탭을 칸 가장자리로 끌어 가면 그 자리에 칸이 새로 생깁니다.</td></tr>
+    <tr><td>창 밖으로 끌기</td><td>PDF 탭이 자기 창으로 떨어져 나갑니다. 그 창은 문서와 노트 바만 보이는 가벼운 창입니다.</td></tr>
+    <tr><td>탭 줄에 끌어 놓기</td><td>떨어진 창을 닫거나 「다시 붙이기」를 고르면 탭이 쪽과 배율 그대로 돌아옵니다.</td></tr>
+  </table>
+  <p><b>새 창</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>)은 같은 Vault 를 보는 두 번째 창입니다. 한 창에서 칠하거나 쓴 내용은 다른 창에 바로 나타나고, 두 창이 같은 파일을 동시에 고쳐도 서로 덮어쓰지 않고 합쳐집니다. 모니터가 둘이면 한쪽에 문서, 한쪽에 노트를 두고 읽을 수 있습니다.</p>
+
+  <h3>보기와 이동</h3>
+  <ul>
+    <li>쪽 배치는 한 장 · 두 장 · 세 장 · 연속 보기. 아래 막대에서 폭 맞춤, 쪽 맞춤, 높이 맞춤, 실제 크기(1:1)를 고르고 <kbd>Ctrl</kbd>+휠로 확대합니다.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>G</kbd> 로 쪽으로 갑니다. 문서 안 링크에 마우스를 올리면 미리 보이고, 누르면 이동합니다. 돌아올 때는 <kbd>Alt</kbd>+<kbd>←</kbd> 나 마우스 뒤로 단추를 씁니다.</li>
+  </ul>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li>오른쪽 위 「창 나누기」에서 「좌우 둘」을 고릅니다.</li>
+      <li><b>Markdown 예시</b> 탭을 오른쪽 칸으로 끌어 놓고, 두 문서를 나란히 읽어 봅니다.</li>
+      <li>탭 하나를 창 밖으로 끌어 떼어 낸 다음, 탭 줄로 다시 끌어다 붙여 봅니다.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">4</span></div>
 </section>
 
-<section>
-  <h2>4. 연습: 요구사항 정리하기</h2>
-  <p>아래는 연습용 요구사항입니다. 텍스트 선택 도구로 한 줄을 끌어 메모를 만든 뒤, 메모 메뉴에서 티켓으로 바꿔 보세요.</p>
+<!-- 5. 형광펜과 메모 -->
+<section class="page" id="p5">
+  <div class="ch"><div class="no">3</div><h2>형광펜과 메모</h2></div>
+  <p class="lead">읽는 일과 남기는 일을 한 동작으로 합니다. 글을 고르면 형광펜이 칠해지고, 오른쪽 노트에 메모 칸이 열립니다.</p>
+
+  <div class="try"><span class="tag">해 보기 1</span>
+    <ol>
+      <li>도구줄에서 「텍스트 선택」이 켜져 있는지 봅니다 (처음부터 켜져 있습니다).</li>
+      <li>아래 연습 문장을 끌어서 고릅니다. 형광펜이 칠해지고 노트에 메모 칸이 열립니다.</li>
+      <li>메모를 쓰고, 문서를 멀리 내려갔다가 메모 카드를 눌러 봅니다. PDF 가 칠한 문장으로 돌아옵니다.</li>
+    </ol>
+  </div>
+  <p class="target"><span class="tn">연습 1</span>읽다가 멈춘 문장에 형광펜을 칠하면, 그 문장이 노트의 메모 카드로 옮겨 옵니다.</p>
+  <p class="target"><span class="tn">연습 2</span>칠한 문장은 노트의 메모 카드와 가는 선으로 이어집니다.</p>
+  <p class="target"><span class="tn">연습 3</span>메모 카드를 누르면 PDF 가 칠한 문장으로 돌아옵니다.</p>
+
+  <h3>글을 골랐을 때</h3>
+  <table class="free">
+    <tr><td>텍스트 선택 도구로 끌기</td><td>형광펜을 칠하고 메모 칸을 엽니다.</td></tr>
+    <tr><td>손 도구로 글 위를 끌기</td><td>칠하지 않고 글만 고릅니다. 복사할 때 씁니다.</td></tr>
+    <tr><td>고른 글 위의 단추</td><td>복사 · 출처 복사 · 문서 검색 · 번역 · 노트로 보내기</td></tr>
+    <tr><td>칠한 곳을 누르기</td><td>노트에서 그 메모 카드가 열려 바로 고칠 수 있습니다. 노트 바를 닫아 두었다면 색 바꾸기, 메모 쓰기, 노트로 보내기, 삭제를 하는 작은 창이 뜹니다.</td></tr>
+    <tr><td>메모 카드의 출처 누르기</td><td>PDF 가 그 자리로 갑니다. 카드 메뉴의 「원문에서 보기」도 같고, 「형광펜과 메모 지우기」로 지웁니다.</td></tr>
+  </table>
+
+  <h3>색 고르기</h3>
+  <p>「형광펜」 도구는 메모 없이 색만 칠합니다. 기본 색은 아래 네 가지이고, 설정의 「화면 및 문서 → 형광펜 색」에서 이름을 붙여 최대 8가지까지 더하고 끌어서 순서를 바꿀 수 있습니다. 색을 지워도 그 색으로 칠한 형광펜은 「기타」 색으로 남습니다.</p>
+  <div class="chips">
+    <span class="chip"><i class="sw" style="background:#ffe25e"></i>노랑</span>
+    <span class="chip"><i class="sw" style="background:#6fdc92"></i>초록</span>
+    <span class="chip"><i class="sw" style="background:#5db1ff"></i>파랑</span>
+    <span class="chip"><i class="sw" style="background:#ff7eb5"></i>분홍</span>
+    <span class="chip">직접 만든 색 최대 8가지</span>
+  </div>
+
+  <h3>이어진 선</h3>
+  <p>노트 바는 창 오른쪽 끝에 고정되어 있어서, 칸이 여럿이어도 연결선이 다른 칸을 가로질러 카드에 닿습니다. 선은 형광펜과 같은 색입니다. 도구줄의 눈 모양 단추 「표시 모두 감추기」는 형광펜, 메모, 선을 한꺼번에 숨겨 줍니다. 되돌리기(<kbd>Ctrl</kbd>+<kbd>Z</kbd>)는 형광펜, 그림, 메모 노트의 변경을 되돌리되 다른 창에서 더한 것은 건드리지 않습니다.</p>
+
+  <div class="try"><span class="tag">해 보기 2</span>
+    <ol>
+      <li>「형광펜」 도구로 바꾸고 색을 하나 골라 문장 몇 개를 칠해 봅니다.</li>
+      <li>칠한 문장을 눌러 노트의 카드가 열리는 것을 보고, 카드 메뉴의 「형광펜과 메모 지우기」로 지워 봅니다. 눈 모양 단추로 표시를 숨겼다 다시 보입니다.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">5</span></div>
+</section>
+
+<!-- 6. 캡처 · 박스 메모 · 그리기 -->
+<section class="page" id="p6">
+  <div class="ch"><div class="no">4</div><h2>캡처 · 박스 메모 · 그리기</h2></div>
+  <p class="lead">글이 아닌 것, 곧 표와 그림은 영역 캡처로 담고, 쪽 위에는 직접 쓰고 그립니다.</p>
+
+  <h3>영역 캡처</h3>
+  <p>도구줄의 「영역 캡처」로 표나 그림을 네모로 감싸면, 노트에 그림이 설명 칸과 함께 들어갑니다. 잡아 둔 네모는 변과 모서리를 끌어 크기를 바꿀 수 있습니다. <kbd>Ctrl</kbd> 을 누른 채 끌어도 표와 그림을 감쌀 수 있습니다. 글자 없는 스캔 쪽에서 영역을 잡으면 OCR 로 읽은 글자도 함께 붙습니다.</p>
+
+  <div class="cols">
+    <div class="fig">
+      <table style="margin:0">
+        <tr><th>도구</th><th>누르는 키</th><th>쓰임</th></tr>
+        <tr><td>펜</td><td><kbd>P</kbd></td><td>손으로 그리기</td></tr>
+        <tr><td>글 상자</td><td><kbd>T</kbd></td><td>쪽 위에 글쓰기</td></tr>
+        <tr><td>지우개</td><td><kbd>E</kbd></td><td>그린 것 지우기</td></tr>
+      </table>
+      <p class="cap">표 1. 도구 세 가지</p>
+    </div>
+    <div class="fig">
+      <div class="bars">
+        <div style="height:42%"><span>12</span></div>
+        <div style="height:64%"><span>19</span></div>
+        <div style="height:50%"><span>15</span></div>
+        <div style="height:88%"><span>26</span></div>
+        <div style="height:74%"><span>22</span></div>
+      </div>
+      <div class="bars-x"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span></div>
+      <p class="cap">그림 1. 요일별 읽은 쪽수</p>
+    </div>
+  </div>
+
+  <h3>박스 메모와 그리기</h3>
+  <p>「박스 메모」는 쪽 여백에 메모 상자를 붙이고 선으로 잇습니다. 「글 상자」, 「펜」과 그리기 도구(선, 화살표, 네모, 동그라미), 「지우개」는 PDF 위에 직접 씁니다. 떠 있는 서식 창에서 색과 굵기를 고릅니다. 지우개는 그림뿐 아니라 형광펜과 박스 메모도 지웁니다.</p>
+  <table class="free">
+    <tr><td>한 글자 단축키</td><td><kbd>T</kbd> 글 상자 · <kbd>P</kbd> 펜 · <kbd>L</kbd> 선 · <kbd>A</kbd> 화살표 · <kbd>R</kbd> 네모 · <kbd>O</kbd> 동그라미 · <kbd>X</kbd> 가리기 · <kbd>E</kbd> 지우개 · <kbd>Esc</kbd> 도구 끄기 (글 쓰는 칸 밖에서)</td></tr>
+  </table>
+  <div class="canvas">그리기 연습 칸: 여기에 펜으로 그리고, 글 상자를 놓고, 박스 메모를 붙여 보세요</div>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li>「영역 캡처」를 켜고 위의 그림 1 을 네모로 감쌉니다. 노트에 그림이 들어가면 설명을 적어 보세요.</li>
+      <li>네모의 변이나 모서리를 끌어 크기를 바꿔 봅니다.</li>
+      <li>「박스 메모」로 여백에 상자를 붙이고, <kbd>P</kbd> 를 눌러 연습 칸에 그린 뒤 <kbd>E</kbd> 로 지웁니다. <kbd>Esc</kbd> 로 도구를 끕니다.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">6</span></div>
+</section>
+
+<!-- 7. 노트와 티켓 -->
+<section class="page" id="p7">
+  <div class="ch"><div class="no">5</div><h2>노트와 티켓</h2></div>
+  <p class="lead">노트는 블록을 쌓아 만드는 문서입니다. 한 노트에 여러 PDF 와 Markdown 의 메모를 섞어 담을 수 있습니다.</p>
+
+  <table class="free">
+    <tr><th>블록</th><th>설명</th></tr>
+    <tr><td>소제목</td><td>아래 블록을 묶습니다. 접으면 숨고, 끌면 묶인 블록이 함께 옮겨집니다.</td></tr>
+    <tr><td>글</td><td>노트에 직접 쓰는 글입니다. 굵게, 목록, 표, 코드를 쓸 수 있습니다.</td></tr>
+    <tr><td>메모</td><td>내 글 아래에 출처(쪽 번호)가 붙습니다. 출처를 누르면 PDF 의 그 자리로 갑니다. 출처를 여럿(캡처 포함) 붙일 수 있습니다.</td></tr>
+    <tr><td>티켓</td><td>ID 와 제목이 붙은 메모입니다. 요구사항을 챙길 때 씁니다.</td></tr>
+  </table>
+  <p>블록의 왼쪽 손잡이를 잡고 끌면 순서를 바꿀 수 있습니다. <kbd>Ctrl</kbd> 또는 <kbd>Shift</kbd> 를 누르고 여러 블록을 골라 한꺼번에 끌 수도 있습니다.</p>
+
+  <h3>ID 와 제목 (티켓)</h3>
+  <p>메모에는 ID 와 제목을 붙일 수 있습니다. 메모에 마우스를 올리면 오른쪽 위에 「+ ID」 「+ 제목」이 보이고, 메모 맨 앞에 <code>REQ-04 </code> 처럼 써도 ID 가 됩니다. 다음 번호를 제안하고, 노트에 이미 있는 ID 면 알려 줍니다.</p>
+  <p>아래는 연습용 요구사항입니다. 한 줄씩 칠해 메모를 만들고 ID 를 붙여 보세요.</p>
   <div class="req"><b>REQ-01</b> 저장한 노트는 앱을 다시 켜도 그대로 남아야 한다.</div>
   <div class="req"><b>REQ-02</b> 형광펜을 지우면 그 메모 블록도 노트에서 빠져야 한다.</div>
   <div class="req"><b>REQ-03</b> 쪽 순서를 바꿔도 형광펜은 같은 글을 가리켜야 한다.</div>
   <div class="req"><b>REQ-04</b> 번역할 글은 사용자가 고른 곳으로만 보내야 한다.</div>
   <p>이 Vault 의 예시 노트에는 REQ-01 과 REQ-03 이 이미 티켓으로 들어 있습니다.</p>
+
+  <h3>노트 바 다루기</h3>
+  <table class="free">
+    <tr><td>노트 바꾸기</td><td>노트 바 제목의 ⌄ 를 누르면 「이 PDF 의 노트」와 「다른 노트」가 뜨고, 「이 PDF 에 노트 만들기」도 여기 있습니다. 돋보기는 모든 노트에서 찾습니다.</td></tr>
+    <tr><td>PDF 마다 노트</td><td>왼쪽 「탐색기」의 PDF 행 캐럿을 펴면 그 PDF 의 노트가 아래에 보이고, 거기서 새 노트를 만듭니다.</td></tr>
+    <tr><td>메모만 보기</td><td>노트 바의 「메모만 보기」는 노트를 넓은 열로 펼치고 목차를 둡니다. 정리하고 다듬을 때 편하고, 「문서와 같이 보기」로 돌아옵니다.</td></tr>
+    <tr><td>메모 모두 펼치기</td><td>메모 카드의 원문 인용을 한꺼번에 펴거나 접습니다. 「글 블록 넣기」(+)는 노트에 직접 쓰는 글을 더합니다.</td></tr>
+  </table>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li>REQ-02 문장을 칠해 메모를 만들고, 메모 위에서 「+ ID」를 눌러 REQ-02 를 붙입니다. 「+ 제목」도 붙여 보세요.</li>
+      <li>노트 바 위쪽의 「메모만 보기」를 켜서 목차와 함께 보고, 다시 닫습니다.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">7</span></div>
 </section>
 
-<section>
-  <h2>5. 번역</h2>
-  <p>고른 글을 바로 번역할 수 있습니다. 설정의 번역에서 방식을 고릅니다.</p>
-  <table>
+<!-- 8. 왼쪽 바 · 라이브러리 · 버전 -->
+<section class="page" id="p8">
+  <div class="ch"><div class="no">6</div><h2>왼쪽 바 · 라이브러리 · 버전</h2></div>
+  <p class="lead">왼쪽 바 위의 다섯 탭이 문서를 찾고 훑는 길입니다.</p>
+
+  <table class="free">
+    <tr><td>탐색기</td><td>Vault 의 문서와 노트 목록. 지금 열린 문서에 점이 붙고, 선택된 문서와 노트가 표시됩니다.</td></tr>
+    <tr><td>목록</td><td>이 PDF 의 목차와 책갈피. 누르면 그 쪽으로 갑니다.</td></tr>
+    <tr><td>미리보기</td><td>쪽 썸네일. 지금 화면에 보이는 영역이 사각형으로 표시됩니다.</td></tr>
+    <tr><td>PDF 도구</td><td>OCR, 비교, 합치기 같은 도구 모음 (<a href="#p9">9쪽</a>).</td></tr>
+    <tr><td>검색</td><td>「이 문서」와 「모든 문서」를 오가며 찾습니다. 대소문자 구분(Aa)과 단어 단위(W) 옵션이 있고, 결과를 누르면 그 자리에서 열립니다.</td></tr>
+  </table>
+  <p>모든 문서 검색은 파일 이름, 폴더, PDF 본문, Markdown 내용을 한곳에서 찾습니다. 글자 층이 없는 쪽은 PC 안에서 OCR 로 읽어 색인합니다.</p>
+
+  <h3>라이브러리 펼치기</h3>
+  <p>왼쪽 바 위쪽의 「라이브러리 펼치기」(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>)를 누르면 왼쪽 바가 전체 · 즐겨찾기 · 최근 열람 · 폴더 탐색으로 바뀌고, 오른쪽이 모든 문서의 표가 됩니다.</p>
+  <ul>
+    <li>제목, 저자, 연도 같은 논문 정보를 그 자리에서 고치고, 정렬하고, 별표를 달고, 모음으로 묶습니다. 목록과 카드 보기를 오갑니다.</li>
+    <li>논문 정보는 PDF 나 Crossref 에서 채우고, BibTeX 인용 정보를 복사할 수 있습니다.</li>
+  </ul>
+
+  <h3>버전 묶음</h3>
+  <p>같은 문서의 초안, 수정본, 최종본을 한 문서의 버전으로 묶어 오갑니다. 파일 행의 메뉴에서 「다른 파일과 버전으로 묶기…」를 고르면 되고, 묶음을 풀어도 파일은 그대로입니다. PDF 도구의 「다른 버전과 글자 비교」(<a href="#p9">9쪽</a>)가 두 버전에서 바뀐 곳만 나란히 보여 줍니다.</p>
+
+  <h3>따로 확대하기</h3>
+  <p>왼쪽 바, 오른쪽 노트 바, 라이브러리 위에서 <kbd>Ctrl</kbd>+휠을 돌리면 각각 80~150% 안에서 따로 확대됩니다. 값은 앱에 저장되고, PDF 의 확대와 서로 영향을 주지 않습니다. 앱 전체 글자 크기는 설정의 「화면 크기」에서 바꿉니다.</p>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li>「목록」에서 목차 항목을 눌러 장으로 이동하고, 「미리보기」에서 사각형이 따라 움직이는 것을 봅니다.</li>
+      <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> 를 눌러 「모든 문서」에서 <code>Vault</code> 를 찾고, 결과를 눌러 이동합니다.</li>
+      <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> 로 라이브러리를 펼쳤다 접습니다. 왼쪽 바 위에서 <kbd>Ctrl</kbd>+휠도 돌려 보세요.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">8</span></div>
+</section>
+
+<!-- 9. PDF 도구 -->
+<section class="page" id="p9">
+  <div class="ch"><div class="no">7</div><h2>PDF 도구</h2></div>
+  <p class="lead">왼쪽 바의 「PDF 도구」 탭에서 도구를 그 자리에 펼쳐 씁니다. 쪽 편집만 PDF 칸을 차지합니다.</p>
+  <p>대부분의 도구는 「원본에 적용」과 「사본으로」 가운데 고를 수 있고, 사본은 새 PDF 로 Vault 에 저장됩니다. 쪽 편집은 원본을 먼저 백업합니다. 도구 이름은 명령 팔레트(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>)에서 쳐서도 엽니다.</p>
+
+  <table class="free">
+    <tr><th>묶음</th><th>도구</th><th>하는 일</th></tr>
+    <tr><td rowspan="2">글자</td><td><b>OCR 로 글자 입히기</b></td><td>스캔한 쪽에 글자 층을 입혀 검색하고 고를 수 있게 합니다. PC 안에서 읽습니다.</td></tr>
+    <tr><td><b>다른 버전과 글자 비교</b></td><td>두 버전의 글을 비교해 바뀐 곳만 나란히 보여 줍니다.</td></tr>
+    <tr><td rowspan="2">내 표시</td><td><b>표시 넣은 사본</b></td><td>내 형광펜, 메모, 그림을 쪽에 구워 넣은 PDF 를 만듭니다. 남에게 보낼 때 씁니다.</td></tr>
+    <tr><td><b>가린 사본</b></td><td>가리기 도구(<kbd>X</kbd>)로 덮은 곳의 글자와 그림을 정말로 지웁니다.</td></tr>
+    <tr><td rowspan="6">쪽</td><td><b>쪽 편집</b></td><td>쪽 순서 바꾸기, 돌리기, 빼기, 다른 PDF 의 쪽 끼우기. 형광펜은 자기 쪽을 따라갑니다.</td></tr>
+    <tr><td><b>쪽 뽑아 새 PDF</b></td><td>고른 쪽 범위만 새 PDF 로 뽑습니다.</td></tr>
+    <tr><td><b>목차 단위로 나누기</b></td><td>목차의 장마다 PDF 를 나눕니다.</td></tr>
+    <tr><td><b>다른 PDF 와 합치기</b></td><td>여러 PDF 를 하나로 묶습니다.</td></tr>
+    <tr><td><b>빈 쪽 빼기</b></td><td>빈 쪽을 찾아 뺍니다.</td></tr>
+    <tr><td><b>스캔 쪽 방향 바로잡기</b></td><td>옆으로 눕거나 뒤집힌 스캔 쪽을 OCR 로 알아내 바로 세웁니다.</td></tr>
+    <tr><td rowspan="5">모양</td><td><b>쪽 번호 넣기</b></td><td>자리와 모양을 골라 쪽 번호를 넣습니다.</td></tr>
+    <tr><td><b>워터마크</b></td><td>쪽마다 글자 도장을 찍습니다.</td></tr>
+    <tr><td><b>여백 자르기</b></td><td>쪽의 여백을 잘라 냅니다.</td></tr>
+    <tr><td><b>모아찍기</b></td><td>한 장에 여러 쪽을 모아 찍습니다.</td></tr>
+    <tr><td><b>압축</b></td><td>큰 그림을 줄입니다. 파일이 실제로 작아질 때만 저장합니다.</td></tr>
+    <tr><td rowspan="3">내보내기</td><td><b>쪽 그림(PNG)으로</b></td><td>쪽을 그림 파일로 저장합니다.</td></tr>
+    <tr><td><b>글을 Markdown 으로</b></td><td>PDF 의 글을 Markdown 으로 뽑습니다.</td></tr>
+    <tr><td><b>암호 푼 사본</b></td><td>암호를 입력해 암호 없는 사본을 만듭니다. 암호 PDF 는 열 때 암호를 묻습니다.</td></tr>
+  </table>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li>왼쪽 바에서 「PDF 도구」 탭을 열고, 「쪽 번호 넣기」를 눌러 자리와 모양 옵션을 살펴봅니다. 처음에는 「원본에 적용」이 골라져 있으니 「사본으로」를 먼저 고르세요. 그러면 사본만 만들어집니다.</li>
+      <li>「다른 버전과 글자 비교」를 열어, Vault 에 같은 문서의 다른 PDF 를 하나 더 넣어 두고 이 설명서와 비교해 봅니다.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">9</span></div>
+</section>
+
+<!-- 10. 번역과 Markdown -->
+<section class="page" id="p10">
+  <div class="ch"><div class="no">8</div><h2>번역과 Markdown</h2></div>
+  <p class="lead">원문은 그대로 두고, 고른 글만 번역해서 곁에 펼칩니다.</p>
+
+  <h3>번역</h3>
+  <p>글을 고르면 나타나는 단추 중 「번역」을 누르면 결과 카드가 뜹니다. 카드에는 언어, 번역 방식, 다시 시도, 원문과 함께 복사가 있습니다. 노트의 출처 줄마다 작은 번역 단추가 있어서 누르면 바로 아래에 번역이 펼쳐집니다. 줄바꿈으로 끊긴 글은 이어 붙여 번역하고, 이미 대상 언어인 글은 다른 언어로 번역합니다.</p>
+
+  <table class="free">
     <tr><th>방식</th><th>특징</th></tr>
-    <tr><td>로컬 (Ollama)</td><td>글이 PC 밖으로 나가지 않습니다. 모델 크기에 따라 느릴 수 있습니다.</td></tr>
-    <tr><td>클라우드 API</td><td>Claude, OpenAI, Gemini 등으로 빠르게 번역합니다. 고른 글이 그 서비스로 전송됩니다.</td></tr>
+    <tr><td>로컬 (Ollama)</td><td>내 PC 에서 번역합니다. 글이 PC 밖으로 나가지 않습니다. 모델 크기에 따라 느릴 수 있습니다.</td></tr>
+    <tr><td>클라우드</td><td>OpenAI, Anthropic, Gemini, Azure Translator, DeepL 중에서 고릅니다. 고른 글이 그 서비스로 전송됩니다.</td></tr>
   </table>
-  <p>클라우드 API 키는 이 PC 의 자격 증명 저장소에 보관됩니다.</p>
+  <p class="target"><span class="tn">연습 4</span>클라우드 API 키는 이 PC 의 자격 증명 저장소에 보관됩니다.</p>
+  <p><b>번역 캐시:</b> 한 번 번역한 글을 같은 언어로 다시 번역하면 요청 없이 바로 꺼내 씁니다. 설정의 「번역」에서 끄거나 지울 수 있고, 번역은 Vault 의 <code>.iwae</code> 안에만 남습니다. 방식과 API 키도 같은 곳에서 고릅니다.</p>
+
+  <h3>번역 연습 문단</h3>
+  <p class="target" style="padding-left:3.2mm"><span class="tn" style="position:static;transform:none;margin-right:2mm">연습 5</span>A well-organized reading list turns scattered papers into an argument. Highlight the claim, write down why it matters, and return to the source whenever you doubt your own summary.</p>
+
+  <h3>Markdown 문서</h3>
+  <p>Markdown 문서도 PDF 옆 탭으로 열리고, 제목, 표, 코드, 할 일 목록과 목차를 보여 줍니다. 글을 골라 형광펜과 메모를 달고 영역 캡처를 하는 방법은 PDF 와 똑같고, 메모는 같은 노트에 섞입니다. 모양은 설정의 「Markdown 문서 테마」에서 바꿉니다 (원본 파일은 바뀌지 않습니다).</p>
+  <ul>
+    <li><b>GitHub 에서 가져오기:</b> 왼쪽 「탐색기」 위의 GitHub 단추로 저장소의 Markdown 문서 폴더를 가져옵니다. 새 커밋이 있으면 상단바가 알려 주고, 최신으로 받거나 브랜치, 태그, 커밋의 예전 버전으로 바꿔 볼 수 있습니다.</li>
+  </ul>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li>위의 연습 5 영어 문단을 끌어 골라 「번역」을 누릅니다. 같은 문단을 한 번 더 번역하면 캐시 덕분에 바로 나옵니다.</li>
+      <li>그 글을 메모로 칠해 두고, 노트 카드의 출처 줄에 있는 번역 단추를 눌러 봅니다.</li>
+      <li><b>Markdown 예시</b> 탭에서 문장 하나를 칠해 같은 노트에 메모를 만듭니다.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">10</span></div>
 </section>
 
-<section>
-  <h2>6. 단축키</h2>
-  <table>
-    <tr><th>키</th><th>하는 일</th></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>PDF 검색</td></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>인쇄</td></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>고른 PDF 글 복사</td></tr>
-    <tr><td>오른쪽 단추로 끌기</td><td>마우스 제스처 (탭 닫기, 맨 위·맨 아래로)</td></tr>
+<!-- 11. 모양 · 설정 · 내 데이터 -->
+<section class="page" id="p11">
+  <div class="ch"><div class="no">9</div><h2>모양 · 설정 · 내 데이터</h2></div>
+  <p class="lead">설정은 <kbd>Ctrl</kbd>+<kbd>,</kbd> 로 엽니다.</p>
+
+  <h3>테마와 색</h3>
+  <table class="free">
+    <tr><td>화면 테마</td><td>시스템 설정, 라이트, 다크. 시스템 설정은 운영체제의 변경을 바로 따라갑니다.</td></tr>
+    <tr><td>색 구성</td><td>기본, 중립 회색, 따뜻한 종이, 짙은 남색 가운데 고릅니다. 「새 테마 만들기」로 밝기마다 기본 색 8개만 정하면 나머지 색이 자동으로 정해지고, 미리보기와 대비 경고를 보며 다듬습니다. 테마는 파일로 내보내고 가져오며, 복제하고 지울 수 있습니다.</td></tr>
+    <tr><td>강조색</td><td>파랑, 청록, 초록, 보라, 장미, 호박 가운데 고르거나 「직접 고르기」로 아무 색이나 씁니다. 대비가 모자라면 알려 줍니다.</td></tr>
+    <tr><td>형광펜 색</td><td>이름 붙인 색을 최대 8가지까지 만들고 끌어서 순서를 바꿉니다.</td></tr>
+    <tr><td>크기 · 언어</td><td>화면 크기 90~125%, 한국어 · English · 시스템 언어. Markdown 문서 테마 여섯 가지.</td></tr>
   </table>
-  <p>IWAE 는 오픈 소스입니다. 문제를 찾거나 기능을 제안하려면 저장소의 이슈에 남겨 주세요.</p>
+
+  <h3>내 데이터는 내 PC 에</h3>
+  <table class="free">
+    <tr><td>안전한 저장</td><td>임시 파일에 쓴 뒤 한 번에 바꿔 끼우고, 기록으로 끊긴 저장을 알아챕니다. 예전 상태는 정해진 기간 남고, 서로 부딪친 수정은 둘 다 남겨 고르게 합니다.</td></tr>
+    <tr><td>휴지통</td><td>지운 항목은 먼저 <code>.iwae/trash/</code> 로 갑니다.</td></tr>
+    <tr><td>자동 백업</td><td>설정의 「데이터 및 복구」에서 켭니다. 정한 날마다 Vault 를 zip 으로 묶어 폴더에 두고, 오래된 백업은 정한 개수만 남깁니다.</td></tr>
+    <tr><td>여러 창</td><td>창이 여럿이어도 같은 Vault 를 서로 덮어쓰지 않고 합칩니다.</td></tr>
+  </table>
+  <div class="tip"><b class="k">밖으로 나가는 것</b>클라우드 번역을 골랐을 때 고른 글, 업데이트 확인, 그리고 외부 AI 연결을 켰을 때의 요청뿐입니다. 외부 AI 연결은 처음에는 꺼져 있고, 켜도 이 PC 의 <code>127.0.0.1</code> 에서만 듣고 토큰이 있어야 합니다.</div>
+
+  <h3>외부 AI 연결과 업데이트</h3>
+  <ul>
+    <li><b>외부 AI 연결:</b> IWAE 에는 채팅이 없습니다. 대신 Claude Code 같은 바깥 에이전트가 MCP 서버로 Vault 를 검색하고, 쪽을 읽고, 메모를 더하거나 고칠 수 있습니다. 설정의 「외부 AI 연결」에서 켜고 보이는 명령을 한 번 실행합니다. PDF 파일은 바꾸지 못합니다.</li>
+    <li><b>업데이트:</b> 설정의 「업데이트」에서 자동 확인과 미리 내려받기를 정합니다. 서명을 검사하고, 설치는 항상 내가 눌러야 시작됩니다.</li>
+  </ul>
+
+  <div class="try"><span class="tag">해 보기</span>
+    <ol>
+      <li><kbd>Ctrl</kbd>+<kbd>,</kbd> 로 설정을 열어 「다크」로 바꾸고, 색 구성과 강조색을 하나씩 눌러 화면이 바뀌는 것을 봅니다.</li>
+      <li>형광펜 색에서 「색 추가」로 이름 붙인 새 색을 만들고, 이 쪽의 문장 하나를 그 색으로 칠해 봅니다.</li>
+      <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> 로 명령 팔레트를 열고 「다크」나 「새 창」을 쳐 보세요.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">11</span></div>
+</section>
+
+<!-- 12. 단축키와 마우스 -->
+<section class="page" id="p12">
+  <div class="ch"><div class="no">10</div><h2>단축키와 마우스</h2></div>
+  <p class="lead">macOS 에서는 <kbd>Ctrl</kbd> 대신 <kbd>⌘</kbd> 를 씁니다. 설정의 「단축키·마우스」에서도 볼 수 있습니다.</p>
+
+  <div class="cols">
+    <div>
+      <h3 style="margin-top:0">일반</h3>
+      <table>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>명령 팔레트</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>새 창</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>설정</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>이 문서에서 찾기</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>모든 문서에서 찾기</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>라이브러리 펼치기 · 접기</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>되돌리기</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>다시 하기 (<kbd>Ctrl</kbd>+<kbd>Y</kbd>)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 style="margin-top:0">탭 · 문서</h3>
+      <table>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td>다음 탭 (<kbd>Shift</kbd> 를 더하면 이전)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>탭 닫기</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>\</kbd></td><td>창 나누기 바꾸기</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>쪽으로 가기</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>인쇄</td></tr>
+        <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> <kbd>→</kbd></td><td>뒤로 · 앞으로 (문서 점프)</td></tr>
+                <tr><td><kbd>Ctrl</kbd>+휠</td><td>PDF 확대 (왼쪽 · 오른쪽 바 위에서는 그 바만)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+끌기</td><td>PDF 에서 표 · 그림을 네모로 감싸 캡처</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>표시 도구 (글 쓰는 칸 밖에서 한 글자)</h3>
+  <p><kbd>T</kbd> 글 상자 · <kbd>P</kbd> 펜 · <kbd>L</kbd> 선 · <kbd>A</kbd> 화살표 · <kbd>R</kbd> 네모 · <kbd>O</kbd> 동그라미 · <kbd>X</kbd> 가리기 · <kbd>E</kbd> 지우개 · <kbd>Esc</kbd> 도구 끄기. 설정에서 끌 수 있습니다. 노트 글에서는 <kbd>Ctrl</kbd>+<kbd>B</kbd> 굵게, <kbd>Ctrl</kbd>+<kbd>I</kbd> 기울임, <kbd>Ctrl</kbd>+<kbd>U</kbd> 밑줄을 씁니다.</p>
+
+  <h3>마우스</h3>
+  <table class="free">
+    <tr><td>마우스 뒤로 · 앞으로 단추</td><td>문서 점프 기록을 오갑니다. 링크로 갔다가 돌아올 때 편합니다.</td></tr>
+    <tr><td>오른쪽 단추를 누른 채 그리기</td><td>↓ 맨 아래로 · ↑ 맨 위로 · ← 뒤로 · → 앞으로 · ㄴ 탭 닫기 · ㄱ 닫은 탭 다시 열기. 움직이지 않고 떼면 평소의 우클릭 메뉴입니다.</td></tr>
+    <tr><td>탭 끌기</td><td>순서 바꾸기, 칸 옮기기, 가장자리로 나누기, 창으로 떼어 내기 (<a href="#p4">4쪽</a>).</td></tr>
+  </table>
+
+  <div class="try"><span class="tag">연습 정리</span>
+    <ol>
+      <li>이 설명서에 형광펜을 칠하고, 메모가 노트에 생기고, 카드를 눌러 돌아왔나요? (<a href="#p5">5쪽</a>)</li>
+      <li>그림 1 을 캡처하고, 요구사항에 ID 를 붙이고, 영어 문단을 번역해 보았나요? (<a href="#p6">6</a> · <a href="#p7">7</a> · <a href="#p10">10쪽</a>)</li>
+      <li>이제 내 PDF 를 Vault 폴더에 끌어다 놓고 같은 방법으로 읽어 보세요. 문제를 찾거나 기능을 제안하려면 저장소의 이슈에 남겨 주세요. IWAE 는 오픈 소스입니다.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE 사용 설명서</span><span class="pn">12</span></div>
 </section>
 
 </body>

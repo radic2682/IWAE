@@ -210,3 +210,28 @@ describe('addRecentPdfSearch', () => {
     expect(added.at(-1)).toBe('q28')
   })
 })
+
+describe('searchPageIndex 첫 글자 건너뛰기', () => {
+  it('ASCII 첫 글자는 대소문자를 가리지 않고, 대소문자 구분이면 정확히 맞춘다', () => {
+    const page = makePage(['Alpha alpha ALPHA beta'])
+    const loose = searchPageIndex('doc', 0, page, 'alpha', { caseSensitive: false, wholeWord: false })
+    expect(loose.map((match) => match.quote)).toEqual(['Alpha', 'alpha', 'ALPHA'])
+    const strict = searchPageIndex('doc', 0, page, 'alpha', { caseSensitive: true, wholeWord: false })
+    expect(strict.map((match) => match.quote)).toEqual(['alpha'])
+  })
+
+  it('한글·악센트 글자로 시작하는 검색어는 예전처럼 비교한다', () => {
+    const page = makePage(['안녕하세요 café Café'])
+    expect(searchPageIndex('doc', 0, page, '안녕', { caseSensitive: false, wholeWord: false })).toHaveLength(1)
+    expect(searchPageIndex('doc', 0, page, 'café', { caseSensitive: false, wholeWord: false })).toHaveLength(2)
+  })
+
+  it('600쪽 분량을 훑는 데 오래 걸리지 않는다', () => {
+    const words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'penguin']
+    const line = Array.from({ length: 14 }, (_, i) => words[i % words.length]).join(' ')
+    const page = makePage(Array.from({ length: 52 }, () => line))
+    const started = performance.now()
+    for (let i = 0; i < 100; i += 1) searchPageIndex('doc', i, page, 'zzneedle', { caseSensitive: false, wholeWord: false })
+    expect(performance.now() - started).toBeLessThan(5000)
+  })
+})

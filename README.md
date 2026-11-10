@@ -6,8 +6,7 @@
 
 <p align="center">
   <strong>Interwoven Writing and Evidence</strong><br>
-  Keep your PDFs and Markdown files in folders on the left, click to open them in tabs, read them side by side,<br>
-  and turn your highlights into notes that always point back to the source.
+  Read your PDFs, highlight what matters, and turn it into notes that always link back to the exact spot in the source.
 </p>
 
 <p align="center">
@@ -20,57 +19,75 @@
 
 <p align="center"><a href="README.ko.md">한국어</a></p>
 
+<!-- HERO MEDIA: replace the file below with docs/images/hero.gif (20-30 s: open PDF, highlight, memo with connector, click to jump back, split and drag a tab, switch theme). Korean README uses docs/images/hero.ko.gif. -->
 <p align="center">
   <img src="docs/images/open-and-split.gif" width="900" alt="Opening PDFs from the folder tree into tabs, then splitting the window to read two side by side">
 </p>
 
-> **Status:** alpha. The core reading, memo, note and storage features work, but the interface and file formats may still change.
+> **Status:** alpha. Reading, memos, notes and storage work well, but the interface and file formats may still change.
 
 ## Why IWAE
 
-Most PDF readers open one file at a time and leave the organizing to your file manager. Reference managers organize well, but they want metadata and keep your files inside their own library. IWAE sits in between:
+Most PDF readers open one file at a time and leave the organizing to your file manager. Reference managers organize well, but they want metadata and keep your files in their own library. IWAE sits in between.
 
-- **Your folder is the library.** Open any folder (a **Vault**). Its subfolders and PDFs appear as a tree on the left, exactly as they are on disk. Create folders, rename, and drag files around right there.
-- **One click to read.** Click a PDF or Markdown file and it opens in a tab. Open as many as you like and switch between them like browser tabs.
-- **Read side by side.** Split the window into two or three columns, two rows, or a 2×2 grid, and drag tabs between the panes.
-- **Mark up as you go.** Highlight a passage and write a memo next to it. Memos collect into **notes** on the right, and each memo stays linked to the exact spot it came from. Click it and the PDF jumps back there.
-
-Your documents stay ordinary files in an ordinary folder. IWAE keeps its own records (highlights, bookmarks, notes, indexes) in a `.iwae` folder inside the Vault, so you can copy, back up or sync the whole thing with any tool.
+- **Your folder is the library.** Open any folder (a **Vault**) and its PDFs and Markdown files appear as they are on disk. Nothing is imported or locked in.
+- **Highlight, and the memo is already there.** Select a sentence and a memo opens in the note on the right, joined to the highlight by a line. Click the memo later and the PDF jumps back to that exact sentence.
+- **Read side by side.** Tabs, nine split layouts, windows you can pull a tab out into, and a note bar that stays put while you read.
+- **Yours, and local.** Everything is stored in your Vault folder. Only text you choose to translate with a cloud service, or an external AI you connect yourself, ever leaves your PC.
 
 <p align="center">
   <img src="docs/images/split-view.png" width="900" alt="IWAE with a folder tree on the left and two PDFs open side by side">
 </p>
 
+## Quick start
+
+1. [Install IWAE](#install) and open it. Choose **Start with an example** to get a ready-made Vault in your Documents folder, or **Open my folder** to use your own (an empty folder gets the example too).
+2. Open **IWAE User Guide** in the left bar. It is a hands-on tutorial PDF: every chapter ends with a “Try it” box that you do on that same PDF (highlight this sentence, capture this figure, translate this paragraph).
+3. Open the **Tour of IWAE** note under “Notes” and click a memo card. The PDF jumps to the sentence it was written for. Then add a memo of your own.
+
+The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public/sample-vault/iwae-manual.pdf)) is 12 pages and starts with a one-page overview.
+
 ## Features
 
-### Organizing and reading
+### Organize your Vault
 
-- A folder tree of the Vault on the left: PDFs and Markdown files in their real folders, with new folder, rename, move and refresh.
-- Tabs for every open document, and a window split into columns, rows or a grid. Drag a tab to move it to another pane.
-- Outline, page thumbnails, in-document search (Ctrl+F) and a search across every document in the Vault.
-- Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump, and go back with the mouse back button.
-- Single page or two-page spreads, page rotation, dark-mode color inversion, light and dark app themes.
-- Resumes where you left off.
-- A **library view** lists every document in a table with its paper details (title, authors, year). Edit them in place, sort, star and group documents into collections.
-- **Paper details** are filled from the PDF or Crossref, and you can copy a BibTeX citation.
-- **Versions:** group several files of the same document (draft, revised, final) and switch between them.
+- A folder tree of the Vault: PDFs and Markdown files in their real folders, with new folder, rename, move, refresh and drag-in import.
+- Open several Vaults one at a time; the page and tabs you left open come back on the next start.
+- **Library view:** a table of every document with paper details (title, authors, year) that you can edit in place, sort, star and group into collections. Details are filled from the PDF or Crossref, and you can copy a BibTeX citation.
+- **Versions:** group the draft, revised and final files of one document and switch between them.
+- **Import from GitHub:** bring in a folder of Markdown documents; the toolbar tells you when there are new commits.
 
-### Marking up
+<!-- MEDIA TODO: docs/images/library.gif (library expand, table and cards), docs/images/versions.gif -->
 
-| Tool | What it does |
-| --- | --- |
-| Text select | Highlight text and open a memo for it in the note. |
-| Region capture | Box a table or figure and add it to the note as an image. |
-| Highlighter | Paint passages in one of several colors without writing a memo. |
-| Box memo | Attach a memo box in the page margin, connected by a line. |
-| Text box, pen, line, eraser | Write and draw directly on the page. The eraser also removes highlights and box memos. |
-| Edit pages | Reorder, rotate, remove, or insert pages from another PDF. Highlights follow the pages they belong to, and the original file is backed up first. |
+### Read side by side
 
-Select text and a memo opens in the note right away. Write your comment, and click the memo later to jump back to the exact spot:
+- Tabs for every document. Drag them like browser tabs: reorder, move to another pane, **dock to a pane edge to split**, **drag out to detach a window**, drag back onto a tab bar to reattach.
+- Nine split layouts for panes (two or three columns, two rows, 2×2 and mixed layouts), and a separate split that shows different pages of the same PDF.
+- **New window** (`Ctrl+Shift+N`) for a second full window on the same Vault. Changes sync live and are merged, never overwritten.
+- Single page, two- or three-page spreads, continuous scroll, fit width, fit page, rotation, dark-mode color inversion.
+- Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump and go back with the mouse back button.
+
+<p align="center">
+  <img src="docs/images/open-and-split.gif" width="900" alt="Opening PDFs from the folder tree into tabs, then splitting the window to read two side by side">
+</p>
+
+<!-- MEDIA TODO: docs/images/tab-drag.gif (reorder, dock to edge, drag out to a window, drag back) -->
+
+### Highlight, memo, and jump back
+
+Select text and a memo opens in the note right away. The memo is linked to its highlight by a connector line that crosses panes and takes the highlight's color. Click the memo and the PDF returns to the spot.
 
 <p align="center">
   <img src="docs/images/memo.gif" width="900" alt="Selecting a sentence in a PDF, writing a memo for it in the note, scrolling away, then clicking the memo to jump back to the highlighted sentence">
 </p>
+
+| Tool | What it does |
+| --- | --- |
+| Select text | Highlight text and open a memo for it in the note. |
+| Region capture | Box a table or figure and add it to the note as an image, resizable afterwards. |
+| Highlight | Paint passages in your own named colors (up to eight) without writing a memo. |
+| Box memo | Attach a memo box in the page margin, connected by a line. |
+| Text box, pen, line, arrow, shapes, eraser | Write and draw directly on the page. The eraser also removes highlights and box memos. |
 
 Box a chart or table to add it to the note as an image, with your description:
 
@@ -78,19 +95,48 @@ Box a chart or table to add it to the note as an image, with your description:
   <img src="docs/images/region.gif" width="900" alt="Choosing region capture, boxing a bar chart in the PDF, and the chart appearing in the note with a description">
 </p>
 
-### Notes
+### Notes that stay linked
 
-A note is built from blocks, and one note can mix memos from several PDFs and Markdown files.
+A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. The note bar is fixed at the right edge, scrolls on its own, and has its own zoom.
 
-- **Memo** is your comment with its sources underneath; click a source to jump to it. A memo can hold several sources, including captured regions.
-- **ID and title:** give any memo a free-form ID such as `REQ-01` and a title, which is handy for tracking requirements. IWAE suggests the next number and warns about an ID already used in the note. Type an ID at the start of a memo and it turns into the ID badge.
-- **Section** groups the blocks under it; collapse it or drag it as one unit.
-- **Text** is free writing with bold, lists, tables and code.
+- **Memo:** your comment with its sources underneath; click a source to jump to it. A memo can hold several sources, including captured regions.
+- **ID and title (tickets):** give any memo a free-form ID such as `REQ-01` and a title, which is handy for tracking requirements. IWAE suggests the next number and warns about an ID already used in the note. Type an ID at the start of a memo and it turns into the ID badge.
+- **Section** groups the blocks under it; collapse it or drag it as one unit. **Text** is free writing with bold, lists, tables and code.
 - Select several blocks (Ctrl+click or Shift+click) and drag them together.
+- **A note per PDF:** each PDF can have its own notes, listed under it in the left bar, with a note switcher in the note bar title.
+- **Memo-only view:** open the note as a wide column with an outline for organizing and polishing.
 
 <p align="center">
   <img src="docs/images/ticket.gif" width="900" alt="Adding the ID SLEEP-01 and a title to a memo, then giving the next memo the suggested ID SLEEP-02 and a title">
 </p>
+
+### Left bar: explorer, outline, thumbnails, tools, search
+
+- **Explorer:** documents and notes of the Vault.
+- **Outline:** the table of contents and your bookmarks.
+- **Thumbnails:** page previews with a rectangle showing what is on screen.
+- **PDF tools:** a set of tools that unfold in place (below).
+- **Search:** this document, or every document in the Vault. File names, folders, PDF text and Markdown content in one place; a result opens at the matching passage. Pages without a text layer are read locally with the bundled PaddleOCR models and cached per file.
+
+<p align="center">
+  <img src="docs/images/search.gif" width="900" alt="Searching the whole Vault for the word canopy and opening the first result at the matching passage">
+</p>
+
+The left bar, the note bar and the library each zoom separately with Ctrl+wheel (80 to 150%).
+
+### PDF tools
+
+Everything runs on your PC. Most tools can apply to the original or write a copy.
+
+| Group | Tools |
+| --- | --- |
+| Text | Add a text layer with OCR; compare the text of two versions |
+| My marks | A copy with your highlights, memos and drawings flattened into the pages; a redacted copy that really removes the covered text |
+| Pages | Edit pages (reorder, rotate, remove, insert from another PDF; highlights follow their pages and the original is backed up first); extract pages; split by chapters; merge PDFs; remove blank pages; fix sideways and upside-down scans |
+| Layout | Page numbers, watermark, crop margins, N-up, compress |
+| Export | Pages as PNG, text as Markdown, unlocked copy of a password-protected PDF |
+
+<!-- MEDIA TODO: docs/images/pdf-tools.gif (open the PDF tools tab, expand a tool, run page numbers as a copy) -->
 
 ### Translation
 
@@ -106,22 +152,28 @@ Translate a selection without replacing the original text. Each source line in a
 
 ### Markdown
 
-Markdown files open in tabs next to your PDFs, with headings, tables, code, task lists and an outline. Highlights, memos and region captures work the same way as in a PDF.
+Markdown files open in tabs next to your PDFs, with headings, tables, code, task lists and an outline. Highlights, memos and region captures work the same way as in a PDF, and the memos go into the same notes.
 
 <p align="center">
   <img src="docs/images/markdown.gif" width="900" alt="Selecting a list item in a Markdown file and writing a memo for it in the note">
 </p>
 
-- **From GitHub:** import a folder of Markdown documents from a GitHub repository. The toolbar shows when there are new commits; pull the latest, or open an older version from a branch, tag or commit.
+### Themes and colors
 
-### Search and OCR
+- Light, dark or follow the system, with four built-in color schemes.
+- Any accent color you like, with a contrast check.
+- **Your own themes:** set eight base colors per brightness and the rest is derived; live editor with preview and contrast warnings; export and import themes as files.
+- **Your own highlight colors:** up to eight named colors.
+- Interface size, Korean or English, and six Markdown document themes.
 
-- Search file names, folders, PDF text and Markdown content from one place. Click a result and the document opens at that spot.
-- Pages without a text layer are recognized locally with the bundled PaddleOCR models. Results are cached per file, so unchanged documents are not processed again.
+<!-- MEDIA TODO: docs/images/themes.gif (brightness, color scheme, accent, theme editor) -->
 
-<p align="center">
-  <img src="docs/images/search.gif" width="900" alt="Searching the whole Vault for the word canopy and opening the first result at the matching passage">
-</p>
+### Safe by design
+
+- Undo and redo for highlights, drawings and memo notes, merged so another window's changes survive.
+- Atomic saves with a journal, earlier states kept for a limited time, conflicting edits kept side by side, and a trash folder.
+- Automatic backup of the whole Vault as a zip on the schedule you pick.
+- Updates are checked, signature-verified, and installed only after you confirm.
 
 ### Working with AI agents
 
@@ -136,18 +188,37 @@ IWAE has no built-in chat. Instead it lets an external agent (for example Claude
 
 The agent can search the Vault (`search_vault`), read pages as text or as images (`read_page`, `page_image`), point you to a passage (`show_location`), and add, change or remove memos and notes (`memo_*`, `note_*`). It cannot modify your PDF files. The server listens on `127.0.0.1` only, requires the token, and rejects requests that come from a web browser.
 
-## Where things are stored
+## Keyboard shortcuts
+
+On macOS use `⌘` instead of `Ctrl`. The full list is in **Settings → Shortcuts & mouse**.
+
+| Keys | Action |
+| --- | --- |
+| `Ctrl+Shift+P` | Command palette (commands, PDF tools and documents) |
+| `Ctrl+Shift+N` | New window |
+| `Ctrl+,` | Settings |
+| `Ctrl+F` / `Ctrl+Shift+F` | Find in this document / search all documents |
+| `Ctrl+Shift+L` | Expand or collapse the library |
+| `Ctrl+Tab` / `Ctrl+W` | Next tab / close tab |
+| `Ctrl+\` | Change the split view |
+| `Ctrl+G` | Go to page |
+| `Alt+←` / `Alt+→` | Back / forward through document jumps (also the mouse back and forward buttons) |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
+| `T` `P` `L` `A` `R` `O` `X` `E` | Text box, pen, line, arrow, rectangle, ellipse, redact, eraser (`Esc` turns the tool off) |
+| Right button + drag | Mouse gestures: ↓ bottom, ↑ top, ← back, → forward, ㄴ close tab, ㄱ reopen closed tab |
+
+## Your data and privacy
 
 ```text
 your-vault/
 ├── *.pdf, *.md       your documents, left as they are
 ├── 노트/*.iwnote      notes
-└── .iwae/            highlights, bookmarks, indexes, history, trash
+└── .iwae/            highlights, bookmarks, indexes, translation cache, history, trash
 ```
 
-- Saves go through a temporary file and an atomic rename, with a journal to detect interrupted writes.
-- Earlier versions are kept for a limited time, and conflicting edits are kept side by side for you to resolve.
-- Deleted items go to `.iwae/trash/` first.
+- IWAE is local-first. Documents, highlights, notes, search indexes and the translation cache live in your Vault folder. Copy, back up or sync it with any tool.
+- **What can leave your PC:** the text you select when you translate with a **cloud** provider you chose, the update check, and requests from an external AI agent only after you turn that connection on yourself (it listens on `127.0.0.1` only). Local translation and OCR never leave the machine.
+- Cloud API keys are kept in the operating system's credential store, not in the Vault.
 
 ## Install
 
@@ -163,9 +234,7 @@ Installers are published on the [Releases](https://github.com/radic2682/IWAE/rel
 - `IWAE_<version>_universal.dmg`: open it and drag IWAE to Applications.
 - The app is not notarized by Apple yet, so the first launch shows a warning. Open **System Settings → Privacy & Security** and click **Open Anyway** once.
 
-Release builds check for updates, verify their signature, and install only after you confirm.
-
-A new Vault includes the **IWAE User Guide** PDF ([English](docs/manual/iwae-manual.en.html), [한국어](docs/manual/iwae-manual.html)) and an example note made from it. Practise on it as you read.
+**Updates:** release builds check for updates, verify the signature, and install only after you confirm. Settings → Updates controls automatic checks and pre-downloading.
 
 ## Build from source
 
@@ -188,6 +257,7 @@ npm run tauri dev
 | `npm run build` | Type-check and build the frontend |
 | `npm run test:e2e` | Browser and visual regression tests (Playwright) |
 | `cargo test --manifest-path src-tauri/Cargo.toml` | Rust tests |
+| `node scripts/build-sample-manual.mjs` | Rebuild the tutorial PDFs in `public/sample-vault/` from `docs/manual/` (needs Edge or Chrome) |
 | `npm run release:check` | Check release prerequisites |
 | `npm run release:build` | Build the installers |
 | `npm run release:local` | Build, verify and publish a release from this PC (see below) |
@@ -201,6 +271,8 @@ Releases are built locally on Windows and uploaded with the GitHub CLI (the rele
 3. `npm run release:local -- --dry-run` shows the plan and what is missing. `npm run release:local` runs the tests, builds, verifies and collects everything into `dist-release/v<version>/` together with `latest.json`.
 4. Add `--publish` to create the GitHub release (`--clobber` to overwrite an existing one). `--mac-dir <folder>` adds a Mac build (`*.dmg`, `*.app.tar.gz`, `*.app.tar.gz.sig`); without it the release is Windows-only and Mac users will not get the update.
 
+Release notes live in `docs/releases/`.
+
 ## Technology
 
 | Layer | Technology |
@@ -212,15 +284,16 @@ Releases are built locally on Windows and uploaded with the GitHub CLI (the rele
 | Tests | Vitest, Testing Library, Playwright, Rust tests |
 
 ```text
-src/          interface (app, pdf viewer, core logic, i18n, styles)
-src-tauri/    native side (storage, PDF, translation, search index, MCP server)
-scripts/      release, installer and OCR checks
-docs/manual/  user guide sources
+src/            interface (app, pdf viewer, core logic, i18n, styles)
+src-tauri/      native side (storage, PDF, translation, search index, MCP server)
+scripts/        release, installer, OCR checks and the tutorial PDF build
+docs/manual/    tutorial PDF sources (Korean and English)
+docs/releases/  release notes
 ```
 
 ## Contributing
 
-Issues and focused pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks to run before a pull request, and [SECURITY.md](SECURITY.md) to report a vulnerability.
+Issues and focused pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks to run before a pull request, and [SECURITY.md](SECURITY.md) to report a vulnerability. Questions go to [Discussions](https://github.com/radic2682/IWAE/discussions); the [FAQ](docs/FAQ.md) and the [roadmap](docs/ROADMAP.md) answer the common ones.
 
 ## License
 

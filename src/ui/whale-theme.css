@@ -1228,3 +1228,12 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   box-shadow: 0 8px 22px rgb(var(--rgb-black) / 18%);
 }
 .pane-highlighter-floating .pane-highlighter-color { width: 20px; height: 20px; }
+
+/* 번역 설정: 제공자 카드·키 받는 곳·Ollama 감지 */
+.translation-settings-providers { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 4px 0 4px; }
+.settings-modal .settings-modal-body button.translation-settings-provider { min-height: 64px; padding: 12px 14px; }
+.translation-settings-keylink { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; color: var(--text-strong); font-size: 12px; }
+.settings-modal .settings-modal-body button.translation-settings-link { height: auto; padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.translation-settings-detected { display: grid; gap: 2px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: color-mix(in srgb, var(--accent) 6%, var(--paper)); color: var(--text-strong); font-size: 12.5px; }
+.translation-settings-detected p { margin: 2px 0 0; overflow-wrap: anywhere; }
+.translation-card-setup { word-break: keep-all; }

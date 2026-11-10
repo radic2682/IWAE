@@ -1,5 +1,6 @@
 import { isDesktop } from './window'
 import { partitionDroppedDocumentPaths } from '../core/documentDrop'
+import { isThemeFileName } from '../core/themeFile'
 
 const noop = () => undefined
 
@@ -16,6 +17,8 @@ export interface DropPoint {
 export async function listenForDocumentDrop(
   listener: (paths: readonly string[], point?: DropPoint) => void,
   onActiveChange?: (active: boolean, point?: DropPoint) => void,
+  /** 테마 파일(.iwtheme)을 끌고 들어오면 true, 나가거나 놓으면 false */
+  onThemeHover?: (active: boolean) => void,
 ): Promise<() => void> {
   if (!isDesktop()) return noop
 
@@ -30,15 +33,18 @@ export async function listenForDocumentDrop(
   return getCurrentWebview().onDragDropEvent((event) => {
     if (event.payload.type === 'enter') {
       accepted = partitionDroppedDocumentPaths(event.payload.paths).accepted.length > 0
+      onThemeHover?.(event.payload.paths.some((path) => isThemeFileName(path)))
       onActiveChange?.(accepted, toCss(event.payload.position))
     }
     if (event.payload.type === 'over' && accepted) onActiveChange?.(true, toCss(event.payload.position))
     if (event.payload.type === 'leave') {
       accepted = false
       onActiveChange?.(false)
+      onThemeHover?.(false)
     }
     if (event.payload.type === 'drop') {
       accepted = false
+      onThemeHover?.(false)
       onActiveChange?.(false)
       listener(event.payload.paths, toCss(event.payload.position))
     }

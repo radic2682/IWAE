@@ -1,16 +1,26 @@
 name: Bug report
-description: Report a reproducible problem in IWAE.
+description: Report a reproducible problem in IWAE. / 재현되는 문제를 알려 주세요.
 title: "[Bug]: "
 labels:
   - bug
 body:
   - type: markdown
     attributes:
-      value: Thank you for helping improve IWAE. Do not include private documents, API keys, or other sensitive data.
+      value: |
+        Thank you for helping improve IWAE. Korean or English is fine. 한국어도 괜찮습니다.
+
+        **Do not include private documents, vault contents, API keys, tokens, or other sensitive data.** A security problem is not a bug report: follow [SECURITY.md](https://github.com/radic2682/IWAE/blob/main/SECURITY.md) instead. Questions and ideas belong in [Discussions](https://github.com/radic2682/IWAE/discussions).
+  - type: textarea
+    id: problem_report
+    attributes:
+      label: Problem report text
+      description: |
+        In IWAE, run **Report a problem** (command palette, `Ctrl+Shift+P`, or the Help area when available), review the text it shows, and paste it here. It contains the IWAE version, system information, relevant settings and recent log lines, and no document content. If you do not have that command yet, fill in the fields below by hand.
+      render: text
   - type: textarea
     id: summary
     attributes:
-      label: Summary
+      label: What happened
       description: Describe what happened and what you expected instead.
     validations:
       required: true
@@ -24,21 +34,74 @@ body:
         3. Observe ...
     validations:
       required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - PDF viewing / rendering
+        - Highlights and memos
+        - Notes and note bar
+        - Tabs, split view, windows
+        - Markdown
+        - Search / OCR
+        - PDF tools (edit, merge, compress, ...)
+        - Library / versions / citations
+        - Translation
+        - External AI (MCP)
+        - Import (GitHub, Zotero, PowerPoint)
+        - Themes / settings / shortcuts
+        - Install / update
+        - Saving, backup, sync conflicts
+        - Other
+    validations:
+      required: true
   - type: input
     id: version
     attributes:
       label: IWAE version or commit
+      description: Shown in the About dialog. Include the commit if you built from source.
+      placeholder: 0.1.11
     validations:
       required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How was IWAE installed?
+      options:
+        - Windows setup .exe
+        - Windows .msi
+        - macOS .dmg
+        - Built from source
+        - Other
   - type: input
     id: environment
     attributes:
       label: Operating system and hardware
-      placeholder: Windows 11, Intel Core i7, 16 GB RAM
-    validations:
-      required: true
+      description: Skip if the problem report text above already has it.
+      placeholder: Windows 11 23H2, Intel Core i7, 16 GB RAM / macOS 14, Apple M2
+  - type: textarea
+    id: document
+    attributes:
+      label: About the document (if the problem is tied to one)
+      description: Describe it without sharing it. Page count, file size, scanned or text, password-protected or not, created by which tool, anything unusual (very wide pages, huge images, many annotations). If a file is needed to reproduce, say so and we will work out a safe way.
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Did this work in an earlier version?
+      options:
+        - I don't know
+        - No, it never worked
+        - Yes (write the last working version below)
   - type: textarea
     id: logs
     attributes:
       label: Logs or screenshots
       description: Remove document content and secrets before attaching files.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed private document content, vault names that reveal private information, API keys and tokens from everything above.
+          required: true

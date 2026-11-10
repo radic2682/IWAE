@@ -495,6 +495,8 @@ export function useVault(options: UseVaultOptions = {}) {
             const document = documents.find((candidate) => candidate.docId === indexEntry.id)
               ?? await openPdf(libraryEntry.path)
             let extractionIncomplete = false
+            const pendingPages = new Map<number, VaultSearchPage>()
+            let flushTimer: ReturnType<typeof setTimeout> | null = null
             const pages = await extractPdfDocumentPages(
               document.pageCount,
               async (page) => {
@@ -523,13 +525,24 @@ export function useVault(options: UseVaultOptions = {}) {
               },
               (page) => {
                 if (searchGenerationRef.current !== searchGeneration) return
-                setExtractedSearchPages((current) => {
-                  const nextPages = [...(current[indexEntry.id] ?? []).filter((candidate) => candidate.page !== page.page), page]
-                    .sort((left, right) => left.page - right.page)
-                  return { ...current, [indexEntry.id]: nextPages }
-                })
+                // 쪽마다 상태를 바꾸면 600쪽 문서에서 앱 전체가 600번 다시 그려지고 검색 기록도 그만큼 다시 만든다.
+                // 읽은 쪽을 모아 두었다가 1초에 한 번만 반영한다.
+                pendingPages.set(page.page, page)
+                if (flushTimer !== null) return
+                flushTimer = setTimeout(() => {
+                  flushTimer = null
+                  if (searchGenerationRef.current !== searchGeneration) return
+                  const batch = [...pendingPages.values()]
+                  pendingPages.clear()
+                  setExtractedSearchPages((current) => {
+                    const known = new Map((current[indexEntry.id] ?? []).map((candidate) => [candidate.page, candidate]))
+                    for (const item of batch) known.set(item.page, item)
+                    return { ...current, [indexEntry.id]: [...known.values()].sort((left, right) => left.page - right.page) }
+                  })
+                }, 1000)
               },
             )
+            if (flushTimer !== null) clearTimeout(flushTimer)
             if (searchGenerationRef.current !== searchGeneration) return
             if (extractionIncomplete) continue
             nextCache = updateVaultSearchTextCache(

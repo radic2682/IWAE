@@ -13,6 +13,9 @@ Do not attach private documents, vault contents, API keys, updater signing keys,
 ## Security model
 
 - Documents and vault metadata remain local unless the user explicitly configures a network-backed feature.
-- External translation credentials are session-only and must not be persisted in project files or browser storage.
+- External translation API keys are kept in the operating system's credential store (Windows Credential Manager, macOS Keychain). They must not be written to the Vault, project files, or browser storage.
+- The optional local MCP server is off by default, listens on `127.0.0.1` only, requires a random bearer token, and rejects requests that carry a browser `Origin` header. The token is stored in the app data folder of the current user, not in the Vault. It can be regenerated in Settings.
+- The web view runs under a restrictive Content Security Policy (no remote scripts, no inline scripts, no frames). Rendered Markdown and memo HTML are sanitized, and links open in the system browser only after a confirmation and only for `http`, `https` and `mailto`.
+- Updates are verified with a minisign signature before they are installed.
 - Release signing keys and updater configuration are supplied only through release infrastructure.
 - Imported PDF and Markdown content is untrusted and must not be executed as instructions or code.

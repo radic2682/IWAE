@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { type Node, type NodeProps } from '@xyflow/react'
 import type { MarkdownExcerptCanvasBlock } from '../core/canvasDocument'
+import { sanitizeRenderSnapshot } from '../core/markdownCapture'
 import { createMarkdownSourceJumpRequest } from '../core/markdownExcerpt'
 import { CanvasBlockShell, useCanvasBlockRuntime } from './CanvasBlockShell'
 import type { CanvasSide } from '../core/canvasPorts'
@@ -17,6 +18,8 @@ export function MarkdownExcerptNode({ id, data, selected }: NodeProps<MarkdownEx
   const runtime = useCanvasBlockRuntime()
   const { block } = data
   const { selection } = block
+  // 저장된 캔버스 파일은 믿을 수 없는 입력이다(동기화·공유된 Vault). 저장할 때만이 아니라 그릴 때도 거른다
+  const snapshotHtml = useMemo(() => (block.capture === undefined ? '' : sanitizeRenderSnapshot(block.capture.renderedSnapshot)), [block.capture])
 
   useEffect(() => {
     if (selected) runtime.onSourceTraceChange?.({ blockId: id, selection })
@@ -60,7 +63,7 @@ export function MarkdownExcerptNode({ id, data, selected }: NodeProps<MarkdownEx
         ) : (
           <div
             className={`markdown-excerpt-content markdown-excerpt-content-${selection.format} markdown-capture-content`}
-            dangerouslySetInnerHTML={{ __html: block.capture.renderedSnapshot }}
+            dangerouslySetInnerHTML={{ __html: snapshotHtml }}
           />
         )}
       </CanvasBlockShell>

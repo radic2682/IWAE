@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { recordUndo } from './undoStack'
 import { applySnapshotChange } from '../core/jsonMerge'
+import { markFreshHighlight } from '../pdf/freshHighlight'
 import { pdfHighlightsCodec, readPdfHighlights, subscribeVaultFile, writePdfHighlights, type VaultHandle } from '../bridge/vault'
 import {
   parsePersistentPdfHighlights,
@@ -102,6 +103,7 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
 
   const add = useCallback((highlight: PersistentPdfHighlight) => {
     if (highlightsRef.current.some(({ id }) => id === highlight.id)) return
+    markFreshHighlight(highlight.id)
     const next = [...highlightsRef.current, highlight]
     remember(highlightsRef.current, next, highlight.id)
     highlightsRef.current = next

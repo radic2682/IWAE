@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import {
   BLACK,
   WHITE,
@@ -33,6 +34,8 @@ export interface UserTheme {
   readonly base: BasePaletteId
   readonly light: ThemeSeeds
   readonly dark: ThemeSeeds
+  /** 테마 폴더(.iwae/themes)의 파일 이름. 있으면 폴더에서 온 테마(파일이 원본이라 앱에서 고치거나 지우지 않는다) */
+  readonly file?: string
 }
 
 export const BASE_PALETTE_IDS: readonly BasePaletteId[] = ['whale', 'default', 'paper', 'navy']
@@ -216,26 +219,24 @@ export function themeFromPalette(base: BasePaletteId, name: string): UserTheme {
   return { id: newThemeId(), name, base, light: { ...BUILTIN_SEEDS[base].light }, dark: { ...BUILTIN_SEEDS[base].dark } }
 }
 
-/** 같은 이름이 있으면 " 2", " 3"… 을 붙인다 */
+/** 같은 이름이 있으면 " (2)", " (3)"… 을 붙인다 */
 export function uniqueThemeName(name: string, taken: readonly string[]): string {
   const clean = name.trim() || '내 테마'
   if (!taken.includes(clean)) return clean
-  for (let n = 2; n < 1000; n++) if (!taken.includes(`${clean} ${n}`)) return `${clean} ${n}`
+  for (let n = 2; n < 1000; n++) if (!taken.includes(`${clean} (${n})`)) return `${clean} (${n})`
   return clean
 }
 
-/* ── 가져오기·내보내기 ── */
-export const THEME_FILE_FORMAT = 'iwae-theme'
-export const THEME_FILE_VERSION = 1
 export const THEME_NAME_MAX = 30
 
 function parseSeeds(value: unknown, where: string): ThemeSeeds | string {
-  if (typeof value !== 'object' || value === null) return `${where} 색이 없습니다.`
+  if (typeof value !== 'object' || value === null) return t('{where} 색 묶음({key})이 없습니다.', { where: t(where), key: where === '라이트' ? 'light' : 'dark' })
   const out: Record<string, string> = {}
   for (const key of SEED_KEYS) {
     const raw = (value as Record<string, unknown>)[key]
+    if (raw === undefined) return t('{where} 색 「{label}」({key})이 빠져 있습니다.', { where: t(where), label: t(SEED_INFO[key].label), key })
     const hex = typeof raw === 'string' ? normalizeHex(raw) : null
-    if (hex === null) return `${where} 「${SEED_INFO[key].label}」 색이 올바르지 않습니다.`
+    if (hex === null) return t('{where} 「{label}」({key}) 값이 #rrggbb 색이 아닙니다: {value}', { where: t(where), label: t(SEED_INFO[key].label), key, value: JSON.stringify(raw) })
     out[key] = hex
   }
   return out as ThemeSeeds
@@ -245,36 +246,16 @@ export type ThemeParseResult = { readonly ok: true; readonly theme: UserTheme } 
 
 /** 저장된 테마 하나(또는 가져온 파일의 theme)를 검사한다. 새 id 를 주려면 id 인자로 */
 export function parseUserTheme(value: unknown, id?: string): ThemeParseResult {
-  if (typeof value !== 'object' || value === null) return { ok: false, error: '테마 파일 모양이 아닙니다.' }
+  if (typeof value !== 'object' || value === null) return { ok: false, error: t('테마 파일 모양이 아닙니다.') }
   const raw = value as Record<string, unknown>
   const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, THEME_NAME_MAX) : ''
-  if (name === '') return { ok: false, error: '테마 이름이 없습니다.' }
+  if (name === '') return { ok: false, error: t('테마 이름이 없습니다.') }
   const base = BASE_PALETTE_IDS.find((candidate) => candidate === raw.base)
-  if (base === undefined) return { ok: false, error: '바탕 색 구성을 알 수 없습니다.' }
+  if (base === undefined) return { ok: false, error: t('바탕 색 구성을 알 수 없습니다.') }
   const light = parseSeeds(raw.light, '라이트')
   if (typeof light === 'string') return { ok: false, error: light }
   const dark = parseSeeds(raw.dark, '다크')
   if (typeof dark === 'string') return { ok: false, error: dark }
   const themeId = id ?? (typeof raw.id === 'string' && /^[\w-]{1,60}$/.test(raw.id) ? raw.id : newThemeId())
   return { ok: true, theme: { id: themeId, name, base, light, dark } }
-}
-
-export function serializeThemeFile(theme: UserTheme): string {
-  return `${JSON.stringify({ format: THEME_FILE_FORMAT, version: THEME_FILE_VERSION, theme: { name: theme.name, base: theme.base, light: theme.light, dark: theme.dark } }, null, 2)}\n`
-}
-
-/** 가져온 파일 글자 → 새 테마(새 id). 틀리면 사용자에게 보일 한 줄 이유 */
-export function parseThemeFile(text: string): ThemeParseResult {
-  let data: unknown
-  try {
-    data = JSON.parse(text)
-  } catch {
-    return { ok: false, error: 'JSON 파일이 아닙니다.' }
-  }
-  if (typeof data !== 'object' || data === null || (data as Record<string, unknown>).format !== THEME_FILE_FORMAT) {
-    return { ok: false, error: 'IWAE 테마 파일이 아닙니다.' }
-  }
-  const file = data as Record<string, unknown>
-  if (file.version !== THEME_FILE_VERSION) return { ok: false, error: '지원하지 않는 테마 파일 버전입니다.' }
-  return parseUserTheme(file.theme, newThemeId())
 }

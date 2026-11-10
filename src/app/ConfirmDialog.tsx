@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { WarningCircle } from '@phosphor-icons/react'
 import '../ui/confirm-dialog.css'
 import { t } from '../i18n'
+import { useFocusTrap } from '../ui/useFocusTrap'
 
 interface ConfirmDialogProps {
   readonly title: string
@@ -23,6 +24,8 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({ title, children, confirmLabel, cancelLabel = t('취소'), tone = 'default', busy = false, onConfirm, onCancel }: ConfirmDialogProps) {
   const cancelButton = useRef<HTMLButtonElement>(null)
   const confirmButton = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef)
   useEffect(() => {
     ;(tone === 'danger' ? cancelButton : confirmButton).current?.focus()
   }, [tone])
@@ -34,6 +37,7 @@ export function ConfirmDialog({ title, children, confirmLabel, cancelLabel = t('
       }}
     >
       <div
+        ref={dialogRef}
         className={`confirm-dialog confirm-dialog-${tone}`}
         role="alertdialog"
         aria-modal="true"

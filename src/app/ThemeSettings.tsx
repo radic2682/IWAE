@@ -12,7 +12,7 @@ import { t } from '../i18n'
 import { CustomAccentControl } from './CustomAccentControl'
 import { HighlightColorSettings } from './HighlightColorSettings'
 import { UserThemeCards } from './UserThemeCards'
-import { setActiveUserTheme, useUserThemes } from './userThemeStore'
+import { findUserTheme, setActiveUserTheme, useUserThemes } from './userThemeStore'
 
 interface ThemeSettingsProps {
   readonly preference: ThemePreference
@@ -22,6 +22,8 @@ interface ThemeSettingsProps {
   readonly onPaletteChange?: (palette: ThemePalette) => void
   readonly accent?: ThemeAccent
   readonly onAccentChange?: (accent: ThemeAccent) => void
+  /** 열린 Vault 폴더(테마 폴더 열기에 쓴다) */
+  readonly vaultRoot?: string | null
 }
 
 const CHOICES = [
@@ -38,13 +40,14 @@ export function ThemeSettings({
   onPaletteChange,
   accent = 'auto',
   onAccentChange,
+  vaultRoot = null,
 }: ThemeSettingsProps) {
   const userThemes = useUserThemes()
-  const activeUserTheme = userThemes.themes.find((item) => item.id === userThemes.activeId) ?? null
+  const activeUserTheme = findUserTheme(userThemes, userThemes.activeId)
   const panelColor = resolvePanelColor(activeUserTheme?.base ?? (palette === 'whale' || palette === 'paper' || palette === 'navy' ? palette : 'default'), activeUserTheme, resolvedTheme)
   const paletteAccent = THEME_PALETTES.find((item) => item.id === palette)?.preview[resolvedTheme].accent
   return (
-    <section className="theme-settings" aria-labelledby="theme-settings-title">
+    <section className="theme-settings" data-theme-drop="" aria-labelledby="theme-settings-title">
       <header className="theme-settings-heading">
         <h2 id="theme-settings-title">{t('화면 테마')}</h2>
         <p>{t('작업 공간의 밝기를 선택합니다. 시스템 설정은 운영체제 변경을 바로 따라갑니다.')}</p>
@@ -103,7 +106,7 @@ export function ThemeSettings({
                 </label>
               )
             })}
-            <UserThemeCards resolvedTheme={resolvedTheme} palette={palette} onFallback={() => onPaletteChange('whale')} />
+            <UserThemeCards resolvedTheme={resolvedTheme} palette={palette} onFallback={() => onPaletteChange('whale')} vaultRoot={vaultRoot} />
           </div>
         </div>
       ) : null}

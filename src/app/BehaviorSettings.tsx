@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { t } from '../i18n'
-import { isMacPlatform } from '../core/platform'
 import { setAppPref, useAppPrefs, type AppFlagPrefs } from './appPrefs'
 import { GESTURES } from './useMouseGestures'
+import { ShortcutSettings } from './ShortcutSettings'
 
 /** 켜기·끄기 한 줄(번역 캐시와 같은 카드 꼴) */
 function PrefToggle({ pref, title, description }: { readonly pref: keyof AppFlagPrefs; readonly title: string; readonly description: string }) {
@@ -18,52 +18,25 @@ function PrefToggle({ pref, title, description }: { readonly pref: keyof AppFlag
   )
 }
 
-const MOD = isMacPlatform() ? '⌘' : 'Ctrl'
-/** 단축키 목록(바꿀 수는 없고 보기만) */
-const SHORTCUT_GROUPS: readonly { title: string; items: readonly [string, string][] }[] = [
-  { title: '일반', items: [
-    [`${MOD}+Shift+P`, '명령 팔레트'],
-    [`${MOD}+Shift+N`, '새 창'],
-    [`${MOD}+,`, '설정'],
-    [`${MOD}+Shift+F`, '모든 문서에서 찾기'],
-    [`${MOD}+F`, '이 문서에서 찾기'],
-    [`${MOD}+Shift+L`, '라이브러리 펼치기·접기'],
-    [`${MOD}+Z`, '되돌리기'],
-    [`${MOD}+Shift+Z · ${MOD}+Y`, '다시 하기'],
-  ] },
-  { title: '탭·문서', items: [
-    [`${MOD}+Tab · ${MOD}+Shift+Tab`, '다음 탭 · 이전 탭'],
-    [`${MOD}+W`, '탭 닫기'],
-    [`${MOD}+G`, '쪽으로 가기'],
-    [`${MOD}+P`, '인쇄'],
-    ['Alt+← · Alt+→', '뒤로 · 앞으로 (문서 점프)'],
-    [`${MOD}+= · ${MOD}+-`, '확대 · 축소'],
-  ] },
-  { title: '편집 도구 (한 글자)', items: [
-    ['T', '글 상자'], ['P', '펜'], ['L', '선'], ['A', '화살표'], ['R', '네모'], ['O', '동그라미'], ['E', '지우개'], ['Esc', '도구 끄기'],
-  ] },
-]
+/** 한 글자 도구 키(글 쓰는 칸 밖에서만). 켜고 끄기만 하고 바꾸지는 못한다 */
+const TOOL_KEYS: readonly [string, string][] = [['T', '글 상자'], ['P', '펜'], ['L', '선'], ['A', '화살표'], ['R', '네모'], ['O', '동그라미'], ['E', '지우개'], ['Esc', '도구 끄기']]
 
 /** 설정 「단축키·마우스」 */
 export function InputSettings() {
   return (
     <section className="behavior-settings" aria-label={t('단축키·마우스')}>
       <h3 className="behavior-title">{t('단축키')}</h3>
+      <ShortcutSettings />
+      <h3 className="behavior-title">{t('편집 도구 (한 글자)')}</h3>
       <div className="translation-cache-settings">
         <PrefToggle pref="singleKeyShortcuts" title={t('한 글자 도구 단축키')} description={t('글을 쓰는 칸 밖에서 T·P·L·A·R·O·E 를 누르면 편집 도구를 바로 고릅니다. 끄면 도구줄 단추로만 고릅니다.')} />
       </div>
-      <div className="behavior-keys">
-        {SHORTCUT_GROUPS.map((group) => (
-          <div key={group.title} className="behavior-key-group">
-            <h4>{t(group.title)}</h4>
-            <dl>
-              {group.items.map(([keys, label]) => (
-                <div key={label} className="behavior-key-row"><dt><kbd>{keys}</kbd></dt><dd>{t(label)}</dd></div>
-              ))}
-            </dl>
-          </div>
+      <dl className="behavior-gestures">
+        {TOOL_KEYS.map(([keys, label]) => (
+          <div key={label} className="behavior-key-row"><dt><kbd>{keys}</kbd></dt><dd>{t(label)}</dd></div>
         ))}
-      </div>
+      </dl>
+
 
       <h3 className="behavior-title">{t('마우스 제스처')}</h3>
       <div className="translation-cache-settings">

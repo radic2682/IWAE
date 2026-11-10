@@ -748,7 +748,7 @@ export function MemoColumn({
               {/* 페이지 안쪽(형광펜 끝 → 페이지 가장자리)은 카드를 가리킬 때만 그린다. 늘 그리면 본문 글자를 가로지른다 */}
               {active && showInnerLink ? <path className="pdf-memo-link-inner" d={`M ${target.anchorX} ${target.anchorY} H ${pageRight}`} /> : null}
               {active && showInnerLink ? <circle cx={target.anchorX} cy={target.anchorY} r={2.5} /> : null}
-              <path d={`M ${pageRight} ${target.anchorY} C ${bend} ${target.anchorY}, ${bend} ${cardY}, ${columnLeft} ${cardY}`} />
+              <path pathLength={1} d={`M ${pageRight} ${target.anchorY} C ${bend} ${target.anchorY}, ${bend} ${cardY}, ${columnLeft} ${cardY}`} />
               {showInnerLink ? <circle className="pdf-memo-link-edge" cx={pageRight} cy={target.anchorY} r={2} /> : null}
             </g>
           )

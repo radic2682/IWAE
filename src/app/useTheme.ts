@@ -18,7 +18,7 @@ import {
   THEME_STORAGE_KEY,
 } from '../core/theme'
 import { deriveAccentVars, deriveThemeVars, resolvePanelColor, type UserTheme } from '../core/userTheme'
-import { setActiveUserTheme, useUserThemes } from './userThemeStore'
+import { findUserTheme, setActiveUserTheme, useUserThemes } from './userThemeStore'
 import '../ui/user-theme.css'
 
 interface UseThemeOptions {
@@ -81,7 +81,7 @@ export function useTheme(options: UseThemeOptions = {}): ThemeState {
   const [systemPrefersDark, setSystemPrefersDark] = useState(media?.matches ?? false)
   const resolvedTheme = resolveTheme(preference, systemPrefersDark)
   const userThemes = useUserThemes()
-  const activeTheme: UserTheme | null = userThemes.draft ?? userThemes.themes.find((item) => item.id === userThemes.activeId) ?? null
+  const activeTheme: UserTheme | null = userThemes.draft ?? findUserTheme(userThemes, userThemes.activeId)
   const basePalette: ThemePalette = activeTheme?.base ?? palette
   const customAccent = userThemes.customAccent
 

@@ -3,126 +3,592 @@
 <head>
 <meta charset="utf-8">
 <title>IWAE User Guide</title>
+<link rel="stylesheet" href="manual.css">
 <style>
-  @page { size: A4; margin: 22mm 20mm 22mm 20mm; }
-  :root { --ink: #1f2328; --line: #d0d7de; --soft: #f3f5f8; --accent: #2f6fde; }
-  html { font-family: "Noto Sans KR", sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.7; }
-  body { margin: 0; }
-  h1 { font-size: 26pt; margin: 0 0 6pt; letter-spacing: -.02em; }
-  h2 { font-size: 16pt; margin: 0 0 10pt; padding-bottom: 6pt; border-bottom: 1.5pt solid var(--ink); letter-spacing: -.01em; }
-  h3 { font-size: 12pt; margin: 16pt 0 6pt; }
-  p { margin: 0 0 8pt; }
-  section { break-before: page; }
-  section:first-of-type { break-before: auto; }
-  table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10pt; }
-  th, td { border: 0.75pt solid var(--line); padding: 5pt 8pt; text-align: left; vertical-align: top; }
-  th { background: var(--soft); font-weight: 700; }
-  code, kbd { font-family: "Cascadia Mono", Consolas, monospace; font-size: 9.5pt; background: var(--soft); border: 0.5pt solid var(--line); border-radius: 3pt; padding: 0 3pt; }
-  .cover { height: 230mm; display: flex; flex-direction: column; justify-content: center; }
-  .cover .sub { font-size: 13pt; margin-bottom: 28pt; }
-  .cover .box { border: 1pt solid var(--line); border-radius: 6pt; padding: 12pt 16pt; background: var(--soft); }
-  .req { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; margin: 0 0 8pt; }
-  .req b { display: inline-block; min-width: 60pt; }
-  .note { border: 1pt solid var(--line); border-radius: 6pt; padding: 8pt 12pt; background: var(--soft); margin: 8pt 0; }
-  ol, ul { margin: 0 0 8pt; padding-left: 18pt; }
-  li { margin: 2pt 0; }
+  html { word-break: normal; font-size: 9pt; line-height: 1.55; }
+  th, td { padding: 1.2mm 2.4mm; }
+  .lead { font-size: 10pt; }
+  .try { padding: 2.8mm 3.6mm 2.2mm; margin: 2.4mm 0; }
+  h3 { margin-top: 3.4mm; }
 </style>
+</head>
 <body>
 
-<section class="cover">
-  <h1>IWAE User Guide</h1>
-  <p class="sub">A desktop app for reading long PDFs, marking them up, and weaving your notes together</p>
-  <div class="box">
-    <p>This guide ships as an example in every new Vault. Try highlighting and adding memos while you read it.</p>
-    <p>The <b>Tour of IWAE</b> note in the Notes list on the left already holds memos and tickets made on this guide.</p>
+<!-- 1. Cover and contents -->
+<section class="page" id="p1">
+  <div class="cover-top">
+    <img src="logo.png" alt="">
+    <div>
+      <h1>IWAE User Guide</h1>
+    </div>
   </div>
+  <p class="cover-sub">Read, highlight, turn it into notes, and jump back to the source.</p>
+
+  <div class="start">
+    <h3 style="margin-top:0">This guide is a practice field</h3>
+    <p>This PDF comes with every new Vault as an example. Highlight it, capture from it and translate it as you read. The “Try it” boxes tell you what to do. Anything you mark while practicing can be undone with <kbd>Ctrl</kbd>+<kbd>Z</kbd> or deleted at any time.</p>
+    <h3>Start here</h3>
+    <ol>
+      <li>In the left bar, under “Note”, click <b>Tour of IWAE</b>. The memos already attached to this guide open on the right.</li>
+      <li>Click a memo card. The PDF jumps to the sentence it was written for.</li>
+      <li>Click a page number in the contents below to jump to a chapter, and follow its “Try it” steps.</li>
+    </ol>
+  </div>
+
+  <div class="cols3" style="margin-bottom:5mm">
+    <div class="card"><h4>Highlight, get a memo</h4><p>Select text and a highlight and a memo open together, linked to the source by a line.</p></div>
+    <div class="card"><h4>Read side by side</h4><p>Tabs, split panes and detached windows put several documents in view.</p></div>
+    <div class="card"><h4>Stays on your PC</h4><p>Your documents stay in your folder, and so do IWAE's records.</p></div>
+  </div>
+
+  <h3 style="margin-top:0">Contents</h3>
+  <table class="toc">
+    <tr><th>Page</th><th>Chapter</th><th>You will learn</th></tr>
+    <tr><td><a href="#p2">2</a></td><td><a href="#p2">At a glance</a></td><td>The screen, the core loop, a feature map</td></tr>
+    <tr><td><a href="#p3">3</a></td><td><a href="#p3">1. Vault and screen</a></td><td>Your folder is the library; open and organize</td></tr>
+    <tr><td><a href="#p4">4</a></td><td><a href="#p4">2. Tabs and split view</a></td><td>Side by side, tab dragging, detached and new windows</td></tr>
+    <tr><td><a href="#p5">5</a></td><td><a href="#p5">3. Highlights and memos</a></td><td>Highlight, get a memo, see the connector line</td></tr>
+    <tr><td><a href="#p6">6</a></td><td><a href="#p6">4. Capture, box memos, drawing</a></td><td>Capture tables and figures, write and draw on pages</td></tr>
+    <tr><td><a href="#p7">7</a></td><td><a href="#p7">5. Notes and tickets</a></td><td>Blocks, IDs and titles, memo-only view</td></tr>
+    <tr><td><a href="#p8">8</a></td><td><a href="#p8">6. Left bar, library, versions</a></td><td>Outline, thumbnails, search, table view, versions</td></tr>
+    <tr><td><a href="#p9">9</a></td><td><a href="#p9">7. PDF tools</a></td><td>OCR, compare, page edit, merge, export</td></tr>
+    <tr><td><a href="#p10">10</a></td><td><a href="#p10">8. Translation and Markdown</a></td><td>Translation cache, Markdown documents, GitHub import</td></tr>
+    <tr><td><a href="#p11">11</a></td><td><a href="#p11">9. Look, settings, your data</a></td><td>Themes, highlight colors, backup, updates, external AI</td></tr>
+    <tr><td><a href="#p12">12</a></td><td><a href="#p12">10. Shortcuts and mouse</a></td><td>Keys you will use every day, mouse gestures</td></tr>
+  </table>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">1</span></div>
 </section>
 
-<section>
-  <h2>1. Vault and screen</h2>
-  <p>IWAE opens one folder called a Vault. Your PDFs and Markdown files stay in that folder as they are, and the app keeps its own records in a separate .iwae folder inside it.</p>
-  <p>A Vault is a plain folder, so you can copy or back it up with your file manager.</p>
-  <h3>Screen layout</h3>
-  <table>
-    <tr><th>Area</th><th>What it does</th></tr>
-    <tr><td>Left bar</td><td>Document list and note list. Group items into folders and drag to reorder.</td></tr>
-    <tr><td>Center</td><td>PDF and Markdown viewer. Open several documents in tabs, or split the view to read two side by side.</td></tr>
-    <tr><td>Right bar</td><td>The open note. It scrolls separately from the PDF, and lines connect each memo to its highlight.</td></tr>
+<!-- 2. At a glance -->
+<section class="page" id="p2">
+  <div class="ch"><div class="no">★</div><h2>At a glance</h2></div>
+  <p class="lead">IWAE turns what you mark in PDFs and Markdown into notes that point back to the source.</p>
+
+  <svg class="shot" viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans KR','Malgun Gothic',sans-serif">
+    <defs><clipPath id="w"><rect width="700" height="300" rx="12"/></clipPath></defs>
+    <g clip-path="url(#w)">
+      <rect width="700" height="300" fill="#ffffff"/>
+      <rect width="700" height="30" fill="#eaf2fb"/>
+      <rect y="30" width="150" height="270" fill="#f4f7fb"/>
+      <rect x="520" y="30" width="180" height="270" fill="#f4f7fb"/>
+      <path d="M150 30V300M520 30V300M0 30H700" stroke="#b9cde4" stroke-width="1"/>
+      <!-- 왼쪽 바 -->
+      <g>
+        <rect x="10" y="38" width="22" height="22" rx="6" fill="#dbe8f7" stroke="#2f6fb0"/>
+        <rect x="38" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <rect x="66" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <rect x="94" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <rect x="122" y="38" width="22" height="22" rx="6" fill="#fff" stroke="#b9cde4"/>
+        <text x="12" y="86" font-size="10" font-weight="700" fill="#1d5190">Documents</text>
+        <rect x="8" y="92" width="134" height="22" rx="6" fill="#dbe8f7"/>
+        <text x="16" y="107" font-size="10" font-weight="700" fill="#171a1f">IWAE User Guide</text>
+        <text x="16" y="131" font-size="10" fill="#171a1f">Markdown example</text>
+        <text x="12" y="166" font-size="10" font-weight="700" fill="#1d5190">Notes</text>
+        <rect x="8" y="172" width="134" height="22" rx="6" fill="#dbe8f7"/>
+        <text x="16" y="187" font-size="10" font-weight="700" fill="#171a1f">IWAE Tour</text>
+      </g>
+      <!-- 탭 줄 · 도구줄 -->
+      <rect x="160" y="6" width="130" height="24" rx="8" fill="#ffffff"/>
+      <text x="170" y="22" font-size="10" font-weight="700" fill="#171a1f">IWAE User Guide</text>
+      <text x="304" y="22" font-size="10" fill="#171a1f">Markdown example</text>
+      <rect x="150" y="31" width="370" height="25" fill="#ffffff"/>
+      <g fill="#ffffff" stroke="#b9cde4">
+        <rect x="160" y="35" width="18" height="18" rx="6"/><rect x="184" y="35" width="18" height="18" rx="6" fill="#dbe8f7" stroke="#2f6fb0"/><rect x="208" y="35" width="18" height="18" rx="6"/><rect x="232" y="35" width="18" height="18" rx="6"/><rect x="256" y="35" width="18" height="18" rx="6"/><rect x="280" y="35" width="18" height="18" rx="6"/><rect x="304" y="35" width="18" height="18" rx="6"/><rect x="328" y="35" width="18" height="18" rx="6"/>
+      </g>
+      <!-- 쪽 -->
+      <rect x="196" y="66" width="278" height="204" fill="#ffffff" stroke="#b9cde4"/>
+      <rect x="214" y="82" width="150" height="12" rx="3" fill="#171a1f"/>
+      <g fill="#b9cde4"><rect x="214" y="108" width="240" height="5" rx="2"/><rect x="214" y="120" width="220" height="5" rx="2"/><rect x="214" y="168" width="240" height="5" rx="2"/><rect x="214" y="204" width="200" height="5" rx="2"/><rect x="214" y="216" width="236" height="5" rx="2"/></g>
+      <rect x="214" y="140" width="226" height="8" rx="2" fill="#bcd9f6"/>
+      <rect x="214" y="152" width="170" height="8" rx="2" fill="#bcd9f6"/>
+      <rect x="214" y="184" width="206" height="8" rx="2" fill="#ffc9df"/>
+      <!-- 연결선 -->
+      <path d="M440 146 C486 146 490 104 532 104" fill="none" stroke="#5aa0e8" stroke-width="2"/>
+      <path d="M420 188 C470 188 490 170 532 170" fill="none" stroke="#e6679f" stroke-width="2"/>
+      <!-- 노트 바 -->
+      <text x="532" y="48" font-size="10" font-weight="700" fill="#171a1f">IWAE Tour ⌄</text>
+      <g fill="#ffffff" stroke="#b9cde4">
+        <rect x="530" y="64" width="160" height="62" rx="8"/><rect x="530" y="136" width="160" height="62" rx="8"/><rect x="530" y="208" width="160" height="62" rx="8"/>
+      </g>
+      <g fill="#171a1f"><rect x="540" y="76" width="96" height="6" rx="2"/><rect x="540" y="148" width="108" height="6" rx="2"/><rect x="540" y="220" width="84" height="6" rx="2"/></g>
+      <g fill="#b9cde4"><rect x="540" y="88" width="136" height="5" rx="2"/><rect x="540" y="160" width="120" height="5" rx="2"/><rect x="540" y="232" width="130" height="5" rx="2"/></g>
+      <rect x="540" y="104" width="6" height="6" rx="3" fill="#5aa0e8"/><rect x="552" y="104" width="100" height="5" rx="2" fill="#bcd9f6"/>
+      <rect x="540" y="176" width="6" height="6" rx="3" fill="#e6679f"/><rect x="552" y="176" width="100" height="5" rx="2" fill="#ffc9df"/>
+      <!-- 아래 막대 -->
+      <rect x="150" y="272" width="370" height="28" fill="#ffffff"/>
+      <path d="M150 272H520" stroke="#b9cde4"/>
+      <rect x="170" y="278" width="46" height="16" rx="6" fill="#f4f7fb" stroke="#b9cde4"/>
+      <text x="193" y="290" font-size="10" text-anchor="middle" fill="#171a1f">1 / 12</text>
+      <rect x="360" y="284" width="100" height="4" rx="2" fill="#b9cde4"/><circle cx="410" cy="286" r="6" fill="#2f6fb0"/>
+      <!-- 번호 -->
+      <g font-size="11" font-weight="700" text-anchor="middle" fill="#ffffff">
+        <circle cx="76" cy="212" r="10" fill="#2f6fb0"/><text x="76" y="216">1</text>
+        <circle cx="420" cy="15" r="10" fill="#2f6fb0"/><text x="420" y="19">2</text>
+        <circle cx="330" cy="130" r="10" fill="#2f6fb0"/><text x="330" y="134">3</text>
+        <circle cx="440" cy="44" r="10" fill="#2f6fb0"/><text x="440" y="48">4</text>
+        <circle cx="640" cy="48" r="10" fill="#2f6fb0"/><text x="640" y="52">5</text>
+        <circle cx="300" cy="286" r="10" fill="#2f6fb0"/><text x="300" y="290">6</text>
+      </g>
+    </g>
+    <rect x=".5" y=".5" width="699" height="299" rx="12" fill="none" stroke="#2f6fb0"/>
+  </svg>
+
+  <table class="free">
+    <tr><td>1 Left bar</td><td>Explorer, Outline, Thumbnails, PDF tools, Search. Documents and notes are listed here.</td></tr>
+    <tr><td>2 Tabs</td><td>One tab per document. Drag to reorder, move to a pane, or detach into a window.</td></tr>
+    <tr><td>3 Document pane</td><td>PDFs and Markdown. Split into two, three or four panes to read side by side.</td></tr>
+    <tr><td>4 Toolbar</td><td>Hand, Select text, Region capture, Highlight, Box memo, Text box, Pen, Eraser, Edit pages.</td></tr>
+    <tr><td>5 Note bar</td><td>Fixed at the right edge. Memo cards are linked to PDF highlights by lines.</td></tr>
+    <tr><td>6 Bottom bar</td><td>Page navigation, fit width, fit page, fit height, zoom.</td></tr>
   </table>
-  <h3>Folder layout</h3>
+
+  <h3 style="margin-top:2mm">The core loop</h3>
+  <div class="flow">
+    <div class="st"><b>1 Highlight</b>Drag over text and a highlight is painted.</div><div class="ar">›</div>
+    <div class="st"><b>2 Memo</b>A memo card opens in the note, ready to type.</div><div class="ar">›</div>
+    <div class="st"><b>3 Linked</b>A line joins the card and the highlight.</div><div class="ar">›</div>
+    <div class="st"><b>4 Jump back</b>Click the card and the PDF returns to that spot.</div>
+  </div>
+
+  <h3 style="margin-top:2mm">Feature map</h3>
+  <table class="free">
+    <tr><th>I want to…</th><th>Go to</th></tr>
+    <tr><td>Open documents and put them side by side</td><td><a href="#p3">p. 3</a> · <a href="#p4">p. 4</a></td></tr>
+    <tr><td>Highlight, capture and write memos</td><td><a href="#p5">p. 5</a> · <a href="#p6">p. 6</a></td></tr>
+    <tr><td>Build notes and track requirements</td><td><a href="#p7">p. 7</a></td></tr>
+    <tr><td>Search, outline, library, versions</td><td><a href="#p8">p. 8</a></td></tr>
+    <tr><td>Fix and export PDFs</td><td><a href="#p9">p. 9</a></td></tr>
+    <tr><td>Translate, Markdown, settings, data</td><td><a href="#p10">p. 10</a> · <a href="#p11">p. 11</a></td></tr>
+    <tr><td>Keyboard and mouse</td><td><a href="#p12">p. 12</a></td></tr>
+  </table>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">2</span></div>
+</section>
+
+<!-- 3. Vault and screen -->
+<section class="page" id="p3">
+  <div class="ch"><div class="no">1</div><h2>Vault and screen</h2></div>
+  <p class="lead">IWAE opens a single folder called a Vault.</p>
+  <p>Your PDFs and Markdown files stay in that folder as they are, and the app keeps its own records in a <code>.iwae</code> folder inside it. A Vault is a plain folder, so you can copy or back it up with your file manager. Nothing is locked inside the app: if you uninstall IWAE, your files are still there.</p>
+
+  <h3>Inside the Vault folder</h3>
   <table>
     <tr><th>Path</th><th>Contents</th></tr>
-    <tr><td><code>*.pdf</code>, <code>*.md</code></td><td>Your documents</td></tr>
+    <tr><td><code>*.pdf</code> · <code>*.md</code></td><td>Your documents. Subfolders appear in the left list exactly as they are.</td></tr>
     <tr><td><code>노트/*.iwnote</code></td><td>Note files</td></tr>
-    <tr><td><code>.iwae/</code></td><td>App records such as highlights, bookmarks and indexes</td></tr>
+    <tr><td><code>.iwae/</code></td><td>App records: highlights, bookmarks, search index, translation cache, history, trash</td></tr>
   </table>
-</section>
 
-<section>
-  <h2>2. PDF tools</h2>
-  <p>Switch tools with the buttons in the toolbar above the document.</p>
-  <table>
-    <tr><th>Tool</th><th>What it does</th></tr>
-    <tr><td>Hand</td><td>Drag empty space to move the page. Dragging over text only selects it for copying.</td></tr>
-    <tr><td>Text select</td><td>Drag over text to highlight it and open a memo in the note on the right.</td></tr>
-    <tr><td>Region capture</td><td>Draw a box around a table or figure to add it to the note as an image.</td></tr>
-    <tr><td>Box memo</td><td>Attach a memo box in the PDF margin, connected by a line.</td></tr>
-    <tr><td>Text box · Pen · Eraser · Line</td><td>Write and draw directly on the PDF. Pick color and width in the floating format bar.</td></tr>
-    <tr><td>Edit pages</td><td>Reorder pages in a thumbnail view, insert pages from another PDF, remove or rotate them.</td></tr>
+  <h3>Opening and organizing documents</h3>
+  <ul>
+    <li>Click a document in the left “Explorer” to open it in a tab. Create folders, rename and drag items to move them right there.</li>
+    <li>Use “Add document” to import files, or drag documents from your file manager onto the Vault.</li>
+    <li>The GitHub button imports a folder of Markdown documents from a repository (<a href="#p10">p. 10</a>).</li>
+    <li>A PDF opened straight from your file manager opens without being imported. It stays under “Recent PDFs” at the bottom left, and dragging it onto a Vault folder imports it.</li>
+    <li>Click the Vault name at the bottom left to switch Vaults. Your page and open tabs are remembered next time.</li>
+  </ul>
+
+  <h3>Three parts of the window</h3>
+  <table class="free">
+    <tr><td>Left bar</td><td>Documents and notes, outline, thumbnails, PDF tools, search. Drag its edge to resize.</td></tr>
+    <tr><td>Center</td><td>Tabs for open documents, split into panes to read side by side.</td></tr>
+    <tr><td>Right note bar</td><td>The open note. It scrolls separately, and its memos are linked to highlights by lines.</td></tr>
   </table>
-  <div class="note">
-    <p>You can resize a captured table or figure box by dragging its edges and corners with the text select or region capture tool.</p>
+
+  <div class="tip"><b class="k">Good to know</b>Only two things ever leave your PC: the selected text when you choose a cloud translation service, and requests from an external AI when you turn that connection on yourself. Details are on <a href="#p11">p. 11</a>.</div>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>In the left “Explorer”, click <b>Markdown example</b> to open it in a new tab.</li>
+      <li>Click between the tabs to switch between this guide and the Markdown example.</li>
+      <li>Create a folder with “New folder” and rename it “Practice”. You can delete it afterwards.</li>
+    </ol>
   </div>
-  <h3>Find and navigate</h3>
-  <p>Press Ctrl+F to search inside the PDF, and use the outline and page thumbnails to jump around. Click a link in the document to follow it, or hover to preview it.</p>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">3</span></div>
 </section>
 
-<section>
-  <h2>3. Memos and notes</h2>
-  <p>A note is a document built from blocks. One note can mix memos from several PDFs.</p>
-  <table>
-    <tr><th>Block</th><th>Description</th></tr>
-    <tr><td>Section</td><td>Groups the blocks below it. Collapse to hide them, drag to move them together.</td></tr>
-    <tr><td>Text</td><td>Text you write in the note, with bold, lists, tables and code.</td></tr>
-    <tr><td>Memo</td><td>A PDF highlight with your memo. Click it to jump to that spot in the PDF.</td></tr>
-    <tr><td>Ticket</td><td>A memo shown as title, your text and the original quote. Handy for tracking requirements.</td></tr>
+<!-- 4. Tabs and split view -->
+<section class="page" id="p4">
+  <div class="ch"><div class="no">2</div><h2>Tabs and split view</h2></div>
+  <p class="lead">Every document gets a tab, and panes let you read several side by side.</p>
+  <p>There are two ways to split the screen, and both use the same nine layouts.</p>
+
+  <div class="layouts">
+    <div class="lay"><div class="box" style="grid-template:1fr/1fr"><i class="on"></i></div>Single</div>
+    <div class="lay"><div class="box" style="grid-template:1fr/1fr 1fr"><i></i><i class="on"></i></div>Two side by side</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr"><i></i><i class="on"></i></div>Two stacked</div>
+    <div class="lay"><div class="box" style="grid-template:1fr/1fr 1fr 1fr"><i></i><i class="on"></i><i></i></div>Three side by side</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i></i><i class="on"></i><i style="grid-column:1/3"></i></div>Two top · one bottom</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i style="grid-column:1/3"></i><i class="on"></i><i></i></div>One top · two bottom</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i style="grid-row:1/3"></i><i class="on"></i><i></i></div>One left · two right</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i></i><i style="grid-row:1/3" class="on"></i><i></i></div>Two left · one right</div>
+    <div class="lay"><div class="box" style="grid-template:1fr 1fr/1fr 1fr"><i></i><i class="on"></i><i></i><i></i></div>Four (2×2)</div>
+  </div>
+  <table class="free">
+    <tr><td>Split view (window)</td><td>The button at the top right. Each pane opens a different document. Press <kbd>Ctrl</kbd>+<kbd>\</kbd> to cycle one, two and three panes.</td></tr>
+    <tr><td>Split view (PDF)</td><td>The button on the PDF toolbar. See different pages of the same PDF together; each pane has its own page and zoom.</td></tr>
   </table>
-  <p>Hover over a block to see its source at the top right of the block.</p>
-  <p>Drag the handle on the left to change the order of blocks.</p>
-  <p>Choose Convert to ticket in a memo block's menu to make it a ticket.</p>
+
+  <h3>Drag tabs like browser tabs</h3>
+  <table class="free">
+    <tr><td>Drag within a pane</td><td>Reorders the tabs.</td></tr>
+    <tr><td>Drag to another pane's tab bar</td><td>Moves the tab to that pane.</td></tr>
+    <tr><td>Drag to a pane edge</td><td>Drag a tab to the edge of a pane and a new pane is created on that side.</td></tr>
+    <tr><td>Drag out of the window</td><td>The PDF tab becomes its own window, showing just the document and the note bar.</td></tr>
+    <tr><td>Drag onto a tab bar</td><td>Close the detached window or choose “Reattach to the main window” and the tab returns with its page and zoom.</td></tr>
+  </table>
+  <p><b>New window</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>) opens a second window on the same Vault. What you highlight or write in one window shows up in the other, and edits from both windows are merged instead of overwriting each other. With two monitors, keep the document on one and the note on the other.</p>
+
+  <h3>Viewing and moving around</h3>
+  <ul>
+    <li>Page layout: single page, two pages, three pages or continuous scroll. The bottom bar has fit width, fit page, fit height and actual size (1:1); zoom with <kbd>Ctrl</kbd>+wheel.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>G</kbd> goes to a page. Hover a link in a document to preview it, click to follow it, and come back with <kbd>Alt</kbd>+<kbd>←</kbd> or the mouse back button.</li>
+  </ul>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>At the top right, open “Split view” and choose “Two side by side”.</li>
+      <li>Drag the <b>Markdown example</b> tab into the right pane and read the two documents side by side.</li>
+      <li>Drag a tab out of the window to detach it, then drag it back onto the tab bar to reattach it.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">4</span></div>
 </section>
 
-<section>
-  <h2>4. Practice: tracking requirements</h2>
-  <p>Below are practice requirements. Drag over one line with the text select tool to make a memo, then turn it into a ticket from the memo menu.</p>
+<!-- 5. Highlights and memos -->
+<section class="page" id="p5">
+  <div class="ch"><div class="no">3</div><h2>Highlights and memos</h2></div>
+  <p class="lead">Reading and marking happen in one motion. Select text, a highlight is painted, and a memo opens in the note on the right.</p>
+
+  <div class="try"><span class="tag">Try it 1</span>
+    <ol>
+      <li>On the toolbar, check that “Select text” is on (it is by default).</li>
+      <li>Drag over a practice sentence below. A highlight appears and a memo opens in the note.</li>
+      <li>Write a memo, scroll far away, then click the memo card. The PDF returns to the highlighted sentence.</li>
+    </ol>
+  </div>
+  <p class="target"><span class="tn">Practice 1</span>When you highlight a sentence you stop at, it moves into a memo card in the note.</p>
+  <p class="target"><span class="tn">Practice 2</span>A highlighted sentence is linked to its memo card by a thin line.</p>
+  <p class="target"><span class="tn">Practice 3</span>Click a memo card and the PDF returns to the highlighted sentence.</p>
+
+  <h3>When you select text</h3>
+  <table class="free">
+    <tr><td>Drag with Select text</td><td>Paints a highlight and opens a memo.</td></tr>
+    <tr><td>Drag with the Hand tool</td><td>Selects text without highlighting, for copying.</td></tr>
+    <tr><td>Buttons above a selection</td><td>Copy · Copy with source · Search documents · Translate · Send to note</td></tr>
+    <tr><td>Click a highlight</td><td>Opens its memo card in the note so you can edit it. With the note bar closed, a small popover lets you change the color, write a memo, send it to the note, or delete it.</td></tr>
+    <tr><td>Click a memo card's source</td><td>The PDF jumps to the spot. “Show in source” in the card menu does the same, and “Delete highlight and memo” removes it.</td></tr>
+  </table>
+
+  <h3>Colors</h3>
+  <p>The “Highlight” tool paints color without a memo. The default colors are the four below. In Settings, under Display &amp; documents, you can add named colors up to eight in total and drag them to reorder. If you delete a color, highlights painted with it stay as “Other”.</p>
+  <div class="chips">
+    <span class="chip"><i class="sw" style="background:#ffe25e"></i>Yellow</span>
+    <span class="chip"><i class="sw" style="background:#6fdc92"></i>Green</span>
+    <span class="chip"><i class="sw" style="background:#5db1ff"></i>Blue</span>
+    <span class="chip"><i class="sw" style="background:#ff7eb5"></i>Pink</span>
+    <span class="chip">Your own colors, up to 8</span>
+  </div>
+
+  <h3>The connector lines</h3>
+  <p>The note bar is fixed at the right edge of the window, so even with several panes the connector lines cross the other panes to reach their cards. A line has the color of its highlight. The eye button on the toolbar, “Hide all marks”, hides highlights, memos and lines at once. Undo (<kbd>Ctrl</kbd>+<kbd>Z</kbd>) reverts changes to highlights, drawings and memo notes without touching what another window added.</p>
+
+  <div class="try"><span class="tag">Try it 2</span>
+    <ol>
+      <li>Switch to the “Highlight” tool, pick a color and paint a few sentences.</li>
+      <li>Click a highlighted sentence to see its card open in the note, then delete it with “Delete highlight and memo” in the card menu. Hide the marks with the eye button and show them again.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">5</span></div>
+</section>
+
+<!-- 6. Capture, box memos, drawing -->
+<section class="page" id="p6">
+  <div class="ch"><div class="no">4</div><h2>Capture, box memos, drawing</h2></div>
+  <p class="lead">Capture what is not text, such as tables and figures, and write or draw directly on the page.</p>
+
+  <h3>Region capture</h3>
+  <p>Choose “Region capture” on the toolbar and box a table or figure. It goes into the note as an image with a description field. A captured box can be resized by dragging its edges and corners. Holding <kbd>Ctrl</kbd> while dragging also boxes a table or figure. On a scanned page with no text layer, the text recognized by OCR is attached too.</p>
+
+  <div class="cols">
+    <div class="fig">
+      <table style="margin:0">
+        <tr><th>Tool</th><th>Key</th><th>Use</th></tr>
+        <tr><td>Pen</td><td><kbd>P</kbd></td><td>Draw by hand</td></tr>
+        <tr><td>Text box</td><td><kbd>T</kbd></td><td>Write on the page</td></tr>
+        <tr><td>Eraser</td><td><kbd>E</kbd></td><td>Erase marks</td></tr>
+      </table>
+      <p class="cap">Table 1. Three tools</p>
+    </div>
+    <div class="fig">
+      <div class="bars">
+        <div style="height:42%"><span>12</span></div>
+        <div style="height:64%"><span>19</span></div>
+        <div style="height:50%"><span>15</span></div>
+        <div style="height:88%"><span>26</span></div>
+        <div style="height:74%"><span>22</span></div>
+      </div>
+      <div class="bars-x"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span></div>
+      <p class="cap">Figure 1. Pages read per weekday</p>
+    </div>
+  </div>
+
+  <h3>Box memos and drawing</h3>
+  <p>A “Box memo” attaches a memo box in the page margin, joined by a line. “Text box”, “Pen”, the drawing tools (line, arrow, rectangle, ellipse) and “Eraser” write directly on the PDF; a floating format panel sets color and thickness. The eraser removes highlights and box memos as well as drawings.</p>
+  <table class="free">
+    <tr><td>One-key shortcuts</td><td><kbd>T</kbd> text box · <kbd>P</kbd> pen · <kbd>L</kbd> line · <kbd>A</kbd> arrow · <kbd>R</kbd> rectangle · <kbd>O</kbd> ellipse · <kbd>X</kbd> redact · <kbd>E</kbd> eraser · <kbd>Esc</kbd> tool off (outside text fields)</td></tr>
+  </table>
+  <div class="canvas">Drawing practice area: draw with the pen, place a text box or attach a box memo here</div>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>Turn on “Region capture” and box Figure 1 above. When the image lands in the note, type a description.</li>
+      <li>Drag an edge or corner of the box to resize it.</li>
+      <li>Attach a “Box memo” in the margin, press <kbd>P</kbd> and draw in the practice area, then press <kbd>E</kbd> to erase. <kbd>Esc</kbd> turns the tool off.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">6</span></div>
+</section>
+
+<!-- 7. Notes and tickets -->
+<section class="page" id="p7">
+  <div class="ch"><div class="no">5</div><h2>Notes and tickets</h2></div>
+  <p class="lead">A note is a document built from blocks. One note can mix memos from several PDFs and Markdown files.</p>
+
+  <table class="free">
+    <tr><th>Block</th><th>Description</th></tr>
+    <tr><td>Section</td><td>Groups the blocks under it. Collapse it, or drag it and the blocks under it move together.</td></tr>
+    <tr><td>Text</td><td>Free writing in the note, with bold, lists, tables and code.</td></tr>
+    <tr><td>Memo</td><td>Your comment with its sources (page numbers) underneath. Click a source to jump to the PDF. A memo can hold several sources, captures included.</td></tr>
+    <tr><td>Ticket</td><td>A memo with an ID and a title, for tracking requirements.</td></tr>
+  </table>
+  <p>Drag the handle on the left to change the order of blocks. Select several blocks with <kbd>Ctrl</kbd> or <kbd>Shift</kbd>+click and drag them together.</p>
+
+  <h3>ID and title (tickets)</h3>
+  <p>Memos can carry an ID and a title. Hover a memo to see + ID and + Title at the top right, or start the memo with something like <code>REQ-04 </code> to turn it into an ID. IWAE suggests the next number and warns about an ID already used in the note.</p>
+  <p>Below are practice requirements. Highlight one line at a time to make a memo, then give it an ID.</p>
   <div class="req"><b>REQ-01</b> Saved notes must still be there after the app restarts.</div>
   <div class="req"><b>REQ-02</b> Deleting a highlight must also remove its memo block from the note.</div>
   <div class="req"><b>REQ-03</b> Highlights must point to the same text after pages are reordered.</div>
   <div class="req"><b>REQ-04</b> Text to translate must only be sent where the user chose.</div>
-  <p>The example note in this Vault already has REQ-01 and REQ-03 as tickets.</p>
+  <p>The example note in this Vault already holds REQ-01 and REQ-03 as tickets.</p>
+
+  <h3>Working with the note bar</h3>
+  <table class="free">
+    <tr><td>Switch note</td><td>Click the arrow beside the note title to list this PDF's notes and other notes, and to create a note for this PDF. The magnifier searches all notes.</td></tr>
+    <tr><td>Notes per PDF</td><td>Expand the caret on a PDF row in the left “Explorer” to see that PDF's notes under it, and create new ones there.</td></tr>
+    <tr><td>Show memos only</td><td>Spreads the note into a wide column with an outline. Good for organizing and polishing; “Show with document” brings the PDF back.</td></tr>
+    <tr><td>Expand all memos</td><td>Opens or closes the quoted source text on every memo card at once. “Insert text block” (+) adds free writing to the note.</td></tr>
+  </table>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>Highlight the REQ-02 sentence to make a memo, then press “+ ID” on it and enter REQ-02. Add a title with “+ Title”.</li>
+      <li>Turn on “Show memos only” at the top of the note bar, look at the outline, then close it.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">7</span></div>
 </section>
 
-<section>
-  <h2>5. Translation</h2>
-  <p>You can translate selected text right away. Choose how in Settings, under Translation.</p>
-  <table>
-    <tr><th>Method</th><th>Notes</th></tr>
-    <tr><td>Local (Ollama)</td><td>Text never leaves your PC. Can be slow depending on the model size.</td></tr>
-    <tr><td>Cloud API</td><td>Fast translation with Claude, OpenAI, Gemini and others. Selected text is sent to that service.</td></tr>
+<!-- 8. Left bar, library, versions -->
+<section class="page" id="p8">
+  <div class="ch"><div class="no">6</div><h2>Left bar, library, versions</h2></div>
+  <p class="lead">Five tabs at the top of the left bar are how you find and skim documents.</p>
+
+  <table class="free">
+    <tr><td>Explorer</td><td>The Vault's documents and notes. Open documents get a dot; the selected document and note are marked.</td></tr>
+    <tr><td>Outline</td><td>The outline and bookmarks of this PDF. Click one to go to that page.</td></tr>
+    <tr><td>Thumbnails</td><td>Page thumbnails. A rectangle shows the area currently on screen.</td></tr>
+    <tr><td>PDF tools</td><td>OCR, compare, merge and more (<a href="#p9">p. 9</a>).</td></tr>
+    <tr><td>Search</td><td>Switch between “This document” and “All documents”. Options for case (Aa) and whole word (W); click a result to open it at that spot.</td></tr>
   </table>
-  <p>Cloud API keys are kept in this PC's credential store.</p>
+  <p>Searching all documents covers file names, folders, PDF text and Markdown content in one place. Pages without a text layer are read locally with OCR and indexed.</p>
+
+  <h3>Expand the library</h3>
+  <p>The library button at the top of the left bar (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>) turns the left bar into navigation (All, Favorites, Recently opened, folders) and fills the area on the right with a table of every document.</p>
+  <ul>
+    <li>Edit paper details such as title, authors and year in place, sort, star documents and group them into collections. Switch between list and card views.</li>
+    <li>Paper details are filled in from the PDF or Crossref, and you can copy a BibTeX citation.</li>
+  </ul>
+
+  <h3>Versions</h3>
+  <p>Group the draft, revised and final files of one document as its versions and switch between them. Use “Group with another file as versions…” on a file row; ungrouping leaves the files as they are. The PDF tool “Compare text with another version” (<a href="#p9">p. 9</a>) shows only what changed between two versions, side by side.</p>
+
+  <h3>Zoom each bar separately</h3>
+  <p>Ctrl+wheel over the left bar, the right note bar or the library zooms each one separately between 80% and 150%. The values are saved and do not affect PDF zoom. The size of the whole interface is set under “Interface size” in Settings.</p>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>In “Outline”, click a heading to jump to a chapter, then watch the rectangle follow in “Thumbnails”.</li>
+      <li>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>, search “All documents” for <code>Vault</code> and click a result.</li>
+      <li>Expand and collapse the library with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>. Try <kbd>Ctrl</kbd>+wheel over the left bar as well.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">8</span></div>
 </section>
 
-<section>
-  <h2>6. Shortcuts</h2>
-  <table>
-    <tr><th>Keys</th><th>What it does</th></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Search the PDF</td></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print</td></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copy selected PDF text</td></tr>
-    <tr><td>Right-drag</td><td>Mouse gestures (close tab, jump to top or bottom)</td></tr>
+<!-- 9. PDF tools -->
+<section class="page" id="p9">
+  <div class="ch"><div class="no">7</div><h2>PDF tools</h2></div>
+  <p class="lead">Open the “PDF tools” tab in the left bar and each tool unfolds in place. Only Edit pages takes over the PDF pane.</p>
+  <p>Most tools let you choose “Apply to original” or “As a copy”, and a copy is saved as a new PDF in the Vault. Edit pages backs up the original first. You can also open a tool from the command palette (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) by typing its name.</p>
+
+  <table class="free">
+    <tr><th>Group</th><th>Tool</th><th>What it does</th></tr>
+    <tr><td rowspan="2">Text</td><td><b>Add text layer with OCR</b></td><td>Adds a text layer to scanned pages so they can be searched and selected. Runs on your PC.</td></tr>
+    <tr><td><b>Compare text with another version</b></td><td>Compares the text of two versions and shows only what changed, side by side.</td></tr>
+    <tr><td rowspan="2">My marks</td><td><b>Marks-flattened copy</b></td><td>Burns your highlights, memos and drawings into the pages. Handy for sharing.</td></tr>
+    <tr><td><b>Redacted copy</b></td><td>Really removes the text and images under redaction boxes drawn with the redact tool (<kbd>X</kbd>).</td></tr>
+    <tr><td rowspan="6">Pages</td><td><b>Edit pages</b></td><td>Reorder, rotate, remove, insert pages from another PDF. Highlights follow their pages.</td></tr>
+    <tr><td><b>Extract pages to new PDF</b></td><td>Pulls a page range into a new PDF.</td></tr>
+    <tr><td><b>Split by chapters</b></td><td>Splits the PDF at each outline chapter.</td></tr>
+    <tr><td><b>Merge with other PDFs</b></td><td>Combines several PDFs into one.</td></tr>
+    <tr><td><b>Remove blank pages</b></td><td>Finds blank pages and drops them.</td></tr>
+    <tr><td><b>Fix scanned page orientation</b></td><td>Straightens sideways and upside-down scanned pages, found with OCR.</td></tr>
+    <tr><td rowspan="5">Layout</td><td><b>Add page numbers</b></td><td>Pick the position and style of page numbers.</td></tr>
+    <tr><td><b>Watermark</b></td><td>Stamps text on every page.</td></tr>
+    <tr><td><b>Crop margins</b></td><td>Trims page margins.</td></tr>
+    <tr><td><b>N-up</b></td><td>Puts several pages on one sheet.</td></tr>
+    <tr><td><b>Compress</b></td><td>Shrinks oversized images and only writes a file that is actually smaller.</td></tr>
+    <tr><td rowspan="3">Export</td><td><b>Pages as PNG</b></td><td>Saves pages as image files.</td></tr>
+    <tr><td><b>Text as Markdown</b></td><td>Extracts the PDF's text as Markdown.</td></tr>
+    <tr><td><b>Unlocked copy</b></td><td>Makes a copy without a password after you enter it. Password-protected PDFs ask for it when opened.</td></tr>
   </table>
-  <p>IWAE is open source. To report a problem or suggest a feature, open an issue in the repository.</p>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>Open the “PDF tools” tab in the left bar, click “Add page numbers” and look at the position and style options. It starts on “Apply to original”, so choose “As a copy” first; only a copy is made.</li>
+      <li>Open “Compare text with another version” and compare this guide with another PDF of the same document, after adding one to the Vault.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">9</span></div>
+</section>
+
+<!-- 10. Translation and Markdown -->
+<section class="page" id="p10">
+  <div class="ch"><div class="no">8</div><h2>Translation and Markdown</h2></div>
+  <p class="lead">Translate just the text you select and read it beside the original, which is never replaced.</p>
+
+  <h3>Translation</h3>
+  <p>Select text and press “Translate” in the buttons that appear; a result card opens with the language, the translation method, retry, and copy with the original. Each source line in a note has a small translate button that shows the translation right under it. Text broken across lines is joined before translating, and text that is already in the target language is translated into another one.</p>
+
+  <table class="free">
+    <tr><th>Method</th><th>What to know</th></tr>
+    <tr><td>Local (Ollama)</td><td>Translates on your own PC. Nothing leaves the machine. It can be slow, depending on the model.</td></tr>
+    <tr><td>Cloud</td><td>OpenAI, Anthropic, Gemini, Azure Translator or DeepL. The selected text is sent to the service you choose.</td></tr>
+  </table>
+  <p class="target"><span class="tn">Practice 4</span>Cloud API keys are stored in this PC's credential store.</p>
+  <p><b>Translation cache:</b> a text translated once into the same language is reused instantly, without another request. Turn it off or clear it under Translation in Settings; translations stay in the Vault's <code>.iwae</code> folder. The method and API keys are set there too.</p>
+
+  <h3>A paragraph to translate</h3>
+  <p class="target" style="padding-left:3.2mm"><span class="tn" style="position:static;transform:none;margin-right:2mm">Practice 5</span>Una lista de lectura bien ordenada convierte artículos dispersos en un argumento. Marca la afirmación, anota por qué importa y vuelve a la fuente cuando dudes de tu propio resumen.</p>
+
+  <h3>Markdown documents</h3>
+  <p>Markdown files open in tabs next to your PDFs, with headings, tables, code, task lists and an outline. Highlights, memos and region captures work just as in a PDF, and the memos mix into the same note. Change the look under “Markdown document theme” in Settings; the original file is never changed.</p>
+  <ul>
+    <li><b>From GitHub:</b> the GitHub button above the left “Explorer” imports a folder of Markdown documents from a repository. The top bar shows when there are new commits; pull the latest, or open an older version from a branch, tag or commit.</li>
+  </ul>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>Select the Spanish paragraph (Practice 5) and press “Translate”. Translate the same paragraph again and it appears at once thanks to the cache.</li>
+      <li>Highlight it as a memo, then press the translate button on the card's source line in the note.</li>
+      <li>On the <b>Markdown example</b> tab, highlight a sentence to add a memo to the same note.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">10</span></div>
+</section>
+
+<!-- 11. Look, settings, your data -->
+<section class="page" id="p11">
+  <div class="ch"><div class="no">9</div><h2>Look, settings, your data</h2></div>
+  <p class="lead">Open Settings with <kbd>Ctrl</kbd>+<kbd>,</kbd>.</p>
+
+  <h3>Themes and color</h3>
+  <table class="free">
+    <tr><td>Theme</td><td>System, Light or Dark. System follows your operating system immediately.</td></tr>
+    <tr><td>Color scheme</td><td>Default, Neutral gray, Warm paper or Deep navy. With “New theme” you set just eight base colors per brightness and the rest are derived, with a live preview and contrast warnings. Themes can be exported and imported as files, duplicated and deleted.</td></tr>
+    <tr><td>Accent color</td><td>Blue, teal, green, purple, rose or amber, or pick any color of your own; you are warned when contrast is too low.</td></tr>
+    <tr><td>Highlight colors</td><td>Create named colors, up to eight, and drag them to reorder.</td></tr>
+    <tr><td>Size, language</td><td>Interface size 90–125%, Korean, English or system language, and six Markdown document themes.</td></tr>
+  </table>
+
+  <h3>Your data stays on your PC</h3>
+  <table class="free">
+    <tr><td>Safe saves</td><td>Files are written to a temporary file and swapped in atomically, and a journal detects interrupted writes. Earlier states are kept for a limited time, and conflicting edits are kept side by side for you to choose.</td></tr>
+    <tr><td>Trash</td><td>Deleted items go to <code>.iwae/trash/</code> first.</td></tr>
+    <tr><td>Automatic backup</td><td>Turn it on under “Data &amp; recovery”. On the days you pick, the whole Vault is zipped into a folder, and only the number of backups you set are kept.</td></tr>
+    <tr><td>Several windows</td><td>Windows on one Vault merge their changes instead of overwriting each other.</td></tr>
+  </table>
+  <div class="tip"><b class="k">What leaves your PC</b>Only the selected text when you choose a cloud translation service, the update check, and requests from an external AI after you turn that on. The external AI connection is off by default, and when on it listens only on <code>127.0.0.1</code> and needs a token.</div>
+
+  <h3>External AI and updates</h3>
+  <ul>
+    <li><b>External AI connection:</b> IWAE has no built-in chat. An outside agent such as Claude Code can use your Vault through an MCP server: search it, read pages, add and change memos. Turn it on under “External AI connection” and run the command shown once. It cannot modify your PDF files.</li>
+    <li><b>Updates:</b> Under “Updates”, choose automatic checks and pre-downloading. The signature is verified, and installation only starts when you confirm it.</li>
+  </ul>
+
+  <div class="try"><span class="tag">Try it</span>
+    <ol>
+      <li>Open Settings with <kbd>Ctrl</kbd>+<kbd>,</kbd>, switch to Dark, then click a color scheme and an accent to see the screen change.</li>
+      <li>Add a named color under highlight colors and use it to highlight a sentence on this page.</li>
+      <li>Open the command palette with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> and type “dark” or “new window”.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">11</span></div>
+</section>
+
+<!-- 12. Shortcuts and mouse -->
+<section class="page" id="p12">
+  <div class="ch"><div class="no">10</div><h2>Shortcuts and mouse</h2></div>
+  <p class="lead">On macOS use <kbd>⌘</kbd> instead of <kbd>Ctrl</kbd>. The same list is under “Shortcuts &amp; mouse” in Settings.</p>
+
+  <div class="cols">
+    <div>
+      <h3 style="margin-top:0">General</h3>
+      <table>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Command palette</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>New window</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Settings</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Find in this document</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Search all documents</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Toggle library</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Redo (<kbd>Ctrl</kbd>+<kbd>Y</kbd>)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Tabs and documents</h3>
+      <table>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td>Next tab (add <kbd>Shift</kbd> for previous)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Close tab</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>\</kbd></td><td>Change split view</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>Go to page</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print</td></tr>
+        <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> <kbd>→</kbd></td><td>Back · forward (document jumps)</td></tr>
+                <tr><td><kbd>Ctrl</kbd>+wheel</td><td>Zoom the PDF (over a side bar, only that bar)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+drag</td><td>Box a table or figure on the PDF to capture it</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>Marking tools (one key, outside text fields)</h3>
+  <p><kbd>T</kbd> text box · <kbd>P</kbd> pen · <kbd>L</kbd> line · <kbd>A</kbd> arrow · <kbd>R</kbd> rectangle · <kbd>O</kbd> ellipse · <kbd>X</kbd> redact · <kbd>E</kbd> eraser · <kbd>Esc</kbd> tool off. You can turn these off in Settings. In note text, <kbd>Ctrl</kbd>+<kbd>B</kbd> is bold, <kbd>Ctrl</kbd>+<kbd>I</kbd> italic and <kbd>Ctrl</kbd>+<kbd>U</kbd> underline.</p>
+
+  <h3>Mouse</h3>
+  <table class="free">
+    <tr><td>Mouse back · forward buttons</td><td>Move through your document jump history. Handy after following a link.</td></tr>
+    <tr><td>Draw with the right button held</td><td>↓ to the bottom · ↑ to the top · ← back · → forward · ㄴ close tab · ㄱ reopen closed tab. Release without moving for the usual context menu.</td></tr>
+    <tr><td>Drag a tab</td><td>Reorder, move between panes, split at an edge, or pull out into a window (<a href="#p4">p. 4</a>).</td></tr>
+  </table>
+
+  <div class="try"><span class="tag">Wrap-up</span>
+    <ol>
+      <li>Did you highlight this guide, see a memo appear in the note, and click the card to jump back? (<a href="#p5">p. 5</a>)</li>
+      <li>Did you capture Figure 1, give a requirement an ID and translate the Spanish paragraph? (<a href="#p6">6</a> · <a href="#p7">7</a> · <a href="#p10">10</a>)</li>
+      <li>Now drop your own PDF into the Vault folder and read it the same way. To report a problem or suggest a feature, open an issue on the repository. IWAE is open source.</li>
+    </ol>
+  </div>
+  <div class="foot"><span>IWAE User Guide</span><span class="pn">12</span></div>
 </section>
 
 </body>

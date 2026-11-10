@@ -514,6 +514,14 @@ export function DocumentView(props: DocumentViewProps) {
     window.addEventListener('iwae:goto', focusGoto)
     return () => window.removeEventListener('iwae:goto', focusGoto)
   }, [props.shortcutTarget])
+  // Ctrl+= / Ctrl+- / Ctrl+0: 마지막으로 만진 문서 칸의 확대·축소·폭 맞춤(아래 막대의 +/−/폭 맞춤과 같은 걸음)
+  const zoomKeysRef = useRef<(op: string) => void>(() => undefined)
+  useEffect(() => {
+    if (!props.shortcutTarget) return
+    const onZoom = (event: Event) => zoomKeysRef.current(String((event as CustomEvent<string>).detail))
+    window.addEventListener('iwae:zoom', onZoom)
+    return () => window.removeEventListener('iwae:zoom', onZoom)
+  }, [props.shortcutTarget])
   // Ctrl+P: 마지막으로 만진 PDF 의 인쇄 창
   const canPrint = (tab.kind === 'pdf' && meta !== null) || tab.kind === 'markdown'
   /** Markdown 은 보이는 본문을 그대로 인쇄한다 */
@@ -607,6 +615,17 @@ export function DocumentView(props: DocumentViewProps) {
     window.addEventListener('iwae:md-section-go', go)
     return () => window.removeEventListener('iwae:md-section-go', go)
   }, [tab.id, tab.kind])
+  zoomKeysRef.current = (op) => {
+    if (tab.kind === 'markdown') {
+      if (op === 'in') setMarkdownZoom(stepZoom(markdownZoom, 1))
+      else if (op === 'out') setMarkdownZoom(stepZoom(markdownZoom, -1))
+      else setMarkdownFit(true)
+    } else if (tab.kind === 'pdf') {
+      if (op === 'in') setZoom((value) => stepZoom(value, 1))
+      else if (op === 'out') setZoom((value) => stepZoom(value, -1))
+      else fitWidth()
+    }
+  }
   const markdownBottomBar = tab.kind === 'markdown' ? (
     <PdfBottomBar
       zoomPercent={Math.round(markdownZoom)}

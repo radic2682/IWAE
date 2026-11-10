@@ -6,6 +6,7 @@ import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
 import { cachedTranslation, translateWithCache, useTranslationCache } from '../app/translationCacheStore'
 import { t } from '../i18n'
+import { popIn, slideFrom } from '../app/motion'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { splitLeadingTicketId, suggestTicketIds, type MemoTicket } from '../core/memoNote'
 import '../ui/note-ticket.css'
@@ -133,6 +134,27 @@ export function NoteFlow({
   const reportedRef = useRef('')
   const needle = query.trim().toLowerCase()
 
+  // 블록이 생기고·지워지고·순서가 바뀌면 이웃이 새 자리로 스프링으로 미끄러지고(FLIP), 새 블록은 떠오른다.
+  // 끄는 중에는 손이 만든 자리라 움직이지 않는다. 처음 그릴 때와 노트를 통째로 바꿀 때(겹치는 블록이 없을 때)도 조용하다
+  const flipTopsRef = useRef<Map<string, number> | null>(null)
+  useLayoutEffect(() => {
+    const tops = new Map<string, number>()
+    for (const [key, element] of cardRefs.current) tops.set(key, element.offsetTop)
+    const previous = flipTopsRef.current
+    flipTopsRef.current = tops
+    if (previous === null || previous.size === 0 || document.body.classList.contains('note-block-dragging')) return
+    const kept = [...tops.keys()].filter((key) => previous.has(key))
+    if (kept.length === 0) return
+    for (const key of kept) {
+      const element = cardRefs.current.get(key)
+      const before = previous.get(key)
+      if (element !== undefined && before !== undefined) slideFrom(element, 'y', before - (tops.get(key) ?? before))
+    }
+    const added = [...tops.keys()].filter((key) => !previous.has(key))
+    // 쓰던 새 메모(draft)가 저장되어 진짜 블록으로 바뀐 것은 새로 생긴 게 아니다
+    const draftSaved = previous.has('draft') && !tops.has('draft')
+    if (!draftSaved && added.length > 0 && added.length <= 2) for (const key of added) { const element = cardRefs.current.get(key); if (element !== undefined) popIn(element) }
+  })
   useLayoutEffect(() => {
     const layout = new Map<string, { top: number; height: number }>()
     for (const [key, element] of cardRefs.current) layout.set(key, { top: element.offsetTop, height: element.offsetHeight })
@@ -566,7 +588,7 @@ export function NoteFlow({
           if (collapsed) {
             return (
               <Fragment key={source.id}>
-              <div className="note-source-chip" data-hl={source.color} title={t('원문에서 보기')} onClick={draft ? undefined : () => onJump(source)}>
+              <div className="note-source-chip" data-hl={source.color} title={t('원문에서 보기')} role="button" tabIndex={draft ? undefined : 0} onClick={draft ? undefined : () => onJump(source)} onKeyDown={(event) => { if (!draft && event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onJump(source) } }}>
                 <button type="button" className="note-source-expand" aria-label={t('원문 펼치기')} title={t('원문 펼치기')} onClick={(event) => {
                   event.stopPropagation()
                   onToggleCollapse(source.id, false)
@@ -760,6 +782,16 @@ export function NoteFlow({
             data-memo-id={highlight.id}
             data-hl={highlight.color}
             data-note-block={item.key}
+            // 키보드로도 닿는다: Tab 으로 카드에 와서 Enter 면 원문으로 점프(연결선도 함께 켜진다)
+            tabIndex={draft ? undefined : 0}
+            role="group"
+            aria-label={tipLabel}
+            onFocus={(event) => { if (event.target === event.currentTarget) onActivate(item.key) }}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget || draft || event.key !== 'Enter') return
+              event.preventDefault()
+              onJump(highlight)
+            }}
             onPointerDown={headEdit?.key === item.key ? undefined : startBlockDrag(item.key)}
             onClickCapture={pickBlock(item.key)}
             onPointerEnter={() => onActivate(item.key)}

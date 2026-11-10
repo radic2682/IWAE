@@ -1,7 +1,7 @@
 import { rangeFillStyle } from '../ui/rangeFill'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, EyeSlash, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Scissors, SquaresFour, Stack, Stamp, TextT,
+  ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, EyeSlash, Export, FileImage, Highlighter, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Scissors, SquaresFour, Stack, Stamp, TextT,
 } from '@phosphor-icons/react'
 import type { PdfToolOp } from '../bridge/pdf'
 import { formatBytes } from '../bridge/vaultBackup'
@@ -15,10 +15,10 @@ import '../ui/pdf-tools.css'
 
 export type PdfToolId =
   | 'ocr' | 'compare'
-  | 'flatten' | 'redact'
+  | 'importMarks' | 'flatten' | 'redact'
   | 'extract' | 'split' | 'merge' | 'blanks' | 'orient'
   | 'numbers' | 'watermark' | 'crop' | 'nup' | 'compress'
-  | 'images' | 'markdown' | 'unlock'
+  | 'images' | 'markdown' | 'notesMarkdown' | 'unlock'
 
 /** 왼쪽 바 「PDF 도구」 목록·PDF 창 안 도구 화면이 고르는 도구. 쪽 편집(PageEditDialog)도 그 하나다 */
 export type PdfToolViewId = PdfToolId | 'pageEdit'
@@ -40,6 +40,10 @@ export interface PdfToolActions {
   readonly fixOrientation: () => Promise<string>
   readonly exportImages: (dpi: number) => Promise<string>
   readonly exportMarkdown: () => Promise<string>
+  /** PDF 안에 다른 프로그램이 남긴 형광펜·밑줄·쪽지를 내 형광펜(메모)으로 가져온다. 사람에게 보일 한 줄 */
+  readonly importMarks: () => Promise<string>
+  /** 메모 노트를 Markdown 파일로(폴더를 고른다). 이 PDF 의 노트 또는 Vault 의 모든 노트. 사람에게 보일 한 줄 */
+  readonly exportNotesMarkdown: (scope: 'doc' | 'vault') => Promise<string>
   /** 다른 PDF 와 글자 비교 */
   readonly compare: (otherDocId: string) => Promise<{ hunks: readonly DiffHunk[]; truncated: boolean }>
   /** 방금 만든 파일 열기 */
@@ -77,6 +81,7 @@ export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools:
     { id: 'compare', label: '다른 버전과 글자 비교', icon: <GitDiff size={16} /> },
   ] },
   { title: '내 표시', tools: [
+    { id: 'importMarks', label: 'PDF 안의 기존 표시 가져오기', icon: <Highlighter size={16} /> },
     { id: 'flatten', label: '표시 넣은 사본', icon: <Stamp size={16} /> },
     { id: 'redact', label: '가린 사본', icon: <EyeSlash size={16} /> },
   ] },
@@ -98,6 +103,7 @@ export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools:
   { title: '내보내기', tools: [
     { id: 'images', label: '쪽 그림(PNG)으로', icon: <FileImage size={16} /> },
     { id: 'markdown', label: '글을 Markdown 으로', icon: <FileText size={16} /> },
+    { id: 'notesMarkdown', label: '노트를 Markdown 으로', icon: <Export size={16} /> },
     { id: 'unlock', label: '암호 푼 사본', icon: <LockOpen size={16} /> },
   ] },
 ]
@@ -258,6 +264,13 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
         </>
       )
     }
+    case 'importMarks':
+      return (
+        <>
+          <Note>{t('다른 프로그램(Acrobat, Preview, Zotero 등)이 이 PDF 안에 남긴 형광펜·밑줄·붙임 쪽지를 내 형광펜으로 가져옵니다. 색은 가장 가까운 형광펜 색으로 바뀌고, 팝업 메모는 메모가 됩니다. 이미 가져온 표시는 건너뜁니다. PDF 파일은 바꾸지 않습니다.')}</Note>
+          {primary(t('표시 가져오기'), () => void run(t('표시를 읽는 중…'), actions.importMarks))}
+        </>
+      )
     case 'flatten': {
       const counts = props.marks
       const rows: readonly [keyof FlattenChoice, string, number][] = [
@@ -542,6 +555,16 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
         <>
           <Note>{t('PDF 의 글을 쪽마다 머리글을 붙여 Markdown 파일로 원본 옆에 저장합니다. AI 에게 건네거나 고쳐 쓸 때 씁니다.')}</Note>
           {primary(t('Markdown 만들기'), () => void run(t('글을 모으는 중…'), actions.exportMarkdown))}
+        </>
+      )
+    case 'notesMarkdown':
+      return (
+        <>
+          <Note>{t('메모 노트를 Obsidian·Notion 에서 읽는 Markdown 으로 내보냅니다. 노트마다 파일 하나이고, 소제목·티켓 ID·원문 인용·쪽·번역이 들어가며 영역 메모의 그림은 파일 옆 폴더에 저장됩니다. 폴더는 직접 고릅니다.')}</Note>
+          <div className="pdf-tools-actions">
+            <button type="button" className="pdf-tools-primary" disabled={busy} onClick={() => void run(t('내보내는 중…'), () => actions.exportNotesMarkdown('doc'))}>{t('이 PDF 의 노트')}</button>
+            <button type="button" className="pdf-tools-secondary" disabled={busy} onClick={() => void run(t('내보내는 중…'), () => actions.exportNotesMarkdown('vault'))}>{t('Vault 의 모든 노트')}</button>
+          </div>
         </>
       )
     case 'unlock':

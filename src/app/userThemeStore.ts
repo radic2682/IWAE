@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { normalizeHex } from '../core/colorMath'
+import { isFolderThemeId, type FolderThemeError } from '../core/themeFile'
 import { parseUserTheme, type UserTheme } from '../core/userTheme'
 
 /**
@@ -14,6 +15,9 @@ export interface UserThemeState {
   /** "직접 고르기" 강조색(#rrggbb) */
   readonly customAccent: string
   readonly draft: UserTheme | null
+  /** 지금 Vault 의 .iwae/themes 폴더에서 읽은 테마(저장하지 않는다. 폴더가 바뀌면 곧바로 따라 바뀐다) */
+  readonly folderThemes: readonly UserTheme[]
+  readonly folderErrors: readonly FolderThemeError[]
 }
 
 export const THEMES_KEY = 'iwae.theme.user-themes'
@@ -56,18 +60,20 @@ function writeRaw(key: string, value: string | null): void {
   } catch { /* 이번 실행만 */ }
 }
 
-function load(draft: UserTheme | null): UserThemeState {
+function load(draft: UserTheme | null, folder: Pick<UserThemeState, 'folderThemes' | 'folderErrors'> = { folderThemes: [], folderErrors: [] }): UserThemeState {
   const themes = parseStoredThemes(readRaw(THEMES_KEY))
   const active = readRaw(ACTIVE_KEY)
   return {
     themes,
-    activeId: active !== null && themes.some((theme) => theme.id === active) ? active : null,
+    // 폴더 테마는 Vault 를 열고 폴더를 읽은 뒤에야 알 수 있으니, 아직 모르는 id 도 그대로 둔다(없으면 화면은 내장 색 구성)
+    activeId: active !== null && (themes.some((theme) => theme.id === active) || isFolderThemeId(active)) ? active : null,
     customAccent: normalizeHex(readRaw(CUSTOM_ACCENT_KEY) ?? '') ?? DEFAULT_CUSTOM_ACCENT,
     draft,
+    ...folder,
   }
 }
 
-let state: UserThemeState = typeof window === 'undefined' ? { themes: [], activeId: null, customAccent: DEFAULT_CUSTOM_ACCENT, draft: null } : load(null)
+let state: UserThemeState = typeof window === 'undefined' ? { themes: [], activeId: null, customAccent: DEFAULT_CUSTOM_ACCENT, draft: null, folderThemes: [], folderErrors: [] } : load(null)
 const listeners = new Set<() => void>()
 
 function commit(next: UserThemeState): void {
@@ -82,6 +88,12 @@ export function getUserThemeState(): UserThemeState {
 export function subscribeUserThemes(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
+}
+
+/** 저장한 테마 + 폴더 테마 가운데 id 로 찾는다 */
+export function findUserTheme(current: Pick<UserThemeState, 'themes' | 'folderThemes'>, id: string | null): UserTheme | null {
+  if (id === null) return null
+  return current.themes.find((item) => item.id === id) ?? current.folderThemes.find((item) => item.id === id) ?? null
 }
 
 export function useUserThemes(): UserThemeState {
@@ -109,7 +121,7 @@ export function deleteUserTheme(id: string): boolean {
 }
 
 export function setActiveUserTheme(id: string | null): void {
-  const activeId = id !== null && state.themes.some((item) => item.id === id) ? id : null
+  const activeId = findUserTheme(state, id) !== null ? id : null
   if (activeId === state.activeId) return
   writeRaw(ACTIVE_KEY, activeId)
   commit({ ...state, activeId })
@@ -122,6 +134,11 @@ export function setCustomAccent(hex: string): void {
   commit({ ...state, customAccent: next })
 }
 
+/** 테마 폴더를 새로 읽은 결과를 알린다 */
+export function setFolderThemes(folderThemes: readonly UserTheme[], folderErrors: readonly FolderThemeError[]): void {
+  commit({ ...state, folderThemes, folderErrors })
+}
+
 export function setThemeDraft(draft: UserTheme | null): void {
   commit({ ...state, draft })
 }
@@ -129,7 +146,7 @@ export function setThemeDraft(draft: UserTheme | null): void {
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
     if (event.key !== null && event.key !== THEMES_KEY && event.key !== ACTIVE_KEY && event.key !== CUSTOM_ACCENT_KEY) return
-    commit(load(state.draft))
+    commit(load(state.draft, { folderThemes: state.folderThemes, folderErrors: state.folderErrors }))
   })
 }
 

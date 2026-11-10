@@ -7,6 +7,7 @@
 //
 //   node scripts/release-scan.mjs            # 이 저장소
 //   node scripts/release-scan.mjs D:/iwae-public
+//   node scripts/release-scan.mjs --history  # 모든 브랜치·태그의 모든 커밋(파일 내용, 커밋 글, 작성자 이름·이메일, 태그 글)
 import { execFileSync } from 'node:child_process'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -69,14 +70,54 @@ function gitFiles(root) {
     .split('\0').filter((name) => name !== '')
 }
 
+/** 모든 ref 의 모든 커밋에서 걸리는 것: { where, line, rule, text }. 같은 파일 내용(blob)은 한 번만 본다 */
+export function scanHistory(root, matcher) {
+  const git = (args) => execFileSync('git', args, { cwd: root, encoding: 'buffer', maxBuffer: 1 << 30 })
+  const hits = []
+  const commits = git(['rev-list', '--all']).toString('utf8').split(/\r?\n/u).filter((id) => id !== '')
+  const seen = new Set()
+  for (const commit of commits) {
+    const short = commit.slice(0, 8)
+    const meta = git(['log', '-1', '--format=%an <%ae>%n%cn <%ce>%n%B', commit]).toString('utf8')
+    for (const hit of scanText(meta, matcher)) hits.push({ where: `커밋 ${short} (글·작성자)`, ...hit })
+    for (const entry of git(['ls-tree', '-r', '-z', commit]).toString('utf8').split('\0')) {
+      if (entry === '') continue
+      const [info, path] = entry.split('\t')
+      const blob = info.split(' ')[2]
+      if (matcher?.test(path) === true) hits.push({ where: `커밋 ${short}`, line: 0, rule: '파일 경로', text: path })
+      if (seen.has(blob) || BINARY.test(path)) continue
+      seen.add(blob)
+      const content = git(['cat-file', 'blob', blob])
+      if (content.length > 5_000_000) continue
+      for (const hit of scanText(content.toString('utf8'), matcher)) hits.push({ where: `커밋 ${short} ${path}`, ...hit })
+    }
+  }
+  const tags = git(['for-each-ref', '--format=%(refname:short)%09%(taggername) %(taggeremail)%09%(contents)', 'refs/tags']).toString('utf8')
+  for (const hit of scanText(tags, matcher)) hits.push({ where: '태그', ...hit })
+  return { hits, commits: commits.length, blobs: seen.size }
+}
+
 async function main() {
   const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
-  const target = process.argv[2] === undefined ? repoRoot : resolve(process.argv[2])
+  const history = process.argv.includes('--history')
+  const argument = process.argv.slice(2).find((value) => !value.startsWith('--'))
+  const target = argument === undefined ? repoRoot : resolve(argument)
   const denylistPath = process.env.IWAE_RELEASE_DENYLIST ?? join(repoRoot, '.release-denylist.txt')
   const words = existsSync(denylistPath) ? parseDenylist(await readFile(denylistPath, 'utf8')) : []
   if (words.length === 0) console.warn(`금지어 목록이 없습니다(${denylistPath}). 경로·이메일만 검사합니다.`)
   const matcher = denylistMatcher(words)
-  const files = process.argv[2] === undefined ? gitFiles(target) : await walk(target)
+  if (history) {
+    const result = scanHistory(target, matcher)
+    for (const hit of result.hits) console.log(`${hit.where}:${hit.line}  [${hit.rule}]  ${hit.text.slice(0, 160)}`)
+    if (result.hits.length > 0) {
+      console.error(`\n이력 검사 실패: ${result.hits.length} 곳. 이력을 고쳐야 합니다(git filter-repo 등).`)
+      process.exitCode = 1
+      return
+    }
+    console.log(`이력 검사 통과 (커밋 ${result.commits} 개, 파일 내용 ${result.blobs} 종, 금지어 ${words.length} 개).`)
+    return
+  }
+  const files = argument === undefined ? gitFiles(target) : await walk(target)
   const denylistName = relative(target, denylistPath).replaceAll('\\', '/')
   let count = 0
   for (const file of files) {

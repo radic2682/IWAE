@@ -1,0 +1,9 @@
+/* 키보드 초점 고리: 모든 조작 요소가 같은 모양(강조색 2px, 바깥 2px 띄움, 요소의 둥글기를 따름).
+   :where 로 특이성을 0 으로 낮춰서, 따로 초점 모양을 정해 둔 요소(메뉴 항목의 배경 등)는 그대로 둔다.
+   마우스로 누를 때는 :focus-visible 이 아니므로 나타나지 않는다. */
+:where(button, a[href], summary, select, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [role='treeitem'], [role='switch'], [role='checkbox'], [role='radio'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* 목록·트리 행처럼 바깥에 자리가 없는 요소는 안쪽으로 */
+:where([role='treeitem'], [role='option'], [role='menuitem'], [role='tab']):focus-visible { outline-offset: -2px; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { importedToHighlights, nearestHighlightColor } from './annotationImport'
+import { annotationOfferCount, annotationOfferSeen, importedToHighlights, markAnnotationOfferSeen, nearestHighlightColor } from './annotationImport'
 import type { ImportedPdfAnnotation } from '../bridge/pdf'
 import type { PageTextIndex } from './textIndex'
 import { createPersistentPdfHighlight } from '../pdf/persistentHighlight'
@@ -55,5 +55,21 @@ describe('annotationImport', () => {
     const result = importedToHighlights('doc', [annotation()], () => PAGE, [own])
     expect(result.highlights).toHaveLength(0)
     expect(result.skipped).toBe(1)
+  })
+
+  it('offers the import once, only when marks exist and none were imported yet', () => {
+    const store = new Map<string, string>()
+    const storage = { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => void store.set(key, value) }
+    expect(annotationOfferSeen('doc', storage)).toBe(false)
+    expect(annotationOfferCount('doc', [annotation(), annotation({ kind: 'text' })], [], false)).toBe(2)
+    expect(annotationOfferCount('doc', [], [], false)).toBe(0)
+    const imported = importedToHighlights('doc', [annotation()], () => PAGE, []).highlights
+    expect(annotationOfferCount('doc', [annotation()], imported, false)).toBe(0)
+    expect(annotationOfferCount('other', [annotation()], imported, false)).toBe(1)
+    markAnnotationOfferSeen('doc', storage)
+    markAnnotationOfferSeen('doc', storage)
+    expect(annotationOfferSeen('doc', storage)).toBe(true)
+    expect(JSON.parse(store.get('iwae:annotation-offer:v1')!)).toEqual(['doc'])
+    expect(annotationOfferCount('doc', [annotation()], [], true)).toBe(0)
   })
 })

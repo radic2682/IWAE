@@ -9,12 +9,14 @@ import {
   CUSTOM_ACCENT_KEY,
   THEMES_KEY,
   deleteUserTheme,
+  findUserTheme,
   getUserThemeState,
   parseStoredThemes,
   reloadUserThemesForTest,
   saveUserTheme,
   setActiveUserTheme,
   setCustomAccent,
+  setFolderThemes,
   setThemeDraft,
 } from './userThemeStore'
 
@@ -127,5 +129,20 @@ describe('useTheme + 사용자 테마', () => {
     saveUserTheme(theme, { activate: true })
     setActiveUserTheme(null)
     expect(getUserThemeState().activeId).toBeNull()
+  })
+
+  it('폴더 테마: 폴더를 읽은 뒤에야 켤 수 있고, 켠 id 는 폴더를 읽기 전에도 남는다', () => {
+    const folder = { ...themeFromPalette('whale', '숲'), id: 'vf-a-1', file: 'a.iwtheme' }
+    setActiveUserTheme('vf-a-1')
+    expect(getUserThemeState().activeId).toBeNull()
+    setFolderThemes([folder], [])
+    setActiveUserTheme('vf-a-1')
+    expect(getUserThemeState().activeId).toBe('vf-a-1')
+    expect(findUserTheme(getUserThemeState(), 'vf-a-1')).toBe(folder)
+    // 다시 켤 때(저장소에서 읽을 때)는 폴더가 아직 비어 있어도 id 를 지우지 않는다
+    reloadUserThemesForTest()
+    expect(getUserThemeState().activeId).toBe('vf-a-1')
+    expect(findUserTheme(getUserThemeState(), 'vf-a-1')).toBeNull()
+    setFolderThemes([], [])
   })
 })

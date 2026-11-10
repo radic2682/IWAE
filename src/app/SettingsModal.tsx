@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { X } from '@phosphor-icons/react'
 import '../ui/settings-clean.css'
 import { t } from '../i18n'
+import { useFocusTrap } from '../ui/useFocusTrap'
 
 export interface SettingsSection {
   readonly id: string
@@ -34,6 +35,8 @@ export function SettingsModal({ open, onClose, children, sections, initialSectio
     }
   }, [activeSectionId, open, sections])
 
+  const dialogRef = useRef<HTMLElement | null>(null)
+  useFocusTrap(dialogRef, open, false)
   useLayoutEffect(() => {
     if (!open) return
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -63,6 +66,7 @@ export function SettingsModal({ open, onClose, children, sections, initialSectio
       }}
     >
       <section
+        ref={dialogRef}
         className="settings-modal"
         role="dialog"
         aria-modal="true"

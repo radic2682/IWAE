@@ -23,16 +23,20 @@ export const EXTERNAL_PROVIDERS: readonly {
   readonly endpoint: string
   readonly models: readonly string[]
   readonly keyHint: string
+  /** 카드에 보이는 한 줄: 무엇이 필요한가 */
+  readonly need: string
+  /** 키를 받는 곳(없으면 링크를 보이지 않는다) */
+  readonly keyUrl?: string
   /** API key 없이 쓰는 제공자 */
   readonly keyless?: boolean
 }[] = [
-  { id: 'google', get label() { return t('Google 번역 (무료 · 키 없음)') }, endpoint: 'https://translate.googleapis.com', models: [], keyHint: '', keyless: true },
-  { id: 'anthropic', label: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'], get keyHint() { return t('console.anthropic.com 에서 만든 API key') } },
-  { id: 'openai', label: 'OpenAI', endpoint: 'https://api.openai.com/v1', models: [], get keyHint() { return t('platform.openai.com 에서 만든 API key') } },
-  { id: 'gemini', label: 'Google Gemini', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', models: [], get keyHint() { return t('Google AI Studio 에서 만든 API key') } },
-  { id: 'azure', get label() { return t('Azure Translator (번역 전용)') }, endpoint: 'https://api.cognitive.microsofttranslator.com', models: ['global', 'koreacentral', 'eastasia', 'japaneast'], get keyHint() { return t('Azure 포털 「번역기」 리소스의 키 1') } },
-  { id: 'deepl', get label() { return t('DeepL (번역 전용)') }, endpoint: 'https://api-free.deepl.com', models: [], get keyHint() { return t('DeepL 계정의 API key (무료 키는 :fx 로 끝남)') } },
-  { id: 'compatible', get label() { return t('OpenAI 호환 (OpenRouter · Groq · LM Studio 등)') }, endpoint: '', models: [], get keyHint() { return t('그 서비스의 API key') } },
+  { id: 'google', get label() { return t('Google 번역 (무료 · 키 없음)') }, endpoint: 'https://translate.googleapis.com', models: [], keyHint: '', keyless: true, get need() { return t('필요한 것 없음 · 바로 씁니다') } },
+  { id: 'anthropic', label: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'], get keyHint() { return t('console.anthropic.com 에서 만든 API key') }, get need() { return t('Anthropic API key') }, keyUrl: 'https://console.anthropic.com/settings/keys' },
+  { id: 'openai', label: 'OpenAI', endpoint: 'https://api.openai.com/v1', models: [], get keyHint() { return t('platform.openai.com 에서 만든 API key') }, get need() { return t('OpenAI API key + 모델 이름') }, keyUrl: 'https://platform.openai.com/api-keys' },
+  { id: 'gemini', label: 'Google Gemini', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', models: [], get keyHint() { return t('Google AI Studio 에서 만든 API key') }, get need() { return t('Google AI Studio API key + 모델 이름') }, keyUrl: 'https://aistudio.google.com/apikey' },
+  { id: 'azure', get label() { return t('Azure Translator (번역 전용)') }, endpoint: 'https://api.cognitive.microsofttranslator.com', models: ['global', 'koreacentral', 'eastasia', 'japaneast'], get keyHint() { return t('Azure 포털 「번역기」 리소스의 키 1') }, get need() { return t('Azure 키 + 리소스 지역') }, keyUrl: 'https://portal.azure.com/#create/Microsoft.CognitiveServicesTextTranslation' },
+  { id: 'deepl', get label() { return t('DeepL (번역 전용)') }, endpoint: 'https://api-free.deepl.com', models: [], get keyHint() { return t('DeepL 계정의 API key (무료 키는 :fx 로 끝남)') }, get need() { return t('DeepL API key (Free 또는 Pro)') }, keyUrl: 'https://www.deepl.com/your-account/keys' },
+  { id: 'compatible', get label() { return t('OpenAI 호환 (OpenRouter · Groq · LM Studio 등)') }, endpoint: '', models: [], get keyHint() { return t('그 서비스의 API key') }, get need() { return t('서비스 주소 + API key + 모델 이름') } },
 ]
 
 export function externalProviderInfo(id: ExternalTranslationProvider) {
@@ -178,4 +182,11 @@ export function saveTranslationSettings(
   } catch {
     return
   }
+}
+
+/** DeepL 은 키로 Free/Pro 가 갈린다(무료 키는 :fx 로 끝나고 api-free.deepl.com). 주소가 키와 어긋나면 맞춰 준다 */
+export function deeplEndpointForKey(endpoint: string, apiKey: string): string {
+  const free = apiKey.trim().endsWith(':fx')
+  if (!/^https:\/\/api(-free)?\.deepl\.com/u.test(endpoint)) return endpoint
+  return free ? 'https://api-free.deepl.com' : 'https://api.deepl.com'
 }

@@ -37,6 +37,12 @@
         "description": "PDF document",
         "mimeType": "application/pdf",
         "role": "Viewer"
+      },
+      {
+        "ext": ["iwtheme"],
+        "name": "IWAE.Theme",
+        "description": "IWAE theme",
+        "role": "Viewer"
       }
     ],
     "resources": [

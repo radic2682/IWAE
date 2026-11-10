@@ -44,6 +44,7 @@ import { NoteFlow, type NoteFlowItem } from './NoteFlow'
 import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
+import { markFreshHighlight } from './freshHighlight'
 import type { PdfSelectionTranslation } from './SelectionActions'
 import { createFrameScheduler } from '../core/frameScheduler'
 import '../ui/pdf-followup.css'
@@ -77,6 +78,28 @@ const SCROLLBAR_LABEL_GAP = 19
 const OVERSCAN = 2
 /** 패널 구분선을 끄는 동안 PDF 폭 맞춤 간격(ms) */
 const RESIZE_THROTTLE_MS = 120
+/** 보이는 쪽 범위가 이만큼(쪽) 넘게 한 번에 건너뛰면 스크롤바를 끌어 가는 중으로 보고, 멈출 때까지 글자·링크 읽기를 미룬다 */
+const FAST_SCROLL_JUMP_PAGES = 3
+const FAST_SCROLL_SETTLE_MS = 150
+
+/**
+ * 글자·링크를 읽을 쪽 범위. 천천히 넘길 때는 바로 따라가지만, 스크롤바를 끌어 수백 쪽을 지나갈 때는
+ * 지나치는 쪽마다 요청을 보내지 않고 멈춘 자리의 쪽만 읽는다(쪽마다 수백 KB 의 JSON 을 풀다가 화면이 끊기던 것).
+ */
+function useSettledPageRange(start: number, end: number): { readonly start: number; readonly end: number } {
+  const [range, setRange] = useState({ start, end })
+  useEffect(() => {
+    if (range.start === start && range.end === end) return
+    const near = Math.abs(start - range.start) <= FAST_SCROLL_JUMP_PAGES && Math.abs(end - range.end) <= FAST_SCROLL_JUMP_PAGES
+    if (near) {
+      setRange({ start, end })
+      return
+    }
+    const timer = window.setTimeout(() => setRange({ start, end }), FAST_SCROLL_SETTLE_MS)
+    return () => window.clearTimeout(timer)
+  }, [start, end, range.start, range.end])
+  return range
+}
 /** 화면 앞뒤로 미리보기를 미리 받아 둘 쪽 수 */
 const PREVIEW_PREFETCH = 8
 /** 메모 바 안에서 카드가 시작하는 자리(왼쪽 끝에서 선이 굽어 들어올 틈) */
@@ -772,6 +795,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
     setEditingMemoId(null)
     setDraftIndex(noteCenterIndex())
+    if (draftMemo?.id !== highlight.id) markFreshHighlight(highlight.id)
     // 같은 자리를 다시 받으면(스캔 영역의 OCR 글자가 뒤늦게 온 경우) 원문 글만 바꿔 끼운다
     setDraftMemo((current) => current?.id === highlight.id ? (current.anchor.quote === highlight.anchor.quote ? current : { ...current, anchor: { ...current.anchor, quote: highlight.anchor.quote } }) : highlight)
   }
@@ -1375,11 +1399,12 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (pageSizes.length > 0) onPageChange?.(visibleStart + 1)
   }, [onPageChange, pageSizes.length, visibleStart])
 
+  const settledRange = useSettledPageRange(start, end)
   useEffect(() => {
     if (!hasText || renderWidth <= 0) return
     let alive = true
 
-    for (let page = start; page <= end; page++) {
+    for (let page = settledRange.start; page <= settledRange.end; page++) {
       void pageTextIndex(docId, page)
         .then((index) => {
           if (!alive) return
@@ -1399,7 +1424,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     return () => {
       alive = false
     }
-  }, [docId, end, hasText, renderWidth, start])
+  }, [docId, settledRange.end, hasText, renderWidth, settledRange.start])
 
   // 링크도 글자처럼 보이는 페이지만 읽는다. 스캔본에도 링크는 있을 수 있어서
   // hasText 와 상관없이 읽는다. 링크를 그릴 수 없는 상황이면 아예 묻지 않는다.
@@ -1407,7 +1432,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   useEffect(() => {
     if (!linksEnabled || renderWidth <= 0) return
     let alive = true
-    for (let page = start; page <= end; page++) {
+    for (let page = settledRange.start; page <= settledRange.end; page++) {
       void pdfPageLinks(docId, page)
         .then((links) => {
           if (!alive || links.length === 0) return
@@ -1425,7 +1450,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     return () => {
       alive = false
     }
-  }, [docId, end, linksEnabled, renderWidth, start])
+  }, [docId, settledRange.end, linksEnabled, renderWidth, settledRange.start])
 
   const handleAnchorCreated = (anchor: Anchor) => {
     setAnchors((previous) => {
@@ -1649,7 +1674,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                   <g mask={`url(#${linkMask.id})`}>
                   {lines.map(({ target, anchorY, cardY, active }) => (
                     <g key={target.key} data-hl={target.highlight.color} className={`pdf-memo-link${active ? ' pdf-memo-link-active' : ''}`}>
-                      <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${cardEdge} ${cardY}`} />
+                      <path pathLength={1} d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${cardEdge} ${cardY}`} />
                     </g>
                   ))}
                   </g>

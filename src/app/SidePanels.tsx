@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { CaretDown, CaretRight } from '@phosphor-icons/react'
 import type { PdfDocMeta, PdfOutlineEntry } from '../bridge/pdf'
 import { pageImageUrl, pdfOutline } from '../bridge/pdf'
@@ -87,7 +87,8 @@ function useLazyThumbnails(
 }
 
 /** 축소판 하나(지연 로딩 그림 + 쪽 번호) */
-function ThumbnailItem({ activeDoc, page, current, visible, renderWidth, onSelectPage, region }: {
+// memo: 보이는 쪽 집합이 바뀔 때마다 600개 항목이 모두 다시 그려지지 않게 한다
+const ThumbnailItem = memo(function ThumbnailItem({ activeDoc, page, current, visible, renderWidth, onSelectPage, region }: {
   readonly activeDoc: PdfDocMeta
   readonly page: number
   readonly current: boolean
@@ -129,7 +130,7 @@ function ThumbnailItem({ activeDoc, page, current, visible, renderWidth, onSelec
       <span className="thumb-num">{page + 1}</span>
     </button>
   )
-}
+})
 
 /** 미리보기 축소판 줄 수(1단·2단). 미리보기와 목차·미리보기가 함께 쓰고, 이 PC 에 기억한다 */
 const PREVIEW_COLUMNS_KEY = 'iwae.outlinePreview.columns'

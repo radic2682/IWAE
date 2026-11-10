@@ -242,8 +242,12 @@ describe('TranslationSettings', () => {
       runtimeInstallSupported: false,
     } as unknown as TranslationSettingsState} />)
 
-    expect(screen.getByRole('link', { name: 'Ollama 받기' }).getAttribute('href'))
-      .toBe('https://ollama.com/download')
+    const requested: string[] = []
+    const listener = (event: Event) => requested.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:request-external-link', listener)
+    fireEvent.click(screen.getByRole('button', { name: 'Ollama 받기' }))
+    window.removeEventListener('iwae:request-external-link', listener)
+    expect(requested).toEqual(['https://ollama.com/download'])
   })
 
   it('모델이 별도 다운로드이며 Gemma 약관 검토가 필요함을 알린다', () => {
@@ -279,15 +283,33 @@ describe('TranslationSettings', () => {
     expect(updateSettings).toHaveBeenLastCalledWith({ executionMode: 'gpu' })
   })
 
-  it('연결 시험은 짧은 문장을 실제로 번역해 결과와 시간, 또는 오류를 보인다', async () => {
+  it('연결 확인은 짧은 문장을 실제로 번역해 결과와 시간, 또는 오류를 보인다', async () => {
     const translate = vi.fn()
       .mockResolvedValueOnce({ translatedText: '안녕하세요. 연결 시험입니다.', model: 'm1', elapsedMs: 420 })
-      .mockRejectedValueOnce(new Error('HTTP 401'))
+      .mockRejectedValueOnce(new Error('외부 번역 API 요청에 실패했습니다 (HTTP 401): bad'))
     render(<TranslationSettings state={{ ...readyState(), translate }} />)
-    fireEvent.click(screen.getByRole('button', { name: '연결 시험' }))
+    fireEvent.click(screen.getByRole('button', { name: '연결 확인' }))
     expect(await screen.findByText('안녕하세요. 연결 시험입니다.')).toBeDefined()
     expect(screen.getByText('420ms · m1')).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: '연결 시험' }))
-    expect(await screen.findByText('HTTP 401')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: '연결 확인' }))
+    expect(await screen.findByText(/API key 가 맞지 않습니다/)).toBeDefined()
+  })
+})
+
+describe('TranslationSettings provider cards', () => {
+  it('클라우드 방식에서는 제공자 카드마다 필요한 것을 한 줄로 보이고, 키 받는 곳은 확인 창 요청으로 연다', () => {
+    const updateSettings = vi.fn()
+    const state = readyState({ updateSettings })
+    render(<TranslationSettings state={{ ...state, settings: { ...state.settings, executionMode: 'external-api', externalProvider: 'deepl', externalEndpoint: 'https://api-free.deepl.com' } }} />)
+    expect(screen.getByRole('radio', { name: /DeepL.*DeepL API key \(Free 또는 Pro\)/ }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('radio', { name: /Azure.*Azure 키 \+ 리소스 지역/ })).toBeDefined()
+    const requested: string[] = []
+    const listener = (event: Event) => requested.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:request-external-link', listener)
+    fireEvent.click(screen.getByRole('button', { name: '키 받는 곳 열기' }))
+    window.removeEventListener('iwae:request-external-link', listener)
+    expect(requested[0]).toContain('deepl.com')
+    fireEvent.click(screen.getByRole('radio', { name: /^Google 번역/ }))
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({ externalProvider: 'google' }))
   })
 })
