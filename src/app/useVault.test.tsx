@@ -36,6 +36,7 @@ import {
 } from '../bridge/vaultFiles'
 
 vi.mock('../bridge/pdf', () => ({
+  invalidateDocument: vi.fn(),
   openPdf: vi.fn(),
   pageTextIndex: vi.fn(),
   pickPdfFile: vi.fn(),
@@ -65,6 +66,7 @@ vi.mock('../bridge/vault', () => ({
   writeVaultIndex: vi.fn(),
   writeVaultMetadata: vi.fn(),
   writeVaultSearchTextCache: vi.fn(),
+  subscribeVaultFile: vi.fn(() => () => undefined),
 }))
 
 vi.mock('./useVaultWatcher', () => ({ useVaultWatcher: vi.fn() }))

@@ -20,6 +20,15 @@ pub struct AtomicWriteRequest {
     pub journal_root: String,
     pub history_root: String,
     pub file_id: String,
+    /// 기대 해시가 어긋났을 때 두 내용을 충돌 기록(.iwae/conflicts)으로 남길까. 기본은 남긴다.
+    /// 여러 창이 같은 파일에 쓰는 경로는 어긋나면 디스크를 다시 읽어 합쳐 다시 쓰므로(core/vaultSync) 첫 시도들은 끈다 —
+    /// 기록을 남기면 정상적인 겹침마다 사용자에게 「파일 충돌」로 보인다
+    #[serde(default = "default_true")]
+    pub preserve_conflict: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -226,7 +235,9 @@ pub fn atomic_write(request: &AtomicWriteRequest) -> Result<WriteReceipt, Storag
     };
     if let Some(expected_hash) = &request.expected_hash {
         if sha256_hex(&current) != *expected_hash {
-            preserve_conflict(request, &current)?;
+            if request.preserve_conflict {
+                preserve_conflict(request, &current)?;
+            }
             return Err(StorageError::Conflict {
                 target_path: request.target_path.clone(),
             });

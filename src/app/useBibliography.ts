@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { readBibliography, writeBibliography, type VaultHandle } from '../bridge/vault'
+import { bibliographyCodec, readBibliography, subscribeVaultFile, writeBibliography, type VaultHandle } from '../bridge/vault'
 import { pageTextIndex, pdfMetadata } from '../bridge/pdf'
 import { lookupDoi } from '../bridge/bibliography'
 import { entryFromPdf, mergeEntry, parseCrossrefWork, type BibEntry } from '../core/bibliography'
@@ -16,7 +16,6 @@ export function useBibliography(vault: VaultHandle | null) {
   const [ready, setReady] = useState(false)
   const entriesRef = useRef<Readonly<Record<string, BibEntry>>>({})
   const attemptedRef = useRef<Set<string>>(new Set())
-  const writeQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     let active = true
@@ -39,14 +38,23 @@ export function useBibliography(vault: VaultHandle | null) {
     return () => { active = false }
   }, [vault])
 
+  // 다른 창이 서지 정보를 고치면 이 창에 합친다
+  useEffect(() => {
+    if (vault === null) return undefined
+    return subscribeVaultFile(vault, 'bibliography.json', bibliographyCodec, (rebase) => {
+      const next = rebase({ version: 1, entries: entriesRef.current }).entries
+      if (next === entriesRef.current) return
+      entriesRef.current = next
+      setEntries(next)
+    })
+  }, [vault])
+
   const commit = useCallback((next: Readonly<Record<string, BibEntry>>) => {
     entriesRef.current = next
     setEntries(next)
     if (vault === null) return
-    const handle = vault
-    writeQueueRef.current = writeQueueRef.current
-      .catch(() => undefined)
-      .then(() => writeBibliography(handle, { version: 1, entries: next }))
+    // 저장은 파일마다 차례로 서고(bridge) 다른 창의 변경과 합쳐진다
+    void writeBibliography(vault, { version: 1, entries: next }).catch(() => undefined)
   }, [vault])
 
   /** 사람이 고쳤거나 Crossref 로 채운 항목을 저장한다 */

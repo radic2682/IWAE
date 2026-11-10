@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { readPdfBookmarks, writePdfBookmarks, type VaultHandle } from '../bridge/vault'
+import { pdfBookmarksCodec, readPdfBookmarks, subscribeVaultFile, writePdfBookmarks, type VaultHandle } from '../bridge/vault'
 import { createPdfBookmark, parsePdfBookmarks, pdfBookmarkFile, pdfBookmarkId, type PdfBookmark } from '../core/pdfBookmarks'
 
 /** 핀에서 고치는 것: 이름·이모지(null 이면 이모지를 뗀다) */
@@ -11,6 +11,7 @@ export interface PdfPinPatch {
 export interface PdfBookmarkStorage {
   load(): Promise<readonly PdfBookmark[]>
   save(bookmarks: readonly PdfBookmark[]): Promise<void>
+  subscribe?(onRemote: (rebase: (local: readonly PdfBookmark[]) => readonly PdfBookmark[]) => void): () => void
 }
 
 export function createBrowserPdfBookmarkStorage(
@@ -32,6 +33,7 @@ export function createVaultPdfBookmarkStorage(vault: VaultHandle): PdfBookmarkSt
   return {
     load: () => readPdfBookmarks(vault),
     save: (bookmarks) => writePdfBookmarks(vault, bookmarks),
+    subscribe: (onRemote) => subscribeVaultFile(vault, 'bookmarks.json', pdfBookmarksCodec, onRemote),
   }
 }
 
@@ -69,6 +71,15 @@ export function usePdfBookmarks(storage: PdfBookmarkStorage) {
     }).catch(() => undefined)
     return () => { alive = false }
   }, [storage, toggled])
+
+  // 다른 창이 책갈피·핀을 고치면 이 창의 목록에 합친다
+  useEffect(() => storage.subscribe?.((rebase) => {
+    if (!readyRef.current) return
+    const next = rebase(bookmarksRef.current)
+    if (next === bookmarksRef.current) return
+    bookmarksRef.current = next
+    setBookmarks(next)
+  }), [storage])
 
   const replace = useCallback((next: readonly PdfBookmark[]) => {
     const normalized = parsePdfBookmarks(pdfBookmarkFile(next))

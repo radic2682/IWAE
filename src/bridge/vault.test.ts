@@ -38,6 +38,7 @@ import {
   writeVaultTreeOrder,
   writeVaultRelativeText,
   forgetObservedFile,
+  setSessionWriter,
   type VaultLibraryEntry,
 } from './vault'
 import { openPdf } from './pdf'
@@ -649,13 +650,40 @@ describe('vault session and notes', () => {
       .filter(([command]) => command === 'atomic_write_text')
       .map(([, args]) => (args as { request: { expectedHash: string | null } }).request.expectedHash)
 
-    await writeVaultRelativeText(vault, '노트/새 노트.iwnote', '{}')
-    await writeVaultRelativeText(vault, '노트/새 노트.iwnote', '{"a":1}')
+    // 병합하지 않는 파일(캔버스 등)은 마지막으로 쓴 해시와 비교한다
+    await writeVaultRelativeText(vault, 'Notes/새 노트.canvas', '{}')
+    await writeVaultRelativeText(vault, 'Notes/새 노트.canvas', '{"a":1}')
     // 노트를 휴지통으로 옮긴 뒤(앱이 한 일) 같은 이름으로 다시 만든다
-    forgetObservedFile('C:/Vault/노트/새 노트.iwnote')
-    await writeVaultRelativeText(vault, '노트/새 노트.iwnote', '{}')
+    forgetObservedFile('C:/Vault/Notes/새 노트.canvas')
+    await writeVaultRelativeText(vault, 'Notes/새 노트.canvas', '{}')
 
     expect(expectedHashes().slice(-3)).toEqual([null, 'written-hash', null])
+  })
+
+  it('메모 노트는 저장 직전에 디스크를 읽어 그 해시를 기대값으로 보낸다(다른 창이 먼저 고쳐도 합쳐서 쓴다)', async () => {
+    vi.spyOn(windowBridge, 'isDesktop').mockReturnValue(true)
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.readTextFile.mockResolvedValue('{"blocks":[{"id":"remote"}]}')
+    invoke.mockResolvedValue({ contentHash: 'written-hash', size: 35, modifiedAt: 1 })
+
+    await writeVaultRelativeText(vault, '노트/새 노트.iwnote', '{"blocks":[{"id":"remote"}]}')
+    const calls = invoke.mock.calls.filter(([command]) => command === 'atomic_write_text')
+    // 디스크와 같은 내용이라 쓸 것이 없다
+    expect(calls).toHaveLength(0)
+  })
+
+  it('session.json 은 메인 창이 아니면 쓰지 않는다', async () => {
+    vi.spyOn(windowBridge, 'isDesktop').mockReturnValue(true)
+    invoke.mockResolvedValue({ contentHash: 'h', size: 1, modifiedAt: 1 })
+    setSessionWriter(false)
+    try {
+      await writeSession(vault, { version: 1, pdfTabIds: [], noteTabIds: [], activePdfTabId: null, activeNoteTabId: null, sidebarCollapsed: false, sidebarPx: 280, leftFrac: 0.5 } as never)
+      expect(invoke.mock.calls.filter(([command]) => command === 'atomic_write_text')).toHaveLength(0)
+    } finally {
+      setSessionWriter(true)
+    }
+    await writeSession(vault, { version: 1, pdfTabIds: [], noteTabIds: [], activePdfTabId: null, activeNoteTabId: null, sidebarCollapsed: false, sidebarPx: 280, leftFrac: 0.5 } as never)
+    expect(invoke.mock.calls.filter(([command]) => command === 'atomic_write_text')).toHaveLength(1)
   })
 
   it('Markdown은 vault 안의 .md 파일만 읽고 쓰기 API를 노출하지 않는다', async () => {

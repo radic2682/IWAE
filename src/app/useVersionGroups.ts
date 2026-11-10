@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { readVersionGroups, writeVersionGroups, type VaultHandle } from '../bridge/vault'
+import { readVersionGroups, subscribeVaultFile, versionGroupsCodec, writeVersionGroups, type VaultHandle } from '../bridge/vault'
 import {
   addVersion, createGroup, createSingleGroup, dissolveGroup, remapFolderVersions, groupOfDoc, removeVersion, renameGroup, renameVersion, setDefaultVersion,
   type VersionGroup,
@@ -11,7 +11,6 @@ type Groups = Readonly<Record<string, VersionGroup>>
 export function useVersionGroups(vault: VaultHandle | null) {
   const [groups, setGroups] = useState<Groups>({})
   const ref = useRef<Groups>({})
-  const queueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     let active = true
@@ -28,13 +27,23 @@ export function useVersionGroups(vault: VaultHandle | null) {
     return () => { active = false }
   }, [vault])
 
+  // 다른 창이 판 묶음을 고치면 이 창에 합친다
+  useEffect(() => {
+    if (vault === null) return undefined
+    return subscribeVaultFile(vault, 'versions.json', versionGroupsCodec, (rebase) => {
+      const next = rebase({ version: 1, groups: ref.current }).groups
+      if (next === ref.current) return
+      ref.current = next
+      setGroups(next)
+    })
+  }, [vault])
+
   const commit = useCallback((next: Groups) => {
     if (next === ref.current) return
     ref.current = next
     setGroups(next)
     if (vault === null) return
-    const handle = vault
-    queueRef.current = queueRef.current.catch(() => undefined).then(() => writeVersionGroups(handle, { version: 1, groups: next }))
+    void writeVersionGroups(vault, { version: 1, groups: next }).catch(() => undefined)
   }, [vault])
 
   /** base 위에 added 를 판으로 겹친다. 이미 묶인 문서면 false */

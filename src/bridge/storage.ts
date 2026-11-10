@@ -5,6 +5,8 @@ export interface AtomicWriteRequest {
   journalRoot: string
   historyRoot: string
   fileId: string
+  /** 기대 해시가 어긋나면 충돌 기록을 남길까(기본 true). 다시 읽어 합쳐 쓸 때는 false */
+  preserveConflict?: boolean
 }
 
 export interface WriteReceipt {

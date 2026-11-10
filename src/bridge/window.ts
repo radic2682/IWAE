@@ -13,6 +13,16 @@ export function isDesktop(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 
+/**
+ * 이 창의 label. 웹뷰에 주입되는 메타데이터에서 동기로 읽는다(메인 창은 'main', 떼어 낸 창은 'detached-…', 새 창은 'window-…').
+ * 브라우저·테스트에서는 'main'.
+ */
+export function currentWindowLabel(): string {
+  if (typeof window === 'undefined') return 'main'
+  const internals = (window as unknown as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } }).__TAURI_INTERNALS__
+  return internals?.metadata?.currentWindow?.label ?? 'main'
+}
+
 async function withWindow(run: (w: { minimize(): Promise<void>; toggleMaximize(): Promise<void>; close(): Promise<void> }) => Promise<void>) {
   // 브라우저에서는 조용히 아무 일도 하지 않는다. 개발 중 미리보기로만
   // 쓰는 경로라 여기서 오류를 띄우면 소음만 된다.

@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { findTranslation, upsertTranslation, type TranslationCacheEntry } from '../core/translationCache'
-import { readTranslationCache, writeTranslationCache, type VaultHandle } from '../bridge/vault'
+import { readTranslationCache, subscribeVaultFile, translationCacheCodec, writeTranslationCache, type VaultHandle } from '../bridge/vault'
 
 /**
  * 번역 캐시(번역 기록) 저장소: 노트 카드의 「번역」, 글 고르기의 「번역」, 설정이 함께 쓴다.
@@ -101,7 +101,14 @@ export function useTranslationCacheBridge(vault: VaultHandle | null, translate: 
       entries = loaded
       emit()
     })
-    return () => { alive = false }
+    // 다른 창이 번역 기록을 더하면 이 창의 기록에 합친다
+    const unsubscribe = subscribeVaultFile(vault, 'translations.json', translationCacheCodec, (rebase) => {
+      const next = rebase(entries)
+      if (next === entries) return
+      entries = next
+      emit()
+    })
+    return () => { alive = false; unsubscribe() }
   }, [vault])
   useEffect(() => {
     translateFn = translate

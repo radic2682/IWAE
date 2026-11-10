@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { readBlockPresets, writeBlockPresets, type VaultHandle } from '../bridge/vault'
+import { blockPresetsCodec, readBlockPresets, subscribeVaultFile, writeBlockPresets, type VaultHandle } from '../bridge/vault'
 import {
   createUserBlockPreset,
   parseUserBlockPresets,
@@ -11,6 +11,7 @@ import type { CanvasBlockData } from '../core/canvasDocument'
 export interface BlockPresetStorage {
   load(): Promise<readonly UserBlockPreset[]>
   save(presets: readonly UserBlockPreset[]): Promise<void>
+  subscribe?(onRemote: (rebase: (local: readonly UserBlockPreset[]) => readonly UserBlockPreset[]) => void): () => void
 }
 
 export function createBrowserBlockPresetStorage(
@@ -32,6 +33,7 @@ export function createVaultBlockPresetStorage(vault: VaultHandle): BlockPresetSt
   return {
     load: () => readBlockPresets(vault),
     save: (presets) => writeBlockPresets(vault, presets),
+    subscribe: (onRemote) => subscribeVaultFile(vault, 'block-presets.json', blockPresetsCodec, onRemote),
   }
 }
 
@@ -59,6 +61,13 @@ export function useBlockPresets(
     })
     return () => { alive = false }
   }, [storage])
+
+  useEffect(() => storage.subscribe?.((rebase) => {
+    const next = rebase(presetsRef.current)
+    if (next === presetsRef.current) return
+    presetsRef.current = next
+    setPresets(next)
+  }), [storage])
 
   const add = useCallback((block: CanvasBlockData) => {
     const next = [...presetsRef.current, createUserBlockPreset(createId(), block, presetsRef.current)]

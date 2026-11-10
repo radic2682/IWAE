@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { recordUndo } from './undoStack'
-import { readMarkdownHighlights, writeMarkdownHighlights, type VaultHandle } from '../bridge/vault'
+import { markdownHighlightsCodec, readMarkdownHighlights, subscribeVaultFile, writeMarkdownHighlights, type VaultHandle } from '../bridge/vault'
 import {
   markdownHighlightFile,
   parsePersistentMarkdownHighlights,
@@ -11,6 +11,7 @@ import {
 export interface MarkdownHighlightStorage {
   load(): Promise<readonly PersistentMarkdownHighlight[]>
   save(highlights: readonly PersistentMarkdownHighlight[]): Promise<void>
+  subscribe?(onRemote: (rebase: (local: readonly PersistentMarkdownHighlight[]) => readonly PersistentMarkdownHighlight[]) => void): () => void
 }
 
 export function createBrowserMarkdownHighlightStorage(
@@ -33,6 +34,7 @@ export function createVaultMarkdownHighlightStorage(vault: VaultHandle): Markdow
   return {
     load: () => readMarkdownHighlights(vault),
     save: (highlights) => writeMarkdownHighlights(vault, highlights),
+    subscribe: (onRemote) => subscribeVaultFile(vault, 'markdown-highlights.json', markdownHighlightsCodec, onRemote),
   }
 }
 
@@ -72,6 +74,14 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
       generationRef.current += 1
     }
   }, [storage])
+
+  useEffect(() => storage.subscribe?.((rebase) => {
+    if (!readyRef.current) return
+    const next = rebase(highlightsRef.current)
+    if (next === highlightsRef.current) return
+    highlightsRef.current = next
+    setHighlights(next)
+  }), [storage])
 
   // 되돌리기: 바꾸기 전·후 목록을 남기고, 되돌리면 그 목록을 다시 쓴다
   const restore = useCallback((list: readonly PersistentMarkdownHighlight[]) => {

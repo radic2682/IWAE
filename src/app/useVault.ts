@@ -17,7 +17,7 @@ import type {
   VaultTreeReorderRequest,
   VaultMarkdownNode,
 } from '../core/vaultTree'
-import { editPdfPages, openPdf, pageTextIndex, pickPdfFile, runPdfTool, type PdfDocMeta, type PdfPageEditOp, type PdfToolOp, type PdfToolResult } from '../bridge/pdf'
+import { editPdfPages, invalidateDocument, openPdf, pageTextIndex, pickPdfFile, runPdfTool, type PdfDocMeta, type PdfPageEditOp, type PdfToolOp, type PdfToolResult } from '../bridge/pdf'
 import {
   attachPdfToLibrary,
   attachMarkdownReference,
@@ -39,6 +39,7 @@ import {
   readVaultSearchTextCache,
   recentVaults,
   rememberVault,
+  subscribeVaultFile,
   relinkDocument,
   writeCanvas,
   updateLibraryPageCount,
@@ -58,6 +59,8 @@ import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
 import { captureSession, emptySession, parseSession, type SessionState } from '../core/session'
+import type { SyncCodec } from '../core/vaultSync'
+import { findStaleDocuments } from '../core/staleDocuments'
 import {
   buildLegacyWorkspaceTree,
   buildNotebookTree,
@@ -191,6 +194,9 @@ function indexedDisplayNames(entries: readonly VaultIndexEntry[]): ReadonlyMap<s
 /** 읽던 쪽을 파일에 쓰기 전에 기다리는 시간. 그사이 쪽이 또 바뀌면 다시 센다 */
 const READING_POSITION_WRITE_DELAY_MS = 1500
 
+/** 창 사이 알림에서 내용은 쓰지 않고 「바뀌었다」만 본다 */
+const SIGNAL_CODEC: SyncCodec<string> = { serialize: (value) => value, parse: (text) => text }
+
 export function useVault(options: UseVaultOptions = {}) {
   const injected = options.library !== undefined && options.notebooks !== undefined
   const [initializing, setInitializing] = useState(!injected)
@@ -202,6 +208,8 @@ export function useVault(options: UseVaultOptions = {}) {
   const [notebooks, setNotebooks] = useState<NotebookGroup[]>(options.notebooks ?? [])
   const [treeEntries, setTreeEntries] = useState<readonly VaultTreeEntry[]>([])
   const [treeOrder, setTreeOrder] = useState<VaultTreeOrder>({})
+  const treeOrderRef = useRef(treeOrder)
+  treeOrderRef.current = treeOrder
   const [vaultIndex, setVaultIndex] = useState<readonly VaultIndexEntry[]>([])
   const [dirtyFileIds, setDirtyFileIds] = useState<ReadonlySet<string>>(() => new Set())
   const [conflictFileIds, setConflictFileIds] = useState<readonly string[]>([])
@@ -1628,13 +1636,13 @@ export function useVault(options: UseVaultOptions = {}) {
         setTree(buildVaultWorkspaceTree(
           nextTreeEntries,
           displayEntries(libraryEntries, nextIndex.entries),
-          treeOrder,
+          treeOrderRef.current,
           indexedDisplayNames(nextIndex.entries),
           nextIndex.entries,
         ))
       })
       .catch((err: unknown) => setError(errorText(err)))
-  }, [treeOrder, vault])
+  }, [vault])
 
   useVaultWatcher({
     vaultPath: vault?.root ?? null,
@@ -1644,6 +1652,56 @@ export function useVault(options: UseVaultOptions = {}) {
     onConflict: reportWatchedConflict,
     onReindex: reindexWatchedFiles,
   })
+
+  // 다른 창이 Vault 목록·색인·순서·설정을 고치면 이 창도 디스크 내용을 다시 읽는다(.iwae 는 파일 감시가 무시한다)
+  const reindexRef = useRef(reindexWatchedFiles)
+  reindexRef.current = reindexWatchedFiles
+  useEffect(() => {
+    if (vault === null || injected) return undefined
+    const handle = vault
+    const stops = [
+      subscribeVaultFile(handle, 'library.json', SIGNAL_CODEC, () => reindexRef.current()),
+      subscribeVaultFile(handle, 'index.json', SIGNAL_CODEC, () => reindexRef.current()),
+      subscribeVaultFile(handle, 'tree-order.json', SIGNAL_CODEC, () => {
+        void readVaultTreeOrder(handle).then((order) => {
+          treeOrderRef.current = order
+          setTreeOrder(order)
+          reindexRef.current()
+        }).catch(() => undefined)
+      }),
+      subscribeVaultFile(handle, 'metadata.json', SIGNAL_CODEC, () => {
+        void readVaultMetadata(handle).then((metadata) => {
+          setMarkdownThemeState(metadata.markdownTheme)
+          setItemIcons(metadata.itemIcons)
+          setItemColors(metadata.itemColors ?? {})
+          setNoteOrderState(metadata.noteOrder ?? [])
+          // 읽던 쪽·마지막으로 연 때는 이 창이 방금 정한 값을 지우지 않는다(다른 창은 즐겨찾기만 따라온다)
+          setFileActivity((current) => {
+            const next: Record<string, VaultFileActivity> = { ...metadata.fileActivity }
+            for (const [id, local] of Object.entries(current)) {
+              const remote = next[id]
+              next[id] = remote === undefined ? local : { ...remote, ...(local.lastPage === undefined ? {} : { lastPage: local.lastPage }), lastOpenedAt: local.lastOpenedAt ?? remote.lastOpenedAt }
+            }
+            return next
+          })
+        }).catch(() => undefined)
+      }),
+    ]
+    return () => { for (const stop of stops) stop() }
+  }, [injected, vault])
+
+  // 다른 창이 쪽 편집·PDF 도구로 파일을 바꿨다: 목록의 해시가 달라진 문서는 다시 열어 쪽 수·크기·그림을 새로 한다
+  const refreshedHashesRef = useRef(new Set<string>())
+  useEffect(() => {
+    if (vault === null || injected) return
+    for (const stale of findStaleDocuments(openedDocs, entries, refreshedHashesRef.current)) {
+      refreshedHashesRef.current.add(stale.key)
+      invalidateDocument(stale.docId)
+      void openPdf(stale.path, stale.docId).then((meta) => {
+        setOpenedDocs((current) => current.map((candidate) => candidate.docId === meta.docId ? meta : candidate))
+      }).catch(() => undefined)
+    }
+  }, [entries, injected, openedDocs, vault])
 
   const displayedLibrary = useMemo(
     () => injected ? injectedLibrary : displayEntries(entries, vaultIndex),

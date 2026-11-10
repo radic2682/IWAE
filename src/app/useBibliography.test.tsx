@@ -6,7 +6,7 @@ import { readBibliography, writeBibliography, type VaultHandle } from '../bridge
 import { pageTextIndex, pdfMetadata } from '../bridge/pdf'
 import { lookupDoi } from '../bridge/bibliography'
 
-vi.mock('../bridge/vault', () => ({ readBibliography: vi.fn(), writeBibliography: vi.fn() }))
+vi.mock('../bridge/vault', () => ({ readBibliography: vi.fn(), writeBibliography: vi.fn(), subscribeVaultFile: vi.fn(() => () => undefined), bibliographyCodec: {} }))
 vi.mock('../bridge/pdf', () => ({ pdfMetadata: vi.fn(), pageTextIndex: vi.fn() }))
 vi.mock('../bridge/bibliography', () => ({ lookupDoi: vi.fn() }))
 

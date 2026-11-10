@@ -17,6 +17,17 @@ export class StorageConflictError extends Error {
 const canvasSaveQueue = new SaveQueue()
 const canvasSaveFlushers = new Map<string, () => Promise<void>>()
 
+/**
+ * 캔버스 말고도 닫기 전에 끝내야 하는 저장(예: 잠시 미뤄 둔 메모 노트 저장)을 등록한다.
+ * flushCanvasSaves() 가 창을 닫기·Vault 바꾸기 전에 함께 부른다. 돌려주는 함수로 뺀다.
+ */
+export function registerSaveFlusher(key: string, flush: () => Promise<void>): () => void {
+  canvasSaveFlushers.set(key, flush)
+  return () => {
+    if (canvasSaveFlushers.get(key) === flush) canvasSaveFlushers.delete(key)
+  }
+}
+
 export async function flushCanvasSaves(noteId?: string): Promise<void> {
   if (noteId === undefined) {
     await Promise.all([...canvasSaveFlushers.values()].map((flush) => flush()))

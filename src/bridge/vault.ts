@@ -4,7 +4,7 @@ import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core
 import { EMPTY_BIBLIOGRAPHY, parseBibliographyFile, type BibliographyFile } from '../core/bibliography'
 import { errorText } from '../core/errorText'
 import { parseTranslationCache, serializeTranslationCache, type TranslationCacheEntry } from '../core/translationCache'
-import { createSerialByKey } from '../core/serialByKey'
+import { VaultFileSync, isMergeableVaultPath, normalizeSyncKey, type RemoteChange, type SyncCodec, type VaultWriteMessage, type WriteTicket } from '../core/vaultSync'
 import { emptyCanvasDoc, serializeCanvasDoc } from '../core/canvasSerialize'
 import { parseCanvasDocument, type CanvasDocument, type CanvasDocumentV2 } from '../core/canvasDocument'
 import type { SessionState } from '../core/session'
@@ -36,13 +36,12 @@ import {
 } from '../core/markdownHighlight'
 import { openPdf } from './pdf'
 import { atomicWriteText } from './storage'
-import { isDesktop } from './window'
+import { currentWindowLabel, isDesktop } from './window'
 import { t } from '../i18n'
 
 const REGISTRY_VERSION = 1
 const TREE_ORDER_VERSION = 1
 const MAX_RECENT_VAULTS = 10
-const observedFileHashes = new Map<string, string>()
 
 async function sha256Text(contents: string): Promise<string> {
   const bytes = new TextEncoder().encode(contents)
@@ -113,54 +112,138 @@ async function iwaePath(vault: VaultHandle, name: string): Promise<string> {
   return name === '' ? join(vault.root, '.iwae') : join(vault.root, '.iwae', name)
 }
 
-/** 파일마다 저장을 한 줄로 세운다. 이전 저장이 끝나 기대 해시가 갱신된 뒤에 다음 저장이 해시를 읽는다 */
-const serialWrite = createSerialByKey()
-
 /**
- * 같은 파일에 저장이 겹치면(예: MCP 가 메모를 잇달아 추가) 두 번째 저장이 첫 저장 전의 해시를
- * 기대값으로 보내 자기 저장을 '외부 변경 충돌'로 오인한다. 그래서 파일마다 차례로 쓴다.
+ * 파일 저장·창 사이 동기화(core/vaultSync). 같은 파일에 저장이 겹치면(예: MCP 가 메모를 잇달아 추가)
+ * 파일마다 차례로 쓰고, 다른 창이 먼저 고친 내용은 지우지 않고 합쳐서 쓴다.
  */
+const VAULT_WRITTEN_EVENT = 'iwae:vault-written'
+
+async function atomicWriteForSync(path: string, contents: string, expectedHash: string | null, fileId: string, root: string, preserveConflict: boolean): Promise<string> {
+  if (isDesktop()) {
+    const { join } = await import('@tauri-apps/api/path')
+    const receipt = await atomicWriteText({
+      targetPath: path,
+      contents,
+      expectedHash,
+      journalRoot: await join(root, '.iwae', 'journal'),
+      historyRoot: await join(root, '.iwae', 'history'),
+      fileId,
+      // 기본(true)이면 요청에 싣지 않는다(예전 요청 모양 그대로)
+      ...(preserveConflict ? {} : { preserveConflict: false }),
+    })
+    return receipt.contentHash
+  }
+  const { writeTextFile } = await import('@tauri-apps/plugin-fs')
+  await writeTextFile(path, contents)
+  return sha256Text(contents)
+}
+
+let sessionWriterAllowed = true
+
+/** session.json(탭·패널 배치)은 메인 창만 쓴다. 떼어 낸 창·새 창은 자기 배치를 메모리에만 둔다 */
+export function setSessionWriter(allowed: boolean): void {
+  sessionWriterAllowed = allowed
+}
+
+let activeVaultRoot: string | null = null
+
+const fileSync = new VaultFileSync({
+  readText: async (path) => {
+    const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+    if (!(await exists(path))) return null
+    const text = await readTextFile(path)
+    return typeof text === 'string' ? text : null
+  },
+  atomicWrite: atomicWriteForSync,
+  sha256: sha256Text,
+  broadcast: (message) => {
+    if (!isDesktop()) return
+    void import('@tauri-apps/api/event')
+      .then(({ emit }) => emit(VAULT_WRITTEN_EVENT, message))
+      .catch(() => undefined)
+  },
+  isConflict: (error) => /conflict|충돌/iu.test(errorText(error)),
+}, currentWindowLabel())
+
+let syncListening = false
+/** 다른 창의 저장 알림을 듣는다(한 번만). Vault 를 열 때 부른다 */
+async function ensureSyncListener(root: string): Promise<void> {
+  activeVaultRoot = root
+  if (syncListening || !isDesktop()) return
+  syncListening = true
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    await listen<VaultWriteMessage>(VAULT_WRITTEN_EVENT, (event) => {
+      const message = event.payload
+      if (activeVaultRoot === null || normalizeSyncKey(message.root) !== normalizeSyncKey(activeVaultRoot)) return
+      void fileSync.receive(message).catch(() => undefined)
+    })
+  } catch {
+    syncListening = false
+  }
+}
+
 function writeVaultFile(
   vault: VaultHandle,
   targetPath: string,
   contents: string,
   fileId: string,
+  ticket?: WriteTicket,
 ): Promise<void> {
-  return serialWrite(targetPath, () => writeVaultFileNow(vault, targetPath, contents, fileId))
+  return fileSync.write(targetPath, contents, fileId, {
+    mergeable: isDesktop() && isMergeableVaultPath(vault.root, targetPath),
+    root: vault.root,
+    ...(ticket === undefined ? {} : { ticket }),
+  })
+}
+
+/** .iwae 안 파일의 동기 키(경로를 비동기로 만들기 전에 저장 요청의 바탕을 잡는 데 쓴다) */
+function iwaeKey(vault: VaultHandle, name: string): string {
+  return `${vault.root}/.iwae/${name}`
+}
+
+/**
+ * .iwae 의 JSON 파일을 쓴다. 내용을 만든 직후(동기)에 저장 요청의 바탕을 잡고, 그다음에 폴더·경로를 준비한다 —
+ * 요청이 기다리는 사이 다른 창의 변경이 합쳐져도 이 요청은 자기 바탕으로 병합된다.
+ */
+function writeIwaeFile(vault: VaultHandle, name: string, contents: string, fileId: string): Promise<void> {
+  const key = iwaeKey(vault, name)
+  const mergeable = isDesktop() && isMergeableVaultPath(vault.root, key)
+  const ticket = mergeable ? fileSync.beginWrite(key, contents) : undefined
+  // 줄에 서는 것도 지금(동기)이다. 폴더·경로 준비(IPC)를 먼저 기다리면 요청이 줄에 서는 순서가 뒤바뀌어
+  // 앞선 저장의 바탕과 디스크가 어긋난다(여러 번 잇달아 지울 때 지운 항목이 되살아나던 까닭)
+  return fileSync.enqueue(key, async () => {
+    const { mkdir } = await import('@tauri-apps/plugin-fs')
+    await mkdir(await iwaePath(vault, ''), { recursive: true })
+    await fileSync.writeNow(await iwaePath(vault, name), contents, fileId, { mergeable, root: vault.root, ...(ticket === undefined ? {} : { ticket }) })
+  })
+}
+
+/** 읽은 내용을 이 창이 아는 디스크 내용으로 기억한다(다음 저장의 병합 바탕). 읽지 못했거나 깨졌으면 부르지 않는다 */
+function trackRead(path: string, text: string | null): void {
+  if (isDesktop()) fileSync.observeRead(path, text)
 }
 
 /** Vault 안 상대 경로의 글 파일을 저널 원자 쓰기로 저장한다(메모 노트 등) */
-export async function writeVaultRelativeText(vault: VaultHandle, relativePath: string, contents: string): Promise<void> {
-  const { join } = await import('@tauri-apps/api/path')
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
+export function writeVaultRelativeText(vault: VaultHandle, relativePath: string, contents: string): Promise<void> {
   const parts = relativePath.replaceAll('\\', '/').split('/').filter((part) => part !== '')
-  if (parts.length === 0 || parts.some((part) => part === '..' || part === '.')) throw new Error(t('Vault 상대 경로가 올바르지 않습니다.'))
-  const directory = await join(vault.root, ...parts.slice(0, -1))
-  await mkdir(directory, { recursive: true })
-  await writeVaultFile(vault, await join(vault.root, ...parts), contents, `vault:${parts.join('/')}`)
+  if (parts.length === 0 || parts.some((part) => part === '..' || part === '.')) return Promise.reject(new Error(t('Vault 상대 경로가 올바르지 않습니다.')))
+  const key = `${vault.root}/${parts.join('/')}`
+  const mergeable = isDesktop() && isMergeableVaultPath(vault.root, key)
+  const ticket = mergeable ? fileSync.beginWrite(key, contents) : undefined
+  // writeIwaeFile 과 같다: 줄에 서는 순서를 요청 순서와 맞춘다
+  return fileSync.enqueue(key, async () => {
+    const { join } = await import('@tauri-apps/api/path')
+    const { mkdir } = await import('@tauri-apps/plugin-fs')
+    const directory = await join(vault.root, ...parts.slice(0, -1))
+    await mkdir(directory, { recursive: true })
+    await fileSync.writeNow(await join(vault.root, ...parts), contents, `vault:${parts.join('/')}`, { mergeable, root: vault.root, ...(ticket === undefined ? {} : { ticket }) })
+  })
 }
 
-async function writeVaultFileNow(
-  vault: VaultHandle,
-  targetPath: string,
-  contents: string,
-  fileId: string,
-): Promise<void> {
-  if (isDesktop()) {
-    const receipt = await atomicWriteText({
-      targetPath,
-      contents,
-      expectedHash: observedFileHashes.get(targetPath) ?? null,
-      journalRoot: await iwaePath(vault, 'journal'),
-      historyRoot: await iwaePath(vault, 'history'),
-      fileId,
-    })
-    observedFileHashes.set(targetPath, receipt.contentHash)
-    return
-  }
-  const { writeTextFile } = await import('@tauri-apps/plugin-fs')
-  await writeTextFile(targetPath, contents)
-  observedFileHashes.set(targetPath, await sha256Text(contents))
+/** 메모 노트처럼 Vault 상대 경로 파일을 읽었다(병합 바탕으로 기억) */
+export function trackVaultRelativeRead(vault: VaultHandle, relativePath: string, text: string | null): void {
+  trackRead(`${vault.root}/${relativePath.replaceAll('\\', '/')}`, text)
 }
 
 /**
@@ -169,7 +252,7 @@ async function writeVaultFileNow(
  * (노트를 지운 뒤 「새 노트」를 다시 만들면 만들어지지 않던 까닭).
  */
 export function forgetObservedFile(absolutePath: string): void {
-  observedFileHashes.delete(absolutePath)
+  fileSync.forget(absolutePath)
 }
 
 /**
@@ -179,7 +262,7 @@ export function forgetObservedFile(absolutePath: string): void {
 export async function isOwnLatestWrite(vault: VaultHandle, relativePath: string): Promise<boolean> {
   const { join } = await import('@tauri-apps/api/path')
   const path = await join(vault.root, ...relativePath.replaceAll('\\', '/').split('/'))
-  const expected = observedFileHashes.get(path)
+  const expected = fileSync.observedHash(path)
   if (expected === undefined) return false
   try {
     const { readTextFile } = await import('@tauri-apps/plugin-fs')
@@ -187,6 +270,37 @@ export async function isOwnLatestWrite(vault: VaultHandle, relativePath: string)
   } catch {
     return false
   }
+}
+
+/**
+ * .iwae 의 JSON 파일을 다른 창이 고치면 알려 준다. 받은 쪽은 rebase(지금 상태) 로 남의 변경을 얹은 새 상태를 얻는다
+ * (저장은 하지 않는다 — 알림이 되돌아 울리지 않게). 돌려주는 함수로 끊는다.
+ */
+export function subscribeVaultFile<T>(
+  vault: VaultHandle,
+  name: string,
+  codec: SyncCodec<T>,
+  onRemote: (rebase: (local: T) => T) => void,
+): () => void {
+  if (!isDesktop()) return () => undefined
+  void ensureSyncListener(vault.root)
+  return fileSync.subscribe(iwaeKey(vault, name), (change) => onRemote((local) => change.rebase(local, codec)))
+}
+
+/** Vault 안 폴더(예: 메모 노트 폴더) 아래 파일의 변경을 듣는다. 받은 쪽에 상대 경로와 rebase 를 준다 */
+export function subscribeVaultFolder(
+  vault: VaultHandle,
+  folder: string,
+  onRemote: (relativePath: string, change: RemoteChange) => void,
+): () => void {
+  if (!isDesktop()) return () => undefined
+  void ensureSyncListener(vault.root)
+  const root = `${vault.root.replaceAll('\\', '/').replace(/\/+$/u, '')}/`
+  return fileSync.subscribePrefix(`${vault.root}/${folder}`, (change) => {
+    const normalized = change.path.replaceAll('\\', '/')
+    const relative = normalized.toLocaleLowerCase().startsWith(root.toLocaleLowerCase()) ? normalized.slice(root.length) : normalized
+    onRemote(relative, change)
+  })
 }
 
 async function recentVaultsPath(): Promise<string> {
@@ -228,17 +342,23 @@ export async function openVault(root: string): Promise<VaultHandle> {
 
   const vault = { root }
   await mkdir(await iwaePath(vault, ''), { recursive: true })
+  void ensureSyncListener(root)
   return vault
 }
 
 export async function readLibrary(vault: VaultHandle): Promise<VaultLibraryEntry[]> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'library.json')
-  if (!(await exists(path))) return []
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return []
+  }
 
   try {
-    const raw: unknown = JSON.parse(await readTextFile(path))
-    return parseLibrary(raw)
+    const text = await readTextFile(path)
+    const parsed = parseLibrary(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('문서 목록을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
@@ -248,10 +368,8 @@ export async function writeLibrary(
   vault: VaultHandle,
   entries: readonly VaultLibraryEntry[],
 ): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
   const content = `${JSON.stringify(libraryFile(entries), null, 2)}\n`
-  await writeVaultFile(vault, await iwaePath(vault, 'library.json'), content, 'metadata:library.json')
+  await writeIwaeFile(vault, 'library.json', content, 'metadata:library.json')
 }
 
 async function preserveDamagedMetadata(
@@ -295,7 +413,9 @@ export async function readVaultIndex(vault: VaultHandle): Promise<VaultIndexFile
   if (await exists(path)) {
     const contents = await readTextFile(path)
     try {
-      return parseVaultIndex(JSON.parse(contents) as unknown)
+      const parsed = parseVaultIndex(JSON.parse(contents) as unknown)
+      trackRead(path, contents)
+      return parsed
     } catch {
       await preserveDamagedMetadata(vault, 'index', contents)
     }
@@ -317,41 +437,33 @@ export async function readVaultIndex(vault: VaultHandle): Promise<VaultIndexFile
 }
 
 export async function writeVaultIndex(vault: VaultHandle, index: VaultIndexFile): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
   const parsed = parseVaultIndex(index)
   const ordered: VaultIndexFile = {
     version: 1,
     entries: [...parsed.entries].sort((left, right) => left.id.localeCompare(right.id)),
   }
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'index.json'),
-    `${JSON.stringify(ordered, null, 2)}\n`,
-    'metadata:index.json',
-  )
+  await writeIwaeFile(vault, 'index.json', `${JSON.stringify(ordered, null, 2)}\n`, 'metadata:index.json')
 }
 
 export async function readVaultMetadata(vault: VaultHandle): Promise<VaultMetadata> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'metadata.json')
-  if (!(await exists(path))) return parseVaultMetadata(null)
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return parseVaultMetadata(null)
+  }
   try {
-    return parseVaultMetadata(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parseVaultMetadata(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('Vault 설정을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
 export async function writeVaultMetadata(vault: VaultHandle, metadata: VaultMetadata): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'metadata.json'),
-    `${JSON.stringify(parseVaultMetadata(metadata), null, 2)}\n`,
-    'metadata:metadata.json',
-  )
+  await writeIwaeFile(vault, 'metadata.json', `${JSON.stringify(parseVaultMetadata(metadata), null, 2)}\n`, 'metadata:metadata.json')
 }
 
 export async function readVaultSearchTextCache(vault: VaultHandle): Promise<VaultSearchTextCache> {
@@ -514,9 +626,13 @@ export async function attachMarkdownReference(
 export async function readVaultTreeOrder(vault: VaultHandle): Promise<Record<string, string[]>> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'tree-order.json')
-  if (!(await exists(path))) return {}
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return {}
+  }
   try {
-    const raw: unknown = JSON.parse(await readTextFile(path))
+    const text = await readTextFile(path)
+    const raw: unknown = JSON.parse(text)
     if (!isRecord(raw) || raw.version !== TREE_ORDER_VERSION || !isRecord(raw.parents)) {
       throw new Error(t('트리 순서 형식이 올바르지 않습니다.'))
     }
@@ -527,6 +643,7 @@ export async function readVaultTreeOrder(vault: VaultHandle): Promise<Record<str
       }
       parents[parentPath] = [...new Set(ids)]
     }
+    trackRead(path, text)
     return parents
   } catch (err) {
     throw new Error(t('트리 순서를 읽지 못했습니다: {error}', { error: errorText(err) }))
@@ -537,17 +654,11 @@ export async function writeVaultTreeOrder(
   vault: VaultHandle,
   order: VaultTreeOrder,
 ): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
   const parents = Object.fromEntries(Object.entries(order)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([parentPath, ids]) => [parentPath, [...new Set(ids)]]))
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'tree-order.json'),
-    `${JSON.stringify({ version: TREE_ORDER_VERSION, parents }, null, 2)}\n`,
-    'metadata:tree-order.json',
-  )
+  await writeIwaeFile(vault, 'tree-order.json', `${JSON.stringify({ version: TREE_ORDER_VERSION, parents }, null, 2)}
+`, 'metadata:tree-order.json')
 }
 
 export async function recentVaults(): Promise<readonly string[]> {
@@ -609,22 +720,23 @@ export async function readSession(vault: VaultHandle): Promise<unknown> {
 }
 
 export async function writeSession(vault: VaultHandle, session: SessionState): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'session.json'),
-    `${JSON.stringify(session, null, 2)}\n`,
-    'metadata:session.json',
-  )
+  // 탭·패널 배치는 메인 창만 남긴다(다른 창의 배치가 메인의 것을 덮지 않게)
+  if (!sessionWriterAllowed) return
+  await writeIwaeFile(vault, 'session.json', `${JSON.stringify(session, null, 2)}\n`, 'metadata:session.json')
 }
 
 export async function readPdfHighlights(vault: VaultHandle): Promise<PersistentPdfHighlight[]> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'highlights.json')
-  if (!(await exists(path))) return []
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return []
+  }
   try {
-    return parsePersistentPdfHighlights(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parsePersistentPdfHighlights(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('PDF 형광펜을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
@@ -634,22 +746,21 @@ export async function writePdfHighlights(
   vault: VaultHandle,
   highlights: readonly PersistentPdfHighlight[],
 ): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'highlights.json'),
-    `${JSON.stringify(persistentPdfHighlightFile(highlights), null, 2)}\n`,
-    'metadata:highlights.json',
-  )
+  await writeIwaeFile(vault, 'highlights.json', `${JSON.stringify(persistentPdfHighlightFile(highlights), null, 2)}\n`, 'metadata:highlights.json')
 }
 
 export async function readMarkdownHighlights(vault: VaultHandle): Promise<PersistentMarkdownHighlight[]> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'markdown-highlights.json')
-  if (!(await exists(path))) return []
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return []
+  }
   try {
-    return parsePersistentMarkdownHighlights(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parsePersistentMarkdownHighlights(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('Markdown 형광펜을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
@@ -659,134 +770,136 @@ export async function writeMarkdownHighlights(
   vault: VaultHandle,
   highlights: readonly PersistentMarkdownHighlight[],
 ): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'markdown-highlights.json'),
-    `${JSON.stringify(markdownHighlightFile(highlights), null, 2)}\n`,
-    'metadata:markdown-highlights.json',
-  )
+  await writeIwaeFile(vault, 'markdown-highlights.json', `${JSON.stringify(markdownHighlightFile(highlights), null, 2)}\n`, 'metadata:markdown-highlights.json')
 }
 
 export async function readPdfBookmarks(vault: VaultHandle): Promise<PdfBookmark[]> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'bookmarks.json')
-  if (!(await exists(path))) return []
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return []
+  }
   try {
-    return parsePdfBookmarks(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parsePdfBookmarks(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('PDF 책갈피를 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
 export async function writePdfBookmarks(vault: VaultHandle, bookmarks: readonly PdfBookmark[]): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'bookmarks.json'),
-    `${JSON.stringify(pdfBookmarkFile(bookmarks), null, 2)}\n`,
-    'metadata:bookmarks.json',
-  )
+  await writeIwaeFile(vault, 'bookmarks.json', `${JSON.stringify(pdfBookmarkFile(bookmarks), null, 2)}\n`, 'metadata:bookmarks.json')
 }
 
 export async function readBibliography(vault: VaultHandle): Promise<BibliographyFile> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'bibliography.json')
-  if (!(await exists(path))) return EMPTY_BIBLIOGRAPHY
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return EMPTY_BIBLIOGRAPHY
+  }
   try {
-    return parseBibliographyFile(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parseBibliographyFile(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('서지 정보를 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
 export async function writeBibliography(vault: VaultHandle, file: BibliographyFile): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'bibliography.json'),
-    `${JSON.stringify(file, null, 2)}\n`,
-    'metadata:bibliography.json',
-  )
+  await writeIwaeFile(vault, 'bibliography.json', `${JSON.stringify(file, null, 2)}\n`, 'metadata:bibliography.json')
 }
 
 export async function readDocSources(vault: VaultHandle): Promise<DocSourcesFile> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'sources.json')
-  if (!(await exists(path))) return EMPTY_DOC_SOURCES
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return EMPTY_DOC_SOURCES
+  }
   try {
-    return parseDocSources(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parseDocSources(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('문서 출처를 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
 export async function writeDocSources(vault: VaultHandle, file: DocSourcesFile): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(vault, await iwaePath(vault, 'sources.json'), `${JSON.stringify(file, null, 2)}
+  await writeIwaeFile(vault, 'sources.json', `${JSON.stringify(file, null, 2)}
 `, 'metadata:sources.json')
 }
 
 export async function readVersionGroups(vault: VaultHandle): Promise<VersionGroupsFile> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'versions.json')
-  if (!(await exists(path))) return EMPTY_VERSION_GROUPS
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return EMPTY_VERSION_GROUPS
+  }
   try {
-    return parseVersionGroups(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parseVersionGroups(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('문서 버전 묶음을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
 export async function writeVersionGroups(vault: VaultHandle, file: VersionGroupsFile): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(vault, await iwaePath(vault, 'versions.json'), `${JSON.stringify(file, null, 2)}
+  await writeIwaeFile(vault, 'versions.json', `${JSON.stringify(file, null, 2)}
 `, 'metadata:versions.json')
 }
 
 export async function readPdfOverlays(vault: VaultHandle): Promise<PdfOverlaysFile> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'pdf-overlays.json')
-  if (!(await exists(path))) return EMPTY_PDF_OVERLAYS
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return EMPTY_PDF_OVERLAYS
+  }
   try {
-    return parsePdfOverlays(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parsePdfOverlays(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('PDF 편집 내용을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
 export async function writePdfOverlays(vault: VaultHandle, file: PdfOverlaysFile): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(vault, await iwaePath(vault, 'pdf-overlays.json'), `${JSON.stringify(file, null, 2)}
+  await writeIwaeFile(vault, 'pdf-overlays.json', `${JSON.stringify(file, null, 2)}
 `, 'metadata:pdf-overlays.json')
 }
 
 export async function readBlockPresets(vault: VaultHandle): Promise<UserBlockPreset[]> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'block-presets.json')
-  if (!(await exists(path))) return []
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return []
+  }
   try {
-    return parseUserBlockPresets(JSON.parse(await readTextFile(path)) as unknown)
+    const text = await readTextFile(path)
+    const parsed = parseUserBlockPresets(JSON.parse(text) as unknown)
+    trackRead(path, text)
+    return parsed
   } catch (err) {
     throw new Error(t('블록 프리셋을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
 export async function writeBlockPresets(vault: VaultHandle, presets: readonly UserBlockPreset[]): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(
-    vault,
-    await iwaePath(vault, 'block-presets.json'),
-    `${JSON.stringify(userBlockPresetFile(presets), null, 2)}\n`,
-    'metadata:block-presets.json',
-  )
+  await writeIwaeFile(vault, 'block-presets.json', `${JSON.stringify(userBlockPresetFile(presets), null, 2)}\n`, 'metadata:block-presets.json')
 }
 
 /** 파일·폴더가 없어서 난 오류인가(옮기거나 이름을 바꾼 직후 등) */
@@ -964,7 +1077,7 @@ export async function readCanvas(
   try {
     const contents = await readTextFile(path)
     const raw: unknown = JSON.parse(contents)
-    observedFileHashes.set(path, await sha256Text(contents))
+    fileSync.observeHash(path, await sha256Text(contents))
     return parseCanvasDocument(raw)
   } catch (err) {
     throw new Error(t('캔버스를 읽지 못했습니다: {error}', { error: errorText(err) }))
@@ -1122,16 +1235,63 @@ export async function updateLibraryPageCount(
 export async function readTranslationCache(vault: VaultHandle): Promise<TranslationCacheEntry[]> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'translations.json')
-  if (!(await exists(path))) return []
+  if (!(await exists(path))) {
+    trackRead(path, null)
+    return []
+  }
   try {
-    return parseTranslationCache(JSON.parse(await readTextFile(path)))
+    const text = await readTextFile(path)
+    const parsed = parseTranslationCache(JSON.parse(text))
+    trackRead(path, text)
+    return parsed
   } catch {
     return []
   }
 }
 
 export async function writeTranslationCache(vault: VaultHandle, entries: readonly TranslationCacheEntry[]): Promise<void> {
-  const { mkdir } = await import('@tauri-apps/plugin-fs')
-  await mkdir(await iwaePath(vault, ''), { recursive: true })
-  await writeVaultFile(vault, await iwaePath(vault, 'translations.json'), serializeTranslationCache(entries), 'metadata:translations.json')
+  await writeIwaeFile(vault, 'translations.json', serializeTranslationCache(entries), 'metadata:translations.json')
+}
+
+/**
+ * 창 사이 동기화에 쓰는 코덱: 저장할 때의 글 모양과 같아야 병합 결과가 저장 모양과 어긋나지 않는다.
+ * 각 저장소 훅(app/use*.ts)이 subscribeVaultFile 에 넘긴다.
+ */
+const pretty = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
+
+export const pdfHighlightsCodec: SyncCodec<readonly PersistentPdfHighlight[]> = {
+  serialize: (highlights) => pretty(persistentPdfHighlightFile(highlights)),
+  parse: (text) => parsePersistentPdfHighlights(JSON.parse(text) as unknown),
+}
+export const markdownHighlightsCodec: SyncCodec<readonly PersistentMarkdownHighlight[]> = {
+  serialize: (highlights) => pretty(markdownHighlightFile(highlights)),
+  parse: (text) => parsePersistentMarkdownHighlights(JSON.parse(text) as unknown),
+}
+export const pdfBookmarksCodec: SyncCodec<readonly PdfBookmark[]> = {
+  serialize: (bookmarks) => pretty(pdfBookmarkFile(bookmarks)),
+  parse: (text) => parsePdfBookmarks(JSON.parse(text) as unknown),
+}
+export const blockPresetsCodec: SyncCodec<readonly UserBlockPreset[]> = {
+  serialize: (presets) => pretty(userBlockPresetFile(presets)),
+  parse: (text) => parseUserBlockPresets(JSON.parse(text) as unknown),
+}
+export const bibliographyCodec: SyncCodec<BibliographyFile> = {
+  serialize: pretty,
+  parse: (text) => parseBibliographyFile(JSON.parse(text) as unknown),
+}
+export const docSourcesCodec: SyncCodec<DocSourcesFile> = {
+  serialize: pretty,
+  parse: (text) => parseDocSources(JSON.parse(text) as unknown),
+}
+export const versionGroupsCodec: SyncCodec<VersionGroupsFile> = {
+  serialize: pretty,
+  parse: (text) => parseVersionGroups(JSON.parse(text) as unknown),
+}
+export const pdfOverlaysCodec: SyncCodec<PdfOverlaysFile> = {
+  serialize: pretty,
+  parse: (text) => parsePdfOverlays(JSON.parse(text) as unknown),
+}
+export const translationCacheCodec: SyncCodec<readonly TranslationCacheEntry[]> = {
+  serialize: (entries) => serializeTranslationCache(entries),
+  parse: (text) => parseTranslationCache(JSON.parse(text)),
 }

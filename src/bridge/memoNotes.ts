@@ -1,5 +1,6 @@
 import { t } from '../i18n'
-import { forgetObservedFile, writeVaultRelativeText, type VaultHandle } from './vault'
+import { forgetObservedFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
+import type { SyncCodec } from '../core/vaultSync'
 import {
   MEMO_NOTES_FOLDER,
   MEMO_NOTE_EXTENSION,
@@ -53,7 +54,43 @@ export async function listMemoNotes(vault: VaultHandle): Promise<MemoNoteEntry[]
 
 export async function readMemoNote(vault: VaultHandle, path: string): Promise<MemoNote> {
   const { readTextFile } = await import('@tauri-apps/plugin-fs')
-  return parseMemoNote(JSON.parse(await readTextFile(await absolute(vault, path))) as unknown)
+  const text = await readTextFile(await absolute(vault, path))
+  const note = parseMemoNote(JSON.parse(text) as unknown)
+  // 다음 저장에서 다른 창의 변경과 합칠 때의 바탕
+  trackVaultRelativeRead(vault, path, text)
+  return note
+}
+
+/** 창 사이 동기화용: 저장할 때의 글 모양과 같다 */
+export const memoNoteCodec: SyncCodec<MemoNote> = {
+  serialize: serializeMemoNote,
+  parse: (text) => parseMemoNote(JSON.parse(text) as unknown),
+}
+
+/** 노트를 옮기거나 지우거나 폴더를 바꿨다: 다른 창이 목록을 다시 맞추게 알린다 */
+export const MEMO_NOTES_CHANGED_EVENT = 'iwae:memo-notes-changed'
+
+async function announceNotesChanged(vault: VaultHandle): Promise<void> {
+  try {
+    const { isDesktop, currentWindowLabel } = await import('./window')
+    if (!isDesktop()) return
+    const { emit } = await import('@tauri-apps/api/event')
+    await emit(MEMO_NOTES_CHANGED_EVENT, { root: vault.root, source: currentWindowLabel() })
+  } catch {
+    // 알리지 못해도 이 창의 일은 끝났다
+  }
+}
+
+/** 다른 창이 노트 목록을 바꿨을 때 부른다. 돌려주는 함수로 끊는다 */
+export async function onMemoNotesChanged(vault: VaultHandle, handler: () => void): Promise<() => void> {
+  const { isDesktop, currentWindowLabel } = await import('./window')
+  if (!isDesktop()) return () => undefined
+  const { listen } = await import('@tauri-apps/api/event')
+  return listen<{ root: string; source: string }>(MEMO_NOTES_CHANGED_EVENT, (event) => {
+    if (event.payload.source === currentWindowLabel()) return
+    if (event.payload.root.replaceAll('\\', '/').toLowerCase() !== vault.root.replaceAll('\\', '/').toLowerCase()) return
+    handler()
+  })
 }
 
 export async function writeMemoNote(vault: VaultHandle, path: string, note: MemoNote): Promise<void> {
@@ -68,6 +105,7 @@ export async function renameMemoNote(vault: VaultHandle, from: string, to: strin
   const source = await absolute(vault, from)
   await rename(source, target)
   forgetObservedFile(source)
+  await announceNotesChanged(vault)
 }
 
 export async function trashMemoNote(vault: VaultHandle, path: string): Promise<void> {
@@ -78,6 +116,7 @@ export async function trashMemoNote(vault: VaultHandle, path: string): Promise<v
   const source = await absolute(vault, path)
   await rename(source, await absolute(vault, `.iwae/trash/notes/${Date.now()}-${name}`))
   forgetObservedFile(source)
+  await announceNotesChanged(vault)
 }
 
 export async function createMemoNoteFolder(vault: VaultHandle, path: string): Promise<void> {
@@ -85,6 +124,7 @@ export async function createMemoNoteFolder(vault: VaultHandle, path: string): Pr
   const target = await absolute(vault, path)
   if (await exists(target)) throw new Error(t('같은 이름의 폴더가 이미 있습니다.'))
   await mkdir(target, { recursive: true })
+  await announceNotesChanged(vault)
 }
 
 /** 폴더 이름 바꾸기와 다른 폴더로 옮기기. notePaths 는 그 안에 있던 노트들(감시 기록을 지운다) */
@@ -94,6 +134,7 @@ export async function renameMemoNoteFolder(vault: VaultHandle, from: string, to:
   if (await exists(target)) throw new Error(t('같은 이름의 폴더가 이미 있습니다.'))
   await rename(await absolute(vault, from), target)
   for (const path of notePaths) forgetObservedFile(await absolute(vault, path))
+  await announceNotesChanged(vault)
 }
 
 /** 폴더를 통째로 .iwae/trash/notes 로 옮긴다 */
@@ -103,6 +144,7 @@ export async function trashMemoNoteFolder(vault: VaultHandle, path: string, note
   const name = path.replaceAll('\\', '/').split('/').at(-1) ?? 'folder'
   await rename(await absolute(vault, path), await absolute(vault, `.iwae/trash/notes/${Date.now()}-${name}`))
   for (const notePath of notePaths) forgetObservedFile(await absolute(vault, notePath))
+  await announceNotesChanged(vault)
 }
 
 /** 탐색기에서 그 노트(폴더)를 골라 보인다 */

@@ -34,6 +34,7 @@ fn request(
         journal_root: root.join(".iwae/journal").to_string_lossy().into_owned(),
         history_root: root.join(".iwae/history").to_string_lossy().into_owned(),
         file_id: "note-1".into(),
+        preserve_conflict: true,
     }
 }
 
@@ -72,6 +73,20 @@ fn expected_hash_mismatch_preserves_current_and_incoming_versions() {
         .collect::<Vec<_>>();
     assert!(names.iter().any(|name| name.ends_with(".current")));
     assert!(names.iter().any(|name| name.ends_with(".incoming")));
+}
+
+#[test]
+fn expected_hash_mismatch_leaves_no_conflict_record_when_the_caller_merges_and_retries() {
+    let root = fixture_dir("conflict-silent");
+    fs::write(root.join("note.canvas"), "other window").expect("other window file");
+
+    let mut silent = request(&root, "local", Some(sha256_hex(b"old")));
+    silent.preserve_conflict = false;
+    let error = atomic_write(&silent).expect_err("revision mismatch must still conflict");
+
+    assert!(matches!(error, StorageError::Conflict { .. }));
+    assert_eq!(fs::read_to_string(root.join("note.canvas")).unwrap(), "other window");
+    assert!(!root.join(".iwae/conflicts").exists(), "no conflict record for a retried write");
 }
 
 #[test]

@@ -224,6 +224,10 @@ export async function editPdfPages(docId: string, path: string, backup: string, 
 }
 
 /** 원본이 바뀐 문서의 쪽 그림·글자·링크·목차 캐시를 버린다 */
+export function invalidateDocument(docId: string): void {
+  forgetDocumentCaches(docId)
+}
+
 function forgetDocumentCaches(docId: string): void {
   docRevisions.set(docId, (docRevisions.get(docId) ?? 0) + 1)
   for (const key of [...textIndexCache.keys()]) if (key.startsWith(`${docId}:`)) textIndexCache.delete(key)

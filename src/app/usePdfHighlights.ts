@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { recordUndo } from './undoStack'
-import { readPdfHighlights, writePdfHighlights, type VaultHandle } from '../bridge/vault'
+import { pdfHighlightsCodec, readPdfHighlights, subscribeVaultFile, writePdfHighlights, type VaultHandle } from '../bridge/vault'
 import {
   parsePersistentPdfHighlights,
   persistentPdfHighlightFile,
@@ -13,6 +13,8 @@ import {
 export interface PdfHighlightStorage {
   load(): Promise<readonly PersistentPdfHighlight[]>
   save(highlights: readonly PersistentPdfHighlight[]): Promise<void>
+  /** 다른 창이 파일을 고치면 알려 준다. rebase 에 지금 목록을 주면 남의 변경을 얹은 목록을 돌려준다 */
+  subscribe?(onRemote: (rebase: (local: readonly PersistentPdfHighlight[]) => readonly PersistentPdfHighlight[]) => void): () => void
 }
 
 export function createBrowserPdfHighlightStorage(
@@ -35,6 +37,7 @@ export function createVaultPdfHighlightStorage(vault: VaultHandle): PdfHighlight
   return {
     load: () => readPdfHighlights(vault),
     save: (highlights) => writePdfHighlights(vault, highlights),
+    subscribe: (onRemote) => subscribeVaultFile(vault, 'highlights.json', pdfHighlightsCodec, onRemote),
   }
 }
 
@@ -74,6 +77,15 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
       generationRef.current += 1
     }
   }, [storage])
+
+  // 다른 창(떼어 낸 창·새 창)이 형광펜을 고치면 이 창의 목록에 합친다
+  useEffect(() => storage.subscribe?.((rebase) => {
+    if (!readyRef.current) return
+    const next = rebase(highlightsRef.current)
+    if (next === highlightsRef.current) return
+    highlightsRef.current = next
+    setHighlights(next)
+  }), [storage])
 
   // 되돌리기: 바꾸기 전·후 목록을 남기고, 되돌리면 그 목록을 다시 쓴다
   const restore = useCallback((list: readonly PersistentPdfHighlight[]) => {

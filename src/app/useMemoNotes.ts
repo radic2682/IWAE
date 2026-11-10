@@ -1,9 +1,12 @@
 import { recordUndo } from './undoStack'
+import { registerSaveFlusher } from './useCanvasAutosave'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { VaultHandle } from '../bridge/vault'
+import { subscribeVaultFolder, type VaultHandle } from '../bridge/vault'
 import {
   createMemoNoteFolder,
   listMemoNoteTree,
+  memoNoteCodec,
+  onMemoNotesChanged,
   readMemoNote,
   renameMemoNote,
   renameMemoNoteFolder,
@@ -87,15 +90,21 @@ export function useMemoNotes(
   const [closed, setClosed] = useState(false)
   const closedRef = useRef(closed)
   closedRef.current = closed
-  const notesRef = useRef(notes)
-  notesRef.current = notes
+  // 노트 목록의 기준은 이 ref 다. 상태(notes)는 화면용 사본이라 한 박자 늦다 — 한 번의 입력 안에서 노트를 두 번 고치거나
+  // 다른 창의 변경을 합치는 일이 겹쳐도 서로를 덮지 않게, 모든 갱신이 ref 에서 읽고 ref 에 먼저 쓴다
+  const notesRef = useRef<ReadonlyMap<string, MemoNote>>(notes)
+  const applyNotes = useCallback((update: (current: ReadonlyMap<string, MemoNote>) => ReadonlyMap<string, MemoNote>) => {
+    const next = update(notesRef.current)
+    notesRef.current = next
+    setNotes(next)
+  }, [])
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
 
   // Vault 를 열면 노트를 모두 읽는다
   useEffect(() => {
-    setNotes(new Map())
+    applyNotes(() => new Map())
     setFolders([])
     setLoaded(false)
     setOpenPath(null)
@@ -107,7 +116,7 @@ export function useMemoNotes(
         const tree = await listMemoNoteTree(vault)
         const read = await Promise.all(tree.entries.map(async (entry) => [entry.path, await readMemoNote(vault, entry.path).catch(() => EMPTY_MEMO_NOTE)] as const))
         if (!alive) return
-        setNotes(new Map(read))
+        applyNotes(() => new Map(read))
         setFolders(tree.folders)
         let remembered: string | null = null
         try { remembered = localStorage.getItem(openKey(vault.root)) } catch { /* 없음 */ }
@@ -142,7 +151,7 @@ export function useMemoNotes(
           const fresh = tree.entries.filter((entry) => !notesRef.current.has(entry.path))
           if (fresh.length === 0) return
           const read = await Promise.all(fresh.map(async (entry) => [entry.path, await readMemoNote(vault, entry.path).catch(() => EMPTY_MEMO_NOTE)] as const))
-          setNotes((current) => {
+          applyNotes((current) => {
             const next = new Map(current)
             for (const [path, note] of read) if (!next.has(path)) next.set(path, note)
             return next
@@ -158,6 +167,63 @@ export function useMemoNotes(
     return () => window.removeEventListener('focus', rescan)
   }, [vault, loaded])
 
+  // 다른 창이 노트를 고치면 이 창의 노트에 합친다(고치던 글도 지우지 않는다). 새 노트면 읽어 와 더한다
+  useEffect(() => {
+    if (vault === null || !loaded) return undefined
+    return subscribeVaultFolder(vault, MEMO_NOTES_FOLDER, (relativePath, change) => {
+      if (!relativePath.toLowerCase().endsWith('.iwnote')) return
+      const known = notesRef.current.get(relativePath)
+      if (known === undefined) {
+        void readMemoNote(vault, relativePath).then((note) => {
+          if (notesRef.current.has(relativePath)) return
+          const next = new Map(notesRef.current).set(relativePath, note)
+          notesRef.current = next
+          applyNotes(() => next)
+          const parent = memoParentOf(relativePath)
+          setFolders((current) => current.includes(parent) || parent === MEMO_NOTES_FOLDER ? current : [...current, parent].sort((a, b) => a.localeCompare(b, 'ko-KR')))
+        }).catch(() => undefined)
+        return
+      }
+      const merged = change.rebase(known, memoNoteCodec)
+      if (merged === known) return
+      const next = new Map(notesRef.current).set(relativePath, merged)
+      notesRef.current = next
+      applyNotes(() => next)
+    })
+  }, [vault, loaded])
+
+  // 다른 창이 노트를 옮기거나 지우거나 폴더를 바꿨다: 디스크 목록에 맞춘다(저장을 기다리는 노트는 건드리지 않는다)
+  useEffect(() => {
+    if (vault === null || !loaded) return undefined
+    let stop: (() => void) | undefined
+    let alive = true
+    void onMemoNotesChanged(vault, () => {
+      void (async () => {
+        try {
+          const tree = await listMemoNoteTree(vault)
+          const onDisk = new Set(tree.entries.map((entry) => entry.path))
+          const fresh = tree.entries.filter((entry) => !notesRef.current.has(entry.path))
+          const read = await Promise.all(fresh.map(async (entry) => [entry.path, await readMemoNote(vault, entry.path).catch(() => EMPTY_MEMO_NOTE)] as const))
+          const next = new Map<string, MemoNote>()
+          for (const [path, note] of notesRef.current) {
+            if (onDisk.has(path) || timersRef.current.has(path)) next.set(path, note)
+          }
+          for (const [path, note] of read) if (!next.has(path)) next.set(path, note)
+          notesRef.current = next
+          applyNotes(() => next)
+          setFolders(tree.folders)
+          setOpenPath((current) => current !== null && !next.has(current) ? [...next.keys()][0] ?? null : current)
+        } catch {
+          // 다시 읽지 못해도 지금 목록으로 계속 쓴다
+        }
+      })()
+    }).then((unlisten) => {
+      if (alive) stop = unlisten
+      else unlisten()
+    })
+    return () => { alive = false; stop?.() }
+  }, [vault, loaded])
+
   const persist = useCallback((path: string, note: MemoNote) => {
     if (vault === null) return
     const timers = timersRef.current
@@ -165,12 +231,13 @@ export function useMemoNotes(
     if (previous !== undefined) clearTimeout(previous)
     timers.set(path, setTimeout(() => {
       timers.delete(path)
-      void writeMemoNote(vault, path, note).catch((cause: unknown) => onErrorRef.current(t('노트를 저장하지 못했습니다: {error}', { error: errorText(cause) })))
+      // 기다리는 사이 다른 창의 변경이 합쳐졌을 수 있으니 지금 상태를 쓴다
+      void writeMemoNote(vault, path, notesRef.current.get(path) ?? note).catch((cause: unknown) => onErrorRef.current(t('노트를 저장하지 못했습니다: {error}', { error: errorText(cause) })))
     }, SAVE_DELAY_MS))
   }, [vault])
 
   const writeNote = useCallback((path: string, note: MemoNote) => {
-    setNotes((current) => new Map(current).set(path, note))
+    applyNotes((current) => new Map(current).set(path, note))
     persist(path, note)
   }, [persist])
   // 노트 블록을 바꾸면 전·후를 되돌리기에 남긴다(지운 노트·옮긴 노트는 남기지 않는다)
@@ -207,7 +274,7 @@ export function useMemoNotes(
       }
       const { writeVaultRelativeText } = await import('../bridge/vault')
       await writeVaultRelativeText(vault, MIGRATION_MARK, `${JSON.stringify({ version: 1, migratedAt: new Date().toISOString(), notes: created.map(({ title }) => title) }, null, 2)}\n`)
-      setNotes(next)
+      applyNotes(() => next)
       setOpenPath((current) => current ?? (closedRef.current ? null : [...next.keys()][0] ?? null))
     })().catch((cause: unknown) => onErrorRef.current(t('카테고리를 노트로 옮기지 못했습니다: {error}', { error: errorText(cause) })))
   }, [docTitle, highlights, loaded, vault])
@@ -240,7 +307,7 @@ export function useMemoNotes(
       onErrorRef.current(t('노트를 만들지 못했습니다: {error}', { error: errorText(cause) }))
       return null
     }
-    setNotes((current) => new Map(current).set(path, fresh))
+    applyNotes((current) => new Map(current).set(path, fresh))
     open(path)
     return path
   }, [open, vault])
@@ -258,13 +325,16 @@ export function useMemoNotes(
     }
   }, [vault])
 
+  // 창을 닫기·Vault 를 바꾸기 전에 미뤄 둔 노트 저장을 끝낸다
+  useEffect(() => registerSaveFlusher('memo-notes', () => flushPending([...timersRef.current.keys()])), [flushPending])
+
   /** 바뀐 경로대로 노트 목록·폴더·열린 노트를 고친다 */
   const applyMoved = useCallback((moved: ReadonlyMap<string, string>) => {
     if (moved.size === 0) return
     const map = new Map<string, MemoNote>()
     for (const [key, value] of notesRef.current) map.set(moved.get(key) ?? key, value)
     notesRef.current = map
-    setNotes(map)
+    applyNotes(() => map)
     setFolders((current) => current.map((folder) => moved.get(folder) ?? folder).sort((a, b) => a.localeCompare(b, 'ko-KR')))
     setOpenPath((current) => {
       const next = current === null ? null : moved.get(current) ?? current
@@ -327,7 +397,7 @@ export function useMemoNotes(
     await trashMemoNoteFolder(vault, path, notePaths)
     const removed = new Set(notePaths)
     const rest = [...notesRef.current.keys()].filter((note) => !removed.has(note))
-    setNotes((current) => {
+    applyNotes((current) => {
       const map = new Map(current)
       for (const note of notePaths) map.delete(note)
       return map
@@ -350,7 +420,7 @@ export function useMemoNotes(
       await writeMemoNote(vault, path, notesRef.current.get(path) ?? EMPTY_MEMO_NOTE)
     }
     await renameMemoNote(vault, path, next)
-    setNotes((current) => {
+    applyNotes((current) => {
       const map = new Map<string, MemoNote>()
       for (const [key, value] of current) map.set(key === path ? next : key, value)
       return map
@@ -369,7 +439,7 @@ export function useMemoNotes(
     }
     await trashMemoNote(vault, path)
     const rest = [...notesRef.current.keys()].filter((item) => item !== path)
-    setNotes((current) => {
+    applyNotes((current) => {
       const map = new Map(current)
       map.delete(path)
       return map

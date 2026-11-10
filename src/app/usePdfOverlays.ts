@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { recordUndo } from './undoStack'
-import { readPdfOverlays, writePdfOverlays, type VaultHandle } from '../bridge/vault'
+import { pdfOverlaysCodec, readPdfOverlays, subscribeVaultFile, writePdfOverlays, type VaultHandle } from '../bridge/vault'
 import { addOverlay, removeOverlay, remapOverlayPages, updateOverlay, type OverlayPatch, type PdfOverlay } from '../core/pdfOverlays'
 
 type Overlays = Readonly<Record<string, readonly PdfOverlay[]>>
@@ -12,7 +12,6 @@ type Overlays = Readonly<Record<string, readonly PdfOverlay[]>>
 export function usePdfOverlays(vault: VaultHandle | null) {
   const [overlays, setOverlays] = useState<Overlays>({})
   const ref = useRef<Overlays>({})
-  const queueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     let active = true
@@ -29,12 +28,23 @@ export function usePdfOverlays(vault: VaultHandle | null) {
     return () => { active = false }
   }, [vault])
 
+  // 다른 창이 그림·글 상자를 고치면 이 창에 합친다
+  useEffect(() => {
+    if (vault === null) return undefined
+    return subscribeVaultFile(vault, 'pdf-overlays.json', pdfOverlaysCodec, (rebase) => {
+      const next = rebase({ version: 1, overlays: ref.current }).overlays
+      if (next === ref.current) return
+      ref.current = next
+      setOverlays(next)
+    })
+  }, [vault])
+
+  // 저장은 파일마다 차례로 서고(bridge) 다른 창의 변경과 합쳐진다
   const write = useCallback((next: Overlays) => {
     ref.current = next
     setOverlays(next)
     if (vault === null) return
-    const handle = vault
-    queueRef.current = queueRef.current.catch(() => undefined).then(() => writePdfOverlays(handle, { version: 1, overlays: next }))
+    void writePdfOverlays(vault, { version: 1, overlays: next }).catch(() => undefined)
   }, [vault])
 
   const commit = useCallback((next: Overlays, key = 'all') => {
@@ -44,8 +54,7 @@ export function usePdfOverlays(vault: VaultHandle | null) {
     ref.current = next
     setOverlays(next)
     if (vault === null) return
-    const handle = vault
-    queueRef.current = queueRef.current.catch(() => undefined).then(() => writePdfOverlays(handle, { version: 1, overlays: next }))
+    void writePdfOverlays(vault, { version: 1, overlays: next }).catch(() => undefined)
   }, [vault])
 
   return {

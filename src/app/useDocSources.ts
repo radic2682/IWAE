@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { readDocSources, writeDocSources, type VaultHandle } from '../bridge/vault'
+import { docSourcesCodec, readDocSources, subscribeVaultFile, writeDocSources, type VaultHandle } from '../bridge/vault'
 import { addSource, createDocSource, type DocSource } from '../core/docSources'
 
 /**
@@ -9,7 +9,6 @@ import { addSource, createDocSource, type DocSource } from '../core/docSources'
 export function useDocSources(vault: VaultHandle | null) {
   const [sources, setSources] = useState<Readonly<Record<string, readonly DocSource[]>>>({})
   const ref = useRef<Readonly<Record<string, readonly DocSource[]>>>({})
-  const queueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     let active = true
@@ -26,14 +25,24 @@ export function useDocSources(vault: VaultHandle | null) {
     return () => { active = false }
   }, [vault])
 
+  // 다른 창이 출처를 고치면 이 창에 합친다
+  useEffect(() => {
+    if (vault === null) return undefined
+    return subscribeVaultFile(vault, 'sources.json', docSourcesCodec, (rebase) => {
+      const next = rebase({ version: 1, sources: ref.current }).sources
+      if (next === ref.current) return
+      ref.current = next
+      setSources(next)
+    })
+  }, [vault])
+
   const commit = useCallback((next: Readonly<Record<string, readonly DocSource[]>>) => {
     // 비어 버린 문서는 열쇠를 지운다
     const cleaned = Object.fromEntries(Object.entries(next).filter(([, list]) => list.length > 0))
     ref.current = cleaned
     setSources(cleaned)
     if (vault === null) return
-    const handle = vault
-    queueRef.current = queueRef.current.catch(() => undefined).then(() => writeDocSources(handle, { version: 1, sources: cleaned }))
+    void writeDocSources(vault, { version: 1, sources: cleaned }).catch(() => undefined)
   }, [vault])
 
   /** 출처를 더한다. 같은 주소가 이미 있으면 더하지 않고 false */
