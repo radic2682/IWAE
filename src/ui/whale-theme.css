@@ -419,7 +419,7 @@ button.note-source-page:hover { color: var(--accent); }
 .mouse-gesture-trail polyline { fill: none; stroke: var(--accent); stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
 
 /* ---------- 메모 카드는 밝은 종이, 메모 바 바탕은 어둡게 둔다 ---------- */
-:root .pdf-memo-bar-body .pdf-memo-card-flow {
+:root .pdf-memo-bar-body .pdf-memo-card-flow:not(.note-text-card) {
   --paper: #ffffff; --ink: #1d1d1f; --text: #1d1d1f; --text-strong: #111111; --text-muted: #45464a;
   --divider: #dedcd6; --chrome-hover: #ebe9e3; --note-quote-bg: #efede6;
   color-scheme: light;
