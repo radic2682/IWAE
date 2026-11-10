@@ -190,6 +190,16 @@ npm run tauri dev
 | `cargo test --manifest-path src-tauri/Cargo.toml` | Rust tests |
 | `npm run release:check` | Check release prerequisites |
 | `npm run release:build` | Build the installers |
+| `npm run release:local` | Build, verify and publish a release from this PC (see below) |
+
+### Releasing from this PC
+
+Releases are built locally on Windows and uploaded with the GitHub CLI (the release workflow only runs manually).
+
+1. Bump the version in `package.json`, commit, then tag and push: `git tag v<version>` and `git push origin v<version>`. The script never creates or pushes tags; the tag must point at HEAD and the working tree must be clean.
+2. Put the signing secrets in `C:\Workspace\.iwae-release\release.env` (outside the repo; override the location with `IWAE_RELEASE_ENV`), one `KEY=VALUE` per line: `TAURI_SIGNING_PRIVATE_KEY` (or `TAURI_SIGNING_PRIVATE_KEY_PATH` pointing to a key file), `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (may be empty) and `IWAE_UPDATER_PUBLIC_KEY`. These are the same values stored as GitHub secrets. Values already set in the environment win, and secrets are never printed.
+3. `npm run release:local -- --dry-run` shows the plan and what is missing. `npm run release:local` runs the tests, builds, verifies and collects everything into `dist-release/v<version>/` together with `latest.json`.
+4. Add `--publish` to create the GitHub release (`--clobber` to overwrite an existing one). `--mac-dir <folder>` adds a Mac build (`*.dmg`, `*.app.tar.gz`, `*.app.tar.gz.sig`); without it the release is Windows-only and Mac users will not get the update.
 
 ## Technology
 

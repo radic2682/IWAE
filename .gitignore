@@ -39,3 +39,6 @@ tsconfig.tsbuildinfo
 
 # 배포 금지어 목록(이 목록 자체가 지울 정보)
 .release-denylist.txt
+
+# 이 PC 에서 만든 릴리즈 산출물
+dist-release/
