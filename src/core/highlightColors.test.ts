@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { setLocale } from '../i18n'
+import { FOLDER_COLORS, folderColorLabel } from './folderColors'
 import {
   DEFAULT_HIGHLIGHT_COLORS,
   MAX_HIGHLIGHT_COLORS,
@@ -9,7 +11,9 @@ import {
   defaultHighlightColorId,
   deriveRoles,
   findHighlightColor,
+  highlightColorDisplayName,
   highlightColorIdFromInput,
+  highlightColorLabel,
   highlightColorName,
   highlightCssRules,
   highlightExportRgb,
@@ -31,6 +35,29 @@ import {
 } from './highlightColors'
 
 const WHITE = [255, 255, 255] as const
+
+describe('색 이름 표시', () => {
+  it('기본 id·기본 이름 그대로면 영어 화면에서 번역하고, 바꾼 이름·새 색은 그대로 보인다', () => {
+    setLocale('en')
+    expect(DEFAULT_HIGHLIGHT_COLORS.map(highlightColorDisplayName)).toEqual(['Yellow', 'Green', 'Blue', 'Pink'])
+    const renamed = { id: 'yellow', name: '형광', fill: '#ffd60a' }
+    expect(highlightColorDisplayName(renamed)).toBe('형광')
+    // 새로 만든 색이 우연히 기본 이름이어도 사용자가 쓴 글이다
+    expect(highlightColorDisplayName({ id: 'c_abc123', name: '노랑', fill: '#ffd60a' })).toBe('노랑')
+    expect(highlightColorLabel([renamed, ...DEFAULT_HIGHLIGHT_COLORS.slice(1)], 'yellow')).toBe('형광')
+    expect(highlightColorLabel(DEFAULT_HIGHLIGHT_COLORS, 'pink')).toBe('Pink')
+    expect(highlightColorLabel(DEFAULT_HIGHLIGHT_COLORS, 'gone')).toBe('Other')
+    // 저장된 이름은 그대로
+    expect(DEFAULT_HIGHLIGHT_COLORS[0]?.name).toBe('노랑')
+    setLocale('ko')
+    expect(highlightColorDisplayName(DEFAULT_HIGHLIGHT_COLORS[0]!)).toBe('노랑')
+  })
+
+  it('폴더 색 이름도 영어 화면에서 번역된다', () => {
+    setLocale('en')
+    expect(FOLDER_COLORS.map(folderColorLabel)).toEqual(['Yellow', 'Orange', 'Green', 'Sky blue', 'Purple', 'Violet', 'Pink'])
+  })
+})
 
 describe('기본 4색', () => {
   it('id 는 예전 그대로 yellow|green|blue|pink 이고 이름은 노랑·초록·파랑·분홍이다', () => {

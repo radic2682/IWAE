@@ -21,7 +21,7 @@ It is alpha. Day-to-day reading, memos, notes and saving work well, and saving i
 ## Your files and privacy
 
 **What is a Vault?**
-Any folder you open in IWAE. Its PDFs and Markdown files appear as they are on disk. IWAE never moves or locks them. Notes are saved as `*.iwnote` files (in the `노트` folder by default), and everything else IWAE needs (highlights, bookmarks, search index, translation cache, history, trash) lives in a hidden `.iwae` folder inside the Vault.
+Any folder you open in IWAE. Its PDFs and Markdown files appear as they are on disk. IWAE never moves or locks them. Notes are saved as `*.iwnote` files (in the `Notes` folder; Vaults that already use the Korean `노트` folder keep it), and everything else IWAE needs (highlights, bookmarks, search index, translation cache, history, trash) lives in a hidden `.iwae` folder inside the Vault.
 
 **Does IWAE change my PDF files?**
 Not when you read, highlight or write memos. Those are stored next to the file in `.iwae`. A PDF is only rewritten when you run a PDF tool that edits it (page edit, redact, compress and so on). The page editor backs up the original first, and most tools can write a copy instead.

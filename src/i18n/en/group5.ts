@@ -27,7 +27,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '형광펜 메모를 만들었습니다': 'Created highlight memo',
   'PDF 글자 크기에 맞춰 붙였습니다': 'Pasted at PDF text size',
   '선택 영역에 글자가 없어 원본 크기로 붙였습니다': 'No text in selection, pasted at original size',
-  '이미지': 'Image',
   '이미지 {count}개를 추가했습니다': 'Added {count} image(s)',
   '이미지를 추가하지 못했습니다': 'Could not add image',
   '복사해서 놓았습니다': 'Pasted copy',
@@ -94,7 +93,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '모두 접기': 'Collapse all',
   '모두 펼치기': 'Expand all',
   'PDF와 같이 보기': 'Show with PDF',
-  '메모만 보기': 'Show memos only',
   '노트 닫기': 'Close note',
   '이 PDF': 'This PDF',
   '열린 노트가 없습니다.': 'No note is open.',
@@ -104,6 +102,7 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '글을 끌면 박스가 생깁니다': 'Drag over text to create a box',
   '책갈피 핀 꽂기': 'Add bookmark pin',
   '여기에 책갈피 핀 꽂기': 'Add bookmark pin here',
+  '두 번 눌러 책갈피 핀 꽂기': 'Double-click to add a bookmark pin',
   '스캔본 · 텍스트 없음': 'Scanned · no text',
 
   // PdfOverlayPalette
@@ -189,7 +188,7 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '파랑': 'Blue',
   '청록': 'Teal',
   '초록': 'Green',
-  '보라': 'Violet',
+  '보라': 'Purple',
   '장미': 'Rose',
   '호박': 'Amber',
   '노랑': 'Yellow',

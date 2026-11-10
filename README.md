@@ -212,7 +212,7 @@ On macOS use `⌘` instead of `Ctrl`. The full list is in **Settings → Shortcu
 ```text
 your-vault/
 ├── *.pdf, *.md       your documents, left as they are
-├── 노트/*.iwnote      notes
+├── Notes/*.iwnote     notes (Korean vaults use 노트/)
 └── .iwae/            highlights, bookmarks, indexes, translation cache, history, trash
 ```
 

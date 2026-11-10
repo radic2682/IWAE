@@ -8,7 +8,7 @@
 
 import type { MemoNote, MemoTicket } from './memoNote'
 import { memoHighlightIds, normalizeTicket } from './memoNote'
-import { t } from '../i18n'
+import { pick, t } from '../i18n'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 
 /** 인용 하나(원문 + 그 출처) */
@@ -163,7 +163,7 @@ export function buildMarkdownBlocks(note: MemoNote, context: BuildContext): Mark
 /** 파일 이름으로 쓸 수 있게 다듬는다(윈도우에서 못 쓰는 글자·끝의 점·공백 제거) */
 export function markdownFileStem(title: string): string {
   const cleaned = title.replace(/[\\/:*?"<>|\u0000-\u001f]/gu, '_').replace(/\s+/gu, ' ').trim().replace(/[. ]+$/u, '')
-  return cleaned === '' ? t('노트') : cleaned.slice(0, 120)
+  return cleaned === '' ? pick({ ko: '노트', en: 'Note' }) : cleaned.slice(0, 120)
 }
 
 /** 같은 이름이 있으면 ` (2)` 를 붙여 겹치지 않게 한다. taken 은 소문자로 비교한다 */

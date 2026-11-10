@@ -235,8 +235,5 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   "PDF 로 돌아가기": "Back to the PDF",
   "라이브러리 {percent}%": "Library {percent}%",
   "Finder 에서 연 PDF 는 Vault 로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 남습니다. 끌어서 Vault 폴더에 놓으면 그 폴더로 가져옵니다.": "PDFs opened from Finder open without being imported and appear under “Recent PDFs” at the bottom of the left bar. Drag one onto a vault folder to import it there.",
-  'Markdown 내보내기는 데스크톱(Tauri) 안에서만 됩니다.': 'Markdown export is available only in the desktop app.',
-  '내보낼 노트가 없습니다.': 'There is no note to export.',
-  '(제목 없음)': '(Untitled)',
   '영역 그림': 'Region image',
 }

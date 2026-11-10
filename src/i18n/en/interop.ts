@@ -5,7 +5,7 @@ export const INTEROP: Readonly<Record<string, string>> = {
   '(제목 없음)': '(untitled)',
   '영역 그림': 'Region image',
   '번역': 'Translation',
-  '노트': 'Note',
+  '노트': 'Notes',
   // app/markdownExportActions.ts, useInteropActions.ts
   'Markdown 내보내기는 데스크톱(Tauri) 안에서만 됩니다.': 'Markdown export only works in the desktop app.',
   '내보낼 노트가 없습니다.': 'There are no notes to export.',

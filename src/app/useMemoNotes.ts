@@ -17,7 +17,7 @@ import {
 } from '../bridge/memoNotes'
 import {
   EMPTY_MEMO_NOTE,
-  MEMO_NOTES_FOLDER,
+  memoNotesFolder,
   insertBlock,
   isInsideMemoFolder,
   memoParentOf,
@@ -171,7 +171,7 @@ export function useMemoNotes(
   // 다른 창이 노트를 고치면 이 창의 노트에 합친다(고치던 글도 지우지 않는다). 새 노트면 읽어 와 더한다
   useEffect(() => {
     if (vault === null || !loaded) return undefined
-    return subscribeVaultFolder(vault, MEMO_NOTES_FOLDER, (relativePath, change) => {
+    return subscribeVaultFolder(vault, memoNotesFolder(), (relativePath, change) => {
       if (!relativePath.toLowerCase().endsWith('.iwnote')) return
       const known = notesRef.current.get(relativePath)
       if (known === undefined) {
@@ -181,7 +181,7 @@ export function useMemoNotes(
           notesRef.current = next
           applyNotes(() => next)
           const parent = memoParentOf(relativePath)
-          setFolders((current) => current.includes(parent) || parent === MEMO_NOTES_FOLDER ? current : [...current, parent].sort((a, b) => a.localeCompare(b, 'ko-KR')))
+          setFolders((current) => current.includes(parent) || parent === memoNotesFolder() ? current : [...current, parent].sort((a, b) => a.localeCompare(b, 'ko-KR')))
         }).catch(() => undefined)
         return
       }
@@ -300,7 +300,7 @@ export function useMemoNotes(
     if (vault === null) return null
     // 제목은 폴더가 달라도 겹치지 않게 둔다(MCP 가 제목으로 노트를 찾는다)
     const unique = uniqueNoteTitle(title, [...notesRef.current.keys()].map(memoNoteTitleOf))
-    const path = memoNotePath(unique, folder === '' ? MEMO_NOTES_FOLDER : folder)
+    const path = memoNotePath(unique, folder === '' ? memoNotesFolder() : folder)
     const fresh: MemoNote = docId === undefined ? EMPTY_MEMO_NOTE : { ...EMPTY_MEMO_NOTE, docId }
     try {
       await writeMemoNote(vault, path, fresh)
@@ -312,7 +312,7 @@ export function useMemoNotes(
     open(path)
     return path
   }, [open, vault])
-  const create = useCallback((title?: string) => createIn(MEMO_NOTES_FOLDER, title), [createIn])
+  const create = useCallback((title?: string) => createIn(memoNotesFolder(), title), [createIn])
 
   /** 쓰기를 기다리는 노트를 먼저 쓴다(옮기기·이름 바꾸기 전) */
   const flushPending = useCallback(async (paths: readonly string[]) => {
@@ -348,7 +348,7 @@ export function useMemoNotes(
 
   const move = useCallback(async (path: string, folder: string) => {
     if (vault === null) return path
-    const target = folder === '' ? MEMO_NOTES_FOLDER : folder
+    const target = folder === '' ? memoNotesFolder() : folder
     if (memoParentOf(path) === target) return path
     const next = `${target}/${path.split('/').at(-1) ?? ''}`
     await flushPending([path])
@@ -359,7 +359,7 @@ export function useMemoNotes(
 
   const createFolder = useCallback(async (parent: string, name: string) => {
     if (vault === null) throw new Error(t('Vault 가 열려 있지 않습니다.'))
-    const path = `${parent === '' ? MEMO_NOTES_FOLDER : parent}/${safeNoteTitle(name)}`
+    const path = `${parent === '' ? memoNotesFolder() : parent}/${safeNoteTitle(name)}`
     if (foldersRef.current.some((folder) => folder.toLowerCase() === path.toLowerCase())) throw new Error(t('같은 이름의 폴더가 이미 있습니다.'))
     await createMemoNoteFolder(vault, path)
     setFolders((current) => [...current, path].sort((a, b) => a.localeCompare(b, 'ko-KR')))
@@ -382,7 +382,7 @@ export function useMemoNotes(
     [relocateFolder],
   )
   const moveFolder = useCallback(
-    (path: string, parent: string) => relocateFolder(path, `${parent === '' ? MEMO_NOTES_FOLDER : parent}/${path.split('/').at(-1) ?? ''}`),
+    (path: string, parent: string) => relocateFolder(path, `${parent === '' ? memoNotesFolder() : parent}/${path.split('/').at(-1) ?? ''}`),
     [relocateFolder],
   )
 

@@ -1,4 +1,4 @@
-import { MEMO_NOTES_FOLDER } from './memoNote'
+import { MEMO_NOTES_FOLDER_KO, MEMO_NOTE_EXTENSION, memoNotesFolder, pickMemoNotesFolder } from './memoNote'
 import type { VaultIndexEntry, VaultStorageKind } from './vaultIndex'
 
 export interface LibraryDoc {
@@ -119,12 +119,39 @@ function normalizedParts(path: string): string[] {
   return path.replaceAll('\\', '/').split('/').filter((part) => part.length > 0)
 }
 
-function isReserved(parts: readonly string[]): boolean {
-  // 「노트」 폴더(메모 노트)는 왼쪽 바의 노트 구역이 따로 보인다
-  return parts.includes('.iwae') || parts.includes('assets') || parts[0] === MEMO_NOTES_FOLDER
+/**
+ * 문서 트리에서 뺄 경로를 가려내는 함수. 「노트」 폴더(메모 노트)는 왼쪽 바의 노트 구역이 따로 보이므로 통째로 뺀다.
+ * 영어 Vault 의 「Notes」는 사용자가 PDF·Markdown 을 넣어 둔 폴더일 수도 있어서, 노트 파일(.iwnote)과
+ * 노트만 든 폴더만 빼고 나머지는 그대로 둔다.
+ */
+function reservedMatcher(entries: readonly VaultTreeEntry[]): (parts: readonly string[]) => boolean {
+  const top = entries.flatMap((entry) => {
+    const parts = normalizedParts(entry.path)
+    return parts.length === 1 && entry.isDirectory ? [parts[0] ?? ''] : []
+  })
+  const folder = pickMemoNotesFolder(top) ?? memoNotesFolder()
+  const koreanFolder = folder === MEMO_NOTES_FOLDER_KO
+  // 노트 말고 다른 파일이 든 폴더(그 위 폴더 포함)
+  const mixed = new Set<string>()
+  const directories = new Set(entries.filter((entry) => entry.isDirectory).map((entry) => normalizedParts(entry.path).join('/')))
+  if (!koreanFolder) {
+    for (const entry of entries) {
+      const parts = normalizedParts(entry.path)
+      if (entry.isDirectory || parts[0] !== folder || entry.path.toLowerCase().endsWith(MEMO_NOTE_EXTENSION)) continue
+      for (let length = 1; length < parts.length; length += 1) mixed.add(parts.slice(0, length).join('/'))
+    }
+  }
+  return (parts) => {
+    if (parts.includes('.iwae') || parts.includes('assets')) return true
+    if (parts[0] !== folder) return false
+    if (koreanFolder) return true
+    const path = parts.join('/')
+    return directories.has(path) ? !mixed.has(path) : path.toLowerCase().endsWith(MEMO_NOTE_EXTENSION)
+  }
 }
 
 export function buildNotebookTree(entries: readonly VaultTreeEntry[]): NotebookGroup[] {
+  const isReserved = reservedMatcher(entries)
   const notebooks = new Map<string, NotebookNote[]>()
 
   for (const entry of entries) {
@@ -204,6 +231,7 @@ export function buildVaultWorkspaceTree(
     path: '',
     children: [],
   }
+  const isReserved = reservedMatcher(entries)
   const folders = new Map<string, VaultFolderNode>([['', root]])
   const indexedMarkdownByPath = new Map(indexedDocuments
     .filter((entry) => entry.kind === 'markdown' && entry.storage === 'vault')

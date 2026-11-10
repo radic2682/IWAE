@@ -5,6 +5,7 @@ import {
   MAX_HIGHLIGHT_NAME_LENGTH,
   addHighlightColor,
   colorNameOrDefault,
+  highlightColorDisplayName,
   moveHighlightColor,
   recolorHighlightColor,
   removeHighlightColor,
@@ -91,7 +92,7 @@ export function HighlightColorSettings() {
       <div className="hlc-list" ref={listRef} role="list" aria-labelledby="hlc-title">
         {colors.map((color, index) => {
           const count = usage.get(color.id) ?? 0
-          const label = color.name.trim() === '' ? t('색') : color.name
+          const label = color.name.trim() === '' ? t('색') : highlightColorDisplayName(color)
           const dropMark = drag !== null && drag.to === index && drag.from !== index ? (drag.to > drag.from ? 'after' : 'before') : undefined
           return (
             <div
@@ -137,7 +138,7 @@ export function HighlightColorSettings() {
                 type="text"
                 className="hlc-name"
                 aria-label={t('{name} 이름', { name: label })}
-                value={color.name}
+                value={highlightColorDisplayName(color)}
                 maxLength={MAX_HIGHLIGHT_NAME_LENGTH}
                 spellCheck={false}
                 onChange={(event) => save(renameHighlightColor(colors, color.id, event.target.value))}

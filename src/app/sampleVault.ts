@@ -1,5 +1,5 @@
 import { buildAnchor, type Anchor } from '../core/anchor'
-import { memoBlock, sectionBlock, textBlock, MEMO_NOTES_FOLDER, MEMO_NOTE_EXTENSION, type MemoNoteBlock } from '../core/memoNote'
+import { memoBlock, sectionBlock, textBlock, forgetMemoNotesFolder, memoNotesFolder, MEMO_NOTE_EXTENSION, type MemoNoteBlock } from '../core/memoNote'
 import { markdownToMemoHtml } from '../pdf/memoRichText'
 import { createPersistentPdfHighlight, type PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import type { PageTextIndex } from '../core/textIndex'
@@ -51,6 +51,8 @@ export function findQuote(text: string, quote: string): readonly [number, number
 /** 빈 Vault 면 예시를 넣는다. 넣었으면 true. 하나라도 실패하면 거기서 멈추고 넣은 것까지만 남긴다 */
 export async function seedSampleVault(io: SampleVaultIo, manifest: SampleManifest): Promise<boolean> {
   if (!(await io.isEmpty())) return false
+  // 빈 Vault 라 노트 폴더는 지금 화면 언어를 따른다(앞서 열었던 Vault 의 폴더를 물려받지 않는다)
+  forgetMemoNotesFolder()
   await io.writeBinary(manifest.pdf.name, new Uint8Array(await io.fetchAsset(manifest.pdf.file)))
   await io.writeText(manifest.markdown.name, new TextDecoder().decode(await io.fetchAsset(manifest.markdown.file)))
   const docId = await io.registerPdf(manifest.pdf.name)
@@ -80,6 +82,6 @@ export async function seedSampleVault(io: SampleVaultIo, manifest: SampleManifes
     blocks.push(memoBlock(highlight.id, block.ticket === undefined ? undefined : { title: block.ticket }))
   }
   if (highlights.length > 0) await io.writeHighlights([...(await io.readHighlights()), ...highlights])
-  await io.writeText(`${MEMO_NOTES_FOLDER}/${manifest.note.title}${MEMO_NOTE_EXTENSION}`, `${JSON.stringify({ version: 1, blocks }, null, 2)}\n`)
+  await io.writeText(`${memoNotesFolder()}/${manifest.note.title}${MEMO_NOTE_EXTENSION}`, `${JSON.stringify({ version: 1, blocks }, null, 2)}\n`)
   return true
 }

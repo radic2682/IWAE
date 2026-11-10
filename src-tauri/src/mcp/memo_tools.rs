@@ -7,7 +7,7 @@ use super::webview_call;
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 pub const INSTRUCTIONS: &str = "PDF memos (memo_* tools): a memo is a highlight on a PDF with a short note and an optional topic. \
-The topic is a note title: memos with a topic are appended to the IWAE note <Vault>/노트/<topic>.iwnote (listed under 「노트」 in the left sidebar \
+The topic is a note title: memos with a topic are appended to the IWAE note <Vault>/Notes/<topic>.iwnote (<Vault>/노트/ in Vaults that use the Korean folder name), listed under 「Notes」 (「노트」) in the left sidebar \
 and shown in the right memo bar). A note is JSON, not Markdown: a .md file in 노트 is ignored by IWAE. \
 memo_list shows existing memos (filter by doc_id/topic). memo_add creates memos: give doc_id, 1-based page, note (write it in the user's language, \
 short, explaining what the passage means or why it matters), optional topic, and either from_text/to_text (the exact text to highlight, \
@@ -38,7 +38,7 @@ pub fn tool_schemas() -> Vec<Value> {
             "full_width": {"type": "boolean", "description": "region from text, figures only: stretch across the text column"},
             "padding": {"type": "number", "description": "region from text: margin in points (default 6)"},
             "note": {"type": "string", "description": "The memo text (required). Markdown works: **bold**, - lists, | tables |"},
-            "topic": {"type": "string", "description": "Note title, e.g. TIMING. The memo is appended to the note <Vault>/노트/<topic>.iwnote (created if missing)."},
+            "topic": {"type": "string", "description": "Note title, e.g. TIMING. The memo is appended to the note <Vault>/Notes/<topic>.iwnote (<Vault>/노트/ in a Vault that already uses that Korean folder) (created if missing)."},
             "color": {"type": "string", "enum": ["yellow", "green", "blue", "pink"]}
         },
         "required": ["doc_id", "page", "note"]

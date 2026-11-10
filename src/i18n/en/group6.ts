@@ -128,7 +128,6 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   'PDF만 보기': 'PDF only',
   'Markdown만 보기': 'Markdown only',
   '캔버스만 보기': 'Canvas only',
-  '노트': 'Notes',
   '이미지만 보기': 'Images only',
   '이미지': 'Images',
   '기타 파일만 보기': 'Other files only',

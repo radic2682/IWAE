@@ -151,6 +151,30 @@ describe('NoteFlow — 소제목', () => {
     slot.remove()
   })
 
+  it('빈 글 블록을 쓰다 말고(Esc, 다른 블록으로 옮김) 떠나면 그 블록을 지운다. 글이 있으면 남긴다', () => {
+    const props = { ...handlers(), onInsertText: vi.fn() }
+    const items: NoteFlowItem[] = [{ kind: 'text', key: 't1', text: '글' }, { kind: 'text', key: 't2', text: '' }]
+    const { rerender } = render(<NoteFlow {...props} items={items} editingKey="t2" />)
+    expect(props.onRemoveText).not.toHaveBeenCalled()
+    // Esc 로 그만둠: 부모가 편집을 끝낸다
+    fireEvent.keyDown(screen.getByRole('textbox', { name: '글' }), { key: 'Escape' })
+    rerender(<NoteFlow {...props} items={items} editingKey={null} />)
+    expect(props.onRemoveText).toHaveBeenCalledExactlyOnceWith('t2')
+    // 글이 있는 블록은 편집을 떠나도 남는다
+    props.onRemoveText.mockClear()
+    rerender(<NoteFlow {...props} items={items} editingKey="t1" />)
+    rerender(<NoteFlow {...props} items={items} editingKey={null} />)
+    expect(props.onRemoveText).not.toHaveBeenCalled()
+  })
+
+  it('빈 글 블록을 쓰는 중에 다른 곳을 눌러 다른 블록을 쓰기 시작해도 빈 블록은 지운다', () => {
+    const props = { ...handlers() }
+    const items: NoteFlowItem[] = [{ kind: 'text', key: 't1', text: '글' }, { kind: 'text', key: 't2', text: '' }]
+    const { rerender } = render(<NoteFlow {...props} items={items} editingKey="t2" />)
+    rerender(<NoteFlow {...props} items={items} editingKey="t1" />)
+    expect(props.onRemoveText).toHaveBeenCalledExactlyOnceWith('t2')
+  })
+
   it('글 블록에서 Ctrl+Enter 도 저장하고 아래에 새 글 블록', () => {
     const props = { ...handlers(), onInsertText: vi.fn() }
     render(<NoteFlow {...props} items={[{ kind: 'text', key: 't1', text: '글' }]} editingKey="t1" />)

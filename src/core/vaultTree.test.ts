@@ -10,6 +10,22 @@ import {
 } from './vaultTree'
 import type { VaultIndexEntry } from './vaultIndex'
 
+describe('노트 폴더는 PDF 트리에서 뺀다', () => {
+  const tree = (names: string[], file: string) => buildNotebookTree([
+    ...names.map((path) => ({ path, isDirectory: true })),
+    ...names.map((path) => ({ path: `${path}/${file}`, isDirectory: false })),
+  ]).map((group) => group.name)
+
+  it('「노트」 폴더는 통째로 빼고, 「Notes」는 노트 파일만 든 폴더일 때만 뺀다', () => {
+    expect(tree(['노트', 'PDF'], 'A.canvas')).toEqual(['PDF'])
+    expect(tree(['Notes', 'PDF'], 'A.iwnote')).toEqual(['PDF'])
+    // 「Notes」에 다른 파일이 있으면 사용자의 문서 폴더이니 그대로 둔다
+    expect(tree(['Notes', 'PDF'], 'A.canvas')).toEqual(['Notes', 'PDF'])
+    // 둘 다 있으면 「노트」가 노트 폴더이고 「Notes」는 보통 폴더
+    expect(tree(['노트', 'Notes'], 'A.canvas')).toEqual(['Notes'])
+  })
+})
+
 describe('buildNotebookTree', () => {
   it('중첩 폴더의 canvas 파일을 최상위 Notebook 아래에 접는다', () => {
     expect(buildNotebookTree([

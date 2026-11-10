@@ -203,9 +203,12 @@ export function PdfSearchPanel({
               <X size={12} weight="bold" aria-hidden="true" />
             </button>
           ) : null}
-          <output className="pdf-search-position" aria-label={t('검색 결과 위치')}>
-            {current}/{search.matches.length}
-          </output>
+          {/* 위치(0/0)는 검색어가 있을 때만: 빈 칸에서는 안내 글이 잘리지 않게 자리를 비워 둔다 */}
+          {queryValue !== '' ? (
+            <output className="pdf-search-position" aria-label={t('검색 결과 위치')}>
+              {current}/{search.matches.length}
+            </output>
+          ) : null}
           <button
             type="button"
             className="pdf-search-option"

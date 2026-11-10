@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { setLocale } from '../i18n'
 import type { PageTextIndex } from '../core/textIndex'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { findQuote, seedSampleVault, type SampleManifest } from './sampleVault'
@@ -11,6 +12,27 @@ describe('예시 Vault', () => {
   it('줄바꿈·띄어쓰기가 달라도 원문을 찾는다', () => {
     expect(findQuote('A JSON text is\r\na sequence of tokens.', 'JSON text is a sequence')).toEqual([2, 26])
     expect(findQuote('abc', 'zzz')).toBeNull()
+  })
+
+  it('영어 화면의 예시 Vault 는 「Notes」 폴더에 노트를 둔다', async () => {
+    setLocale('en')
+    const files = new Map<string, string>()
+    const manifest: SampleManifest = {
+      pdf: { file: 'doc.pdf', name: 'Example.pdf' },
+      markdown: { file: 'guide.md', name: 'Guide.md' },
+      note: { title: 'Getting Started', blocks: [{ kind: 'section', title: 'Overview' }] },
+    }
+    await seedSampleVault({
+      isEmpty: async () => files.size === 0,
+      fetchAsset: async () => new ArrayBuffer(1),
+      writeBinary: async (path) => { files.set(path, '') },
+      writeText: async (path, text) => { files.set(path, text) },
+      registerPdf: async () => null,
+      pageText: async () => pageIndex(''),
+      readHighlights: async () => [],
+      writeHighlights: async () => undefined,
+    }, manifest)
+    expect([...files.keys()].sort()).toEqual(['Example.pdf', 'Guide.md', 'Notes/Getting Started.iwnote'])
   })
 
   it('빈 Vault 에만 PDF·Markdown·노트를 넣고, 메모·티켓을 형광펜으로 잇는다', async () => {

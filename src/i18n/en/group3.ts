@@ -33,7 +33,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '초록': 'Green',
   '파랑': 'Blue',
   '하늘': 'Sky blue',
-  '보라': 'Purple',
   '자주': 'Violet',
   '분홍': 'Pink',
   '없음': 'None',
@@ -50,7 +49,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '칸 빼기': 'Delete column',
   '서식 지우기': 'Clear formatting',
   '메모를 쓰세요': 'Write a memo',
-  '메모를 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다)': 'Write a memo (it disappears if you click away without writing)',
   '메모': 'Memo',
   '메모 고치기': 'Edit memo',
   '카테고리 정하기': 'Set category',
@@ -61,8 +59,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '새 카테고리': 'New category',
   '새 카테고리 (Enter)': 'New category (Enter)',
   '끌어서 순서 바꾸기': 'Drag to reorder',
-  '원문 펼치기': 'Expand excerpt',
-  '원문 접기': 'Collapse excerpt',
   'PDF 의 이 자리로': 'Go to this spot in the PDF',
   '표/그림': 'Table/figure',
   '새 메모': 'New memo',
@@ -76,7 +72,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '새 폴더': 'New folder',
   '{name} 색 바꾸기': 'Change color of {name}',
   '색 바꾸기': 'Change color',
-  '노트': 'Notes',
   '모든 노트 폴더 펼치기': 'Expand all note folders',
   '모든 노트 폴더 접기': 'Collapse all note folders',
   '모든 폴더 펼치기': 'Expand all folders',
@@ -102,7 +97,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '이모지 지우기': 'Remove emoji',
   '폴더로 옮기기': 'Move to folder',
   '노트 (맨 위)': 'Notes (top level)',
-  '탐색기에서 보기': 'Show in Explorer',
   '경로 복사': 'Copy path',
   '노트 지우기': 'Delete note',
   '폴더 지우기…': 'Delete folder…',
@@ -202,7 +196,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   // 업데이트 설정 (UpdateSettings)
   '아직 확인하지 않음': 'Not checked yet',
   '확인 기록 없음': 'No check recorded',
-  '업데이트': 'Updates',
   '새 버전을 확인하고 내려받는 방법을 선택합니다. 설치는 항상 직접 시작합니다.': 'Choose how new versions are checked and downloaded. Installing always starts manually.',
   '업데이트 자동 확인': 'Check for updates automatically',
   '작업 공간을 연 뒤 백그라운드에서 확인합니다.': 'Checks in the background after the workspace opens.',
@@ -217,7 +210,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   // Markdown 보기 · 검색 (MarkdownPane, MarkdownSearchPanel)
   '번역 결과를 받지 못했습니다.': 'No translation was returned.',
   '책갈피 핀 꽂기': 'Add bookmark pin',
-  '여기에 책갈피 핀 꽂기': 'Add a bookmark pin here',
   'Markdown 검색 결과': 'Markdown search results',
   '{count}개 결과': '{count} results',
   '형광펜 삭제': 'Delete highlight',
@@ -225,7 +217,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '선택 내용을 노트로 드래그': 'Drag selection to a note',
   '노트로 끌기': 'Drag to note',
   '노트로 드래그': 'Drag to note',
-  '번역': 'Translate',
   '번역 중…': 'Translating…',
   'Markdown 번역 결과': 'Markdown translation result',
   '번역과 함께 블록 추가': 'Add block with translation',
@@ -251,16 +242,11 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '블록 메뉴 닫기': 'Close block menu',
 
   // 형광펜 팝오버 (HighlightPopover)
-  '형광펜': 'Highlight',
-  '형광펜 색상': 'Highlight color',
-  '{color} 형광펜': '{color} highlight',
   '형광펜 메모': 'Highlight memo',
   '노트로 보내기': 'Send to note',
 
   // 패널 이름 (tabs: paneLabel → "{pane} 패널…" 문장에 들어간다)
   '{n}번': '#{n}',
-  '왼쪽': 'left',
-  '오른쪽': 'right',
   '가운데': 'middle',
 
   // 창 단추 (WindowControls)
@@ -270,11 +256,9 @@ export const GROUP_3: Readonly<Record<string, string>> = {
 
   // 노트 파일 (memoNotes)
   '같은 이름의 노트가 이미 있습니다.': 'A note with the same name already exists.',
-  '같은 이름의 폴더가 이미 있습니다.': 'A folder with the same name already exists.',
 
   // 박스 메모 (MarkdownWriteLayer)
   '박스 메모': 'Box memo',
-  '글을 끌면 박스가 생깁니다': 'Drag across text to make a box',
 
   // 외부 링크 (ExternalLinkConfirm, external)
   '외부 링크 열기': 'Open external link',

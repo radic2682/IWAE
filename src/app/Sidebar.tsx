@@ -21,7 +21,7 @@ import { VaultSearch } from './VaultSearch'
 import { ItemEmoji } from './ItemEmoji'
 import { MemoNotesSection, type MemoNotesSectionProps } from './MemoNotesSection'
 import { useGutterHeadLines } from './useGutterHeadLines'
-import { FOLDER_COLORS, folderColorHex, type FolderColor } from '../core/folderColors'
+import { FOLDER_COLORS, folderColorHex, folderColorLabel, type FolderColor } from '../core/folderColors'
 import { recentPdfDate, type RecentPdf } from '../core/recentPdfs'
 import { categoryColor } from '../pdf/CategoryTag'
 import { LibraryView } from './LibraryView'
@@ -1820,8 +1820,8 @@ export function Sidebar({
                     type="button"
                     role="menuitemradio"
                     aria-checked={itemColors[contextMenu.iconKey] === color.id}
-                    aria-label={t('폴더 색 {color}', { color: t(color.label) })}
-                    title={t(color.label)}
+                    aria-label={t('폴더 색 {color}', { color: folderColorLabel(color) })}
+                    title={folderColorLabel(color)}
                     className="side-color-swatch"
                     style={{ background: color.hex }}
                     onClick={() => void runEntryAction(() => onItemColorChange(contextMenu.iconKey, color.id))}

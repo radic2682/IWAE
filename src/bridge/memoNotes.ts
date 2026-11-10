@@ -2,7 +2,8 @@ import { t } from '../i18n'
 import { forgetObservedFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
 import type { SyncCodec } from '../core/vaultSync'
 import {
-  MEMO_NOTES_FOLDER,
+  detectMemoNotesFolder,
+  rememberMemoNotesFolder,
   MEMO_NOTE_EXTENSION,
   memoNoteTitleOf,
   parseMemoNote,
@@ -12,7 +13,7 @@ import {
 } from '../core/memoNote'
 
 /**
- * Vault 의 「노트」 폴더(하위 폴더 포함)에 있는 메모 노트 파일(*.iwnote). 쓰기는 저널 원자 쓰기,
+ * Vault 의 노트 폴더(「노트」 또는 「Notes」, 하위 폴더 포함)에 있는 메모 노트 파일(*.iwnote). 쓰기는 저널 원자 쓰기,
  * 지우기는 바로 지우지 않고 .iwae/trash/notes 로 옮긴다.
  */
 
@@ -24,12 +25,13 @@ async function absolute(vault: VaultHandle, relativePath: string): Promise<strin
 /** 이만큼 깊이까지만 하위 폴더를 읽는다(고리처럼 잘못 걸린 폴더에서 멈추려고) */
 const MAX_FOLDER_DEPTH = 8
 
-/** 「노트」 아래의 노트 파일과 하위 폴더(Vault 상대 경로). 점(.)으로 시작하는 폴더는 건너뛴다 */
+/** 노트 폴더 아래의 노트 파일과 하위 폴더(Vault 상대 경로). 점(.)으로 시작하는 폴더는 건너뛴다 */
 export async function listMemoNoteTree(vault: VaultHandle): Promise<{ entries: MemoNoteEntry[]; folders: string[] }> {
   const { exists, readDir } = await import('@tauri-apps/plugin-fs')
   const entries: MemoNoteEntry[] = []
   const folders: string[] = []
-  if (!(await exists(await absolute(vault, MEMO_NOTES_FOLDER)))) return { entries, folders }
+  const root = await detectMemoNotesFolder(async (name) => exists(await absolute(vault, name)))
+  if (!(await exists(await absolute(vault, root)))) return { entries, folders }
   const walk = async (folder: string, depth: number): Promise<void> => {
     for (const entry of await readDir(await absolute(vault, folder))) {
       const path = `${folder}/${entry.name}`
@@ -42,7 +44,7 @@ export async function listMemoNoteTree(vault: VaultHandle): Promise<{ entries: M
       }
     }
   }
-  await walk(MEMO_NOTES_FOLDER, 0)
+  await walk(root, 0)
   entries.sort((a, b) => a.title.localeCompare(b.title, 'ko-KR'))
   folders.sort((a, b) => a.localeCompare(b, 'ko-KR'))
   return { entries, folders }
@@ -95,6 +97,7 @@ export async function onMemoNotesChanged(vault: VaultHandle, handler: () => void
 
 export async function writeMemoNote(vault: VaultHandle, path: string, note: MemoNote): Promise<void> {
   await writeVaultRelativeText(vault, path, serializeMemoNote(note))
+  rememberMemoNotesFolder(path.replaceAll('\\', '/').split('/')[0] ?? '')
 }
 
 /** 이름 바꾸기와 다른 폴더로 옮기기(파일 하나) */

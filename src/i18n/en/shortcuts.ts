@@ -8,8 +8,6 @@ export const SHORTCUTS: Readonly<Record<string, string>> = {
   '이 문서에서 찾기': 'Find in this document',
   '쪽으로 가기': 'Go to page',
   '인쇄': 'Print',
-  '라이브러리 펼치기·접기': 'Expand or collapse the library',
-  '화면 나누기 바꾸기': 'Toggle split view',
   '왼쪽 칸으로': 'Focus the left pane',
   '오른쪽 칸으로': 'Focus the right pane',
   '다음 탭': 'Next tab',
@@ -39,8 +37,6 @@ export const SHORTCUTS: Readonly<Record<string, string>> = {
   '축소': 'Zoom out',
   '폭에 맞추기': 'Fit to width',
   '일반': 'General',
-  '탭·문서': 'Tabs and documents',
-  '화면': 'View',
   '편집기 (바꿀 수 없음)': 'Editor (fixed)',
   '단축키 찾기': 'Find a shortcut',
   '모두 기본값으로': 'Reset all to defaults',
@@ -66,5 +62,4 @@ export const SHORTCUTS: Readonly<Record<string, string>> = {
   '닫기': 'Close',
   'Esc 로 닫기': 'Press Esc to close',
   '설정에서 바꾸기': 'Change in Settings',
-  '편집 도구 (한 글자)': 'Edit tools (single key)',
 }

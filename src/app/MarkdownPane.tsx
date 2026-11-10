@@ -1,3 +1,4 @@
+import { createPinPressTracker } from '../pdf/pinGesture'
 import { defaultHighlightColorId } from '../core/highlightColors'
 import { getHighlightColors } from './highlightColorStyle'
 import { t } from '../i18n'
@@ -1167,6 +1168,7 @@ export function MarkdownPane({
     y: Math.round((pin.y ?? 0) * trackHeight),
     target: Math.max((pin.y ?? 0) * scrollBox.height - 6, 0),
   })), [pins, scrollBox.height, trackHeight])
+  const pinPress = useRef(createPinPressTracker())
   const pinRatioAt = (barY: number) => Math.min(Math.max(barY / Math.max(trackHeight, 1), 0), 1)
   const plantPin = () => {
     if (onAddPin === undefined || ghostY === null) return
@@ -1395,13 +1397,14 @@ export function MarkdownPane({
               tabIndex={-1}
               className="pdf-pin-ghost"
               style={{ top: `${ghostY}px` }}
-              title={t('책갈피 핀 꽂기')}
+              title={t('두 번 눌러 책갈피 핀 꽂기')}
               aria-label={t('여기에 책갈피 핀 꽂기')}
               onPointerDown={(event) => {
                 event.stopPropagation()
                 if (event.button !== 0) return
                 event.preventDefault()
-                plantPin()
+                // 두 번 눌러야 꽂는다(한 번은 막대 옆 빈 자리를 누르려던 손일 수 있다)
+                if (pinPress.current.press(performance.now())) plantPin()
               }}
             >
               <PinHead />

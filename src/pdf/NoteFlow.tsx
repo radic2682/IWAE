@@ -264,6 +264,17 @@ export function NoteFlow({
 
   // ---------- 우클릭 메뉴 ----------
   const [menu, setMenu] = useState<{ key: string; x: number; y: number } | null>(null)
+  // 글 블록을 쓰다 말고(Esc, 다른 자리 누르기) 비운 채 떠나면 그 빈 블록을 지운다 — 새로 넣은 빈 글이 노트에 남지 않게
+  const previousEditingKey = useRef<string | null>(null)
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  useEffect(() => {
+    const previous = previousEditingKey.current
+    previousEditingKey.current = editingKey
+    if (previous === null || previous === editingKey) return
+    const left = itemsRef.current.find((item) => item.key === previous)
+    if (left?.kind === 'text' && left.text.trim() === '') onRemoveText(previous)
+  }, [editingKey, onRemoveText])
   useEffect(() => {
     if (menu === null) return
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenu(null) }

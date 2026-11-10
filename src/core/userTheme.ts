@@ -221,7 +221,7 @@ export function themeFromPalette(base: BasePaletteId, name: string): UserTheme {
 
 /** 같은 이름이 있으면 " (2)", " (3)"… 을 붙인다 */
 export function uniqueThemeName(name: string, taken: readonly string[]): string {
-  const clean = name.trim() || '내 테마'
+  const clean = name.trim() || t('내 테마')
   if (!taken.includes(clean)) return clean
   for (let n = 2; n < 1000; n++) if (!taken.includes(`${clean} (${n})`)) return `${clean} (${n})`
   return clean

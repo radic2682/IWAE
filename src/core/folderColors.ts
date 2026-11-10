@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+
 /** 폴더 색(웨일 북마크 폴더처럼). 키는 폴더 이모지와 같은 folderIconKey(path) */
 export type FolderColor = 'yellow' | 'orange' | 'green' | 'blue' | 'purple' | 'violet' | 'pink'
 
@@ -10,6 +12,11 @@ export const FOLDER_COLORS: readonly { readonly id: FolderColor; readonly label:
   { id: 'violet', label: '자주', hex: '#b911ff' },
   { id: 'pink', label: '분홍', hex: '#ff4fd5' },
 ]
+
+/** 폴더 색 이름(지금 언어로) */
+export function folderColorLabel(color: { readonly label: string }): string {
+  return t(color.label)
+}
 
 export function isFolderColor(value: unknown): value is FolderColor {
   return FOLDER_COLORS.some((color) => color.id === value)

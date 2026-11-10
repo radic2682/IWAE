@@ -259,14 +259,24 @@ export function findHighlightColor(colors: readonly HighlightColorDef[], id: str
   return id === undefined ? undefined : colors.find((color) => color.id === id)
 }
 
-/** 화면에 쓰는 이름. 없는 색은 「기타」 */
+/**
+ * 색 하나의 화면 이름. 기본 id 와 기본 한국어 이름 그대로인 색은 지금 언어로 번역해 보이고,
+ * 사용자가 이름을 바꾼 색(또는 새로 만든 색)은 쓴 그대로 보인다. 저장된 이름은 건드리지 않는다.
+ */
+export function highlightColorDisplayName(color: HighlightColorDef): string {
+  const isDefault = DEFAULT_HIGHLIGHT_COLORS.some((preset) => preset.id === color.id && preset.name === color.name)
+  return isDefault ? t(color.name) : color.name
+}
+
+/** 화면에 쓰는 이름(저장된 이름 그대로). 없는 색은 「기타」 */
 export function highlightColorName(colors: readonly HighlightColorDef[], id: string | undefined): string {
   return findHighlightColor(colors, id)?.name ?? OTHER_HIGHLIGHT_NAME
 }
 
 /** 사람이 읽는 이름(기본 이름은 번역된다). 목록에 없는 색은 「기타」 */
 export function highlightColorLabel(colors: readonly HighlightColorDef[], id: string | undefined): string {
-  return t(highlightColorName(colors, id))
+  const color = findHighlightColor(colors, id)
+  return color === undefined ? t(OTHER_HIGHLIGHT_NAME) : highlightColorDisplayName(color)
 }
 
 /** 외부(MCP 등)가 준 색 이름·id 를 id 로. 모르면 undefined */

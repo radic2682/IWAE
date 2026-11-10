@@ -330,4 +330,13 @@ describe('PdfSearchPanel', () => {
     expect(container.querySelector('[aria-current="true"]')).not.toBeNull()
     expect(container.querySelectorAll('.pdf-search-result-row').length).toBeLessThan(1000)
   })
+
+  it('왼쪽 바 검색칸은 검색어가 없을 때 위치(0/0)를 감추고, 있으면 보인다', () => {
+    const props = { docked: true, onQueryChange: vi.fn(), search: searchResult({ matches: [], activeIndex: -1 }), options, onOptionsChange: vi.fn(), onSelectMatch: vi.fn() }
+    const { rerender } = render(<PdfSearchPanel {...props} query="" />)
+    expect(screen.queryByLabelText('검색 결과 위치')).toBeNull()
+    expect(screen.getByRole('button', { name: '대소문자 구분' })).toBeDefined()
+    rerender(<PdfSearchPanel {...props} query="needle" />)
+    expect(screen.getByLabelText('검색 결과 위치').textContent).toBe('0/0')
+  })
 })

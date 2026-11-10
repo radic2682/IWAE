@@ -1,3 +1,4 @@
+import { createPinPressTracker } from './pinGesture'
 import { ChatTeardropText } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useIsNoteHostPane, useNoteBarPresence, useNoteDock } from '../app/noteDock'
@@ -1367,6 +1368,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const [editingPinId, setEditingPinId] = useState<string | null>(null)
   // 막대에 마우스를 올리면 그 높이에 흐린 새 핀이 따라온다
   const [ghostY, setGhostY] = useState<number | null>(null)
+  const pinPress = useRef(createPinPressTracker())
   const trackGhost = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (onAddPin === undefined || !pinsShown || scrollDragRef.current !== null) return
     const rect = event.currentTarget.getBoundingClientRect()
@@ -1916,14 +1918,15 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               tabIndex={-1}
               className="pdf-pin-ghost"
               style={{ top: `${ghostY}px` }}
-              title={t('책갈피 핀 꽂기')}
+              title={t('두 번 눌러 책갈피 핀 꽂기')}
               aria-label={t('여기에 책갈피 핀 꽂기')}
               onPointerDown={(event) => {
-                // 누르는 순간 꽂는다(떼기 전에 페이지 쪽이 포인터를 가져가면 click 이 오지 않는다)
+                // 두 번 눌러야 꽂는다(한 번은 막대 옆 빈 자리를 누르려던 손일 수 있다). 누르는 순간 센다:
+                // 떼기 전에 페이지 쪽이 포인터를 가져가면 click 이 오지 않는다
                 event.stopPropagation()
                 if (event.button !== 0) return
                 event.preventDefault()
-                plantPin()
+                if (pinPress.current.press(performance.now())) plantPin()
               }}
             >
               <PinHead />

@@ -59,7 +59,18 @@ describe('PDF 스크롤 막대 책갈피 핀', () => {
     expect(top).toBeGreaterThan(0)
   })
 
-  it('막대에 올리면 흐린 새 핀이 따라오고, 누르면 그 자리에 꽂히며 바로 이름을 고친다', () => {
+  it('흐린 새 핀을 한 번 누른 것만으로는 아무것도 만들지 않는다(막대 옆 빈 자리를 누르려던 손)', () => {
+    setViewport(800, 600)
+    const onAdd = vi.fn()
+    const { container } = render(<Harness onAdd={onAdd} />)
+    const bar = container.querySelector<HTMLElement>('.pdf-scrollbar')!
+    fireEvent.pointerMove(bar, { clientY: 300 })
+    fireEvent.pointerDown(container.querySelector<HTMLElement>('.pdf-pin-ghost')!, { button: 0 })
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: '핀 이름' })).toBeNull()
+  })
+
+  it('막대에 올리면 흐린 새 핀이 따라오고, 두 번 누르면 그 자리에 꽂히며 바로 이름을 고친다', () => {
     setViewport(800, 600)
     const onAdd = vi.fn()
     const onUpdate = vi.fn()
@@ -68,6 +79,8 @@ describe('PDF 스크롤 막대 책갈피 핀', () => {
     fireEvent.pointerMove(bar, { clientY: 300 })
     const ghost = container.querySelector<HTMLElement>('.pdf-pin-ghost')
     expect(ghost).not.toBeNull()
+    fireEvent.pointerDown(ghost!, { button: 0 })
+    expect(onAdd).not.toHaveBeenCalled()
     fireEvent.pointerDown(ghost!, { button: 0 })
     expect(onAdd).toHaveBeenCalledOnce()
     const [page, y] = onAdd.mock.calls[0]!

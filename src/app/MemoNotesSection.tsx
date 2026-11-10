@@ -1,8 +1,8 @@
 import { t } from '../i18n'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { ArrowSquareIn, ArrowSquareOut, ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, ClipboardText, Eraser, Export, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, PencilSimple, Plus, Smiley, Trash } from '@phosphor-icons/react'
-import { MEMO_NOTES_FOLDER, isInsideMemoFolder, memoParentOf, type MemoNoteEntry } from '../core/memoNote'
-import { FOLDER_COLORS, folderColorHex, type FolderColor } from '../core/folderColors'
+import { memoNotesFolder, isInsideMemoFolder, memoParentOf, type MemoNoteEntry } from '../core/memoNote'
+import { FOLDER_COLORS, folderColorHex, folderColorLabel, type FolderColor } from '../core/folderColors'
 import { ItemEmoji } from './ItemEmoji'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { DeleteFolderDialog } from './SidebarDialogs'
@@ -170,7 +170,7 @@ export function MemoNotesSection({
   /** 노트가 든 폴더. 모르는 폴더면 맨 위로 본다 */
   const parentOfNote = (path: string) => {
     const parent = memoParentOf(path)
-    return folderSet.has(parent) ? parent : MEMO_NOTES_FOLDER
+    return folderSet.has(parent) ? parent : memoNotesFolder()
   }
 
   const rows = useMemo(() => {
@@ -185,11 +185,11 @@ export function MemoNotesSection({
       }
       for (const entry of entries) {
         const own = memoParentOf(entry.path)
-        const parentFolder = folderSet.has(own) ? own : MEMO_NOTES_FOLDER
+        const parentFolder = folderSet.has(own) ? own : memoNotesFolder()
         if (parentFolder === parent) out.push({ kind: 'note', entry, parent, depth })
       }
     }
-    walk(MEMO_NOTES_FOLDER, 0)
+    walk(memoNotesFolder(), 0)
     return out
   }, [draftFolder?.parent, entries, expanded, folderSet, folders])
 
@@ -212,7 +212,7 @@ export function MemoNotesSection({
     const last = items.at(-1)!
     if (hit === undefined) {
       // 목록 아래 빈 곳 = 「노트」 맨 위 폴더의 끝
-      if (clientY >= last.getBoundingClientRect().bottom) return { kind: 'beside', folder: MEMO_NOTES_FOLDER, row: '', target: null, position: 'after' }
+      if (clientY >= last.getBoundingClientRect().bottom) return { kind: 'beside', folder: memoNotesFolder(), row: '', target: null, position: 'after' }
       return null
     }
     const kind = hit.dataset.memoRow
@@ -319,7 +319,7 @@ export function MemoNotesSection({
 
   const startDraftFolder = (parent: string) => {
     setDraftFolder({ parent, value: '' })
-    if (parent !== MEMO_NOTES_FOLDER) setExpanded((current) => new Set([...current, parent]))
+    if (parent !== memoNotesFolder()) setExpanded((current) => new Set([...current, parent]))
   }
 
   const toggleFolder = (path: string) => setExpanded((current) => {
@@ -400,7 +400,7 @@ export function MemoNotesSection({
   /** 옮길 수 있는 폴더(맨 위 「노트」 포함). 지금 폴더와, 폴더라면 자기·자기 안은 뺀다 */
   const moveChoices = (kind: 'note' | 'folder', path: string) => {
     const current = kind === 'note' ? parentOfNote(path) : memoParentOf(path)
-    return [MEMO_NOTES_FOLDER, ...[...folders].sort((a, b) => a.localeCompare(b, 'ko-KR'))].filter((folder) => (
+    return [memoNotesFolder(), ...[...folders].sort((a, b) => a.localeCompare(b, 'ko-KR'))].filter((folder) => (
       folder !== current && (kind === 'note' || (folder !== path && !isInsideMemoFolder(folder, path)))
     ))
   }
@@ -437,7 +437,7 @@ export function MemoNotesSection({
           </button>
         ) : null}
         {onCreateFolder !== undefined ? (
-          <button type="button" className="side-top-action" aria-label={t('새 노트 폴더')} title={t('새 폴더')} onClick={() => startDraftFolder(MEMO_NOTES_FOLDER)}>
+          <button type="button" className="side-top-action" aria-label={t('새 노트 폴더')} title={t('새 폴더')} onClick={() => startDraftFolder(memoNotesFolder())}>
             <FolderPlus size={16} aria-hidden="true" />
           </button>
         ) : null}
@@ -452,7 +452,7 @@ export function MemoNotesSection({
           role="tree"
           aria-label={t('노트 트리')}
         >
-          {draftRow(MEMO_NOTES_FOLDER, 0)}
+          {draftRow(memoNotesFolder(), 0)}
           {rows.map((row, index) => {
             const key = rowKey(row)
             const dragging = drag?.from === key ? 'side-tree-node-dragging side-memo-note-dragging' : ''
@@ -684,7 +684,7 @@ export function MemoNotesSection({
                       }}
                     >
                       <Folder size={13} aria-hidden="true" />
-                      <span>{folder === MEMO_NOTES_FOLDER ? t('노트 (맨 위)') : folderName(folder)}</span>
+                      <span>{folder === memoNotesFolder() ? t('노트 (맨 위)') : folderName(folder)}</span>
                     </button>
                   ))}
                 </div>
@@ -747,8 +747,8 @@ function ColorSwatches({ current, label, onPick }: {
           type="button"
           role="menuitemradio"
           aria-checked={current === color.id}
-          aria-label={`${label} ${t(color.label)}`}
-          title={t(color.label)}
+          aria-label={`${label} ${folderColorLabel(color)}`}
+          title={folderColorLabel(color)}
           className="side-color-swatch"
           style={{ background: color.hex }}
           onClick={() => onPick(color.id)}

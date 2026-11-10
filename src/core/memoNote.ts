@@ -8,12 +8,55 @@
  * - memo 블록의 refs: 한 메모가 가리키는 원문을 더 둘 때 그 형광펜 id 들(첫 원문은 highlightId)
  *   kind 는 memo 그대로라 형광펜 연결·지우기가 메모와 같고, 티켓을 모르는 판도 메모로 읽는다.
  *
- * 파일은 Vault 의 「노트」 폴더에 `<제목>.iwnote`(JSON)로 둔다.
+ * 파일은 Vault 의 노트 폴더(「노트」, 영어 Vault 는 「Notes」)에 `<제목>.iwnote`(JSON)로 둔다.
  */
 
-import { t } from '../i18n'
+import { getLocale, t } from '../i18n'
 
-export const MEMO_NOTES_FOLDER = '노트'
+/** 노트 폴더 이름 후보. 앞의 것이 먼저다(한국어 Vault 는 그대로 「노트」) */
+export const MEMO_NOTES_FOLDER_KO = '노트'
+export const MEMO_NOTES_FOLDER_EN = 'Notes'
+export const MEMO_NOTES_FOLDER_CANDIDATES: readonly string[] = [MEMO_NOTES_FOLDER_KO, MEMO_NOTES_FOLDER_EN]
+
+/** 이 Vault 에서 이미 있는 노트 폴더(없으면 null). Vault 를 열 때 {@link detectMemoNotesFolder} 가 정한다 */
+let detectedFolder: string | null = null
+
+/**
+ * 이 Vault 의 노트 폴더 이름. 「노트」가 있으면 그것, 없고 「Notes」가 있으면 그것,
+ * 둘 다 없으면 지금 화면 언어의 이름(한국어 「노트」, 영어 「Notes」)이다 — 처음 노트를 만들 때 생긴다.
+ */
+export function memoNotesFolder(): string {
+  return detectedFolder ?? (getLocale() === 'ko' ? MEMO_NOTES_FOLDER_KO : MEMO_NOTES_FOLDER_EN)
+}
+
+/** 폴더 이름이 노트 폴더 후보인가 */
+export function isMemoNotesFolderName(name: string): boolean {
+  return MEMO_NOTES_FOLDER_CANDIDATES.includes(name)
+}
+
+/** Vault 맨 위 폴더 이름들 중 노트 폴더(「노트」 먼저, 다음 「Notes」). 없으면 null */
+export function pickMemoNotesFolder(topLevelFolders: Iterable<string>): string | null {
+  const names = new Set(topLevelFolders)
+  return MEMO_NOTES_FOLDER_CANDIDATES.find((name) => names.has(name)) ?? null
+}
+
+/** 디스크에 이미 있는 폴더를 보고 노트 폴더를 정한다(「노트」 먼저, 다음 「Notes」). 없으면 화면 언어를 따른다 */
+export async function detectMemoNotesFolder(folderExists: (name: string) => Promise<boolean>): Promise<string> {
+  const present: string[] = []
+  for (const name of MEMO_NOTES_FOLDER_CANDIDATES) if (await folderExists(name)) present.push(name)
+  detectedFolder = pickMemoNotesFolder(present)
+  return memoNotesFolder()
+}
+
+/** 노트를 방금 이 폴더에 만들었다: 이제 이 폴더가 이 Vault 의 노트 폴더다 */
+export function rememberMemoNotesFolder(name: string): void {
+  if (detectedFolder === null && isMemoNotesFolderName(name)) detectedFolder = name
+}
+
+/** 다른 Vault 로 바꿀 때 */
+export function forgetMemoNotesFolder(): void {
+  detectedFolder = null
+}
 export const MEMO_NOTE_EXTENSION = '.iwnote'
 
 export type MemoNoteBlock =
@@ -169,7 +212,9 @@ export function parseMemoNote(value: unknown): MemoNote {
       return [{ id: item.id, kind: 'section', title: item.title, ...(item.collapsed === true ? { collapsed: true as const } : {}) }]
     }
     if (item.kind === 'text' && typeof item.text === 'string') {
-      return [{ id: item.id, kind: 'text', text: item.text, ...(typeof item.html === 'string' && item.html !== '' ? { html: item.html } : {}) }]
+      const block: MemoNoteBlock = { id: item.id, kind: 'text', text: item.text, ...(typeof item.html === 'string' && item.html !== '' ? { html: item.html } : {}) }
+      // 예전에 빈 채로 저장된 글 블록은 읽을 때 버린다(다음 저장부터 파일에서도 사라진다)
+      return isEmptyTextBlock(block) ? [] : [block]
     }
     return []
   })
@@ -177,8 +222,18 @@ export function parseMemoNote(value: unknown): MemoNote {
   return { version: 1, blocks, ...(docId === undefined ? {} : { docId }) }
 }
 
+/**
+ * 글을 하나도 쓰지 않은 글 블록. 「여기에 글 넣기」로 만든 직후나 쓰다 만 채 떠난 블록이라 노트에 남길 까닭이 없다.
+ * 화면에서는 떠날 때 지워지지만, 어떤 경로로든 남았더라도 파일에는 쓰지 않고 읽을 때도 버린다.
+ */
+export function isEmptyTextBlock(block: MemoNoteBlock): boolean {
+  if (block.kind !== 'text' || block.text.trim() !== '') return false
+  return (block.html ?? '').replace(/<(?!hr\b|img\b)[^>]*>/gu, '').replace(/&nbsp;|[ ​]/gu, '').trim() === ''
+}
+
 export function serializeMemoNote(note: MemoNote): string {
-  return `${JSON.stringify({ version: 1, ...(note.docId === undefined ? {} : { docId: note.docId }), blocks: note.blocks }, null, 2)}\n`
+  const blocks = note.blocks.filter((block) => !isEmptyTextBlock(block))
+  return `${JSON.stringify({ version: 1, ...(note.docId === undefined ? {} : { docId: note.docId }), blocks }, null, 2)}\n`
 }
 
 let blockCounter = 0
@@ -342,7 +397,7 @@ export function safeNoteTitle(title: string): string {
 }
 
 /** 노트 파일 경로. folder 는 「노트」 또는 그 아래 하위 폴더(Vault 상대 경로) */
-export function memoNotePath(title: string, folder: string = MEMO_NOTES_FOLDER): string {
+export function memoNotePath(title: string, folder: string = memoNotesFolder()): string {
   return `${folder}/${safeNoteTitle(title)}${MEMO_NOTE_EXTENSION}`
 }
 

@@ -39,3 +39,30 @@ describe('영어 사전 범위', () => {
     expect(missing.size, `영어 사전(src/i18n/en/group*.ts)에 없는 글 ${missing.size}개:\n${report}`).toBe(0)
   })
 })
+
+/**
+ * 글이 t('…') 안이 아니라 자료 목록에 적혀 있고, 화면에 낼 때 `t(항목.label)` 처럼 변수로 번역하는 경우
+ * 위 검사는 열쇠를 볼 수 없어 놓친다(설정 > 테마 편집의 「작업 공간 바탕」이 영어 화면에 한국어로 남았던 일).
+ * 그래서 label·hint·title 같은 속성에 한글 문장을 그대로 쓴 자리도 영어 사전에 있는지 본다.
+ * 화면에 내지 않는 값이거나 일부러 번역하지 않는 글은 아래 DATA_ALLOWLIST 에 이유와 함께 적는다.
+ */
+const DATA_ALLOWLIST: ReadonlySet<string> = new Set<string>([
+  'Markdown 테스트', // 개발용 샘플 문서의 제목(App.tsx DEVELOPMENT_NOTES), 사용자 화면의 글이 아니다
+])
+
+describe('영어 사전 범위(자료 속 글)', () => {
+  it('label·hint·title 같은 속성의 한글 글이 영어 사전에 있다', () => {
+    const missing = new Map<string, string>()
+    const property = /\b(?:label|hint|title|description|placeholder|caption|tooltip)\s*:\s*'((?:[^'\\\n]|\\.)*)'/gu
+    for (const file of sourceFiles(SRC)) {
+      const text = readFileSync(file, 'utf8')
+      for (const match of text.matchAll(property)) {
+        const key = unescape(match[1] ?? '', "'")
+        if (!/[가-힣]/u.test(key) || DATA_ALLOWLIST.has(key) || EN[key] !== undefined) continue
+        if (!missing.has(key)) missing.set(key, relative(SRC, file).replaceAll('\\', '/'))
+      }
+    }
+    const report = [...missing].map(([key, file]) => `  ${file}: ${key}`).join('\n')
+    expect(missing.size, `영어 사전에 없는 자료 속 글 ${missing.size}개:\n${report}`).toBe(0)
+  })
+})

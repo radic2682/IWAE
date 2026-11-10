@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { setLocale } from '../i18n'
 import {
+  detectMemoNotesFolder,
+  forgetMemoNotesFolder,
+  memoNotesFolder,
+  pickMemoNotesFolder,
+  rememberMemoNotesFolder,
   insertBlock,
   moveMemoNote,
   orderMemoNoteEntries,
@@ -23,6 +29,55 @@ import {
 } from './memoNote'
 
 const anchor = (docId: string, page: number, y: number) => ({ docId, page, rects: [{ y }] })
+
+describe('노트 폴더 이름', () => {
+  const exists = (...present: string[]) => async (name: string) => present.includes(name)
+
+  it('「노트」가 있으면 그것, 없고 「Notes」가 있으면 그것, 둘 다 없으면 화면 언어를 따른다', async () => {
+    expect(await detectMemoNotesFolder(exists('노트', 'Notes'))).toBe('노트')
+    expect(await detectMemoNotesFolder(exists('Notes'))).toBe('Notes')
+    setLocale('ko')
+    expect(await detectMemoNotesFolder(exists())).toBe('노트')
+    setLocale('en')
+    expect(await detectMemoNotesFolder(exists())).toBe('Notes')
+    // 영어 화면이어도 옛 한국어 Vault 는 그대로
+    expect(await detectMemoNotesFolder(exists('노트'))).toBe('노트')
+    expect(memoNotePath('Plan')).toBe('노트/Plan.iwnote')
+    forgetMemoNotesFolder()
+  })
+
+  it('폴더가 없는 동안 화면 언어가 바뀌면 이름도 따라가고, 노트를 만든 뒤에는 고정된다', async () => {
+    await detectMemoNotesFolder(exists())
+    setLocale('en')
+    expect(memoNotePath('Plan')).toBe('Notes/Plan.iwnote')
+    rememberMemoNotesFolder('Notes')
+    setLocale('ko')
+    expect(memoNotesFolder()).toBe('Notes')
+    forgetMemoNotesFolder()
+    expect(memoNotesFolder()).toBe('노트')
+  })
+
+  it('맨 위 폴더 이름에서 고른다', () => {
+    expect(pickMemoNotesFolder(['Notes', 'PDF'])).toBe('Notes')
+    expect(pickMemoNotesFolder(['Notes', '노트'])).toBe('노트')
+    expect(pickMemoNotesFolder(['PDF'])).toBeNull()
+  })
+})
+
+describe('빈 글 블록은 파일에 남기지 않는다', () => {
+  it('저장할 때 빼고, 읽을 때도 버린다. 글·서식이 있는 블록과 다른 블록은 그대로', () => {
+    const empty = textBlock()
+    const spacer = textBlock('', '<p><br></p>')
+    const divider = textBlock('', '<hr>')
+    const text = textBlock('본문')
+    const note = { version: 1 as const, blocks: [text, empty, spacer, divider, memoBlock('h1')] }
+    const saved = JSON.parse(serializeMemoNote(note)) as { blocks: { id: string }[] }
+    expect(saved.blocks.map((block) => block.id)).toEqual([text.id, divider.id, note.blocks[4]!.id])
+    // 예전에 빈 채로 저장된 파일
+    const legacy = parseMemoNote({ version: 1, blocks: [{ id: 'a', kind: 'text', text: '' }, { id: 'b', kind: 'text', text: ' ', html: '<p></p>' }, { id: 'c', kind: 'text', text: '글' }] })
+    expect(legacy.blocks.map((block) => block.id)).toEqual(['c'])
+  })
+})
 
 describe('memoNote', () => {
   it('블록을 끼우고 옮기고 빼며, 같은 형광펜은 한 번만', () => {
