@@ -6,22 +6,10 @@
 - [ ] 노트 펼치기(메모만 보기) 디자인 개편: 다른 화면과 같은 모양으로
 - [ ] PDF 화면 나누기: 노트에서 먼 칸(사이에 다른 칸)의 형광펜 연결선을 어떻게 이을지
 
-## PDF 편집 기능 후보 (Stirling-PDF 도구 목록 대비, 2026-11-09)
+## PDF 편집 기능 (Stirling-PDF 도구 목록 대비, 2026-11-09 → 2026-11-10 대부분 완료)
 
-이미 있음: 쪽 순서·회전·빼기·다른 PDF 쪽 끼워 넣기(쪽 편집), 검색 가능한 PDF 사본(OCR), 형광펜을 PDF 주석으로 넣어 내보내기, 글 상자·펜·선·도형(덮개 층), 버전 나란히 비교, 스캔 영역 OCR.
+완료: 두 판 글자 비교, 합치기·쪽 뽑기·목차 단위 나누기, 내 표시 굽기, 가리기, 암호 PDF 열기, 압축, 빈 쪽 빼기, 스캔 쪽 방향 바로잡기, 쪽 번호·워터마크, 쪽 자르기·모아찍기, 이미지·Markdown 내보내기, 그 자리 OCR.
 
-추천 높음
-- [ ] 두 판 글자 비교(compare): 버전 묶음의 두 PDF 를 문단 단위로 비교해 바뀐 곳 표시(스펙 개정판)
-- [ ] PDF 합치기(merge) · 쪽 뽑아 새 PDF(extractPages/split) · 목차 단위로 나누기(splitByChapters)
-- [ ] 내 표시 굽기(flatten/annotate): 글 상자·펜·도형·박스 메모까지 PDF 사본에 넣어 공유
-- [ ] 가리기(redact): 고른 글·영역을 지운 사본(공유 전 개인정보 제거)
-- [ ] 암호 PDF 열기(removePassword): 지금은 열지 못한다고만 알림
-
-추천 중간
-- [ ] 압축(compress) · 빈 쪽 빼기(removeBlanks) · 스캔 쪽 자동 회전(autoRotate)
-- [ ] IWAE 목차·책갈피를 PDF 목차로 쓰기(editTableOfContents)
-- [ ] 쪽 번호·도장·그림·워터마크 넣기(addPageNumbers/addStamp/addImage/watermark)
-- [ ] 쪽 자르기·크기 맞추기(crop/scalePages) · 모아찍기(pageLayout/booklet)
-- [ ] PDF → 이미지·Markdown 글로 내보내기(convert/extractImages)
+- [ ] IWAE 목차·책갈피를 PDF 목차로 쓰기(editTableOfContents): PDFium 에 책갈피를 만드는 API 가 없어 보류. 다른 라이브러리(lopdf 등)로 목차 객체를 직접 쓰는 방법을 따로 검토해야 함.
 
 하지 않음(앱 성격과 다름): 서버·자동화 파이프라인, 인증서 서명·검증, 양식 자동 감지, PDF 본문 글자 직접 고치기, JavaScript 보기
