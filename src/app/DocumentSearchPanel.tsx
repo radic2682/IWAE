@@ -193,11 +193,12 @@ export function DocumentSearchPanel({ state, records, indexProgress, onOpenHit }
  */
 export function SearchScopeSwitch({ scope, onChange }: { readonly scope: 'pdf' | 'vault'; readonly onChange: (scope: 'pdf' | 'vault') => void }) {
   const options = [
-    { id: 'pdf', label: t('이 PDF') },
+    { id: 'pdf', label: t('이 문서') },
     { id: 'vault', label: t('모든 문서') },
   ] as const
   return (
-    <div className="side-panel-head side-search-scope" role="radiogroup" aria-label={t('검색 범위')}>
+    <div className="side-panel-head side-search-scope">
+      <div className="side-search-scope-seg" role="radiogroup" aria-label={t('검색 범위')}>
       {options.map((option) => (
         <button
           key={option.id}
@@ -210,6 +211,7 @@ export function SearchScopeSwitch({ scope, onChange }: { readonly scope: 'pdf' |
           {option.label}
         </button>
       ))}
+      </div>
     </div>
   )
 }

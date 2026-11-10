@@ -46,3 +46,14 @@
 }
 .pane-github-menu button:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
 .pane-github-menu .pane-github-sep { height: 1px; margin: 4px 6px; background: var(--divider); }
+
+/* 빈 창 안내: 회색 글자 대신 보통 글자색, 아이콘과 함께 창 가운데에 */
+.pane-placeholder:has(.pane-placeholder-empty) { color: var(--text-strong); }
+.pane-placeholder-empty { display: inline-flex; flex-direction: column; align-items: center; gap: 10px; max-width: 260px; font-size: 13px; line-height: 1.5; word-break: keep-all; text-wrap: balance; }
+.pane-placeholder-empty svg { opacity: 0.7; }
+
+/* 빈 창 머리 줄: 문서 도구줄·노트 바 머리와 같은 높이·바탕·아래 선(가로선이 창마다 끊기지 않게) */
+.pane-frame > .pane-empty-head {
+  flex: 0 0 37px; box-sizing: border-box; height: 37px; padding: 0; position: relative; z-index: 4;
+  border-bottom: 1px solid var(--divider); background: var(--paper);
+}

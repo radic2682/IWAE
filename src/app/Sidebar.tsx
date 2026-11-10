@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
@@ -20,6 +20,7 @@ import type { VaultSearchHit, VaultSearchRecord } from '../core/vaultSearch'
 import { VaultSearch } from './VaultSearch'
 import { ItemEmoji } from './ItemEmoji'
 import { MemoNotesSection, type MemoNotesSectionProps } from './MemoNotesSection'
+import { useGutterHeadLines } from './useGutterHeadLines'
 import { FOLDER_COLORS, folderColorHex, type FolderColor } from '../core/folderColors'
 import { recentPdfDate, type RecentPdf } from '../core/recentPdfs'
 import { categoryColor } from '../pdf/CategoryTag'
@@ -80,6 +81,10 @@ interface SidebarProps {
   openDocIds: readonly string[]
   /** 지금 오른쪽 패널에 탭으로 열려 있는 노트들 */
   openNotePaths: readonly string[]
+  /** 열린 문서 가운데 지금 보고 있는(켜진 탭의) 것. 문서 id(PDF) 또는 경로(Markdown). 이것만 진한 바탕을 받는다 */
+  activeDocId?: string | null
+  /** 열린 노트 가운데 지금 보고 있는 것의 경로 */
+  activeNotePath?: string | null
   tree?: readonly VaultTreeNode[]
   onReorderNode?: (request: VaultTreeReorderRequest) => void
   onRenameEntry?: (id: string, displayName: string) => Promise<void>
@@ -264,6 +269,8 @@ export function Sidebar({
   onOpenRecentVault,
   openDocIds,
   openNotePaths,
+  activeDocId = null,
+  activeNotePath = null,
   tree,
   onReorderNode,
   onRenameEntry,
@@ -545,12 +552,14 @@ export function Sidebar({
   // 라이브러리 모음·폴더 목록을 그릴 자리(펼쳤을 때 문서 트리 대신 들어선다)와 전환 애니메이션
   const [navHost, setNavHost] = useState<HTMLElement | null>(null)
   const [swapping, setSwapping] = useState(false)
-  const swapReadyRef = useRef(false)
-  useEffect(() => {
-    if (!swapReadyRef.current) {
-      swapReadyRef.current = true
-      return undefined
-    }
+  const sideScrollRef = useRef<HTMLDivElement>(null)
+  useGutterHeadLines(sideScrollRef)
+  // 펼침 값이 실제로 바뀔 때만 전환한다(탭을 바꿔 다시 마운트되거나 StrictMode 가 효과를 두 번 돌려도 움직이지 않는다)
+  // 첫 화면 전에 클래스를 붙여야(layout effect) 애니메이션 전 한 프레임이 번쩍이지 않는다
+  const swapPrevRef = useRef(libraryExpanded)
+  useLayoutEffect(() => {
+    if (swapPrevRef.current === libraryExpanded) return undefined
+    swapPrevRef.current = libraryExpanded
     setSwapping(true)
     const timer = window.setTimeout(() => setSwapping(false), 220)
     return () => window.clearTimeout(timer)
@@ -1303,10 +1312,10 @@ export function Sidebar({
                       />
                     </div>
                   ) : (
-                    <div className={`side-version-line${(versionGroup === undefined ? openDocIds.includes(node.doc.docId) : versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-version-line-open' : ''}`}>
+                    <div className={`side-version-line${(versionGroup === undefined ? openDocIds.includes(node.doc.docId) : versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-version-line-open' : ''}${(versionGroup === undefined ? activeDocId === node.doc.docId : versionGroup.versions.some((version) => version.docId === activeDocId)) ? ' side-version-line-active' : ''}`}>
                     <button
                       type="button"
-                      className={`side-item side-tree-item${(versionGroup === undefined ? openDocIds.includes(node.doc.docId) : versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-item-open' : ''}`}
+                      className={`side-item side-tree-item${(versionGroup === undefined ? openDocIds.includes(node.doc.docId) : versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-item-open' : ''}${(versionGroup === undefined ? activeDocId === node.doc.docId : versionGroup.versions.some((version) => version.docId === activeDocId)) ? ' side-item-active' : ''}`}
                       aria-label={versionGroup === undefined ? node.name : `${versionGroup.title} ${defaultVersion(versionGroup).label}`}
                       disabled={missingDocIds.includes(node.doc.docId)}
                       onClick={(event) => {
@@ -1415,7 +1424,7 @@ export function Sidebar({
                 ) : (
                   <button
                     type="button"
-                    className={`side-item side-tree-item${openNotePaths.includes(node.path) ? ' side-item-open' : ''}`}
+                    className={`side-item side-tree-item${openNotePaths.includes(node.path) ? ' side-item-open' : ''}${activeNotePath === node.path ? ' side-item-active' : ''}`}
                     onClick={(event) => {
                       if (!selectClick(event, node.id, section)) onOpenNote({ path: node.path, title: node.name })
                     }}
@@ -1466,10 +1475,10 @@ export function Sidebar({
                   </div>
                 ) : (
                   <>
-                  <div className={versionGroup === undefined ? 'side-version-line-plain' : `side-version-line${versionGroup.versions.some((version) => openDocIds.includes(version.docId)) ? ' side-version-line-open' : ''}`}>
+                  <div className={versionGroup === undefined ? 'side-version-line-plain' : `side-version-line${versionGroup.versions.some((version) => openDocIds.includes(version.docId)) ? ' side-version-line-open' : ''}${versionGroup.versions.some((version) => version.docId === activeDocId) ? ' side-version-line-active' : ''}`}>
                   <button
                     type="button"
-                    className={`side-item side-tree-item side-markdown-item${openDocIds.includes(node.path) || openDocIds.includes(node.indexId) || (versionGroup !== undefined && versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-item-open' : ''}`}
+                    className={`side-item side-tree-item side-markdown-item${openDocIds.includes(node.path) || openDocIds.includes(node.indexId) || (versionGroup !== undefined && versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-item-open' : ''}${activeDocId !== null && (activeDocId === node.path || activeDocId === node.indexId || (versionGroup !== undefined && versionGroup.versions.some((version) => version.docId === activeDocId))) ? ' side-item-active' : ''}`}
                     aria-label={versionGroup === undefined ? `${node.name}, Markdown` : `${versionGroup.title} ${defaultVersion(versionGroup).label}`}
                     disabled={onOpenMarkdown === undefined}
                     onClick={(event) => {
@@ -1670,7 +1679,7 @@ export function Sidebar({
           </span>
         </div>
       ) : null}
-      <div className={`side-scroll${swapping ? ' side-scroll-swapping' : ''}`}>
+      <div ref={sideScrollRef} className={`side-scroll${swapping ? ' side-scroll-swapping' : ''}`}>
         {libraryExpanded ? (
           <LibraryView
             navHost={navHost}

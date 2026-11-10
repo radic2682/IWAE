@@ -14,9 +14,10 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { announceAction } from './actionFeedback'
-import { MarkdownWriteLayer, markdownFitWidthZoom, markdownPaperOf, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
+import { MarkdownWriteLayer, markdownFitWidthZoom, markdownPaperOf, MARKDOWN_PAPER_GUTTER, MARKDOWN_PAPER_WIDTH, type MarkdownBoxRequest, type MarkdownRectsOf } from './MarkdownWriteLayer'
 import { MarkdownMemoBar } from './MarkdownMemoBar'
-import { useMemoBarWidth } from '../pdf/memoBarWidth'
+import { useClearMask, useClearZones } from '../pdf/clearZones'
+import { MEMO_LINK_GUTTER, useMemoBarWidth } from '../pdf/memoBarWidth'
 
 import type { MarkdownSearchHit } from './MarkdownSearchPanel'
 import { PdfPins, PinHead, type PdfPinPatchInput, type PlacedPin } from '../pdf/PdfPins'
@@ -622,19 +623,34 @@ export function MarkdownPane({
     article.scrollTo({ top: Math.max(rect.y * paper.scale - article.clientHeight / 3, 0), behavior: 'smooth' })
   }
 
+  // 노트 바가 바로 오른쪽에 붙은 창이면 종이 오른쪽에 형광펜 → 카드 선 자리를 비운다(PDF 와 같은 폭)
+  // (좁은 창에서는 가장 작은 배율의 종이가 들어갈 만큼만 비운다 — 종이가 창 왼쪽 끝에 붙지 않게)
+  const [dockRoom, setDockRoom] = useState(0)
+  useLayoutEffect(() => {
+    const article = articleRef.current
+    if (article === null || paneFrame === null) return
+    const box = article.getBoundingClientRect()
+    const adjacent = paneFrame.getBoundingClientRect().left - box.right < 2
+    const next = adjacent ? Math.round(Math.min(Math.max(box.width - MARKDOWN_PAPER_GUTTER * 2 - MARKDOWN_PAPER_WIDTH * 0.5, 0), MEMO_LINK_GUTTER)) : 0
+    if (next !== dockRoom) setDockRoom(next)
+  })
+  // 노트 바 칸이 열리고 닫히는 폭에 비례해 자란다(전환과 함께 움직여 한 프레임에 튀지 않는다)
+  const dockOpenness = paneFrame === null || memoBar.size <= 0 ? 1 : Math.min(Math.max(paneFrame.getBoundingClientRect().width / memoBar.size, 0), 1)
+  const linkGutter = primary && !memoOnly && noteBarPresence.rendered ? Math.round(dockRoom * dockOpenness) : 0
+
   // 폭 맞춤: 글 영역 폭이 바뀔 때마다 배율을 다시 맞춘다
   useEffect(() => {
     const article = articleRef.current
     if (!fitWidth || article === null || onFitZoom === undefined) return undefined
     const fit = () => {
-      const next = markdownFitWidthZoom(article.clientWidth)
+      const next = markdownFitWidthZoom(article.clientWidth - linkGutter)
       if (Math.abs(next - zoom) > 0.05) onFitZoom(next)
     }
     fit()
     const observer = new ResizeObserver(fit)
     observer.observe(article)
     return () => observer.disconnect()
-  }, [fitWidth, onFitZoom, zoom])
+  }, [fitWidth, onFitZoom, zoom, linkGutter])
 
   // ---------- 쓰기 층(박스 메모·편집): 글자 위치 → 종이 좌표 ----------
   const [boxRequest, setBoxRequest] = useState<MarkdownBoxRequest | null>(null)
@@ -659,6 +675,8 @@ export function MarkdownPane({
 
   // ---------- 형광펜 → 노트 카드 선(PDF 와 같은 모양): 형광펜 끝 → 종이 오른쪽 점선, 거기서 카드까지 곡선 ----------
   const [memoLinks, setMemoLinks] = useState<readonly MemoLink[]>([])
+  const linkClear = useClearZones()
+  const linkMask = useClearMask(linkClear.rects)
   const measureMemoLinks = () => {
     const frame = paneFrame
     const article = articleRef.current
@@ -1245,6 +1263,7 @@ export function MarkdownPane({
         '--md-quote-border': markdownTheme.tokens.quoteBorder,
         '--md-max-width': markdownTheme.tokens.maxWidth,
         '--md-zoom': String(zoom / 100),
+        '--md-link-gutter': `${linkGutter}px`,
       } as CSSProperties}
       onWheel={(event) => {
         // Ctrl+휠: 배율(PDF 와 같다)
@@ -1318,7 +1337,9 @@ export function MarkdownPane({
         paneFrame,
       ) : null}
       {memoLinks.length > 0 && paneFrame !== null ? createPortal(
-        <svg className={`pdf-memo-links pdf-memo-links-page markdown-memo-links${clean ? ' pdf-memo-links-clean' : ''}`} aria-hidden="true">
+        <svg ref={linkClear.ref} className={`pdf-memo-links pdf-memo-links-page markdown-memo-links${clean ? ' pdf-memo-links-clean' : ''}`} aria-hidden="true">
+          {linkMask.defs}
+          <g mask={`url(#${linkMask.id})`}>
           {memoLinks.map((link) => {
             const bend = link.edge + (link.cardX - link.edge) / 2
             return (
@@ -1330,6 +1351,7 @@ export function MarkdownPane({
               </g>
             )
           })}
+          </g>
         </svg>,
         paneFrame,
       ) : null}

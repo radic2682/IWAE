@@ -911,17 +911,18 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .markdown-pane-host { background: var(--workspace); }
 .pane-doc .markdown-pane {
   --md-paper-w: calc(820px * var(--md-zoom, 1));
-  padding: 18px 0 40px;
+  padding: 18px var(--md-link-gutter, 0px) 40px 0;
+  --md-center: calc(50% - var(--md-link-gutter, 0px) / 2);
   scrollbar-width: none;
   /* 종이: 가운데 흰 기둥(내용과 함께 스크롤된다) */
   background:
     linear-gradient(to right,
-      transparent calc(50% - var(--md-paper-w) / 2 - 1px),
-      color-mix(in srgb, #000 14%, transparent) calc(50% - var(--md-paper-w) / 2 - 1px),
-      var(--md-background, var(--paper)) calc(50% - var(--md-paper-w) / 2),
-      var(--md-background, var(--paper)) calc(50% + var(--md-paper-w) / 2),
-      color-mix(in srgb, #000 14%, transparent) calc(50% + var(--md-paper-w) / 2),
-      transparent calc(50% + var(--md-paper-w) / 2 + 1px));
+      transparent calc(var(--md-center) - var(--md-paper-w) / 2 - 1px),
+      color-mix(in srgb, #000 14%, transparent) calc(var(--md-center) - var(--md-paper-w) / 2 - 1px),
+      var(--md-background, var(--paper)) calc(var(--md-center) - var(--md-paper-w) / 2),
+      var(--md-background, var(--paper)) calc(var(--md-center) + var(--md-paper-w) / 2),
+      color-mix(in srgb, #000 14%, transparent) calc(var(--md-center) + var(--md-paper-w) / 2),
+      transparent calc(var(--md-center) + var(--md-paper-w) / 2 + 1px));
   background-attachment: local;
 }
 .pane-doc .markdown-pane::-webkit-scrollbar { display: none; width: 0; height: 0; }

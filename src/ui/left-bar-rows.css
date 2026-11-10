@@ -72,10 +72,128 @@
 .sidebar .thumb-item-current:hover { background: var(--chrome-hover); }
 .sidebar .thumb-item-current .thumb-frame { border-color: var(--hairline); box-shadow: none; }
 
-/* PDF 도구 보기 */
-.sidebar .side-tools-head { gap: 8px; margin: 0 -8px 0; padding: 0 12px; position: sticky; top: 0; z-index: 3; }
+/* PDF 도구 보기: 머리 줄은 다른 보기와 같은 37px, 대상 문서 이름은 목록 맨 위 한 줄 */
+.sidebar .side-tools-head { gap: 6px; margin: 0; padding: 0 12px; }
+.sidebar .side-tools-head .side-section-icon { width: 17px; height: 17px; }
 .sidebar .side-tools-title { flex: 0 0 auto; font-size: 13px; font-weight: 650; color: var(--text-strong); }
-.sidebar .side-tools-doc { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-strong); }
-.sidebar .side-scroll.side-tools-panel { padding-top: 0; }
-.sidebar .side-tools-panel .pdf-tools-list { padding: 8px 0 14px; }
+.sidebar .side-tools-panel .side-panel-empty { padding: 16px 10px; }
 
+/* 열린 문서와 지금 보는 문서: 열려 있기만 한 줄은 점(●)만 찍고, 켜진 탭의 줄만 고른 바탕을 받는다 */
+.sidebar .side-section .side-item.side-item-open:not(.side-item-active) { background: transparent; color: var(--text-strong); font-weight: 400; }
+.sidebar .side-section .side-item.side-item-open:not(.side-item-active):hover { background: var(--chrome-hover); }
+.sidebar .side-section .side-item.side-item-active { background: var(--selected-bg); color: var(--text-strong); font-weight: 600; }
+.sidebar .side-section .side-item.side-item-active:hover { background: var(--selected-bg-strong); }
+.sidebar .side-version-line-open:not(.side-version-line-active) { background: transparent; }
+.sidebar .side-version-line-open:not(.side-version-line-active):hover { background: var(--chrome-hover); }
+.sidebar .side-version-line-active { background: var(--selected-bg); }
+.sidebar .side-version-line-active:hover { background: var(--selected-bg-strong); }
+.sidebar .side-section .side-dot { width: 5px; height: 5px; }
+.sidebar .side-section .side-version-line > .side-item.side-item-open,
+.sidebar .side-section .side-version-line > .side-item.side-item-open:hover { background: transparent; }
+
+/* 구역 사이 간격: 문서 목록 끝 → 노트 머리 줄 (문서 구역 아래 6px 안쪽 + 8px) */
+.sidebar .side-scroll > .side-section + .side-section { margin-top: 8px; }
+
+/* 왼쪽 바의 전환 묶음(1단·2단 / 이 PDF·모든 문서 / 도구 옵션): 한 가지 모양 — 둥근 테두리 상자 안에 24px 칸, 켜진 칸은 칩 */
+.sidebar .outline-preview-columns,
+.sidebar .side-search-scope-seg,
+.sidebar .pdf-tools-seg {
+  box-sizing: border-box;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--paper);
+}
+.sidebar .outline-preview-columns { flex: 0 0 auto; display: inline-flex; }
+.sidebar .side-search-scope-seg { flex: 1 1 auto; min-width: 0; }
+.sidebar .outline-preview-columns button,
+.sidebar .side-search-scope-option,
+.sidebar .pdf-tools-seg button {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sidebar .pdf-tools-seg button { flex: 1 1 auto; }
+.sidebar .outline-preview-columns button:hover,
+.sidebar .side-search-scope-option:hover,
+.sidebar .pdf-tools-seg button:hover { background: color-mix(in srgb, var(--chrome-hover) 55%, transparent); color: var(--text-strong); }
+.sidebar .outline-preview-columns .outline-preview-column-on,
+.sidebar .side-search-scope-option-on,
+.sidebar .side-search-scope-option-on:hover,
+.sidebar .pdf-tools-seg button.on,
+.sidebar .pdf-tools-seg button.on:hover { background: var(--chrome-hover); color: var(--text-strong); font-weight: 600; }
+.sidebar .side-search-scope { padding: 0 20px 0 10px; } /* 아래 검색칸과 같은 좌우 끝(10px / 스크롤바 자리 포함 20px) */
+
+/* 목록: 책갈피 머리도 목차 머리와 같은 줄(37px, 가로 끝까지 닿는 밑선, 글자 시작 12px). 위쪽 구분은 머리 줄이 대신한다 */
+.sidebar .outline-section + .outline-section { margin-top: 12px; padding-top: 0; border-top: 0; }
+.sidebar .bookmark-section-head { position: static; }
+.sidebar .bookmark-section .bookmark-list { padding-top: 0; }
+/* 빈 상태 글: 모든 왼쪽 바 보기가 한 모양 */
+.sidebar .side-panel-empty, .sidebar .side-panel-empty-inline { min-height: 0; padding: 16px 10px; font-size: 12.5px; line-height: 1.6; color: var(--text-strong); text-align: center; }
+
+/* 머리 줄 안 그림-글자 사이는 6px(문서·노트·PDF 도구가 같다), 미리보기의 쪽 수는 다른 머리 글자와 같은 12px 에서 시작 */
+.sidebar .side-section .side-documents-head .side-head,
+.sidebar .side-section .side-notebook-head .side-head { gap: 6px; }
+.sidebar .thumb-panel-count { padding-left: 2px; color: var(--text-strong); }
+
+/* 목록(목차): 줄은 문서 트리 줄과 같은 8px 안쪽에서 시작하고, 지금 자리는 트리의 켜진 줄과 같은 바탕·글자색을 쓴다 */
+.sidebar .outline-list { padding: 6px 0 12px; }
+.sidebar .outline-row-current { background: var(--selected-bg); }
+.sidebar .outline-row-current:hover { background: var(--selected-bg-strong); }
+.sidebar .outline-row-current .outline-title,
+.sidebar .outline-row-current .outline-page { color: var(--text-strong); font-weight: 650; }
+
+/* 왼쪽 바 검색: 안내·상태 글은 머리 글자와 같은 12px 에서 시작하고, 칸 안 안내 글자도 회색이 아니다 */
+.sidebar .doc-search-status { padding: 2px 2px 8px; }
+.sidebar .doc-results-help { margin: 16px 2px; word-break: keep-all; }
+.sidebar .side-pdf-search .side-section-empty { margin: 12px 2px; }
+.sidebar .markdown-search-row input::placeholder,
+.sidebar .pdf-search-field input::placeholder { color: var(--text-strong); opacity: 1; }
+/* 모든 문서 검색칸도 「이 PDF」 검색칸(.markdown-search-row)과 같은 칸: 본문색 바탕, 진한 테두리, 6px 모서리 */
+.sidebar .pdf-search-docked .pdf-search-field { border-color: var(--divider-strong); border-radius: var(--r-sm); background: var(--paper); }
+.sidebar .pdf-search-docked .pdf-search-field:hover { background: var(--paper); }
+.sidebar .pdf-search-docked .pdf-search-field:focus-within { border-color: var(--accent); background: var(--paper); }
+.sidebar .doc-card-text { word-break: keep-all; overflow-wrap: anywhere; }
+
+/* 스크롤 막대는 머리 줄 아래에서 시작한다: 위쪽 단추 자리(37px)를 머리 줄과 같은 바탕·밑선으로 채워,
+   머리 줄 밑선이 막대 자리(오른쪽 10px)까지 끊김 없이 이어지게 한다 */
+.sidebar .side-scroll::-webkit-scrollbar-button:vertical:start:decrement {
+  display: block;
+  box-sizing: border-box;
+  width: 10px;
+  height: 37px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--divider);
+}
+.sidebar .side-scroll::-webkit-scrollbar-button:vertical:start:increment,
+.sidebar .side-scroll::-webkit-scrollbar-button:vertical:end { display: none; }
+.sidebar .side-scroll::-webkit-scrollbar-track { background: transparent; }
+/* 막대 자리 바탕을 투명하게(기본 막대는 자리 전체를 어두운 띠로 칠해 왼쪽 바와 색이 달라 보였다).
+   막대를 직접 그리므로 손잡이도 여기서 그린다 */
+.sidebar .side-scroll::-webkit-scrollbar { width: 10px; background: transparent; }
+.sidebar .side-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--text) 30%, transparent) padding-box;
+}
+.sidebar .side-scroll::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text) 45%, transparent); }
+/* 막대가 없어도(내용이 짧아도) 남겨 둔 오른쪽 10px 자리에 머리 줄 밑선을 이어 그린다 */
+.sidebar .side-scroll:has(.side-head-row, .outline-section-head, .outline-preview-bar) {
+  background: linear-gradient(var(--divider), var(--divider)) no-repeat right 36px / 10px 1px;
+}
+
+/* 목록 중간 머리 줄(노트)의 밑선을 막대 자리까지 잇는 선(useGutterHeadLines 가 위치를 잡는다) */
+.sidebar :has(> .side-gutter-head-line) { position: relative; }
+.sidebar .side-gutter-head-line { position: absolute; height: 1px; background: var(--divider); pointer-events: none; z-index: 4; }

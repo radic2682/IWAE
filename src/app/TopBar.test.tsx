@@ -186,7 +186,7 @@ describe('TopBar', () => {
     expect(onToggle).toHaveBeenCalled()
   })
 
-  it('문서 검색·창 나누기는 창 단추 곁(오른쪽)에 있다', () => {
+  it('창 나누기는 창 단추 곁(오른쪽)에 있고 문서 검색 단추는 없다', () => {
     const { container } = render(
       <TopBar
         sidebarCollapsed={false}
@@ -197,12 +197,11 @@ describe('TopBar', () => {
         leftFrac={1}
         leftTabs={<span>탭</span>}
         rightTabs={null}
-        onToggleDocSearch={vi.fn()}
         onPaneLayoutChange={vi.fn()}
       />,
     )
     const tools = container.querySelector('.wincontrols .topbar-window-tools') as HTMLElement
-    expect(within(tools).getByRole('button', { name: '문서 검색' })).toBeDefined()
+    expect(within(tools).queryByRole('button', { name: '문서 검색' })).toBeNull()
     expect(within(tools).getByRole('button', { name: '창 나누기' })).toBeDefined()
     expect(container.querySelector('.topbar-leftcluster')?.textContent).not.toContain('문서 검색')
   })

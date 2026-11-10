@@ -1,3 +1,4 @@
+import { FileDashed } from '@phosphor-icons/react'
 import type { ReactNode } from 'react'
 import { activeTab, type Tab, type TabsState } from './tabs'
 
@@ -32,16 +33,23 @@ interface PaneShellProps {
 export function PaneShell({ state, emptyHint, placeholder, renderBody, toolbar, bottomBar }: PaneShellProps) {
   const active = activeTab(state)
   const body = active !== null && renderBody !== undefined ? renderBody(active) : null
+  // 탭이 없는 빈 창도 문서 창과 같은 높이의 빈 머리 줄을 둔다 — 왼쪽 바·문서 도구줄·노트 바 머리로 이어지는 가로선이 끊기지 않게
+  const emptyHead = toolbar === undefined && active === null
   return (
     <div className={`pane-frame${toolbar === undefined ? '' : ' pane-frame-with-toolbar'}`}>
-      {toolbar === undefined ? null : <div className="pane-toolbar">{toolbar}</div>}
+      {toolbar === undefined ? (emptyHead ? <div className="pane-empty-head" aria-hidden="true" /> : null) : <div className="pane-toolbar">{toolbar}</div>}
       {/* role="tab" 인 실제 탭은 TopBar 에 있다. 여기는 그 탭들의 내용을
           보여줄 뿐이라 tabpanel 만 남긴다. */}
       <div className="pane-body" role="tabpanel">
         {body ?? (
           <div className="pane-placeholder-card">
             <span className="pane-placeholder">
-              {active ? `${active.title} — ${placeholder}` : emptyHint}
+              {active ? `${active.title} — ${placeholder}` : (
+                <span className="pane-placeholder-empty">
+                  <FileDashed size={26} weight="regular" aria-hidden="true" />
+                  <span>{emptyHint}</span>
+                </span>
+              )}
             </span>
           </div>
         )}

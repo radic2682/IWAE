@@ -31,6 +31,17 @@ describe('PdfToolsPanel', () => {
     expect(screen.getByRole('button', { name: '쪽 편집' }).getAttribute('aria-current')).toBe('true')
     expect(document.querySelector('.pdf-tools-body')).toBeNull()
   })
+  it('names the target document on its own line, not in the header', () => {
+    const { container } = render(<PdfToolsPanel docTitle="IWAE 사용 설명서" activeTool={null} onPick={vi.fn()} />)
+    expect(container.querySelector('.side-tools-head')?.textContent).toBe('PDF 도구')
+    expect(container.querySelector('.pdf-tools-target')?.textContent).toBe('IWAE 사용 설명서')
+  })
+  it('gives every row a trailing slot, page edit included, so the rows line up', () => {
+    const { container } = render(<PdfToolsPanel docTitle="문서" activeTool={null} onPick={vi.fn()} />)
+    const rows = container.querySelectorAll('.pdf-tools-item')
+    expect(rows.length).toBeGreaterThan(10)
+    for (const row of rows) expect(row.querySelector('.pdf-tools-item-trail svg')).not.toBeNull()
+  })
   it('disables the tools when no PDF is open', () => {
     render(<PdfToolsPanel docTitle={null} activeTool={null} onPick={vi.fn()} />)
     expect((screen.getByRole('button', { name: '쪽 편집' }) as HTMLButtonElement).disabled).toBe(true)
@@ -41,7 +52,7 @@ describe('SearchScopeSwitch', () => {
   it('switches between this PDF and all documents', () => {
     const onChange = vi.fn()
     render(<SearchScopeSwitch scope="pdf" onChange={onChange} />)
-    expect(screen.getByRole('radio', { name: '이 PDF' }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('radio', { name: '이 문서' }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByRole('radio', { name: '모든 문서' }))
     expect(onChange).toHaveBeenCalledWith('vault')
   })

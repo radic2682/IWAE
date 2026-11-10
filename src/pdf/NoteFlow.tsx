@@ -566,7 +566,7 @@ export function NoteFlow({
           if (collapsed) {
             return (
               <Fragment key={source.id}>
-              <div className={`note-source-chip pdf-memo-card-quote-${source.color}`} title={t('PDF 에서 보기')} onClick={draft ? undefined : () => onJump(source)}>
+              <div className={`note-source-chip pdf-memo-card-quote-${source.color}`} title={t('원문에서 보기')} onClick={draft ? undefined : () => onJump(source)}>
                 <button type="button" className="note-source-expand" aria-label={t('원문 펼치기')} title={t('원문 펼치기')} onClick={(event) => {
                   event.stopPropagation()
                   onToggleCollapse(source.id, false)
@@ -611,7 +611,7 @@ export function NoteFlow({
             <div
               key={source.id}
               className={`pdf-memo-card-quote pdf-memo-card-quote-${source.color} note-source`}
-              title={t('PDF 에서 보기')}
+              title={t('원문에서 보기')}
               onClick={draft ? undefined : () => onJump(source)}
             >
               <button type="button" className="note-source-expand" aria-label={t('원문 접기')} title={t('원문 접기')} onClick={(event) => {
@@ -883,7 +883,7 @@ export function NoteFlow({
                 {menuItem.highlight.kind === 'region' ? (
                   <button type="button" role="menuitem" onClick={run(() => setZoomed(menuItem.highlight))}>{menuLabel(<MagnifyingGlassPlus size={15} />, t('그림 크게 보기'))}</button>
                 ) : null}
-                <button type="button" role="menuitem" onClick={run(() => onJump(menuItem.highlight))}>{menuLabel(<Crosshair size={15} />, t('PDF 에서 보기'))}</button>
+                <button type="button" role="menuitem" onClick={run(() => onJump(menuItem.highlight))}>{menuLabel(<Crosshair size={15} />, t('원문에서 보기'))}</button>
                 <hr />
               </>
             ) : null}

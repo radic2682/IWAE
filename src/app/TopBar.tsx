@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ImagesSquare, MagnifyingGlass,
-  ListMagnifyingGlass,
   ListBullets,
   SidebarSimple,
   TreeStructure,
@@ -31,7 +30,6 @@ interface TopBarProps {
   onCloseWindow?: () => void
   /** 문서 검색 화면인가. 단추가 눌린 모양이 된다 */
   docSearchActive?: boolean
-  onToggleDocSearch?: () => void
   /** 1단 보기인가(탭 줄 배치용) */
   singlePane?: boolean
   /** 창 나누기 배치. onPaneLayoutChange 가 있으면 배치 고르는 단추가 나온다 */
@@ -65,7 +63,6 @@ export function TopBar({
   rightTabs,
   onCloseWindow = closeWindow,
   docSearchActive = false,
-  onToggleDocSearch,
   singlePane = false,
   paneLayout = 'single',
   onPaneLayoutChange,
@@ -89,7 +86,7 @@ export function TopBar({
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  // 오른쪽 창 단추 묶음(문서 검색·창 나누기·창 단추)의 폭. 맨 오른쪽 탭 줄이 그만큼 비워 둔다
+  // 오른쪽 창 단추 묶음(창 나누기·메모 바·창 단추)의 폭. 맨 오른쪽 탭 줄이 그만큼 비워 둔다
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [windowToolsWidth, setWindowToolsWidth] = useState<number | null>(null)
   useEffect(() => {
@@ -186,7 +183,7 @@ export function TopBar({
       <WindowControls
         onCloseWindow={onCloseWindow}
         leading={(
-          // 창 전체에 관한 단추(문서 검색·창 나누기)는 창 단추 곁에 둔다
+          // 창 전체에 관한 단추(창 나누기·메모 바)는 창 단추 곁에 둔다
           <div className="topbar-window-tools">
             {onPaneLayoutChange === undefined ? null : (
               <PdfSplitPicker
@@ -199,18 +196,6 @@ export function TopBar({
                 activeClassName="topbar-navbtn-active"
                 shortcut={t('(Ctrl+\\ 로 차례로)')}
               />
-            )}
-            {onToggleDocSearch === undefined ? null : (
-              <button
-                type="button"
-                className={`topbar-navbtn topbar-docsearch-btn${docSearchActive ? ' topbar-navbtn-active' : ''}`}
-                aria-label={t('문서 검색')}
-                aria-pressed={docSearchActive}
-                title={t('문서 검색 (Ctrl+Shift+F)')}
-                onClick={onToggleDocSearch}
-              >
-                <ListMagnifyingGlass size={16} weight={docSearchActive ? 'bold' : 'regular'} aria-hidden="true" />
-              </button>
             )}
             {memoBar === undefined ? null : (
               <button

@@ -86,7 +86,7 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
       ...((block.refs ?? []).length === 0 ? {} : { extraHighlights: (block.refs ?? []).flatMap((ref) => { const found = highlightById.get(ref); return found === undefined ? [] : [found] }) }),
     })
   })
-  if (draft !== null) items.push({ kind: 'memo', key: 'draft', highlight: draft, draft: true })
+  if (draft !== null) items.push({ kind: 'memo', key: 'draft', highlight: draft, draft: true, sourceLabel: title })
 
   const saveMemo = (id: string, content: MemoContent, ticket?: MemoTicket) => {
     const patch = { note: content.text, noteHtml: content.html }

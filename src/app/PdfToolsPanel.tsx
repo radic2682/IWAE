@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CaretDown, CaretRight, Toolbox } from '@phosphor-icons/react'
+import { ArrowSquareOut, CaretDown, CaretRight, FilePdf, Toolbox } from '@phosphor-icons/react'
 import { PDF_TOOL_GROUPS, type PdfToolViewId } from './PdfToolsDialog'
 import { t } from '../i18n'
 
@@ -20,14 +20,20 @@ interface PdfToolsPanelProps {
 export function PdfToolsPanel({ docTitle, activeTool, onPick, renderTool }: PdfToolsPanelProps) {
   const disabled = docTitle === null
   return (
-    <div className="side-scroll side-tools-panel">
+    <div className="side-tools-panel">
       <div className="side-panel-head side-tools-head">
-        <Toolbox size={15} aria-hidden="true" />
+        <Toolbox className="side-section-icon" size={15} aria-hidden="true" />
         <span className="side-tools-title">{t('PDF 도구')}</span>
-        <span className="side-tools-doc" title={docTitle ?? undefined}>{docTitle ?? ''}</span>
       </div>
-      {disabled ? <div className="side-panel-empty">{t('열린 PDF 가 없습니다')}</div> : null}
       <nav className="pdf-tools-list" aria-label={t('도구')}>
+        {disabled ? (
+          <div className="side-panel-empty">{t('열린 PDF 가 없습니다')}</div>
+        ) : (
+          <div className="pdf-tools-target" title={docTitle}>
+            <FilePdf size={14} aria-hidden="true" />
+            <span>{docTitle}</span>
+          </div>
+        )}
         {PDF_TOOL_GROUPS.map((group) => (
           <div key={group.title} className="pdf-tools-group">
             <div className="pdf-tools-group-title">{t(group.title)}</div>
@@ -35,7 +41,7 @@ export function PdfToolsPanel({ docTitle, activeTool, onPick, renderTool }: PdfT
               const open = item.id === activeTool
               const body = open && renderTool !== undefined ? renderTool(item.id) : null
               return (
-                <div key={item.id} className="pdf-tools-entry">
+                <div key={item.id} className={`pdf-tools-entry${body !== null ? ' pdf-tools-entry-open' : ''}`}>
                   <button
                     type="button"
                     className={`pdf-tools-item${open ? ' pdf-tools-item-on' : ''}`}
@@ -46,7 +52,9 @@ export function PdfToolsPanel({ docTitle, activeTool, onPick, renderTool }: PdfT
                   >
                     <span className="pdf-tools-item-icon" aria-hidden="true">{item.icon}</span>
                     <span className="pdf-tools-item-label">{t(item.label)}</span>
-                    {item.id === 'pageEdit' ? null : open ? <CaretDown className="pdf-tools-item-caret" size={11} weight="bold" aria-hidden="true" /> : <CaretRight className="pdf-tools-item-caret" size={11} weight="bold" aria-hidden="true" />}
+                    <span className="pdf-tools-item-trail" aria-hidden="true">
+                      {item.id === 'pageEdit' ? <ArrowSquareOut size={13} /> : open ? <CaretDown size={11} weight="bold" /> : <CaretRight size={11} weight="bold" />}
+                    </span>
                   </button>
                   {body !== null ? <div className="pdf-tools-body">{body}</div> : null}
                 </div>

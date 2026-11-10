@@ -400,7 +400,9 @@ export function OutlinePanel({ activeDoc, currentPage, onSelectPage, bookmarks =
         </div>}
       </section>
       <section className="outline-section bookmark-section" aria-labelledby="bookmark-section-title">
-        <h2 id="bookmark-section-title" className="side-panel-section-title">{t('책갈피')}</h2>
+        <div className="outline-section-head bookmark-section-head">
+          <h2 id="bookmark-section-title" className="side-panel-section-title">{t('책갈피')}</h2>
+        </div>
         {documentBookmarks.length === 0 ? (
           <div className="side-panel-empty side-panel-empty-inline">{t('꽂은 책갈피가 없습니다')}</div>
         ) : (

@@ -954,18 +954,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     else if (CANVAS_ENABLED) openInPane({ id: target.note.path, title: target.note.title, kind: 'note' })
     setLibraryExpanded(false)
   }, [openDocument, openInPane, openMarkdown])
-  /** 상단바 「문서 검색」: 왼쪽 바 검색 보기를 모든 문서 범위로 연다(이미 그 상태면 이 PDF 범위로 돌려놓는다) */
+  /** Ctrl+Shift+F: 왼쪽 바 검색 보기를 모든 문서 범위로 연다 */
   const toggleDocSearchMode = useCallback(() => {
-    if (!sidebarCollapsed && sidebarMode === 'search' && searchScope === 'vault') {
-      setSearchScope('pdf')
-      return
-    }
     setLibraryExpanded(false)
     setFocusedPane('split')
     setSidebarCollapsed(false)
     setSidebarMode('search')
     setSearchScope('vault')
-  }, [searchScope, sidebarCollapsed, sidebarMode])
+  }, [])
   // 창 동작(새 창·떼어 내기·다시 붙이기). 패널 상태는 아래에서 만들어지므로 ref 로 잇는다
   const windowActionsRef = useRef({
     newWindow: () => undefined as void,
@@ -2769,6 +2765,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true) }}
             openDocIds={openTabIds.filter((tab) => tab.kind !== 'note').map(tabDocId)}
             openNotePaths={openTabIds.filter((tab) => tab.kind === 'note').map((tab) => tab.id)}
+            activeDocId={activeDocumentTab === null ? null : tabDocId(activeDocumentTab)}
+            activeNotePath={activeNoteId}
             tree={tree}
             onReorderNode={(request) => void reorderTreeNode(request)}
             onRenameEntry={renameEntry}
@@ -2924,7 +2922,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           })}
           paneGrows={paneGrows}
           docSearchActive={!sidebarCollapsed && sidebarMode === 'search' && searchScope === 'vault'}
-          onToggleDocSearch={toggleDocSearchMode}
           singlePane={singlePane}
           paneLayout={paneLayoutId}
           onPaneLayoutChange={SPLIT_PANES_ENABLED && !isDetachedWindow ? setPaneLayout : undefined}

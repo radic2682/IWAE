@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT,
+  ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, EyeSlash, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Scissors, SquaresFour, Stack, Stamp, TextT,
 } from '@phosphor-icons/react'
 import type { PdfToolOp } from '../bridge/pdf'
 import { formatBytes } from '../bridge/vaultBackup'
@@ -9,6 +9,7 @@ import type { DiffHunk } from '../core/pdfTextDiff'
 import { errorText } from '../core/errorText'
 import { usePdfToolJob } from '../pdf/pdfToolJobs'
 import { t } from '../i18n'
+import { Select } from '../ui/Select'
 import '../ui/pdf-tools.css'
 
 export type PdfToolId =
@@ -76,7 +77,7 @@ export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools:
   ] },
   { title: '내 표시', tools: [
     { id: 'flatten', label: '표시 넣은 사본', icon: <Stamp size={16} /> },
-    { id: 'redact', label: '가린 사본', icon: <Rectangle size={16} weight="fill" /> },
+    { id: 'redact', label: '가린 사본', icon: <EyeSlash size={16} /> },
   ] },
   { title: '쪽', tools: [
     { id: 'pageEdit', label: '쪽 편집', icon: <NotePencil size={16} /> },
@@ -218,12 +219,15 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       return (
         <>
           <Note>{t('두 버전의 글을 줄 단위로 비교해 바뀐·더한·지운 곳을 보입니다. 줄을 누르면 그 쪽으로 갑니다.')}</Note>
-          <label className="pdf-tools-field">
+          <div className="pdf-tools-field">
             <span>{t('비교할 버전')}</span>
-            <select value={compareWith} onChange={(event) => { setCompareWith(event.target.value); setDiff(null) }}>
-              {props.otherPdfs.map((pdf) => <option key={pdf.docId} value={pdf.docId}>{pdf.sibling === true ? `★ ${pdf.title}` : pdf.title}</option>)}
-            </select>
-          </label>
+            <Select
+              ariaLabel={t('비교할 버전')}
+              value={compareWith}
+              options={props.otherPdfs.map((pdf) => ({ value: pdf.docId, label: pdf.sibling === true ? `★ ${pdf.title}` : pdf.title }))}
+              onChange={(value) => { setCompareWith(value); setDiff(null) }}
+            />
+          </div>
           {primary(t('비교'), () => void run(t('두 버전의 글을 읽는 중…'), async () => {
             const result = await actions.compare(compareWith)
             setDiff({ ...result, otherDocId: compareWith })
@@ -335,6 +339,8 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       return (
         <>
           <Note>{t('이 PDF 뒤에 고른 PDF 들을 고른 순서대로 붙인 새 PDF 를 원본 옆에 만듭니다.')}</Note>
+          {props.otherPdfs.length === 0 ? <Note>{t('합칠 수 있는 다른 PDF 가 없습니다.')}</Note> : (
+          <>
           <label className="pdf-tools-field pdf-tools-search">
             <MagnifyingGlass size={13} aria-hidden="true" />
             <input value={filter} placeholder={t('PDF 찾기')} aria-label={t('PDF 찾기')} onChange={(event) => setFilter(event.target.value)} />
@@ -353,6 +359,8 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
               )
             })}
           </ul>
+          </>
+          )}
           {primary(t('{count}개 합치기', { count: picked.length + 1 }), () => void applyOrCopy('copy', { kind: 'merge', sources: picked }, t('(합침)'), t('합치는 중…')), picked.length === 0)}
         </>
       )
@@ -383,26 +391,38 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       return (
         <>
           <div className="pdf-tools-grid">
-            <label className="pdf-tools-field">
+            <div className="pdf-tools-field">
               <span>{t('자리')}</span>
-              <select value={numberPos} onChange={(event) => setNumberPos(event.target.value as typeof numberPos)}>
-                <option value="bottomCenter">{t('아래 가운데')}</option>
-                <option value="bottomRight">{t('아래 오른쪽')}</option>
-                <option value="bottomLeft">{t('아래 왼쪽')}</option>
-                <option value="topCenter">{t('위 가운데')}</option>
-                <option value="topRight">{t('위 오른쪽')}</option>
-                <option value="topLeft">{t('위 왼쪽')}</option>
-              </select>
-            </label>
-            <label className="pdf-tools-field">
-              <span>{t('모양')}</span>
-              <select value={numberTemplate} onChange={(event) => setNumberTemplate(event.target.value)}>
-                <option value="{n}">1</option>
-                <option value="{n} / {total}">1 / 10</option>
-                <option value="- {n} -">- 1 -</option>
-                <option value="p. {n}">p. 1</option>
-              </select>
-            </label>
+              <Select
+                ariaLabel={t('자리')}
+                value={numberPos}
+                options={[
+                  { value: 'bottomCenter', label: t('아래 가운데') },
+                  { value: 'bottomRight', label: t('아래 오른쪽') },
+                  { value: 'bottomLeft', label: t('아래 왼쪽') },
+                  { value: 'topCenter', label: t('위 가운데') },
+                  { value: 'topRight', label: t('위 오른쪽') },
+                  { value: 'topLeft', label: t('위 왼쪽') },
+                ]}
+                onChange={(value) => setNumberPos(value as typeof numberPos)}
+              />
+            </div>
+            <div className="pdf-tools-field">
+              <span>{t('번호 모양')}</span>
+              <Select
+                ariaLabel={t('번호 모양')}
+                value={numberTemplate}
+                options={[
+                  { value: '{n}', label: '1' },
+                  { value: '{n} / {total}', label: '1 / 10' },
+                  { value: '- {n} -', label: '- 1 -' },
+                  { value: 'p. {n}', label: 'p. 1' },
+                ]}
+                onChange={setNumberTemplate}
+              />
+            </div>
+          </div>
+          <div className="pdf-tools-grid pdf-tools-grid-2">
             <label className="pdf-tools-field">
               <span>{t('시작 번호')}</span>
               <input type="number" min={0} value={numberStart} onChange={(event) => setNumberStart(Number(event.target.value) || 0)} />
@@ -427,7 +447,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
             <span>{t('글자')}</span>
             <input value={mark.text} onChange={(event) => setMark({ ...mark, text: event.target.value })} />
           </label>
-          <div className="pdf-tools-grid">
+          <div className="pdf-tools-grid pdf-tools-grid-2">
             <label className="pdf-tools-field">
               <span>{t('크기 (pt)')}</span>
               <input type="number" min={8} max={200} value={mark.size} onChange={(event) => setMark({ ...mark, size: Number(event.target.value) || 64 })} />
@@ -453,7 +473,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       return (
         <>
           <Note>{t('모든 쪽의 가장자리를 잘라 냅니다(보이는 쪽 기준, mm). 잘린 부분은 숨겨질 뿐 지워지지는 않습니다.')}</Note>
-          <div className="pdf-tools-grid">
+          <div className="pdf-tools-grid pdf-tools-grid-2">
             {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
               <label key={side} className="pdf-tools-field">
                 <span>{t({ top: '위', bottom: '아래', left: '왼쪽', right: '오른쪽' }[side])}</span>

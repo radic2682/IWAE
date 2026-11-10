@@ -24,6 +24,7 @@ async function renderSidebar(
     missingDocIds?: readonly string[]
     openDocIds?: readonly string[]
     openNotePaths?: readonly string[]
+    activeDocId?: string | null
     onOpenSettings?: () => void
     recentVaultPaths?: readonly string[]
     onOpenRecentVault?: (root: string) => void
@@ -80,6 +81,7 @@ async function renderSidebar(
       missingDocIds={overrides.missingDocIds ?? []}
       openDocIds={overrides.openDocIds ?? []}
       openNotePaths={overrides.openNotePaths ?? []}
+      activeDocId={overrides.activeDocId ?? null}
       onOpenSettings={overrides.onOpenSettings}
       recentVaultPaths={overrides.recentVaultPaths}
       onOpenRecentVault={overrides.onOpenRecentVault}
@@ -273,6 +275,16 @@ describe('Sidebar — 열림 표시', () => {
 
     const row = open[0]?.closest('.side-item')
     expect(row?.textContent).toContain('Rust Programming Handbook')
+  })
+
+  it('지금 보는 문서만 진한 바탕(active)을 받고, 열려 있기만 한 문서는 점만 찍는다', async () => {
+    const { container } = await renderSidebar({ openDocIds: ['77aa11bb22cc', 'doc-2'], activeDocId: '77aa11bb22cc' })
+    const active = container.querySelectorAll('.side-item-active')
+    expect(active).toHaveLength(1)
+    expect(active[0]?.textContent).toContain('Rust Programming Handbook')
+    expect(active[0]?.classList.contains('side-item-open')).toBe(true)
+    const none = await renderSidebar({ openDocIds: ['77aa11bb22cc'] })
+    expect(none.container.querySelectorAll('.side-item-active')).toHaveLength(0)
   })
 
   it('아무것도 안 열렸으면 켜진 점이 없다', async () => {

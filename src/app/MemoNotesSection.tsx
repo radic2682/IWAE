@@ -539,7 +539,7 @@ export function MemoNotesSection({
                   ) : (
                     <button
                       type="button"
-                      className={`side-item side-tree-item side-memo-note${isOpen ? ' side-item-open side-memo-note-open' : ''}`}
+                      className={`side-item side-tree-item side-memo-note${isOpen ? ' side-item-open side-item-active side-memo-note-open' : ''}`}
                       aria-current={isOpen ? 'true' : undefined}
                       onClick={() => {
                         if (suppressClickRef.current) return
@@ -563,6 +563,7 @@ export function MemoNotesSection({
                         emoji={icons[noteKey]}
                         onPick={onPickIcon === undefined ? undefined : (x, y) => onPickIcon(noteKey, x, y)}
                         fallback={<NoteGlyph color={colors[noteKey]} />} />
+                      <span className={`side-dot${isOpen ? ' side-dot-open' : ''}`} aria-hidden="true" />
                       <span className="side-item-title">{entry.title}</span>
                     </button>
                   )}

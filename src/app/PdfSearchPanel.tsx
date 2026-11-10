@@ -177,7 +177,7 @@ export function PdfSearchPanel({
             type="search"
             aria-label={t('PDF 검색')}
             value={queryValue}
-            placeholder={t('이 PDF에서 검색')}
+            placeholder={t('이 문서에서 검색')}
             onChange={(event) => onQueryChange(event.currentTarget.value)}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {

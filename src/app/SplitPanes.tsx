@@ -133,6 +133,16 @@ export function SplitPanes({
   const [noteDock, setNoteDock] = useState<HTMLElement | null>(null)
   const noteDockValue = useMemo(() => ({ dock: noteDock, hostPane: noteHostPane }), [noteDock, noteHostPane])
   const dragController = useRef<AbortController | null>(null)
+  // 노트 바 칸 폭을 상단바에 알린다: 탭 줄의 칸 경계가 아래 문서 창 경계와 같은 자리에서 갈리도록(맨 오른쪽 탭 칸이 칸 폭만큼 더 넓다)
+  useLayoutEffect(() => {
+    const shell = shellRef.current
+    if (shell === null || noteDock === null) return undefined
+    const apply = () => shell.style.setProperty('--note-dock-w', `${noteDock.getBoundingClientRect().width}px`)
+    apply()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply)
+    observer?.observe(noteDock)
+    return () => { observer?.disconnect(); shell.style.removeProperty('--note-dock-w') }
+  }, [noteDock])
 
   useEffect(() => () => dragController.current?.abort(), [])
 

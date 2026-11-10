@@ -328,7 +328,7 @@ export function LibraryView({
             'side-item',
             options.folder === true ? 'side-tree-toggle' : 'side-tree-item',
             'library-nav-row',
-            active ? 'side-item-open' : '',
+            active ? 'side-item-open side-item-active' : '',
             options.drop !== undefined && (dropFolder === options.drop.path || externalDropFolder === options.drop.path) ? 'library-collection-drop' : '',
           ].filter(Boolean).join(' ')}
           onClick={() => setCollection(target)}

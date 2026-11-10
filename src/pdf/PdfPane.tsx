@@ -1,7 +1,8 @@
 import { ChatTeardropText } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useIsNoteHostPane, useNoteBarPresence, useNoteDock } from '../app/noteDock'
-import { MEMO_BAR_WIDTH, useMemoBarWidth } from './memoBarWidth'
+import { useClearMask, useClearZones } from './clearZones'
+import { MEMO_BAR_WIDTH, MEMO_LINK_GUTTER, useMemoBarWidth } from './memoBarWidth'
 import { NoteBarHeader } from './NoteBarHeader'
 import { useHighlightTool } from './highlightToolStore'
 import { useOverlayTool, useToolStyle } from './overlayToolStore'
@@ -448,7 +449,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   // 접힌 소제목 아래 블록은 숨긴다(새로 쓰는 메모는 늘 보인다)
   let hidden = false
   noteBlocks.forEach((block, index) => {
-    if (draftMemo !== null && index === draftIndex) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true })
+    if (draftMemo !== null && index === draftIndex) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true, sourceLabel: title })
     if (block.kind === 'section') {
       hidden = block.collapsed === true
       const next = noteBlocks.findIndex((item, at) => at > index && item.kind === 'section')
@@ -473,7 +474,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       ...((block.refs ?? []).length === 0 ? {} : { extraHighlights: (block.refs ?? []).flatMap((ref) => { const found = highlightById.get(ref); return found === undefined ? [] : [found] }) }),
     })
   })
-  if (draftMemo !== null && draftIndex >= noteBlocks.length) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true })
+  if (draftMemo !== null && draftIndex >= noteBlocks.length) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true, sourceLabel: title })
   const noteMemos = noteItems.flatMap((item) => item.kind === 'memo' && item.draft !== true ? [item.highlight] : [])
   // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
   useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
@@ -497,6 +498,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const paneFrame = useNoteDock()
   const noteBarPresence = useNoteBarPresence(memoColumn || memoOnly)
   const [barBodyTop, setBarBodyTop] = useState(0)
+  const linkClear = useClearZones()
+  const linkMask = useClearMask(linkClear.rects)
   // 이 문서 창의 왼쪽 가장자리와 노트 바 칸 왼쪽의 가로 차이(선이 문서 창 밖 노트 바까지 이어진다), 메모만 보기에서 바가 문서 창까지 덮는 폭
   const [linkGeometry, setLinkGeometry] = useState({ originX: 0, scrollerRight: 0, wideLeft: 0 })
   const [, bumpLayout] = useReducer((n: number) => n + 1, 0)
@@ -519,7 +522,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
   }, [paneFrame])
   // 화면 나누기: 이 칸이 칸 상자 안에서 얼마나 아래에 있는가, 메모 바에 붙은 오른쪽 칸인가
-  const [cellPlace, setCellPlace] = useState({ top: 0, atRight: true })
+  const [cellPlace, setCellPlace] = useState({ top: 0, atRight: true, nextToDock: true })
   useLayoutEffect(() => {
     const element = scrollerRef.current
     const frame = paneFrame
@@ -538,8 +541,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       wideLeft: panesBox === undefined ? 0 : Math.round(panesBox.left - dockBox.left),
     }
     if (geometry.originX !== linkGeometry.originX || geometry.scrollerRight !== linkGeometry.scrollerRight || geometry.wideLeft !== linkGeometry.wideLeft) setLinkGeometry(geometry)
-    const place = { top: Math.round(box.top - area.top), atRight: area.right - box.right < 2 }
-    if (place.top !== cellPlace.top || place.atRight !== cellPlace.atRight) setCellPlace(place)
+    const place = { top: Math.round(box.top - area.top), atRight: area.right - box.right < 2, nextToDock: dockBox.left - box.right < 2 }
+    if (place.top !== cellPlace.top || place.atRight !== cellPlace.atRight || place.nextToDock !== cellPlace.nextToDock) setCellPlace(place)
   })
   useLayoutEffect(() => {
     if (!primary) return
@@ -558,10 +561,16 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     paneInsetTopRef.current = inset
     if (inset !== paneInsetTop) setPaneInsetTop(inset)
   }, [measured.width, measured.height, paneInsetTop])
-  const fittedWidth = Math.max(measured.width - PAGE_GUTTER * 2, 0)
+  // 노트 바가 바로 오른쪽에 붙어 있으면 페이지 오른쪽에 선 자리를 비운다(맞춤 폭·쪽 맞춤은 그만큼 뺀 폭을 쓴다)
+  // 선 자리는 노트 바 칸이 열리고 닫히는 폭에 비례해 자란다(칸 폭 전환과 함께 움직여 한 프레임에 튀지 않는다)
+  const dockOpenness = paneFrame === null || memoBarSize <= 0 ? 1 : Math.min(Math.max(paneFrame.getBoundingClientRect().width / memoBarSize, 0), 1)
+  const connectorGutter = (memoColumn || noteBarPresence.rendered) && cellPlace.atRight && cellPlace.nextToDock ? Math.round(MEMO_LINK_GUTTER * dockOpenness) : 0
+  const fittedWidth = Math.max(measured.width - PAGE_GUTTER * 2 - connectorGutter, 0)
   const contentWidth = Math.max((fittedWidth * zoomPercent) / 100, 0)
-  // 페이지(와 메모 열)를 가운데에 놓았을 때 페이지 왼쪽 끝
-  const contentLeft = Math.max((measured.width - contentWidth) / 2, 0)
+  // 페이지(와 메모 열)를 가운데에 놓았을 때 페이지 왼쪽 끝(선 자리는 오른쪽 끝에 따로 둔다)
+  const contentLeft = Math.max((measured.width - connectorGutter - contentWidth) / 2, 0)
+  // 스크롤 상자 안쪽 폭: 페이지가 창보다 넓어도 맨 오른쪽까지 가면 선 자리가 보인다
+  const spacerWidth = Math.max(contentWidth + connectorGutter, measured.width)
 
   // 90·270도 돌리면 배치에 쓰는 페이지 크기는 가로세로가 바뀐 것이다.
   const quarterTurned = rotation === 90 || rotation === 270
@@ -1635,12 +1644,15 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               const bend = pageEdge + (cardEdge - pageEdge) / 2
               const lines = memoLinkLines
               return (
-                <svg className={`pdf-memo-links pdf-memo-links-flow${clean ? ' pdf-memo-links-clean' : ''}`} width={memoBarSize} height={Math.max(memoBarScroll.height * barZoom + dockBottom, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
+                <svg ref={linkClear.ref} className={`pdf-memo-links pdf-memo-links-flow${clean ? ' pdf-memo-links-clean' : ''}`} width={memoBarSize} height={Math.max(memoBarScroll.height * barZoom + dockBottom, 1)} aria-hidden="true" style={dockBottom > 0 ? { clipPath: `polygon(-4000px -4000px, 0 -4000px, 0 ${dockBottom}px, 4000px ${dockBottom}px, 4000px 4000px, -4000px 4000px)` } : undefined}>
+                  {linkMask.defs}
+                  <g mask={`url(#${linkMask.id})`}>
                   {lines.map(({ target, anchorY, cardY, active }) => (
                     <g key={target.key} className={`pdf-memo-link pdf-memo-link-${target.highlight.color}${active ? ' pdf-memo-link-active' : ''}`}>
                       <path d={`M ${pageEdge} ${anchorY} C ${bend} ${anchorY}, ${bend} ${cardY}, ${cardEdge} ${cardY}`} />
                     </g>
                   ))}
+                  </g>
                 </svg>
               )
             })()}
@@ -1746,7 +1758,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
         {/* 전체 높이를 가진 빈 상자. 스크롤 막대의 길이는 이것 하나가 정한다 */}
         <div
           className="pdf-spacer"
-          style={{ height: `${docHeight}px`, width: `${Math.max(contentWidth, measured.width)}px` }}
+          style={{ height: `${docHeight}px`, width: `${spacerWidth}px` }}
         >
           {pages}
           {rotation === 0 ? (() => {
@@ -1763,7 +1775,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                   const placedBox = boxes[page]
                   return placedBox === undefined ? undefined : { top: placedBox.top, left: contentLeft + placedBox.left, width: placedBox.width }
                 }}
-                width={Math.max(contentWidth, measured.width)}
+                width={spacerWidth}
                 height={docHeight}
                 onEdit={setEditingBoxId}
                 onSave={saveBoxMemo}
@@ -1793,7 +1805,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 const placedBox = boxes[page]
                 return placedBox === undefined ? undefined : { top: placedBox.top, left: contentLeft + placedBox.left, width: placedBox.width }
               }}
-              width={Math.max(contentWidth, measured.width)}
+              width={spacerWidth}
               height={docHeight}
               editMode={interactionMode === 'edit'}
               tool={overlayTool}
@@ -1819,7 +1831,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
             />
           ) : null}
           {memoColumn && memoTargets.length > 0 ? (
-            <svg className="pdf-memo-links pdf-memo-links-page" width={Math.max(contentWidth, measured.width)} height={docHeight} aria-hidden="true">
+            <svg className="pdf-memo-links pdf-memo-links-page" width={spacerWidth} height={docHeight} aria-hidden="true">
               {memoTargets.map((target) => {
                 const active = target.key === activeMemoId || target.key === editingMemoId || target.draft === true
                 const pageRight = contentLeft + contentWidth

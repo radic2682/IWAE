@@ -7,6 +7,9 @@ import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'rea
  */
 export const MEMO_BAR_WIDTH = 330
 export const MEMO_BAR_MIN = 220
+/** 노트 바와 맞닿은 문서 창에서 종이(쪽) 오른쪽과 바 사이에 비워 두는 선 자리(px). PDF·Markdown 이 같이 쓴다 */
+export const MEMO_LINK_GUTTER = 44
+
 const MEMO_BAR_WIDTH_KEY = 'iwae:memo-bar-width:v1'
 const CHANGE_EVENT = 'iwae:memo-bar-width'
 

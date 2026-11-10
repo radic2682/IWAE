@@ -240,7 +240,7 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '글을 쓰세요 (끝에서 Enter 두 번이면 아래에 새 글)': 'Write here (press Enter twice at the end for a new block below)',
   '출처': 'Source',
   '새 메모': 'New memo',
-  'PDF 에서 보기': 'Show in PDF',
+  '원문에서 보기': 'Show in source',
   '원문 펼치기': 'Expand quote',
   '원문 접기': 'Collapse quote',
   '표·그림': 'Table/figure',

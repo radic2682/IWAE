@@ -197,6 +197,7 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '{page}페이지': 'Page {page}',
   'PDF 검색': 'Search PDF',
   '이 PDF에서 검색': 'Search this PDF',
+  '이 문서에서 검색': 'Search this document',
   'PDF에서 검색': 'Search PDF',
   '검색 결과 위치': 'Result position',
   '대소문자 구분': 'Match case',
