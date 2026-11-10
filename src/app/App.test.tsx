@@ -378,7 +378,7 @@ describe('App — bridge 로부터의 읽기', () => {
     const translate = await screen.findByRole('button', { name: '번역' })
     fireEvent.click(translate)
     expect((await screen.findByLabelText('Markdown 번역 결과')).textContent).toContain('테스트 번역')
-    fireEvent.click(screen.getByRole('button', { name: '번역과 함께 블록 추가' }))
+    fireEvent.click(screen.getByRole('button', { name: '노트에 넣기' }))
 
     await waitFor(() => {
       expect(view.container.querySelector('.react-flow__node-markdownExcerpt')).not.toBeNull()
@@ -455,7 +455,7 @@ describe('App — bridge 로부터의 읽기', () => {
     fireEvent.click(screen.getByRole('button', { name: '번역' }))
     expect((await screen.findByLabelText('번역 결과')).textContent).toBe('테스트 번역')
     expect(view.container.querySelectorAll('.react-flow__node-translation')).toHaveLength(initialTranslationCount)
-    fireEvent.click(screen.getByRole('button', { name: '번역과 함께 블록 추가' }))
+    fireEvent.click(screen.getByRole('button', { name: '노트에 넣기' }))
     await waitFor(() => {
       expect(translationMocks.translate).toHaveBeenCalledWith('http://127.0.0.1:11434', expect.objectContaining({ text: 'test' }))
       expect(view.container.querySelector('.react-flow__node-pdfExcerpt')).not.toBeNull()
@@ -474,7 +474,7 @@ describe('App — bridge 로부터의 읽기', () => {
     fireEvent.click(translate)
 
     expect((await screen.findByLabelText('번역 결과')).textContent).toBe('테스트 번역')
-    expect(screen.queryByRole('button', { name: '번역과 함께 블록 추가' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '노트에 넣기' })).toBeNull()
   })
 
   it('PDF 선택 번역 실패를 선택 작업에 표시한다', async () => {

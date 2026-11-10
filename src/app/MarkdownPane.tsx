@@ -60,6 +60,7 @@ import { getMarkdownTheme, type MarkdownThemeId } from '../core/markdownTheme'
 import type { ReaderPaneToolMode } from './PaneToolbar'
 import '../ui/sidebar-followup.css'
 import { ContextMenu } from '../ui/ContextMenu'
+import { TranslationCard } from '../ui/TranslationCard'
 import { documentContextEntries } from '../ui/documentContextMenu'
 
 interface MarkdownPaneProps {
@@ -73,7 +74,7 @@ interface MarkdownPaneProps {
   theme?: MarkdownThemeId
   interactionMode?: ReaderPaneToolMode
   searchQuery?: string
-  onTranslateSelection?: (text: string) => Promise<MarkdownSelectionTranslation | null>
+  onTranslateSelection?: (text: string, options?: { readonly force?: boolean }) => Promise<MarkdownSelectionTranslation | null>
   onSendTranslatedSelection?: (
     payload: MarkdownExcerptDragPayload,
     translation: MarkdownSelectionTranslation,
@@ -883,21 +884,30 @@ export function MarkdownPane({
     setTranslationState({ status: 'idle' })
   }, [memoBarVisible, onBoxHighlightCreated, path, sourceFileId, sourceHash, title, zoom])
 
-  const translateSelection = useCallback(async () => {
-    if (action === null || onTranslateSelection === undefined || translationState.status === 'pending') return
+  const translationRequest = useRef(0)
+  const translateSelection = useCallback(async (force = false, supersede = false) => {
+    if (action === null || onTranslateSelection === undefined || (translationState.status === 'pending' && !supersede)) return
+    const current = translationRequest.current + 1
+    translationRequest.current = current
     setTranslationState({ status: 'pending' })
     try {
-      const translation = await onTranslateSelection(action.payload.selection.quote)
+      const translation = await (force ? onTranslateSelection(action.payload.selection.quote, { force: true }) : onTranslateSelection(action.payload.selection.quote))
+      if (translationRequest.current !== current) return
       setTranslationState(translation === null
         ? { status: 'error', message: t('번역 결과를 받지 못했습니다.') }
         : { status: 'result', translation })
     } catch (error) {
+      if (translationRequest.current !== current) return
       setTranslationState({
         status: 'error',
         message: error instanceof Error ? error.message : String(error),
       })
     }
   }, [action, onTranslateSelection, translationState.status])
+  const closeTranslationCard = useCallback(() => {
+    translationRequest.current += 1
+    setTranslationState({ status: 'idle' })
+  }, [])
 
   // 마우스 제스처 ↑↓(App): 이 글의 맨 위·아래로
   useEffect(() => {
@@ -1533,22 +1543,19 @@ export function MarkdownPane({
               </button>
             )}
           </div>
-          {translationState.status === 'result' ? (
-            <div className="markdown-translation-result" role="region" aria-label={t('Markdown 번역 결과')}>
-              <p>{translationState.translation.text}</p>
-              {onSendTranslatedSelection === undefined ? null : (
-                <button
-                  type="button"
-                  onClick={() => onSendTranslatedSelection(action.payload, translationState.translation)}
-                >
-                  {t('번역과 함께 블록 추가')}
-                </button>
-              )}
-            </div>
-          ) : null}
-          {translationState.status === 'error' ? (
-            <span className="markdown-translation-error" role="alert">{translationState.message}</span>
-          ) : null}
+          {translationState.status === 'idle' ? null : (
+            <TranslationCard
+              original={action.payload.selection.quote}
+              state={translationState}
+              ariaLabel={t('Markdown 번역 결과')}
+              onClose={closeTranslationCard}
+              onRetry={() => void translateSelection(true)}
+              onRetranslateAfterLanguageChange={() => void translateSelection(true, true)}
+              {...(onSendTranslatedSelection === undefined ? {} : { onSendToNote: () => {
+                if (translationState.status === 'result') onSendTranslatedSelection(action.payload, translationState.translation)
+              } })}
+            />
+          )}
         </div>
       )}
     </div>

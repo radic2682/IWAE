@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import { SelectionActions } from './SelectionActions'
@@ -163,7 +163,7 @@ describe('SelectionActions', () => {
     expect(translationResult.textContent).toBe(translated.text)
     expect(screen.getByRole('toolbar', { name: 'PDF 선택 작업' }).contains(translationResult)).toBe(false)
     expect(screen.queryByText('번역이 완료되었습니다.')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: '번역과 함께 블록 추가' }))
+    fireEvent.click(screen.getByRole('button', { name: '노트에 넣기' }))
     expect(onSendTranslationToCanvas).toHaveBeenCalledWith(current, translated)
     expect(screen.getByRole('toolbar', { name: 'PDF 선택 작업' })).toBeDefined()
   })
@@ -216,7 +216,30 @@ describe('SelectionActions — 포커스·번역 실패', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<SelectionActions selection={selection('text', 'abc')} onCopy={vi.fn()} onTranslate={vi.fn().mockResolvedValue(translated)} />)
     fireEvent.click(screen.getByRole('button', { name: '번역' }))
-    fireEvent.click(await screen.findByRole('button', { name: '번역 복사' }))
+    const card = await screen.findByRole('region', { name: '번역 결과 패널' })
+    await screen.findByLabelText('번역 결과')
+    fireEvent.click(within(card).getByRole('button', { name: '복사' }))
     expect(writeText).toHaveBeenCalledWith(translated.text)
+    fireEvent.click(within(card).getByRole('button', { name: '원문과 함께 복사' }))
+    expect(writeText).toHaveBeenLastCalledWith(`abc
+
+${translated.text}`)
+  })
+
+  it('다시 누르면 캐시를 건너뛰고 다시 번역하며, Esc 와 ✕ 로 카드를 닫는다', async () => {
+    const onTranslate = vi.fn().mockResolvedValue(translated)
+    render(<SelectionActions selection={selection('text', 'abc')} onCopy={vi.fn()} onTranslate={onTranslate} />)
+    fireEvent.click(screen.getByRole('button', { name: '번역' }))
+    await screen.findByLabelText('번역 결과')
+    fireEvent.click(screen.getByRole('button', { name: '다시' }))
+    await waitFor(() => expect(onTranslate).toHaveBeenCalledTimes(2))
+    expect(onTranslate).toHaveBeenLastCalledWith(expect.anything(), { force: true })
+    await screen.findByLabelText('번역 결과')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('region', { name: '번역 결과 패널' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '번역' }))
+    await screen.findByLabelText('번역 결과')
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }))
+    expect(screen.queryByRole('region', { name: '번역 결과 패널' })).toBeNull()
   })
 })

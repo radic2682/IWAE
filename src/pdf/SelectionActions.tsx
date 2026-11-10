@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react'
 import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import { announceAction } from '../app/actionFeedback'
 import { t } from '../i18n'
 
-/** 번역 설정 화면을 연다(App 이 듣는다) */
-export const OPEN_TRANSLATION_SETTINGS_EVENT = 'iwae:open-translation-settings'
+import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCard } from '../ui/TranslationCard'
+
+export { OPEN_TRANSLATION_SETTINGS_EVENT }
 
 /**
  * 작업 단추를 눌러도 포커스를 옮기지 않는다. 글을 고르면 메모 바의 새 메모 칸이 포커스를 갖는데,
@@ -20,7 +21,7 @@ export interface SelectionActionsProps {
   readonly onCopyWithSource?: (selection: PdfExcerptSelection) => void
   /** 고른 글자로 문서 검색 화면을 연다 */
   readonly onSearchDocuments?: (selection: PdfExcerptSelection) => void
-  readonly onTranslate?: (selection: PdfExcerptSelection) => Promise<PdfSelectionTranslation | null>
+  readonly onTranslate?: (selection: PdfExcerptSelection, options?: { readonly force?: boolean }) => Promise<PdfSelectionTranslation | null>
   readonly onSendTranslationToCanvas?: (
     selection: PdfExcerptSelection,
     translation: PdfSelectionTranslation,
@@ -72,13 +73,18 @@ export function SelectionActions({
     setTranslationState({ status: 'idle' })
   }, [selectionKey])
 
-  const handleTranslate = async (): Promise<void> => {
-    if (!canTranslate || isTranslating) return
+  const closeCard = useCallback(() => {
+    requestId.current += 1
+    setTranslationState({ status: 'idle' })
+  }, [])
+
+  const handleTranslate = async (force = false, supersede = false): Promise<void> => {
+    if (!canTranslate || (isTranslating && !supersede)) return
     const currentRequest = requestId.current + 1
     requestId.current = currentRequest
     setTranslationState({ status: 'pending' })
     try {
-      const translation = await onTranslate(selection)
+      const translation = await (force ? onTranslate(selection, { force: true }) : onTranslate(selection))
       if (translation === null) throw new Error(t('번역 결과를 받지 못했습니다.'))
       if (requestId.current === currentRequest) setTranslationState({ status: 'result', translation })
     } catch (error) {
@@ -143,49 +149,24 @@ export function SelectionActions({
         type="button"
         className="selection-action selection-action-translate"
         disabled={!canTranslate || isTranslating}
-        onClick={handleTranslate}
+        onClick={() => void handleTranslate()}
       >
         {translateLabel}
       </button>
       </div>
-      {translationState.status === 'result' ? (
-        <div className="selection-translation-result" role="region" aria-label={t('번역 결과 패널')} onPointerDown={keepFocus} onMouseDown={keepFocus}>
-          <p aria-label={t('번역 결과')}>{translationState.translation.text}</p>
-          <div className="selection-translation-actions">
-            <button
-              type="button"
-              className="selection-action selection-action-copy-translation"
-              onClick={() => {
-                void navigator.clipboard?.writeText(translationState.translation.text)
-                announceAction(t('번역을 복사했습니다'))
-              }}
-            >
-              {t('번역 복사')}
-            </button>
-            {onSendTranslationToCanvas === undefined ? null : (
-              <button
-                type="button"
-                className="selection-action selection-action-send-translation"
-                onClick={() => onSendTranslationToCanvas(selection, translationState.translation)}
-              >
-                {t('번역과 함께 블록 추가')}
-              </button>
-            )}
-          </div>
-        </div>
-      ) : null}
-      {translationState.status === 'error' ? (
-        <div className="selection-action-status" role="alert" onPointerDown={keepFocus} onMouseDown={keepFocus}>
-          <span>{t('번역 실패: {message}', { message: translationState.message })}</span>
-          <button
-            type="button"
-            className="selection-action selection-action-open-settings"
-            onClick={() => window.dispatchEvent(new Event(OPEN_TRANSLATION_SETTINGS_EVENT))}
-          >
-            {t('번역 설정 열기')}
-          </button>
-        </div>
-      ) : null}
+      {translationState.status === 'idle' ? null : (
+        <TranslationCard
+          original={selection.anchor.quote}
+          state={translationState}
+          ariaLabel={t('번역 결과 패널')}
+          onClose={closeCard}
+          onRetry={() => void handleTranslate(true)}
+          onRetranslateAfterLanguageChange={() => void handleTranslate(true, true)}
+          {...(onSendTranslationToCanvas === undefined ? {} : { onSendToNote: () => {
+            if (translationState.status === 'result') onSendTranslationToCanvas(selection, translationState.translation)
+          } })}
+        />
+      )}
     </div>
   )
 }

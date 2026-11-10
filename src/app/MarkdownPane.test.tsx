@@ -140,7 +140,7 @@ describe('MarkdownPane', () => {
     fireEvent.click(screen.getByRole('button', { name: '번역' }))
 
     expect((await screen.findByLabelText('Markdown 번역 결과')).textContent).toContain('Translated heading')
-    fireEvent.click(screen.getByRole('button', { name: '번역과 함께 블록 추가' }))
+    fireEvent.click(screen.getByRole('button', { name: '노트에 넣기' }))
     expect(onTranslateSelection).toHaveBeenCalledWith('중요한 제목')
     expect(onSendTranslatedSelection).toHaveBeenCalledWith(
       expect.objectContaining({ selection: expect.objectContaining({ quote: '중요한 제목' }) }),

@@ -188,4 +188,12 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '{count}쪽을 돌렸습니다': 'Turned {count} pages',
   'PDF: 스캔 쪽 방향 바로잡기': 'PDF: Fix scanned page orientation',
   'PDF: 압축': 'PDF: Compress',
+  // ui/TranslationCard.tsx (번역 카드)
+  '노트에 넣기': 'Add to note',
+  '다시': 'Again',
+  '원문': 'Original',
+  '원문과 함께 복사': 'Copy with original',
+  '원문과 함께 복사했습니다': 'Copied with original',
+  '번역 언어 바꾸기': 'Change translation language',
+  '번역기': 'Translator',
 }

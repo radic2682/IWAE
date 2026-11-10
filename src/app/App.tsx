@@ -74,6 +74,7 @@ import type { SourceOpenRequest } from './CanvasBlockShell'
 import { useAppShortcuts, type AppShortcutActions } from './useAppShortcuts'
 import { useNavigationHistory } from './useNavigationHistory'
 import type { NavLocation } from '../core/navigationHistory'
+import { externalProviderInfo } from '../core/translationSettings'
 import { useTranslation } from './useTranslation'
 import {
   createBrowserPdfHighlightStorage,
@@ -126,6 +127,7 @@ import type { LibraryOpenTarget } from '../core/libraryItems'
 import type { Anchor } from '../core/anchor'
 import type { PdfExcerptSelection, SourceJumpRequest } from '../core/pdfExcerpt'
 import { OPEN_TRANSLATION_SETTINGS_EVENT, type PdfSelectionTranslation } from '../pdf/SelectionActions'
+import { TranslationCardSettingsContext, type TranslationCardSettings } from '../ui/TranslationCard'
 import type { PdfDocMeta } from '../bridge/pdf'
 import type { CanvasBlockData } from '../core/canvasDocument'
 import type { CanvasDocumentV2 } from '../core/canvasDocument'
@@ -1574,9 +1576,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setDocSearchMode(true)
     documentSearch.run(query)
   }, [documentSearch])
-  const translatePdfSelection = useCallback(async (selection: PdfExcerptSelection) => {
+  const translatePdfSelection = useCallback(async (selection: PdfExcerptSelection, options?: { readonly force?: boolean }) => {
     if (selection.anchor.quote.trim() === '') return null
-    const text = await translateWithCacheUsing(translateForCache, selection.anchor.quote, { docId: selection.anchor.docId, page: selection.anchor.page })
+    const text = await translateWithCacheUsing(translateForCache, selection.anchor.quote, { docId: selection.anchor.docId, page: selection.anchor.page }, options?.force === true)
     if (text === null) return null
     return { text, targetLanguage: translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
   }, [translation, translateForCache])
@@ -1595,9 +1597,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }))
   }, [activeNoteId, activePdfDoc, docTitles])
 
-  const translateMarkdownSelection = useCallback(async (text: string) => {
+  const translateMarkdownSelection = useCallback(async (text: string, options?: { readonly force?: boolean }) => {
     if (text.trim() === '') return null
-    const translated = await translateWithCacheUsing(translateForCache, text, { docId: activeMarkdownPath ?? undefined })
+    const translated = await translateWithCacheUsing(translateForCache, text, { docId: activeMarkdownPath ?? undefined }, options?.force === true)
     if (translated === null) return null
     return { text: translated, targetLanguage: translation.settings.targetLanguage, model: translation.selectedModel ?? translation.settings.externalProvider }
   }, [translation, translateForCache, activeMarkdownPath])
@@ -1614,6 +1616,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       translation: translated,
     }))
   }, [activeNoteId])
+
+  // 번역 카드의 언어·번역기 칩
+  const { targetLanguage: cardTargetLanguage, executionMode: cardExecutionMode, externalProvider: cardExternalProvider } = translation.settings
+  const cardSelectedModel = translation.selectedModel
+  const updateTranslationSettings = translation.updateSettings
+  const translationCardSettings = useMemo<TranslationCardSettings>(() => ({
+    targetLanguage: cardTargetLanguage,
+    providerLabel: cardExecutionMode === 'external-api'
+      ? t(externalProviderInfo(cardExternalProvider).label).replace(/\s*\(.*\)\s*$/u, '')
+      : cardSelectedModel ?? '',
+    onChangeTargetLanguage: (code) => updateTranslationSettings({ targetLanguage: code }),
+  }), [cardTargetLanguage, cardExecutionMode, cardExternalProvider, cardSelectedModel, updateTranslationSettings])
 
   const translateCanvasText = useCallback(async (text: string) => {
     const result = await translation.translate(text)
@@ -2277,6 +2291,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
 
   return (
     <MemoNoteContext.Provider value={memoNotes}>
+    <TranslationCardSettingsContext.Provider value={translationCardSettings}>
     <ActionToast />
     <UpdateBanner state={updater} />
     {error !== null && (
@@ -2874,6 +2889,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         },
       ]}
     />
+    </TranslationCardSettingsContext.Provider>
     </MemoNoteContext.Provider>
   )
 }
