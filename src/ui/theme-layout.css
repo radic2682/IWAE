@@ -2965,7 +2965,9 @@
 .topbar { border-bottom: 1px solid var(--divider); }
 .topbar-panetab-zone { align-items: flex-end; }
 .topbar-panetab-zone .pane-tabs-menu { align-self: stretch; align-items: flex-end; padding-inline: 6px 0; }
-.topbar-panetab-zone .pane-tabs-empty { align-self: center; padding-left: 12px; color: var(--text-dim); font-size: 12.5px; }
+.topbar-panetab-zone .pane-tabs-empty { align-self: center; padding-left: 12px; color: var(--text-strong); font-size: 12.5px; }
+/* 빈 창: 글자와 닫기 단추가 탭 줄(제목줄) 높이의 가운데에 오게 한다 */
+.topbar-panetab-zone .pane-tabs-empty-row { align-self: stretch; align-items: center; }
 .pane-tabs-strip { align-self: stretch; align-items: flex-end; }
 
 .pane-top-tab {
