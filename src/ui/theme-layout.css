@@ -1242,13 +1242,19 @@
 
 .selection-action {
   min-height: 26px;
-  padding: 0 8px;
+  /* Pretendard 글꼴은 줄 안에서 글자가 위로 치우쳐 보여, 위쪽 안쪽 여백을 조금 더 줘서 가운데로 맞춘다 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 2px 8px 0;
   border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--text);
   font: inherit;
   font-size: 11px;
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
 }
