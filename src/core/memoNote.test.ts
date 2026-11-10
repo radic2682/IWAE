@@ -155,3 +155,58 @@ describe('memoNote — 자유 ID', () => {
     expect(suggestTicketIds(['REQ-01', 'REQ-03', 'BUG-2', 'REQ-02'])).toEqual(['REQ-04', 'BUG-3'])
   })
 })
+
+describe('memoNote — PDF 별 노트', () => {
+  it('docId 는 파일에 저장되고 다시 읽히며, docId 없는 예전 파일도 그대로 읽힌다', async () => {
+    const { docNoteTitle, EMPTY_MEMO_NOTE } = await import('./memoNote')
+    const owned = { ...EMPTY_MEMO_NOTE, docId: 'abc123', blocks: [textBlock('hi')] }
+    const text = serializeMemoNote(owned)
+    expect(JSON.parse(text)).toMatchObject({ version: 1, docId: 'abc123' })
+    expect(parseMemoNote(JSON.parse(text))).toEqual(owned)
+    const legacy = { version: 1, blocks: [{ id: 'x', kind: 'text', text: 'old' }] }
+    expect(parseMemoNote(legacy).docId).toBeUndefined()
+    expect('docId' in parseMemoNote(legacy)).toBe(false)
+    expect(JSON.parse(serializeMemoNote(parseMemoNote(legacy)))).not.toHaveProperty('docId')
+    // 이상한 값은 버린다
+    expect(parseMemoNote({ blocks: [], docId: 3 }).docId).toBeUndefined()
+    expect(parseMemoNote({ blocks: [], docId: '  ' }).docId).toBeUndefined()
+    // 블록을 고쳐도 docId 는 남는다
+    const edited = updateTextBlock(owned, owned.blocks[0]!.id, 'new', '')
+    expect(edited.docId).toBe('abc123')
+    expect(moveBlock(edited, edited.blocks[0]!.id, 0).docId).toBe('abc123')
+    // 기본 제목: 「<문서 이름> 노트」, 겹치면 번호
+    expect(docNoteTitle('Sleep', [])).toBe('Sleep 노트')
+    expect(docNoteTitle('Sleep', ['Sleep 노트'])).toBe('Sleep 노트 2')
+    expect(docNoteTitle('Sleep', ['sleep 노트', 'Sleep 노트 2'])).toBe('Sleep 노트 3')
+  })
+
+  it('노트를 PDF 별로 나눈다: 있는 PDF 의 노트는 그 PDF 아래, 일반 노트와 사라진 PDF 의 노트는 아래 구역', async () => {
+    const { groupMemoNotesByDoc, memoNoteOwner } = await import('./memoNote')
+    const entries = [
+      { path: '노트/일반.iwnote', title: '일반' },
+      { path: '노트/A1.iwnote', title: 'A1', docId: 'docA' },
+      { path: '노트/A2.iwnote', title: 'A2', docId: 'docA' },
+      { path: '노트/B1.iwnote', title: 'B1', docId: 'docB-v2' },
+      { path: '노트/고아.iwnote', title: '고아', docId: 'deleted' },
+    ]
+    const known = new Set(['docA', 'docB'])
+    const groups = [{ anchorDocId: 'docB', versions: [{ docId: 'docB' }, { docId: 'docB-v2' }] }]
+    const owner = (docId: string) => memoNoteOwner(docId, known, groups)
+    const { byDoc, general } = groupMemoNotesByDoc(entries, owner)
+    expect([...byDoc.keys()]).toEqual(['docA', 'docB'])
+    expect(byDoc.get('docA')!.map((entry) => entry.title)).toEqual(['A1', 'A2'])
+    // 버전 묶음의 다른 버전에 속한 노트는 묶음 줄(대표 문서) 아래
+    expect(byDoc.get('docB')!.map((entry) => entry.title)).toEqual(['B1'])
+    expect(general.map((entry) => entry.title)).toEqual(['일반', '고아'])
+    // 소유자 함수가 없으면 모두 일반 노트
+    expect(groupMemoNotesByDoc(entries, undefined).general).toHaveLength(5)
+  })
+
+  it('memoNoteOwner: 대표 문서가 사라졌거나 PDF 가 아니면 null', async () => {
+    const { memoNoteOwner } = await import('./memoNote')
+    const groups = [{ anchorDocId: 'gone', versions: [{ docId: 'gone' }, { docId: 'v2' }] }]
+    expect(memoNoteOwner('v2', new Set(['v2']), groups)).toBeNull()
+    expect(memoNoteOwner('x', new Set(['x']), [])).toBe('x')
+    expect(memoNoteOwner('y', new Set(['x']), [])).toBeNull()
+  })
+})

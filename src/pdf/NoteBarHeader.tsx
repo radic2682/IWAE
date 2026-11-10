@@ -3,6 +3,7 @@ import { ArrowsIn, ArrowsInLineVertical, ArrowsOut, ArrowsOutLineVertical, Magni
 import { t } from '../i18n'
 import { CategoryTag } from './CategoryTag'
 import { NoteTitle } from './NoteTitle'
+import { NoteSwitcherMenu, noteSwitcherGroups } from './NoteSwitcher'
 import type { MemoNoteApi } from './memoNoteContext'
 import type { PersistentPdfHighlight } from './persistentHighlight'
 
@@ -63,10 +64,45 @@ export function NoteBarHeader({
     .sort((a, b) => (a.anchor.docId === currentDocId ? 0 : 1) - (b.anchor.docId === currentDocId ? 0 : 1) || a.anchor.page - b.anchor.page)
     .slice(0, 30)
   const noteOpen = api !== null && api.openPath !== null
+  const [switchOpen, setSwitchOpen] = useState(false)
+  // 노트 바꾸기: 노트가 하나라도 있거나 이 PDF 에 만들 수 있을 때만
+  const switcherGroups = api === null ? null : noteSwitcherGroups(api, currentDocId)
+  const canSwitch = api !== null && switcherGroups !== null && (api.entries.length > 0 || (switcherGroups.owner !== null && api.createForDoc !== undefined))
+  // 이 PDF 에 노트가 있는데 다른 노트를 보고 있으면 개수를 작게 알린다
+  const mineCount = switcherGroups?.mine.length ?? 0
+  const showMineChip = mineCount > 0 && api !== null && switcherGroups !== null && !switcherGroups.mine.some((entry) => entry.path === api.openPath)
 
   return (
     <div className={className}>
-      {searchOpen ? null : <NoteTitle api={api} className="note-head-title" fallback={fallbackTitle} />}
+      {searchOpen ? null : (
+        <span className="note-head-switch" data-note-switch-trigger="">
+          <NoteTitle
+            api={api}
+            className="note-head-title"
+            fallback={fallbackTitle}
+            switcher={canSwitch ? { open: switchOpen, onToggle: () => setSwitchOpen((open) => !open), onRename: () => setSwitchOpen(false) } : undefined}
+          />
+          {showMineChip ? (
+            <button
+              type="button"
+              className="note-head-mine-chip"
+              aria-label={t('이 PDF의 노트 {count}개', { count: mineCount })}
+              title={t('이 PDF의 노트 {count}개', { count: mineCount })}
+              onClick={() => setSwitchOpen((open) => !open)}
+            >
+              {t('이 PDF {count}', { count: mineCount })}
+            </button>
+          ) : null}
+        </span>
+      )}
+      {!searchOpen && switchOpen && canSwitch ? (
+        <NoteSwitcherMenu
+          api={api}
+          currentDocId={currentDocId}
+          docLabel={api.docLabel?.(currentDocId) ?? (docTitles?.[currentDocId] ?? '').split(' · ')[0] ?? ''}
+          onClose={() => setSwitchOpen(false)}
+        />
+      ) : null}
       {searchOpen ? (
         <div className="pdf-memo-search">
           <MagnifyingGlass size={14} aria-hidden="true" />

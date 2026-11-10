@@ -26,14 +26,14 @@ import { detectPageRotation } from '../pdf/pdfPageOrientation'
 import type { PageTextIndex } from '../core/textIndex'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { setMemoBarVisible, useMemoBarVisible } from '../pdf/memoStore'
-import { MemoNoteContext } from '../pdf/memoNoteContext'
+import { MemoNoteContext, requestTitleEdit, type MemoNoteApi } from '../pdf/memoNoteContext'
 import { useMemoNotes } from './useMemoNotes'
 import { useMouseGestures } from './useMouseGestures'
 import { useSmoothWheel } from './useSmoothWheel'
 import { memoFolderIconKey, memoNoteIconKey } from './MemoNotesSection'
 import { memoNoteAbsolutePath, revealMemoNote } from '../bridge/memoNotes'
 import { copyFileToClipboard, revealInFolder } from '../bridge/vaultBackup'
-import { orderMemoNoteEntries } from '../core/memoNote'
+import { docNoteTitle, memoNoteOwner, orderMemoNoteEntries } from '../core/memoNote'
 import { useMcpMemoBridge } from './useMcpMemoBridge'
 import type { MemoCategorySummary } from './Sidebar'
 import { Sidebar, SidebarFooter } from './Sidebar'
@@ -1292,6 +1292,27 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 메모 노트: 오른쪽 바에 PDF 와 따로 여는 노트(여러 PDF 의 메모 + 글 블록). 처음 한 번 예전 카테고리를 노트로 옮긴다
   const memoNoteDocTitle = useCallback((docId: string) => docTitles[docId] ?? '', [docTitles])
   const memoNotes = useMemoNotes(vault, pdfHighlights.highlights, memoNoteDocTitle, announceAction)
+  // PDF 별 노트: 문서 id → 노트를 가지는 줄(버전 묶음이면 대표 문서). 지워졌거나 찾을 수 없는 PDF 의 노트는 일반 노트로 보인다
+  const noteKnownDocIds = useMemo(() => new Set(shownLibrary.filter((doc) => !missingDocIds.includes(doc.docId)).map((doc) => doc.docId)), [missingDocIds, shownLibrary])
+  const noteDocOwner = useCallback(
+    (docId: string) => memoNoteOwner(docId, noteKnownDocIds, Object.values(versionGroups.groups)),
+    [noteKnownDocIds, versionGroups.groups],
+  )
+  const noteDocLabel = useCallback(
+    (docId: string) => groupOfDoc(versionGroups.groups, docId)?.title ?? docTitles[docId] ?? '',
+    [docTitles, versionGroups.groups],
+  )
+  const createNoteForDoc = useCallback(async (docId: string) => {
+    const owner = noteDocOwner(docId) ?? docId
+    const title = docNoteTitle(noteDocLabel(owner), memoNotes.entries.map((entry) => entry.title))
+    const path = await memoNotes.createIn('', title, owner)
+    if (path !== null) {
+      setMemoBarVisible(true)
+      requestTitleEdit(path)
+    }
+    return path
+  }, [memoNotes, noteDocLabel, noteDocOwner])
+  const memoNoteApi: MemoNoteApi = { ...memoNotes, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc }
   /** 노트·폴더 경로가 바뀌면(이름 바꾸기·옮기기) 이모지·색·차례도 새 경로로 옮긴다 */
   const remapMemoPaths = (moved: ReadonlyMap<string, string>, order = true) => {
     for (const [from, to] of moved) {
@@ -2293,7 +2314,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
 
   return (
-    <MemoNoteContext.Provider value={memoNotes}>
+    <MemoNoteContext.Provider value={memoNoteApi}>
     <TranslationCardSettingsContext.Provider value={translationCardSettings}>
     <ActionToast />
     <UpdateBanner state={updater} />
@@ -2312,6 +2333,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             showNotes={CANVAS_ENABLED}
             onOpenDoc={(doc) => void openDocument(doc)}
             memoNotes={vault === null ? undefined : {
+              docOwner: noteDocOwner,
+              onCreateForDoc: (docId) => { void createNoteForDoc(docId) },
               entries: orderMemoNoteEntries(memoNotes.entries, noteOrder),
               openPath: memoNotes.openPath,
               onReorder: setNoteOrder,

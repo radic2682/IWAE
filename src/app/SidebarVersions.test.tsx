@@ -47,14 +47,16 @@ function renderSidebar() {
 }
 
 describe('Sidebar — 문서 판 묶음', () => {
-  it('판들은 한 줄로 겹쳐 보이고, 줄에는 기본 판 이름 칩이 붙는다(겹친 판은 목록에서 숨는다)', () => {
+  it('판들은 한 줄로 겹쳐 보이고, 줄 제목 뒤에 지금 버전이 붙는다(칩은 없고, 겹친 판은 목록에서 숨는다)', () => {
     renderSidebar()
-    expect(screen.getByRole('button', { name: 'Handbook Jul 2026' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Handbook Jul 2026' }).textContent).toContain('Handbook · Jul 2026')
     expect(screen.queryByRole('button', { name: 'Handbook Jul 2026 Jul' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Other' })).toBeDefined()
-    expect(screen.getByRole('button', { name: /Handbook 기본 버전 고르기: 지금 Jul 2026/ }).textContent).toContain('Jul 2026')
-    // 켜짐 바탕은 제목과 칩을 묶은 줄 전체에 깔린다
+    expect(screen.queryByRole('button', { name: /기본 버전 고르기/ })).toBeNull()
+    // 켜짐 바탕은 제목과 펼침 화살표를 묶은 줄 전체에 깔린다
     expect(screen.getByRole('button', { name: 'Handbook Jul 2026' }).closest('.side-version-line-open')).not.toBeNull()
+    // 버전이 없는 문서에는 화살표가 없다
+    expect(screen.queryByRole('button', { name: 'Other 펼치기' })).toBeNull()
   })
 
   it('묶음 줄을 누르면 기본 판 문서를 연다', () => {
@@ -63,24 +65,35 @@ describe('Sidebar — 문서 판 묶음', () => {
     expect(onOpenDoc).toHaveBeenCalledWith(expect.objectContaining({ docId: 'bbbbbbbbbbbb' }))
   })
 
-  it('칩(a)을 누르면 기본 판 드롭다운, 옆 단추는 펼치기. 펼친 줄에서 켜진 판은 하이라이팅, 누르면 연다', () => {
+  it('오른쪽 끝 화살표 하나로 펼치면 「버전」 알약 한 줄: 지금 버전이 켜져 있고, 누르면 그 버전으로 바뀐다', () => {
     const { actions } = renderSidebar()
-    fireEvent.click(screen.getByRole('button', { name: /Handbook 기본 버전 고르기/ }))
-    const menu = screen.getByRole('menu', { name: 'Handbook 기본 버전' })
-    fireEvent.click(within(menu).getByRole('menuitemradio', { name: /Jan 2025/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Handbook 펼치기' }))
+    const pills = screen.getByRole('group', { name: 'Handbook 버전' })
+    expect(within(pills).getByText('버전')).toBeDefined()
+    expect(within(pills).getByRole('button', { name: /Jul 2026 버전으로/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(pills).getByRole('button', { name: /Jan 2025 버전으로/ }).getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(within(pills).getByRole('button', { name: /Jan 2025 버전으로/ }))
     expect(actions.onPin).toHaveBeenCalledWith('aaaaaaaaaaaa')
-    expect(screen.queryByRole('menu', { name: 'Handbook 기본 버전' })).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Handbook 버전 펼치기' }))
-    const rows = screen.getByRole('group', { name: 'Handbook 버전' })
-    const open = within(rows).getByRole('button', { name: /Jul 2026 열기/ })
-    expect(open.className).toContain('side-version-row-open')
-    expect(within(rows).getByRole('button', { name: /Jan 2025 열기/ }).className).not.toContain('side-version-row-open')
-    fireEvent.click(within(rows).getByRole('button', { name: /Jan 2025 열기/ }))
-    expect(actions.onOpen).toHaveBeenCalledWith('aaaaaaaaaaaa')
-    expect(within(rows).queryByRole('button', { name: /빼기/ })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Handbook 버전 접기' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Handbook 접기' }))
     expect(screen.queryByRole('group', { name: 'Handbook 버전' })).toBeNull()
+  })
+
+  it('알약 우클릭 메뉴에 열기·이름 바꾸기·묶음에서 빼기가 있다', () => {
+    const { actions } = renderSidebar()
+    fireEvent.click(screen.getByRole('button', { name: 'Handbook 펼치기' }))
+    const pill = () => within(screen.getByRole('group', { name: 'Handbook 버전' })).getByRole('button', { name: /Jan 2025 버전으로/ })
+    fireEvent.contextMenu(pill())
+    fireEvent.click(within(screen.getByRole('menu', { name: /Jan 2025 버전 작업/ })).getByRole('menuitem', { name: '이 버전 열기' }))
+    expect(actions.onOpen).toHaveBeenCalledWith('aaaaaaaaaaaa')
+    fireEvent.contextMenu(pill())
+    fireEvent.click(within(screen.getByRole('menu', { name: /Jan 2025 버전 작업/ })).getByRole('menuitem', { name: '이 버전을 묶음에서 빼기' }))
+    expect(actions.onRemove).toHaveBeenCalledWith('aaaaaaaaaaaa')
+    fireEvent.contextMenu(pill())
+    fireEvent.click(within(screen.getByRole('menu', { name: /Jan 2025 버전 작업/ })).getByRole('menuitem', { name: '버전 이름 바꾸기' }))
+    const input = screen.getByRole('textbox', { name: '버전 이름' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Winter' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(actions.onRename).toHaveBeenCalledWith('aaaaaaaaaaaa', 'Winter')
   })
 
   it('묶음 줄을 더블클릭해 이름을 바꾸면 묶음 이름이 바뀐다(대표 문서 이름이 아니라)', async () => {

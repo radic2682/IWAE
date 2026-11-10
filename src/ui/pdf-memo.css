@@ -857,3 +857,32 @@
 /* 별점 줄: 무엇을 정하는 별인지 이름을 앞에 */
 .note-menu.note-menu > .note-menu-rating { padding-left: 9px; }
 .note-menu-rating .note-menu-row-label { flex: 1 1 auto; font-size: 12.5px; }
+
+/* ---------- 노트 바꾸기: 머리의 노트 이름이 여는 목록 ---------- */
+.note-head-switch { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; }
+.note-head-title-button {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 1 auto; max-width: 100%; height: 30px;
+  padding: 0 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer;
+}
+.note-head-title-button:hover, .note-head-title-button[aria-expanded='true'] { border-color: var(--divider-strong); background: var(--chrome-hover); }
+.note-head-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-head-mine-chip {
+  flex: 0 0 auto; height: 20px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text-strong); font: inherit; font-size: 11.5px; font-weight: 700; line-height: 1; cursor: pointer; white-space: nowrap;
+}
+.note-switch-menu {
+  position: absolute; z-index: 30; top: calc(100% - 2px); left: 10px; right: 10px; max-height: 360px; overflow: auto; padding: 6px;
+  border: 1px solid var(--divider-strong); border-radius: 10px; background: var(--paper); color: var(--text-strong);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .3);
+}
+.note-switch-head { padding: 6px 8px 4px; overflow: hidden; color: var(--text-strong); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.note-switch-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text-strong); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.note-switch-item > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-switch-item:hover, .note-switch-item:focus-visible { background: var(--chrome-hover); outline: 0; }
+.note-switch-item-current, .note-switch-item-current:hover { background: var(--selected-bg); font-weight: 700; }
+.note-switch-create { color: var(--accent); font-weight: 600; }
+.note-switch-sep { height: 1px; margin: 6px 2px; border: 0; background: var(--divider); }
+.note-switch-empty { margin: 0; padding: 8px; font-size: 13px; color: var(--text-strong); }

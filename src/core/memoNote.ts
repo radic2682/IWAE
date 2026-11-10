@@ -94,12 +94,33 @@ export function suggestTicketIds(used: readonly string[]): string[] {
 export interface MemoNote {
   readonly version: 1
   readonly blocks: readonly MemoNoteBlock[]
+  /** 이 노트를 가진 PDF 의 문서 id(형광펜이 쓰는 id). 없으면 어느 PDF 에도 속하지 않은 일반 노트 */
+  readonly docId?: string
 }
 
-/** 노트 목록에 보일 것: Vault 안 상대 경로(=열쇠)와 제목 */
+/** 노트 목록에 보일 것: Vault 안 상대 경로(=열쇠)와 제목. docId 는 노트가 속한 PDF */
 export interface MemoNoteEntry {
   readonly path: string
   readonly title: string
+  readonly docId?: string
+}
+
+/**
+ * 노트를 PDF 별로 나눈다. owner(docId) 가 줄 열쇠(문서 id, 버전 묶음이면 대표 문서 id)를 돌려주면 그 PDF 의 노트,
+ * null 이면(PDF 가 지워졌거나 모르는 문서) 노트가 사라지지 않게 일반 노트로 둔다. 차례는 받은 차례 그대로.
+ */
+export function groupMemoNotesByDoc<T extends MemoNoteEntry>(
+  entries: readonly T[],
+  owner: ((docId: string) => string | null) | undefined,
+): { readonly byDoc: ReadonlyMap<string, readonly T[]>; readonly general: readonly T[] } {
+  const byDoc = new Map<string, T[]>()
+  const general: T[] = []
+  for (const entry of entries) {
+    const key = entry.docId === undefined || owner === undefined ? null : owner(entry.docId)
+    if (key === null) general.push(entry)
+    else byDoc.set(key, [...(byDoc.get(key) ?? []), entry])
+  }
+  return { byDoc, general }
 }
 
 export const EMPTY_MEMO_NOTE: MemoNote = { version: 1, blocks: [] }
@@ -152,11 +173,12 @@ export function parseMemoNote(value: unknown): MemoNote {
     }
     return []
   })
-  return { version: 1, blocks }
+  const docId = typeof value.docId === 'string' && value.docId.trim() !== '' ? value.docId : undefined
+  return { version: 1, blocks, ...(docId === undefined ? {} : { docId }) }
 }
 
 export function serializeMemoNote(note: MemoNote): string {
-  return `${JSON.stringify({ version: 1, blocks: note.blocks }, null, 2)}\n`
+  return `${JSON.stringify({ version: 1, ...(note.docId === undefined ? {} : { docId: note.docId }), blocks: note.blocks }, null, 2)}\n`
 }
 
 let blockCounter = 0
@@ -398,4 +420,24 @@ export function notesFromCategories<T extends {
     })
     return { title, note: { version: 1 as const, blocks: ordered.map((item) => memoBlock(item.id)) } }
   })
+}
+
+/**
+ * 문서 id 가 노트를 가지는 줄의 열쇠. 알려진 PDF(known)면 자기 자신, 버전 묶음의 한 버전이면 묶음의 대표 문서
+ * (대표가 알려진 PDF 일 때). 그 밖(지워졌거나 PDF 가 아닌 문서)이면 null — 그 노트는 일반 노트로 보인다.
+ */
+export function memoNoteOwner(
+  docId: string,
+  known: ReadonlySet<string>,
+  groups: Iterable<{ readonly anchorDocId: string; readonly versions: readonly { readonly docId: string }[] }>,
+): string | null {
+  for (const group of groups) {
+    if (group.versions.some((version) => version.docId === docId)) return known.has(group.anchorDocId) ? group.anchorDocId : null
+  }
+  return known.has(docId) ? docId : null
+}
+
+/** 이 PDF 에 만들 새 노트의 기본 제목: 「<문서 이름> 노트」(겹치면 「… 노트 2」) */
+export function docNoteTitle(docLabel: string, taken: readonly string[]): string {
+  return uniqueNoteTitle(t('{title} 노트', { title: docLabel === '' ? t('PDF') : docLabel }), taken)
 }

@@ -152,3 +152,44 @@
 .side-version-line > .side-version-expand { margin-right: auto; }
 .side-tree-row:has(> .side-version-chip) > .side-tree-toggle { flex: 0 1 auto; width: auto; }
 .side-tree-row:has(> .side-version-chip) > .side-version-expand { margin-right: auto; }
+
+/* ---------- 문서 줄 정리: 아이콘 + 제목(+ 지금 버전), 오른쪽 끝 펼침 화살표 하나 ---------- */
+.side-version-line > .side-item { flex: 1 1 0; min-width: 0; }
+.side-tree-row:has(> .side-doc-children) { flex-wrap: wrap; }
+.side-doc-icon { position: relative; display: inline-grid; flex: 0 0 auto; place-items: center; }
+/* 이 PDF 에 노트가 있다는 표시: 아이콘 귀퉁이의 작은 점(앱 강조색) */
+.side-doc-note-dot { position: absolute; right: -3px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.side-doc-caret { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--text-strong, inherit); cursor: pointer; }
+.side-doc-caret:hover { background: var(--chrome-hover); }
+/* 마우스를 올렸을 때만 나타나는 「+」(이 PDF 에 노트 만들기). 화살표가 있으면 그 왼쪽 */
+.sidebar .side-section .side-tree-row > .side-version-line > .side-doc-note-add,
+.sidebar .side-section .side-doc-note-add {
+  position: absolute; top: 50%; right: 8px; z-index: 2; display: grid; place-items: center; width: 22px; height: 22px; margin: 0; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-strong); opacity: 0; transform: translateY(-50%); cursor: pointer;
+  transition: opacity 100ms ease;
+}
+.sidebar .side-section .side-doc-note-add-with-caret { right: 32px; }
+.sidebar .side-section .side-tree-row:hover .side-doc-note-add,
+.sidebar .side-section .side-doc-note-add:focus-visible { opacity: 1; }
+.sidebar .side-section .side-doc-note-add:hover { background: color-mix(in srgb, var(--text-strong) 14%, transparent); }
+/* 펼친 안쪽: 「버전」 알약 한 줄 → 노트들 */
+.side-doc-children { display: grid; flex: 1 0 100%; gap: 2px; margin: 1px 0 3px; }
+.side-version-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 10px 3px calc(var(--side-tree-depth, 0) * 14px + 30px); }
+.side-version-pills-label { margin-right: 2px; color: var(--text-strong); font-size: 12px; font-weight: 600; }
+.side-version-pill { height: 22px; padding: 0 10px; border: 1px solid var(--divider-strong); border-radius: 999px; background: transparent; color: var(--text-strong); font: inherit; font-size: 12px; font-weight: 600; line-height: 1; cursor: pointer; touch-action: none; }
+.side-version-pill:hover { border-color: var(--accent); }
+.side-version-pill-on, .side-version-pill-on:hover { border-color: var(--accent); background: var(--selected-bg); }
+.side-version-pill-input { width: 84px; height: 22px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 999px; background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12px; }
+.side-doc-notes { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
+.side-doc-note-item { min-width: 0; }
+.side-doc-note-item > .side-item { width: 100%; }
+.side-doc-note-menu-host { display: contents; }
+/* 버전 묶음 줄: 제목이 길어 줄어들어도 지금 버전(· 2025)은 끝에 남는다 */
+.side-item-version { flex: 0 0 auto; max-width: 45%; overflow: hidden; font-weight: inherit; text-overflow: ellipsis; white-space: pre; }
+.side-item-version { margin-left: -5px; }
+/* 마우스를 올린 칠은 화살표·「+」까지 줄 전체에 */
+.sidebar .side-version-line:hover { background: var(--chrome-hover); }
+.sidebar .side-section .side-version-line:hover > .side-item:not(.side-item-open) { background: transparent; }
+.sidebar .side-version-line-open:hover { background: var(--selected-bg-strong); }
+.sidebar .side-section .side-tree-row > .side-version-line > .side-doc-note-add.side-doc-note-add-with-caret { right: 34px; }
+.sidebar .side-section .side-version-line:hover > .side-item:has(~ .side-doc-note-add) { padding-right: 30px; }

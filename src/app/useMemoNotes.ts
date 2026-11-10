@@ -59,7 +59,7 @@ export function useMemoNotes(
   /** 「노트」 아래 하위 폴더들(Vault 상대 경로, 예: 노트/회의) */
   readonly folders: readonly string[]
   /** 새 노트를 그 폴더에 만든다(빈 문자열이면 「노트」 맨 위) */
-  readonly createIn: (folder: string, title?: string) => Promise<string | null>
+  readonly createIn: (folder: string, title?: string, docId?: string) => Promise<string | null>
   /** 노트를 다른 폴더로 옮긴다. 새 경로 */
   readonly move: (path: string, folder: string) => Promise<string>
   readonly createFolder: (parent: string, name: string) => Promise<string>
@@ -228,18 +228,19 @@ export function useMemoNotes(
     }
   }, [vault])
 
-  const createIn = useCallback(async (folder: string, title = t('새 노트')) => {
+  const createIn = useCallback(async (folder: string, title = t('새 노트'), docId?: string) => {
     if (vault === null) return null
     // 제목은 폴더가 달라도 겹치지 않게 둔다(MCP 가 제목으로 노트를 찾는다)
     const unique = uniqueNoteTitle(title, [...notesRef.current.keys()].map(memoNoteTitleOf))
     const path = memoNotePath(unique, folder === '' ? MEMO_NOTES_FOLDER : folder)
+    const fresh: MemoNote = docId === undefined ? EMPTY_MEMO_NOTE : { ...EMPTY_MEMO_NOTE, docId }
     try {
-      await writeMemoNote(vault, path, EMPTY_MEMO_NOTE)
+      await writeMemoNote(vault, path, fresh)
     } catch (cause) {
       onErrorRef.current(t('노트를 만들지 못했습니다: {error}', { error: errorText(cause) }))
       return null
     }
-    setNotes((current) => new Map(current).set(path, EMPTY_MEMO_NOTE))
+    setNotes((current) => new Map(current).set(path, fresh))
     open(path)
     return path
   }, [open, vault])
@@ -437,7 +438,7 @@ export function useMemoNotes(
   const notesOf = useCallback((highlightId: string) => membership.get(highlightId) ?? [], [membership])
 
   const entries = useMemo<MemoNoteEntry[]>(
-    () => [...notes.keys()].map((path) => ({ path, title: memoNoteTitleOf(path) })).sort((a, b) => a.title.localeCompare(b.title, 'ko-KR')),
+    () => [...notes].map(([path, note]) => ({ path, title: memoNoteTitleOf(path), ...(note.docId === undefined ? {} : { docId: note.docId }) })).sort((a, b) => a.title.localeCompare(b.title, 'ko-KR')),
     [notes],
   )
 

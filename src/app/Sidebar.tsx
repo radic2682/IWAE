@@ -30,7 +30,9 @@ import { folderIconKey } from '../core/vaultMetadata'
 import { AddPdfDialog, DeleteFolderDialog, FolderNameDialog } from './SidebarDialogs'
 import type { GithubSource } from '../bridge/github'
 import { defaultVersion, hiddenVersionDocIds, type VersionGroup } from '../core/versionGroups'
-import { DefaultVersionMenu, type VersionMenuActions } from './VersionMenu'
+import type { VersionMenuActions } from './VersionMenu'
+import { DocNoteRows } from './DocNoteRows'
+import { groupMemoNotesByDoc } from '../core/memoNote'
 import '../ui/version-groups.css'
 import { cleanEntryName } from '../bridge/vaultFiles'
 import '../ui/sidebar-followup.css'
@@ -331,6 +333,9 @@ export function Sidebar({
   // 판 묶음: 대표 자리 문서 → 묶음, 목록에서 숨길 문서들, 펼친 묶음, 열린 판 드롭다운
   const groupByAnchor = useMemo(() => new Map(Object.values(versionGroups ?? {}).map((group) => [group.anchorDocId, group])), [versionGroups])
   const hiddenVersionIds = useMemo(() => hiddenVersionDocIds(versionGroups ?? {}), [versionGroups])
+  // PDF 에 속한 노트는 그 PDF 줄 아래에, 나머지(일반 노트·PDF 가 사라진 노트)는 아래 「노트」 구역에 둔다
+  const noteGroups = useMemo(() => groupMemoNotesByDoc(memoNotes?.entries ?? [], memoNotes?.docOwner), [memoNotes?.docOwner, memoNotes?.entries])
+  const docNotesOf = (docId: string) => noteGroups.byDoc.get(docId) ?? []
   const [expandedVersionGroups, setExpandedVersionGroups] = useState<ReadonlySet<string>>(new Set())
   // 펼친 판 줄을 끌어 묶음 밖에 놓으면 묶음에서 뺀다: 끄는 판과 지금 묶음 밖인지
   const [versionDrag, setVersionDrag] = useState<{ docId: string; x: number; y: number; outside: boolean } | null>(null)
@@ -366,74 +371,138 @@ export function Sidebar({
     window.addEventListener('pointercancel', finish)
   }
   const suppressVersionClickRef = useRef(false)
-  /** 판 묶음 줄의 칩(a: 기본 판 고르기) + 옆 펼치기 단추. PDF·Markdown 줄이 같이 쓴다 */
-  const versionControls = (versionGroup: VersionGroup) => (
-                      <>
-                        {/* a: 기본 판 칩. 누르면 기본 판을 고르는 드롭다운 */}
-                        <button
-                          type="button"
-                          className="side-version-chip"
-                          aria-label={t('{title} 기본 버전 고르기: 지금 {label}', { title: versionGroup.title, label: defaultVersion(versionGroup).label })}
-                          aria-haspopup="menu"
-                          title={t('기본 버전 고르기')}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            setDefaultMenu({ groupId: versionGroup.id, anchor: event.currentTarget.getBoundingClientRect() })
-                          }}
-                        >
-                          <span className="side-version-chip-label">{defaultVersion(versionGroup).label}</span>
-                          <CaretDown size={9} weight="bold" aria-hidden="true" />
-                        </button>
-                        {/* a 옆: 판 펼치기 */}
-                        <button
-                          type="button"
-                          className="side-version-expand"
-                          aria-label={expandedVersionGroups.has(versionGroup.id) ? t('{title} 버전 접기', { title: versionGroup.title }) : t('{title} 버전 펼치기', { title: versionGroup.title })}
-                          aria-expanded={expandedVersionGroups.has(versionGroup.id)}
-                          title={expandedVersionGroups.has(versionGroup.id) ? t('버전 접기') : t('버전 펼치기')}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            setExpandedVersionGroups((current) => {
-                              const next = new Set(current)
-                              if (next.has(versionGroup.id)) next.delete(versionGroup.id)
-                              else next.add(versionGroup.id)
-                              return next
-                            })
-                          }}
-                        >
-                          {expandedVersionGroups.has(versionGroup.id) ? <CaretDown size={11} weight="bold" aria-hidden="true" /> : <CaretRight size={11} weight="bold" aria-hidden="true" />}
-                        </button>
-                      </>
-                      )
-  /** 펼친 판 줄들(켜진 판 하이라이팅, 누르면 열기, 끌어서 묶음 밖에 놓으면 빼기) */
-  const versionRows = (versionGroup: VersionGroup, depth: number) => (!expandedVersionGroups.has(versionGroup.id) || versionActions === undefined ? null : (
-                    <div className="side-version-rows" role="group" aria-label={t('{title} 버전', { title: versionGroup.title })} style={{ '--side-tree-depth': depth } as CSSProperties}>
-                      {versionGroup.versions.map((version) => {
-                        const isDefault = version.docId === versionGroup.defaultDocId
-                        const isOpen = openDocIds.includes(version.docId)
-                        return (
-                          <button
-                            key={version.docId}
-                            type="button"
-                            className={`side-version-row${isOpen ? ' side-version-row-open' : ''}${isDefault ? ' side-version-row-default' : ''}${versionDrag?.docId === version.docId ? ' side-version-row-dragging' : ''}`}
-                            aria-current={isOpen ? 'true' : undefined}
-                            aria-label={isDefault ? t('{label} 열기 (기본 버전)', { label: version.label }) : t('{label} 열기', { label: version.label })}
-                            title={t('열기 · 끌어서 묶음 밖에 놓으면 빼기')}
-                            onPointerDown={(event) => startVersionDrag(event, version.docId, versionActions.onRemove)}
-                            onClick={() => {
-                              if (suppressVersionClickRef.current) return
-                              versionActions.onOpen(version.docId)
-                            }}
-                          >
-                            <PushPin size={12} weight={isDefault ? 'fill' : 'regular'} className="side-version-row-pin" aria-hidden="true" />
-                            <span className="side-version-row-name">{version.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    ))
-  // 판 칩(a)을 눌러 연 「기본 판 고르기」 드롭다운
-  const [defaultMenu, setDefaultMenu] = useState<{ groupId: string; anchor: DOMRect } | null>(null)
+  /** 묶음·노트가 있는 줄의 펼침 상태 열쇠: 버전 묶음이면 묶음 id, 아니면 문서 id */
+  const childKeyOf = (versionGroup: VersionGroup | undefined, docId: string | undefined) => versionGroup?.id ?? `doc:${docId ?? ''}`
+  /** 버전 묶음 줄의 제목: 「문서 이름 · 지금 버전」 */
+  const docRowTitle = (name: string, versionGroup: VersionGroup | undefined) => versionGroup === undefined
+    ? <span className="side-item-title">{name}</span>
+    : <><span className="side-item-title">{versionGroup.title}</span><span className="side-item-version">{` · ${defaultVersion(versionGroup).label}`}</span></>
+  const toggleChildren = (key: string) => setExpandedVersionGroups((current) => {
+    const next = new Set(current)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
+  })
+  /** 줄 오른쪽 끝의 펼침 화살표 하나: 버전이 있거나 이 PDF 의 노트가 있을 때만. 버전·노트는 펼친 안쪽에 모은다 */
+  const docCaret = (versionGroup: VersionGroup | undefined, docId: string | undefined, name: string) => {
+    if (versionGroup === undefined && (docId === undefined || docNotesOf(docId).length === 0)) return null
+    const key = childKeyOf(versionGroup, docId)
+    const open = expandedVersionGroups.has(key)
+    return (
+      <button
+        type="button"
+        className="side-doc-caret"
+        aria-label={open ? t('{name} 접기', { name }) : t('{name} 펼치기', { name })}
+        aria-expanded={open}
+        title={open ? t('접기') : t('펼치기')}
+        onClick={(event) => {
+          event.stopPropagation()
+          toggleChildren(key)
+        }}
+      >
+        {open ? <CaretDown size={11} weight="bold" aria-hidden="true" /> : <CaretRight size={11} weight="bold" aria-hidden="true" />}
+      </button>
+    )
+  }
+  /** 마우스를 올렸을 때만 보이는 「+」: 이 PDF 에 노트 만들기 */
+  const docNoteAdd = (docId: string, versionGroup: VersionGroup | undefined, name: string, hasCaret: boolean) => memoNotes?.onCreateForDoc === undefined ? null : (
+    <button
+      type="button"
+      className={`side-doc-note-add${hasCaret ? ' side-doc-note-add-with-caret' : ''}`}
+      aria-label={t('{name}에 노트 만들기', { name })}
+      title={t('이 PDF에 노트 만들기')}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
+        setExpandedVersionGroups((current) => new Set([...current, childKeyOf(versionGroup, docId)]))
+        memoNotes.onCreateForDoc?.(docId)
+      }}
+    >
+      <Plus size={12} weight="bold" aria-hidden="true" />
+    </button>
+  )
+  /** 펼친 안쪽: 「버전」 알약 한 줄(지금 버전이 켜짐) → 이 PDF 의 노트들 */
+  const docChildren = (versionGroup: VersionGroup | undefined, docId: string | undefined, depth: number) => {
+    if (!expandedVersionGroups.has(childKeyOf(versionGroup, docId))) return null
+    const notes = docId === undefined ? [] : docNotesOf(docId)
+    const showVersions = versionGroup !== undefined && versionActions !== undefined
+    if (!showVersions && notes.length === 0) return null
+    return (
+      <div className="side-doc-children" style={{ '--side-tree-depth': depth } as CSSProperties}>
+        {showVersions ? (
+          <div className="side-version-pills" role="group" aria-label={t('{title} 버전', { title: versionGroup.title })}>
+            <span className="side-version-pills-label">{t('버전')}</span>
+            {versionGroup.versions.map((version) => {
+              const isCurrent = version.docId === defaultVersion(versionGroup).docId
+              if (renamingVersion?.docId === version.docId) {
+                return (
+                  <input
+                    key={version.docId}
+                    className="side-version-pill-input"
+                    aria-label={t('버전 이름')}
+                    value={renamingVersion.value}
+                    autoFocus
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => setRenamingVersion({ docId: version.docId, value: event.target.value })}
+                    onBlur={() => {
+                      const value = renamingVersion.value.trim()
+                      setRenamingVersion(null)
+                      if (value !== '' && value !== version.label) versionActions.onRename(version.docId, value)
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur()
+                      else if (event.key === 'Escape') setRenamingVersion(null)
+                    }}
+                  />
+                )
+              }
+              return (
+                <button
+                  key={version.docId}
+                  type="button"
+                  className={`side-version-pill${isCurrent ? ' side-version-pill-on' : ''}${versionDrag?.docId === version.docId ? ' side-version-row-dragging' : ''}`}
+                  aria-pressed={isCurrent}
+                  aria-label={t('{label} 버전으로 바꾸기', { label: version.label })}
+                  title={t('눌러서 이 버전으로 · 우클릭: 더 보기 · 끌어서 묶음 밖에 놓으면 빼기')}
+                  onPointerDown={(event) => startVersionDrag(event, version.docId, versionActions.onRemove)}
+                  onClick={() => {
+                    if (suppressVersionClickRef.current) return
+                    versionActions.onPin(version.docId)
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setVersionMenu({ docId: version.docId, label: version.label, x: event.clientX, y: event.clientY })
+                  }}
+                >
+                  {version.label}
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+        {notes.length > 0 && memoNotes !== undefined ? (
+          <DocNoteRows
+            entries={notes}
+            openPath={memoNotes.openPath}
+            depth={depth + 1}
+            onOpen={memoNotes.onOpen}
+            onRename={memoNotes.onRename}
+            onTrash={memoNotes.onTrash}
+            icons={itemIcons}
+            colors={itemColors}
+            onPickIcon={onItemIconChange === undefined ? undefined : (key, x, y) => setEmojiTarget({ key, x, y })}
+            onClearIcon={onItemIconChange === undefined ? undefined : (key) => onItemIconChange(key, null)}
+            onReveal={memoNotes.onReveal}
+            onCopyPath={memoNotes.onCopyPath}
+          />
+        ) : null}
+      </div>
+    )
+  }
+  const [renamingVersion, setRenamingVersion] = useState<{ docId: string; value: string } | null>(null)
+  /** 버전 알약 우클릭 메뉴: 열기 · 이름 바꾸기 · 묶음에서 빼기 */
+  const [versionMenu, setVersionMenu] = useState<{ docId: string; label: string; x: number; y: number } | null>(null)
   // 다른 Vault 로 바뀌면 그 Vault 에서 펼쳐 둔 것을 불러온다(처음 그릴 때는 위 초기값이 이미 그것이다)
   const [loadedStorageKey, setLoadedStorageKey] = useState(expandedStorageKey)
   if (loadedStorageKey !== expandedStorageKey) {
@@ -1156,7 +1225,7 @@ export function Sidebar({
                     onPick={pickIcon(folderIconKey(node.path))}
                     fallback={<FolderGlyph color={itemColors[folderIconKey(node.path)]} />}
                   />
-                  <span className="side-item-title">{versionGroup?.title ?? node.name}</span>
+                  {docRowTitle(node.name, versionGroup)}
                   {(() => {
                     const source = githubSources?.get(shownFolder.kind === 'folder' ? shownFolder.path : node.path)
                     if (source === undefined) return null
@@ -1176,7 +1245,7 @@ export function Sidebar({
                     )
                   })()}
                 </button>
-                {versionGroup === undefined ? null : versionControls(versionGroup)}
+                {versionGroup === undefined ? null : docCaret(versionGroup, undefined, versionGroup.title)}
                 </>
               ) : node.kind === 'pdf' ? (
                 <>
@@ -1213,7 +1282,7 @@ export function Sidebar({
                       />
                     </div>
                   ) : (
-                    <div className={versionGroup === undefined ? 'side-version-line-plain' : `side-version-line${versionGroup.versions.some((version) => openDocIds.includes(version.docId)) ? ' side-version-line-open' : ''}`}>
+                    <div className={`side-version-line${(versionGroup === undefined ? openDocIds.includes(node.doc.docId) : versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-version-line-open' : ''}`}>
                     <button
                       type="button"
                       className={`side-item side-tree-item${(versionGroup === undefined ? openDocIds.includes(node.doc.docId) : versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-item-open' : ''}`}
@@ -1232,17 +1301,21 @@ export function Sidebar({
                       }}
                       onContextMenu={(event) => openEntryMenu(event, node, parentPath)}
                     >
-                      <ItemEmoji emoji={itemIcons[node.doc.docId]} onPick={pickIcon(node.doc.docId)} fallback={<FilePdf className="side-file-icon" size={14} aria-hidden="true" />} />
+                      <span className="side-doc-icon">
+                        <ItemEmoji emoji={itemIcons[node.doc.docId]} onPick={pickIcon(node.doc.docId)} fallback={<FilePdf className="side-file-icon" size={14} aria-hidden="true" />} />
+                        {docNotesOf(node.doc.docId).length > 0 ? <i className="side-doc-note-dot" aria-hidden="true" /> : null}
+                      </span>
                       <span className={`side-dot${(versionGroup === undefined ? openDocIds.includes(node.doc.docId) : versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-dot-open' : ''}`} aria-hidden="true" />
-                      <span className="side-item-title">{versionGroup?.title ?? node.name}</span>
+                      {docRowTitle(node.name, versionGroup)}
                     </button>
-                    {versionGroup === undefined ? null : versionControls(versionGroup)}
+                    {missingDocIds.includes(node.doc.docId) ? null : docNoteAdd(node.doc.docId, versionGroup, versionGroup?.title ?? node.name, versionGroup !== undefined || docNotesOf(node.doc.docId).length > 0)}
+                    {docCaret(versionGroup, node.doc.docId, versionGroup?.title ?? node.name)}
                     </div>
                   )}
                   {editingEntryId === node.doc.docId && renameError !== null && (
                     <span className="side-inline-rename-error" role="alert">{renameError}</span>
                   )}
-                  {versionGroup === undefined ? null : versionRows(versionGroup, depth)}
+                  {docChildren(versionGroup, node.doc.docId, depth)}
                   {(() => {
                     // 열린 PDF 밑에 그 PDF 의 메모 카테고리를 펼친다. 누르면 메모 열·메모만 보기가 그 카테고리만 보이고,
                     // 고른 것을 다시 누르면 풀린다(전체)
@@ -1393,11 +1466,11 @@ export function Sidebar({
                   >
                     <ItemEmoji emoji={itemIcons[iconKeyFor(node)]} onPick={pickIcon(iconKeyFor(node))} fallback={<FileMd className="side-file-icon side-file-icon-md" size={14} aria-hidden="true" />} />
                     <span className={`side-dot${openDocIds.includes(node.path) ? ' side-dot-open' : ''}`} aria-hidden="true" />
-                    <span className="side-item-title">{versionGroup?.title ?? node.name}</span>
+                    {docRowTitle(node.name, versionGroup)}
                   </button>
-                  {versionGroup === undefined ? null : versionControls(versionGroup)}
+                  {versionGroup === undefined ? null : docCaret(versionGroup, undefined, versionGroup.title)}
                   </div>
-                  {versionGroup === undefined ? null : versionRows(versionGroup, depth)}
+                  {docChildren(versionGroup, undefined, depth)}
                   </>
                 )
               )}
@@ -1422,7 +1495,7 @@ export function Sidebar({
                 </button>
               ) : null}
             </div>
-            {node.kind === 'folder' && versionGroup !== undefined ? versionRows(versionGroup, depth) : null}
+            {node.kind === 'folder' && versionGroup !== undefined ? docChildren(versionGroup, undefined, depth) : null}
             {node.kind === 'folder' && shownFolder.kind === 'folder' && (open || (draft !== null && draft.section === section && draft.parentPath === shownFolder.path))
               && renderTree(shownFolder.children, shownFolder.path, depth + 1, section)}
           </li>
@@ -1539,14 +1612,22 @@ export function Sidebar({
         setAttachmentMenuOpen(false)
       }}
     >
-      {defaultMenu !== null && versionActions !== undefined && versionGroups?.[defaultMenu.groupId] !== undefined ? (
-        <DefaultVersionMenu
-          group={versionGroups[defaultMenu.groupId]!}
-          anchor={defaultMenu.anchor}
-          onPick={(docId) => versionActions.onPin(docId)}
-          onRename={versionActions.onRename}
-          onClose={() => setDefaultMenu(null)}
-        />
+      {versionMenu !== null && versionActions !== undefined ? (
+        <>
+          <div className="side-menu-backdrop" onClick={() => setVersionMenu(null)} onContextMenu={(event) => { event.preventDefault(); setVersionMenu(null) }} />
+          <div className="side-context-menu" role="menu" aria-label={t('{label} 버전 작업', { label: versionMenu.label })} style={{ left: versionMenu.x, top: versionMenu.y }}>
+            <button type="button" role="menuitem" onClick={() => { versionActions.onOpen(versionMenu.docId); setVersionMenu(null) }}>
+              <span className="side-context-icon" aria-hidden="true"><ArrowSquareOut size={15} /></span><span className="side-context-label">{t('이 버전 열기')}</span>
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setRenamingVersion({ docId: versionMenu.docId, value: versionMenu.label }); setVersionMenu(null) }}>
+              <span className="side-context-icon" aria-hidden="true"><PencilSimple size={15} /></span><span className="side-context-label">{t('버전 이름 바꾸기')}</span>
+            </button>
+            <hr className="side-context-sep" />
+            <button type="button" role="menuitem" onClick={() => { versionActions.onRemove(versionMenu.docId); setVersionMenu(null) }}>
+              <span className="side-context-icon" aria-hidden="true"><Stack size={15} /></span><span className="side-context-label">{t('이 버전을 묶음에서 빼기')}</span>
+            </button>
+          </div>
+        </>
       ) : null}
       {versionDrag !== null ? (
         <div className={`side-version-drag-ghost${versionDrag.outside ? ' side-version-drag-ghost-out' : ''}`} style={{ left: versionDrag.x + 12, top: versionDrag.y + 8 }} aria-hidden="true">
@@ -1614,6 +1695,7 @@ export function Sidebar({
         {memoNotes !== undefined ? (
           <MemoNotesSection
             {...memoNotes}
+            entries={noteGroups.general}
             icons={itemIcons}
             onPickIcon={onItemIconChange === undefined ? undefined : (key, x, y) => setEmojiTarget({ key, x, y })}
             onClearIcon={onItemIconChange === undefined ? undefined : (key) => onItemIconChange(key, null)}
@@ -1745,6 +1827,15 @@ export function Sidebar({
           ].filter((node): node is ReactElement => node !== null),
           // 도구: 검색 사본·판 관리·Vault 로 복사
           [
+            contextMenu.pdf && memoNotes?.onCreateForDoc !== undefined && contextMenu.versionDocId !== undefined && !missingDocIds.includes(contextMenu.versionDocId)
+              ? item('doc-note-new', <NotePencil size={15} />, t('이 PDF에 노트 만들기'), () => {
+                  const target = contextMenu.versionDocId!
+                  const group = Object.values(versionGroups ?? {}).find((candidate) => candidate.versions.some((version) => version.docId === target))
+                  setExpandedVersionGroups((current) => new Set([...current, childKeyOf(group, target)]))
+                  memoNotes.onCreateForDoc?.(target)
+                  close()
+                })
+              : null,
             contextMenu.pdf && onOpenPdfTools !== undefined
               ? item('pdf-tools', <Toolbox size={15} />, t('PDF 도구…'), () => { onOpenPdfTools(contextMenu.id); close() })
               : null,

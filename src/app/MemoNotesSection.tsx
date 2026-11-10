@@ -17,7 +17,12 @@ export function memoFolderIconKey(path: string): string {
 }
 
 export interface MemoNotesSectionProps {
+  /** 모든 노트. PDF 에 속한 노트(docId 가 있고 그 PDF 가 있는 것)는 왼쪽 바의 그 PDF 줄 아래에 보이고 이 구역에는 일반 노트만 남는다 */
   readonly entries: readonly MemoNoteEntry[]
+  /** 문서 id → 노트를 가지는 PDF 줄의 열쇠. 모르는(지워진) PDF 면 null 이라 그 노트는 이 구역에 남는다 */
+  readonly docOwner?: (docId: string) => string | null
+  /** PDF 줄의 「+」·우클릭: 그 PDF 에 노트를 만든다 */
+  readonly onCreateForDoc?: (docId: string) => void
   /** 오른쪽 바에 열린 노트 */
   readonly openPath: string | null
   readonly onOpen: (path: string) => void
@@ -86,7 +91,7 @@ function readExpanded(key: string | undefined): ReadonlySet<string> {
 }
 
 /** 노트 그림. 색을 정했으면 그 색으로 칠한다(폴더 색처럼) */
-function NoteGlyph({ color }: { readonly color?: FolderColor }) {
+export function NoteGlyph({ color }: { readonly color?: FolderColor }) {
   const hex = folderColorHex(color)
   return hex === undefined
     ? <NotePencil className="side-file-icon" size={14} aria-hidden="true" />
