@@ -662,64 +662,9 @@ body.pdf-panning, body.pdf-panning * { cursor: grabbing !important; user-select:
 }
 .selection-action-status .selection-action:hover { background: var(--chrome-hover); }
 
-/* ---------- 노트: 흰 종이 한 장 위에 한 편의 글처럼(컨플루언스) ----------
-   오른쪽 바 전체가 흰 종이다(어두운 테마에서도 노트 칸만 밝게). 블록은 바탕·테두리 없이 문단 간격으로 이어지고,
+/* ---------- 노트: 오른쪽 바는 앱 테마(팔레트·밝기)를 그대로 따른다 ----------
+   블록은 바탕·테두리 없이 문단 간격으로 이어지고,
    마우스를 올린(또는 PDF 형광펜과 이어진) 블록만 옅은 테두리 + 왼쪽 손잡이 + 오른쪽 위 메뉴가 보인다. */
-.pane-doc .pdf-memo-bar,
-.pane-doc .pdf-memo-bar-wide {
-  --paper: #ffffff;
-  --workspace: #ffffff;
-  --ink: #1f2328;
-  --text: #1f2328;
-  --text-strong: #1f2328;
-  --text-muted: #3a434e;
-  --divider: #e2e5e9;
-  --divider-strong: #d3d8de;
-  --chrome-hover: #eef1f4;
-  --field: #f1f3f5;
-  --field-hover: #e6e9ed;
-  --accent: var(--accent-light, #1f7ae0);
-  --accent-contrast: #ffffff;
-  --danger: #cf222e;
-  color-scheme: light;
-  background: #ffffff;
-  color: #1f2328;
-}
-/* 오른쪽 바 맨 위 줄(노트 제목·단추)은 흰 종이가 아니라 앱 테마를 따른다(옆 문서 도구줄과 같은 색).
-   흰 종이 변수로 덮기 전의 테마 값을 .pane-doc 에서 받아 둔다 */
-.pane-doc {
-  --app-paper: var(--paper);
-  --app-ink: var(--ink);
-  --app-text: var(--text);
-  --app-text-strong: var(--text-strong);
-  --app-text-muted: var(--text-muted);
-  --app-divider: var(--divider);
-  --app-divider-strong: var(--divider-strong);
-  --app-chrome-hover: var(--chrome-hover);
-  --app-field: var(--field);
-  --app-field-hover: var(--field-hover);
-  --app-selected-bg: var(--selected-bg);
-  --app-accent: var(--accent);
-}
-.pane-doc .pdf-memo-bar .pdf-memo-header {
-  --paper: var(--app-paper);
-  --ink: var(--app-ink);
-  --text: var(--app-text);
-  --text-strong: var(--app-text-strong);
-  --text-muted: var(--app-text-muted);
-  --divider: var(--app-divider);
-  --divider-strong: var(--app-divider-strong);
-  --chrome-hover: var(--app-chrome-hover);
-  --field: var(--app-field);
-  --field-hover: var(--app-field-hover);
-  --selected-bg: var(--app-selected-bg);
-  --accent: var(--app-accent);
-  color-scheme: normal;
-  background: var(--app-paper);
-  color: var(--app-text-strong);
-  border-bottom-color: var(--app-divider);
-}
-:root[data-theme='dark'] .pane-doc .pdf-memo-bar .pdf-memo-header { color-scheme: dark; }
 /* 좌우 여백을 같게: 왼쪽은 손잡이·이어지는 선 자리(20px), 오른쪽은 얇은 스크롤 막대 자리(10px) + 10px */
 .pane-doc .pdf-memo-bar-scroll {
   gap: 0;
