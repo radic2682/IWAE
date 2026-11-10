@@ -619,7 +619,7 @@ button.note-source-page:hover { color: var(--accent); }
 }
 .library-items-drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
 .library-collection-draft { cursor: default; }
-.library-collection .library-cell-input { flex: 1 1 auto; min-width: 0; }
+.library-nav-row .library-cell-input { flex: 1 1 auto; min-width: 0; }
 
 /* ---------- 상단 탭 줄 ----------
    라이트 모드에서 웨일이 아닌 색 구성은 탭 줄이 도구줄·고른 탭과 거의 같은 색이라, 고른 탭이 떠 보이지 않고

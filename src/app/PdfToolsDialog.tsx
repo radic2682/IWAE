@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  ArrowLeft, ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT,
+  ArrowSquareOut, ArrowsClockwise, ArrowsInSimple, Broom, Copy, Crop, Eraser, FileImage, FileText, GitDiff, Hash, LockOpen, MagnifyingGlass, NotePencil, Rectangle, Scissors, SquaresFour, Stack, Stamp, TextT,
 } from '@phosphor-icons/react'
 import type { PdfToolOp } from '../bridge/pdf'
 import { formatBytes } from '../bridge/vaultBackup'
@@ -48,7 +48,9 @@ export interface PdfToolActions {
   readonly startRedactTool: () => void
 }
 
-export interface PdfToolsDialogProps {
+export interface PdfToolFormProps {
+  /** 펼친 도구(쪽 편집은 PDF 창 자리를 쓰는 큰 화면이라 여기 오지 않는다) */
+  readonly tool: PdfToolId
   readonly docId: string
   readonly title: string
   readonly pageCount: number
@@ -60,12 +62,9 @@ export interface PdfToolsDialogProps {
   readonly otherPdfs: readonly { readonly docId: string; readonly title: string; readonly path: string; readonly sibling?: boolean }[]
   readonly marks: FlattenCounts
   readonly buildFlatten: (choice: FlattenChoice) => PdfToolOp
-  readonly initialTool?: PdfToolId
-  /** 주면 고른 도구를 바깥(왼쪽 바 목록)이 정한다. 도구 안에서 다른 도구로 가면 onToolChange 로 알린다 */
-  readonly tool?: PdfToolId
-  readonly onToolChange?: (tool: PdfToolId) => void
   readonly actions: PdfToolActions
-  readonly onClose: () => void
+  /** 도구 안에서 다른 도구로 가자고 할 때 */
+  readonly onToolChange: (tool: PdfToolId) => void
 }
 
 export interface ToolInfo { readonly id: PdfToolViewId; readonly label: string; readonly icon: ReactNode }
@@ -73,7 +72,7 @@ export interface ToolInfo { readonly id: PdfToolViewId; readonly label: string; 
 export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools: readonly ToolInfo[] }[] = [
   { title: '글자', tools: [
     { id: 'ocr', label: 'OCR 로 글자 입히기', icon: <TextT size={16} /> },
-    { id: 'compare', label: '다른 판과 글자 비교', icon: <GitDiff size={16} /> },
+    { id: 'compare', label: '다른 버전과 글자 비교', icon: <GitDiff size={16} /> },
   ] },
   { title: '내 표시', tools: [
     { id: 'flatten', label: '표시 넣은 사본', icon: <Stamp size={16} /> },
@@ -106,22 +105,13 @@ const MM = 72 / 25.4
 type Status = { readonly kind: 'idle' } | { readonly kind: 'busy'; readonly text: string } | { readonly kind: 'done'; readonly text: string; readonly path?: string } | { readonly kind: 'error'; readonly text: string }
 
 /**
- * PDF 도구 화면. 왼쪽 바 「PDF 도구」(또는 PDF 창 위 도구 단추)에서 고른 도구가 PDF 창 자리를 그대로 대신한다(모달 아님).
- * 「PDF 로 돌아가기」(또는 Esc)로 닫으면 PDF 가 보던 자리 그대로 다시 보인다.
+ * PDF 도구 한 가지의 입력·실행·결과. 왼쪽 바 「PDF 도구」 목록에서 그 도구 줄 아래로 펼쳐진다(PDF 는 그대로 보인다).
  * 원본에 적용하는 도구는 늘 덮기 전 원본을 .iwae/history/pdf-edits 에 남기고, 사본을 만드는 도구는 원본 옆에 새 PDF 를 둔다.
  */
-export function PdfToolsDialog(props: PdfToolsDialogProps) {
-  const { docId, title, onClose, initialTool } = props
-  const [toolState, setToolState] = useState<PdfToolId>(initialTool ?? (props.hasText ? 'flatten' : 'ocr'))
-  const tool = props.tool ?? toolState
-  const setTool = (next: PdfToolId) => {
-    setToolState(next)
-    props.onToolChange?.(next)
-  }
+export function PdfToolForm(props: PdfToolFormProps) {
+  const { docId, tool } = props
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const job = usePdfToolJob(docId)
-  const dialogRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => { dialogRef.current?.focus() }, [])
   useEffect(() => setStatus({ kind: 'idle' }), [tool])
 
   const run = async (busyText: string, work: () => Promise<string | { text: string; path?: string }>) => {
@@ -134,54 +124,29 @@ export function PdfToolsDialog(props: PdfToolsDialogProps) {
     }
   }
   const busy = status.kind === 'busy' || job !== undefined
-  // 작업 중 눌렀던 단추가 잠겨 포커스를 잃으면 Esc 가 안 먹으므로, 끝나면 화면으로 되돌린다
-  useEffect(() => {
-    if (!busy && document.activeElement === document.body) dialogRef.current?.focus()
-  }, [busy])
-  const info = PDF_TOOL_GROUPS.flatMap((group) => group.tools).find((item) => item.id === tool)!
 
   return (
-    <div
-      ref={dialogRef}
-      className="pdf-tools pdf-tools-inline"
-      role="region"
-      aria-label={t('PDF 도구 — {title}', { title })}
-      tabIndex={-1}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape' || busy) return
-        event.preventDefault()
-        event.stopPropagation()
-        onClose()
-      }}
-    >
-      <header className="pdf-tools-head">
-        <button type="button" className="pdf-tools-back" disabled={busy} onClick={onClose}>
-          <ArrowLeft size={15} aria-hidden="true" />{t('PDF 로 돌아가기')}
-        </button>
-        <h2 className="pdf-tools-title">{t(info.label)} <small>{title}</small></h2>
-      </header>
-      <section className="pdf-tools-pane" aria-label={t(info.label)}>
-        <ToolPane key={tool} tool={tool} props={props} busy={busy} run={run} setTool={setTool} />
-        {job !== undefined ? (
-          <div className="pdf-tools-status" role="status">
-            <span>{t(job.label)} {job.total > 0 ? `${job.done}/${job.total}` : ''}</span>
-            {job.total > 0 ? <span className="pdf-tools-meter"><span style={{ width: `${(job.done / job.total) * 100}%` }} /></span> : null}
-          </div>
-        ) : status.kind === 'busy' ? (
-          <div className="pdf-tools-status" role="status"><span>{status.text}</span></div>
-        ) : status.kind === 'done' ? (
-          <div className="pdf-tools-status pdf-tools-status-done" role="status">
-            <span>{status.text}</span>
-            {status.path !== undefined ? (
-              <button type="button" className="pdf-tools-link" onClick={() => { props.actions.openPath(status.path!); onClose() }}>
-                <ArrowSquareOut size={13} aria-hidden="true" />{t('열기')}
-              </button>
-            ) : null}
-          </div>
-        ) : status.kind === 'error' ? (
-          <div className="pdf-tools-status pdf-tools-status-error" role="alert">{status.text}</div>
-        ) : null}
-      </section>
+    <div className="pdf-tools-form" role="region" aria-label={t('PDF 도구 — {title}', { title: props.title })}>
+      <ToolPane key={tool} tool={tool} props={props} busy={busy} run={run} setTool={props.onToolChange} />
+      {job !== undefined ? (
+        <div className="pdf-tools-status" role="status">
+          <span>{t(job.label)} {job.total > 0 ? `${job.done}/${job.total}` : ''}</span>
+          {job.total > 0 ? <span className="pdf-tools-meter"><span style={{ width: `${(job.done / job.total) * 100}%` }} /></span> : null}
+        </div>
+      ) : status.kind === 'busy' ? (
+        <div className="pdf-tools-status" role="status"><span>{status.text}</span></div>
+      ) : status.kind === 'done' ? (
+        <div className="pdf-tools-status pdf-tools-status-done" role="status">
+          <span>{status.text}</span>
+          {status.path !== undefined ? (
+            <button type="button" className="pdf-tools-link" onClick={() => props.actions.openPath(status.path!)}>
+              <ArrowSquareOut size={13} aria-hidden="true" />{t('열기')}
+            </button>
+          ) : null}
+        </div>
+      ) : status.kind === 'error' ? (
+        <div className="pdf-tools-status pdf-tools-status-error" role="alert">{status.text}</div>
+      ) : null}
     </div>
   )
 }
@@ -202,7 +167,7 @@ function Note({ children }: { readonly children: ReactNode }) {
   return <p className="pdf-tools-note">{children}</p>
 }
 
-function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolId; readonly props: PdfToolsDialogProps; readonly busy: boolean; readonly run: Run; readonly setTool: (tool: PdfToolId) => void }) {
+function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolId; readonly props: PdfToolFormProps; readonly busy: boolean; readonly run: Run; readonly setTool: (tool: PdfToolId) => void }) {
   const { actions, pageCount } = props
   const primary = (label: string, onClick: () => void, disabled = false) => (
     <div className="pdf-tools-actions">
@@ -252,32 +217,32 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       const other = props.otherPdfs.find((pdf) => pdf.docId === compareWith)
       return (
         <>
-          <Note>{t('두 판의 글을 줄 단위로 비교해 바뀐·더한·지운 곳을 보입니다. 줄을 누르면 그 쪽으로 갑니다.')}</Note>
+          <Note>{t('두 버전의 글을 줄 단위로 비교해 바뀐·더한·지운 곳을 보입니다. 줄을 누르면 그 쪽으로 갑니다.')}</Note>
           <label className="pdf-tools-field">
-            <span>{t('비교할 판')}</span>
+            <span>{t('비교할 버전')}</span>
             <select value={compareWith} onChange={(event) => { setCompareWith(event.target.value); setDiff(null) }}>
               {props.otherPdfs.map((pdf) => <option key={pdf.docId} value={pdf.docId}>{pdf.sibling === true ? `★ ${pdf.title}` : pdf.title}</option>)}
             </select>
           </label>
-          {primary(t('비교'), () => void run(t('두 판의 글을 읽는 중…'), async () => {
+          {primary(t('비교'), () => void run(t('두 버전의 글을 읽는 중…'), async () => {
             const result = await actions.compare(compareWith)
             setDiff({ ...result, otherDocId: compareWith })
             return result.hunks.length === 0 ? t('글이 같습니다') : t('바뀐 곳 {count}군데', { count: result.hunks.length })
           }), other === undefined)}
           {diff !== null && diff.hunks.length > 0 ? (
             <ol className="pdf-tools-diff">
-              {diff.truncated ? <li className="pdf-tools-diff-note">{t('두 판이 많이 달라 앞부분만 자세히 비교했습니다.')}</li> : null}
+              {diff.truncated ? <li className="pdf-tools-diff-note">{t('두 버전이 많이 달라 앞부분만 자세히 비교했습니다.')}</li> : null}
               {diff.hunks.slice(0, 300).map((hunk, index) => (
                 <li key={index} className={`pdf-tools-diff-hunk pdf-tools-diff-${hunk.kind}`}>
                   {hunk.before.length > 0 ? (
                     <button type="button" className="pdf-tools-diff-side pdf-tools-diff-before" onClick={() => actions.jump(props.docId, hunk.before[0]!.page)}>
-                      <span className="pdf-tools-diff-page">{t('이 판')} p.{hunk.before[0]!.page + 1}</span>
+                      <span className="pdf-tools-diff-page">{t('이 버전')} p.{hunk.before[0]!.page + 1}</span>
                       {hunk.before.slice(0, 4).map((line, at) => <span key={at} className="pdf-tools-diff-line">− {line.text}</span>)}
                     </button>
                   ) : null}
                   {hunk.after.length > 0 ? (
                     <button type="button" className="pdf-tools-diff-side pdf-tools-diff-after" onClick={() => actions.jump(diff.otherDocId, hunk.after[0]!.page)}>
-                      <span className="pdf-tools-diff-page">{t('비교 판')} p.{hunk.after[0]!.page + 1}</span>
+                      <span className="pdf-tools-diff-page">{t('비교 버전')} p.{hunk.after[0]!.page + 1}</span>
                       {hunk.after.slice(0, 4).map((line, at) => <span key={at} className="pdf-tools-diff-line">+ {line.text}</span>)}
                     </button>
                   ) : null}

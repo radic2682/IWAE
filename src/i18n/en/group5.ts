@@ -171,7 +171,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '탐색기': 'Explorer',
   '목록': 'Outline',
   '미리보기': 'Thumbnails',
-  '목차·미리보기': 'Outline + thumbnails',
   'PDF 검색': 'Search PDF',
   'PDF 검색 (Ctrl+F)': 'Search PDF (Ctrl+F)',
   '인쇄': 'Print',

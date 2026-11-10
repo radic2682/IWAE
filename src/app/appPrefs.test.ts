@@ -33,4 +33,12 @@ describe('appPrefs — 바 확대', () => {
     expect(parseAppPrefs('{}').libraryZoom).toBe(1)
     setAppPref('libraryZoom', 1)
   })
+
+  it('라이브러리 보기(목록·카드)를 저장하고 모르는 값은 목록으로 둔다', () => {
+    setAppPref('libraryView', 'grid')
+    expect(getAppPrefs().libraryView).toBe('grid')
+    expect(parseAppPrefs('{"libraryView":"grid"}').libraryView).toBe('grid')
+    expect(parseAppPrefs('{"libraryView":"x"}').libraryView).toBe('list')
+    setAppPref('libraryView', 'list')
+  })
 })

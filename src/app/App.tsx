@@ -15,7 +15,7 @@ import { registerLiveCanvas } from './liveCanvasRegistry'
 import { useMcpCanvasBridge } from './useMcpCanvasBridge'
 import { announceAction } from './actionFeedback'
 import { exportPdfImages, isPasswordProtectedDoc, pageTextIndex, pdfBlankPages, pdfOutline, setPdfPasswordPrompt, type SearchablePdfPage } from '../bridge/pdf'
-import { PdfToolsDialog, type PdfToolId, type PdfToolViewId } from './PdfToolsDialog'
+import { PdfToolForm, type PdfToolId, type PdfToolViewId } from './PdfToolsDialog'
 import { PdfToolsPanel } from './PdfToolsPanel'
 import { PdfPasswordDialog } from './PdfPasswordDialog'
 import { buildFlattenOp, countMarks } from '../core/pdfToolOps'
@@ -98,8 +98,8 @@ import { PaneTabsMenu } from './PaneTabsMenu'
 import { collapseEmptyPane, dockTab, dockableEdges, moveTabToPaneAt, type DockEdge } from './tabDock'
 import { closeSplitCell, isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
-import { OutlinePreviewPanel, OutlinePanel, ThumbnailPanel } from './SidePanels'
-import { MarkdownOutline, MarkdownOutlinePreview, MarkdownSectionPreview } from './MarkdownOutline'
+import { OutlinePanel, ThumbnailPanel } from './SidePanels'
+import { MarkdownOutline, MarkdownSectionPreview } from './MarkdownOutline'
 import { VaultPicker } from './VaultPicker'
 import { seedSampleVaultInto } from './sampleVaultDesktop'
 import { StartupShell } from './StartupShell'
@@ -1020,7 +1020,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const detail = (event as CustomEvent<{ name?: string; docId?: string; tool?: string }>).detail
       const name = detail?.name
       if (name === 'search' || name === 'documentSearch' || name === 'commandPalette') shortcutActionsRef.current[name]?.()
-      if (name === 'pdfTools' && detail?.docId !== undefined) setPdfToolsTarget({ docId: detail.docId, ...(detail.tool === undefined ? {} : { tool: detail.tool as PdfToolViewId }) })
+      if (name === 'pdfTools' && detail?.docId !== undefined) openPdfToolsView(detail.docId, detail.tool as PdfToolViewId | undefined)
       if (name === 'ocrDocument' && detail?.docId !== undefined) {
         void ocrDocumentRef.current(detail.docId).catch((cause: unknown) => announceAction(t('OCR 하지 못했습니다: {error}', { error: errorText(cause) })))
       }
@@ -1031,14 +1031,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   useEffect(() => { clearUndo() }, [vault])
   /** 지금 PDF 에 쓸 수 있는 도구(명령 팔레트) */
   const pdfToolPaletteCommands = (docId: string): PaletteCommand[] => {
-    const open = (tool: PdfToolId) => () => setPdfToolsTarget({ docId, tool })
+    const open = (tool: PdfToolId) => () => openPdfToolsView(docId, tool)
     const meta = openedDocs.find((doc) => doc.docId === docId)
     return [
       { id: 'pdf-tools', kind: 'action', label: t('PDF 도구…'), keywords: 'pdf tools stirling', run: open(meta?.hasText === false ? 'ocr' : 'flatten') },
       { id: 'pdf-ocr', kind: 'action', label: t('PDF: OCR 로 글자 입히기'), keywords: 'ocr scan text recognize', run: () => { void ocrDocumentRef.current(docId).catch((cause: unknown) => announceAction(errorText(cause))) } },
       { id: 'pdf-flatten', kind: 'action', label: t('PDF: 표시 넣은 사본'), keywords: 'flatten annotate export share', run: open('flatten') },
       { id: 'pdf-redact', kind: 'action', label: t('PDF: 가린 사본'), keywords: 'redact hide privacy', run: open('redact') },
-      { id: 'pdf-compare', kind: 'action', label: t('PDF: 다른 판과 글자 비교'), keywords: 'compare diff version', run: open('compare') },
+      { id: 'pdf-compare', kind: 'action', label: t('PDF: 다른 버전과 글자 비교'), keywords: 'compare diff version', run: open('compare') },
       { id: 'pdf-extract', kind: 'action', label: t('PDF: 쪽 뽑아 새 PDF'), keywords: 'extract split pages', run: open('extract') },
       { id: 'pdf-split', kind: 'action', label: t('PDF: 목차 단위로 나누기'), keywords: 'split chapters', run: open('split') },
       { id: 'pdf-merge', kind: 'action', label: t('PDF: 다른 PDF 와 합치기'), keywords: 'merge combine', run: open('merge') },
@@ -1480,6 +1480,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [docTitles, navigation, openMarkdown, searchRecords])
   /** PDF 도구 화면(대상 문서·펼친 도구). 있으면 그 문서를 보이던 PDF 창 자리를 도구 화면이 대신한다. 쪽 편집도 도구 하나다 */
   const [pdfToolsTarget, setPdfToolsTarget] = useState<{ docId: string; tool?: PdfToolViewId } | null>(null)
+  /** 왼쪽 바 「PDF 도구」 탭을 열고 그 도구를 펼친다(명령 팔레트·탭 메뉴·문서 우클릭 메뉴가 부른다). 쪽 편집만 PDF 창 자리를 쓴다 */
+  function openPdfToolsView(docId: string, tool?: PdfToolViewId) {
+    setPdfToolsTarget({ docId, ...(tool === undefined ? {} : { tool }) })
+    setLibraryExpanded(false)
+    setSidebarCollapsed(false)
+    setSidebarMode('tools')
+  }
   /** 암호 PDF 를 열 때 묻는 창 */
   const [passwordRequest, setPasswordRequest] = useState<{ path: string; wrong: boolean; nonce: number; resolve: (password: string | null) => void } | null>(null)
   const passwordNonce = useRef(0)
@@ -1790,27 +1797,31 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     })
     setDraftPdfHighlight(null)
     setCanvasEpoch((epoch) => epoch + 1)
-    setPdfToolsTarget(null)
+    // 쪽 편집 화면에서 저장했을 때만 닫는다(빈 쪽 빼기·방향 바로잡기는 왼쪽 바에서 펼친 채 결과를 보인다)
+    setPdfToolsTarget((current) => (current?.tool === 'pageEdit' ? null : current))
     announceAction(t('쪽 편집을 저장했습니다. 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다'))
   }
-  /** PDF 도구 창. 문서의 표시 수·목차·다른 PDF 를 모아 넘기고, 창이 부탁하는 일을 해 준다 */
-  const renderPdfTools = (target: { docId: string; tool?: PdfToolViewId }) => {
+  /** 쪽 편집 화면: 큰 편집기라 PDF 창 자리를 대신한다 */
+  const renderPageEdit = (target: { docId: string; tool?: PdfToolViewId }) => {
     const docId = target.docId
     const meta = openedDocs.find((doc) => doc.docId === docId)
     const title = docTitles[docId] ?? meta?.title ?? 'PDF'
-    if (target.tool === 'pageEdit') {
-      if (meta === undefined) return null
-      return (
-        <PageEditDialog
-          key={docId}
-          docId={docId}
-          title={title}
-          pageCount={meta.pageCount}
-          onCancel={() => setPdfToolsTarget(null)}
-          onSave={(items) => savePageEdit(meta.docId, meta.pageSizes, items)}
-        />
-      )
-    }
+    if (meta === undefined) return null
+    return (
+      <PageEditDialog
+        key={docId}
+        docId={docId}
+        title={title}
+        pageCount={meta.pageCount}
+        onCancel={() => setPdfToolsTarget(null)}
+        onSave={(items) => savePageEdit(meta.docId, meta.pageSizes, items)}
+      />
+    )
+  }
+  /** 왼쪽 바 「PDF 도구」 목록에서 펼친 도구의 옵션(쪽 편집 말고). 문서의 표시 수·목차·다른 PDF 를 모아 넘기고, 도구가 부탁하는 일을 해 준다 */
+  const renderPdfToolForm = (docId: string, tool: PdfToolId) => {
+    const meta = openedDocs.find((doc) => doc.docId === docId)
+    const title = docTitles[docId] ?? meta?.title ?? 'PDF'
     const docOverlays = pdfOverlays.overlays[docId] ?? []
     const group = groupOfDoc(versionGroups.groups, docId)
     const siblings = new Set(group?.versions.map((version) => version.docId) ?? [])
@@ -1820,7 +1831,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       .sort((a, b) => Number(b.sibling) - Number(a.sibling) || a.title.localeCompare(b.title))
     const fileName = (path: string) => path.split(/[\\/]/u).at(-1) ?? path
     return (
-      <PdfToolsDialog
+      <PdfToolForm
+        key={docId}
+        tool={tool}
         docId={docId}
         title={title}
         pageCount={meta?.pageCount ?? 0}
@@ -1830,10 +1843,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         otherPdfs={others}
         marks={countMarks(docId, pdfHighlights.highlights, docOverlays)}
         buildFlatten={(choice) => buildFlattenOp(docId, pdfHighlights.highlights, docOverlays, choice)}
-        initialTool={target.tool}
-        tool={target.tool}
         onToolChange={(next) => setPdfToolsTarget({ docId, tool: next })}
-        onClose={() => setPdfToolsTarget(null)}
         actions={{
           ocr: () => ocrDocument(docId),
           applyInPlace: async (op) => {
@@ -2572,10 +2582,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // PDF 도구 화면이 대신할 창: 그 문서를 보이는 창(없으면 지금 문서 창)
   const pdfToolsPane: PaneId | null = pdfToolsTarget === null ? null
     : PANE_IDS.find((pane) => { const tab = activeTab(panes[pane]); return tab?.kind === 'pdf' && tabDocId(tab) === pdfToolsTarget.docId }) ?? docPaneId
+  // 다른 PDF 로 옮겨 가면 펼쳐 둔 도구는 접는다(쪽 편집 화면은 그 문서 것이라 둔다)
+  const activePdfDocId = activePdfDoc?.docId
+  useEffect(() => {
+    setPdfToolsTarget((current) => (current === null || current.tool === 'pageEdit' || activePdfDocId === undefined || current.docId === activePdfDocId ? current : null))
+  }, [activePdfDocId])
+  // 「PDF 도구」 탭이 다루는 문서: 도구를 연 문서(문서 우클릭 메뉴 등), 없으면 지금 보는 PDF
+  const pdfToolsDoc = (pdfToolsTarget === null ? null : openedDocs.find((doc) => doc.docId === pdfToolsTarget.docId)) ?? activePdfDoc
   const renderPane = (pane: PaneId) => (
     <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && shownPaneCount > 1 ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
       {renderPaneBody(pane)}
-      {pdfToolsTarget !== null && pdfToolsPane === pane ? renderPdfTools(pdfToolsTarget) : null}
+      {pdfToolsTarget !== null && pdfToolsTarget.tool === 'pageEdit' && pdfToolsPane === pane ? renderPageEdit(pdfToolsTarget) : null}
     </div>
   )
 
@@ -2780,7 +2797,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             bibliography={bibliography.entries}
             onEditBibliography={setBibliographyDocId}
             onCopyBibtex={copyBibtex}
-            onOpenPdfTools={(docId) => setPdfToolsTarget({ docId })}
+            onOpenPdfTools={(docId) => openPdfToolsView(docId, openedDocs.find((doc) => doc.docId === docId)?.hasText === false ? 'ocr' : 'flatten')}
           />
         ) : (
           <div className="side-doc-target-wrap">
@@ -2804,14 +2821,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           </div>
         ) : sidebarMode === 'tools' ? (
           <PdfToolsPanel
-            docTitle={activePdfDoc === null ? null : docTitles[activePdfDoc.docId] ?? activePdfDoc.title}
-            activeTool={pdfToolsTarget === null || pdfToolsTarget.docId !== activePdfDoc?.docId ? null : pdfToolsTarget.tool ?? (activePdfDoc?.hasText === false ? 'ocr' : 'flatten')}
+            docTitle={pdfToolsDoc === null ? null : docTitles[pdfToolsDoc.docId] ?? pdfToolsDoc.title}
+            activeTool={pdfToolsTarget === null || pdfToolsDoc === null || pdfToolsTarget.docId !== pdfToolsDoc.docId ? null : pdfToolsTarget.tool ?? (pdfToolsDoc.hasText === false ? 'ocr' : 'flatten')}
             onPick={(tool) => {
-              if (activePdfDoc === null) return
-              // 펼친 도구를 다시 누르면 접고 PDF 로 돌아간다
-              if (pdfToolsTarget?.docId === activePdfDoc.docId && (pdfToolsTarget.tool ?? (activePdfDoc.hasText === false ? 'ocr' : 'flatten')) === tool) setPdfToolsTarget(null)
-              else setPdfToolsTarget({ docId: activePdfDoc.docId, tool })
+              if (pdfToolsDoc === null) return
+              // 펼친 도구를 다시 누르면 접는다
+              if (pdfToolsTarget?.docId === pdfToolsDoc.docId && (pdfToolsTarget.tool ?? (pdfToolsDoc.hasText === false ? 'ocr' : 'flatten')) === tool) setPdfToolsTarget(null)
+              else setPdfToolsTarget({ docId: pdfToolsDoc.docId, tool })
             }}
+            renderTool={(tool) => (tool === 'pageEdit' ? null : renderPdfToolForm(pdfToolsDoc!.docId, tool))}
           />
         ) : sidebarMode === 'thumbnails' && activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
           <MarkdownSectionPreview
@@ -2821,19 +2839,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           />
         ) : sidebarMode === 'thumbnails' ? (
           <ThumbnailPanel
-            viewportPane={docPaneId}
-            activeDoc={activePdfDoc}
-            currentPage={currentPdfPage - 1}
-            onSelectPage={(page) => jumpToPage(page + 1)}
-          />
-        ) : sidebarMode === 'outlinePreview' && activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
-          <MarkdownOutlinePreview
-            source={markdownSources[activeDocumentTab.id]!}
-            currentSection={markdownSectionState[activeDocumentTab.id] ?? 0}
-            onSelectSection={(index) => window.dispatchEvent(new CustomEvent('iwae:md-section-go', { detail: { path: activeDocumentTab.id, index } }))}
-          />
-        ) : sidebarMode === 'outlinePreview' ? (
-          <OutlinePreviewPanel
             viewportPane={docPaneId}
             activeDoc={activePdfDoc}
             currentPage={currentPdfPage - 1}

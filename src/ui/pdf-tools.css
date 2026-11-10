@@ -1,51 +1,4 @@
 /* PDF 도구 창: 다른 대화상자(.bib-dialog)와 같은 판. 회색 글자·왼쪽 띠 강조 없음 */
-/* PDF 도구 화면: PDF 창 자리를 그대로 대신한다(창 위에 덮는 모달이 아니다) */
-.pdf-tools-inline {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  display: flex;
-  flex-direction: column;
-  background: var(--paper);
-  color: var(--text-strong);
-  outline: none;
-  overflow: hidden;
-  animation: pdf-tools-in 140ms var(--layout-ease, ease) both;
-}
-.pane-focus-scope > .pdf-tools-inline.pdf-tools-inline { position: absolute; }
-.pane-focus-scope > .pdf-tools-inline::after { display: none; }
-
-.pdf-tools-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: var(--left-row2-h, 37px);
-  min-height: var(--left-row2-h, 37px);
-  box-sizing: border-box;
-  padding: 0 14px 0 8px;
-  border-bottom: 1px solid var(--divider);
-  background: var(--chrome);
-}
-.pdf-tools-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; color: var(--text-strong); font-size: 14px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
-.pdf-tools-title small { margin-left: 8px; color: var(--text-strong); font-size: 12px; font-weight: 500; }
-.pdf-tools-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  height: 28px;
-  padding: 0 10px 0 8px;
-  border: 1px solid var(--divider);
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-strong);
-  font: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-.pdf-tools-back:is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); outline: none; }
-.pdf-tools-back:disabled { opacity: 0.4; cursor: default; }
-
 /* 왼쪽 바 「PDF 도구」 목록 */
 .pdf-tools-list { padding: 10px 8px 14px; overflow-y: auto; }
 .pdf-tools-group + .pdf-tools-group { margin-top: 10px; }
@@ -69,12 +22,11 @@
 .pdf-tools-item:hover:not(:disabled) { background: var(--chrome-hover); }
 .pdf-tools-item:disabled { opacity: 0.5; cursor: default; }
 .pdf-tools-item-on, .pdf-tools-item-on:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 650; }
+.pdf-tools-item-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-tools-item-caret { flex: 0 0 auto; color: var(--text-strong); }
 .pdf-tools-item-icon { display: grid; place-items: center; width: 18px; color: var(--text-strong); }
 .pdf-tools-item-on .pdf-tools-item-icon { color: var(--accent); }
 
-.pdf-tools-pane { display: flex; flex-direction: column; flex: 1 1 auto; gap: 12px; min-height: 0; padding: 16px max(20px, calc((100% - 720px) / 2)) 18px; overflow-y: auto; }
-.pdf-tools-pane-title { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text-strong); font-size: 14px; font-weight: 700; }
-.pdf-tools-pane-title > span { display: grid; place-items: center; color: var(--accent); }
 .pdf-tools-note { margin: 0; color: var(--text-strong); font-size: 12.5px; line-height: 1.55; }
 
 .pdf-tools-field { display: grid; gap: 5px; color: var(--text-strong); font-size: 12px; font-weight: 600; }
@@ -185,6 +137,45 @@
 .pdf-scan-action .pdf-scan-meter { width: 56px; height: 4px; border-radius: var(--r-full); background: var(--divider); overflow: hidden; }
 .pdf-scan-action .pdf-scan-meter span { display: block; height: 100%; background: var(--accent); }
 
-@keyframes pdf-tools-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .pdf-tools { animation: none; } }
 .pane { position: relative; }
+
+/* 왼쪽 바 안에서 도구 줄 아래로 펼쳐지는 옵션: 한 칸 세로로 쌓고, 단추는 칸 너비를 채운다 */
+.pdf-tools-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 2px 0 8px;
+  padding: 8px 8px 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--chrome);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  animation: pdf-tools-open 160ms var(--layout-ease, ease-out) both;
+}
+.pdf-tools-form { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pdf-tools-body .pdf-tools-note { font-size: 12px; line-height: 1.5; }
+.pdf-tools-body .pdf-tools-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.pdf-tools-body .pdf-tools-field input:not([type='checkbox']):not([type='range']):not([type='color']),
+.pdf-tools-body .pdf-tools-field select { width: 100%; box-sizing: border-box; background: var(--paper); }
+.pdf-tools-body .pdf-tools-seg { display: flex; align-self: stretch; flex-wrap: wrap; }
+.pdf-tools-body .pdf-tools-seg button { flex: 1 1 auto; padding: 0 8px; white-space: nowrap; }
+.pdf-tools-body .pdf-tools-checks, .pdf-tools-body .pdf-tools-pick, .pdf-tools-body .pdf-tools-chapters { background: var(--paper); }
+.pdf-tools-body .pdf-tools-pick { max-height: 180px; }
+.pdf-tools-body .pdf-tools-chapters { max-height: 180px; }
+.pdf-tools-body .pdf-tools-check { min-height: 30px; padding: 0 6px; font-size: 12.5px; }
+.pdf-tools-body .pdf-tools-actions { display: flex; flex-direction: column; margin-top: 0; }
+.pdf-tools-body .pdf-tools-primary, .pdf-tools-body .pdf-tools-secondary {
+  justify-content: center;
+  width: 100%;
+  min-height: var(--control-size-floating, 34px);
+  height: auto;
+  padding: 6px 12px;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 1.35;
+}
+.pdf-tools-body .pdf-tools-status { background: var(--paper); }
+.pdf-tools-body .pdf-tools-meter { flex: 1 1 100%; }
+@keyframes pdf-tools-open { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pdf-tools-body { animation: none; } }

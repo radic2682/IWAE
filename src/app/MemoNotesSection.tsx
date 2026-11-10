@@ -419,7 +419,7 @@ export function MemoNotesSection({
 
   return (
     <section className="side-section side-memo-notes" aria-labelledby="side-memo-notes-heading">
-      <div className="side-head-row">
+      <div className="side-head-row side-notebook-head">
         <h2 id="side-memo-notes-heading" className="side-head"><Notebook className="side-section-icon" size={15} aria-hidden="true" />{t('노트')}</h2>
         {/* PDF 머리 단추와 같은 모양·크기(side-top-action, 16px) */}
         {folders.length > 0 ? (

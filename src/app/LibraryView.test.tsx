@@ -128,11 +128,11 @@ describe('LibraryView', () => {
     expect(props.onOpenItem).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'note' }))
   })
 
-  it('날짜를 읽을 수 없으면 Invalid Date 대신 대시를 보여 준다', () => {
+  it('날짜를 읽을 수 없으면 Invalid Date 대신 빈칸을 둔다', () => {
     setup({ records: [{ ...rec('d1', 'd1.pdf', 'vault'), addedAt: 'not-a-date' }] })
     const row = bodyRows().find((candidate) => candidate.textContent?.includes('나 논문'))
     expect(row?.textContent).not.toContain('Invalid Date')
-    expect(within(row!).getAllByRole('gridcell')[6]?.textContent).toBe('—')
+    expect(row!.querySelector('.library-cell-date')?.textContent).toBe('')
   })
 
   it('이름 필터로 줄인다', () => {
@@ -150,5 +150,62 @@ describe('LibraryView — 서지 칸', () => {
     expect(row.textContent).toContain('1843')
     expect(screen.getByRole('button', { name: /저자/ })).toBeDefined()
     expect(screen.getByRole('button', { name: /연도/ })).toBeDefined()
+  })
+})
+
+describe('LibraryView — 왼쪽 바 / 오른쪽 표 분리', () => {
+  it('모음·폴더 목록은 navHost 에, 표와 필터는 tableHost 에 그린다', () => {
+    const navHost = document.createElement('div')
+    const tableHost = document.createElement('div')
+    document.body.append(navHost, tableHost)
+    render(<LibraryView tree={tree} records={records} itemIcons={{}} onOpenItem={vi.fn()} navHost={navHost} tableHost={tableHost} />)
+    expect(within(navHost).getByRole('treeitem', { name: '전체' })).toBeTruthy()
+    expect(within(navHost).getByRole('treeitem', { name: '논문' })).toBeTruthy()
+    expect(within(navHost).queryByRole('grid')).toBeNull()
+    expect(within(tableHost).getByRole('grid')).toBeTruthy()
+    expect(within(tableHost).getByRole('searchbox')).toBeTruthy()
+    expect(within(tableHost).queryByRole('treeitem')).toBeNull()
+    // 왼쪽 바에서 고른 모음이 오른쪽 표를 거른다
+    expect(within(tableHost).getAllByRole('row')).toHaveLength(4)
+    fireEvent.click(within(navHost).getByRole('treeitem', { name: '즐겨찾기' }))
+    expect(within(navHost).getByRole('treeitem', { name: '즐겨찾기' }).getAttribute('aria-selected')).toBe('true')
+    expect(within(tableHost).getAllByRole('row')).toHaveLength(1)
+    navHost.remove()
+    tableHost.remove()
+  })
+
+  it('알림이 없으면 아래 띠는 비어 있다(CSS 가 숨긴다)', () => {
+    setup()
+    expect(screen.getByRole('status').textContent).toBe('')
+  })
+})
+
+describe('LibraryView — 열 감추기와 카드 보기', () => {
+  it('모든 항목에서 비어 있는 열(저자·연도·폴더·저장)은 감춘다', () => {
+    setup({ records: [rec('d1', 'd1.pdf', 'vault'), rec('n1', '가.iwae', 'vault')] })
+    const names = screen.getAllByRole('columnheader').map((header) => header.textContent)
+    expect(names).not.toContain('저자')
+    expect(names).not.toContain('연도')
+    expect(names).not.toContain('저장')
+    expect(names).toContain('이름')
+  })
+
+  it('항목이 가진 열은 보인다', () => {
+    setup({ bibliography: { d1: { authors: ['Ada'], year: 1843, source: 'manual', updatedAt: 'x' } } })
+    const names = screen.getAllByRole('columnheader').map((header) => header.textContent)
+    expect(names).toContain('저자')
+    expect(names).toContain('연도')
+    expect(names).toContain('저장')
+  })
+
+  it('카드 보기로 바꾸면 카드가 나오고 두 번 누르면 연다', () => {
+    const props = setup()
+    fireEvent.click(screen.getByRole('button', { name: '카드로 보기' }))
+    const cards = screen.getAllByRole('option')
+    expect(cards.length).toBe(3)
+    fireEvent.doubleClick(screen.getByRole('option', { name: '나 논문' }))
+    expect(props.onOpenItem).toHaveBeenCalledWith(expect.objectContaining({ kind: 'pdf' }))
+    fireEvent.click(screen.getByRole('button', { name: '목록으로 보기' }))
+    expect(screen.getByRole('grid')).toBeTruthy()
   })
 })

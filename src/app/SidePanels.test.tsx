@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { OutlinePanel, limitOutlineDepth, outlinePageGroups } from './SidePanels'
+import { OutlinePanel, limitOutlineDepth } from './SidePanels'
 import type { PdfDocMeta } from '../bridge/pdf'
 import { createPdfBookmark } from '../core/pdfBookmarks'
 
@@ -108,7 +108,7 @@ describe('OutlinePanel', () => {
   })
 })
 
-describe('목차 + 미리보기 묶기', () => {
+describe('목차 깊이', () => {
   const entries = [
     { title: '1 Intro', page: 2, depth: 0 },
     { title: '1.1 Scope', page: 2, depth: 1 },
@@ -119,15 +119,5 @@ describe('목차 + 미리보기 묶기', () => {
 
   it('목차는 세 단계(깊이 2)까지만 남긴다', () => {
     expect(limitOutlineDepth(entries).map((entry) => entry.title)).toEqual(['1 Intro', '1.1 Scope', '1.1.1 Terms', '2 Bus'])
-  })
-
-  it('시작 쪽으로 쪽을 묶고, 같은 쪽에서 시작하는 제목은 한 묶음에 모은다', () => {
-    const groups = outlinePageGroups(limitOutlineDepth(entries), 8)
-    expect(groups.map((group) => [group.startPage, group.endPage, group.headings.map((heading) => heading.entry.title)])).toEqual([
-      [0, 1, []],
-      [2, 2, ['1 Intro', '1.1 Scope']],
-      [3, 5, ['1.1.1 Terms']],
-      [6, 7, ['2 Bus']],
-    ])
   })
 })

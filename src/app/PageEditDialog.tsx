@@ -168,6 +168,10 @@ export function PageEditDialog({ docId, title, pageCount, onCancel, onSave }: Pa
     }
   }
 
+  const footerText = message ?? (removedCount > 0
+    ? t('원본 {count}쪽을 뺍니다 — 그 쪽의 형광펜·책갈피도 함께 사라집니다.', { count: removedCount })
+    : t('쪽을 끌어 옮기거나, 골라서(Ctrl·Shift 로 여럿) 돌리고 뺄 수 있습니다. 저장하면 원본 PDF 를 덮어씁니다(원본은 .iwae/history/pdf-edits 에 남습니다).'))
+
   return (
     <div className="page-edit-backdrop" role="presentation">
       <div className="page-edit" role="region" aria-label={t('{title} 쪽 편집', { title })}>
@@ -227,11 +231,7 @@ export function PageEditDialog({ docId, title, pageCount, onCancel, onSave }: Pa
           })}
         </div>
         <footer className="page-edit-foot">
-          <span className="page-edit-message" role="status">
-            {message ?? (removedCount > 0
-              ? t('원본 {count}쪽을 뺍니다 — 그 쪽의 형광펜·책갈피도 함께 사라집니다.', { count: removedCount })
-              : t('쪽을 끌어 옮기거나, 골라서(Ctrl·Shift 로 여럿) 돌리고 뺄 수 있습니다. 저장하면 원본 PDF 를 덮어씁니다(원본은 .iwae/history/pdf-edits 에 남습니다).'))}
-          </span>
+          <span className="page-edit-message" role="status" title={footerText}>{footerText}</span>
           <button type="button" className="page-edit-cancel" onClick={onCancel} disabled={busy}>{t('취소')}</button>
           <button type="button" className="page-edit-save" onClick={() => void save()} disabled={busy}>{busy ? t('저장 중…') : t('저장')}</button>
         </footer>

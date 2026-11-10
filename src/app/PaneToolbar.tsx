@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut, Toolbox } from '@phosphor-icons/react'
+import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut } from '@phosphor-icons/react'
 import { OVERLAY_TOOLS, overlayToolInfo } from '../pdf/PdfOverlayPalette'
 import { DRAW_TOOLS, isDrawTool, setLastDrawTool, useLastDrawTool, useOverlayTool } from '../pdf/overlayToolStore'
 import type { OverlayTool } from '../pdf/PdfOverlayLayer'
@@ -50,8 +50,6 @@ interface PaneToolbarProps {
   readonly onSplitLayoutChange?: (id: PdfSplitLayoutId) => void
   /** 쪽 편집(쪽 미리보기로 순서 바꾸기·끼워 넣기·빼기). 주면 쪽 편집 단추가 나온다 */
   readonly onEditPages?: () => void
-  /** PDF 도구 창(OCR·표시 넣은 사본·합치기 …). 주면 쪽 편집 옆에 단추가 나온다 */
-  readonly onPdfTools?: () => void
   /** 한 글자 단축키(T·P·L·A·R·O·E)를 이 도구줄이 받는가(마지막으로 만진 문서 칸) */
   readonly shortcutsEnabled?: boolean
 }
@@ -78,7 +76,6 @@ export function PaneToolbar({
   splitLayout,
   onSplitLayoutChange,
   onEditPages,
-  onPdfTools,
   shortcutsEnabled = false,
 }: PaneToolbarProps) {
   const [overlayTool, setOverlayTool] = useOverlayTool()
@@ -270,17 +267,6 @@ export function PaneToolbar({
           >
             <SquaresFour size={17} aria-hidden="true" />
           </button>
-          {onPdfTools !== undefined ? (
-            <button
-              type="button"
-              className="toolbar-tool-btn pdf-compact-tool pane-pdf-tools"
-              aria-label={t('PDF 도구')}
-              title={t('PDF 도구 (OCR · 표시 넣은 사본 · 합치기 · 쪽 번호 …)')}
-              onClick={(event) => { event.currentTarget.blur(); onPdfTools() }}
-            >
-              <Toolbox size={17} aria-hidden="true" />
-            </button>
-          ) : null}
         </>
       ) : null}
     </>

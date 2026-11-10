@@ -1,4 +1,3 @@
-import { runAppCommand } from '../ui/documentContextMenu'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import { PaneShell } from './PaneShell'
 import { PaneToolbar, type PdfToolMode } from './PaneToolbar'
@@ -551,7 +550,6 @@ export function DocumentView(props: DocumentViewProps) {
       github={tab.kind === 'markdown' ? props.github : undefined}
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
-      onPdfTools={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => runAppCommand('pdfTools', { docId }) : undefined}
       shortcutsEnabled={props.shortcutTarget}
       cleanView={props.pdfViewPrefs.clean === true}
       onCleanViewChange={(clean) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, clean })}

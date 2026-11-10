@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  ImagesSquare, Newspaper, MagnifyingGlass,
+  ImagesSquare, MagnifyingGlass,
   ListMagnifyingGlass,
   ListBullets,
   SidebarSimple,
@@ -16,7 +16,7 @@ import { MemoPanelIcon } from '../pdf/MemoPanelIcon'
 import { isMacPlatform } from '../core/platform'
 import { t } from '../i18n'
 
-export type SidebarMode = 'library' | 'thumbnails' | 'outlinePreview' | 'outline' | 'tools' | 'search'
+export type SidebarMode = 'library' | 'thumbnails' | 'outline' | 'tools' | 'search'
 
 interface TopBarProps {
   sidebarCollapsed: boolean
@@ -138,9 +138,6 @@ export function TopBar({
             </button>
             <button type="button" className={`topbar-navbtn${sidebarMode === 'thumbnails' ? ' topbar-navbtn-active' : ''}`} aria-label={t('미리보기')} title={t('미리보기')} role="radio" aria-checked={sidebarMode === 'thumbnails'} onClick={() => onSidebarModeChange('thumbnails')}>
               <ImagesSquare size={15} weight="regular" aria-hidden="true" />
-            </button>
-            <button type="button" className={`topbar-navbtn${sidebarMode === 'outlinePreview' ? ' topbar-navbtn-active' : ''}`} aria-label={t('목차·미리보기')} title={t('목차·미리보기')} role="radio" aria-checked={sidebarMode === 'outlinePreview'} onClick={() => onSidebarModeChange('outlinePreview')}>
-              <Newspaper size={15} weight="regular" aria-hidden="true" />
             </button>
             <button type="button" className={`topbar-navbtn${sidebarMode === 'tools' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 도구')} title={t('PDF 도구')} role="radio" aria-checked={sidebarMode === 'tools'} onClick={() => onSidebarModeChange('tools')}>
               <Toolbox size={15} weight="regular" aria-hidden="true" />

@@ -6,6 +6,7 @@
 
 .sidebar .side-panel-head,
 .sidebar .side-documents-head,
+.sidebar .side-notebook-head,
 .sidebar .outline-section-head,
 .sidebar .outline-preview-bar {
   box-sizing: border-box;
@@ -23,7 +24,8 @@
 /* 문서 구역: 머리 줄이 스크롤 영역 맨 위에 붙는다 */
 .sidebar-inner > .side-scroll:has(> .side-documents-section) { padding-top: 0; }
 .sidebar .side-section .side-documents-head { margin-bottom: 6px; position: sticky; top: 0; z-index: 3; }
-.sidebar .side-documents-head .side-head { padding: 0 2px; }
+.sidebar .side-documents-head .side-head,
+.sidebar .side-notebook-head .side-head { padding: 0 2px; }
 .sidebar .side-documents-head .side-top-action { flex: 0 0 22px; }
 
 /* 목차 */
@@ -76,3 +78,4 @@
 .sidebar .side-tools-doc { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-strong); }
 .sidebar .side-scroll.side-tools-panel { padding-top: 0; }
 .sidebar .side-tools-panel .pdf-tools-list { padding: 8px 0 14px; }
+

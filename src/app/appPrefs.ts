@@ -23,10 +23,12 @@ export interface AppPrefs extends AppFlagPrefs {
   readonly rightBarZoom: number
   /** 펼친 라이브러리(PDF 관리 화면) 안쪽 확대(Ctrl+휠, 0.8~1.5). 왼쪽 바와 따로 쓴다 */
   readonly libraryZoom: number
+  /** 펼친 라이브러리 보기: 목록(표) 또는 카드 */
+  readonly libraryView: 'list' | 'grid'
 }
 
 const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true }
-export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT, libraryZoom: BAR_ZOOM_DEFAULT }
+export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT, libraryZoom: BAR_ZOOM_DEFAULT, libraryView: 'list' }
 const KEY = 'iwae:app-prefs:v1'
 
 /** 저장된 JSON 에서 읽는다. 모르는 값·잘못된 값은 기본값, 확대는 80~150% 로 바로잡는다 */
@@ -34,7 +36,7 @@ export function parseAppPrefs(text: string | null): AppPrefs {
   try {
     const saved = JSON.parse(text ?? '{}') as Partial<Record<keyof AppPrefs, unknown>>
     const flags = Object.fromEntries(Object.entries(DEFAULT_FLAGS).map(([key, base]) => [key, typeof saved[key as keyof AppFlagPrefs] === 'boolean' ? saved[key as keyof AppFlagPrefs] : base])) as unknown as AppFlagPrefs
-    return { ...flags, leftBarZoom: clampBarZoom(saved.leftBarZoom), rightBarZoom: clampBarZoom(saved.rightBarZoom), libraryZoom: clampBarZoom(saved.libraryZoom) }
+    return { ...flags, leftBarZoom: clampBarZoom(saved.leftBarZoom), rightBarZoom: clampBarZoom(saved.rightBarZoom), libraryZoom: clampBarZoom(saved.libraryZoom), libraryView: saved.libraryView === 'grid' ? 'grid' : 'list' }
   } catch {
     return { ...DEFAULT_APP_PREFS }
   }

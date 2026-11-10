@@ -1,58 +1,34 @@
-/* 라이브러리 모드. 펼쳐지는 사이드바 폭 전환(230ms)이 거의 끝날 무렵
-   내용이 나타나도록 약간 늦게 페이드인한다 — 좁은 폭에서 표가 찌그러진
-   채로 보이는 순간을 없앤다. */
-.library-view {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-  animation: library-view-in 160ms var(--layout-ease, ease) 110ms both;
-}
+/* 라이브러리 모드.
+   펼치면 왼쪽 바는 폭·상단 아이콘 줄·머리 줄(문서 + 단추)을 그대로 두고, 그 아래 문서·노트 트리 자리에
+   모음·폴더 목록(.library-nav-host)이 들어선다. 오른쪽 영역(.library-host)에는 표만 그린다.
+   모음·폴더 줄은 왼쪽 바 문서 줄과 같은 클래스(side-tree-row / side-tree-item / side-tree-toggle)를 쓰므로
+   높이·여백·아이콘·선택색·호버가 문서 줄과 같다. */
 
-.library-collections {
-  flex: 0 0 var(--library-collections-width, 240px);
-  min-width: 0;
-  overflow-y: auto;
-  padding: 8px 6px;
-}
-
-/* 모음 칸과 표 사이의 경계선. 끌어서 너비를 바꾼다(잡는 폭은 넓게, 보이는 선은 1px) */
-.library-collections-resizer {
-  position: relative;
-  flex: 0 0 1px;
-  background: var(--hairline);
-  cursor: col-resize;
-  touch-action: none;
-}
-.library-collections-resizer::before {
-  content: '';
-  position: absolute;
-  inset: 0 -4px;
-}
-.library-collections-resizer:hover,
-.library-collections-resizer:focus-visible,
-body.library-resizing .library-collections-resizer { background: var(--accent); outline: none; }
-body.library-resizing, body.library-resizing * { cursor: col-resize !important; user-select: none !important; }
+/* 단독으로 그릴 때(테스트·다른 화면)의 한 덩어리 배치 */
+.library-view { display: flex; flex: 1 1 auto; min-height: 0; }
+.library-collections { flex: 0 0 240px; min-width: 0; overflow-y: auto; padding: 8px 6px; }
 
 /* 펼친 라이브러리에서는 상단바의 쪽 탭 자리가 없다 — 남아 있으면 창보다 넓어져 가로 스크롤이 생긴다 */
 .shell-library-expanded .topbar-panetabs { display: none; }
 
-.library-collections ul { margin: 0; padding: 0; list-style: none; }
-
-.library-collection {
-  display: flex;
+/* 왼쪽 바 안의 모음·폴더 목록. 왼쪽 바 배율(leftZoom)을 따른다 */
+.library-nav-host { zoom: var(--bar-zoom, 1); }
+.library-nav-host .library-nav-tree,
+.library-nav-host .side-tree-children { margin: 0; padding: 0; list-style: none; }
+.library-nav-row { cursor: default; }
+.library-nav-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.library-nav-row .side-item-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.library-nav-row button.side-tree-chevron {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding-right: 8px;
-  border-radius: var(--r-sm);
-  color: var(--ink);
-  font-size: 13px;
-  cursor: default;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
-
-.library-collection:hover { background: var(--chrome-hover); }
-.library-collection:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.library-collection-active { background: var(--chrome-hover); font-weight: 600; }
+.library-nav-separator { height: 1px; margin: 6px 8px; background: var(--hairline); }
 
 .library-collection-drop {
   outline: 1px dashed var(--accent);
@@ -60,53 +36,183 @@ body.library-resizing, body.library-resizing * { cursor: col-resize !important; 
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.library-collection-caret {
-  display: inline-flex;
-  flex: 0 0 14px;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
+/* 펼치고 접을 때 왼쪽 바 내용(머리 줄 아래)이 부드럽게 바뀐다 */
+.side-scroll-swapping > .side-section > :not(.side-head-row),
+.side-scroll-swapping > .side-section:not(.side-documents-section) {
+  animation: library-swap-in 180ms ease-out both;
+}
+@keyframes library-swap-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
 }
 
-.library-collection-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.library-collection-separator { height: 1px; margin: 6px 4px; background: var(--hairline); }
-
-.library-items { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+/* 표 영역. 첫 줄(도구 줄)은 왼쪽 바 머리 줄(37px, 밑선 --divider)과 한 줄로 이어지고 배율을 받지 않는다. */
+.library-items { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; }
 
 .library-items-head {
+  box-sizing: border-box;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--hairline);
+  height: 37px;
+  min-height: 37px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--chrome);
 }
 
-.library-items-head input {
-  width: min(320px, 50%);
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--divider);
-  background: var(--paper);
+/* 도구 줄: 왼쪽에 지금 보는 모음 이름과 개수, 오른쪽에 검색칸과 보기 전환 */
+.library-items-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.library-items-count {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.library-items-spacer { flex: 1 1 auto; }
+
+/* 검색칸: 채운 바탕(--field), 안내 글자는 회색이 아니라 본문색(가는 굵기) */
+.library-search {
+  position: relative;
+  flex: 0 1 240px;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  border-radius: var(--r-md);
+  background: var(--field);
+  color: var(--ink);
+}
+.library-search:hover { background: var(--field-hover); }
+.library-search:focus-within { outline: 2px solid var(--accent); outline-offset: -1px; }
+.library-search > svg { position: absolute; left: 8px; pointer-events: none; }
+.library-search input {
+  width: 100%;
+  height: 100%;
+  padding: 0 8px 0 28px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  outline: none;
 }
+.library-search input::placeholder { color: var(--ink); font-weight: 400; opacity: 1; }
 
-.library-items-count { color: var(--text-dim); font-size: 12px; }
-.library-table { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* 목록·카드 전환(붙어 있는 두 단추) */
+.library-view-switch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--r-md);
+  background: var(--field);
+}
+.library-view-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.library-view-switch button:hover { background: var(--field-hover); }
+.library-view-switch button[aria-pressed='true'] { background: var(--chrome-hover); box-shadow: 0 0 0 1px var(--divider) inset; }
+.library-view-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
+/* 카드 보기 */
+.library-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  zoom: var(--bar-zoom, 1);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-auto-rows: max-content;
+  gap: 12px;
+  padding: 16px;
+}
+.library-grid > .library-empty { grid-column: 1 / -1; }
+.library-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: var(--r-md);
+  color: var(--ink);
+  user-select: none;
+}
+.library-card:hover { background: var(--chrome-hover); }
+.library-card:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.library-card-selected,
+.library-card-selected:hover { background: var(--chrome-hover); }
+.library-card-selected .library-card-thumb { box-shadow: 0 0 0 2px var(--accent); }
+.library-card-selected .library-card-title { font-weight: 700; }
+.library-card-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  box-shadow: 0 0 0 1px var(--hairline) inset;
+}
+.library-card-icon { display: inline-flex; font-size: 32px; }
+.library-card-page { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; background: #fff; }
+.library-card-star { position: absolute; top: 6px; right: 6px; color: var(--accent); filter: drop-shadow(0 0 2px rgb(0 0 0 / 45%)); }
+.library-card-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.library-card-meta { min-height: 16px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+.library-table { flex: 1 1 auto; min-height: 0; overflow: auto; zoom: var(--bar-zoom, 1); padding-bottom: 12px; }
+
+/* 줄: 왼쪽 바 문서 줄처럼 높이 32px, 둥근 모서리, 같은 호버·선택 색. 줄 사이 선은 긋지 않는다 */
 .library-row {
   display: grid;
-  grid-template-columns: 32px minmax(180px, 3fr) minmax(90px, 1.4fr) 56px 90px minmax(100px, 1.6fr) 100px 70px;
+  grid-template-columns: var(--library-cols, 32px minmax(180px, 3fr) 64px 90px 110px);
+  column-gap: 8px;
   align-items: center;
-  min-height: 30px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--hairline);
+  box-sizing: border-box;
+  min-height: 32px;
+  margin: 0 8px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
   color: var(--ink);
-  font-size: 13px;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
   user-select: none;
 }
 
@@ -115,57 +221,79 @@ body.library-resizing, body.library-resizing * { cursor: col-resize !important; 
 .library-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .library-row-selected,
-.library-row-selected:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.library-row-selected:hover { background: var(--chrome-hover); font-weight: 600; }
 
+/* 머리 줄: 조용하게(작은 글자·굵게), 밑선 하나. 정렬 중인 열만 화살표가 보인다 */
 .library-row-head {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--chrome);
-  color: var(--text-dim);
+  margin: 0;
+  padding: 0 16px;
+  min-height: 32px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+  color: var(--ink);
   font-size: 12px;
+  font-weight: 600;
 }
-
-.library-row-head:hover { background: var(--chrome); }
+.library-row-head:hover { background: var(--paper); }
+.library-table > .library-row:not(.library-row-head) { margin-top: 2px; }
+.library-table > .library-row-head + .library-row { margin-top: 6px; }
 
 .library-sort {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 0;
+  max-width: 100%;
+  height: 24px;
+  padding: 0 6px;
+  margin-left: -6px;
   border: 0;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
 }
+.library-sort:hover { background: var(--chrome-hover); }
+.library-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.library-row-head .library-cell-num { display: flex; justify-content: flex-end; }
+.library-row-head .library-cell-num { padding-right: 14px; }
+.library-row-head .library-cell-num .library-sort { margin-left: 0; margin-right: -6px; }
 
-.library-cell-icon { display: inline-flex; color: var(--text-dim); }
+.library-cell-icon { display: inline-flex; align-items: center; justify-content: center; }
 .library-cell-name { display: flex; align-items: center; gap: 4px; }
-.library-cell-folder { color: var(--text-dim); }
+.library-cell-num { justify-content: flex-end; text-align: right; padding-right: 14px; }
 .library-favorite { flex: 0 0 auto; color: var(--accent); }
-.library-empty { margin: 0; padding: 24px; color: var(--text-dim); font-size: 13px; text-align: center; }
 
-.library-status {
-  min-height: 20px;
+/* 빈 화면 */
+.library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   margin: 0;
-  padding: 4px 12px;
+  padding: 72px 24px;
+  color: var(--ink);
+  font-size: 13.5px;
+  text-align: center;
+}
+.library-empty p { margin: 0; }
+
+/* 이름 바꾸기·이동 결과 알림. 알림이 있을 때만 나타나고(빈 띠는 그리지 않는다) 잠시 뒤 사라진다 */
+.library-status {
+  margin: 0;
+  padding: 6px 12px;
   border-top: 1px solid var(--hairline);
-  color: var(--text-dim);
+  color: var(--ink);
   font-size: 12px;
 }
-
-@keyframes library-view-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .library-view { animation: none; }
-}
+.library-status:empty { display: none; }
 
 /* 펼친 라이브러리. 왼쪽 바는 그대로 두고 그 오른쪽 영역 전체를 이 자리가 덮는다(패널은 아래에 마운트된 채 가려진다).
-   표와 모음 트리가 각자 스크롤하고, 배율(--bar-zoom = libraryZoom)은 왼쪽 바와 따로다. */
+   표가 스크롤하고, 배율(--bar-zoom = libraryZoom)은 왼쪽 바와 따로다. */
 .library-host {
   position: absolute;
   top: 0;
@@ -177,12 +305,21 @@ body.library-resizing, body.library-resizing * { cursor: col-resize !important; 
   min-width: 0;
   background: var(--paper);
   z-index: 2;
+  animation: library-host-in 180ms ease-out both;
 }
-.library-host-frame { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-.library-host-frame > .library-view { zoom: var(--bar-zoom, 1); }
-.library-host-frame .library-view :is(.side-context-menu, .side-menu-backdrop) { zoom: calc(1 / var(--bar-zoom, 1)); }
+@keyframes library-host-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: none; }
+}
 
-.library-cell-author { color: var(--text-dim); }
+@media (prefers-reduced-motion: reduce) {
+  .library-host,
+  .side-scroll-swapping > .side-section > :not(.side-head-row),
+  .side-scroll-swapping > .side-section:not(.side-documents-section) { animation: none; }
+}
+
+.library-cell-author { color: var(--ink); }
+.library-cell-folder { color: var(--ink); }
 
 /* 표에서 바로 고치기. 두 번 누르면 칸이 입력창이 된다. */
 .library-cell-editable { min-height: 20px; align-self: stretch; display: flex; align-items: center; cursor: text; }

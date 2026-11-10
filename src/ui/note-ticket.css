@@ -213,8 +213,9 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .pane-doc .pdf-split .markdown-pane-host-memo :is(.markdown-write-host, .markdown-mark-host, .markdown-scrollbar) { right: 0; }
 .pane-doc .pdf-split .markdown-pane-host-memo .markdown-pane { inset: 0; }
 
-/* 맨 위 블록의 떠 있는 단추(블록 위 테두리에 걸친다)가 스크롤 칸 위 끝에 잘리지 않게 위 여백을 둔다 */
-.pane-doc .pdf-memo-bar-scroll.pdf-memo-bar-scroll { padding-top: 26px; }
+/* 위 여백 = 좌우 여백(12px, 같은 배율). 맨 위 블록의 「…」는 위 테두리에 걸치지 않고 블록 안(오른쪽 위)에 둬서, 여백이 좁아도 잘리지 않는다 */
+.pane-doc .pdf-memo-bar-scroll.pdf-memo-bar-scroll { padding-top: 12px; }
+.pane-doc .pdf-memo-bar-scroll > .note-block:first-child:not(.note-section) > .note-block-menu { top: 6px; }
 
 /* 여러 블록 고름: 끌어서 함께 옮긴다는 안내(같은 글자색) */
 .note-selection-bar .note-selection-hint { flex: 0 0 auto; color: var(--text-strong); font-size: 12px; }

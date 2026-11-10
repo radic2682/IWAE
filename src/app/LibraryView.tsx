@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useBarZoom, useBarZoomWheel } from './useBarZoom'
+import { setAppPref, useAppPrefs } from './appPrefs'
+import { pageImageUrl } from '../bridge/pdf'
 import { startInternalDrag } from '../core/internalDrag'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import {
@@ -8,9 +12,12 @@ import {
   FileMd,
   FilePdf,
   Folder,
+  MagnifyingGlass,
   NotePencil,
+  Rows,
   SortAscending,
   SortDescending,
+  SquaresFour,
   Stack,
   Star,
 } from '@phosphor-icons/react'
@@ -49,9 +56,9 @@ const COLUMNS: readonly { key: LibrarySortKey; label: string }[] = [
 ]
 
 const dateText = (value: string | null) => {
-  if (value === null) return '—'
+  if (value === null) return ''
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(dateLocale())
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(dateLocale())
 }
 const sameCollection = (a: LibraryCollection, b: LibraryCollection) =>
   a.kind === b.kind && (a.kind !== 'folder' || (b.kind === 'folder' && a.path === b.path))
@@ -143,6 +150,12 @@ interface LibraryViewProps {
   readonly onStartFolderRename?: (folder: LibraryFolder) => void
   /** 메뉴의 「이름 바꾸기」: 그 항목의 이름 칸을 고치기 시작한다 */
   readonly renameRequest?: { readonly id: string; readonly nonce: number } | null
+  /**
+   * 펼친 라이브러리: 모음·폴더 목록은 왼쪽 바(navHost)에, 표는 그 오른쪽 영역(tableHost)에 그린다.
+   * 둘 다 주지 않으면(단독 사용·테스트) 한 덩어리로 그 자리에 그린다.
+   */
+  readonly navHost?: HTMLElement | null
+  readonly tableHost?: HTMLElement | null
 }
 
 /**
@@ -153,25 +166,6 @@ interface LibraryViewProps {
  * 여러 항목은 하나씩 차례로 옮긴다 — 동시에 옮기면 같은 색인 파일을
  * 서로 덮어쓴다.
  */
-/** 펼친 라이브러리의 왼쪽 모음·폴더 칸 너비(px). 끌어서 바꾸고, 이 PC 에 기억한다 */
-const COLLECTIONS_WIDTH_KEY = 'iwae.library.collectionsWidth'
-const COLLECTIONS_WIDTH_DEFAULT = 240
-const COLLECTIONS_WIDTH_MIN = 160
-const COLLECTIONS_WIDTH_MAX = 560
-
-function clampCollectionsWidth(width: number): number {
-  return Math.round(Math.min(COLLECTIONS_WIDTH_MAX, Math.max(COLLECTIONS_WIDTH_MIN, width)))
-}
-
-function readCollectionsWidth(): number {
-  try {
-    const saved = Number(window.localStorage.getItem(COLLECTIONS_WIDTH_KEY))
-    return Number.isFinite(saved) && saved > 0 ? clampCollectionsWidth(saved) : COLLECTIONS_WIDTH_DEFAULT
-  } catch {
-    return COLLECTIONS_WIDTH_DEFAULT
-  }
-}
-
 export function LibraryView({
   tree,
   records,
@@ -190,7 +184,10 @@ export function LibraryView({
   onFolderEditCancel,
   onStartFolderRename,
   renameRequest = null,
+  navHost,
+  tableHost,
 }: LibraryViewProps) {
+  const portalMode = navHost !== undefined || tableHost !== undefined
   const [editing, setEditing] = useState<{ id: string; column: EditableColumn } | null>(null)
   const [collection, setCollection] = useState<LibraryCollection>({ kind: 'all' })
   const [query, setQuery] = useState('')
@@ -200,6 +197,16 @@ export function LibraryView({
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [dropFolder, setDropFolder] = useState<string | null>(null)
   const [status, setStatus] = useState('')
+  // 알림은 잠깐 보였다가 사라진다 — 빈 띠가 남지 않게
+  useEffect(() => {
+    if (status === '') return undefined
+    const timer = window.setTimeout(() => setStatus(''), 6000)
+    return () => window.clearTimeout(timer)
+  }, [status])
+  const [itemsElement, setItemsElement] = useState<HTMLElement | null>(null)
+  const zoom = useBarZoom('library')
+  const view = useAppPrefs().libraryView
+  useBarZoomWheel(itemsElement, 'library', portalMode)
   useEffect(() => {
     if (renameRequest !== null) setEditing({ id: renameRequest.id, column: 'name' })
   }, [renameRequest])
@@ -289,6 +296,7 @@ export function LibraryView({
     })
   }
 
+  /** 왼쪽 바의 문서 줄과 같은 줄(side-tree-row). 폴더는 펼침 화살표가 있는 side-tree-toggle, 나머지는 side-tree-item */
   const collectionRow = (
     key: string,
     target: LibraryCollection,
@@ -297,6 +305,8 @@ export function LibraryView({
     options: {
       depth?: number
       caret?: ReactNode
+      /** 폴더 줄(펼침 화살표 자리를 둔다) */
+      folder?: boolean
       drop?: { path: string }
       onContextMenu?: (event: ReactMouseEvent<HTMLElement>) => void
       onDoubleClick?: () => void
@@ -307,42 +317,45 @@ export function LibraryView({
   ) => {
     const active = sameCollection(collection, target)
     return (
-      <div
-        key={key}
-        role="treeitem"
-        aria-selected={active}
-        aria-expanded={options.expanded}
-        aria-label={label}
-        tabIndex={0}
-        className={[
-          'library-collection',
-          active ? 'library-collection-active' : '',
-          options.drop !== undefined && (dropFolder === options.drop.path || externalDropFolder === options.drop.path) ? 'library-collection-drop' : '',
-        ].filter(Boolean).join(' ')}
-        style={{ paddingLeft: 6 + (options.depth ?? 0) * 14 }}
-        onClick={() => setCollection(target)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') setCollection(target)
-        }}
-        onContextMenu={options.onContextMenu}
-        onDoubleClick={options.onDoubleClick === undefined ? undefined : (event) => {
-          event.preventDefault()
-          options.onDoubleClick?.()
-        }}
-        {...(options.drop !== undefined ? folderDropProps(options.drop.path, label) : {})}
-      >
-        {options.caret ?? <span className="library-collection-caret" aria-hidden="true" />}
-        {icon}
-        {options.editor ?? <span className="library-collection-name">{label}</span>}
+      <div key={key} role="none" className="side-tree-row" style={{ '--side-tree-depth': options.depth ?? 0 } as CSSProperties}>
+        <div
+          role="treeitem"
+          aria-selected={active}
+          aria-expanded={options.expanded}
+          aria-label={label}
+          tabIndex={0}
+          className={[
+            'side-item',
+            options.folder === true ? 'side-tree-toggle' : 'side-tree-item',
+            'library-nav-row',
+            active ? 'side-item-open' : '',
+            options.drop !== undefined && (dropFolder === options.drop.path || externalDropFolder === options.drop.path) ? 'library-collection-drop' : '',
+          ].filter(Boolean).join(' ')}
+          onClick={() => setCollection(target)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') setCollection(target)
+          }}
+          onContextMenu={options.onContextMenu}
+          onDoubleClick={options.onDoubleClick === undefined ? undefined : (event) => {
+            event.preventDefault()
+            options.onDoubleClick?.()
+          }}
+          {...(options.drop !== undefined ? folderDropProps(options.drop.path, label) : {})}
+        >
+          {options.folder === true ? options.caret ?? <span className="side-tree-chevron" aria-hidden="true" /> : null}
+          {icon}
+          {options.editor ?? <span className="side-item-title">{label}</span>}
+        </div>
       </div>
     )
   }
 
   /** 새 하위 폴더 이름을 쓰는 줄 */
   const folderDraftRow = (parentPath: string, depth: number) => folderEdit?.kind === 'create' && folderEdit.parentPath === parentPath ? (
-    <li role="none" key={`draft:${parentPath}`}>
-      <div className="library-collection library-collection-draft" style={{ paddingLeft: 6 + depth * 14 }}>
-        <span className="library-collection-caret" aria-hidden="true" />
+    <li role="none" key={`draft:${parentPath}`} className="side-tree-node">
+      <div className="side-tree-row" style={{ '--side-tree-depth': depth } as CSSProperties}>
+        <div className="side-item side-tree-toggle library-nav-row library-collection-draft">
+        <span className="side-tree-chevron" aria-hidden="true" />
         <Folder size={14} aria-hidden="true" />
         <CellEditor
           initial=""
@@ -350,6 +363,7 @@ export function LibraryView({
           onCommit={(value) => onFolderEditCommit?.(value)}
           onCancel={() => onFolderEditCancel?.()}
         />
+        </div>
       </div>
     </li>
   ) : null
@@ -362,7 +376,7 @@ export function LibraryView({
     const hasChildren = folder.children.length > 0 || drafting
     const renaming = folderEdit?.kind === 'rename' && folderEdit.path === folder.path
     return (
-      <li key={folder.id} role="none">
+      <li key={folder.id} role="none" className="side-tree-node">
         {collectionRow(
           folder.id,
           { kind: 'folder', path: folder.path },
@@ -374,6 +388,7 @@ export function LibraryView({
           />,
           {
             depth,
+            folder: true,
             drop: { path: folder.path },
             expanded: hasChildren ? open : undefined,
             onContextMenu: onFolderContextMenu === undefined ? undefined : (event) => onFolderContextMenu(event, folder),
@@ -389,7 +404,7 @@ export function LibraryView({
             caret: hasChildren ? (
               <button
                 type="button"
-                className="library-collection-caret"
+                className="side-tree-chevron"
                 aria-label={open ? t('{name} 접기', { name: folder.name }) : t('{name} 펼치기', { name: folder.name })}
                 onClick={(event) => {
                   event.stopPropagation()
@@ -407,7 +422,7 @@ export function LibraryView({
           },
         )}
         {open && hasChildren ? (
-          <ul role="group">
+          <ul role="group" className="side-tree-children">
             {folderDraftRow(folder.path, depth + 1)}
             {renderFolders(folder.children, depth + 1)}
           </ul>
@@ -416,11 +431,12 @@ export function LibraryView({
     )
   })
 
-  const kindIcon = (item: LibraryItem) => item.kind === 'pdf'
-    ? <FilePdf size={14} aria-hidden="true" />
+  const kindIcon = (item: LibraryItem, size = 16) => item.kind === 'pdf'
+    ? <FilePdf size={size} aria-hidden="true" />
     : item.kind === 'markdown'
-      ? <FileMd size={14} aria-hidden="true" />
-      : <NotePencil size={14} aria-hidden="true" />
+      ? <FileMd size={size} aria-hidden="true" />
+      : <NotePencil size={size} aria-hidden="true" />
+  const kindLabel = (item: LibraryItem) => item.kind === 'note' ? pick({ ko: KIND_LABEL.note, en: 'Note' }) : KIND_LABEL[item.kind]
 
   const canEdit = (item: LibraryItem, column: EditableColumn) => column === 'name'
     ? onRenameItem !== undefined
@@ -491,173 +507,287 @@ export function LibraryView({
       onOpenItem(item.open)
       return
     }
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+    const forward = event.key === 'ArrowDown' || event.key === 'ArrowRight'
+    if (!forward && event.key !== 'ArrowUp' && event.key !== 'ArrowLeft') return
     event.preventDefault()
-    const next = rows[index + (event.key === 'ArrowDown' ? 1 : -1)]
+    const next = rows[index + (forward ? 1 : -1)]
     if (next === undefined) return
     selectOnly(next.id)
-    const sibling = event.key === 'ArrowDown'
+    const sibling = forward
       ? event.currentTarget.nextElementSibling
       : event.currentTarget.previousElementSibling
     if (sibling instanceof HTMLElement) sibling.focus()
   }
 
-  const [collectionsWidth, setCollectionsWidth] = useState(readCollectionsWidth)
-  const changeCollectionsWidth = (width: number) => {
-    const next = clampCollectionsWidth(width)
-    setCollectionsWidth(next)
-    try {
-      window.localStorage.setItem(COLLECTIONS_WIDTH_KEY, String(next))
-    } catch {
-      // 저장 못 해도 이번 화면에서는 그대로 쓴다
-    }
+  const nav = (
+    <ul className="side-tree library-nav-tree" role="tree" aria-label={t('모음과 폴더')}>
+      <li role="none" className="side-tree-node">{collectionRow('all', { kind: 'all' }, t('전체'), <Stack size={14} aria-hidden="true" />)}</li>
+      <li role="none" className="side-tree-node">{collectionRow('favorites', { kind: 'favorites' }, t('즐겨찾기'), <Star size={14} aria-hidden="true" />)}</li>
+      <li role="none" className="side-tree-node">{collectionRow('recent', { kind: 'recent' }, t('최근 열람'), <ClockCounterClockwise size={14} aria-hidden="true" />)}</li>
+      <li role="none" className="library-nav-separator" aria-hidden="true" />
+      <li role="none" className="side-tree-node">
+        {collectionRow('root', { kind: 'folder', path: '' }, t('Vault 루트'), <Folder size={14} aria-hidden="true" />, { drop: { path: '' } })}
+      </li>
+      {folderDraftRow('', 1)}
+      {renderFolders(folders, 1)}
+    </ul>
+  )
+
+  // 보이는 항목 모두에서 비어 있는 열은 감춘다(저자·연도·폴더·저장). 한 칸만 비면 빈칸으로 둔다
+  const visibleColumns = COLUMNS.filter((column) => {
+    if (column.key === 'author') return rows.some((row) => row.authors !== '')
+    if (column.key === 'year') return rows.some((row) => row.year !== null)
+    if (column.key === 'folder') return rows.some((row) => row.folder !== '')
+    if (column.key === 'storage') return rows.some((row) => row.storage !== 'vault')
+    return true
+  })
+  const COLUMN_WIDTH: Record<LibrarySortKey, string> = {
+    name: 'minmax(180px, 3fr)',
+    author: 'minmax(90px, 1.4fr)',
+    year: '64px',
+    kind: '90px',
+    folder: 'minmax(100px, 1.6fr)',
+    date: '110px',
+    storage: '70px',
   }
-  const startCollectionsResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    const handle = event.currentTarget
-    const startX = event.clientX
-    const startWidth = collectionsWidth
-    handle.setPointerCapture?.(event.pointerId)
-    document.body.classList.add('library-resizing')
-    const move = (moveEvent: PointerEvent) => changeCollectionsWidth(startWidth + moveEvent.clientX - startX)
-    const end = () => {
-      handle.removeEventListener('pointermove', move)
-      handle.removeEventListener('pointerup', end)
-      handle.removeEventListener('pointercancel', end)
-      document.body.classList.remove('library-resizing')
+  const columnsTemplate = ['32px', ...visibleColumns.map((column) => COLUMN_WIDTH[column.key])].join(' ')
+  const shows = (key: LibrarySortKey) => visibleColumns.some((column) => column.key === key)
+
+  const viewName = collection.kind === 'all' ? t('전체')
+    : collection.kind === 'favorites' ? t('즐겨찾기')
+      : collection.kind === 'recent' ? t('최근 열람')
+        : collection.path === '' ? t('Vault 루트') : collection.path.split('/').at(-1) ?? collection.path
+
+  // Ctrl+F: 펼친 라이브러리에서는 검색칸으로(가려진 PDF 창의 찾기로 가지 않게 먼저 받는다)
+  const searchRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!portalMode) return undefined
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault()
+        event.stopPropagation()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      }
     }
-    handle.addEventListener('pointermove', move)
-    handle.addEventListener('pointerup', end)
-    handle.addEventListener('pointercancel', end)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [portalMode])
+
+  const rowEvents = (item: LibraryItem, index: number) => ({
+    tabIndex: 0,
+    'aria-selected': selected.has(item.id),
+    onClick: (event: ReactMouseEvent<HTMLElement>) => clickRow(event, item),
+    onDoubleClick: () => onOpenItem(item.open),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => rowKeyDown(event, item, index),
+    onContextMenu: (event: ReactMouseEvent<HTMLElement>) => {
+      if (!selected.has(item.id)) selectOnly(item.id)
+      onItemContextMenu?.(event, item)
+    },
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => startRowDrag(event, item),
+  })
+
+  const emptyState = rows.length === 0 ? (
+    <div className="library-empty">
+      <Stack size={28} aria-hidden="true" />
+      <p>{query.trim() !== '' ? t('찾는 항목이 없습니다') : collection.kind === 'favorites' ? t('즐겨찾기한 항목이 없습니다') : collection.kind === 'recent' ? t('최근에 연 항목이 없습니다') : t('항목이 없습니다')}</p>
+    </div>
+  ) : null
+
+  const selectAllOnCtrlA = (event: KeyboardEvent<HTMLElement>) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault()
+      setSelected(new Set(orderedIds))
+    }
   }
 
-  return (
-    <div className="library-view" style={{ '--library-collections-width': `${collectionsWidth}px` } as CSSProperties}>
-      <nav className="library-collections" aria-label={t('라이브러리 모음')}>
-        <ul role="tree" aria-label={t('모음과 폴더')}>
-          <li role="none">{collectionRow('all', { kind: 'all' }, t('전체'), <Stack size={14} aria-hidden="true" />)}</li>
-          <li role="none">{collectionRow('favorites', { kind: 'favorites' }, t('즐겨찾기'), <Star size={14} aria-hidden="true" />)}</li>
-          <li role="none">{collectionRow('recent', { kind: 'recent' }, t('최근 열람'), <ClockCounterClockwise size={14} aria-hidden="true" />)}</li>
-          <li role="none" className="library-collection-separator" aria-hidden="true" />
-          <li role="none">
-            {collectionRow('root', { kind: 'folder', path: '' }, t('Vault 루트'), <Folder size={14} aria-hidden="true" />, { drop: { path: '' } })}
-          </li>
-          {folderDraftRow('', 1)}
-          {renderFolders(folders, 1)}
-        </ul>
-      </nav>
-      <div
-        className="library-collections-resizer"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={t('폴더 칸 너비 조절')}
-        aria-valuemin={COLLECTIONS_WIDTH_MIN}
-        aria-valuemax={COLLECTIONS_WIDTH_MAX}
-        aria-valuenow={collectionsWidth}
-        tabIndex={0}
-        title={t('끌어서 너비 조절')}
-        onPointerDown={startCollectionsResize}
-        onDoubleClick={() => changeCollectionsWidth(COLLECTIONS_WIDTH_DEFAULT)}
-        onKeyDown={(event) => {
-          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-          event.preventDefault()
-          changeCollectionsWidth(collectionsWidth + (event.key === 'ArrowLeft' ? -16 : 16))
-        }}
-      />
+  const listView = (
+    <div
+      className="library-table"
+      role="grid"
+      aria-label={t('항목 목록')}
+      aria-multiselectable="true"
+      style={{ '--library-cols': columnsTemplate } as CSSProperties}
+      onKeyDown={selectAllOnCtrlA}
+    >
+      <div className="library-row library-row-head" role="row">
+        <span role="columnheader" className="library-cell-icon" aria-label={t('아이콘')} />
+        {visibleColumns.map((column) => (
+          <span
+            key={column.key}
+            role="columnheader"
+            className={column.key === 'year' ? 'library-cell-num' : undefined}
+            aria-sort={sort.key === column.key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+          >
+            <button
+              type="button"
+              className="library-sort"
+              onClick={() => setSort((current) => ({
+                key: column.key,
+                direction: current.key === column.key && current.direction === 'asc' ? 'desc' : 'asc',
+              }))}
+            >
+              {column.key === 'storage' ? pick({ ko: column.label, en: 'Storage' }) : t(column.label)}
+              {sort.key === column.key
+                ? (sort.direction === 'asc'
+                  ? <SortAscending size={12} aria-hidden="true" />
+                  : <SortDescending size={12} aria-hidden="true" />)
+                : null}
+            </button>
+          </span>
+        ))}
+      </div>
+      {emptyState}
+      {rows.map((item, index) => (
+        <div
+          key={item.id}
+          role="row"
+          className={`library-row${selected.has(item.id) ? ' library-row-selected' : ''}`}
+          {...rowEvents(item, index)}
+        >
+          <span role="gridcell" className="library-cell-icon">
+            <ItemEmoji
+              emoji={itemIcons[item.id]}
+              onPick={onPickIcon === undefined ? undefined : (x, y) => onPickIcon(item.id, x, y)}
+              fallback={kindIcon(item)}
+            />
+          </span>
+          {editableCell(item, 'name', item.name, 'library-cell-name',
+            item.favorite ? <Star size={11} weight="fill" className="library-favorite" aria-label={t('즐겨찾기')} /> : null)}
+          {shows('author') ? editableCell(item, 'author', item.authors, 'library-cell-author') : null}
+          {shows('year') ? editableCell(item, 'year', item.year === null ? '' : String(item.year), 'library-cell-num') : null}
+          <span role="gridcell">{kindLabel(item)}</span>
+          {shows('folder') ? <span role="gridcell" className="library-cell-folder">{item.folder}</span> : null}
+          <span role="gridcell" className="library-cell-date">{dateText(item.lastOpenedAt ?? item.addedAt)}</span>
+          {shows('storage') ? <span role="gridcell">{item.storage === 'vault' ? 'Vault' : t('참조')}</span> : null}
+        </div>
+      ))}
+    </div>
+  )
+
+  const gridView = (
+    <div
+      className="library-grid"
+      role="listbox"
+      aria-label={t('항목 목록')}
+      aria-multiselectable="true"
+      onKeyDown={selectAllOnCtrlA}
+    >
+      {emptyState}
+      {rows.map((item, index) => {
+        const nameEditing = editing?.id === item.id && editing.column === 'name'
+        const meta = [item.year === null ? '' : String(item.year), kindLabel(item)].filter(Boolean).join(' · ')
+        return (
+          <div
+            key={item.id}
+            role="option"
+            aria-label={item.name}
+            className={`library-card${selected.has(item.id) ? ' library-card-selected' : ''}`}
+            {...rowEvents(item, index)}
+          >
+            <span className="library-card-thumb">
+              <span className="library-card-icon" aria-hidden="true">
+                <ItemEmoji
+                  emoji={itemIcons[item.id]}
+                  onPick={onPickIcon === undefined ? undefined : (x, y) => onPickIcon(item.id, x, y)}
+                  fallback={kindIcon(item, 32)}
+                />
+              </span>
+              {item.open.kind === 'pdf' ? (
+                // 왼쪽 바 미리보기와 같은 쪽 그림(첫 쪽). 화면 근처에 올 때 불러온다
+                <img
+                  className="library-card-page"
+                  src={pageImageUrl(item.open.doc.docId, 0, 320)}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  onError={(event) => { event.currentTarget.style.display = 'none' }}
+                />
+              ) : null}
+              {item.favorite ? <Star size={13} weight="fill" className="library-card-star" aria-label={t('즐겨찾기')} /> : null}
+            </span>
+            {nameEditing ? (
+              <CellEditor
+                initial={item.name}
+                label={`${item.name} ${t('이름')}`}
+                onCommit={(value) => commitEdit(item, 'name', value)}
+                onCancel={() => setEditing(null)}
+              />
+            ) : (
+              <span className="library-card-title" title={item.name}>{item.name}</span>
+            )}
+            <span className="library-card-meta">{meta}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  const itemsSection = (
       <section
+        ref={setItemsElement}
         className={`library-items${collection.kind === 'folder' && externalDropFolder === collection.path ? ' library-items-drop' : ''}`}
         aria-label={t('라이브러리 항목')}
+        style={{ '--bar-zoom': zoom } as CSSProperties}
         // 탐색기에서 표 위에 놓으면 지금 보고 있는 폴더로 들어간다
         data-drop-folder={collection.kind === 'folder' ? collection.path : undefined}
       >
         <div className="library-items-head">
-          <input
-            type="search"
-            aria-label={t('라이브러리 필터')}
-            placeholder={t('이름으로 필터')}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          <h2 className="library-items-title">{viewName}</h2>
           <span className="library-items-count">
-            {t('{count}개', { count: rows.length })}{selected.size > 0 ? ` · ${t('{count}개 선택', { count: selected.size })}` : ''}
+            {rows.length}{selected.size > 0 ? ` · ${t('{count}개 선택', { count: selected.size })}` : ''}
           </span>
-        </div>
-        <div
-          className="library-table"
-          role="grid"
-          aria-label={t('항목 목록')}
-          aria-multiselectable="true"
-          onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-              event.preventDefault()
-              setSelected(new Set(orderedIds))
-            }
-          }}
-        >
-          <div className="library-row library-row-head" role="row">
-            <span role="columnheader" className="library-cell-icon" aria-label={t('아이콘')} />
-            {COLUMNS.map((column) => (
-              <span
-                key={column.key}
-                role="columnheader"
-                aria-sort={sort.key === column.key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-              >
-                <button
-                  type="button"
-                  className="library-sort"
-                  onClick={() => setSort((current) => ({
-                    key: column.key,
-                    direction: current.key === column.key && current.direction === 'asc' ? 'desc' : 'asc',
-                  }))}
-                >
-                  {column.key === 'storage' ? pick({ ko: column.label, en: 'Storage' }) : t(column.label)}
-                  {sort.key === column.key
-                    ? (sort.direction === 'asc'
-                      ? <SortAscending size={12} aria-hidden="true" />
-                      : <SortDescending size={12} aria-hidden="true" />)
-                    : null}
-                </button>
-              </span>
-            ))}
-          </div>
-          {rows.length === 0 ? <p className="library-empty">{t('항목이 없습니다')}</p> : null}
-          {rows.map((item, index) => (
-            <div
-              key={item.id}
-              role="row"
-              tabIndex={0}
-              aria-selected={selected.has(item.id)}
-              className={`library-row${selected.has(item.id) ? ' library-row-selected' : ''}`}
-              onClick={(event) => clickRow(event, item)}
-              onDoubleClick={() => onOpenItem(item.open)}
-              onKeyDown={(event) => rowKeyDown(event, item, index)}
-              onContextMenu={(event) => {
-                if (!selected.has(item.id)) selectOnly(item.id)
-                onItemContextMenu?.(event, item)
-              }}
-              onPointerDown={(event) => startRowDrag(event, item)}
+          <span className="library-items-spacer" />
+          <label className="library-search">
+            <MagnifyingGlass size={14} aria-hidden="true" />
+            <input
+              ref={searchRef}
+              type="search"
+              aria-label={t('라이브러리 필터')}
+              placeholder={t('검색')}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div className="library-view-switch" role="group" aria-label={t('보기 방식')}>
+            <button
+              type="button"
+              aria-label={t('목록으로 보기')}
+              title={t('목록으로 보기')}
+              aria-pressed={view === 'list'}
+              onClick={() => setAppPref('libraryView', 'list')}
             >
-              <span role="gridcell" className="library-cell-icon">
-                <ItemEmoji
-                  emoji={itemIcons[item.id]}
-                  onPick={onPickIcon === undefined ? undefined : (x, y) => onPickIcon(item.id, x, y)}
-                  fallback={kindIcon(item)}
-                />
-              </span>
-              {editableCell(item, 'name', item.name, 'library-cell-name',
-                item.favorite ? <Star size={11} weight="fill" className="library-favorite" aria-label={t('즐겨찾기')} /> : null)}
-              {editableCell(item, 'author', item.authors, 'library-cell-author')}
-              {editableCell(item, 'year', item.year === null ? '' : String(item.year), undefined)}
-              <span role="gridcell">{item.kind === 'note' ? pick({ ko: KIND_LABEL.note, en: 'Note' }) : KIND_LABEL[item.kind]}</span>
-              <span role="gridcell" className="library-cell-folder">{item.folder || '—'}</span>
-              <span role="gridcell">{dateText(item.lastOpenedAt ?? item.addedAt)}</span>
-              <span role="gridcell">{item.storage === 'vault' ? 'Vault' : t('참조')}</span>
-            </div>
-          ))}
+              <Rows size={15} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label={t('카드로 보기')}
+              title={t('카드로 보기')}
+              aria-pressed={view === 'grid'}
+              onClick={() => setAppPref('libraryView', 'grid')}
+            >
+              <SquaresFour size={15} aria-hidden="true" />
+            </button>
+          </div>
         </div>
+        {view === 'grid' ? gridView : listView}
         <p className="library-status" role="status" aria-live="polite">{status}</p>
       </section>
+  )
+
+  if (portalMode) {
+    return (
+      <>
+        {navHost ? createPortal(nav, navHost) : null}
+        {tableHost ? createPortal(itemsSection, tableHost) : null}
+      </>
+    )
+  }
+  return (
+    <div className="library-view">
+      <nav className="library-collections" aria-label={t('라이브러리 모음')}>{nav}</nav>
+      {itemsSection}
     </div>
   )
 }

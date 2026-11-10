@@ -1,5 +1,4 @@
 import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { sidebarDefaults } from './sidebarDefaults'
@@ -33,7 +32,7 @@ import type { GithubSource } from '../bridge/github'
 import { defaultVersion, hiddenVersionDocIds, type VersionGroup } from '../core/versionGroups'
 import type { VersionMenuActions } from './VersionMenu'
 import { DocNoteRows } from './DocNoteRows'
-import { useBarZoomWheel, attachBarZoomWheel, useBarZoom } from './useBarZoom'
+import { attachBarZoomWheel, useBarZoom } from './useBarZoom'
 import { groupMemoNotesByDoc } from '../core/memoNote'
 import '../ui/version-groups.css'
 import { cleanEntryName } from '../bridge/vaultFiles'
@@ -543,6 +542,19 @@ export function Sidebar({
   const sidebarRef = useRef<HTMLElement | null>(null)
   // 왼쪽 바 안쪽 확대: Ctrl+휠을 이 바 위에서 굴리면 목록만 커지고 작아진다(문서·오른쪽 바와 따로)
   const leftZoom = useBarZoom('left')
+  // 라이브러리 모음·폴더 목록을 그릴 자리(펼쳤을 때 문서 트리 대신 들어선다)와 전환 애니메이션
+  const [navHost, setNavHost] = useState<HTMLElement | null>(null)
+  const [swapping, setSwapping] = useState(false)
+  const swapReadyRef = useRef(false)
+  useEffect(() => {
+    if (!swapReadyRef.current) {
+      swapReadyRef.current = true
+      return undefined
+    }
+    setSwapping(true)
+    const timer = window.setTimeout(() => setSwapping(false), 220)
+    return () => window.clearTimeout(timer)
+  }, [libraryExpanded])
   useEffect(() => (sidebarRef.current === null ? undefined : attachBarZoomWheel(sidebarRef.current, 'left')), [])
   const [reorderAnnouncement, setReorderAnnouncement] = useState('')
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
@@ -1658,35 +1670,34 @@ export function Sidebar({
           </span>
         </div>
       ) : null}
-      <div className="side-scroll">
-        {libraryExpanded && libraryHost !== null ? createPortal(
-          <LibraryHostFrame>
-            <LibraryView
-              tree={workspaceTree}
-              records={searchRecords}
-              itemIcons={itemIcons}
-              bibliography={bibliography}
-              onOpenItem={(target) => onOpenLibraryItem?.(target)}
-              onMoveEntry={onMoveEntry}
-              onItemContextMenu={openLibraryItemMenu}
-              onFolderContextMenu={(event, folder: LibraryFolder) => openFolderMenu(event, folder)}
-              onRenameItem={onRenameEntry}
-              onUpdateBibliography={onUpdateBibliography}
-              onPickIcon={onItemIconChange === undefined ? undefined : (key, x, y) => setEmojiTarget({ key, x, y })}
-              externalDropFolder={documentDropActive ? documentDropFolder : null}
-              folderEdit={editingEntryId?.startsWith('folder:') === true
-                ? { kind: 'rename', path: editingEntryId.slice('folder:'.length), name: editingName }
-                : draft?.kind === 'folder' ? { kind: 'create', parentPath: draft.parentPath } : null}
-              onFolderEditCommit={(value) => void commitLibraryFolderEdit(value)}
-              onFolderEditCancel={() => {
-                setEditingEntryId(null)
-                setDraft(null)
-              }}
-              onStartFolderRename={onRenameFolder === undefined ? undefined : (folder) => startFolderRenaming({ id: `folder:${folder.path}`, name: folder.name })}
-              renameRequest={libraryRenameRequest}
-            />
-          </LibraryHostFrame>,
-          libraryHost,
+      <div className={`side-scroll${swapping ? ' side-scroll-swapping' : ''}`}>
+        {libraryExpanded ? (
+          <LibraryView
+            navHost={navHost}
+            tableHost={libraryHost}
+            tree={workspaceTree}
+            records={searchRecords}
+            itemIcons={itemIcons}
+            bibliography={bibliography}
+            onOpenItem={(target) => onOpenLibraryItem?.(target)}
+            onMoveEntry={onMoveEntry}
+            onItemContextMenu={openLibraryItemMenu}
+            onFolderContextMenu={(event, folder: LibraryFolder) => openFolderMenu(event, folder)}
+            onRenameItem={onRenameEntry}
+            onUpdateBibliography={onUpdateBibliography}
+            onPickIcon={onItemIconChange === undefined ? undefined : (key, x, y) => setEmojiTarget({ key, x, y })}
+            externalDropFolder={documentDropActive ? documentDropFolder : null}
+            folderEdit={editingEntryId?.startsWith('folder:') === true
+              ? { kind: 'rename', path: editingEntryId.slice('folder:'.length), name: editingName }
+              : draft?.kind === 'folder' ? { kind: 'create', parentPath: draft.parentPath } : null}
+            onFolderEditCommit={(value) => void commitLibraryFolderEdit(value)}
+            onFolderEditCancel={() => {
+              setEditingEntryId(null)
+              setDraft(null)
+            }}
+            onStartFolderRename={onRenameFolder === undefined ? undefined : (folder) => startFolderRenaming({ id: `folder:${folder.path}`, name: folder.name })}
+            renameRequest={libraryRenameRequest}
+          />
         ) : null}
         {(
         <>
@@ -1695,12 +1706,15 @@ export function Sidebar({
             <h2 id="side-documents-heading" className="side-head"><Books className="side-section-icon" size={15} aria-hidden="true" />{t('문서')}</h2>
             {headActions}
           </div>
-          {projectedTree.documents.length > 0 || draft?.section === 'documents'
+          {libraryExpanded
+            // 펼친 동안 문서 트리 자리에 라이브러리 모음·폴더 목록이 들어온다(LibraryView 가 이 자리에 그린다)
+            ? <div ref={setNavHost} className="library-nav-host" />
+            : projectedTree.documents.length > 0 || draft?.section === 'documents'
             ? renderTree(projectedTree.documents, '', 0, 'documents')
             : <p className="side-section-empty">{t('문서가 없습니다 · PDF·Markdown 을 끌어 넣으세요')}</p>}
         </section>
 
-        {memoNotes !== undefined ? (
+        {memoNotes !== undefined && !libraryExpanded ? (
           <MemoNotesSection
             {...memoNotes}
             entries={noteGroups.general}
@@ -1712,7 +1726,7 @@ export function Sidebar({
             expandedStorageKey={`iwae.sidebar.memo-expanded:${vaultRoot ?? ''}`}
           />
         ) : null}
-        {showNotes ? (
+        {showNotes && !libraryExpanded ? (
         <section className={`side-section side-notes-section${sectionDropClass('notes')}`} aria-labelledby="side-notes-heading" {...sectionDropProps('notes')}>
           <div className="side-head-row side-notebook-head">
             <h2 id="side-notes-heading" className="side-head"><Notebook className="side-section-icon" size={15} aria-hidden="true" />{t('노트')}</h2>
@@ -2265,19 +2279,4 @@ export function vaultFolderName(root: string): string {
 /** 화면에 보일 경로: Windows 에서는 \ 로, macOS 에서는 / 로 맞춘다(저장된 경로는 / 와 \ 가 섞여 있을 수 있다) */
 export function shownPath(path: string): string {
   return isMacPlatform() ? path.replace(/\\/gu, '/') : path.replace(/\//gu, '\\')
-}
-
-/**
- * 펼친 라이브러리를 감싸는 틀. 왼쪽 바와 따로 Ctrl+휠 배율(libraryZoom)을 갖는다.
- * 배율은 표·모음 트리에만 걸고 위쪽 줄은 100% 로 둔다(.library-host-frame 의 CSS)
- */
-function LibraryHostFrame({ children }: { readonly children: ReactNode }) {
-  const [element, setElement] = useState<HTMLDivElement | null>(null)
-  const zoom = useBarZoom('library')
-  useBarZoomWheel(element, 'library')
-  return (
-    <div ref={setElement} className="library-host-frame" style={{ '--bar-zoom': zoom } as CSSProperties}>
-      {children}
-    </div>
-  )
 }
