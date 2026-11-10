@@ -1339,6 +1339,14 @@ export function Sidebar({
                       {docRowTitle(node.name, versionGroup)}
                     </button>
                     {missingDocIds.includes(node.doc.docId) ? null : docNoteAdd(node.doc.docId, versionGroup, versionGroup?.title ?? node.name, versionGroup !== undefined || docNotesOf(node.doc.docId).length > 0)}
+                    {missingDocIds.includes(node.doc.docId) && (
+                      <>
+                        <span className="side-missing">{t('찾을 수 없음')}</span>
+                        <button type="button" className="side-relink" aria-label={t('{name} 다시 연결', { name: node.name })} onClick={() => onRelinkDoc?.(node.doc.docId)}>
+                          {t('다시 연결')}
+                        </button>
+                      </>
+                    )}
                     {docCaret(versionGroup, node.doc.docId, versionGroup?.title ?? node.name)}
                     </div>
                   )}
@@ -1379,14 +1387,6 @@ export function Sidebar({
                       </div>
                     )
                   })()}
-                  {missingDocIds.includes(node.doc.docId) && (
-                    <>
-                      <span className="side-missing">{t('찾을 수 없음')}</span>
-                      <button type="button" className="side-relink" aria-label={t('{name} 다시 연결', { name: node.name })} onClick={() => onRelinkDoc?.(node.doc.docId)}>
-                        {t('다시 연결')}
-                      </button>
-                    </>
-                  )}
                 </>
               ) : node.kind === 'note' ? (
                 editingEntryId === node.path ? (

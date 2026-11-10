@@ -290,6 +290,7 @@ impl PdfThread {
                                 // 줄 선 명령이 없을 때만 화면 렌더 하나를 그린다. 그사이 새 요청이
                                 // 오면 다음 바퀴에 먼저 모아서 다시 고른다.
                                 if let Some(job) = next_screen_job(&mut screen) {
+                                    crate::crash_probe::note(if job.tile.is_some() { "ScreenRender(tile)" } else { "ScreenRender" }, ((job.page as u64) << 32) | (job.width as u64));
                                     let result = caught(&tr!("페이지 렌더", "page render"),|| match cache.get(&job.doc_id) {
                                         Some(document) => document.render_raw(job.page, job.width, job.tile),
                                         None => Err(PdfRenderError::UnknownDocument),
@@ -304,6 +305,7 @@ impl PdfThread {
                     if !matches!(command, Command::RenderRaw { .. }) {
                         ran_other = true;
                     }
+                    crate::crash_probe::note(command_label(&command), 0);
                     match command {
                         Command::RenderRaw { doc_id, page, width, tile, reply } => {
                             screen.push(ScreenJob { doc_id, page, width, tile, reply, seq: next_seq });
@@ -948,5 +950,30 @@ mod tests {
             pdf.render_blocking("ffffffffffff".to_string(), 0, 800),
             Err(PdfRenderError::UnknownDocument)
         );
+    }
+}
+
+/// 진단용 이름(개발판 충돌 기록에 쓴다)
+fn command_label(command: &Command) -> &'static str {
+    match command {
+        Command::PageLayout { .. } => "PageLayout",
+        Command::EditPages { .. } => "EditPages",
+        Command::Open { .. } => "Open",
+        Command::Tool { .. } => "Tool",
+        Command::BlankPages { .. } => "BlankPages",
+        Command::ExportImages { .. } => "ExportImages",
+        Command::RenderRaw { .. } => "RenderRaw(queue)",
+        Command::Render { .. } => "Render",
+        Command::Crop { .. } => "Crop",
+        Command::PageText { .. } => "PageText",
+        Command::Outline { .. } => "Outline",
+        Command::Links { .. } => "Links",
+        Command::Metadata { .. } => "Metadata",
+        Command::Annotations { .. } => "Annotations",
+        Command::ExportAnnotated { .. } => "ExportAnnotated",
+        Command::ExportSearchable { .. } => "ExportSearchable",
+        Command::Status { .. } => "Status",
+        #[cfg(test)]
+        Command::Panic { .. } => "Panic",
     }
 }

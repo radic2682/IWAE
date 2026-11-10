@@ -165,3 +165,25 @@ fn exports_a_copy_with_highlight_annotations_and_leaves_the_original_alone() {
         "{added:?}"
     );
 }
+
+/// 회귀: 쪽을 한 번 그리면 PDFium 이 형광펜 주석의 그림(AP)을 만든다. 그 뒤에 주석 색을 읽을 때
+/// pdfium-render 의 stroke_color() 는 주석 핸들을 페이지 객체로 잘못 넘겨 프로세스를 죽였다
+/// (STATUS_ACCESS_VIOLATION). 그린 뒤에 읽어도 죽지 않고, 색도 그대로 나와야 한다.
+#[test]
+fn reads_annotation_colors_after_the_page_was_rendered() {
+    if !pdfium_present() {
+        return;
+    }
+
+    let pdf = PdfThread::shared();
+    let meta = pdf
+        .open_blocking(write_links_and_annotations_pdf("annotations-rendered.pdf"))
+        .expect("PDF 열기");
+    pdf.render_blocking(meta.doc_id.clone(), 0, 600).expect("1쪽 그리기");
+    let first = pdf.annotations_blocking(meta.doc_id.clone()).expect("그린 뒤 주석 읽기");
+    let again = pdf.annotations_blocking(meta.doc_id).expect("두 번째 읽기");
+
+    let highlight = first.iter().find(|a| a.kind == "highlight").expect("형광펜");
+    assert_eq!(highlight.color, Some([255, 255, 0]), "{highlight:?}");
+    assert_eq!(first.len(), again.len());
+}

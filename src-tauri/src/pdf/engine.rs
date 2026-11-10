@@ -846,6 +846,18 @@ impl OpenDocument {
     pub fn annotations(&self) -> Result<Vec<ImportedAnnotation>, PdfRenderError> {
         let mut found = Vec::new();
         for page in 0..self.page_count {
+            // 그림(AP)이 없는 표시 주석은 색을 안전하게 읽을 길이 없다(annotation_color 참고). 그런 쪽은
+            // 먼저 작게 한 번 그린다 — 화면 렌더와 같은 경로로, PDFium 이 그 주석들의 그림을 만들어 둔다.
+            let needs_appearance = {
+                let (handle, _, _) = self.page_handle(page)?;
+                let needs = handle.annotations().iter().any(|annotation| {
+                    is_markup_annotation(annotation.annotation_type()) && annotation.objects().is_empty()
+                });
+                needs
+            };
+            if needs_appearance {
+                let _ = self.render_raw(page, 96, None);
+            }
             let (handle, page_width, page_height) = self.page_handle(page)?;
             let quarter_turns = quarter_turns_of(&handle);
             let origin = page_origin(&handle);
@@ -881,10 +893,7 @@ impl OpenDocument {
                     }
                 }
                 rects.retain(|rect| rect.w > 0.0 && rect.h > 0.0);
-                let color = annotation
-                    .stroke_color()
-                    .ok()
-                    .map(|color| [color.red(), color.green(), color.blue()]);
+                let color = annotation_color(&annotation, matches!(kind, "underline" | "strikeout" | "squiggly"));
                 found.push(ImportedAnnotation {
                     page,
                     kind: kind.to_string(),
@@ -1581,6 +1590,12 @@ impl PdfEngine {
                 .annotations_mut()
                 .create_highlight_annotation()
                 .map_err(|err| tr!("형광펜 주석을 만들지 못했습니다: {err}", "Could not create the highlight annotation: {err}"))?;
+            // 색은 주석을 막 만든 직후(그림(AP)이 생기기 전)에 정한다: pdfium-render 0.9.4 는 AP 가 있는 주석에
+            // set_stroke_color 를 부르면 주석 핸들을 페이지 객체로 잘못 넘겨 PDFium 이 프로세스를 죽인다.
+            let [red, green, blue] = highlight.color;
+            annotation
+                .set_stroke_color(PdfColor::new(red, green, blue, 255))
+                .map_err(|err| tr!("주석 색을 정하지 못했습니다: {err}", "Could not set the annotation color: {err}"))?;
             annotation
                 .set_bounds(PdfRect::new_from_values(
                     bounds.1, bounds.0, bounds.3, bounds.2,
@@ -1594,10 +1609,6 @@ impl PdfEngine {
                     .create_attachment_point_at_end(quad)
                     .map_err(|err| tr!("주석 영역을 더하지 못했습니다: {err}", "Could not add the annotation area: {err}"))?;
             }
-            let [red, green, blue] = highlight.color;
-            annotation
-                .set_stroke_color(PdfColor::new(red, green, blue, 255))
-                .map_err(|err| tr!("주석 색을 정하지 못했습니다: {err}", "Could not set the annotation color: {err}"))?;
             if let Some(note) = highlight
                 .note
                 .as_deref()
@@ -2161,3 +2172,34 @@ mod tests {
     }
 }
 
+
+/// 주석의 색. `PdfPageAnnotation::stroke_color()` 는 쓰지 않는다: pdfium-render 0.9.4 는
+/// `FPDFAnnot_GetColor` 가 실패하면(주석에 그림(AP)이 있으면 실패한다 — 쪽을 한 번 그리면 PDFium 이
+/// 형광펜 주석의 그림을 만들어 둔다) 주석 핸들을 페이지 객체 핸들로 잘못 바꿔
+/// `FPDFPageObj_GetStrokeColor` 에 넘기고, 그 자리에서 PDFium 이 접근 위반으로 프로세스를 죽인다.
+/// 대신 주석 그림 안의 객체(올바른 페이지 객체)에서 칠한 색 → 선 색 순으로 읽는다.
+/// 그림이 없는 주석은 색을 모른다고 둔다(가져오기에서 첫 형광펜 색으로 바뀐다).
+fn annotation_color(annotation: &PdfPageAnnotation, prefer_stroke: bool) -> Option<[u8; 3]> {
+    // 형광펜·메모 아이콘 그림은 칠한 모양, 밑줄·취소선·물결선은 선으로 그린다 — 종류에 맞는 색을 먼저 본다.
+    let rgb = |color: PdfColor| (color.alpha() > 0).then(|| [color.red(), color.green(), color.blue()]);
+    for object in annotation.objects().iter() {
+        let fill = object.fill_color().ok().and_then(rgb);
+        let stroke = object.stroke_color().ok().and_then(rgb);
+        let picked = if prefer_stroke { stroke.or(fill) } else { fill.or(stroke) };
+        if picked.is_some() {
+            return picked;
+        }
+    }
+    None
+}
+
+fn is_markup_annotation(kind: PdfPageAnnotationType) -> bool {
+    matches!(
+        kind,
+        PdfPageAnnotationType::Highlight
+            | PdfPageAnnotationType::Underline
+            | PdfPageAnnotationType::Squiggly
+            | PdfPageAnnotationType::Strikeout
+            | PdfPageAnnotationType::Text
+    )
+}

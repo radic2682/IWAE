@@ -472,6 +472,12 @@ pub fn add_highlight_annotations(document: &PdfDocument, highlights: &[ExportHig
             .annotations_mut()
             .create_highlight_annotation()
             .map_err(|err| tr!("형광펜 주석을 만들지 못했습니다: {err}", "Could not create the highlight annotation: {err}"))?;
+        // 색은 주석을 막 만든 직후(그림(AP)이 생기기 전)에 정한다: pdfium-render 0.9.4 는 AP 가 있는 주석에
+        // set_stroke_color 를 부르면 주석 핸들을 페이지 객체로 잘못 넘겨 PDFium 이 프로세스를 죽인다.
+        let [red, green, blue] = highlight.color;
+        annotation
+            .set_stroke_color(PdfColor::new(red, green, blue, 255))
+            .map_err(|err| tr!("주석 색을 정하지 못했습니다: {err}", "Could not set the annotation color: {err}"))?;
         annotation
             .set_bounds(bounds)
             .map_err(|err| tr!("주석 영역을 정하지 못했습니다: {err}", "Could not set the annotation bounds: {err}"))?;
@@ -481,10 +487,6 @@ pub fn add_highlight_annotations(document: &PdfDocument, highlights: &[ExportHig
                 .create_attachment_point_at_end(PdfQuadPoints::from_rect(&rect))
                 .map_err(|err| tr!("주석 영역을 더하지 못했습니다: {err}", "Could not add the annotation area: {err}"))?;
         }
-        let [red, green, blue] = highlight.color;
-        annotation
-            .set_stroke_color(PdfColor::new(red, green, blue, 255))
-            .map_err(|err| tr!("주석 색을 정하지 못했습니다: {err}", "Could not set the annotation color: {err}"))?;
         if let Some(note) = highlight.note.as_deref().map(str::trim).filter(|note| !note.is_empty()) {
             annotation
                 .set_contents(note)

@@ -188,6 +188,7 @@
 .side-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: stable;
   padding: 8px 6px 12px;
@@ -2133,7 +2134,10 @@
 .side-document-row .side-item:disabled { color: var(--text-dim); }
 
 .side-missing {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 10.5px;
   color: var(--text-dim);
   white-space: nowrap;

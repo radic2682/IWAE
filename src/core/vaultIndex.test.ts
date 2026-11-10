@@ -5,6 +5,7 @@ import {
   moveIndexEntry,
   parseVaultIndex,
   reconcileLibraryPdfEntries,
+  reconcileMissingVaultPdfs,
   reconcileVaultIndexFiles,
   renameDisplayName,
 } from './vaultIndex'
@@ -158,5 +159,25 @@ describe('vault index', () => {
     )
 
     expect(reconciled.entries[0]).toMatchObject({ id: 'note-1', missing: true })
+  })
+})
+
+describe('reconcileMissingVaultPdfs', () => {
+  const entry = (id: string, path: string) => ({
+    id, kind: 'pdf' as const, storage: 'vault' as const, path, displayName: id, contentHash: 'h', size: 1, modifiedAt: null, addedAt: 'a', missing: false,
+  })
+  const legacy = (docId: string) => ({ docId, path: `C:/v/${docId}.pdf`, sha256: 'h', size: 1, pages: 1, title: docId, addedAt: 'a' })
+
+  it('drops vanished PDFs without user data and keeps (flags) those with data', () => {
+    const index = { version: 1 as const, entries: [entry('a', 'a.pdf'), entry('b', 'b.pdf'), entry('c', 'c.pdf')] }
+    const result = reconcileMissingVaultPdfs(
+      index,
+      [legacy('a'), legacy('b'), legacy('c')],
+      [{ path: 'a.pdf', isDirectory: false }],
+      (docId) => docId === 'c',
+    )
+    expect(result.library.map((item) => item.docId)).toEqual(['a', 'c'])
+    expect(result.index.entries.map((item) => [item.id, item.missing])).toEqual([['a', false], ['c', true]])
+    expect(result.absentDocIds).toEqual(['c'])
   })
 })

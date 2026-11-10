@@ -31,6 +31,8 @@ import {
   readCanvas,
   readLibrary,
   readMarkdown,
+  readPdfBookmarks,
+  readPdfHighlights,
   registerUnlistedVaultPdfs,
   readSession,
   readVaultTreeOrder,
@@ -54,7 +56,7 @@ import {
 } from '../bridge/vault'
 import type { VaultIndexEntry } from '../core/vaultIndex'
 import { partitionDroppedDocumentPaths } from '../core/documentDrop'
-import { reconcileLibraryPdfEntries, reconcileVaultIndexFiles } from '../core/vaultIndex'
+import { reconcileLibraryPdfEntries, reconcileMissingVaultPdfs, reconcileVaultIndexFiles, type VaultIndexFile } from '../core/vaultIndex'
 import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
@@ -192,6 +194,36 @@ function indexedDisplayNames(entries: readonly VaultIndexEntry[]): ReadonlyMap<s
     .map((entry) => [entry.path, entry.displayName]))
 }
 
+/**
+ * 디스크와 맞추기(Vault 안 PDF): 앱이 꺼진 사이 지워진 파일은 목록에서 빼고,
+ * 하이라이트·책갈피가 있으면 목록에 남겨 「찾을 수 없음」으로 둔다.
+ */
+async function settleMissingPdfs(
+  handle: VaultHandle,
+  libraryEntries: readonly VaultLibraryEntry[],
+  index: VaultIndexFile,
+  treeEntries: readonly VaultTreeEntry[],
+  readOnly: boolean,
+): Promise<{ library: readonly VaultLibraryEntry[]; index: VaultIndexFile; absentDocIds: string[] }> {
+  const probe = reconcileMissingVaultPdfs(index, libraryEntries, treeEntries, () => false)
+  if (probe.library.length === libraryEntries.length && probe.absentDocIds.length === 0 && JSON.stringify(probe.index) === JSON.stringify(index)) {
+    return { library: libraryEntries, index, absentDocIds: [] }
+  }
+  const [highlights, bookmarks] = await Promise.all([
+    readPdfHighlights(handle).catch(() => []),
+    readPdfBookmarks(handle).catch(() => []),
+  ])
+  const withData = new Set<string>([
+    ...highlights.map((highlight) => highlight.anchor.docId),
+    ...bookmarks.map((bookmark) => bookmark.docId),
+  ])
+  const result = reconcileMissingVaultPdfs(index, libraryEntries, treeEntries, (docId) => withData.has(docId))
+  if (!readOnly && result.library.length !== libraryEntries.length) {
+    await writeLibrary(handle, result.library as VaultLibraryEntry[])
+  }
+  return { library: result.library as VaultLibraryEntry[], index: result.index, absentDocIds: result.absentDocIds }
+}
+
 /** 읽던 쪽을 파일에 쓰기 전에 기다리는 시간. 그사이 쪽이 또 바뀌면 다시 센다 */
 const READING_POSITION_WRITE_DELAY_MS = 1500
 
@@ -256,7 +288,10 @@ export function useVault(options: UseVaultOptions = {}) {
     sidebarPx: emptySession.sidebarPx,
     leftFrac: emptySession.leftFrac,
   })
-  const [missingDocIds, setMissingDocIds] = useState<readonly string[]>([])
+  const [openFailedDocIds, setMissingDocIds] = useState<readonly string[]>([])
+  /** 파일이 Vault 에 없는 문서(디스크와 맞추다 찾은 것) */
+  const [absentDocIds, setAbsentDocIds] = useState<readonly string[]>([])
+  const missingDocIds = useMemo(() => [...new Set([...openFailedDocIds, ...absentDocIds])], [openFailedDocIds, absentDocIds])
   const [markdownSources, setMarkdownSources] = useState<Readonly<Record<string, string>>>(options.markdownSources ?? {})
   const onImportedFromRef = useRef(options.onImportedFrom)
   onImportedFromRef.current = options.onImportedFrom
@@ -294,7 +329,7 @@ export function useVault(options: UseVaultOptions = {}) {
       // 떼어 낸 창은 메인 창이 이미 한 일이라 건너뛴다
       if (windowMode.role !== 'detached') await registerUnlistedVaultPdfs(handle).catch(() => [])
       const [
-        libraryEntries,
+        rawLibraryEntries,
         nextTreeEntries,
         rawSession,
         savedTreeOrder,
@@ -311,11 +346,14 @@ export function useVault(options: UseVaultOptions = {}) {
         readVaultSearchTextCache(handle),
       ])
       const groups = buildNotebookTree(nextTreeEntries)
-      const reconciledIndex = reconcileVaultIndexFiles(
-        reconcileLibraryPdfEntries(savedIndex, libraryEntries, new Date().toISOString()),
+      const indexedWithLibrary = reconcileVaultIndexFiles(
+        reconcileLibraryPdfEntries(savedIndex, rawLibraryEntries, new Date().toISOString()),
         nextTreeEntries,
         new Date().toISOString(),
       )
+      const settled = await settleMissingPdfs(handle, rawLibraryEntries, indexedWithLibrary, nextTreeEntries, windowMode.role === 'detached')
+      const libraryEntries = settled.library
+      const reconciledIndex = settled.index
       if (JSON.stringify(reconciledIndex) !== JSON.stringify(savedIndex)) {
         await writeVaultIndex(handle, reconciledIndex)
       }
@@ -460,6 +498,7 @@ export function useVault(options: UseVaultOptions = {}) {
       ))
       setMarkdownSources(restoredMarkdownSources)
       setMissingDocIds(missing)
+      setAbsentDocIds(settled.absentDocIds)
       setSidebarCollapsed(session.sidebarCollapsed)
       setLayout({ sidebarPx: session.sidebarPx, leftFrac: session.leftFrac })
       setSessionReady(true)
@@ -1014,16 +1053,20 @@ export function useVault(options: UseVaultOptions = {}) {
   const refreshVaultFiles = useCallback(async (handle: VaultHandle, orderOverride?: VaultTreeOrder) => {
     // 탐색기로 Vault 폴더에 바로 넣은 PDF 도 목록에 올린다(예전에는 「색인」을 눌러야 보였다)
     await registerUnlistedVaultPdfs(handle).catch(() => [])
-    const [libraryEntries, nextTreeEntries, savedIndex] = await Promise.all([
+    const [rawLibraryEntries, nextTreeEntries, savedIndex] = await Promise.all([
       readLibrary(handle),
       listVaultTree(handle),
       readVaultIndex(handle),
     ])
-    const nextIndex = reconcileVaultIndexFiles(
-      reconcileLibraryPdfEntries(savedIndex, libraryEntries, new Date().toISOString()),
+    const indexedWithLibrary = reconcileVaultIndexFiles(
+      reconcileLibraryPdfEntries(savedIndex, rawLibraryEntries, new Date().toISOString()),
       nextTreeEntries,
       new Date().toISOString(),
     )
+    const settled = await settleMissingPdfs(handle, rawLibraryEntries, indexedWithLibrary, nextTreeEntries, windowMode.role === 'detached')
+    const libraryEntries = settled.library
+    const nextIndex = settled.index
+    setAbsentDocIds(settled.absentDocIds)
     if (JSON.stringify(nextIndex) !== JSON.stringify(savedIndex)) {
       await writeVaultIndex(handle, nextIndex)
     }

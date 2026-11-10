@@ -24,6 +24,7 @@ pub mod vault_backup;
 pub mod windows;
 mod browser_keys;
 pub mod zotero;
+pub mod crash_probe;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -32,6 +33,7 @@ pub fn run() {
     //
     // 커맨드(관리 상태)와 프로토콜 핸들러가 같은 스레드를 봐야 한다 — 프로토콜은 캐시에
     // 이미 있는 문서만 그리고, 그 캐시를 채우는 것이 `pdf_open` 이기 때문이다.
+    crash_probe::install();
     let pdf = pdf::PdfThread::shared();
     // 프런트엔드가 `set_locale` 을 부르기 전까지는 설치기에서 고른 언어를 쓴다.
     i18n::init_from_installer();

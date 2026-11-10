@@ -278,3 +278,36 @@ export function reconcileVaultIndexFiles(
   }
   return parseVaultIndex({ version: 1, entries })
 }
+
+/**
+ * 디스크와 맞추기: Vault 안에 둔 PDF 파일이 사라졌을 때(앱이 꺼진 사이 지웠거나 다른 곳으로 옮김).
+ * 하이라이트·메모가 없는 문서는 목록(library.json)·색인에서 지우고, 있는 문서는 목록에 남겨 「찾을 수 없음」으로 보인다.
+ * `hasUserData(docId)` 가 true 인 문서만 남긴다. 파일이 돌아오면 다음 맞추기에서 missing 이 풀린다.
+ */
+export function reconcileMissingVaultPdfs(
+  index: VaultIndexFile,
+  libraryEntries: readonly LegacyPdfEntry[],
+  treeEntries: readonly IndexedTreeEntry[],
+  hasUserData: (docId: string) => boolean,
+): { index: VaultIndexFile; library: LegacyPdfEntry[]; absentDocIds: string[] } {
+  const present = new Set(treeEntries
+    .filter((entry) => !entry.isDirectory)
+    .map((entry) => normalizePath(entry.path).toLocaleLowerCase()))
+  const drop = new Set<string>()
+  const absent: string[] = []
+  const entries = index.entries.map((entry) => {
+    if (entry.kind !== 'pdf' || entry.storage !== 'vault') return entry
+    const gone = !present.has(entry.path.toLocaleLowerCase())
+    if (gone && !hasUserData(entry.id)) {
+      drop.add(entry.id)
+      return entry
+    }
+    if (gone) absent.push(entry.id)
+    return entry.missing === gone ? entry : { ...entry, missing: gone }
+  }).filter((entry) => !drop.has(entry.id))
+  return {
+    index: { version: 1, entries },
+    library: libraryEntries.filter((entry) => !drop.has(entry.docId)) as LegacyPdfEntry[],
+    absentDocIds: absent,
+  }
+}
