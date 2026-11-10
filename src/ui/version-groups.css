@@ -195,6 +195,8 @@
 .sidebar .side-section .side-version-line:hover > .side-item:has(~ .side-doc-note-add) { padding-right: 30px; }
 
 /* ---------- 바 안쪽 확대(Ctrl+휠): 왼쪽 바 목록 ---------- */
-.sidebar-inner > .side-scroll { zoom: var(--bar-zoom, 1); }
+/* 구역 머리(제목 + 단추)는 100% 로 두고 그 아래 목록·빈 안내만 확대한다 */
+.sidebar-inner > .side-scroll > .side-section > :is(ul, p),
+.sidebar-inner > .side-scroll > .library-view { zoom: var(--bar-zoom, 1); }
 /* 확대된 목록 안의 떠 있는 메뉴(마우스 자리에 놓는다)는 확대에서 빼 마우스 자리와 어긋나지 않게 */
-.sidebar-inner > .side-scroll :is(.side-context-menu, .side-menu-backdrop) { zoom: calc(1 / var(--bar-zoom, 1)); }
+.sidebar-inner > .side-scroll :is(ul, .library-view) :is(.side-context-menu, .side-menu-backdrop) { zoom: calc(1 / var(--bar-zoom, 1)); }

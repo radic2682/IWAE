@@ -889,3 +889,7 @@
 
 /* ---------- 바 안쪽 확대(Ctrl+휠): 오른쪽 노트 바의 서식 도구와 카드 목록(메모만 보기에서는 배율 변수가 없다) ---------- */
 .pdf-memo-bar :is(.pdf-memo-bar-scroll, .note-format-dock) { zoom: var(--bar-zoom, 1); }
+
+/* 영역 메모(표·그림) 잘라 보이기: 큰 쪽 그림을 칸 안에서 잘라 내고, 칸 폭을 넘지 않는다(f597864 에서 빠졌던 바탕 규칙) */
+.pdf-memo-list-crop { position: relative; max-width: 100%; overflow: hidden; border: 1px solid var(--divider); border-radius: 4px; background: #fff; box-sizing: border-box; }
+.pdf-memo-list-crop img { position: absolute; max-width: none; user-select: none; }
