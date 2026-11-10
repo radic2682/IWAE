@@ -77,7 +77,9 @@ export async function exportNotesAsMarkdown(
   let images = 0
   let imagesFailed = 0
   const rasterizer = createCanvasRasterizer()
-  const exportedAt = (options.now ?? new Date()).toISOString().slice(0, 10)
+  // 날짜는 쓰는 사람의 달력(현지 시각)으로 — UTC 로 자르면 한국 새벽에는 하루 전 날짜가 된다
+  const stamp = options.now ?? new Date()
+  const exportedAt = `${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')}`
 
   for (const { title, note } of notes) {
     const stem = uniqueFileStem(markdownFileStem(title), taken)

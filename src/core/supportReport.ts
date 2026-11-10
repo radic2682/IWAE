@@ -27,6 +27,9 @@ export function redactText(input: string, options: RedactionOptions = {}): strin
     for (const variant of new Set([flat, flat.replaceAll('\\', '/'), flat.replaceAll('/', '\\')])) {
       text = text.replace(new RegExp(escapeRegExp(variant), 'giu'), '<vault>')
     }
+    // Vault 안의 하위 폴더·파일 이름(공백이 있는 이름도)은 확장자까지 통째로 가린다
+    const subpath = String.raw`<vault>(?:[\\/][^\\/"'<>|*?\n]+)*?[\\/][^\\/"'<>|*?\n]*?\.(?:${FILE_EXTENSIONS})\b`
+    text = text.replace(new RegExp(subpath, 'giu'), (match) => `<vault>/<file>${match.slice(match.lastIndexOf('.')).toLowerCase()}`)
   }
   // 2) 주소는 질의·조각을 뗀다(토큰이 들어 있기 쉽다)
   text = text.replace(/(https?:\/\/[^\s?#"'<>)]+)[?#][^\s"'<>)]*/gu, '$1')

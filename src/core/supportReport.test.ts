@@ -54,3 +54,10 @@ describe('error buffer', () => {
     expect(all[0]?.message).toContain('e10')
   })
 })
+
+describe('redactText file names with spaces', () => {
+  it('hides the whole name of a file inside the vault even when it has spaces', () => {
+    const out = redactText('open C:\\Users\\kim\\Docs\\My Vault\\비밀 폴더\\비밀 문서.PDF failed', { vaultRoot: 'C:\\Users\\kim\\Docs\\My Vault' })
+    expect(out).toBe('open <vault>/<file>.pdf failed')
+  })
+})

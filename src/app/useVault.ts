@@ -1707,23 +1707,15 @@ export function useVault(options: UseVaultOptions = {}) {
     })
   }, [vaultIndex])
 
+  // 탐색기에서 PDF 를 넣거나 지우면(파일 감시) 새로 고침과 같이 디스크와 맞춘다. 연달아 오는 알림은 한 번으로 묶는다
+  const reindexTimerRef = useRef<number | null>(null)
   const reindexWatchedFiles = useCallback(() => {
     if (vault === null) return
-    void Promise.all([readLibrary(vault), listVaultTree(vault), readVaultIndex(vault)])
-      .then(([libraryEntries, nextTreeEntries, nextIndex]) => {
-        setEntries(libraryEntries)
-        setTreeEntries(nextTreeEntries)
-        setNotebooks(buildNotebookTree(nextTreeEntries))
-        setVaultIndex(nextIndex.entries)
-        setTree(buildVaultWorkspaceTree(
-          nextTreeEntries,
-          displayEntries(libraryEntries, nextIndex.entries),
-          treeOrderRef.current,
-          indexedDisplayNames(nextIndex.entries),
-          nextIndex.entries,
-        ))
-      })
-      .catch((err: unknown) => setError(errorText(err)))
+    if (reindexTimerRef.current !== null) window.clearTimeout(reindexTimerRef.current)
+    reindexTimerRef.current = window.setTimeout(() => {
+      reindexTimerRef.current = null
+      void refreshVaultFilesRef.current(vault).catch((err: unknown) => setError(errorText(err)))
+    }, 400)
   }, [vault])
 
   useVaultWatcher({
