@@ -242,8 +242,8 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .note-region-translate { position: absolute; top: 6px; right: 6px; z-index: 1; display: flex; }
 .note-region-translate .note-source-translate { background: var(--paper); box-shadow: 0 1px 4px rgb(0 0 0 / 18%); }
 
-/* 호버 탭(22px)이 앞 블록의 글을 덮지 않도록 블록 사이를 조금 더 벌린다 */
-.pane-doc .note-gap { margin-block: 0; }
+/* 호버 탭(22px)이 위 카드에 겹치지 않게: 블록 사이 간격 = 탭 높이 + 2px */
+.pane-doc .note-gap { margin-block: 0; height: 24px; }
 
 /* 한글은 음절 사이가 아니라 띄어쓰기 단위로 줄을 바꾼다(너무 긴 낱말만 마지막 수단으로 끊는다) */
 .note-block :is(.pdf-memo-card-text, .pdf-memo-editor, .note-ticket-title, .note-source, .note-source-translation) { word-break: keep-all; overflow-wrap: anywhere; }
