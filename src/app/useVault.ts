@@ -96,6 +96,7 @@ import {
   renameVaultFolder,
   trashVaultEntry,
   trashVaultFolder,
+  type TrashSource,
 } from '../bridge/vaultFiles'
 import { githubMoveTarget } from '../bridge/github'
 import { markdownToPdf } from '../bridge/pdf'
@@ -1342,11 +1343,11 @@ export function useVault(options: UseVaultOptions = {}) {
     await refreshVaultFiles(vault)
   }, [refreshVaultFiles, stableFileId, vault])
 
-  const trashEntry = useCallback(async (idOrPath: string) => {
+  const trashEntry = useCallback(async (idOrPath: string, source: TrashSource = 'unspecified') => {
     if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const id = stableFileId(idOrPath)
     const entry = vaultIndex.find((candidate) => candidate.id === id)
-    await trashVaultEntry(vault, id)
+    await trashVaultEntry(vault, id, source)
     if (itemIcons[id] !== undefined) setItemIcon(id, null)
     if (entry !== undefined) {
       setPanes((current) => closeTabEverywhere(closeTabEverywhere(current, id), entry.path))
@@ -1380,11 +1381,11 @@ export function useVault(options: UseVaultOptions = {}) {
   }, [itemColors, itemIcons, setItemColor, setItemIcon])
 
   /** 폴더를 통째로 Vault 휴지통으로 옮긴다. 안의 문서 탭은 닫는다 */
-  const trashFolder = useCallback(async (folderPath: string) => {
+  const trashFolder = useCallback(async (folderPath: string, source: TrashSource = 'unspecified') => {
     if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const folder = folderPath.replaceAll('\\', '/')
     const inside = (path: string) => path === folder || path.startsWith(`${folder}/`)
-    const removedIds = await trashVaultFolder(vault, folder)
+    const removedIds = await trashVaultFolder(vault, folder, source)
     const removed = new Set(removedIds)
     const removedPaths = vaultIndex.filter((entry) => removed.has(entry.id)).map((entry) => entry.path)
     remapFolderIcons(folder, null, removedIds)

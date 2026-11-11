@@ -194,21 +194,88 @@ export function FolderNameDialog({ mode, initialName = '', parentPath, parentCho
   )
 }
 
+/** 확인 창에 이름을 몇 개까지 늘어놓을지. 나머지는 「외 N개」 */
+const LISTED_NAMES = 6
+
+function NameList({ names }: { readonly names: readonly string[] }) {
+  if (names.length === 0) return null
+  const shown = names.slice(0, LISTED_NAMES)
+  return (
+    <ul className="side-dialog-names">
+      {shown.map((item, index) => <li key={index}>{item}</li>)}
+      {names.length > shown.length ? <li>{t('외 {count}개', { count: names.length - shown.length })}</li> : null}
+    </ul>
+  )
+}
+
+export interface DeleteEntryDialogProps {
+  readonly name: string
+  readonly path: string
+  readonly onConfirm: () => Promise<void>
+  readonly onClose: () => void
+}
+
+/** 문서 하나를 휴지통으로 옮기기 전 확인. 이름을 대고, 지워지는 것이 아니라 옮겨진다고 말한다 */
+export function DeleteEntryDialog({ name, path, onConfirm, onClose }: DeleteEntryDialogProps) {
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  // 실수로 Enter 를 눌러도 옮겨지지 않게 초점은 취소에 둔다
+  useEffect(() => { cancelRef.current?.focus() }, [])
+  const confirm = () => {
+    setBusy(true)
+    setError(null)
+    onConfirm()
+      .then(onClose)
+      .catch((err: unknown) => {
+        setError(errorText(err))
+        setBusy(false)
+      })
+  }
+  return (
+    <DialogFrame
+      label={t('문서 삭제')}
+      icon={<Trash size={16} weight="duotone" />}
+      tone="danger"
+      title={t('‘{name}’ 문서를 휴지통으로 옮길까요?', { name })}
+      subtitle={t('위치: {location}', { location: locationLabel(path) })}
+      busy={busy}
+      onClose={onClose}
+    >
+      <div className="side-dialog-body">
+        <p className="side-dialog-message">
+          {t('파일은 지워지지 않고 Vault 휴지통으로 옮겨지며, 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
+        </p>
+        <p className="side-dialog-error" role={error === null ? undefined : 'alert'}>{error ?? ''}</p>
+        <footer className="side-dialog-foot">
+          <button ref={cancelRef} type="button" className="side-dialog-secondary" onClick={onClose} disabled={busy}>{t('취소')}</button>
+          <button type="button" className="side-dialog-primary side-dialog-danger" onClick={confirm} disabled={busy}>
+            {busy ? t('옮기는 중…') : t('휴지통으로 이동')}
+          </button>
+        </footer>
+      </div>
+    </DialogFrame>
+  )
+}
+
 export interface DeleteFolderDialogProps {
   readonly name: string
   readonly path: string
   readonly documentCount: number
   readonly folderCount: number
+  /** 함께 옮겨지는 문서 이름들(많으면 앞쪽만 보인다) */
+  readonly documentNames?: readonly string[]
   readonly onConfirm: () => Promise<void>
   readonly onClose: () => void
 }
 
 /** 폴더 삭제 확인. 지우지 않고 Vault 휴지통으로 옮긴다는 것을 분명히 말한다 */
-export function DeleteFolderDialog({ name, path, documentCount, folderCount, onConfirm, onClose }: DeleteFolderDialogProps) {
+export function DeleteFolderDialog({ name, path, documentCount, folderCount, documentNames = [], onConfirm, onClose }: DeleteFolderDialogProps) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const confirmRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => { confirmRef.current?.focus() }, [])
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  // 실수로 Enter 를 눌러도 옮겨지지 않게 초점은 취소에 둔다
+  useEffect(() => { cancelRef.current?.focus() }, [])
 
   const confirm = () => {
     setBusy(true)
@@ -242,10 +309,11 @@ export function DeleteFolderDialog({ name, path, documentCount, folderCount, onC
             : pick({ ko: <>안에 있는 <strong>{contents}</strong>가 함께 삭제됩니다.</>, en: <>The <strong>{contents}</strong> inside will be deleted too.</> })}
           {' '}{t('파일은 지워지지 않고 Vault 휴지통으로 옮겨지며, 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
         </p>
+        <NameList names={documentNames} />
         <p className="side-dialog-error" role={error === null ? undefined : 'alert'}>{error ?? ''}</p>
         <footer className="side-dialog-foot">
-          <button type="button" className="side-dialog-secondary" onClick={onClose} disabled={busy}>{t('취소')}</button>
-          <button ref={confirmRef} type="button" className="side-dialog-primary side-dialog-danger" onClick={confirm} disabled={busy}>
+          <button ref={cancelRef} type="button" className="side-dialog-secondary" onClick={onClose} disabled={busy}>{t('취소')}</button>
+          <button type="button" className="side-dialog-primary side-dialog-danger" onClick={confirm} disabled={busy}>
             {busy ? t('옮기는 중…') : t('휴지통으로 이동')}
           </button>
         </footer>

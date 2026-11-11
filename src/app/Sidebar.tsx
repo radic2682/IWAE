@@ -29,7 +29,7 @@ import { LibraryView } from './LibraryView'
 import type { LibraryFolder, LibraryItem, LibraryOpenTarget } from '../core/libraryItems'
 import type { BibEntry } from '../core/bibliography'
 import { folderIconKey } from '../core/vaultMetadata'
-import { AddPdfDialog, DeleteFolderDialog, FolderNameDialog } from './SidebarDialogs'
+import { AddPdfDialog, DeleteEntryDialog, DeleteFolderDialog, FolderNameDialog } from './SidebarDialogs'
 import type { GithubSource } from '../bridge/github'
 import { defaultVersion, hiddenVersionDocIds, type VersionGroup } from '../core/versionGroups'
 import type { VersionMenuActions } from './VersionMenu'
@@ -37,7 +37,7 @@ import { DocNoteRows } from './DocNoteRows'
 import { attachBarZoomWheel, useBarZoom } from './useBarZoom'
 import { groupMemoNotesByDoc } from '../core/memoNote'
 import '../ui/version-groups.css'
-import { cleanEntryName } from '../bridge/vaultFiles'
+import { cleanEntryName, type TrashSource } from '../bridge/vaultFiles'
 import '../ui/sidebar-followup.css'
 import { t } from '../i18n'
 import { createExampleVaultFolder, forgetVault, pickVaultFolder } from '../bridge/vault'
@@ -101,9 +101,10 @@ interface SidebarProps {
     place: Pick<VaultTreePlaceRequest, 'toParent' | 'targetNodeId' | 'position'>,
   ) => Promise<void>
   onDuplicateEntry?: (id: string, destinationFolder?: string) => Promise<void>
-  onTrashEntry?: (id: string) => Promise<void>
-  /** 폴더를 통째로 Vault 휴지통으로 옮긴다 */
-  onTrashFolder?: (path: string) => Promise<void>
+  /** 문서 하나를 Vault 휴지통으로 옮긴다. 확인 창에서 사용자가 누른 뒤에만 불린다 */
+  onTrashEntry?: (id: string, source: TrashSource) => Promise<void>
+  /** 폴더를 통째로 Vault 휴지통으로 옮긴다. 확인 창에서 사용자가 누른 뒤에만 불린다 */
+  onTrashFolder?: (path: string, source: TrashSource) => Promise<void>
   onRenameFolder?: (path: string, name: string) => Promise<void>
   onConvertEntryToCopy?: (id: string, destinationFolder?: string) => Promise<void>
   onCopyEntryPath?: (id: string) => Promise<string>
@@ -199,6 +200,11 @@ function countFolderContents(nodes: readonly VaultTreeNode[]): { documents: numb
     }
   }
   return { documents, folders }
+}
+
+/** 폴더 안(하위 폴더 포함) 문서 이름들. 확인 창에 보인다 */
+function folderDocumentNames(nodes: readonly VaultTreeNode[]): string[] {
+  return nodes.flatMap((node) => node.kind === 'folder' ? folderDocumentNames(node.children) : [node.name])
 }
 
 function findFolder(nodes: readonly VaultTreeNode[], path: string): Extract<VaultTreeNode, { kind: 'folder' }> | null {
@@ -577,6 +583,7 @@ export function Sidebar({
     | null
   >(null)
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<{ path: string; name: string } | null>(null)
+  const [deleteEntryTarget, setDeleteEntryTarget] = useState<{ id: string; name: string; parentPath: string } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{
     kind: 'entry' | 'folder'
@@ -1913,7 +1920,7 @@ export function Sidebar({
           // 지우기(휴지통으로)
           [
             isEntry && onTrashEntry !== undefined
-              ? item('trash', <Trash size={15} />, t('휴지통으로 이동'), () => void runEntryAction(() => onTrashEntry(contextMenu.id)), true)
+              ? item('trash', <Trash size={15} />, t('휴지통으로 이동…'), () => { setDeleteEntryTarget({ id: contextMenu.id, name: contextMenu.name, parentPath: contextMenu.parentPath }); close() }, true)
               : null,
             isFolder && onTrashFolder !== undefined
               ? item('trash', <Trash size={15} />, t('휴지통으로 이동…'), () => { setDeleteFolderTarget({ path: contextMenu.id, name: contextMenu.name }); close() }, true)
@@ -1985,16 +1992,25 @@ export function Sidebar({
           onClose={() => setFolderDialog(null)}
         />
       ) : null}
+      {deleteEntryTarget !== null ? (
+        <DeleteEntryDialog
+          name={deleteEntryTarget.name}
+          path={deleteEntryTarget.parentPath}
+          onConfirm={async () => { await onTrashEntry?.(deleteEntryTarget.id, 'context-menu-confirmed') }}
+          onClose={() => setDeleteEntryTarget(null)}
+        />
+      ) : null}
       {deleteFolderTarget !== null ? (
         <DeleteFolderDialog
           name={deleteFolderTarget.name}
           path={parentOf(deleteFolderTarget.path)}
           {...(() => {
-            const counts = countFolderContents(findFolder(workspaceTree, deleteFolderTarget.path)?.children ?? [])
-            return { documentCount: counts.documents, folderCount: counts.folders }
+            const children = findFolder(workspaceTree, deleteFolderTarget.path)?.children ?? []
+            const counts = countFolderContents(children)
+            return { documentCount: counts.documents, folderCount: counts.folders, documentNames: folderDocumentNames(children) }
           })()}
           onConfirm={async () => {
-            await onTrashFolder?.(deleteFolderTarget.path)
+            await onTrashFolder?.(deleteFolderTarget.path, 'folder-dialog-confirmed')
             const removed = deleteFolderTarget.path
             if (activeFolderPath === removed || activeFolderPath.startsWith(`${removed}/`)) setActiveFolderPath(parentOf(removed))
             if (attachmentFolderPath === removed || attachmentFolderPath.startsWith(`${removed}/`)) setAttachmentFolderPath('')

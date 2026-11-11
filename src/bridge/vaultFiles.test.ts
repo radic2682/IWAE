@@ -159,6 +159,17 @@ describe('vault file operations', () => {
     )
   })
 
+  it('휴지통 기록에 옮긴 계기(source)와 시각을 남긴다', async () => {
+    vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [stored] })
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({ version: 1, entries: [] }))
+
+    await trashVaultEntry(vault, stored.id, 'context-menu-confirmed')
+
+    const written = JSON.parse(fsMocks.writeTextFile.mock.calls[0]![1] as string) as { entries: Record<string, unknown>[] }
+    expect(written.entries[0]).toMatchObject({ id: stored.id, source: 'context-menu-confirmed' })
+    expect(Number.isNaN(Date.parse(written.entries[0]!.deletedAt as string))).toBe(false)
+  })
+
   it('휴지통 이동 후 인덱스 저장이 실패하면 파일과 휴지통 목록을 복구한다', async () => {
     vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [stored] })
     vi.mocked(writeVaultIndex).mockRejectedValueOnce(new Error('index write failed'))
@@ -319,6 +330,12 @@ describe('folder operations', () => {
     expect(trashJson.entries[0]).toMatchObject({ kind: 'folder', originalPath: 'Specs' })
     expect(trashJson.entries[0]!.indexEntries).toHaveLength(2)
     expect(trashJson.entries[0]!.libraryEntries).toHaveLength(2)
+  })
+
+  it('폴더 휴지통 기록에도 계기(source)를 남긴다', async () => {
+    await trashVaultFolder(vault, 'Specs', 'folder-dialog-confirmed')
+    const trashJson = JSON.parse(fsMocks.writeTextFile.mock.calls[0]![1] as string) as { entries: Record<string, unknown>[] }
+    expect(trashJson.entries[0]).toMatchObject({ kind: 'folder', source: 'folder-dialog-confirmed' })
   })
 
   it('폴더째 옮기지 못하면 파일을 하나씩 옮기고 빈 폴더를 지운다', async () => {

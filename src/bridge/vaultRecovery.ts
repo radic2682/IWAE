@@ -1,6 +1,7 @@
 import { t } from '../i18n'
 import { atomicWriteText, scanStorageRecovery } from './storage'
 import { createVaultIndexEntry, parseVaultIndex, type VaultFileKind, type VaultIndexEntry } from '../core/vaultIndex'
+import { moveDirectory } from './vaultFiles'
 import { readLibrary, readVaultIndex, writeLibrary, writeVaultIndex, type VaultHandle, type VaultLibraryEntry } from './vault'
 
 const TRASH_VERSION = 1
@@ -20,6 +21,8 @@ export interface TrashEntry {
   originalPath: string
   trashedPath: string
   deletedAt: string
+  /** 휴지통으로 옮긴 화면·동작(진단용). 예전 항목에는 없다 */
+  source?: string
   indexEntry?: VaultIndexEntry | null
   /** 폴더를 통째로 지운 항목. 안에 있던 색인·Library 항목을 함께 들고 있다 */
   kind?: 'file' | 'folder'
@@ -107,8 +110,10 @@ function parseTrash(value: unknown): TrashFile {
     if (indexEntry !== null && indexEntry.id !== entry.id) {
       throw new Error(t('휴지통 항목의 파일 ID가 일치하지 않습니다.'))
     }
+    const source = typeof entry.source === 'string' ? { source: entry.source } : {}
     if (entry.kind === 'folder') {
       return {
+        ...source,
         id: entry.id,
         kind: 'folder' as const,
         originalPath: entry.originalPath,
@@ -125,6 +130,7 @@ function parseTrash(value: unknown): TrashFile {
       }
     }
     return {
+      ...source,
       id: entry.id,
       originalPath: entry.originalPath,
       trashedPath: entry.trashedPath,
@@ -259,10 +265,11 @@ export async function restoreTrash(vault: VaultHandle, id: string): Promise<void
     throw new Error(t('같은 ID의 Vault 항목이 이미 존재합니다.'))
   }
   if (entry.kind === 'folder') {
-    const { exists, rename } = await import('@tauri-apps/plugin-fs')
+    const { exists } = await import('@tauri-apps/plugin-fs')
     const target = await joinVault(vault, entry.originalPath)
     if (await exists(target)) throw new Error(t('같은 이름의 폴더가 이미 있어 복원할 수 없습니다.'))
-    await rename(await joinVault(vault, entry.trashedPath), target)
+    // 폴더는 Rust 가 옮긴다(디렉터리째 이름 바꾸기가 막히면 파일별로, 없는 윗 폴더도 만든다)
+    await moveDirectory(await joinVault(vault, entry.trashedPath), target, vault.root)
     const knownIds = new Set(index.entries.map((candidate) => candidate.id))
     await writeVaultIndex(vault, {
       version: 1,

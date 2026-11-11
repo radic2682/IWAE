@@ -242,7 +242,13 @@ async function writeTrashEntries(vault: VaultHandle, entries: readonly Record<st
   )
 }
 
-export async function trashVaultEntry(vault: VaultHandle, id: string): Promise<void> {
+/**
+ * 휴지통으로 옮긴 계기. 휴지통 기록(.iwae/trash/index.json)의 source 에 남겨, 문서가 사라졌다는 보고가 오면
+ * 어느 화면의 어떤 동작이었는지 알 수 있게 한다.
+ */
+export type TrashSource = 'context-menu-confirmed' | 'folder-dialog-confirmed' | 'unspecified'
+
+export async function trashVaultEntry(vault: VaultHandle, id: string, source: TrashSource = 'unspecified'): Promise<void> {
   const index = await readVaultIndex(vault)
   const entry = requireEntry(index, id)
   const originalLibrary = entry.kind === 'pdf' ? await readLibrary(vault) : null
@@ -262,6 +268,7 @@ export async function trashVaultEntry(vault: VaultHandle, id: string): Promise<v
         originalPath: entry.path,
         trashedPath,
         deletedAt: new Date().toISOString(),
+        source,
         indexEntry: entry,
       }])
       const { rename } = await import('@tauri-apps/plugin-fs')
@@ -306,7 +313,7 @@ async function quietly(action: () => Promise<unknown>): Promise<void> {
  * 그래서 통째 이동이 실패하면 파일을 하나씩 옮기고 빈 디렉터리를 지운다.
  * 도중에 실패하면 옮긴 파일을 되돌리고 그 오류를 던진다.
  */
-async function moveDirectory(source: string, target: string, vaultRoot?: string): Promise<void> {
+export async function moveDirectory(source: string, target: string, vaultRoot?: string): Promise<void> {
   // 데스크톱: Rust 가 한 번에 옮긴다(파일마다 부르면 그림·작업 폴더가 많은 폴더에서 아주 느리다)
   if (vaultRoot !== undefined && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
     const { invoke } = await import('@tauri-apps/api/core')
@@ -399,7 +406,7 @@ function folderMembers(
  * 이 폴더로 정리된 참조 PDF 도 목록에서 함께 빠진다(원본 파일은 건드리지 않는다).
  * 돌려주는 값은 목록에서 빠진 항목 id 들이다.
  */
-export async function trashVaultFolder(vault: VaultHandle, folderPath: string): Promise<string[]> {
+export async function trashVaultFolder(vault: VaultHandle, folderPath: string, source: TrashSource = 'unspecified'): Promise<string[]> {
   const folder = safeRelativePath(folderPath)
   if (folder === '') throw new Error(t('Vault 루트 폴더는 삭제할 수 없습니다.'))
   const sourcePath = await vaultAbsolutePath(vault, folder)
@@ -420,6 +427,7 @@ export async function trashVaultFolder(vault: VaultHandle, folderPath: string): 
     originalPath: folder,
     trashedPath,
     deletedAt: new Date().toISOString(),
+    source,
     indexEntries,
     libraryEntries,
   }])

@@ -644,9 +644,41 @@ describe('Sidebar — 폴더 우선 트리', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '경로 복사' }))
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('C:/Vault/Specs/Bus/README.md'))
 
+    // 메뉴 항목만으로는 옮기지 않는다 — 이름을 댄 확인 창에서 눌러야 한다
     fireEvent.contextMenu(screen.getByRole('button', { name: 'README, Markdown' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '휴지통으로 이동' }))
-    await waitFor(() => expect(onTrashEntry).toHaveBeenCalledWith('Specs/Bus/README.md'))
+    fireEvent.click(screen.getByRole('menuitem', { name: '휴지통으로 이동…' }))
+    const dialog = screen.getByRole('dialog', { name: '문서 삭제' })
+    expect(dialog.textContent).toContain('README')
+    expect(onTrashEntry).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByRole('button', { name: '휴지통으로 이동' }))
+    await waitFor(() => expect(onTrashEntry).toHaveBeenCalledWith('Specs/Bus/README.md', 'context-menu-confirmed'))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '문서 삭제' })).toBeNull())
+  })
+
+  it('문서 휴지통 확인을 취소하거나 Enter 만 눌러서는 아무것도 옮기지 않는다', async () => {
+    const onTrashEntry = vi.fn().mockResolvedValue(undefined)
+    await renderSidebar({ tree, onTrashEntry })
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'README, Markdown' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '휴지통으로 이동…' }))
+    const dialog = screen.getByRole('dialog', { name: '문서 삭제' })
+    // 초점은 취소에 있다 — 실수로 Enter 를 눌러도 확정 단추가 눌리지 않는다
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: '취소' }))
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: '문서 삭제' })).toBeNull()
+    expect(onTrashEntry).not.toHaveBeenCalled()
+  })
+
+  it('Delete·Backspace 키는 트리에서 아무것도 휴지통으로 옮기지 않는다', async () => {
+    const onTrashEntry = vi.fn().mockResolvedValue(undefined)
+    const onTrashFolder = vi.fn().mockResolvedValue(undefined)
+    await renderSidebar({ tree, onTrashEntry, onTrashFolder })
+    const row = screen.getByRole('button', { name: 'README, Markdown' })
+    row.focus()
+    fireEvent.click(row, { ctrlKey: true })
+    for (const key of ['Delete', 'Backspace']) fireEvent.keyDown(row, { key })
+    expect(onTrashEntry).not.toHaveBeenCalled()
+    expect(onTrashFolder).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 
@@ -813,7 +845,7 @@ describe('Sidebar — 폴더 작업', () => {
     expect(dialog.textContent).toContain('하위 폴더 1개')
     expect(onTrashFolder).not.toHaveBeenCalled()
     fireEvent.click(within(dialog).getByRole('button', { name: '휴지통으로 이동' }))
-    await waitFor(() => expect(onTrashFolder).toHaveBeenCalledWith('Specs'))
+    await waitFor(() => expect(onTrashFolder).toHaveBeenCalledWith('Specs', 'folder-dialog-confirmed'))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '폴더 삭제' })).toBeNull())
   })
 

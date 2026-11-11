@@ -17,6 +17,7 @@ const fsMocks = vi.hoisted(() => ({
   readTextFile: vi.fn(),
   writeTextFile: vi.fn(),
   rename: vi.fn(),
+  mkdir: vi.fn(),
   remove: vi.fn(),
   copyFile: vi.fn(),
 }))
@@ -136,6 +137,25 @@ describe('vault recovery bridge', () => {
     expect(fsMocks.writeTextFile).toHaveBeenLastCalledWith(
       'C:/Vault/.iwae/trash/index.json',
       `${JSON.stringify({ version: 1, entries: [] }, null, 2)}\n`,
+    )
+  })
+
+  it('복원하거나 목록을 다시 써도 휴지통 항목의 source 를 잃지 않는다', async () => {
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({
+      version: 1,
+      entries: [
+        { id: 'a', originalPath: 'Notes/a.canvas', trashedPath: '.iwae/trash/a.canvas', deletedAt: '2026-09-27T00:00:00.000Z', source: 'context-menu-confirmed' },
+        { id: 'f1', kind: 'folder', originalPath: 'Specs', trashedPath: '.iwae/trash/f1-Specs', deletedAt: '2026-09-27T00:00:00.000Z', source: 'folder-dialog-confirmed' },
+      ],
+    }))
+    fsMocks.exists.mockImplementation(async (path: string) => path.endsWith('index.json'))
+    vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [] })
+    vi.mocked(readLibrary).mockResolvedValue([])
+    await expect(listTrash(vault)).resolves.toMatchObject([{ source: 'context-menu-confirmed' }, { source: 'folder-dialog-confirmed' }])
+    await restoreTrash(vault, 'f1')
+    expect(fsMocks.writeTextFile).toHaveBeenLastCalledWith(
+      'C:/Vault/.iwae/trash/index.json',
+      expect.stringContaining('"source": "context-menu-confirmed"'),
     )
   })
 
