@@ -13,7 +13,7 @@
   <img alt="Version 0.1.11" src="https://img.shields.io/badge/version-0.1.11-2563eb">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca">
-  <img alt="Platform: Windows and macOS" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078d4">
+  <img alt="Platform: Windows (macOS coming soon)" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20soon-0078d4">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
 </p>
 
@@ -233,11 +233,12 @@ Installers are published on the [Releases](https://github.com/radic2682/IWAE/rel
 
 - `IWAE_<version>_x64-setup.exe`: recommended. Installs for the current user.
 - `IWAE_<version>_x64_en-US.msi`: for managed deployment.
+- The installer is not code-signed yet, so Windows SmartScreen may say "Windows protected your PC" on the first run. Click **More info → Run anyway**. Every update is still verified with IWAE's own signature before it installs.
 
 **macOS** (12 or newer, Apple silicon and Intel)
 
-- `IWAE_<version>_universal.dmg`: open it and drag IWAE to Applications.
-- The app is not notarized by Apple yet, so the first launch shows a warning. Open **System Settings → Privacy & Security** and click **Open Anyway** once.
+- A Mac installer is not published yet; it will come with a later release. Until then you can [build from source](#build-from-source) on a Mac.
+- Builds are not notarized by Apple yet, so the first launch shows a warning. Open **System Settings → Privacy & Security** and click **Open Anyway** once.
 
 **Updates:** release builds check for updates, verify the signature, and install only after you confirm. Settings → Updates controls automatic checks and pre-downloading.
 

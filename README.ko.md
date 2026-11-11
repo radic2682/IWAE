@@ -13,7 +13,7 @@
   <img alt="Version 0.1.11" src="https://img.shields.io/badge/version-0.1.11-2563eb">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca">
-  <img alt="Platform: Windows and macOS" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078d4">
+  <img alt="Platform: Windows (macOS coming soon)" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20soon-0078d4">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
 </p>
 
@@ -233,10 +233,11 @@ macOS 에서는 `Ctrl` 대신 `⌘` 를 씁니다. 전체 목록은 **설정 →
 
 - `IWAE_<version>_x64-setup.exe`: 권장. 지금 사용자에게만 설치합니다.
 - `IWAE_<version>_x64_en-US.msi`: 여러 PC 에 일괄 배포할 때.
+- 설치 파일에 아직 코드 서명이 없어서, 처음 실행할 때 Windows SmartScreen 이 「Windows의 PC 보호」 창을 띄울 수 있습니다. **추가 정보 → 실행**을 누르세요. 업데이트는 그래도 IWAE 자체 서명을 검사한 뒤에만 설치됩니다.
 
 **macOS** (12 이상, Apple Silicon·Intel)
 
-- `IWAE_<version>_universal.dmg`: 열어서 IWAE 를 응용 프로그램 폴더로 끌어 놓습니다.
+- 맥 설치 파일은 아직 올리지 않았고, 다음 릴리스에 함께 올릴 예정입니다. 그동안은 맥에서 [소스로 빌드](#소스에서-빌드)해 쓸 수 있습니다.
 - 아직 Apple 공증을 받지 않아 처음 열 때 경고가 뜹니다. **시스템 설정 → 개인정보 보호 및 보안**에서 **그래도 열기**를 한 번 누르세요.
 
 **업데이트:** 배포 버전은 업데이트를 확인하고, 서명을 검사한 뒤, 사용자가 확인해야 설치합니다. **설정 → 업데이트**에서 자동 확인과 미리 내려받기를 정합니다.
