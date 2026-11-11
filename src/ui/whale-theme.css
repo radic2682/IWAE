@@ -737,6 +737,12 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .note-section:hover :is(.note-section-toggle, .note-section-count),
 .pane-doc .note-section-collapsed :is(.note-section-toggle, .note-section-count) { opacity: 1; }
 .pane-doc .note-section .note-section-input { font-size: 18px; }
+/* 긴 제목: 접기·개수·메뉴는 첫 줄 오른쪽에만 자리를 잡고, 둘째 줄부터는 제목이 폭을 다 쓴다 */
+.pane-doc .note-section.note-block { padding-right: 10px; }
+.pane-doc .note-section .note-section-title { display: block; }
+.pane-doc .note-section .note-section-title::before { content: ''; float: right; width: 96px; height: 1.4em; }
+.pane-doc .note-section .note-section-toggle { position: absolute; top: 6px; right: 66px; }
+.pane-doc .note-section .note-section-count { position: absolute; top: 9px; right: 40px; }
 
 /* 어두운 테마에서 빈 노트 안내·제목 줄도 종이 위 글자색 */
 .pane-doc .pdf-memo-bar :is(.note-empty, .note-empty-hint, .note-empty p) { color: var(--text-strong); }
