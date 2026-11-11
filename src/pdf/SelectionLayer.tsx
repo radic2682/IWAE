@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { buildAnchor, coalesceHighlightRects, type Anchor, type AnchorRect } from '../core/anchor'
 import { announceAction } from '../app/actionFeedback'
 import {
@@ -203,6 +204,37 @@ function regionRect(from: Point, to: Point, renderScale: number) {
   }
 }
 
+const TIP_GAP = 12
+const TIP_MARGIN = 6
+
+/** 마우스 곁에 띄우되 스크롤 칸(없으면 창)의 보이는 영역 안에 늘 다 들어오게 옆·위아래로 뒤집고 눌러 담는다 */
+function OtherNoteTip({ x, y, label, within }: { x: number; y: number; label: string; within: Element | null }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el === null) return
+    const pane = within?.closest('[data-pdf-pane]')?.getBoundingClientRect()
+    const minX = Math.max(pane?.left ?? 0, 0) + TIP_MARGIN
+    const minY = Math.max(pane?.top ?? 0, 0) + TIP_MARGIN
+    const maxX = Math.min(pane?.right ?? window.innerWidth, window.innerWidth) - TIP_MARGIN
+    const maxY = Math.min(pane?.bottom ?? window.innerHeight, window.innerHeight) - TIP_MARGIN
+    const { width, height } = el.getBoundingClientRect()
+    let left = x + TIP_GAP
+    if (left + width > maxX) left = x - TIP_GAP - width
+    let top = y + TIP_GAP + 4
+    if (top + height > maxY) top = y - TIP_GAP - height
+    setPos({
+      left: Math.max(minX, Math.min(left, maxX - width)),
+      top: Math.max(minY, Math.min(top, maxY - height)),
+    })
+  }, [x, y, label, within])
+  return createPortal(
+    <div ref={ref} className="selection-other-tip" role="tooltip" style={{ left: `${pos?.left ?? 0}px`, top: `${pos?.top ?? 0}px`, visibility: pos === null ? 'hidden' : 'visible' }}>{label}</div>,
+    document.body,
+  )
+}
+
 export function SelectionLayer({
   docId,
   page,
@@ -238,7 +270,7 @@ export function SelectionLayer({
   const isOther = (id: string) => otherNote !== null && otherNote.labels.has(id) && !isFreshHighlight(id) && id !== flashHighlightId
   // 숨기기: 그리지도, 눌러지지도 않는다(그 자리에서 글을 고르고 새로 칠할 수 있게)
   const persistentHighlights = otherNote?.mode === 'hide' ? allPersistentHighlights.filter(({ id }) => !isOther(id)) : allPersistentHighlights
-  const [otherTip, setOtherTip] = useState<{ x: number; y: number; label: string } | null>(null)
+  const [otherTip, setOtherTip] = useState<{ x: number; y: number; cx: number; cy: number; label: string } | null>(null)
   // 노트를 바꾸거나 설정이 바뀌면 떠 있던 말풍선은 거둔다(마우스가 움직이지 않으면 거두는 계기가 없다)
   useEffect(() => { setOtherTip(null) }, [otherNote])
   const [gesture, setGesture] = useState<SelectionGesture | null>(null)
@@ -488,7 +520,7 @@ export function SelectionLayer({
       if (tipLabel === undefined) {
         if (otherTip !== null) setOtherTip(null)
       } else if (otherTip === null || otherTip.label !== tipLabel || Math.abs(otherTip.x - point.x) > 6 || Math.abs(otherTip.y - point.y) > 6) {
-        setOtherTip({ x: point.x, y: point.y, label: tipLabel })
+        setOtherTip({ x: point.x, y: point.y, cx: event.clientX, cy: event.clientY, label: tipLabel })
       }
       if (resizeEnabled) {
         const edge = regionEdgeAt(point)
@@ -771,9 +803,7 @@ export function SelectionLayer({
           setOtherTip(null)
         }}
       />
-      {otherTip === null ? null : (
-        <div className="selection-other-tip" role="tooltip" style={{ left: `${otherTip.x + 12}px`, top: `${otherTip.y + 16}px` }}>{otherTip.label}</div>
-      )}
+      {otherTip === null ? null : <OtherNoteTip x={otherTip.cx} y={otherTip.cy} label={otherTip.label} within={interactionLayerRef.current} />}
       {passiveHighlights.map(({ blockId, anchor: passiveAnchor }) => {
         const bounds = anchorBounds(passiveAnchor)
         return bounds === null ? null : (

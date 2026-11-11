@@ -507,17 +507,26 @@ impl OllamaClient {
         form.query_pairs_mut().append_pair("q", &text);
         let body = form.query().unwrap_or_default().to_owned();
         let started = Instant::now();
-        let response = self
-            .generate_client
-            .post(url)
-            .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-            // User-Agent 가 없으면(reqwest 기본) 웹 번역이 아닌 봇으로 보여 쉽게 429 를 받는다
-            .header("User-Agent", GOOGLE_USER_AGENT)
-            .body(body)
-            .send()
-            .await
-            .map_err(external_request_error)?;
-        let text = external_response_body(response).await?;
+        let mut attempt = 0u32;
+        let text = loop {
+            let response = self
+                .generate_client
+                .post(url.clone())
+                .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+                // User-Agent 가 없으면(reqwest 기본) 웹 번역이 아닌 봇으로 보여 쉽게 429 를 받는다
+                .header("User-Agent", GOOGLE_USER_AGENT)
+                .body(body.clone())
+                .send()
+                .await
+                .map_err(external_request_error)?;
+            // 무료 Google 번역은 잠깐 몰리면 429 를 준다. 한 번만 조금 쉬었다가 다시 보낸다
+            if google_should_retry(response.status().as_u16(), attempt) {
+                attempt += 1;
+                tokio::time::sleep(google_retry_delay()).await;
+                continue;
+            }
+            break external_response_body(response).await?;
+        };
         let elapsed_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
         parse_google_translation_response(&text, elapsed_ms)
     }
@@ -549,6 +558,20 @@ impl OllamaClient {
         let elapsed_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
         parse_deepl_translation_response(&text, elapsed_ms)
     }
+}
+
+/// Google 번역이 429 를 줬을 때 다시 보낼지: 처음 한 번만(그 밖의 상태·두 번째 429 는 그대로 실패)
+pub fn google_should_retry(status: u16, attempt: u32) -> bool {
+    status == 429 && attempt == 0
+}
+
+/// 다시 보내기 전에 쉬는 시간: 1.5초 + 0~300ms 흔들기
+fn google_retry_delay() -> Duration {
+    let jitter = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| u64::from(elapsed.subsec_millis()) % 300)
+        .unwrap_or(0);
+    Duration::from_millis(1500 + jitter)
 }
 
 pub fn azure_translate_url(endpoint: &str, target_language: &str, source_language: Option<&str>) -> Result<Url, String> {
@@ -1301,6 +1324,17 @@ pub fn parse_pull_response(body: &str) -> Result<PullProgress, String> {
 
 #[cfg(test)]
 mod cloud_translator_tests {
+    #[test]
+    fn google_retries_only_the_first_429() {
+        assert!(super::google_should_retry(429, 0));
+        assert!(!super::google_should_retry(429, 1));
+        for status in [200u16, 400, 403, 500, 503] {
+            assert!(!super::google_should_retry(status, 0), "{status}");
+        }
+        let delay = super::google_retry_delay();
+        assert!(delay >= std::time::Duration::from_millis(1500) && delay < std::time::Duration::from_millis(1800));
+    }
+
     #[test]
     fn google_url_and_response() {
         let url = super::google_translate_url("https://translate.googleapis.com", "zh", None).unwrap();
