@@ -11,7 +11,7 @@ import { patchToolStyle, useFormatSampling, useOverlayTool, useToolStyle } from 
 import { applySamplePick } from './formatSamplerPdf'
 import { setFormatSampling } from './overlayToolStore'
 import { HighlighterStrip } from './HighlighterTool'
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { PdfPins, PinHead, type PlacedPin, type PdfPinPatchInput } from './PdfPins'
 import type { PdfBookmark } from '../core/pdfBookmarks'
 import type { Anchor } from '../core/anchor'
@@ -35,6 +35,7 @@ import { useOtherNoteHighlights } from '../app/highlightColorStyle'
 import { SelectionLayer, type PdfHighlightColor, type PdfInteractionMode } from './SelectionLayer'
 import { LinkLayer } from './LinkLayer'
 import { HighlightPopover } from './HighlightPopover'
+import { useEvent } from '../ui/useEvent'
 import { MemoColumn, MemoFormatBar, MemoFormatSlotContext, type MemoContent, type MemoTarget } from './MemoColumn'
 import { PdfBoxMemos } from './PdfBoxMemos'
 import { PdfOverlayLayer, type OverlayStyle, type OverlayTool } from './PdfOverlayLayer'
@@ -109,6 +110,8 @@ function useSettledPageRange(start: number, end: number): { readonly start: numb
 const PREVIEW_PREFETCH = 8
 /** 메모 바 안에서 카드가 시작하는 자리(왼쪽 끝에서 선이 굽어 들어올 틈) */
 const MEMO_CARD_INSET = 12
+/** 열린 노트가 없을 때 쓰는 빈 블록 목록(렌더마다 새 배열이면 메모 계산이 매번 다시 된다) */
+const NO_NOTE_BLOCKS: readonly MemoNoteBlock[] = []
 
 /**
  * 보기마다 마지막 스크롤 자리. 탭을 바꾸면 PdfPane 이 내려갔다 다시 올라오므로 컴포넌트 밖에 둔다.
@@ -471,10 +474,12 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     .filter((highlight) => highlight.anchor.docId === docId && ((highlight.note ?? '').trim() !== '' || highlight.id === fallbackShownId))
     .sort((a, b) => a.anchor.page - b.anchor.page || Math.min(...a.anchor.rects.map((rect) => rect.y)) - Math.min(...b.anchor.rects.map((rect) => rect.y)))
     .map((highlight) => ({ id: highlight.id, kind: 'memo' as const, highlightId: highlight.id })), [docId, fallbackShownId, noteApi, persistentHighlights])
-  const noteBlocks: readonly MemoNoteBlock[] = noteApi === null ? fallbackBlocks : noteApi.openNote?.blocks ?? []
+  const noteBlocks: readonly MemoNoteBlock[] = noteApi === null ? fallbackBlocks : noteApi.openNote?.blocks ?? NO_NOTE_BLOCKS
   const updateNote = (change: (note: MemoNote) => MemoNote) => noteApi?.updateOpen(change)
   // 새 메모가 들어갈 노트 안 자리(만들 때 보고 있던 화면 가운데)
   const [draftIndex, setDraftIndex] = useState(0)
+  // 같은 입력이면 같은 배열: 스크롤·마우스 올리기로 PdfPane 이 다시 그려져도 노트 카드가 다시 그려지지 않게
+  const noteItems = useMemo<NoteFlowItem[]>(() => {
   const noteItems: NoteFlowItem[] = []
   // 접힌 소제목 아래 블록은 숨긴다(새로 쓰는 메모는 늘 보인다)
   let hidden = false
@@ -505,6 +510,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     })
   })
   if (draftMemo !== null && draftIndex >= noteBlocks.length) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true, sourceLabel: title })
+  return noteItems
+  }, [noteBlocks, highlightById, draftMemo, draftIndex, docTitles, docId, title])
   const noteMemos = noteItems.flatMap((item) => item.kind === 'memo' && item.draft !== true ? [item.highlight] : [])
   // 노트 바에 열린 노트가 있을 때, 그 노트에 없는 형광펜은 카드도 연결선도 없다: 설정에 따라 흐리게·숨기고, 올리면 어느 노트의 것인지 말한다
   const otherNotePref = useOtherNoteHighlights()
@@ -1493,6 +1500,46 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     onAnchorCreated?.(anchor)
   }
 
+  // 노트 바(NoteFlow)에 넘기는 동작: 늘 같은 함수라서 스크롤·마우스 올리기로 이 컴포넌트가 다시 그려져도 노트 카드가 다시 그려지지 않는다.
+  // 부를 때는 가장 새 값을 쓴다
+  const noteSaveMemo = useEvent((highlightId: string, content: MemoContent, ticket?: MemoTicket) => saveMemo(highlightId, content, ticket))
+  const noteAddRef = useEvent((key: string | null) => {
+    setAttachKey(key)
+    if (key !== null) announceAction(t('PDF 에서 더할 원문을 고르세요'))
+  })
+  const noteRemoveRef = useEvent((key: string, highlightId: string) => updateNote((note) => removeMemoRef(note, key, highlightId)))
+  const noteDeleteBlocks = useEvent((keys: readonly string[]) => deleteNoteBlocks(keys))
+  const noteCancelDraft = useEvent(() => cancelDraftMemo())
+  const noteSaveText = useEvent((key: string, content: MemoContent) => saveTextBlock(key, content))
+  const noteRemoveText = useEvent((key: string) => updateNote((note) => removeBlock(note, key)))
+  const noteRecolor = useEvent((id: string, color: PdfHighlightColor) => patchMemo(id, { color }))
+  const noteDeleteMemo = useEvent((id: string) => {
+    setEditingMemoId(null)
+    onPersistentHighlightRemoved?.(id)
+  })
+  const noteToggleCollapse = useEvent((id: string, collapsed: boolean) => toggleQuote(id, collapsed))
+  const noteRate = useEvent((id: string, rating: number) => patchMemo(id, { rating }))
+  const noteMove = useEvent((keys: string | readonly string[], beforeKey: string | null) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note)))
+  const noteJump = useEvent((highlight: PersistentPdfHighlight) => {
+    // 메모만 보기에서 원문·쪽을 누르면 문서와 같이 보기로 돌아가 그 자리로 간다
+    if (!memoOnly) { jumpToMemo(highlight); return }
+    setMemoOnly(false)
+    window.setTimeout(() => jumpToMemo(highlight), 0)
+  })
+  const noteRenameSection = useEvent((key: string, title: string) => updateNote((note) => updateSection(note, key, { title })))
+  const noteToggleSection = useEvent((key: string, collapsed: boolean) => updateNote((note) => updateSection(note, key, { collapsed })))
+  // 같은 ID 의 다른 블록(다른 노트 포함)도 함께 맞춘다(setTicket). 없으면 이 블록만
+  const noteSetTicket = useEvent((key: string, ticket: MemoTicket | null) => (noteApi?.setTicket !== undefined ? noteApi.setTicket(key, ticket) : updateNote((note) => setMemoTicket(note, key, ticket))))
+  const noteRemoveSection = useEvent((key: string) => updateNote((note) => removeBlock(note, key)))
+  const noteInsertSection = useEvent((key: string) => insertNearBlock(key, sectionBlock(), false))
+  const noteInsertText = useEvent((key: string) => insertNearBlock(key, textBlock(), true))
+  const noteAppendText = useEvent(() => appendTextBlock())
+  // 원문이 있는 쪽 크기가 바뀌면(문서를 열고 쪽 크기를 알게 될 때) 새 함수가 되어 카드가 다시 그려진다
+  const notePageSizeOf = useCallback(
+    (highlight: PersistentPdfHighlight) => highlight.anchor.docId === docId ? pageSizes[highlight.anchor.page] : highlight.pageSize,
+    [docId, pageSizes],
+  )
+
   const pages: JSX.Element[] = []
   // renderWidth 가 0 이면 아직 상자를 못 잰 것이다. 그 상태로 요청하면
   // 아무도 볼 수 없는 폭의 페이지를 문서 전체만큼 긁어 오게 된다.
@@ -1744,44 +1791,32 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 editingKey={draftMemo !== null ? 'draft' : editingMemoId}
                 activeKey={activeMemoId}
                 query={memoQuery}
-                pageSizeOf={(highlight) => highlight.anchor.docId === docId ? pageSizes[highlight.anchor.page] : highlight.pageSize}
+                pageSizeOf={notePageSizeOf}
                 onEdit={setEditingMemoId}
                 onActivate={setActiveMemoId}
-                onSaveMemo={(highlightId, content, ticket) => saveMemo(highlightId, content, ticket)}
-                onAddRef={noteApi === null ? undefined : (key) => {
-                  setAttachKey(key)
-                  if (key !== null) announceAction(t('PDF 에서 더할 원문을 고르세요'))
-                }}
-                onRemoveRef={noteApi === null ? undefined : (key, highlightId) => updateNote((note) => removeMemoRef(note, key, highlightId))}
+                onSaveMemo={noteSaveMemo}
+                onAddRef={noteApi === null ? undefined : noteAddRef}
+                onRemoveRef={noteApi === null ? undefined : noteRemoveRef}
                 attachingKey={attachKey}
-                onDeleteBlocks={noteApi === null ? undefined : deleteNoteBlocks}
-                onCancelDraft={cancelDraftMemo}
-                onSaveText={saveTextBlock}
-                onRemoveText={(key) => updateNote((note) => removeBlock(note, key))}
-                onRecolor={(id, color) => patchMemo(id, { color })}
-                onDeleteMemo={(id) => {
-                  setEditingMemoId(null)
-                  onPersistentHighlightRemoved?.(id)
-                }}
-                onToggleCollapse={toggleQuote}
+                onDeleteBlocks={noteApi === null ? undefined : noteDeleteBlocks}
+                onCancelDraft={noteCancelDraft}
+                onSaveText={noteSaveText}
+                onRemoveText={noteRemoveText}
+                onRecolor={noteRecolor}
+                onDeleteMemo={noteDeleteMemo}
+                onToggleCollapse={noteToggleCollapse}
                 openQuotes={openQuotes}
-                onRate={(id, rating) => patchMemo(id, { rating })}
-                onMove={(keys, beforeKey) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note))}
-                onJump={(highlight) => {
-                  // 메모만 보기에서 원문·쪽을 누르면 문서와 같이 보기로 돌아가 그 자리로 간다
-                  if (!memoOnly) { jumpToMemo(highlight); return }
-                  setMemoOnly(false)
-                  window.setTimeout(() => jumpToMemo(highlight), 0)
-                }}
+                onRate={noteRate}
+                onMove={noteMove}
+                onJump={noteJump}
                 onCardLayout={setMemoCardLayout}
-                onRenameSection={(key, title) => updateNote((note) => updateSection(note, key, { title }))}
-                onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
-                // 같은 ID 의 다른 블록(다른 노트 포함)도 함께 맞춘다(setTicket). 없으면 이 블록만
-                onSetTicket={noteApi === null ? undefined : (key, ticket) => (noteApi.setTicket !== undefined ? noteApi.setTicket(key, ticket) : updateNote((note) => setMemoTicket(note, key, ticket)))}
-                onRemoveSection={(key) => updateNote((note) => removeBlock(note, key))}
-                onInsertSection={noteApi === null ? undefined : (key) => insertNearBlock(key, sectionBlock(), false)}
-                onInsertText={noteApi === null ? undefined : (key) => insertNearBlock(key, textBlock(), true)}
-                onAppendText={noteApi === null || noteApi.openPath === null ? undefined : appendTextBlock}
+                onRenameSection={noteRenameSection}
+                onToggleSection={noteToggleSection}
+                onSetTicket={noteApi === null ? undefined : noteSetTicket}
+                onRemoveSection={noteRemoveSection}
+                onInsertSection={noteApi === null ? undefined : noteInsertSection}
+                onInsertText={noteApi === null ? undefined : noteInsertText}
+                onAppendText={noteApi === null || noteApi.openPath === null ? undefined : noteAppendText}
               />
               </MemoFormatSlotContext.Provider>
             </div>

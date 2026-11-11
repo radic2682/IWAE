@@ -25,6 +25,11 @@
 .note-block.pdf-memo-card-flow .pdf-memo-editor { font-size: 14.5px; }
 
 /* 머리: ID 배지 + 제목 */
+/* 카드 안쪽(머리·글·원문)은 화면 밖에 있으면 그리지 않는다(content-visibility). 메모가 수백 장이어도 글쓰기·창 크기·마우스 올리기가 가벼운 까닭이다.
+   호버 탭과 메뉴 단추는 이 상자 밖(카드의 직접 자식)이라 잘리지 않는다. 글·ID 를 쓰는 중(포커스가 안에 있음)에는 끄고, 쓰는 칸의 목록이 잘리지 않게 한다.
+   카드 높이는 한 번 그려진 뒤에는 그 값을 기억하고(auto), 그전에는 어림값을 쓴다 */
+.note-card-body { display: grid; gap: inherit; min-width: 0; }
+.note-card-body:not(:focus-within) { content-visibility: auto; contain-intrinsic-block-size: auto 96px; }
 .note-ticket-head { display: grid; gap: 3px; min-width: 0; }
 .note-ticket-id-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .note-ticket-id {
@@ -80,6 +85,9 @@
 }
 .note-block:is(:hover, :focus-within):not(.pdf-memo-card-dragging) > .note-block-tabs { opacity: 1; }
 .note-block:is(:hover, :focus-within):not(.pdf-memo-card-dragging) > .note-block-tabs .note-tab-r { pointer-events: auto; }
+/* 마우스도 초점도 없는 카드의 탭은 안쪽을 그리지 않는다(content-visibility): 수백 장이면 숨은 탭의 레이아웃·합성이 글쓰기·스크롤을 느리게 한다.
+   올리거나 초점이 오면 곧바로 그려지고, 벗어나면 사라지는 전환(motion.css)이 끝난 뒤에 그리기를 멈춘다 */
+.note-block:not(:hover, :focus-within) > .note-block-tabs { content-visibility: hidden; }
 body.note-block-dragging .note-block-tabs { display: none; }
 .note-block.pdf-memo-card-flow:not(.note-text-card):is(:hover, :focus-within):not(.pdf-memo-card-dragging) {
   box-shadow: inset 0 0 0 var(--memo-border) var(--memo-ink) !important;
@@ -284,8 +292,10 @@ body.note-block-dragging .note-block-tabs { display: none; }
    fixed 는 스크롤 상자의 overflow 에 잘리지 않고, 닻이라 카드를 따라 스크롤된다. 스크롤 상자(z 5)가 서식 도구 줄(z 4)보다 위라서 탭이 도구 줄을 덮는다.
    도구 줄의 메뉴·팔레트가 열려 있는 동안에는 도구 줄을 다시 위로 올려 메뉴가 카드에 가리지 않게 한다 */
 @supports (anchor-name: --a) and (position-anchor: --a) {
-  .pane-doc .pdf-memo-bar-scroll .note-block { anchor-scope: --memo-card; anchor-name: --memo-card; }
-  .pane-doc .pdf-memo-bar-scroll .note-block-tabs {
+  /* 닻은 마우스를 올리거나 초점이 있는 카드에만 건다: 카드마다 걸면 카드가 수백 장일 때 레이아웃마다 닻 자리를 모두 다시 구해 글쓰기·스크롤이 느려진다
+     (탭은 숨어 있는 동안 보이지도 눌리지도 않으니 닻이 없어도 모양이 같다) */
+  .pane-doc .pdf-memo-bar-scroll .note-block:is(:hover, :focus-within) { anchor-scope: --memo-card; anchor-name: --memo-card; }
+  .pane-doc .pdf-memo-bar-scroll .note-block:is(:hover, :focus-within) > .note-block-tabs {
     position: fixed; position-anchor: --memo-card;
     left: anchor(left); right: anchor(right); bottom: anchor(top);
   }

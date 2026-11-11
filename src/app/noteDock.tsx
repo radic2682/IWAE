@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type RefObject } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type RefObject } from 'react'
 
 /**
  * 오른쪽 노트 바 자리. 노트 바는 창 맨 오른쪽(모든 문서 창 바깥)에 하나만 있다 —
@@ -22,8 +22,13 @@ export function useNoteDock(): HTMLElement | null {
 export function useIsNoteHostPane(ref: RefObject<HTMLElement | null>): boolean {
   const { hostPane } = useContext(NoteDockContext)
   const [paneId, setPaneId] = useState<string | null>(null)
+  const lastPaneId = useRef<string | null>(null)
   useEffect(() => {
-    setPaneId(ref.current?.closest<HTMLElement>('[data-pane-id]')?.dataset.paneId ?? null)
+    // 달라졌을 때만 상태를 바꾼다(같은 값 갱신도 한 번 더 그리게 만든다)
+    const next = ref.current?.closest<HTMLElement>('[data-pane-id]')?.dataset.paneId ?? null
+    if (next === lastPaneId.current) return
+    lastPaneId.current = next
+    setPaneId(next)
   })
   // 창 이름을 알 수 없는 곳(시험, 단독 사용)은 늘 host
   if (paneId === null) return hostPane === null ? true : false

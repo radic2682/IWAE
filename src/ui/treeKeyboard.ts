@@ -120,6 +120,18 @@ export function handleMenuKey(event: KeyboardEvent): boolean {
   return true
 }
 
+/** 이 DOM 변화가 트리 안(또는 트리를 더하고 빼는 것)인가 */
+function touchesTree(record: MutationRecord): boolean {
+  const target = record.target
+  if (target instanceof Element && target.closest(TREE_ROOT) !== null) return true
+  for (const list of [record.addedNodes, record.removedNodes]) {
+    for (const node of list) {
+      if (node instanceof Element && (node.matches(TREE_ROOT) || node.querySelector(TREE_ROOT) !== null)) return true
+    }
+  }
+  return false
+}
+
 let installed = false
 
 /** 앱 시작 때 한 번. 이미 깔려 있으면 아무것도 하지 않는다 */
@@ -141,7 +153,10 @@ export function installTreeKeyboard(): void {
     for (const root of document.querySelectorAll<HTMLElement>(TREE_ROOT)) applyRoving(root)
   }
   new MutationObserver((records) => {
+    // 트리(왼쪽 바)가 바뀐 때만 roving 을 다시 맞춘다: 노트 카드처럼 큰 곳이 바뀔 때마다 줄마다 위치를 재면 레이아웃을 강제한다
+    let treeChanged = false
     for (const record of records) {
+      if (!treeChanged) treeChanged = touchesTree(record)
       for (const node of record.addedNodes) {
         if (!(node instanceof HTMLElement)) continue
         const menu = node.matches(MENU) ? node : node.querySelector<HTMLElement>(MENU)
@@ -158,7 +173,7 @@ export function installTreeKeyboard(): void {
         }
       }
     }
-    if (pending) return
+    if (!treeChanged || pending) return
     pending = true
     window.requestAnimationFrame(refresh)
   }).observe(document.body, { childList: true, subtree: true })

@@ -10,11 +10,15 @@ const CLEAR_MARGIN = 14
 export function useClearZones(): { readonly ref: RefObject<SVGSVGElement | null>; readonly rects: readonly ClearRect[] } {
   const ref = useRef<SVGSVGElement | null>(null)
   const [rects, setRects] = useState<readonly ClearRect[]>([])
+  const lastRef = useRef('[]')
   useLayoutEffect(() => {
     const svg = ref.current
     if (svg === null || typeof document === 'undefined') return
+    // 비워 둘 글이 없으면(거의 늘) 위치를 재지 않는다: 렌더마다 레이아웃을 강제하지 않게
+    const candidates = document.querySelectorAll<HTMLElement>(CLEAR_SELECTOR)
+    if (candidates.length === 0 && lastRef.current === '[]') return
     const origin = svg.getBoundingClientRect()
-    const next = Array.from(document.querySelectorAll<HTMLElement>(CLEAR_SELECTOR)).filter((element) => element.closest('[inert]') === null && element.getBoundingClientRect().width >= 80).map((element) => {
+    const next = Array.from(candidates).filter((element) => element.closest('[inert]') === null && element.getBoundingClientRect().width >= 80).map((element) => {
       const box = element.getBoundingClientRect()
       return {
         x: Math.round(box.left - origin.left - CLEAR_MARGIN),
@@ -23,7 +27,11 @@ export function useClearZones(): { readonly ref: RefObject<SVGSVGElement | null>
         h: Math.round(box.height + CLEAR_MARGIN * 2),
       }
     }).filter((rect) => rect.w > CLEAR_MARGIN * 2 && rect.h > CLEAR_MARGIN * 2)
-    setRects((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
+    // 같은 값이면 상태를 건드리지 않는다(같은 값 갱신도 한 번 더 그리게 만든다)
+    const signature = JSON.stringify(next)
+    if (signature === lastRef.current) return
+    lastRef.current = signature
+    setRects(next)
   })
   return { ref, rects }
 }

@@ -164,7 +164,7 @@ li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron
 /* 메모 카드 호버 탭: 아래에서 4px 올라오며 나타난다 */
 .note-block-tabs {
   transform: translateY(4px);
-  transition: opacity var(--motion-fast) ease, transform var(--spring-snap-dur) var(--ease-spring-snap);
+  transition: opacity var(--motion-fast) ease, transform var(--spring-snap-dur) var(--ease-spring-snap), content-visibility var(--spring-snap-dur) allow-discrete;
 }
 .note-block:is(:hover, :focus-within):not(.pdf-memo-card-dragging) > .note-block-tabs { transform: none; }
 /* 노트 블록: 고르면 한 번 통 튄다(새 블록·순서 바뀜은 NoteFlow 의 FLIP) */

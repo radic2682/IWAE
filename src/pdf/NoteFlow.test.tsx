@@ -201,7 +201,7 @@ describe('NoteFlow — 티켓 · 여러 원문 · 여러 블록 고르기', () =
     const items: NoteFlowItem[] = [{ kind: 'memo', key: 'b1', highlight: h1, ticket: { id: 'REQ-1', title: '저장' } }]
     const { container } = render(<NoteFlow {...handlers()} items={items} />)
     const card = container.querySelector('.note-ticket')!
-    const order = [...card.children].map((child) => child.className)
+    const order = [...card.querySelector('.note-card-body')!.children].map((child) => child.className)
     expect(order.findIndex((name) => name.includes('note-ticket-head'))).toBeLessThan(order.findIndex((name) => name.includes('pdf-memo-card-text') || name.includes('pdf-memo-note')))
     expect(order.findIndex((name) => name.includes('note-ticket-head'))).toBeLessThan(order.findIndex((name) => name.includes('note-sources')))
     expect(card.querySelector('.note-ticket-id')?.textContent).toBe('REQ-1')
@@ -217,7 +217,7 @@ describe('NoteFlow — 티켓 · 여러 원문 · 여러 블록 고르기', () =
     ]
     const { container } = render(<NoteFlow {...handlers()} items={items} onSetTicket={onSetTicket} />)
     const card = container.querySelector('[data-note-block="b1"]')!
-    const order = [...card.children].map((child) => child.className)
+    const order = [...card.querySelector('.note-card-body')!.children].map((child) => child.className)
     expect(order.findIndex((name) => name.includes('note-sources'))).toBeGreaterThan(0)
     expect(card.querySelector('.note-ticket-head')).toBeNull()
     fireEvent.click(screen.getAllByRole('button', { name: '+ ID' })[0]!)

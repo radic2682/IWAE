@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { CaretDown, CaretRight, Check, Code, DotsSixVertical, HighlighterCircle, ListBullets, ListChecks, ListNumbers, Star, Table, TextAa, TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline, Trash } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { restoreInlineStyles } from '../app/runtimeStyle'
@@ -475,7 +475,7 @@ export function MemoNoteView({ note, noteHtml, onEdit, onChange }: {
   readonly onChange?: (content: MemoContent) => void
 }) {
   const viewRef = useRef<HTMLDivElement>(null)
-  const displayHtml = memoDisplayHtml(note, noteHtml)
+  const displayHtml = useMemo(() => memoDisplayHtml(note, noteHtml), [note, noteHtml])
   // 저장된 서식(글자색 등)의 style="" 는 제품 빌드 CSP 가 막으므로 CSSOM 으로 다시 입힌다
   useLayoutEffect(() => {
     if (viewRef.current !== null) restoreInlineStyles(viewRef.current)
