@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.1.16" src="https://img.shields.io/badge/version-0.1.16-2563eb">
+  <img alt="Version 0.1.17" src="https://img.shields.io/badge/version-0.1.17-2563eb">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca">
   <img alt="Platform: Windows (macOS coming soon)" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20soon-0078d4">
