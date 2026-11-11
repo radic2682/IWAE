@@ -1,7 +1,7 @@
 {
   "name": "iwae",
   "version": "0.1.10",
-  "description": "Local-first PDF reader that links highlights and memos into source-aware notes",
+  "description": "PDF notes woven to their source: a local-first PDF reader that links highlights and memos back to the exact spot",
   "license": "MIT",
   "scripts": {
     "test": "vitest run",

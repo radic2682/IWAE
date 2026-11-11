@@ -58,6 +58,7 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   'API 설정됨': 'API configured',
   'Ollama 연결됨': 'Ollama connected',
   '버전 {version}': 'Version {version}',
+  '원문과 엮이는 PDF 노트': 'PDF notes woven to their source',
   'Ollama에 요청하는 중': 'Requesting from Ollama',
   '모델 정보 확인 중': 'Checking model info',
   '받은 파일 확인 중': 'Verifying download',

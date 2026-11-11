@@ -41,6 +41,7 @@ export function AboutDialog({ version, onClose }: { readonly version: string; re
           <img className="about-logo-final" src="/iwae-logo.png" alt="" />
         </div>
         <h2 className="about-name">IWAE</h2>
+        <p className="about-subtitle">{t('원문과 엮이는 PDF 노트')}</p>
         <p className="about-tagline">Interwoven Writing and Evidence</p>
         <p className="about-version">{t('버전 {version}', { version })}</p>
         <dl className="about-facts">

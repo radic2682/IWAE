@@ -2,7 +2,7 @@
   <img src="public/iwae-logo.png" width="96" alt="IWAE 로고">
 </p>
 
-<h1 align="center">IWAE</h1>
+<h1 align="center">IWAE: 원문과 엮이는 PDF 노트</h1>
 
 <p align="center">
   <strong>Interwoven Writing and Evidence</strong><br>

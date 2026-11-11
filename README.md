@@ -2,7 +2,7 @@
   <img src="public/iwae-logo.png" width="96" alt="IWAE logo">
 </p>
 
-<h1 align="center">IWAE</h1>
+<h1 align="center">IWAE: PDF notes woven to their source</h1>
 
 <p align="center">
   <strong>Interwoven Writing and Evidence</strong><br>
