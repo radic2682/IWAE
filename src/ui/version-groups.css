@@ -29,7 +29,7 @@
 
 /* 묶음 줄: 제목 + 판 칩을 한 줄로 묶어 켜짐 바탕이 줄 전체에 깔린다 */
 .side-version-line-plain { display: contents; }
-.side-version-line { display: flex; flex: 1 0 100%; align-items: center; min-width: 0; max-width: 100%; border-radius: var(--r-sm); }
+.side-version-line { position: relative; display: flex; flex: 1 0 100%; align-items: center; min-width: 0; max-width: 100%; border-radius: var(--r-sm); }
 .side-version-line > .side-item { flex: 1 1 0; min-width: 0; }
 .sidebar .side-version-line > .side-item.side-item-open,
 .sidebar .side-version-line > .side-item.side-item-open:hover { background: transparent; }
@@ -184,15 +184,15 @@
 .side-doc-note-item { min-width: 0; }
 .side-doc-note-item > .side-item { width: 100%; }
 .side-doc-note-menu-host { display: contents; }
-/* 버전 묶음 줄: 제목이 길어 줄어들어도 지금 버전(· 2025)은 끝에 남는다 */
-.side-item-version { flex: 0 0 auto; max-width: 45%; overflow: hidden; font-weight: inherit; text-overflow: ellipsis; white-space: pre; }
+/* 버전 묶음 줄: 좁아지면 제목이 아니라 버전 글이 먼저 줄임표로 줄어든다(제목이 문서를 가리킨다) */
+.side-item-version { flex: 0 100 auto; min-width: 0; max-width: 45%; overflow: hidden; font-weight: inherit; text-overflow: ellipsis; white-space: pre; }
 .side-item-version { margin-left: -5px; }
 /* 마우스를 올린 칠은 화살표·「+」까지 줄 전체에 */
 .sidebar .side-version-line:hover { background: var(--chrome-hover); }
 .sidebar .side-section .side-version-line:hover > .side-item:not(.side-item-open) { background: transparent; }
 .sidebar .side-version-line-open:hover { background: var(--selected-bg-strong); }
 .sidebar .side-section .side-tree-row > .side-version-line > .side-doc-note-add.side-doc-note-add-with-caret { right: 34px; }
-.sidebar .side-section .side-version-line:hover > .side-item:has(~ .side-doc-note-add) { padding-right: 30px; }
+.sidebar .side-section .side-version-line:hover > .side-item:has(~ .side-doc-note-add) { padding-right: 32px; }
 
 /* ---------- 바 안쪽 확대(Ctrl+휠): 왼쪽 바 목록 ---------- */
 /* 구역 머리(제목 + 단추)는 100% 로 두고 그 아래 목록·빈 안내만 확대한다 */

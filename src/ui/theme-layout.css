@@ -180,7 +180,8 @@
 .sidebar-inner {
   flex: 1 1 auto;
   min-height: 0;
-  min-width: 238px;
+  /* 접히는 동안 글이 다시 줄바꿈되지 않게 하는 바닥. 끌어서 줄일 수 있는 최소 폭(SIDEBAR_MIN)과 같아야 한다 — 더 크면 좁힌 바에서 줄 오른쪽(화살표·+)이 잘린다 */
+  min-width: 180px;
   display: flex;
   flex-direction: column;
 }
