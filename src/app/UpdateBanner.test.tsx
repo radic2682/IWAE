@@ -40,4 +40,9 @@ describe('UpdateBanner', () => {
     fireEvent.click(screen.getByRole('button', { name: '재시작하여 설치' }))
     expect(state.install).toHaveBeenCalledOnce()
   })
+
+  it('설정 창이 열려 있으면 숨긴다', () => {
+    render(<UpdateBanner state={updater({ status: 'ready' })} hidden />)
+    expect(screen.queryByRole('button', { name: '재시작하여 설치' })).toBeNull()
+  })
 })

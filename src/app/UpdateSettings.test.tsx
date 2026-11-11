@@ -39,4 +39,26 @@ describe('UpdateSettings', () => {
     expect(screen.getByRole('button', { name: 'Check now' })).not.toBeNull()
     expect(screen.getByText(/are hidden/u)).not.toBeNull()
   })
+
+  it('확인 결과를 설정 안에서 보이고 설치 단추를 제공한다', () => {
+    setLocale('ko')
+    const pkg = { currentVersion: '0.1.11', version: '0.1.12', body: '고친 점', date: null, download: vi.fn(), installAndRelaunch: vi.fn(), close: vi.fn() }
+    const base = state()
+    const { rerender } = render(<UpdateSettings currentVersion="0.1.11" state={{ ...base, status: 'current' }} />)
+    expect(screen.getByText('최신 버전을 사용 중입니다.')).not.toBeNull()
+
+    const available = { ...base, status: 'available' as const, update: pkg }
+    rerender(<UpdateSettings currentVersion="0.1.11" state={available} />)
+    expect(screen.getByText('IWAE 0.1.12 업데이트')).not.toBeNull()
+    expect(screen.getByText('고친 점')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '업데이트 다운로드' }))
+    expect(base.download).toHaveBeenCalledOnce()
+
+    rerender(<UpdateSettings currentVersion="0.1.11" state={{ ...available, status: 'ready' }} />)
+    fireEvent.click(screen.getByRole('button', { name: '재시작하여 설치' }))
+    expect(base.install).toHaveBeenCalledOnce()
+
+    rerender(<UpdateSettings currentVersion="0.1.11" state={{ ...base, status: 'error', error: 'net' }} />)
+    expect(screen.getByRole('alert').textContent).toContain('확인하지 못했습니다')
+  })
 })

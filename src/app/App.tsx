@@ -2691,7 +2691,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     <MemoNoteContext.Provider value={memoNoteApi}>
     <TranslationCardSettingsContext.Provider value={translationCardSettings}>
     <ActionToast />
-    <UpdateBanner state={updater} />
+    <UpdateBanner state={updater} hidden={settingsOpen} />
     {interop.offer === null ? null : <AnnotationOfferBanner count={interop.offer.count} onImport={interop.acceptOffer} onDismiss={interop.dismissOffer} />}
     {error !== null && (
           <div className="app-error" role="alert">

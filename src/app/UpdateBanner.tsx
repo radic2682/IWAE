@@ -4,16 +4,18 @@ import { t } from '../i18n'
 
 interface UpdateBannerProps {
   readonly state: UseUpdaterResult
+  /** 설정 창이 열려 있으면 결과를 설정 창 안에서 보이므로 알림을 숨긴다 */
+  readonly hidden?: boolean
 }
 
-function progressLabel(state: UseUpdaterResult): string {
+export function progressLabel(state: UseUpdaterResult): string {
   const { downloaded, total } = state.progress
   if (total === null || total <= 0) return t('업데이트 다운로드 중…')
   return t('업데이트 다운로드 중 {percent}%', { percent: Math.min(100, Math.round(downloaded / total * 100)) })
 }
 
-export function UpdateBanner({ state }: UpdateBannerProps) {
-  if (state.update === null || state.status === 'idle' || state.status === 'checking' || state.status === 'error') return null
+export function UpdateBanner({ state, hidden = false }: UpdateBannerProps) {
+  if (hidden || state.update === null || state.status === 'idle' || state.status === 'checking' || state.status === 'current' || state.status === 'error') return null
   const title = t('IWAE {version} 업데이트', { version: state.update.version })
 
   return (

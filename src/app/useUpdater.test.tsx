@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { UpdatePackage, UpdaterClient } from '../bridge/updater'
 import { memoryUpdatePreferencesStorage } from '../core/updatePreferences'
-import { useUpdater } from './useUpdater'
+import { UPDATE_RECHECK_MS, useUpdater } from './useUpdater'
 
 function availableUpdate(overrides: Partial<UpdatePackage> = {}): UpdatePackage {
   return {
@@ -76,5 +76,71 @@ describe('useUpdater', () => {
     await waitFor(() => expect(result.current.status).toBe('ready'))
     expect(flush).toHaveBeenCalledBefore(install)
     expect(result.current.error).toContain('install failed')
+  })
+
+  it('새 버전이 없으면 최신 상태로 알린다', async () => {
+    const client: UpdaterClient = { check: vi.fn(async () => null) }
+    const { result } = renderHook(() => useUpdater({
+      client, storage: memoryUpdatePreferencesStorage(), autoStart: false, flushBeforeInstall: async () => undefined,
+    }))
+    await act(() => result.current.checkNow())
+    expect(result.current.status).toBe('current')
+  })
+})
+
+describe('useUpdater 주기 확인', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  function setup(autoCheck = true) {
+    const storage = memoryUpdatePreferencesStorage()
+    const client: UpdaterClient = { check: vi.fn(async () => null) }
+    const hook = renderHook(() => useUpdater({ client, storage, autoStart: true, flushBeforeInstall: async () => undefined }))
+    if (!autoCheck) act(() => hook.result.current.updatePreferences({ autoCheck: false }))
+    return { client, ...hook }
+  }
+
+  it('켜 둔 동안 6시간마다 다시 확인한다', async () => {
+    vi.useFakeTimers()
+    const { client } = setup()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(client.check).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(UPDATE_RECHECK_MS) })
+    expect(client.check).toHaveBeenCalledTimes(2)
+    await act(async () => { await vi.advanceTimersByTimeAsync(UPDATE_RECHECK_MS) })
+    expect(client.check).toHaveBeenCalledTimes(3)
+  })
+
+  it('자동 확인을 끄면 되풀이하지 않는다', async () => {
+    vi.useFakeTimers()
+    const { client } = setup(false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    const before = vi.mocked(client.check).mock.calls.length
+    await act(async () => { await vi.advanceTimersByTimeAsync(UPDATE_RECHECK_MS * 2) })
+    expect(client.check).toHaveBeenCalledTimes(before)
+  })
+
+  it('창으로 돌아올 때는 마지막 확인이 6시간 지났을 때만 확인한다', async () => {
+    vi.useFakeTimers()
+    const { client } = setup()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(client.check).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60 * 1000) })
+    act(() => { window.dispatchEvent(new Event('focus')) })
+    expect(client.check).toHaveBeenCalledTimes(1)
+    await act(async () => { vi.setSystemTime(Date.now() + UPDATE_RECHECK_MS) })
+    act(() => { window.dispatchEvent(new Event('focus')) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(client.check).toHaveBeenCalledTimes(2)
+  })
+
+  it('내려받는 중이거나 설치를 기다리는 동안에는 다시 확인하지 않는다', async () => {
+    vi.useFakeTimers()
+    const update = availableUpdate()
+    const client: UpdaterClient = { check: vi.fn(async () => update) }
+    renderHook(() => useUpdater({ client, storage: memoryUpdatePreferencesStorage(), autoStart: true, flushBeforeInstall: async () => undefined }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(client.check).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(UPDATE_RECHECK_MS) })
+    expect(client.check).toHaveBeenCalledTimes(1)
   })
 })

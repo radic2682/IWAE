@@ -1,6 +1,7 @@
-import { ArrowClockwise, CheckCircle, EyeSlash } from '@phosphor-icons/react'
+import { ArrowClockwise, CheckCircle, DownloadSimple, EyeSlash, WarningCircle } from '@phosphor-icons/react'
 import { dateLocale, pick, t } from '../i18n'
 import type { UseUpdaterResult } from './useUpdater'
+import { progressLabel } from './UpdateBanner'
 
 interface UpdateSettingsProps {
   readonly currentVersion: string
@@ -11,6 +12,56 @@ function checkedAtLabel(value: string | null): string {
   if (value === null) return t('아직 확인하지 않음')
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? t('확인 기록 없음') : date.toLocaleString(dateLocale())
+}
+
+function UpdateResult({ state }: { readonly state: UseUpdaterResult }) {
+  const { status, update } = state
+  if (status === 'checking') {
+    return <div className="update-result" role="status"><span>{t('업데이트를 확인하는 중…')}</span></div>
+  }
+  if (status === 'current') {
+    return <div className="update-result" role="status"><CheckCircle size={16} weight="fill" aria-hidden="true" /><span>{t('최신 버전을 사용 중입니다.')}</span></div>
+  }
+  if (status === 'error') {
+    return (
+      <div className="update-result update-result-error" role="alert">
+        <WarningCircle size={16} weight="fill" aria-hidden="true" />
+        <span>{t('업데이트를 확인하지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.')}</span>
+      </div>
+    )
+  }
+  if (update === null || status === 'idle') return null
+  const title = t('IWAE {version} 업데이트', { version: update.version })
+  return (
+    <div className="update-result update-result-available" role="status" aria-label={title}>
+      <div className="update-result-copy">
+        <strong>{title}</strong>
+        {status === 'downloading' ? (
+          <>
+            <span>{progressLabel(state)}</span>
+            <progress value={state.progress.downloaded} max={state.progress.total ?? undefined} />
+          </>
+        ) : status === 'ready' ? (
+          <span>{t('내려받기를 마쳤습니다. 다시 시작하면 설치됩니다.')}</span>
+        ) : (
+          <span>{update.body.trim() || t('새 버전을 설치할 수 있습니다.')}</span>
+        )}
+      </div>
+      <div className="update-result-actions">
+        {status === 'available' && (
+          <button type="button" className="update-result-primary" aria-label={t('업데이트 다운로드')} onClick={() => void state.download()}>
+            <DownloadSimple size={14} aria-hidden="true" /> {t('업데이트 다운로드')}
+          </button>
+        )}
+        {status === 'ready' && (
+          <button type="button" className="update-result-primary" aria-label={t('재시작하여 설치')} onClick={() => void state.install()}>
+            {t('재시작하여 설치')}
+          </button>
+        )}
+        {status === 'installing' && <span>{t('설치 준비 중…')}</span>}
+      </div>
+    </div>
+  )
 }
 
 export function UpdateSettings({ currentVersion, state }: UpdateSettingsProps) {
@@ -26,7 +77,7 @@ export function UpdateSettings({ currentVersion, state }: UpdateSettingsProps) {
 
       <div className="settings-list">
         <label className="settings-toggle-row">
-          <span><strong>{t('업데이트 자동 확인')}</strong><small>{t('작업 공간을 연 뒤 백그라운드에서 확인합니다.')}</small></span>
+          <span><strong>{t('업데이트 자동 확인')}</strong><small>{t('작업 공간을 연 뒤, 그리고 켜 둔 동안 6시간마다 백그라운드에서 확인합니다.')}</small></span>
           <input
             type="checkbox"
             aria-label={t('업데이트 자동 확인')}
@@ -53,6 +104,8 @@ export function UpdateSettings({ currentVersion, state }: UpdateSettingsProps) {
         </button>
       </div>
 
+      <UpdateResult state={state} />
+
       {state.preferences.suppressedVersion !== null && (
         <div className="update-suppressed-version">
           <EyeSlash size={16} aria-hidden="true" />
@@ -63,7 +116,7 @@ export function UpdateSettings({ currentVersion, state }: UpdateSettingsProps) {
           <button type="button" aria-label={t('숨긴 버전 초기화')} onClick={state.clearSuppressedVersion}>{t('다시 표시')}</button>
         </div>
       )}
-      {state.error !== null && <p className="settings-inline-error" role="alert">{state.error}</p>}
+      {state.error !== null && state.status !== 'error' && <p className="settings-inline-error" role="alert">{state.error}</p>}
     </section>
   )
 }

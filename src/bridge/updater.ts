@@ -82,6 +82,11 @@ export function createUpdaterClient(dependencies: UpdaterDependencies): UpdaterC
 
 export const updaterClient: UpdaterClient = createUpdaterClient({
   async check() {
+    // 개발 빌드 전용: 화면 점검용으로 업데이트 확인 결과를 흉내 낸다(제품 빌드에서는 지워진다)
+    if (import.meta.env.DEV) {
+      const mock = (window as unknown as { __iwaeUpdaterMock?: () => Promise<NativeUpdate | null> }).__iwaeUpdaterMock
+      if (mock !== undefined) return mock()
+    }
     if (!isDesktop()) return null
     const updater = await import('@tauri-apps/plugin-updater')
     return updater.check({ timeout: 15_000 })
