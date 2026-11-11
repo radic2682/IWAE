@@ -1,4 +1,4 @@
-import { recordUndo } from './undoStack'
+import { recordSeparately, recordUndo } from './undoStack'
 import { applySnapshotChange } from '../core/jsonMerge'
 import { registerSaveFlusher } from './useCanvasAutosave'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -36,7 +36,9 @@ import {
   uniqueNoteTitle,
   type MemoNote,
   type MemoNoteEntry,
+  type MemoTicket,
 } from '../core/memoNote'
+import { buildTicketIndex, syncTicketEdit } from '../core/memoTickets'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import type { MemoNoteApi } from '../pdf/memoNoteContext'
 import { errorText } from '../core/errorText'
@@ -698,6 +700,22 @@ export function useMemoNotes(
     .map(([path, note]) => ({ path, title: memoNoteTitleOf(path), blocks: note.blocks.length }))
     .sort((a, b) => a.title.localeCompare(b.title, 'ko-KR')), [])
 
+  /**
+   * 열린 노트의 블록 하나의 ID·제목을 바꾸고, 같은 메모(같은 ID + 같은 형광펜)의 다른 블록들도 같은 값으로 맞춘다.
+   * 모든 노트는 notesRef(저장 전 최신)에서 읽고 putNote 로 쓰므로 노트마다 저장 대기·충돌 확인이 그대로 지켜지고,
+   * 한 번의 동작으로 남겨 Ctrl+Z 한 번에 모든 노트가 돌아온다
+   */
+  const setTicket = useCallback((blockId: string, ticket: MemoTicket | null) => {
+    const path = openPathRef.current
+    if (path === null) return
+    const changed = syncTicketEdit(notesRef.current, path, blockId, ticket)
+    if (changed.size === 0) return
+    recordSeparately(() => { for (const [changedPath, note] of changed) putNote(changedPath, note) })
+  }, [putNote])
+  const tickets = useMemo(() => buildTicketIndex(notes), [notes])
+  const highlightById = useMemo(() => new Map(highlights.map((highlight) => [highlight.id, highlight])), [highlights])
+  const highlightOf = useCallback((highlightId: string) => highlightById.get(highlightId), [highlightById])
+
   const membership = useMemo(() => {
     const map = new Map<string, string[]>()
     for (const [path, note] of notes) {
@@ -741,5 +759,8 @@ export function useMemoNotes(
     trashFolder,
     conflict: conflicts[0] ?? null,
     resolveConflict,
+    tickets,
+    setTicket,
+    highlightOf,
   }
 }

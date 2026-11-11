@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react'
-import type { MemoNote, MemoNoteEntry } from '../core/memoNote'
+import type { MemoNote, MemoNoteEntry, MemoTicket } from '../core/memoNote'
+import type { TicketIndex } from '../core/memoTickets'
+import type { PersistentPdfHighlight } from './persistentHighlight'
 
 /**
  * 오른쪽 바에 열린 메모 노트. PDF 와 따로 열리고(어느 PDF 를 보든 같은 노트), 여러 PDF 의 형광펜 메모와
@@ -33,6 +35,46 @@ export interface MemoNoteApi {
   readonly docLabel?: (docId: string) => string
   /** 이 PDF 에 노트를 만들어 오른쪽 바에 열고 이름을 고치게 한다. 만든 경로 */
   readonly createForDoc?: (docId: string) => Promise<string | null>
+  /** 모든 노트의 티켓(ID 가 붙은 메모 블록)을 ID 별로 모은 것: 같은 ID 가 놓인 곳들과 충돌 */
+  readonly tickets?: TicketIndex
+  /**
+   * 열린 노트의 블록 하나의 ID·제목을 바꾼다. 같은 ID·같은 형광펜을 가진 다른 블록(다른 노트 포함)도 같은 값으로 맞추고,
+   * 되돌리기는 한 번에 모두 되돌린다. null 이면 ID·제목을 지운다
+   */
+  readonly setTicket?: (blockId: string, ticket: MemoTicket | null) => void
+  /** 형광펜 id → 형광펜(티켓 고르기의 원문 글) */
+  readonly highlightOf?: (highlightId: string) => PersistentPdfHighlight | undefined
+}
+
+/** 노트 블록으로 가서 보여 주기: 다른 노트면 그 노트를 열고, 그 블록으로 스크롤해 잠깐 깜빡인다 */
+export interface BlockReveal {
+  readonly path: string
+  readonly blockId: string
+}
+let pendingReveal: (BlockReveal & { readonly at: number }) | null = null
+/** 요청 뒤 이 시간이 지나도 블록을 못 찾으면 그만둔다(지워진 블록·닫힌 노트) */
+const REVEAL_EXPIRES_MS = 5000
+const revealListeners = new Set<() => void>()
+
+/** path 노트의 blockId 블록을 보인다. 노트가 이미 열려 있으면 바로, 아니면 열린 뒤에 */
+export function revealNoteBlock(api: Pick<MemoNoteApi, 'open' | 'openPath'>, path: string, blockId: string): void {
+  pendingReveal = { path, blockId, at: Date.now() }
+  if (api.openPath !== path) api.open(path)
+  for (const listener of revealListeners) listener()
+}
+
+export function peekBlockReveal(): BlockReveal | null {
+  if (pendingReveal !== null && Date.now() - pendingReveal.at > REVEAL_EXPIRES_MS) pendingReveal = null
+  return pendingReveal
+}
+
+export function clearBlockReveal(): void {
+  pendingReveal = null
+}
+
+export function onBlockRevealRequest(listener: () => void): () => void {
+  revealListeners.add(listener)
+  return () => { revealListeners.delete(listener) }
 }
 
 /** 새 노트를 만든 뒤 오른쪽 바 머리의 이름 칸을 바로 열기 위한 표시(머리가 아직 없을 수도 있어 경로를 기억해 둔다) */

@@ -1767,7 +1767,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                 onCardLayout={setMemoCardLayout}
                 onRenameSection={(key, title) => updateNote((note) => updateSection(note, key, { title }))}
                 onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
-                onSetTicket={noteApi === null ? undefined : (key, ticket) => updateNote((note) => setMemoTicket(note, key, ticket))}
+                // 같은 ID 의 다른 블록(다른 노트 포함)도 함께 맞춘다(setTicket). 없으면 이 블록만
+                onSetTicket={noteApi === null ? undefined : (key, ticket) => (noteApi.setTicket !== undefined ? noteApi.setTicket(key, ticket) : updateNote((note) => setMemoTicket(note, key, ticket)))}
                 onRemoveSection={(key) => updateNote((note) => removeBlock(note, key))}
                 onInsertSection={noteApi === null ? undefined : (key) => insertNearBlock(key, sectionBlock(), false)}
                 onInsertText={noteApi === null ? undefined : (key) => insertNearBlock(key, textBlock(), true)}

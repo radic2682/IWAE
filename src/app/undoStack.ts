@@ -32,6 +32,8 @@ let past: Group[] = []
 let future: Group[] = []
 let applying = false
 let openGroup: Group | null = null
+/** recordSeparately 안: 직전 묶음과 합치지 않는다 */
+let separate = false
 let nextGroupId = 1
 /** beginUndoGroup 가 연 이름 있는 묶음. 닫을 때까지 이어지는 동작(await 를 건너도)이 모두 이 묶음으로 들어간다 */
 let labeled: { label: string; group: Group | null } | null = null
@@ -63,7 +65,7 @@ export function recordUndo(entry: UndoEntry): void {
   }
   // 바로 앞 묶음이 같은 대상 하나만 고친 것이고 잠깐 전이면 합친다(글자를 칠 때마다 한 칸씩 되돌리지 않게)
   const last = past.at(-1)
-  if (last !== undefined && now - last.at < MERGE_MS && last.label === undefined && last.entries.length === 1 && last.entries[0]!.key === entry.key) {
+  if (!separate && last !== undefined && now - last.at < MERGE_MS && last.label === undefined && last.entries.length === 1 && last.entries[0]!.key === entry.key) {
     mergeInto(last, entry)
     last.at = now
     return
@@ -73,6 +75,16 @@ export function recordUndo(entry: UndoEntry): void {
   if (past.length > LIMIT) past = past.slice(-LIMIT)
   openGroup = group
   queueMicrotask(() => { openGroup = null })
+}
+
+/** 여러 저장소를 바꾸는 한 번의 동작(여러 노트의 티켓 제목 맞추기 등): run 안에서 남긴 것을 직전 묶음에 합치지 않고 새 묶음 하나로 남긴다 */
+export function recordSeparately(run: () => void): void {
+  separate = true
+  try {
+    run()
+  } finally {
+    separate = false
+  }
 }
 
 /** 같은 열쇠가 이미 묶음에 있으면 처음 것의 되돌리기와 나중 것의 다시 하기를 쓴다 */

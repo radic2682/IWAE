@@ -222,7 +222,7 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
               onCardLayout={() => undefined}
               onRenameSection={(key, sectionTitle) => updateNote((note) => updateSection(note, key, { title: sectionTitle }))}
               onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
-              onSetTicket={(key, ticket) => updateNote((note) => setMemoTicket(note, key, ticket))}
+              onSetTicket={(key, ticket) => (noteApi?.setTicket !== undefined ? noteApi.setTicket(key, ticket) : updateNote((note) => setMemoTicket(note, key, ticket)))}
               onRemoveSection={(key) => updateNote((note) => removeBlock(note, key))}
               onInsertSection={(key) => insertNear(key, sectionBlock(), false)}
               onInsertText={(key) => insertNear(key, textBlock(), true)}
