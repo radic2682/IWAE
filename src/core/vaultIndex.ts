@@ -311,3 +311,9 @@ export function reconcileMissingVaultPdfs(
     absentDocIds: absent,
   }
 }
+
+/** 문서 목록 항목이 Vault 안 파일이면 그 Vault 상대 경로, Vault 밖을 가리키는(참조) 항목이면 null */
+export function libraryEntryVaultPath(entry: LegacyPdfEntry): string | null {
+  const location = legacyPdfLocation(entry as unknown as Record<string, unknown>)
+  return location.storage === 'vault' ? normalizePath(location.path) : null
+}

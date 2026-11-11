@@ -10,6 +10,7 @@ import { parseCanvasDocument, type CanvasDocument, type CanvasDocumentV2 } from 
 import type { SessionState } from '../core/session'
 import {
   createVaultIndexEntry,
+  libraryEntryVaultPath,
   migrateLibraryToIndex,
   parseVaultIndex,
   type VaultIndexEntry,
@@ -1155,8 +1156,11 @@ export async function relinkDocument(
  * 파일은 그 자리에 둔다(복사하지 않음). 이미 같은 내용(SHA-256)의 PDF 가 있으면 건너뛴다.
  * 등록한 상대 경로 목록을 돌려준다.
  */
-/** 이번 실행에서 이미 살펴본(등록할 것이 없던) Vault PDF 경로. 새로고침마다 다시 해시를 재지 않게 */
-const checkedUnlistedPaths = new Set<string>()
+/**
+ * 이번 실행에서 이미 살펴본(등록할 것이 없던) Vault PDF 경로 → 그 내용의 SHA-256. 새로고침마다 다시 해시를 재지 않게.
+ * 같은 내용을 가진 등록 문서가 사라지면(원본을 지우거나 옮김) 다시 살펴야 하므로 해시를 같이 기억한다
+ */
+const checkedUnlistedPaths = new Map<string, string>()
 
 export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<string[]> {
   const { join } = await import('@tauri-apps/api/path')
@@ -1164,26 +1168,46 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
   const library = await readLibrary(vault)
   const index = await readVaultIndex(vault)
   const known = new Set(index.entries.filter((entry) => entry.kind === 'pdf').map((entry) => entry.path.replaceAll('\\', '/').toLocaleLowerCase()))
-  const knownHashes = new Set(library.map((entry) => entry.sha256))
+  const nextLibrary = [...library]
+  const presentPaths = new Set(tree.filter((entry) => !entry.isDirectory).map((entry) => entry.path.replaceAll('\\', '/').toLocaleLowerCase()))
+  const ownerOf = (sha256: string) => nextLibrary.find((entry) => entry.sha256 === sha256)
+  // 같은 내용으로 등록된 문서의 파일이 아직 Vault 에 있나(Vault 밖을 가리키는 참조 문서는 있는 것으로 본다)
+  const ownerFileExists = (owner: VaultLibraryEntry) => {
+    const ownerPath = libraryEntryVaultPath(owner)
+    return ownerPath === null || presentPaths.has(ownerPath.toLocaleLowerCase())
+  }
   const candidates = tree.filter((entry) => !entry.isDirectory
     && /\.pdf$/iu.test(entry.path)
     && !known.has(entry.path.replaceAll('\\', '/').toLocaleLowerCase()))
   const added: VaultLibraryEntry[] = []
+  const relinked: string[] = []
   const indexEntries = [...index.entries]
   const now = new Date()
   for (const [order, candidate] of candidates.entries()) {
     const relative = candidate.path.replaceAll('\\', '/')
     const absolute = await join(vault.root, ...relative.split('/'))
     // 이미 본 파일(같은 크기·같은 내용이라 등록할 것이 없던 것)은 다시 보지 않는다
-    if (checkedUnlistedPaths.has(absolute)) continue
+    const checkedHash = checkedUnlistedPaths.get(absolute)
+    if (checkedHash !== undefined) {
+      const checkedOwner = ownerOf(checkedHash)
+      if (checkedOwner !== undefined && ownerFileExists(checkedOwner)) continue
+    }
     // 먼저 해시만 잰다. 이미 등록된 PDF 와 내용이 같으면(다른 폴더의 사본 등) 열지 않는다.
     // PDF 를 열면 열린 문서 캐시(8개)에서 사용자가 보고 있는 문서가 밀려나 쪽이 빈칸이 된다
     let identity: { docId: string; sha256: string; size: number }
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       identity = await invoke<{ docId: string; sha256: string; size: number }>('pdf_file_hash', { path: absolute })
-      if (knownHashes.has(identity.sha256)) {
-        checkedUnlistedPaths.add(absolute)
+      const owner = ownerOf(identity.sha256)
+      if (owner !== undefined) {
+        if (ownerFileExists(owner)) {
+          checkedUnlistedPaths.set(absolute, identity.sha256)
+        } else {
+          // 등록된 문서의 파일이 사라지고 같은 내용의 파일이 새로 보인다 = 탐색기에서 옮기거나 이름을 바꾼 것.
+          // 새 문서로 올리면 같은 docId 가 겹치고 하이라이트·책갈피가 옛 항목에 남으므로, 그 문서를 새 자리로 잇는다
+          relinkMovedPdf(owner, relative, absolute, nextLibrary, indexEntries)
+          relinked.push(relative)
+        }
         continue
       }
     } catch {
@@ -1198,13 +1222,15 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
       if (!(error instanceof Error) || error.name !== 'PdfPasswordError') continue
       meta = { docId: identity.docId, sha256: identity.sha256, size: identity.size, pageCount: 0 }
     }
-    checkedUnlistedPaths.add(absolute)
-    if (knownHashes.has(meta.sha256)) continue
-    knownHashes.add(meta.sha256)
+    if (ownerOf(meta.sha256) !== undefined) {
+      checkedUnlistedPaths.set(absolute, meta.sha256)
+      continue
+    }
+    checkedUnlistedPaths.set(absolute, meta.sha256)
     const folderPath = relative.split('/').slice(0, -1).join('/')
     const title = relative.split('/').at(-1)!.replace(/\.pdf$/iu, '')
     const addedAt = new Date(now.getTime() + order).toISOString()
-    added.push({
+    const addedEntry: VaultLibraryEntry = {
       docId: meta.docId,
       path: absolute,
       sha256: meta.sha256,
@@ -1214,7 +1240,9 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
       addedAt,
       folderPath,
       attachmentPolicy: { kind: 'copy-current-folder', folderPath },
-    })
+    }
+    added.push(addedEntry)
+    nextLibrary.push(addedEntry)
     indexEntries.push(createVaultIndexEntry({
       id: meta.docId,
       kind: 'pdf',
@@ -1226,10 +1254,46 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
       addedAt,
     }))
   }
-  if (added.length === 0) return []
-  await writeLibrary(vault, [...library, ...added])
+  if (added.length === 0 && relinked.length === 0) return []
+  await writeLibrary(vault, nextLibrary)
   await writeVaultIndex(vault, { version: 1, entries: indexEntries })
-  return added.map((entry) => `${entry.folderPath ? `${entry.folderPath}/` : ''}${entry.title}.pdf`)
+  return [...relinked, ...added.map((entry) => `${entry.folderPath ? `${entry.folderPath}/` : ''}${entry.title}.pdf`)]
+}
+
+/** 파일이 Vault 안 다른 자리로 옮겨진 문서를 새 자리로 잇는다(제자리 수정: 문서 목록·색인 항목). 이름을 따로 붙이지 않았다면 새 파일 이름을 따른다 */
+function relinkMovedPdf(
+  owner: VaultLibraryEntry,
+  relative: string,
+  absolute: string,
+  library: VaultLibraryEntry[],
+  indexEntries: VaultIndexEntry[],
+): void {
+  const fileStem = (path: string) => (path.replaceAll('\\', '/').split('/').at(-1) ?? path).replace(/\.pdf$/iu, '')
+  const oldVaultPath = libraryEntryVaultPath(owner)
+  const oldStem = oldVaultPath === null ? owner.title : fileStem(oldVaultPath)
+  const newStem = fileStem(relative)
+  const folderPath = relative.split('/').slice(0, -1).join('/')
+  const libraryAt = library.findIndex((entry) => entry.docId === owner.docId)
+  if (libraryAt >= 0) {
+    library[libraryAt] = {
+      ...owner,
+      path: absolute,
+      title: owner.title === oldStem ? newStem : owner.title,
+      folderPath,
+      attachmentPolicy: { kind: 'copy-current-folder', folderPath },
+    }
+  }
+  const indexAt = indexEntries.findIndex((entry) => entry.id === owner.docId && entry.kind === 'pdf')
+  const current = indexEntries[indexAt]
+  if (current !== undefined) {
+    indexEntries[indexAt] = {
+      ...current,
+      storage: 'vault',
+      path: relative,
+      displayName: current.displayName === oldStem ? newStem : current.displayName,
+      missing: false,
+    }
+  }
 }
 
 /** 쪽 수를 모르고 등록한 문서(암호 PDF)를 연 뒤 실제 쪽 수로 고친다. 바뀐 항목이 없으면 null */

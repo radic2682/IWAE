@@ -830,3 +830,91 @@ describe('registerUnlistedVaultPdfs with a password-protected PDF', () => {
     await expect(updateLibraryPageCount(vault, entry.docId, 0)).resolves.toBeNull()
   })
 })
+
+describe('registerUnlistedVaultPdfs with PDFs moved inside the Vault', () => {
+  const sha = 'a'.repeat(64)
+  const libraryJson = 'C:/Vault/.iwae/library.json'
+  const indexJson = 'C:/Vault/.iwae/index.json'
+  const registered: VaultLibraryEntry = {
+    docId: 'aaaaaaaaaaaa',
+    path: 'C:/Vault/01_Spec/spec.pdf',
+    sha256: sha,
+    size: 2048,
+    pages: 5,
+    title: 'spec',
+    addedAt: '2026-09-20T00:00:00.000Z',
+    folderPath: '01_Spec',
+    attachmentPolicy: { kind: 'copy-current-folder', folderPath: '01_Spec' },
+  }
+  let files: Map<string, string>
+  let specInFolder: boolean
+  let rootFiles: string[]
+
+  const libraryNow = () => (JSON.parse(files.get(libraryJson) ?? '{"documents":{}}') as { documents: Record<string, VaultLibraryEntry> }).documents
+  const indexNow = () => (JSON.parse(files.get(indexJson) ?? '{"entries":[]}') as { entries: { id: string; path: string; displayName: string; missing: boolean }[] }).entries
+
+  beforeEach(() => {
+    for (const mock of Object.values(fsMocks)) mock.mockReset()
+    vi.mocked(openPdf).mockReset()
+    invoke.mockReset()
+    files = new Map([
+      [libraryJson, JSON.stringify({ version: 1, documents: { [registered.docId]: registered } })],
+      [indexJson, JSON.stringify({ version: 1, entries: [{ id: registered.docId, kind: 'pdf', storage: 'vault', path: '01_Spec/spec.pdf', displayName: 'spec', contentHash: sha, size: 2048, modifiedAt: null, addedAt: registered.addedAt, missing: false }] })],
+    ])
+    rootFiles = []
+    specInFolder = false
+    fsMocks.exists.mockImplementation(async (path: string) => files.has(path))
+    fsMocks.readTextFile.mockImplementation(async (path: string) => files.get(path) ?? '')
+    fsMocks.writeTextFile.mockImplementation(async (path: string, text: string) => { files.set(path, text) })
+    fsMocks.rename.mockImplementation(async (from: string, to: string) => { files.set(to, files.get(from) ?? ''); files.delete(from) })
+    fsMocks.remove.mockResolvedValue(undefined)
+    fsMocks.readDir.mockImplementation(async (path: string) => {
+      if (path === 'C:/Vault') return [...rootFiles.map((name) => ({ name, isDirectory: false })), ...(specInFolder ? [{ name: '01_Spec', isDirectory: true }] : [])]
+      if (path === 'C:/Vault/01_Spec') return specInFolder ? [{ name: 'spec.pdf', isDirectory: false }] : []
+      return []
+    })
+    invoke.mockResolvedValue({ docId: registered.docId, sha256: sha, size: 2048 })
+  })
+
+  it('폴더 안 PDF 를 탐색기로 Vault 맨 위로 옮기면 새 문서가 아니라 그 문서를 새 자리로 잇는다', async () => {
+    rootFiles = ['spec-moved.pdf']
+    await expect(registerUnlistedVaultPdfs(vault)).resolves.toEqual(['spec-moved.pdf'])
+
+    expect(Object.keys(libraryNow())).toEqual([registered.docId])
+    expect(libraryNow()[registered.docId]).toMatchObject({
+      path: 'C:/Vault/spec-moved.pdf',
+      folderPath: '',
+      title: 'spec-moved',
+      pages: 5,
+      attachmentPolicy: { kind: 'copy-current-folder', folderPath: '' },
+    })
+    expect(indexNow()).toEqual([expect.objectContaining({ id: registered.docId, path: 'spec-moved.pdf', displayName: 'spec-moved', missing: false })])
+    expect(openPdf).not.toHaveBeenCalled()
+  })
+
+  it('이름을 따로 붙인 문서는 옮겨도 그 이름을 지킨다', async () => {
+    files.set(libraryJson, JSON.stringify({ version: 1, documents: { [registered.docId]: { ...registered, title: '내 이름' } } }))
+    rootFiles = ['spec.pdf']
+    await registerUnlistedVaultPdfs(vault)
+    expect(libraryNow()[registered.docId]).toMatchObject({ path: 'C:/Vault/spec.pdf', folderPath: '', title: '내 이름' })
+  })
+
+  it('원본 파일이 그대로 있는 같은 내용의 사본은 등록하지 않는다(같은 문서 ID 가 겹친다)', async () => {
+    specInFolder = true
+    rootFiles = ['copy of spec.pdf']
+    await expect(registerUnlistedVaultPdfs(vault)).resolves.toEqual([])
+    expect(fsMocks.writeTextFile).not.toHaveBeenCalled()
+  })
+
+  it('이전에 사본이라 건너뛴 파일도 원본이 사라지면 다음 새로고침에서 그 문서를 이어받는다', async () => {
+    specInFolder = true
+    rootFiles = ['copy of spec.pdf']
+    await registerUnlistedVaultPdfs(vault)
+    expect(fsMocks.writeTextFile).not.toHaveBeenCalled()
+
+    // 원본(01_Spec/spec.pdf)을 지운다
+    specInFolder = false
+    await expect(registerUnlistedVaultPdfs(vault)).resolves.toEqual(['copy of spec.pdf'])
+    expect(libraryNow()[registered.docId]).toMatchObject({ path: 'C:/Vault/copy of spec.pdf', folderPath: '' })
+  })
+})
