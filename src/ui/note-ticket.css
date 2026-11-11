@@ -268,7 +268,8 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .pane-doc .note-section.note-block .note-section-toggle { order: 1; flex: 0 0 auto; width: 22px; height: 22px; margin-left: 0; }
 .pane-doc .note-section.note-block .note-section-count { order: 2; display: inline-grid; place-items: center; height: 20px; margin-left: 2px; line-height: 20px; color: var(--text-strong); }
 .pane-doc .note-section.note-block .note-section-input { order: 0; flex: 1 1 auto; }
-.pane-doc .note-section.note-block > .note-block-menu { order: 3; top: 50%; right: 8px; transform: translateY(-50%); }
+/* 제목이 여러 줄이어도 첫 줄 높이에 맞춘다 */
+.pane-doc .note-section.note-block > .note-block-menu { order: 3; top: 5px; right: 8px; transform: none; }
 /* 글 블록의 「…」도 줄 안(오른쪽 위 모서리 안쪽)에 둔다 */
 .pane-doc .note-block.note-text-card > .note-block-menu { top: 6px; right: 6px; box-shadow: 0 0 0 1px var(--divider-strong); }
 
