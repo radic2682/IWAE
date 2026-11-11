@@ -70,3 +70,67 @@
 
 @keyframes ai-inbox-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ai-inbox-card { animation: none; } }
+
+/* 상단바의 「AI가 편집 중」 알약과 변경 목록 */
+.ai-pill-wrap { position: relative; display: inline-flex; align-items: center; margin-right: 6px; }
+.ai-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 280px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--paper);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.ai-pill[data-active="true"] svg { animation: ai-pill-pulse 1.1s ease-in-out infinite; }
+.ai-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-changes {
+  position: fixed;
+  top: 44px;
+  right: 12px;
+  z-index: 80;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(420px, calc(100vh - 64px));
+  padding: 10px 12px;
+  border: 1px solid var(--divider);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 12px 30px var(--shadow-soft);
+  font-size: 12px;
+}
+.ai-changes-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ai-changes-empty { margin: 0; color: var(--ink); }
+.ai-changes-list { display: grid; gap: 4px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.ai-change { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 4px 6px; border-radius: var(--r-xs); }
+.ai-change:hover { background: var(--chrome-hover); }
+.ai-change-undone .ai-change-summary { text-decoration: line-through; }
+.ai-change-tag { flex: 0 0 auto; padding: 1px 6px; border: 1px solid var(--accent); border-radius: var(--r-full); color: var(--accent); font-size: 11px; }
+.ai-changes-undo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--paper);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ai-changes-undo:disabled { opacity: 0.45; cursor: default; }
+
+@keyframes ai-pill-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .ai-pill[data-active="true"] svg { animation: none; } }

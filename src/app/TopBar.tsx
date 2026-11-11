@@ -1,3 +1,4 @@
+import { AiActivityPill } from './AiActivityPill'
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ImagesSquare, MagnifyingGlass,
@@ -185,6 +186,7 @@ export function TopBar({
         leading={(
           // 창 전체에 관한 단추(창 나누기·메모 바)는 창 단추 곁에 둔다
           <div className="topbar-window-tools">
+            <AiActivityPill />
             {onPaneLayoutChange === undefined ? null : (
               <PdfSplitPicker
                 value={paneLayout}

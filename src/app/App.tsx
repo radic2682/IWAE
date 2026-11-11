@@ -39,7 +39,7 @@ import { useSmoothWheel } from './useSmoothWheel'
 import { memoFolderIconKey, memoNoteIconKey } from './MemoNotesSection'
 import { memoNoteAbsolutePath, revealMemoNote } from '../bridge/memoNotes'
 import { copyFileToClipboard, revealInFolder } from '../bridge/vaultBackup'
-import { docNoteTitle, memoNoteOwner, orderMemoNoteEntries } from '../core/memoNote'
+import { docNoteTitle, memoNoteOwner, memoNotesFolder, memoNoteTitleOf, orderMemoNoteEntries } from '../core/memoNote'
 import { useMcpMemoBridge } from './useMcpMemoBridge'
 import type { MemoCategorySummary } from './Sidebar'
 import { Sidebar, SidebarFooter } from './Sidebar'
@@ -203,7 +203,8 @@ import {
   SAMPLE_TITLE,
   samplePageSizes,
 } from '../pdf/samplePage'
-import { pick, t } from '../i18n'
+import { getLocale, pick, t } from '../i18n'
+import { buildMcpAppDeps } from './mcp/appDeps'
 
 const PDF_EMPTY = '사이드바에서 PDF 문서를 여세요'
 const NOTE_EMPTY = '사이드바에서 노트를 여세요'
@@ -1439,6 +1440,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }
     }
   }
+  // MCP(바깥 AI) 연결: 형광펜·노트·화면·서재·번역·PDF 도구를 mcp/ 의 op 표에 이어 준다
+  const mcpMemoNotesRef = useRef(memoNotes)
+  mcpMemoNotesRef.current = memoNotes
   useMcpMemoBridge({
     highlights: pdfHighlights.highlights,
     add: pdfHighlights.add,
@@ -1448,9 +1452,91 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       memoNotes.forgetHighlight(id)
     },
     loadPdfById,
-    addToNote: memoNotes.addToNoteTitled,
+    noteOwner: noteDocOwner,
     docSources: vault === null ? undefined : { all: () => docSourcesRef.current.sources, add: (docId, input) => docSourcesRef.current.add(docId, input), update: (docId, id, patch) => docSourcesRef.current.update(docId, id, patch), remove: (docId, id) => docSourcesRef.current.remove(docId, id) },
-    notes: vault === null ? undefined : { list: memoNotes.listNotes, find: memoNotes.findNoteTitled, edit: memoNotes.editNoteTitled, trash: memoNotes.trash },
+    notes: vault === null ? undefined : {
+      list: memoNotes.listNotes,
+      find: memoNotes.findNoteTitled,
+      edit: memoNotes.editNoteTitled,
+      trash: memoNotes.trash,
+      createIn: memoNotes.createIn,
+      rename: memoNotes.rename,
+      conflict: () => mcpMemoNotesRef.current.conflict,
+      folder: memoNotesFolder,
+    },
+    app: buildMcpAppDeps({
+      vaultRoot: vault?.root ?? null,
+      paneCount,
+      activePaneId,
+      panes,
+      docViews,
+      shownLibrary,
+      openedDocs,
+      searchRecords,
+      docTitles,
+      highlights: pdfHighlights.highlights,
+      bookmarks: {
+        list: pdfBookmarks.bookmarks,
+        toggle: pdfBookmarks.toggle,
+        isBookmarked: pdfBookmarks.isBookmarked,
+        addPin: pdfBookmarks.addPin,
+        updatePin: pdfBookmarks.updatePin,
+        movePin: pdfBookmarks.movePin,
+        remove: pdfBookmarks.remove,
+      },
+      translation: { settings: translation.settings, selectedModel: translation.selectedModel, translate: translation.translate },
+      themePreference: theme.preference,
+      language: getLocale(),
+      openAnyDocument,
+      markdownDocById,
+      openInPane,
+      moveTab,
+      setPaneCount,
+      setActivePane: setActivePaneId,
+      setPaneRoute,
+      activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(current[pane], tabId) })),
+      closeTab: (tab) => {
+        if (tab.kind === 'note') closeNoteTabSafely(tab.id)
+        else setPanes((current) => closeTabEverywhere(current, tab.id))
+      },
+      requestPage: (pane, docId, page) => {
+        const controller = docControllersRef.current[pane]
+        if (controller?.docId !== docId) return false
+        controller.requestPage(page)
+        return true
+      },
+      pendingPage: (docId, page) => { pendingDocPageRef.current = { docId, page } },
+      jump: (docId, page) => navigation.jump({ docId, page }),
+      flashHighlight: (highlight) => jumpToAnnotation(highlight),
+      draftAnchor: setDraftPdfHighlight,
+      openMemoNote: (path) => {
+        memoNotes.open(path)
+        setMemoBarVisible(true)
+      },
+      liveSelection: () => {
+        const draft = draftPdfHighlightRef.current
+        if (draft !== null && draft.quote.trim() !== '') return { docId: draft.docId, page: draft.page + 1, text: draft.quote }
+        const picked = (window.getSelection()?.toString() ?? '').trim()
+        return picked !== '' && activePdfDoc !== null ? { docId: activePdfDoc.docId, page: currentPdfPage, text: picked } : null
+      },
+      setFileFavorite,
+      toolCopy: (docId, op, suffix) => writeDocumentToolCopy(docId, op, suffix),
+      exportNote: async (path) => {
+        if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
+        const { join } = await import('@tauri-apps/api/path')
+        const { exists } = await import('@tauri-apps/plugin-fs')
+        // 내보내기마다 새 폴더: 있던 파일을 덮어쓰지 않는다
+        const base = await join(vault.root, t('Markdown 내보내기'))
+        const now = new Date()
+        const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
+        let folder = await join(base, `${memoNoteTitleOf(path)} ${stamp}`)
+        for (let n = 2; await exists(folder); n += 1) folder = await join(base, `${memoNoteTitleOf(path)} ${stamp} (${n})`)
+        const result = await exportNotesAsMarkdown(vault, { kind: 'note', path }, { folder })
+        if (result === null || result.files[0] === undefined) throw new Error(t('내보낼 노트가 없습니다.'))
+        return join(result.folder, result.files[0])
+      },
+      pdfToolBusy: (docId) => getPdfToolJob(docId) !== undefined,
+    }),
   })
   const jumpToAnnotation = useCallback((highlight: PersistentPdfHighlight) => {
     setFlashHighlightId(highlight.id)
