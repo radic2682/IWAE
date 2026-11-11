@@ -6,7 +6,7 @@ IWAE is currently in active alpha development. Security fixes are applied to the
 
 ## Reporting a vulnerability
 
-Use GitHub private vulnerability reporting for this repository when it is available. Include the affected version, reproduction steps, impact, and the smallest possible sanitized example.
+Report it privately through GitHub: [Report a vulnerability](https://github.com/radic2682/IWAE/security/advisories/new) (Security tab → Report a vulnerability). Please do not open a public issue. Include the affected version, reproduction steps, impact, and the smallest possible sanitized example.
 
 Do not attach private documents, vault contents, API keys, updater signing keys, or personal information. If private reporting is unavailable, open a minimal public issue requesting a secure contact channel without disclosing exploit details.
 
