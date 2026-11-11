@@ -560,6 +560,15 @@ describe('SelectionLayer — 형광펜 열기', () => {
     expect(onPersistentHighlightActivate).toHaveBeenCalledWith('highlight-a', { x: 30, y: 30 })
   })
 
+  it('글자 층이 없는 쪽(스캔)에서도 형광펜·영역 메모를 클릭하면 연다', () => {
+    const onPersistentHighlightActivate = vi.fn()
+    const view = mount({ mode: 'text', index: { text: '', chars: [] }, persistentHighlights: [highlight], onPersistentHighlightActivate })
+    const layer = view.getByTestId('selection-layer')
+    fireEvent.pointerDown(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 1 })
+    fireEvent.pointerUp(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 1 })
+    expect(onPersistentHighlightActivate).toHaveBeenCalledWith('highlight-a', { x: 30, y: 30 })
+  })
+
   it('형광펜이 없는 자리를 클릭하거나 끌어서 고르면 열지 않는다', () => {
     const onPersistentHighlightActivate = vi.fn()
     const view = mount({ mode: 'text', persistentHighlights: [highlight], onPersistentHighlightActivate })

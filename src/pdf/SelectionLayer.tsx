@@ -598,7 +598,8 @@ export function SelectionLayer({
     if (completed === null) {
       if (gesture.button === 2) return
       // 끌지 않은 클릭. 형광펜 위였다면 그 형광펜의 메모 창을 연다.
-      if (textLike && gesture.mode === 'text' && onPersistentHighlightActivate !== undefined) {
+      // 글자 층이 없는 쪽(스캔)은 글 모드여도 영역으로 고르지만, 클릭은 똑같이 메모를 연다(Ctrl+누르기는 빼고)
+      if (textLike && (gesture.mode === 'text' || (index.chars.length === 0 && !event.ctrlKey)) && onPersistentHighlightActivate !== undefined) {
         const hit = persistentHighlightAt(localPoint(event))
         if (hit !== undefined) {
           onPersistentHighlightActivate(hit.id, { x: event.clientX, y: event.clientY })
