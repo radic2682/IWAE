@@ -41,10 +41,13 @@ export type AppShortcut =
   | 'newWindow'
   | 'showShortcuts'
 
+/** 글을 쓰지 않는 입력칸(색 고르기·체크박스 등). 여기 커서가 있어도 앱 단축키(되돌리기 등)를 쓴다 */
+const NON_TEXT_INPUT_TYPES = new Set(['button', 'checkbox', 'color', 'file', 'image', 'radio', 'range', 'reset', 'submit'])
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return target.isContentEditable
-    || target instanceof HTMLInputElement
+    || (target instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(target.type))
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
 }

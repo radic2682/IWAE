@@ -25,6 +25,17 @@ describe('resolveAppShortcut', () => {
     expect(resolveAppShortcut(key(pressed, { metaKey: true }))).toBe(action)
   })
 
+  it('색 고르기·체크박스처럼 글을 쓰지 않는 입력칸에서는 Ctrl+Z 가 앱 되돌리기다', () => {
+    for (const type of ['color', 'checkbox', 'range']) {
+      const input = document.createElement('input')
+      input.type = type
+      expect(resolveAppShortcut(key('z', { ctrlKey: true, target: input }))).toBe('undo')
+    }
+    const text = document.createElement('input')
+    text.type = 'text'
+    expect(resolveAppShortcut(key('z', { ctrlKey: true, target: text }))).toBeNull()
+  })
+
   it('Ctrl+Shift+N 은 새 창을 연다(글 칸에 커서가 있어도, Ctrl+N 은 아니다)', () => {
     expect(resolveAppShortcut(key('N', { ctrlKey: true, shiftKey: true }))).toBe('newWindow')
     expect(resolveAppShortcut(key('n', { metaKey: true, shiftKey: true, target: document.createElement('textarea') }))).toBe('newWindow')
