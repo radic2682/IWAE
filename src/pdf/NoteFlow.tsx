@@ -6,9 +6,12 @@ import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
 import { cachedTranslation, translateWithCache, useTranslationCache } from '../app/translationCacheStore'
 import { t } from '../i18n'
-import { popIn, slideFrom } from '../app/motion'
+import { popIn, reducedMotion, slideFrom } from '../app/motion'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
-import { splitLeadingTicketId, suggestTicketIds, type MemoTicket } from '../core/memoNote'
+import { insertBlock, memoBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
+import { ticketGroupOf, type TicketChoice, type TicketPlace } from '../core/memoTickets'
+import { clearBlockReveal, onBlockRevealRequest, peekBlockReveal, revealNoteBlock, useMemoNoteApi } from './memoNoteContext'
+import { GapMenu, TicketBadge, TicketPicker, anchorOf, type AnchorBox } from './NoteTicketUi'
 import '../ui/note-ticket.css'
 
 /** 노트 한 장의 카드: PDF 형광펜 메모, 노트에 직접 쓴 글, 소제목 */
@@ -302,14 +305,72 @@ export function NoteFlow({
     </button>
   )
   /** 블록 사이: 마우스를 올리면 + 가 나타나 그 자리(key 블록 아래)에 글을 넣는다 */
+  // 노트 기능(MemoNoteContext)이 있으면 +는 「글 넣기 / 티켓 넣기」 메뉴를 열고, 없으면 바로 글을 넣는다
+  const noteApi = useMemoNoteApi()
+  const canPickTicket = noteApi?.tickets !== undefined && noteApi.highlightOf !== undefined && noteApi.openPath !== null
+  const [gapMenu, setGapMenu] = useState<{ key: string; anchor: AnchorBox } | null>(null)
+  const [ticketPick, setTicketPick] = useState<{ key: string; anchor: AnchorBox } | null>(null)
   const gapAfter = (key: string) => key === 'draft' || onInsertText === undefined ? <div className="note-gap" aria-hidden="true" /> : (
     <div className="note-gap">
-      <button type="button" className="note-gap-add" aria-label={t('여기에 글 넣기')} title={t('여기에 글 넣기')} onClick={() => onInsertText(key)}>
-        <Plus size={11} weight="bold" aria-hidden="true" />
-      </button>
+      {canPickTicket ? (
+        <button
+          type="button"
+          className="note-gap-add"
+          aria-label={t('여기에 넣기')}
+          title={t('여기에 넣기')}
+          aria-haspopup="menu"
+          aria-expanded={gapMenu?.key === key}
+          onClick={(event) => setGapMenu({ key, anchor: anchorOf(event.currentTarget) })}
+        >
+          <Plus size={11} weight="bold" aria-hidden="true" />
+        </button>
+      ) : (
+        <button type="button" className="note-gap-add" aria-label={t('여기에 글 넣기')} title={t('여기에 글 넣기')} onClick={() => onInsertText(key)}>
+          <Plus size={11} weight="bold" aria-hidden="true" />
+        </button>
+      )}
     </div>
   )
+  /** 고른 티켓을 key 블록 아래에 같은 형광펜을 가리키는 메모 블록으로 넣고 그 블록을 보인다 */
+  const insertTicketBlock = (key: string, choice: TicketChoice) => {
+    if (noteApi === null || noteApi.openPath === null) return
+    const block = memoBlock(choice.highlightId, choice.ticket)
+    noteApi.updateOpen((note) => {
+      const at = note.blocks.findIndex((item) => item.id === key)
+      return insertBlock(note, block, at < 0 ? note.blocks.length : at + 1)
+    })
+    revealNoteBlock(noteApi, noteApi.openPath, block.id)
+  }
   const menuItem = menu === null ? undefined : items.find((item) => item.key === menu.key)
+
+  // ---------- 노트 블록으로 가서 보이기(티켓 배지의 「곳」 목록·새로 넣은 티켓) ----------
+  // 다른 노트면 그 노트가 열린 뒤에, 접힌 소제목 안이면 펼친 뒤에 그 블록으로 스크롤하고 잠깐 깜빡인다
+  const revealRef = useRef<() => void>(() => undefined)
+  revealRef.current = () => {
+    const target = peekBlockReveal()
+    if (target === null || noteApi === null || noteApi.openPath !== target.path) return
+    const element = Array.from(document.querySelectorAll<HTMLElement>('[data-note-block]')).find((candidate) => candidate.dataset.noteBlock === target.blockId) ?? null
+    if (element === null) {
+      const blocks = noteApi.openNote?.blocks ?? []
+      const at = blocks.findIndex((block) => block.id === target.blockId)
+      if (at < 0) return
+      const section = blocks.slice(0, at).reverse().find((block) => block.kind === 'section')
+      if (section?.kind === 'section' && section.collapsed === true) noteApi.updateOpen((note) => updateSection(note, section.id, { collapsed: false }))
+      return
+    }
+    clearBlockReveal()
+    element.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
+    // 클래스가 아니라 Web Animations 로: 마우스를 올려 카드 className 이 바뀌어도 깜빡임이 끊기지 않는다
+    if (typeof element.animate === 'function') {
+      const ring = (offset: string, color: string) => ({ outline: `2px solid ${color}`, outlineOffset: offset })
+      element.animate(
+        [{ ...ring('2px', 'var(--accent)') }, { ...ring('2px', 'var(--accent)'), offset: 0.6 }, { ...ring('7px', 'transparent') }],
+        { duration: reducedMotion() ? 1000 : 1600, easing: 'ease-out' },
+      )
+    }
+  }
+  useEffect(() => { revealRef.current() })
+  useEffect(() => onBlockRevealRequest(() => revealRef.current()), [])
 
   // ---------- 여러 블록 고르기: Ctrl/⌘+누르기는 하나씩, Shift+누르기는 그 사이 모두. Delete 로 지운다 ----------
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
@@ -442,6 +503,25 @@ export function NoteFlow({
 
   return (
     <>
+      {gapMenu === null ? null : (
+        <GapMenu
+          anchor={gapMenu.anchor}
+          onClose={() => setGapMenu(null)}
+          onText={() => { const key = gapMenu.key; setGapMenu(null); onInsertText?.(key) }}
+          onTicket={() => { setTicketPick({ key: gapMenu.key, anchor: gapMenu.anchor }); setGapMenu(null) }}
+        />
+      )}
+      {ticketPick === null || noteApi?.tickets === undefined || noteApi.highlightOf === undefined ? null : (
+        <TicketPicker
+          anchor={ticketPick.anchor}
+          tickets={noteApi.tickets}
+          highlightOf={noteApi.highlightOf}
+          openPath={noteApi.openPath}
+          existing={new Set((noteApi.openNote?.blocks ?? []).flatMap((block) => (block.kind === 'memo' ? [block.highlightId] : [])))}
+          onClose={() => setTicketPick(null)}
+          onPick={(choice) => { const key = ticketPick.key; setTicketPick(null); insertTicketBlock(key, choice) }}
+        />
+      )}
       {selected.size > 0 ? (
         <div className="note-selection-bar" role="toolbar" aria-label={t('고른 블록')}>
           {confirmDelete ? (
@@ -746,6 +826,7 @@ export function NoteFlow({
             }}
           />
         ) : null
+        const badgeGroup = draft || noteApi?.tickets === undefined ? undefined : ticketGroupOf(noteApi.tickets, ticket?.id)
         const head = hasHead || editingId || editingTitle ? (
           <div className="note-ticket-head">
             {(ticket?.id !== undefined || editingId) ? (
@@ -753,6 +834,14 @@ export function NoteFlow({
                 {idInput ?? (
                   <button type="button" className="note-ticket-id" title={t('ID 바꾸기')} onClick={canHead ? () => setHeadEdit({ key: item.key, field: 'id' }) : undefined}>{ticket?.id}</button>
                 )}
+                {badgeGroup !== undefined && badgeGroup.places.length > 1 && !editingId && noteApi !== null ? (
+                  <TicketBadge
+                    group={badgeGroup}
+                    current={{ path: noteApi.openPath, blockId: item.key }}
+                    highlightOf={noteApi.highlightOf ?? (() => undefined)}
+                    onReveal={(place: TicketPlace) => revealNoteBlock(noteApi, place.path, place.blockId)}
+                  />
+                ) : null}
               </div>
             ) : null}
             {titleInput ?? (ticket?.title !== undefined ? (

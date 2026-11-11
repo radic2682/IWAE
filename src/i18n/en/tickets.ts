@@ -1,0 +1,23 @@
+/** 영어 사전: 블록 사이 「글 넣기 / 티켓 넣기」, 티켓 고르기, 같은 ID 가 여러 곳에 있을 때의 배지·목록 (pdf/NoteTicketUi.tsx) */
+export const TICKETS: Readonly<Record<string, string>> = {
+  '여기에 넣기': 'Insert here',
+  '블록 사이에 넣기': 'Insert between blocks',
+  '글 넣기': 'Add text',
+  '티켓 넣기': 'Add ticket',
+  '티켓 찾기': 'Find a ticket',
+  'ID나 제목, 노트, 원문으로 찾기': 'Search by ID, title, note or quote',
+  '아직 티켓이 없습니다. 메모에 ID를 붙이면 여기서 고를 수 있습니다.': 'No tickets yet. Give a memo an ID and you can pick it here.',
+  '맞는 티켓이 없습니다': 'No matching tickets',
+  '티켓 목록': 'Tickets',
+  'ID 겹침': 'ID clash',
+  '이 노트에 있음': 'In this note',
+  '{note} 외 {count}곳': '{note} and {count} more',
+  '{n}번째 블록': 'Block {n}',
+  '{count}곳': '{count} places',
+  '여기': 'Here',
+  '같은 ID를 서로 다른 메모가 쓰고 있습니다': 'Different memos use the same ID',
+  '이 ID가 있는 곳 보기': 'Show where this ID is used',
+  '{id} 가 있는 곳': 'Where {id} appears',
+  '서로 다른 메모 {count}개가 같은 ID를 쓰고 있습니다. 한쪽 ID를 바꿔 주세요.': '{count} different memos use the same ID. Change one of the IDs.',
+  '(원문 없음)': '(no quote)',
+}

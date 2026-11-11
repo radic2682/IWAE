@@ -14,6 +14,7 @@ import { INTEROP } from './en/interop'
 import { SHORTCUTS } from './en/shortcuts'
 import { SUPPORT } from './en/support'
 import { THEME_FILES } from './en/themeFiles'
+import { TICKETS } from './en/tickets'
 
 export const EN: Readonly<Record<string, string>> = {
   ...SHORTCUTS,
@@ -25,6 +26,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...GROUP_6,
   ...GROUP_7,
   ...INTEROP,
+  ...TICKETS,
   ...THEME_FILES,
   ...SUPPORT,
   ...COMMON,

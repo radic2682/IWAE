@@ -1,0 +1,90 @@
+/* 블록 사이 +: 글 넣기 / 티켓 넣기 메뉴, 티켓 고르기, 같은 ID 가 여러 곳에 있을 때의 배지와 목록 */
+
+/* 메뉴가 열려 있는 동안에는 + 가 사라지지 않는다 */
+.note-gap-add[aria-expanded='true'] { opacity: 1; border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.note-gap:has(.note-gap-add[aria-expanded='true'])::before {
+  position: absolute; top: 50%; right: 10px; left: 10px; height: 1px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent); content: '';
+}
+
+.note-menu.note-gap-menu { width: 164px; }
+
+/* 떠오르는 모양: 다른 메뉴·팝오버와 같은 스프링(motion.css) */
+:is(.note-gap-menu, .note-ticket-picker, .note-ticket-places) {
+  animation: motion-fade-in var(--motion-fast) ease-out backwards, motion-pop-move var(--spring-bouncy-dur) var(--ease-spring-bouncy) backwards;
+  transform-origin: top center;
+}
+
+/* ---------- 티켓 고르기 ---------- */
+.note-ticket-picker {
+  position: fixed; z-index: 91; display: flex; flex-direction: column;
+  width: min(380px, calc(100vw - 16px)); max-height: min(460px, 70vh); overflow: hidden;
+  border: 1px solid var(--divider-strong); border-radius: var(--r-lg); background: var(--paper);
+  box-shadow: 0 12px 32px rgb(var(--rgb-black) / 28%); color: var(--text-strong);
+}
+.note-ticket-picker-field {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px;
+  border-bottom: 1px solid var(--divider);
+}
+.note-ticket-picker-field > svg { flex: 0 0 auto; }
+.note-ticket-picker-field input {
+  flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent;
+  color: inherit; font: inherit; font-size: 13.5px;
+}
+.note-ticket-picker-list { flex: 1 1 auto; min-height: 0; margin: 0; padding: 5px; overflow-y: auto; list-style: none; }
+.note-ticket-picker-empty { margin: 0; padding: 18px 14px; font-size: 12.5px; line-height: 1.55; }
+.note-ticket-pick { display: grid; gap: 3px; padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer; }
+.note-ticket-pick-active { background: var(--selected-bg); }
+.note-ticket-pick-here { cursor: default; }
+.note-ticket-pick-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.note-ticket-pick-id { flex: 0 0 auto; cursor: inherit; }
+.note-ticket-pick-title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.note-ticket-pick-warn { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 3px; margin-left: auto; color: var(--danger); font-size: 11.5px; font-weight: 700; }
+.note-ticket-pick-quote {
+  display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.note-ticket-pick-note { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; font-size: 11.5px; font-weight: 600; }
+.note-ticket-pick-note > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-ticket-pick-here-label { flex: 0 0 auto; padding: 0 6px; border-radius: var(--r-xs); background: var(--chrome-hover); font-weight: 700; line-height: 18px; }
+
+/* ---------- 「3곳」 배지 ---------- */
+.note-ticket-badge {
+  display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; height: 20px; padding: 0 7px;
+  border: 0; border-radius: var(--r-sm); background: var(--chrome-hover); color: var(--text-strong);
+  font: inherit; font-size: 11.5px; font-weight: 700; line-height: 20px; white-space: nowrap; cursor: pointer;
+}
+.note-ticket-badge:is(:hover, :focus-visible) { outline: none; box-shadow: 0 0 0 1.5px var(--accent); }
+.note-ticket-badge[aria-expanded='true'] { box-shadow: 0 0 0 1.5px var(--accent); }
+.note-ticket-badge-warn { background: color-mix(in srgb, var(--danger) 14%, var(--paper)); color: var(--danger); }
+.note-ticket-badge-warn:is(:hover, :focus-visible), .note-ticket-badge-warn[aria-expanded='true'] { box-shadow: 0 0 0 1.5px var(--danger); }
+
+/* ---------- 같은 ID 가 있는 곳 목록 ---------- */
+.note-ticket-places {
+  position: fixed; z-index: 91; width: min(320px, calc(100vw - 16px)); max-height: min(420px, 70vh); overflow-y: auto; padding: 6px;
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper);
+  box-shadow: 0 12px 32px rgb(var(--rgb-black) / 28%); color: var(--text-strong);
+}
+.note-ticket-places ul { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
+.note-ticket-places-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px 8px; font-size: 12px; font-weight: 700; }
+.note-ticket-places-warn { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 6px; padding: 7px 8px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--danger) 12%, var(--paper)); color: var(--danger); font-size: 12px; font-weight: 600; line-height: 1.5; }
+.note-ticket-places-warn > svg { flex: 0 0 auto; margin-top: 2px; }
+.note-ticket-places-group + .note-ticket-places-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--divider); }
+.note-ticket-places-quote {
+  display: -webkit-box; margin: 0; padding: 2px 8px 4px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  font-size: 12px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere;
+}
+.note-ticket-place {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 1px; width: 100%; padding: 6px 8px;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.note-ticket-place:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
+.note-ticket-place[aria-current='true'] { background: var(--selected-bg); }
+.note-ticket-place-title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.note-ticket-place-here { padding: 0 6px; border-radius: var(--r-xs); background: var(--chrome-hover); font-size: 11px; font-weight: 700; line-height: 18px; }
+.note-ticket-place[aria-current='true'] .note-ticket-place-here { background: var(--paper); }
+.note-ticket-place-at { grid-column: 1 / -1; min-width: 0; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.note-gap-menu, .note-ticket-picker, .note-ticket-places) { animation: none; }
+}
