@@ -98,6 +98,7 @@ pub fn run() {
             fs_move::vault_move_dir,
             markdown_pdf::markdown_to_pdf,
             mcp::webview_call::mcp_webview_reply,
+            mcp::webview_call::mcp_webview_ops,
             pdf::shared::pdf_render_shared,
             pdf::pdf_edit_pages,
             pdf::pdf_page_text,

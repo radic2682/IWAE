@@ -8,16 +8,12 @@ use serde_json::{json, Value};
 
 use crate::pdf::{CropRect, PdfThread};
 
-pub const INSTRUCTIONS: &str = "Page tools: page_image renders a PDF page (or a box on it, PDF points from top-left) as an image so you can read figures, \
-tables and layouts that read_page flattens. Use it before boxing a table or figure (memo_add kind:'region'): read the box from the whole-page image \
-(points = pixels × points_per_pixel), then render that rect to confirm the box holds the whole table or figure.";
-
 /// MCP 결과를 글이 아닌 내용(그림 등)으로 돌려줄 때 쓰는 열쇠. rpc 가 알아본다
 pub const CONTENT_KEY: &str = "__mcp_content";
 
 pub fn tool_schemas() -> Vec<Value> {
     vec![
-        json!({"name": "page_image", "description": "Render one PDF page, or a box on it, as a PNG image (to read figures, diagrams, tables, layout). 쪽을 그림으로.",
+        json!({"name": "page_image", "description": "Use when read_page flattens something you need to see (figures, diagrams, tables, layout) or before boxing a region: renders one PDF page, or a box on it, as a PNG. Do not use it to read plain text (read_page is cheaper). Returns an image plus {points_per_pixel, origin_points, page_size_points}: points = pixels x points_per_pixel, origin top-left; pass the same rect to memo_add kind:'region', and confirm the box with page_image + that rect first. 쪽을 그림으로.",
             "inputSchema": {"type": "object", "properties": {
                 "doc_id": {"type": "string"},
                 "page": {"type": "integer", "minimum": 1, "description": "1-based page"},

@@ -3,7 +3,10 @@
 //! `127.0.0.1` 에서만 받고, 앱이 켜져 있을 때만 돈다. 요청 하나하나는 [`http::check_request`]
 //! 를 지나야 [`rpc::handle`] 에 닿는다.
 
+pub mod app_tools;
 pub mod canvas_tools;
+pub mod guide;
+pub mod limits;
 pub mod memo_tools;
 pub mod page_tools;
 pub mod http;

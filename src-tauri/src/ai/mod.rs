@@ -142,27 +142,26 @@ impl ToolContext for AiContext {
         if crate::mcp::canvas_tools::ENABLED {
             tools.extend(crate::mcp::canvas_tools::tool_schemas());
         }
-        tools.extend(crate::mcp::memo_tools::tool_schemas());
-        tools.extend(crate::mcp::page_tools::tool_schemas());
+        tools.extend(crate::mcp::app_tools::extra_schemas());
         tools
     }
 
     fn extra_call(&self, name: &str, args: &serde_json::Value) -> Option<Result<serde_json::Value, String>> {
+        use crate::mcp::{app_tools, webview_call};
+        let backend = |op: &str, args: &serde_json::Value, class: app_tools::Class, timeout: std::time::Duration| {
+            webview_call::call_class(&self.app, op, args, class.as_str(), timeout)
+        };
         (if crate::mcp::canvas_tools::ENABLED { crate::mcp::canvas_tools::call(&self.app, name, args) } else { None })
-            .or_else(|| crate::mcp::memo_tools::call(&self.app, name, args))
+            .or_else(|| app_tools::dispatch(name, args, crate::mcp::limits::global(), std::time::Instant::now(), &backend))
             .or_else(|| crate::mcp::page_tools::call(self.state.root(), name, args))
     }
 
     fn extra_instructions(&self) -> &'static str {
-        static COMBINED: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-        COMBINED.get_or_init(|| {
-            format!(
-                "{} {} {}",
-                if crate::mcp::canvas_tools::ENABLED { crate::mcp::canvas_tools::INSTRUCTIONS } else { "" },
-                crate::mcp::memo_tools::INSTRUCTIONS,
-                crate::mcp::page_tools::INSTRUCTIONS
-            )
-        })
+        crate::mcp::guide::extra_instructions()
+    }
+
+    fn webview(&self, op: &str, args: &serde_json::Value, timeout: std::time::Duration) -> Result<serde_json::Value, String> {
+        crate::mcp::webview_call::call_class(&self.app, op, args, "read", timeout)
     }
 
     fn show_location(&self, location: LocationRequest) -> Result<(), String> {
