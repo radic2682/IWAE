@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowRight, ArrowUpRight, ArrowsHorizontal, BoundingBox, Circle, Eraser, LineSegment, PaintBucket, PencilSimple, Rectangle, Square, TextAa, TextB, Trash, X } from '@phosphor-icons/react'
 import { dashOf, dashPatch, isOverlayColor, LINE_WIDTHS, OVERLAY_COLORS, TEXT_SIZES, type OverlayColor, type OverlayDash, type OverlayPatch, type PdfOverlay } from '../core/pdfOverlays'
@@ -38,14 +38,44 @@ export function DocFormatStrip({ icon, label, onClose, hint, children }: {
   const anchorRef = useCallback((element: HTMLSpanElement | null) => {
     setHost(element?.closest<HTMLElement>('.pane-frame') ?? null)
   }, [])
+  // 조작 안내(hint)는 자리가 남을 때만 보인다. 모자라면 감추고(겹침·찌그러짐 방지) 칩 풍선 도움말로 옮긴다
+  const stripRef = useRef<HTMLDivElement | null>(null)
+  const [hintFits, setHintFits] = useState(true)
+  useLayoutEffect(() => {
+    const element = stripRef.current
+    if (element === null || hint === undefined) return undefined
+    const measure = () => {
+      const style = getComputedStyle(element)
+      const gap = Number.parseFloat(style.columnGap) || 0
+      let need = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0)
+      let count = 0
+      for (const child of Array.from(element.children)) {
+        if (child.classList.contains('doc-strip-hint-off') || getComputedStyle(child).display === 'none') continue
+        need += child.getBoundingClientRect().width
+        count += 1
+      }
+      // 감춘 안내 칸(absolute)은 줄에서 빠져 있으니 자리를 따로 센다
+      const hintEl = element.querySelector('.doc-strip-hint-off')
+      if (hintEl !== null) { need += hintEl.getBoundingClientRect().width; count += 1 }
+      need += gap * Math.max(0, count - 1)
+      setHintFits(need <= element.clientWidth + 0.5)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    for (const child of Array.from(element.children)) observer.observe(child)
+    return () => observer.disconnect()
+  }, [hint, children, host])
+  const hintText = typeof hint === 'string' ? hint : null
+  const chipTitle = t('{label} 끄기', { label }) + (!hintFits && hintText !== null ? ` · ${hintText}` : '')
   const strip = (
-    <div className="doc-format-strip" role="toolbar" aria-label={label} onPointerDown={(event) => event.stopPropagation()}>
-      <button type="button" className="doc-strip-chip" title={t('{label} 끄기', { label })} onClick={onClose}>
+    <div ref={stripRef} className="doc-format-strip" role="toolbar" aria-label={label} onPointerDown={(event) => event.stopPropagation()}>
+      <button type="button" className="doc-strip-chip" title={chipTitle} onClick={onClose}>
         <span className="doc-strip-chip-icon" aria-hidden="true">{icon}</span>
         <span>{label}</span>
       </button>
       <div className="doc-strip-body">{children}</div>
-      {hint === undefined ? null : <span className="doc-strip-hint">{hint}</span>}
+      {hint === undefined ? null : <span className={`doc-strip-hint${hintFits ? '' : ' doc-strip-hint-off'}`}>{hint}</span>}
       <kbd className="doc-strip-kbd">Esc</kbd>
       <button type="button" className="doc-strip-close" aria-label={t('{label} 닫기', { label })} title={t('닫기 (Esc)')} onClick={onClose}>
         <X size={14} aria-hidden="true" />

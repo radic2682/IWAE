@@ -108,10 +108,12 @@
 .doc-format-strip {
   position: absolute; z-index: 13; top: var(--doc-card-h, 36px); left: 0; right: var(--memo-bar-w, 0px);
   display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 8px;
-  border-bottom: 1px solid var(--hairline); background: var(--workspace); color: var(--text-strong);
+  border-bottom: 1px solid var(--divider); background: var(--paper); color: var(--text-strong);
   font-size: 12.5px; overflow-x: auto; scrollbar-width: none;
 }
 .doc-format-strip::-webkit-scrollbar { display: none; }
+/* 도구줄과 띠는 한 막대: 같은 바탕(--paper), 밑선은 띠 밑에 한 줄만(도구줄 밑선은 띠가 있는 동안 감춘다) */
+.pane-doc .pane-frame-with-toolbar:has(.doc-format-strip)::before { border-bottom-color: transparent; }
 /* 띠가 있는 동안 문서는 띠 밑에서 시작한다(가리지 않게) */
 .pane-doc .pane-frame:has(.doc-format-strip) { --doc-head-h: calc(var(--doc-card-h, 36px) + 40px); }
 .pane-doc .pane-frame:has(.doc-format-strip) .markdown-pane { padding-top: 40px; }
@@ -122,7 +124,7 @@
 }
 .doc-strip-chip:hover { background: color-mix(in srgb, var(--accent) 22%, var(--paper)); }
 .doc-strip-chip-icon { display: grid; place-items: center; }
-.doc-strip-body { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; }
+.doc-strip-body { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
 .doc-strip-body:empty { display: none; }
 .doc-strip-sep { flex: 0 0 auto; width: 1px; height: 18px; margin: 0 4px; background: var(--divider); }
 .doc-strip-swatches { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; padding: 0 2px; }
@@ -130,7 +132,7 @@
   position: relative; flex: 0 0 auto; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
   box-shadow: inset 0 0 0 1px rgb(var(--rgb-black) / 22%); cursor: pointer;
 }
-.doc-strip-swatch-on { box-shadow: 0 0 0 2px var(--workspace), 0 0 0 3.5px var(--accent); }
+.doc-strip-swatch-on { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--accent); }
 .doc-strip-swatch-custom { background: var(--swatch-rainbow); overflow: hidden; }
 .doc-strip-swatch-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .doc-strip-seg { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; padding: 2px; border-radius: var(--r-md); background: color-mix(in srgb, var(--text-strong) 7%, transparent); }
@@ -149,8 +151,11 @@
 .doc-format-strip .doc-strip-select { flex: 0 0 auto; width: 86px; }
 .doc-format-strip .doc-strip-select button { height: 28px; }
 .doc-strip-hint { flex: 0 0 auto; margin-left: auto; padding-left: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+/* 자리가 모자라면 안내는 감춘다(겹치거나 찌그러지지 않게). 폭은 재야 하니 자리에 둔 채 보이지만 않게 */
+.doc-strip-hint-off { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; }
 .doc-strip-kbd { flex: 0 0 auto; margin-left: auto; padding: 1px 5px; border: 1px solid var(--divider-strong); border-radius: var(--r-xs); font: inherit; font-size: 10.5px; font-weight: 700; }
 .doc-strip-hint + .doc-strip-kbd { margin-left: 0; }
+.doc-strip-hint-off + .doc-strip-kbd { margin-left: auto; }
 .doc-strip-close { display: grid; flex: 0 0 auto; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer; }
 .doc-strip-close:hover { background: var(--chrome-hover); }
 /* 박스 메모 서식 칸(PdfBoxMemos 가 채운다)도 띠 안에서 한 줄로 */

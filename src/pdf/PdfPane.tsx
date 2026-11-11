@@ -1880,7 +1880,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
           ) : null}
         </div>
       </div>
-      {interactionMode === 'edit' && rotation === 0 ? (
+      {interactionMode === 'edit' && rotation === 0 && (primary || overlaySelectedId !== null) ? (
         <PdfOverlayPalette
           tool={overlayTool}
           style={overlayStyle}
