@@ -22,6 +22,9 @@
   animation: confirm-dialog-in 140ms var(--layout-ease, ease) both;
 }
 
+/* 단추가 셋이면(예: 노트 충돌) 한 줄에 다 들어가게 넓힌다 */
+.confirm-dialog:has(.confirm-dialog-actions > button:nth-child(3)) { width: min(500px, calc(100vw - 32px)); }
+
 .confirm-dialog-head { display: flex; align-items: center; gap: 9px; }
 .confirm-dialog-head h2 { margin: 0; color: var(--text-strong); font-size: 14px; font-weight: 700; }
 .confirm-dialog-mark {
