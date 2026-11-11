@@ -100,6 +100,11 @@ interface SelectionLayerProps {
   highlightColor?: PdfHighlightColor
   anchor?: Anchor
   persistentHighlights?: readonly PersistentPdfHighlight[]
+  /**
+   * 지금 노트 바에 없는 형광펜(id → 마우스를 올렸을 때 보일 말). 흐리게 그리거나(dim) 아예 그리지 않는다(hide).
+   * 없애면(null·생략) 모두 보통으로 그린다
+   */
+  otherNote?: { readonly mode: 'dim' | 'hide'; readonly labels: ReadonlyMap<string, string> } | null
   passiveHighlights?: readonly { blockId: string; anchor: Anchor }[]
   searchHighlights?: readonly { id: string; rects: Anchor['rects']; active: boolean }[]
   onAnchorCreated?: (anchor: Anchor) => void
@@ -210,7 +215,8 @@ export function SelectionLayer({
   mode = 'text',
   highlightColor = 'yellow',
   anchor,
-  persistentHighlights = [],
+  persistentHighlights: allPersistentHighlights = [],
+  otherNote = null,
   passiveHighlights = [],
   searchHighlights = [],
   onAnchorCreated,
@@ -228,6 +234,13 @@ export function SelectionLayer({
   onTranslate,
   onSendTranslationToCanvas,
 }: SelectionLayerProps) {
+  // 방금 만든 것·깜빡이는 것은 노트에 담기는 중일 수 있어 늘 보통으로 둔다
+  const isOther = (id: string) => otherNote !== null && otherNote.labels.has(id) && !isFreshHighlight(id) && id !== flashHighlightId
+  // 숨기기: 그리지도, 눌러지지도 않는다(그 자리에서 글을 고르고 새로 칠할 수 있게)
+  const persistentHighlights = otherNote?.mode === 'hide' ? allPersistentHighlights.filter(({ id }) => !isOther(id)) : allPersistentHighlights
+  const [otherTip, setOtherTip] = useState<{ x: number; y: number; label: string } | null>(null)
+  // 노트를 바꾸거나 설정이 바뀌면 떠 있던 말풍선은 거둔다(마우스가 움직이지 않으면 거두는 계기가 없다)
+  useEffect(() => { setOtherTip(null) }, [otherNote])
   const [gesture, setGesture] = useState<SelectionGesture | null>(null)
   const [draft, setDraft] = useState<PdfExcerptSelection | null>(null)
   const [draftRegion, setDraftRegion] = useState<ReturnType<typeof regionRect> | null>(null)
@@ -467,8 +480,16 @@ export function SelectionLayer({
     if (gesture === null) {
       // 형광펜 위면 누를 수 있다는 손가락 모양
       const point = localPoint(event)
-      const over = textLike && !eraseHighlights && onPersistentHighlightActivate !== undefined && persistentHighlightAt(point) !== undefined
+      const hit = textLike && !eraseHighlights && onPersistentHighlightActivate !== undefined ? persistentHighlightAt(point) : undefined
+      const over = hit !== undefined
       if (over !== hoverHighlight) setHoverHighlight(over)
+      // 노트에 없는 형광펜이면 어느 노트의 것인지 작은 말풍선으로
+      const tipLabel = hit !== undefined && isOther(hit.id) ? otherNote?.labels.get(hit.id) : undefined
+      if (tipLabel === undefined) {
+        if (otherTip !== null) setOtherTip(null)
+      } else if (otherTip === null || otherTip.label !== tipLabel || Math.abs(otherTip.x - point.x) > 6 || Math.abs(otherTip.y - point.y) > 6) {
+        setOtherTip({ x: point.x, y: point.y, label: tipLabel })
+      }
       if (resizeEnabled) {
         const edge = regionEdgeAt(point)
         const next = edge === null ? null : { id: edge.id, edges: edge.edges }
@@ -647,7 +668,7 @@ export function SelectionLayer({
         ))}
         {persistentHighlights.map(({ id, anchor: rawAnchor, color, kind }) => {
           const persistentAnchor = resize?.id === id && resizeRect !== null ? { ...rawAnchor, rects: [resizeRect] } : rawAnchor
-          const className = `selection-persistent-highlight${kind === 'region' ? ' selection-persistent-region' : ''}${id === flashHighlightId ? ' selection-highlight-flash' : ''}${isFreshHighlight(id) ? ' selection-highlight-new' : ''}`
+          const className = `selection-persistent-highlight${isOther(id) ? ' selection-highlight-other' : ''}${kind === 'region' ? ' selection-persistent-region' : ''}${id === flashHighlightId ? ' selection-highlight-flash' : ''}${isFreshHighlight(id) ? ' selection-highlight-new' : ''}`
           return kind === 'region'
             ? coalesceHighlightRects(persistentAnchor.rects).map((rect, rectIndex) => {
                 // 대상 테두리 바깥에 옅은 바탕 + 얇은 선, 네 귀퉁이에만 형광펜 색 꺾쇠(표 전체가 노랗게 물들지 않게)
@@ -658,7 +679,7 @@ export function SelectionLayer({
                 return (
                   <Fragment key={`${id}:${rectIndex}`}>
                     <rect className={className} data-persistent-highlight={id} data-hl={color} x={x} y={y} width={w} height={h} />
-                    <path className="selection-persistent-highlight selection-region-corners" data-hl={color} d={regionCornersPath(x, y, w, h)} />
+                    <path className={`selection-persistent-highlight selection-region-corners${isOther(id) ? ' selection-highlight-other' : ''}`} data-hl={color} d={regionCornersPath(x, y, w, h)} />
                   </Fragment>
                 )
               })
@@ -747,8 +768,12 @@ export function SelectionLayer({
           }
           setHoverHighlight(false)
           setHoverText(false)
+          setOtherTip(null)
         }}
       />
+      {otherTip === null ? null : (
+        <div className="selection-other-tip" role="tooltip" style={{ left: `${otherTip.x + 12}px`, top: `${otherTip.y + 16}px` }}>{otherTip.label}</div>
+      )}
       {passiveHighlights.map(({ blockId, anchor: passiveAnchor }) => {
         const bounds = anchorBounds(passiveAnchor)
         return bounds === null ? null : (

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { highlightCssRules, type HighlightColorDef } from '../core/highlightColors'
-import { getAppPrefs, subscribeAppPrefs } from './appPrefs'
+import { getAppPrefs, subscribeAppPrefs, type OtherNoteHighlights } from './appPrefs'
 import { setRuntimeSheet } from './runtimeStyle'
 
 export const HIGHLIGHT_STYLE_ID = 'iwae-highlight-colors'
@@ -26,6 +26,11 @@ export function installHighlightColorStyle(): void {
 /** 지금 형광펜 색 목록. 바뀌면 다시 그려진다 */
 export function useHighlightColors(): readonly HighlightColorDef[] {
   return useSyncExternalStore(subscribeAppPrefs, () => getAppPrefs().highlightColors, () => getAppPrefs().highlightColors)
+}
+
+/** 노트 바에 없는 메모의 형광펜을 어떻게 그리는가(설정). 바뀌면 다시 그려진다 */
+export function useOtherNoteHighlights(): OtherNoteHighlights {
+  return useSyncExternalStore(subscribeAppPrefs, () => getAppPrefs().otherNoteHighlights, () => getAppPrefs().otherNoteHighlights)
 }
 
 /** React 밖(내보내기·검증)에서 읽는 목록 */

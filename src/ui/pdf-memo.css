@@ -265,6 +265,28 @@
   stroke-linejoin: round;
 }
 
+/* 지금 노트 바에 없는 메모의 형광펜: 같은 색을 더 옅고 투명하게, 선 없이(곱하기는 그대로라 글자는 또렷하다) */
+.selection-mark-layer path.selection-persistent-highlight.selection-highlight-other:not(.selection-region-corners) {
+  --hl-fill: color-mix(in srgb, var(--hlc-soft) 50%, var(--mix-white));
+  stroke: none;
+  opacity: .8;
+}
+.selection-mark-layer rect.selection-persistent-highlight.selection-persistent-region.selection-highlight-other {
+  fill: color-mix(in srgb, var(--hl-fill) 6%, var(--mix-white));
+  stroke: none;
+}
+.selection-mark-layer path.selection-persistent-highlight.selection-region-corners.selection-highlight-other {
+  stroke: color-mix(in srgb, var(--hl-edge) 38%, var(--mix-white));
+  stroke-width: 2px;
+}
+.selection-other-tip {
+  position: absolute; z-index: 6; max-width: 240px; padding: 4px 9px; border-radius: var(--r-sm);
+  background: var(--paper); color: var(--text-strong); font-size: 12px; font-weight: 600; line-height: 1.4;
+  box-shadow: 0 2px 10px rgb(var(--rgb-black) / 22%), 0 0 0 1px var(--divider);
+  pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  animation: motion-fade-in var(--motion-fast) ease-out backwards;
+}
+
 /* ---------- 메모 열 머리: 노트 검색 · 닫기 · 메모만 보기 ---------- */
 /* ---------- 오른쪽 메모 바: PDF 창과 따로 떨어진 칸 ---------- */
 .pane-doc .pdf-memo-bar {

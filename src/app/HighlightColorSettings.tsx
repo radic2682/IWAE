@@ -13,10 +13,41 @@ import {
   type HighlightColorDef,
 } from '../core/highlightColors'
 import { t } from '../i18n'
-import { setAppPref } from './appPrefs'
-import { useHighlightColors } from './highlightColorStyle'
+import { setAppPref, type OtherNoteHighlights } from './appPrefs'
+import { useHighlightColors, useOtherNoteHighlights } from './highlightColorStyle'
 import { useHighlightColorUsage } from './highlightColorUsage'
 import '../ui/highlight-colors.css'
+
+const OTHER_NOTE_OPTIONS: readonly { readonly value: OtherNoteHighlights; readonly label: () => string }[] = [
+  { value: 'normal', label: () => t('보통') },
+  { value: 'dim', label: () => t('흐리게') },
+  { value: 'hide', label: () => t('숨기기') },
+]
+
+/** 「다른 노트의 형광펜」: 지금 노트 바에 없는 메모의 형광펜을 PDF 에서 어떻게 그릴까 */
+function OtherNoteHighlightSetting() {
+  const value = useOtherNoteHighlights()
+  return (
+    <div className="theme-subsection hlc-other-note" data-testid="other-note-highlight-setting">
+      <h3 id="hlc-other-title">{t('다른 노트의 형광펜')}</h3>
+      <div className="ui-scale-presets" role="radiogroup" aria-labelledby="hlc-other-title">
+        {OTHER_NOTE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            className={`ui-scale-preset${value === option.value ? ' ui-scale-preset-active' : ''}`}
+            aria-checked={value === option.value}
+            onClick={() => setAppPref('otherNoteHighlights', option.value)}
+          >
+            {option.label()}
+          </button>
+        ))}
+      </div>
+      <p className="hlc-caption">{t('지금 열린 노트에 없는 메모의 형광펜을 PDF 에서 어떻게 보일지 정합니다. 노트 바를 닫았을 때는 모두 보통으로 보입니다.')}</p>
+    </div>
+  )
+}
 
 function save(next: readonly HighlightColorDef[]): void {
   setAppPref('highlightColors', next)
@@ -85,6 +116,7 @@ export function HighlightColorSettings() {
   }
 
   return (
+    <>
     <div className="theme-subsection hlc-settings" data-testid="highlight-color-settings">
       <h3 id="hlc-title">
         {t('형광펜 색')} <small>{t('끌어서 순서 바꾸기 · 최대 {n}가지', { n: MAX_HIGHLIGHT_COLORS })}</small>
@@ -180,5 +212,7 @@ export function HighlightColorSettings() {
         {t('고른 색 하나로 본문 표시(반투명), 카드 탭·테두리·연결선(흰 글자가 읽히는 진한 톤)을 자동으로 만듭니다. 지운 색으로 칠한 형광펜은 「기타」 색으로 남습니다.')}
       </p>
     </div>
+    <OtherNoteHighlightSetting />
+    </>
   )
 }

@@ -22,6 +22,7 @@ const INDEX: PageTextIndex = {
 function mount(options: {
   anchor?: Anchor
   persistentHighlights?: readonly { id: string; anchor: Anchor; color: string }[]
+  otherNote?: { readonly mode: 'dim' | 'hide'; readonly labels: ReadonlyMap<string, string> } | null
   passiveHighlights?: readonly { blockId: string; anchor: Anchor }[]
   searchHighlights?: readonly { id: string; rects: Anchor['rects']; active: boolean }[]
   mode?: 'hand' | 'text' | 'lasso' | 'highlight'
@@ -46,6 +47,7 @@ function mount(options: {
       pageSize={[612, 792]}
       anchor={options.anchor}
       persistentHighlights={options.persistentHighlights}
+      otherNote={options.otherNote}
       passiveHighlights={options.passiveHighlights}
       searchHighlights={options.searchHighlights}
       mode={options.mode}
@@ -136,6 +138,28 @@ describe('SelectionLayer', () => {
     expect(view.container.querySelector('[data-persistent-highlight="highlight-b"]')).not.toBeNull()
     expect(view.container.querySelector('[data-persistent-highlight="highlight-a"]')?.getAttribute('data-hl')).toBe('green')
     expect(view.container.querySelector('[data-persistent-highlight="highlight-b"]')?.getAttribute('data-hl')).toBe('blue')
+  })
+
+  it('노트 바에 없는 메모의 형광펜은 흐리게 그리거나 그리지 않는다', () => {
+    const first: Anchor = {
+      docId: '0123456789ab', page: 2, coordSpace: 'pdfium-page',
+      rects: [{ x: 10, y: 10, w: 20, h: 10 }], charRange: [0, 2], quote: 'AB', prefix: '', suffix: '',
+    }
+    const second: Anchor = { ...first, rects: [{ x: 10, y: 30, w: 20, h: 10 }], charRange: [4, 6], quote: 'CD', prefix: '', suffix: '' }
+    const persistentHighlights = [
+      { id: 'in-note', anchor: first, color: 'green' as const },
+      { id: 'elsewhere', anchor: second, color: 'blue' as const },
+    ]
+    const labels = new Map([['elsewhere', '다른 노트: 기록']])
+
+    const dim = mount({ persistentHighlights, otherNote: { mode: 'dim', labels } })
+    expect(dim.container.querySelector('[data-persistent-highlight="in-note"]')?.classList.contains('selection-highlight-other')).toBe(false)
+    expect(dim.container.querySelector('[data-persistent-highlight="elsewhere"]')?.classList.contains('selection-highlight-other')).toBe(true)
+    dim.unmount()
+
+    const hide = mount({ persistentHighlights, otherNote: { mode: 'hide', labels } })
+    expect(hide.container.querySelector('[data-persistent-highlight="in-note"]')).not.toBeNull()
+    expect(hide.container.querySelector('[data-persistent-highlight="elsewhere"]')).toBeNull()
   })
 
   it('드래그 중 선택 범위를 줄별 사각형으로 그리고 pointerup 에 앵커를 올린다', () => {

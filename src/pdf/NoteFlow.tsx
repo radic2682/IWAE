@@ -596,16 +596,28 @@ export function NoteFlow({
               {shown.status === 'loading' ? t('번역 중…') : shown.text}
             </div>
           )
+          // 형광펜 색 점이 곧 원문 펼치기·접기 단추(칩의 나머지를 누르면 원문 자리로 간다)
+          const dotButton = (open: boolean) => (
+            <button
+              type="button"
+              className="note-source-dot"
+              aria-label={open ? t('근거 접기') : t('근거 펼치기')}
+              aria-expanded={open}
+              title={open ? t('근거 접기') : t('근거 펼치기')}
+              onKeyDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                onToggleCollapse(source.id, open)
+              }}
+            >
+              <span aria-hidden="true" />
+            </button>
+          )
           if (collapsed) {
             return (
               <Fragment key={source.id}>
               <div className="note-source-chip" data-hl={source.color} title={t('원문에서 보기')} role="button" tabIndex={draft ? undefined : 0} onClick={draft ? undefined : () => onJump(source)} onKeyDown={(event) => { if (!draft && event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onJump(source) } }}>
-                <button type="button" className="note-source-expand" aria-label={t('원문 펼치기')} title={t('원문 펼치기')} onClick={(event) => {
-                  event.stopPropagation()
-                  onToggleCollapse(source.id, false)
-                }}>
-                  <CaretRight size={11} weight="bold" aria-hidden="true" />
-                </button>
+                {dotButton(false)}
                 {meta}
                 <span className="note-source-chip-text">{source.kind === 'region' ? t('표·그림') : source.anchor.quote.replace(/\s+/gu, ' ').trim()}</span>
                 {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
@@ -641,24 +653,22 @@ export function NoteFlow({
             )
           }
           return (
-            <div
-              key={source.id}
-              className="pdf-memo-card-quote note-source"
-              data-hl={source.color}
-              title={t('원문에서 보기')}
-              onClick={draft ? undefined : () => onJump(source)}
-            >
-              <button type="button" className="note-source-expand" aria-label={t('원문 접기')} title={t('원문 접기')} onClick={(event) => {
-                event.stopPropagation()
-                onToggleCollapse(source.id, true)
-              }}>
-                <CaretDown size={11} weight="bold" aria-hidden="true" />
-              </button>
-              {meta}
-              {source.anchor.quote.replace(/\s+/gu, ' ').trim()}
-              {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
-              {remove}
-            </div>
+            <Fragment key={source.id}>
+              <div
+                className="pdf-memo-card-quote note-source"
+                data-hl={source.color}
+                title={t('원문에서 보기')}
+                onClick={draft ? undefined : () => onJump(source)}
+              >
+                {dotButton(true)}
+                {meta}
+                {source.anchor.quote.replace(/\s+/gu, ' ').trim()}
+                {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
+                {translateButton}
+                {remove}
+              </div>
+              {translationLine}
+            </Fragment>
           )
         }
         const sourceList = (

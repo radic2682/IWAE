@@ -28,6 +28,7 @@ import { renderWidthFor } from './renderWidth'
 import { PageImage, prefetchPreviews } from './PageImage'
 import { stepZoom } from '../core/pdfZoom'
 import { pageTextIndex, pdfOutline, pdfPageLinks, type PdfLink, type PdfOutlineEntry } from '../bridge/pdf'
+import { useOtherNoteHighlights } from '../app/highlightColorStyle'
 import { SelectionLayer, type PdfHighlightColor, type PdfInteractionMode } from './SelectionLayer'
 import { LinkLayer } from './LinkLayer'
 import { HighlightPopover } from './HighlightPopover'
@@ -500,6 +501,21 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   })
   if (draftMemo !== null && draftIndex >= noteBlocks.length) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true, sourceLabel: title })
   const noteMemos = noteItems.flatMap((item) => item.kind === 'memo' && item.draft !== true ? [item.highlight] : [])
+  // 노트 바에 열린 노트가 있을 때, 그 노트에 없는 형광펜은 카드도 연결선도 없다: 설정에 따라 흐리게·숨기고, 올리면 어느 노트의 것인지 말한다
+  const otherNotePref = useOtherNoteHighlights()
+  const otherNote = useMemo(() => {
+    if (otherNotePref === 'normal' || noteApi === null || noteApi.openNote === null || !memoColumnVisible) return null
+    const inNote = new Set<string>(draftMemo === null ? [] : [draftMemo.id])
+    for (const block of noteApi.openNote.blocks) for (const id of memoHighlightIds(block)) inNote.add(id)
+    const labels = new Map<string, string>()
+    for (const highlight of persistentHighlights) {
+      if (highlight.anchor.docId !== docId || highlight.box !== undefined || inNote.has(highlight.id)) continue
+      const path = noteApi.notesOf(highlight.id)[0]
+      const noteTitle = path === undefined ? undefined : noteApi.entries.find((entry) => entry.path === path)?.title
+      labels.set(highlight.id, noteTitle === undefined ? t('노트에 없는 메모') : t('다른 노트: {title}', { title: noteTitle }))
+    }
+    return { mode: otherNotePref, labels }
+  }, [docId, draftMemo, memoColumnVisible, noteApi, otherNotePref, persistentHighlights])
   // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
   useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
   // 창을 여러 칸으로 나눴으면 노트 바는 맨 오른쪽 위 칸에만
@@ -1525,6 +1541,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               highlightColor={selectedHighlightColor}
               anchor={anchors.get(page) ?? (highlightAnchor?.page === page ? highlightAnchor : undefined)}
               persistentHighlights={persistentHighlightsByPage.get(page)}
+              otherNote={otherNote}
               passiveHighlights={highlightsByPage.get(page)}
               searchHighlights={searchHighlightsByPage.get(page)}
               onSendToCanvas={onSendToCanvas}
