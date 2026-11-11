@@ -69,6 +69,24 @@ interface FileState {
 
 const MAX_ATTEMPTS = 6
 
+/** 디스크의 파일이 이 창이 마지막으로 읽거나 쓴 내용과 달라졌다(다른 프로그램이 고쳤다). 쓰지 않고 이 오류로 알린다 */
+export class VaultExternalChangeError extends Error {
+  constructor(readonly path: string, readonly diskText: string) {
+    super(`External change: ${path}`)
+    this.name = 'VaultExternalChangeError'
+  }
+}
+
+export function isVaultExternalChangeError(error: unknown): error is VaultExternalChangeError {
+  return error instanceof VaultExternalChangeError
+}
+
+/** 디스크 내용과 이 창이 아는 내용을 견준 결과 */
+export type DiskInspection =
+  | { readonly state: 'same' }
+  | { readonly state: 'missing' }
+  | { readonly state: 'changed'; readonly text: string }
+
 export function normalizeSyncKey(path: string): string {
   return path.replaceAll('\\', '/').replace(/\/{2,}/gu, '/').toLocaleLowerCase()
 }
@@ -117,6 +135,24 @@ export class VaultFileSync {
     const state = this.state(path)
     if (hash === undefined) delete state.hash
     else state.hash = hash
+  }
+
+  /** 이 창이 마지막으로 읽거나 쓴(또는 남의 변경을 받아 맞춘) 디스크 내용. 모르면 undefined */
+  observedText(path: string): string | null | undefined {
+    return this.files.get(normalizeSyncKey(path))?.synced
+  }
+
+  /** 디스크의 지금 내용을 이 창이 아는 내용과 견준다(외부 변경 감지) */
+  async inspect(path: string): Promise<DiskInspection> {
+    const text = await this.io.readText(path)
+    if (text === null) return { state: 'missing' }
+    return text === this.observedText(path) ? { state: 'same' } : { state: 'changed', text }
+  }
+
+  /** 저장 직전 확인: 디스크가 이 창이 아는 내용과 다르면 쓰지 않고 오류를 던진다(파일이 없으면 통과) */
+  async guardWrite(path: string): Promise<void> {
+    const inspection = await this.inspect(path)
+    if (inspection.state === 'changed') throw new VaultExternalChangeError(path, inspection.text)
   }
 
   observedHash(path: string): string | undefined {

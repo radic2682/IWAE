@@ -21,6 +21,9 @@ vi.mock('../bridge/memoNotes', () => ({
   writeMemoNote: vi.fn(async () => undefined),
   trashMemoNote: vi.fn(async () => undefined),
   memoNoteCodec: {},
+  inspectMemoNote: vi.fn(async () => ({ state: 'same' })),
+  adoptMemoNoteText: vi.fn(),
+  watchMemoNoteFiles: vi.fn(async () => () => undefined),
   onMemoNotesChanged: vi.fn(async () => () => undefined),
   ...bridge,
 }))

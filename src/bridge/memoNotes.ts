@@ -1,7 +1,8 @@
 import { t } from '../i18n'
-import { forgetObservedFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
+import { forgetObservedFile, inspectVaultRelativeFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
 import type { SyncCodec } from '../core/vaultSync'
 import {
+  MEMO_NOTES_FOLDER_CANDIDATES,
   detectMemoNotesFolder,
   rememberMemoNotesFolder,
   MEMO_NOTE_EXTENSION,
@@ -95,8 +96,31 @@ export async function onMemoNotesChanged(vault: VaultHandle, handler: () => void
   })
 }
 
+/** 디스크의 노트 파일을 이 앱이 마지막으로 읽거나 쓴 내용과 견준 결과(note 는 읽을 수 있을 때만) */
+export type MemoNoteDisk =
+  | { readonly state: 'same' }
+  | { readonly state: 'missing' }
+  | { readonly state: 'changed'; readonly text: string; readonly note: MemoNote | null }
+
+export async function inspectMemoNote(vault: VaultHandle, path: string): Promise<MemoNoteDisk> {
+  const result = await inspectVaultRelativeFile(vault, path)
+  if (result.state !== 'changed') return result
+  let note: MemoNote | null = null
+  try { note = parseMemoNote(JSON.parse(result.text) as unknown) } catch { /* 쓰는 도중이거나 깨진 파일 */ }
+  return { state: 'changed', text: result.text, note }
+}
+
+/** 디스크 내용(text)을 이 앱이 아는 내용으로 받아들인다: 이후 저장의 바탕이 되고 외부 변경 확인이 같다고 본다 */
+export function adoptMemoNoteText(vault: VaultHandle, path: string, text: string): void {
+  trackVaultRelativeRead(vault, path, text)
+}
+
+/**
+ * 노트를 쓴다. 디스크의 파일이 이 앱이 마지막으로 읽거나 쓴 내용과 다르면(다른 프로그램이 고쳤다) 쓰지 않고
+ * VaultExternalChangeError 를 던진다.
+ */
 export async function writeMemoNote(vault: VaultHandle, path: string, note: MemoNote): Promise<void> {
-  await writeVaultRelativeText(vault, path, serializeMemoNote(note))
+  await writeVaultRelativeText(vault, path, serializeMemoNote(note), { guardExternalChange: true })
   rememberMemoNotesFolder(path.replaceAll('\\', '/').split('/')[0] ?? '')
 }
 
@@ -158,4 +182,45 @@ export async function revealMemoNote(vault: VaultHandle, path: string): Promise<
 
 export async function memoNoteAbsolutePath(vault: VaultHandle, path: string): Promise<string> {
   return absolute(vault, path)
+}
+
+export interface MemoNoteFileChange {
+  /** 바뀐 노트 파일(Vault 상대 경로, 노트 폴더 안의 *.iwnote) */
+  readonly notePaths: readonly string[]
+  /** 노트 폴더 안의 폴더·이름 바뀜처럼 목록을 다시 맞춰야 하는 변경이 섞였다 */
+  readonly rescan: boolean
+}
+
+/**
+ * 앱 밖에서(다른 프로그램·AI 에이전트·동기화 도구·git) 노트 파일이 만들어지거나 바뀌거나 이름이 바뀌거나 지워지면 알린다.
+ * Vault 를 재귀로 감시하고(0.3초 묶음) 노트 폴더(「노트」·「Notes」, 하위 폴더 포함)의 *.iwnote 만 걸러 낸다.
+ * 앱 자신의 쓰기도 알려 오므로 받는 쪽이 디스크 내용을 견주어 거른다. 돌려주는 함수로 끊는다.
+ */
+export async function watchMemoNoteFiles(vault: VaultHandle, onChange: (change: MemoNoteFileChange) => void): Promise<() => void> {
+  const { isDesktop } = await import('./window')
+  if (!isDesktop()) return () => undefined
+  const { watch } = await import('@tauri-apps/plugin-fs')
+  const root = `${vault.root.replaceAll('\\', '/').replace(/\/+$/u, '')}/`
+  return watch(vault.root, (event) => {
+    const change = memoNoteChangeOf(event.paths, root)
+    if (change !== null) onChange(change)
+  }, { recursive: true, delayMs: 300 })
+}
+
+/** 파일 감시 이벤트의 경로들 중 노트에 관한 것만 추린다(순수 함수: 시험용으로 내보낸다) */
+export function memoNoteChangeOf(paths: readonly string[], rootWithSlash: string): MemoNoteFileChange | null {
+  const notePaths = new Set<string>()
+  let rescan = false
+  for (const raw of paths) {
+    const normalized = raw.replaceAll('\\', '/')
+    if (!normalized.toLocaleLowerCase().startsWith(rootWithSlash.toLocaleLowerCase())) continue
+    const relative = normalized.slice(rootWithSlash.length).replace(/\/+$/u, '')
+    const parts = relative.split('/')
+    const top = MEMO_NOTES_FOLDER_CANDIDATES.find((name) => name.toLocaleLowerCase() === (parts[0] ?? '').toLocaleLowerCase())
+    if (top === undefined || parts.some((part) => part.startsWith('.'))) continue
+    const canonical = [top, ...parts.slice(1)].join('/')
+    if (canonical.toLowerCase().endsWith(MEMO_NOTE_EXTENSION)) notePaths.add(canonical)
+    else if (!/\.(?:part|swp|temp|tmp)$/iu.test(canonical)) rescan = true
+  }
+  return notePaths.size === 0 && !rescan ? null : { notePaths: [...notePaths], rescan }
 }

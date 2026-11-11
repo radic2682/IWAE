@@ -4,7 +4,7 @@ import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core
 import { EMPTY_BIBLIOGRAPHY, parseBibliographyFile, type BibliographyFile } from '../core/bibliography'
 import { errorText } from '../core/errorText'
 import { parseTranslationCache, serializeTranslationCache, type TranslationCacheEntry } from '../core/translationCache'
-import { VaultFileSync, isMergeableVaultPath, normalizeSyncKey, type RemoteChange, type SyncCodec, type VaultWriteMessage, type WriteTicket } from '../core/vaultSync'
+import { VaultFileSync, isMergeableVaultPath, normalizeSyncKey, type DiskInspection, type RemoteChange, type SyncCodec, type VaultWriteMessage, type WriteTicket } from '../core/vaultSync'
 import { emptyCanvasDoc, serializeCanvasDoc } from '../core/canvasSerialize'
 import { parseCanvasDocument, type CanvasDocument, type CanvasDocumentV2 } from '../core/canvasDocument'
 import type { SessionState } from '../core/session'
@@ -225,7 +225,12 @@ function trackRead(path: string, text: string | null): void {
 }
 
 /** Vault 안 상대 경로의 글 파일을 저널 원자 쓰기로 저장한다(메모 노트 등) */
-export function writeVaultRelativeText(vault: VaultHandle, relativePath: string, contents: string): Promise<void> {
+export function writeVaultRelativeText(
+  vault: VaultHandle,
+  relativePath: string,
+  contents: string,
+  options: { readonly guardExternalChange?: boolean } = {},
+): Promise<void> {
   const parts = relativePath.replaceAll('\\', '/').split('/').filter((part) => part !== '')
   if (parts.length === 0 || parts.some((part) => part === '..' || part === '.')) return Promise.reject(new Error(t('Vault 상대 경로가 올바르지 않습니다.')))
   const key = `${vault.root}/${parts.join('/')}`
@@ -237,8 +242,17 @@ export function writeVaultRelativeText(vault: VaultHandle, relativePath: string,
     const { mkdir } = await import('@tauri-apps/plugin-fs')
     const directory = await join(vault.root, ...parts.slice(0, -1))
     await mkdir(directory, { recursive: true })
-    await fileSync.writeNow(await join(vault.root, ...parts), contents, `vault:${parts.join('/')}`, { mergeable, root: vault.root, ...(ticket === undefined ? {} : { ticket }) })
+    const target = await join(vault.root, ...parts)
+    // 다른 프로그램(AI 에이전트·동기화 도구·git)이 파일을 먼저 고쳤으면 쓰지 않는다: 호출한 쪽이 되읽기·충돌 선택으로 이어 간다
+    if (options.guardExternalChange === true && isDesktop()) await fileSync.guardWrite(target)
+    await fileSync.writeNow(target, contents, `vault:${parts.join('/')}`, { mergeable, root: vault.root, ...(ticket === undefined ? {} : { ticket }) })
   })
+}
+
+/** 파일의 디스크 내용을 이 창이 마지막으로 읽거나 쓴 내용과 견준다 */
+export async function inspectVaultRelativeFile(vault: VaultHandle, relativePath: string): Promise<DiskInspection> {
+  const { join } = await import('@tauri-apps/api/path')
+  return fileSync.inspect(await join(vault.root, ...relativePath.replaceAll('\\', '/').split('/').filter((part) => part !== '')))
 }
 
 /** 메모 노트처럼 Vault 상대 경로 파일을 읽었다(병합 바탕으로 기억) */

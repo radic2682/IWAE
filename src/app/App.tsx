@@ -3163,6 +3163,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onPull={() => githubPullAndShow(githubDialog.source.name)}
       />
     ) : null}
+    {memoNotes.conflict !== null ? (
+      <ConfirmDialog
+        title={t('노트가 다른 곳에서 바뀌었습니다')}
+        confirmLabel={t('내 것을 사본으로 저장')}
+        cancelLabel={t('파일의 것으로 되돌리기')}
+        extra={{ label: t('내 것으로 덮어쓰기'), onClick: () => void memoNotes.resolveConflict('mine') }}
+        locked
+        onConfirm={() => void memoNotes.resolveConflict('copy')}
+        onCancel={() => void memoNotes.resolveConflict('file')}
+      >
+        <p>{t('「{name}」 노트를 다른 프로그램이 바꿨고, 이 앱에도 아직 저장하지 않은 변경이 있습니다. 어느 쪽을 남길까요?', { name: memoNotes.conflict.title })}</p>
+        <p>{t('정할 때까지 이 노트는 파일에 저장하지 않습니다. 「파일의 것으로 되돌리기」는 이 앱의 저장하지 않은 변경을 버립니다.')}</p>
+      </ConfirmDialog>
+    ) : null}
     {pendingSlides !== null ? (
       <ConfirmDialog
         title={t('PowerPoint 를 PDF 로 바꿔 넣을까요?')}

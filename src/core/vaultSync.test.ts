@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { VaultFileSync, isMergeableVaultPath, type SyncCodec, type VaultSyncIo, type VaultWriteMessage } from './vaultSync'
+import { VaultExternalChangeError, VaultFileSync, isMergeableVaultPath, type SyncCodec, type VaultSyncIo, type VaultWriteMessage } from './vaultSync'
 
 const ROOT = 'C:/vault'
 const PATH = 'C:/vault/.iwae/highlights.json'
@@ -268,5 +268,40 @@ describe('isMergeableVaultPath', () => {
     expect(isMergeableVaultPath('C:\\vault', 'C:\\vault\\.iwae\\history\\x.json')).toBe(false)
     expect(isMergeableVaultPath('C:\\vault', 'C:\\vault\\a.canvas')).toBe(false)
     expect(isMergeableVaultPath('D:\\other', 'C:\\vault\\.iwae\\highlights.json')).toBe(false)
+  })
+})
+
+describe('외부 변경 확인(저장 직전 확인)', () => {
+  const NOTE = 'C:/vault/노트/a.iwnote'
+
+  it('디스크가 이 창이 읽은 내용과 같으면 same, 밖에서 바뀌면 changed, 없으면 missing', async () => {
+    const w = world()
+    const sync = w.open('A')
+    w.disk.set(NOTE, 'one')
+    sync.observeRead(NOTE, 'one')
+    expect(await sync.inspect(NOTE)).toEqual({ state: 'same' })
+    w.disk.set(NOTE, 'two')
+    expect(await sync.inspect(NOTE)).toEqual({ state: 'changed', text: 'two' })
+    w.disk.delete(NOTE)
+    expect(await sync.inspect(NOTE)).toEqual({ state: 'missing' })
+  })
+
+  it('저장 직전 확인은 밖에서 바뀐 파일을 쓰지 못하게 막고, 자기 저장·없는 파일은 통과시킨다', async () => {
+    const w = world()
+    const sync = w.open('A')
+    w.disk.set(NOTE, '{"v":1}')
+    sync.observeRead(NOTE, '{"v":1}')
+    // 자기 저장 뒤에는 통과한다
+    await sync.write(NOTE, '{"v":2}', 'f', { mergeable: true })
+    await sync.guardWrite(NOTE)
+    // 에이전트가 파일을 바꿨다
+    w.disk.set(NOTE, '{"v":"agent"}')
+    await expect(sync.guardWrite(NOTE)).rejects.toBeInstanceOf(VaultExternalChangeError)
+    // 파일이 없으면 만들 수 있다
+    w.disk.delete(NOTE)
+    await expect(sync.guardWrite(NOTE)).resolves.toBeUndefined()
+    // 읽은 적 없는 파일이 이미 있으면 덮어쓰지 않는다
+    w.disk.set('C:/vault/노트/b.iwnote', 'x')
+    await expect(sync.guardWrite('C:/vault/노트/b.iwnote')).rejects.toBeInstanceOf(VaultExternalChangeError)
   })
 })

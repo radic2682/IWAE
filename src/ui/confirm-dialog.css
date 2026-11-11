@@ -38,7 +38,7 @@
 .confirm-dialog-body p { margin: 0; }
 .confirm-dialog-body p + p { margin-top: 6px; }
 .confirm-dialog-body strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }
-.confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.confirm-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .confirm-dialog-actions button {
   min-width: 72px;
   height: 30px;

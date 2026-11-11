@@ -3,8 +3,11 @@ import { applySnapshotChange } from '../core/jsonMerge'
 import { registerSaveFlusher } from './useCanvasAutosave'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { subscribeVaultFolder, type VaultHandle } from '../bridge/vault'
+import { isVaultExternalChangeError } from '../core/vaultSync'
 import {
+  adoptMemoNoteText,
   createMemoNoteFolder,
+  inspectMemoNote,
   listMemoNoteTree,
   memoNoteCodec,
   onMemoNotesChanged,
@@ -13,6 +16,7 @@ import {
   renameMemoNoteFolder,
   trashMemoNote,
   trashMemoNoteFolder,
+  watchMemoNoteFiles,
   writeMemoNote,
 } from '../bridge/memoNotes'
 import {
@@ -39,8 +43,14 @@ import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 
 const SAVE_DELAY_MS = 400
+/** 외부 변경으로 보이는 차이를 확인하기 전에 기다리는 시간: 다른 창의 저장이 합쳐지는 시간을 준다 */
+const SETTLE_MS = 450
 /** 예전 카테고리를 노트로 옮겼다는 표시(한 번만 옮긴다) */
 const MIGRATION_MARK = '.iwae/memo-notes.json'
+
+function conflictError(): string {
+  return t('이 노트는 다른 프로그램이 바꾼 내용과 부딪쳐 있어 저장하지 않았습니다. 어느 쪽을 남길지 먼저 정하세요.')
+}
 
 function openKey(root: string): string {
   return `iwae:open-memo-note:v1:${root}`
@@ -80,6 +90,10 @@ export function useMemoNotes(
   readonly findNoteTitled: (title: string) => { path: string; note: MemoNote } | null
   readonly editNoteTitled: (title: string, change: (note: MemoNote) => MemoNote, create: boolean) => string
   readonly listNotes: () => { path: string; title: string; blocks: number }[]
+  /** 다른 프로그램이 바꾼 파일과 저장하지 않은 내 변경이 부딪친 노트(없으면 null). 정할 때까지 그 노트는 파일에 저장하지 않는다 */
+  readonly conflict: { readonly path: string; readonly title: string } | null
+  /** 충돌을 푼다: mine 내 것으로 덮어쓰기, file 파일의 것으로 되돌리기(내 변경 버림), copy 내 것을 「(충돌 사본)」 노트로 따로 두고 파일의 것으로 */
+  readonly resolveConflict: (choice: 'mine' | 'file' | 'copy') => Promise<void>
 } {
   const [notes, setNotes] = useState<ReadonlyMap<string, MemoNote>>(new Map())
   const [folders, setFolders] = useState<readonly string[]>([])
@@ -100,6 +114,22 @@ export function useMemoNotes(
     setNotes(next)
   }, [])
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const openPathRef = useRef(openPath)
+  openPathRef.current = openPath
+  // 지금 쓰는 중인 노트(우리 자신의 쓰기가 파일 감시에 잡혀 외부 변경으로 보이지 않게 한다)
+  const inflightRef = useRef(new Set<string>())
+  // 쓰는 동안 파일 변경 알림이 온 노트: 쓰기가 끝난 뒤 다시 확인한다
+  const deferredRef = useRef(new Set<string>())
+  // 외부 변경과 저장하지 않은 내 변경이 부딪친 노트. shown 이 false 면 다른 창의 저장이 합쳐지길 잠시 기다리는 중이다
+  const heldRef = useRef(new Map<string, { shown: boolean; copied: boolean }>())
+  const [conflicts, setConflicts] = useState<readonly { readonly path: string; readonly title: string }[]>([])
+  const syncChainRef = useRef<Promise<void>>(Promise.resolve())
+  // 파일이 한 번 안 보인 노트. 저장 프로그램이 임시 파일로 바꿔 끼우는 동안 잠깐 없어 보일 수 있어, 두 번째 확인에서도 없을 때 뺀다
+  const absentRef = useRef(new Set<string>())
+  const recheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleRecheckRef = useRef<() => void>(() => undefined)
+  const holdForSettleRef = useRef<(path: string) => void>(() => undefined)
+  const persistRef = useRef<(path: string, note: MemoNote) => void>(() => undefined)
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
 
@@ -110,6 +140,10 @@ export function useMemoNotes(
     setLoaded(false)
     setOpenPath(null)
     setClosed(false)
+    heldRef.current.clear()
+    deferredRef.current.clear()
+    absentRef.current.clear()
+    setConflicts([])
     if (vault === null) return
     let alive = true
     void (async () => {
@@ -135,37 +169,116 @@ export function useMemoNotes(
     return () => { alive = false }
   }, [vault])
 
-  // 앱 밖에서 「노트」 폴더에 넣은 노트 파일은 창으로 돌아올 때 목록에 더한다(이미 읽은 노트는 그대로 둔다)
-  useEffect(() => {
-    if (vault === null || !loaded) return
-    let busy = false
-    const rescan = () => {
-      if (busy) return
-      busy = true
-      void (async () => {
-        try {
-          const tree = await listMemoNoteTree(vault)
-          const knownFolders = new Set(foldersRef.current)
-          if (tree.folders.some((folder) => !knownFolders.has(folder))) {
-            setFolders((current) => [...new Set([...current, ...tree.folders])].sort((a, b) => a.localeCompare(b, 'ko-KR')))
-          }
-          const fresh = tree.entries.filter((entry) => !notesRef.current.has(entry.path))
-          if (fresh.length === 0) return
-          const read = await Promise.all(fresh.map(async (entry) => [entry.path, await readMemoNote(vault, entry.path).catch(() => EMPTY_MEMO_NOTE)] as const))
-          applyNotes((current) => {
-            const next = new Map(current)
-            for (const [path, note] of read) if (!next.has(path)) next.set(path, note)
-            return next
-          })
-        } catch {
-          // 다시 읽지 못해도 지금 목록으로 계속 쓴다
-        } finally {
-          busy = false
-        }
-      })()
+  const isBusy = (path: string): boolean => timersRef.current.has(path) || inflightRef.current.has(path) || heldRef.current.has(path)
+
+  const publishConflicts = useCallback(() => {
+    setConflicts([...heldRef.current].filter(([, state]) => state.shown).map(([path]) => ({ path, title: memoNoteTitleOf(path) })))
+  }, [])
+
+  /** 디스크 목록에 맞춘다: 새 노트를 읽어 더하고, 파일이 없어진 노트는 뺀다(쓰기를 기다리는·충돌 중인 노트는 건드리지 않는다) */
+  const rescanTree = useCallback(async () => {
+    if (vault === null) return
+    const tree = await listMemoNoteTree(vault)
+    const onDisk = new Set(tree.entries.map((entry) => entry.path))
+    const fresh = tree.entries.filter((entry) => !notesRef.current.has(entry.path))
+    const read = await Promise.all(fresh.map(async (entry) => [entry.path, await readMemoNote(vault, entry.path).catch(() => EMPTY_MEMO_NOTE)] as const))
+    const next = new Map<string, MemoNote>()
+    let recheck = false
+    for (const [path, note] of notesRef.current) {
+      if (onDisk.has(path)) {
+        absentRef.current.delete(path)
+        next.set(path, note)
+      } else if (isBusy(path)) {
+        next.set(path, note)
+      } else if (!absentRef.current.has(path)) {
+        absentRef.current.add(path)
+        next.set(path, note)
+        recheck = true
+      } else {
+        absentRef.current.delete(path)
+      }
     }
-    window.addEventListener('focus', rescan)
-    return () => window.removeEventListener('focus', rescan)
+    if (recheck) scheduleRecheckRef.current()
+    for (const [path, note] of read) if (!next.has(path)) next.set(path, note)
+    const changed = next.size !== notesRef.current.size || [...next.keys()].some((path) => !notesRef.current.has(path))
+    if (changed) {
+      notesRef.current = next
+      applyNotes(() => next)
+      setOpenPath((current) => current !== null && !next.has(current) ? [...next.keys()][0] ?? null : current)
+    }
+    setFolders((current) => current.length === tree.folders.length && current.every((folder, index) => folder === tree.folders[index]) ? current : tree.folders)
+  }, [vault])
+
+  /** 다른 프로그램이 바꾼 노트 하나를 디스크와 맞춘다 */
+  const reconcilePath = useCallback(async (path: string) => {
+    if (vault === null || !notesRef.current.has(path) || heldRef.current.has(path)) return
+    if (inflightRef.current.has(path)) { deferredRef.current.add(path); return }
+    const result = await inspectMemoNote(vault, path)
+    if (result.state !== 'missing') absentRef.current.delete(path)
+    if (result.state === 'same') return
+    // 기다리는 사이 쓰기가 시작됐거나 충돌로 넘어갔다면 그쪽이 맡는다. 이 아래는 await 없이 끝까지 한 번에 간다
+    if (inflightRef.current.has(path)) { deferredRef.current.add(path); return }
+    if (heldRef.current.has(path) || !notesRef.current.has(path)) return
+    const pending = timersRef.current.has(path)
+    if (result.state === 'missing') {
+      if (pending) return
+      if (!absentRef.current.has(path)) {
+        absentRef.current.add(path)
+        scheduleRecheckRef.current()
+        return
+      }
+      absentRef.current.delete(path)
+      const next = new Map(notesRef.current)
+      next.delete(path)
+      notesRef.current = next
+      applyNotes(() => next)
+      setOpenPath((current) => current === path ? [...next.keys()][0] ?? null : current)
+      return
+    }
+    if (pending) {
+      holdForSettleRef.current(path)
+      return
+    }
+    // 읽을 수 없는 내용(쓰는 도중일 수 있다)은 다음 변경 알림을 기다린다
+    if (result.note === null) return
+    adoptMemoNoteText(vault, path, result.text)
+    const note = result.note
+    applyNotes((current) => new Map(current).set(path, note))
+    if (openPathRef.current === path) onErrorRef.current(t('다른 프로그램이 이 노트를 바꿔서 다시 읽었습니다'))
+  }, [vault])
+
+  /** 파일 감시·창 복귀가 알려 온 변경을 차례로 처리한다. paths 가 null 이면 모든 노트를 디스크와 견준다 */
+  const syncFromDisk = useCallback((paths: readonly string[] | null, rescan: boolean): Promise<void> => {
+    const run = async () => {
+      try {
+        if (paths === null || rescan || paths.some((path) => !notesRef.current.has(path))) await rescanTree()
+        for (const path of paths ?? [...notesRef.current.keys()]) await reconcilePath(path)
+      } catch {
+        // 다시 읽지 못해도 지금 목록으로 계속 쓴다(다음 변경 알림에서 다시 맞춘다)
+      }
+    }
+    syncChainRef.current = syncChainRef.current.then(run, run)
+    return syncChainRef.current
+  }, [reconcilePath, rescanTree])
+  const syncFromDiskRef = useRef(syncFromDisk)
+  syncFromDiskRef.current = syncFromDisk
+  scheduleRecheckRef.current = () => {
+    if (recheckTimerRef.current !== null) clearTimeout(recheckTimerRef.current)
+    recheckTimerRef.current = setTimeout(() => { recheckTimerRef.current = null; void syncFromDiskRef.current(null, true) }, 700)
+  }
+
+  // 앱 밖에서 노트 파일을 만들거나 고치거나 옮기거나 지우면(다른 프로그램·AI 에이전트·동기화·git) 1~2초 안에 목록과 열린 노트에 반영한다.
+  // 창으로 돌아올 때도 한 번 더 디스크와 맞춘다(파일 감시가 놓친 경우)
+  useEffect(() => {
+    if (vault === null || !loaded) return undefined
+    let stop: (() => void) | undefined
+    let alive = true
+    void watchMemoNoteFiles(vault, (change) => { void syncFromDiskRef.current(change.notePaths, change.rescan) })
+      .then((unwatch) => { if (alive) stop = unwatch; else unwatch() })
+      .catch(() => undefined)
+    const onFocus = () => { void syncFromDiskRef.current(null, true) }
+    window.addEventListener('focus', onFocus)
+    return () => { alive = false; stop?.(); window.removeEventListener('focus', onFocus) }
   }, [vault, loaded])
 
   // 다른 창이 노트를 고치면 이 창의 노트에 합친다(고치던 글도 지우지 않는다). 새 노트면 읽어 와 더한다
@@ -198,44 +311,72 @@ export function useMemoNotes(
     if (vault === null || !loaded) return undefined
     let stop: (() => void) | undefined
     let alive = true
-    void onMemoNotesChanged(vault, () => {
-      void (async () => {
-        try {
-          const tree = await listMemoNoteTree(vault)
-          const onDisk = new Set(tree.entries.map((entry) => entry.path))
-          const fresh = tree.entries.filter((entry) => !notesRef.current.has(entry.path))
-          const read = await Promise.all(fresh.map(async (entry) => [entry.path, await readMemoNote(vault, entry.path).catch(() => EMPTY_MEMO_NOTE)] as const))
-          const next = new Map<string, MemoNote>()
-          for (const [path, note] of notesRef.current) {
-            if (onDisk.has(path) || timersRef.current.has(path)) next.set(path, note)
-          }
-          for (const [path, note] of read) if (!next.has(path)) next.set(path, note)
-          notesRef.current = next
-          applyNotes(() => next)
-          setFolders(tree.folders)
-          setOpenPath((current) => current !== null && !next.has(current) ? [...next.keys()][0] ?? null : current)
-        } catch {
-          // 다시 읽지 못해도 지금 목록으로 계속 쓴다
-        }
-      })()
-    }).then((unlisten) => {
+    void onMemoNotesChanged(vault, () => { void syncFromDiskRef.current(null, true) }    ).then((unlisten) => {
       if (alive) stop = unlisten
       else unlisten()
     })
     return () => { alive = false; stop?.() }
   }, [vault, loaded])
 
+  /** 충돌을 확인하는 동안(또는 정할 때까지) 이 노트는 파일에 쓰지 않는다. 잠시 뒤 정말 달라졌는지 다시 보고 보여 준다 */
+  const holdForSettle = useCallback((path: string) => {
+    const timer = timersRef.current.get(path)
+    if (timer !== undefined) { clearTimeout(timer); timersRef.current.delete(path) }
+    if (heldRef.current.has(path) || vault === null) return
+    heldRef.current.set(path, { shown: false, copied: false })
+    window.setTimeout(() => {
+      void (async () => {
+        let result: Awaited<ReturnType<typeof inspectMemoNote>> | null = null
+        try { result = await inspectMemoNote(vault, path) } catch { /* 읽지 못하면 사용자가 고르게 한다 */ }
+        const state = heldRef.current.get(path)
+        if (state === undefined) return
+        if (result !== null && result.state !== 'changed') {
+          // 다른 창의 저장이 합쳐졌거나 파일이 없어졌다: 충돌이 아니다. 내 변경을 그대로 저장한다
+          heldRef.current.delete(path)
+          const note = notesRef.current.get(path)
+          if (note !== undefined) persistRef.current(path, note)
+          return
+        }
+        state.shown = true
+        publishConflicts()
+      })()
+    }, SETTLE_MS)
+  }, [publishConflicts, vault])
+  holdForSettleRef.current = holdForSettle
+
+  /** 노트를 쓴다. 파일이 밖에서 바뀌었으면 쓰지 않고 충돌로 넘긴다(false) */
+  const saveNote = useCallback(async (path: string, note: MemoNote): Promise<boolean> => {
+    if (vault === null) return false
+    inflightRef.current.add(path)
+    try {
+      await writeMemoNote(vault, path, note)
+      return true
+    } catch (cause) {
+      if (isVaultExternalChangeError(cause)) {
+        holdForSettle(path)
+        return false
+      }
+      throw cause
+    } finally {
+      inflightRef.current.delete(path)
+      if (deferredRef.current.delete(path)) void syncFromDiskRef.current([path], false)
+    }
+  }, [holdForSettle, vault])
+
   const persist = useCallback((path: string, note: MemoNote) => {
     if (vault === null) return
+    // 충돌을 정하기 전에는 파일에 쓰지 않는다(메모리의 내 변경은 그대로 둔다)
+    if (heldRef.current.has(path)) return
     const timers = timersRef.current
     const previous = timers.get(path)
     if (previous !== undefined) clearTimeout(previous)
     timers.set(path, setTimeout(() => {
       timers.delete(path)
       // 기다리는 사이 다른 창의 변경이 합쳐졌을 수 있으니 지금 상태를 쓴다
-      void writeMemoNote(vault, path, notesRef.current.get(path) ?? note).catch((cause: unknown) => onErrorRef.current(t('노트를 저장하지 못했습니다: {error}', { error: errorText(cause) })))
+      void saveNote(path, notesRef.current.get(path) ?? note).catch((cause: unknown) => onErrorRef.current(t('노트를 저장하지 못했습니다: {error}', { error: errorText(cause) })))
     }, SAVE_DELAY_MS))
-  }, [vault])
+  }, [saveNote, vault])
+  persistRef.current = persist
 
   const writeNote = useCallback((path: string, note: MemoNote) => {
     applyNotes((current) => new Map(current).set(path, note))
@@ -314,7 +455,7 @@ export function useMemoNotes(
   }, [open, vault])
   const create = useCallback((title?: string) => createIn(memoNotesFolder(), title), [createIn])
 
-  /** 쓰기를 기다리는 노트를 먼저 쓴다(옮기기·이름 바꾸기 전) */
+  /** 쓰기를 기다리는 노트를 먼저 쓴다(옮기기·이름 바꾸기 전). 밖에서 바뀐 노트는 쓰지 않고 오류를 던진다 */
   const flushPending = useCallback(async (paths: readonly string[]) => {
     if (vault === null) return
     for (const path of paths) {
@@ -322,12 +463,72 @@ export function useMemoNotes(
       if (pending === undefined) continue
       clearTimeout(pending)
       timersRef.current.delete(path)
-      await writeMemoNote(vault, path, notesRef.current.get(path) ?? EMPTY_MEMO_NOTE)
+      if (!(await saveNote(path, notesRef.current.get(path) ?? EMPTY_MEMO_NOTE))) throw new Error(conflictError())
     }
+  }, [saveNote, vault])
+
+  const assertNoConflict = (paths: readonly string[]) => {
+    if (paths.some((path) => heldRef.current.has(path))) throw new Error(conflictError())
+  }
+
+  /** 내 변경을 「(충돌 사본)」 노트로 따로 저장한다. 새 노트의 경로 */
+  const saveConflictCopy = useCallback(async (path: string, note: MemoNote): Promise<string> => {
+    if (vault === null) throw new Error(t('Vault 가 열려 있지 않습니다.'))
+    const taken = [...notesRef.current.keys()].map(memoNoteTitleOf)
+    const copyPath = memoNotePath(uniqueNoteTitle(t('{name} (충돌 사본)', { name: memoNoteTitleOf(path) }), taken), memoParentOf(path))
+    await writeMemoNote(vault, copyPath, note)
+    applyNotes((current) => new Map(current).set(copyPath, note))
+    return copyPath
   }, [vault])
 
-  // 창을 닫기·Vault 를 바꾸기 전에 미뤄 둔 노트 저장을 끝낸다
-  useEffect(() => registerSaveFlusher('memo-notes', () => flushPending([...timersRef.current.keys()])), [flushPending])
+  // 창을 닫기·Vault 를 바꾸기·앱을 끝내기 전에 미뤄 둔 노트 저장을 끝낸다. 밖에서 바뀐 파일은 덮어쓰지 않고,
+  // 저장하지 못한 내 변경은 「(충돌 사본)」 노트로 남긴다
+  useEffect(() => registerSaveFlusher('memo-notes', async () => {
+    for (const path of [...timersRef.current.keys()]) {
+      try { await flushPending([path]) } catch (cause) { if (!heldRef.current.has(path)) throw cause }
+    }
+    for (const [path, state] of heldRef.current) {
+      if (state.copied) continue
+      state.copied = true
+      try { await saveConflictCopy(path, notesRef.current.get(path) ?? EMPTY_MEMO_NOTE) } catch { /* 사본을 못 만들어도 파일은 그대로다 */ }
+    }
+  }), [flushPending, saveConflictCopy])
+
+  const resolveConflict = useCallback(async (choice: 'mine' | 'file' | 'copy') => {
+    const first = conflicts[0]
+    if (first === undefined || vault === null) return
+    const path = first.path
+    const local = notesRef.current.get(path) ?? EMPTY_MEMO_NOTE
+    try {
+      const disk = await inspectMemoNote(vault, path)
+      if (choice === 'mine') {
+        if (disk.state === 'changed') adoptMemoNoteText(vault, path, disk.text)
+        heldRef.current.delete(path)
+        publishConflicts()
+        await saveNote(path, notesRef.current.get(path) ?? local)
+        return
+      }
+      if (disk.state === 'changed' && disk.note === null) throw new Error(t('다른 프로그램이 바꾼 파일을 읽을 수 없습니다. 「내 것으로 덮어쓰기」를 고르거나 파일을 고친 뒤 다시 해 보세요.'))
+      let copyPath: string | null = null
+      if (choice === 'copy') copyPath = await saveConflictCopy(path, local)
+      heldRef.current.delete(path)
+      publishConflicts()
+      if (disk.state === 'changed' && disk.note !== null) {
+        adoptMemoNoteText(vault, path, disk.text)
+        const note = disk.note
+        applyNotes((current) => new Map(current).set(path, note))
+      } else if (disk.state === 'missing') {
+        const next = new Map(notesRef.current)
+        next.delete(path)
+        notesRef.current = next
+        applyNotes(() => next)
+        setOpenPath((current) => current === path ? copyPath ?? [...next.keys()][0] ?? null : current)
+      }
+      if (copyPath !== null) onErrorRef.current(t('내 변경은 「{name}」 노트로 따로 저장했습니다', { name: memoNoteTitleOf(copyPath) }))
+    } catch (cause) {
+      onErrorRef.current(errorText(cause))
+    }
+  }, [conflicts, publishConflicts, saveConflictCopy, saveNote, vault])
 
   /** 바뀐 경로대로 노트 목록·폴더·열린 노트를 고친다 */
   const applyMoved = useCallback((moved: ReadonlyMap<string, string>) => {
@@ -351,6 +552,7 @@ export function useMemoNotes(
     const target = folder === '' ? memoNotesFolder() : folder
     if (memoParentOf(path) === target) return path
     const next = `${target}/${path.split('/').at(-1) ?? ''}`
+    assertNoConflict([path])
     await flushPending([path])
     await renameMemoNote(vault, path, next)
     applyMoved(new Map([[path, next]]))
@@ -370,6 +572,7 @@ export function useMemoNotes(
     if (vault === null || next === path) return new Map<string, string>()
     if (isInsideMemoFolder(next, path)) throw new Error(t('폴더를 자기 안으로 옮길 수 없습니다.'))
     const notePaths = [...notesRef.current.keys()].filter((note) => isInsideMemoFolder(note, path))
+    assertNoConflict(notePaths)
     await flushPending(notePaths)
     await renameMemoNoteFolder(vault, path, next, notePaths)
     const moved = movedMemoPaths(path, next, [...foldersRef.current, ...notesRef.current.keys()])
@@ -414,12 +617,8 @@ export function useMemoNotes(
     const next = memoNotePath(uniqueNoteTitle(title, others), memoParentOf(path))
     if (next === path) return path
     // 쓰기 대기 중이면 먼저 쓴다
-    const pending = timersRef.current.get(path)
-    if (pending !== undefined) {
-      clearTimeout(pending)
-      timersRef.current.delete(path)
-      await writeMemoNote(vault, path, notesRef.current.get(path) ?? EMPTY_MEMO_NOTE)
-    }
+    assertNoConflict([path])
+    await flushPending([path])
     await renameMemoNote(vault, path, next)
     applyNotes((current) => {
       const map = new Map<string, MemoNote>()
@@ -429,7 +628,7 @@ export function useMemoNotes(
     setOpenPath((current) => (current === path ? next : current))
     if (openPath === path) open(next)
     return next
-  }, [open, openPath, vault])
+  }, [flushPending, open, openPath, vault])
 
   const trash = useCallback(async (path: string) => {
     if (vault === null) return
@@ -438,6 +637,8 @@ export function useMemoNotes(
       clearTimeout(pending)
       timersRef.current.delete(path)
     }
+    heldRef.current.delete(path)
+    publishConflicts()
     await trashMemoNote(vault, path)
     const rest = [...notesRef.current.keys()].filter((item) => item !== path)
     applyNotes((current) => {
@@ -446,7 +647,7 @@ export function useMemoNotes(
       return map
     })
     if (openPath === path) open(rest[0] ?? null)
-  }, [open, openPath, vault])
+  }, [open, openPath, publishConflicts, vault])
 
   const updateOpen = useCallback((change: (note: MemoNote) => MemoNote) => {
     if (openPath === null) return
@@ -538,5 +739,7 @@ export function useMemoNotes(
     renameFolder,
     moveFolder,
     trashFolder,
+    conflict: conflicts[0] ?? null,
+    resolveConflict,
   }
 }
