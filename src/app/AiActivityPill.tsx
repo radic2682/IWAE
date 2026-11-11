@@ -1,22 +1,42 @@
 import { ArrowCounterClockwise, Robot, X } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
 import { aiChangeViews, hasUndoableAiChange, subscribeAiChanges, undoAllAiChanges, type AiChangeView } from './mcp/aiChangeLog'
 import { useAiActivity } from './mcp/aiActivityStore'
 import '../ui/ai-inbox.css'
 
 /**
- * 상단바의 「AI가 편집 중」 알약. 바깥 AI(MCP)가 쓰는 동안 켜지고 마지막 요청 3초 뒤에 사라진다.
- * 누르면 AI 가 한 변경 목록과 「모두 되돌리기」가 열린다(여는 동안은 알약이 남는다).
+ * 오른쪽 아래 알림 줄기의 「AI가 편집 중」 알약. 바깥 AI(MCP)가 쓰는 동안 켜지고 마지막 요청 3초 뒤에 사라진다.
+ * 누르면 알약 위로 자라는 AI 가 한 변경 목록과 「모두 되돌리기」가 열린다(여는 동안은 알약이 남는다). Esc 나 바깥을 누르면 닫힌다.
  */
 export function AiActivityPill() {
   const activity = useAiActivity()
   const [open, setOpen] = useState(false)
   const [changes, setChanges] = useState<readonly AiChangeView[]>(() => aiChangeViews())
   const [busy, setBusy] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   useEffect(() => subscribeAiChanges(() => setChanges(aiChangeViews())), [])
   // 목록은 열 때마다 새로 읽는다(사람이 고쳐서 되돌릴 수 없게 된 것도 보이게)
   useEffect(() => { if (open) setChanges(aiChangeViews()) }, [open, activity])
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+    const onPointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && wrapRef.current?.contains(event.target) !== true) setOpen(false)
+    }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('pointerdown', onPointer, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('pointerdown', onPointer, true)
+    }
+  }, [open])
   if (!activity.active && !open) return null
   const label = activity.target === ''
     ? t('AI가 작업 중 ({count}개 변경)', { count: activity.changes })
@@ -29,8 +49,9 @@ export function AiActivityPill() {
     })
   }
   return (
-    <div className="ai-pill-wrap">
+    <div className="ai-pill-wrap" ref={wrapRef}>
       <button
+        ref={buttonRef}
         type="button"
         className="ai-pill"
         data-active={activity.active}
@@ -45,7 +66,7 @@ export function AiActivityPill() {
         <div className="ai-changes" role="dialog" aria-label={t('AI가 한 변경')}>
           <div className="ai-changes-head">
             <strong>{t('AI가 한 변경')}</strong>
-            <button type="button" className="ai-inbox-close" aria-label={t('닫기')} onClick={() => setOpen(false)}>
+            <button type="button" className="ai-inbox-close" aria-label={t('닫기')} onClick={() => { setOpen(false); buttonRef.current?.focus() }}>
               <X size={12} aria-hidden="true" />
             </button>
           </div>

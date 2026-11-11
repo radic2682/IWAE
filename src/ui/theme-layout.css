@@ -2307,19 +2307,6 @@
 .vault-picker-error { color: var(--danger); }
 
 
-.app-error {
-  position: fixed;
-  z-index: 50;
-  right: var(--grid);
-  bottom: var(--grid);
-  max-width: min(480px, calc(100vw - var(--grid) * 2));
-  padding: 8px 10px;
-  border: 1px solid var(--danger);
-  border-radius: var(--r-md);
-  background: var(--paper);
-  color: var(--danger);
-}
-
 .outline-item {
   width: 100%;
   min-height: 30px;
@@ -2549,75 +2536,21 @@
 .update-result-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
 .update-result-copy strong { font-size: 12px; }
 .update-result-copy span { overflow-wrap: anywhere; }
-:is(.update-result-copy, .update-banner-copy) progress {
+.update-result-copy progress {
   appearance: none; width: 100%; height: 4px; border: 0; border-radius: var(--r-xs); overflow: hidden;
   background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
-:is(.update-result-copy, .update-banner-copy) progress::-webkit-progress-bar { border-radius: var(--r-xs); background: color-mix(in srgb, var(--accent) 20%, transparent); }
-:is(.update-result-copy, .update-banner-copy) progress::-webkit-progress-value { border-radius: var(--r-xs); background: var(--accent); transition: width 200ms var(--ease-out, ease-out); }
+.update-result-copy progress::-webkit-progress-bar { border-radius: var(--r-xs); background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.update-result-copy progress::-webkit-progress-value { border-radius: var(--r-xs); background: var(--accent); transition: width 200ms var(--ease-out, ease-out); }
 .update-result-actions { display: flex; align-items: center; gap: 6px; }
 .update-settings .update-result-primary { border-color: var(--accent); background: var(--accent); color: var(--paper); font-weight: 700; }
 .update-settings .update-result-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--mix-black)); }
 .settings-inline-error { margin: 0; color: var(--danger); font-size: 11px; }
 
-.update-banner {
-  position: fixed;
-  z-index: 96;
-  top: calc(var(--topbar-h) + 10px);
-  left: 50%;
-  width: min(680px, calc(100vw - 32px));
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 11px;
-  padding: 10px 10px 10px 12px;
-  border: 1px solid var(--control-border-floating);
-  border-radius: var(--r-md);
-  background: var(--control-surface-floating);
-  color: var(--text-primary);
-  box-shadow: 0 10px 30px var(--shadow-floating);
-  backdrop-filter: blur(14px);
-  transform: translateX(-50%);
-}
-.update-banner-mark {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
-}
-.update-banner-copy { min-width: 0; display: grid; gap: 2px; }
-.update-banner-copy strong { font-size: 12px; }
-.update-banner-copy span,
-.update-banner-copy em { overflow: hidden; color: var(--text-dim); font-size: 10.5px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
-.update-banner-copy em { color: var(--danger); }
-.update-banner-actions { display: flex; align-items: center; gap: 4px; }
-.update-banner-actions button {
-  min-height: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 10.5px;
-}
-.update-banner-actions button:hover { background: var(--chrome-hover); color: var(--text-primary); }
-.update-banner-actions .update-banner-primary { background: var(--accent); color: var(--paper); font-weight: 700; }
-.update-banner-actions .update-banner-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--mix-black)); color: var(--paper); }
-.update-banner-installing { padding: 0 8px; color: var(--text-muted); font-size: 10.5px; }
-
 @media (max-width: 680px) {
   .settings-modal-workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   .settings-modal-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--divider); }
   .settings-modal-nav button { flex: 0 0 auto; }
-  .update-banner { grid-template-columns: auto minmax(0, 1fr); }
-  .update-banner-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
 
 .vault-recovery {

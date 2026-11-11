@@ -1,6 +1,7 @@
 import { ArrowsClockwise, DownloadSimple, X } from '@phosphor-icons/react'
 import type { UseUpdaterResult } from './useUpdater'
 import { t } from '../i18n'
+import '../ui/notice-stack.css'
 
 interface UpdateBannerProps {
   readonly state: UseUpdaterResult
@@ -19,9 +20,9 @@ export function UpdateBanner({ state, hidden = false }: UpdateBannerProps) {
   const title = t('IWAE {version} 업데이트', { version: state.update.version })
 
   return (
-    <aside className="update-banner" aria-label={title} aria-live="polite">
-      <div className="update-banner-mark"><ArrowsClockwise size={17} weight="bold" aria-hidden="true" /></div>
-      <div className="update-banner-copy">
+    <aside className="notice-card" aria-label={title} aria-live="polite">
+      <div className="notice-mark"><ArrowsClockwise size={16} weight="bold" aria-hidden="true" /></div>
+      <div className="notice-copy">
         <strong>{title}</strong>
         {state.status === 'downloading' ? (
           <>
@@ -33,23 +34,25 @@ export function UpdateBanner({ state, hidden = false }: UpdateBannerProps) {
         )}
         {state.error !== null && <em role="alert">{state.error}</em>}
       </div>
-      <div className="update-banner-actions">
-        {state.status === 'available' && (
-          <button type="button" className="update-banner-primary" aria-label={t('업데이트 다운로드')} onClick={() => void state.download()}>
-            <DownloadSimple size={14} aria-hidden="true" /> {t('업데이트')}
-          </button>
-        )}
-        {state.status === 'ready' && (
-          <button type="button" className="update-banner-primary" aria-label={t('재시작하여 설치')} onClick={() => void state.install()}>
-            {t('재시작하여 설치')}
-          </button>
-        )}
-        {state.status === 'installing' && <span className="update-banner-installing">{t('설치 준비 중…')}</span>}
-        {state.status === 'available' && (
-          <button type="button" onClick={state.suppressCurrentVersion}>{t('이 버전 다시 표시 안 함')}</button>
-        )}
-        <button type="button" aria-label={t('나중에')} onClick={state.dismiss}><X size={14} aria-hidden="true" /></button>
-      </div>
+      <button type="button" className="notice-close" aria-label={t('나중에')} onClick={state.dismiss}><X size={14} aria-hidden="true" /></button>
+      {state.status === 'available' || state.status === 'ready' || state.status === 'installing' ? (
+        <div className="notice-actions">
+          {state.status === 'installing' && <span className="notice-busy">{t('설치 준비 중…')}</span>}
+          {state.status === 'available' && (
+            <button type="button" onClick={state.suppressCurrentVersion}>{t('이 버전 다시 표시 안 함')}</button>
+          )}
+          {state.status === 'available' && (
+            <button type="button" className="notice-primary" aria-label={t('업데이트 다운로드')} onClick={() => void state.download()}>
+              <DownloadSimple size={14} aria-hidden="true" /> {t('업데이트')}
+            </button>
+          )}
+          {state.status === 'ready' && (
+            <button type="button" className="notice-primary" aria-label={t('재시작하여 설치')} onClick={() => void state.install()}>
+              {t('재시작하여 설치')}
+            </button>
+          )}
+        </div>
+      ) : null}
     </aside>
   )
 }

@@ -157,9 +157,11 @@ describe('설정 및 업데이트 surface', () => {
     expect(css).toMatch(/\.settings-modal-nav\s*\{[^}]*border-right:\s*1px\s+solid\s+var\(--divider\)/su)
   })
 
-  it('업데이트 알림은 상단 바 아래 떠 있는 작은 surface다', () => {
-    const css = readFileSync('src/ui/theme-layout.css', 'utf8')
-    expect(css).toMatch(/\.update-banner\s*\{[^}]*position:\s*fixed/su)
-    expect(css).toMatch(/\.update-banner\s*\{[^}]*backdrop-filter:\s*blur/su)
+  it('모든 알림은 오른쪽 아래 한 줄기(고정 위치, 아래 막대 위)에 모인다', () => {
+    const css = readFileSync('src/ui/notice-stack.css', 'utf8')
+    expect(css).toMatch(/\.notice-stack\s*\{[^}]*position:\s*fixed/su)
+    expect(css).toMatch(/\.notice-stack\s*\{[^}]*right:\s*22px/su)
+    expect(css).toMatch(/\.notice-stack\s*\{[^}]*bottom:\s*calc\(var\(--bottom-bar-height\)/su)
+    expect(css).toMatch(/\.notice-card\s*\{[^}]*background:\s*var\(--paper\)/su)
   })
 })

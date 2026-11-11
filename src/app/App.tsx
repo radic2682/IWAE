@@ -12,7 +12,8 @@ import { dropZoneAt, type DropZone, type TreeDropPlace } from './dropZone'
 import { X } from '@phosphor-icons/react'
 import { updatePersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { SplitPanes, type FocusedPane } from './SplitPanes'
-import { ActionToast } from './ActionToast'
+import { NoticeStack, ErrorNotice } from './NoticeStack'
+import { AiActivityPill } from './AiActivityPill'
 import { registerLiveCanvas } from './liveCanvasRegistry'
 import { useMcpCanvasBridge } from './useMcpCanvasBridge'
 import { announceAction } from './actionFeedback'
@@ -2786,12 +2787,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           version={packageMetadata.version}
         />
         <ThemeIntakeHost resolvedTheme={theme.resolvedTheme} />
-        {error !== null && (
-          <div className="app-error" role="alert">
-            <span>{error}</span>
-            <button type="button" className="app-error-close" aria-label={t('알림 닫기')} onClick={dismissError}><X size={14} aria-hidden="true" /></button>
-          </div>
-        )}
+        <NoticeStack>
+          {error !== null && <ErrorNotice message={error} onDismiss={dismissError} />}
+        </NoticeStack>
       </>
     )
   }
@@ -2799,15 +2797,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   return (
     <MemoNoteContext.Provider value={memoNoteApi}>
     <TranslationCardSettingsContext.Provider value={translationCardSettings}>
-    <ActionToast />
-    <UpdateBanner state={updater} hidden={settingsOpen} />
-    {interop.offer === null ? null : <AnnotationOfferBanner count={interop.offer.count} onImport={interop.acceptOffer} onDismiss={interop.dismissOffer} />}
-    {error !== null && (
-          <div className="app-error" role="alert">
-            <span>{error}</span>
-            <button type="button" className="app-error-close" aria-label={t('알림 닫기')} onClick={dismissError}><X size={14} aria-hidden="true" /></button>
-          </div>
-        )}
     <SplitPanes
       sidebar={
         sidebarMode === 'library' || libraryExpanded ? (
@@ -3122,12 +3111,19 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         sources={workspaceSources.visibleSources}
       />
     ) : null}
-    <AiLocationInbox
-      items={aiLocations}
-      docTitles={docTitles}
-      onOpen={openAiLocation}
-      onDismiss={(id) => setAiLocations((current) => current.filter((item) => item.id !== id))}
-    />
+    {/* 앱의 모든 알림은 오른쪽 아래 한 줄기로: 위 토스트, 아래로 오류 · AI 위치 · 가져오기 권유 · 업데이트 · AI 알약 */}
+    <NoticeStack>
+      {error !== null && <ErrorNotice message={error} onDismiss={dismissError} />}
+      <AiLocationInbox
+        items={aiLocations}
+        docTitles={docTitles}
+        onOpen={openAiLocation}
+        onDismiss={(id) => setAiLocations((current) => current.filter((item) => item.id !== id))}
+      />
+      {interop.offer === null ? null : <AnnotationOfferBanner count={interop.offer.count} onImport={interop.acceptOffer} onDismiss={interop.dismissOffer} />}
+      <UpdateBanner state={updater} hidden={settingsOpen} />
+      <AiActivityPill />
+    </NoticeStack>
     {passwordRequest !== null ? (
       <PdfPasswordDialog
         key={passwordRequest.nonce}

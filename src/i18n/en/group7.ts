@@ -268,4 +268,5 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '되돌림': 'Undone',
   '사람이 고침': 'Edited by you',
   '아직 AI가 한 변경이 없습니다': 'The AI has not changed anything yet',
+  '알림': 'Notifications',
 }

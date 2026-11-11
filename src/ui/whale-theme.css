@@ -113,9 +113,6 @@ body.reader-drop-active .pane .pane-frame::after {
 }
 
 /* 오류 알림: 닫기 단추 */
-.app-error { display: flex; align-items: center; gap: 8px; }
-.app-error-close { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; }
-.app-error-close:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
 
 /* 탭 줄 왼쪽(사이드바 단추 칸)도 탭 줄과 같은 색 — 왼쪽으로 가며 색이 바뀌지 않게 */
 .topbar .topbar-leftcluster-actions { background: var(--tabstrip); }
