@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_HIGHLIGHT_COLORS, MAX_HIGHLIGHT_COLORS } from '../core/highlightColors'
 import { getAppPrefs, parseAppPrefs, setAppPref } from './appPrefs'
 import { HighlightColorSettings } from './HighlightColorSettings'
+import { getRuntimeSheetCss, removeRuntimeSheet } from './runtimeStyle'
 import { HIGHLIGHT_STYLE_ID, applyHighlightColors, installHighlightColorStyle } from './highlightColorStyle'
 import { setHighlightColorUsage } from './highlightColorUsage'
 
@@ -94,27 +95,27 @@ describe('HighlightColorSettings', () => {
 describe('형광펜 색 → <style id="iwae-highlight-colors">', () => {
   afterEach(() => {
     setAppPref('highlightColors', DEFAULT_HIGHLIGHT_COLORS)
-    document.getElementById(HIGHLIGHT_STYLE_ID)?.remove()
+    removeRuntimeSheet(HIGHLIGHT_STYLE_ID)
   })
 
   it('한 개의 style 요소를 만들고 목록이 바뀌면 같은 요소를 고쳐 쓴다', () => {
     applyHighlightColors(DEFAULT_HIGHLIGHT_COLORS)
-    const style = document.getElementById(HIGHLIGHT_STYLE_ID)!
+    const style = { textContent: getRuntimeSheetCss(HIGHLIGHT_STYLE_ID) }
     expect(style.textContent).toContain('[data-hl="yellow"]')
     applyHighlightColors([...DEFAULT_HIGHLIGHT_COLORS, { id: 'c_new', name: '반론', fill: '#c7a8ff' }])
     expect(document.querySelectorAll(`#${HIGHLIGHT_STYLE_ID}`)).toHaveLength(1)
-    expect(document.getElementById(HIGHLIGHT_STYLE_ID)!.textContent).toContain('[data-hl="c_new"]')
+    expect(getRuntimeSheetCss(HIGHLIGHT_STYLE_ID)).toContain('[data-hl="c_new"]')
   })
 
   it('설정이 바뀌면(다른 창의 storage 이벤트 포함) 바로 다시 쓴다', () => {
     installHighlightColorStyle()
     act(() => { setAppPref('highlightColors', [...DEFAULT_HIGHLIGHT_COLORS, { id: 'c_live', name: '라이브', fill: '#c7a8ff' }]) })
-    expect(document.getElementById(HIGHLIGHT_STYLE_ID)!.textContent).toContain('[data-hl="c_live"]')
+    expect(getRuntimeSheetCss(HIGHLIGHT_STYLE_ID)).toContain('[data-hl="c_live"]')
     // 다른 창이 localStorage 를 바꾼 뒤 storage 이벤트가 온 것처럼
     const remote = JSON.stringify({ highlightColors: [{ id: 'c_remote', name: '원격', fill: '#112233' }] })
     window.localStorage.setItem('iwae:app-prefs:v1', remote)
     act(() => { window.dispatchEvent(new StorageEvent('storage', { key: 'iwae:app-prefs:v1', newValue: remote })) })
     expect(getAppPrefs().highlightColors.map(({ id }) => id)).toEqual(['c_remote'])
-    expect(document.getElementById(HIGHLIGHT_STYLE_ID)!.textContent).toContain('[data-hl="c_remote"]')
+    expect(getRuntimeSheetCss(HIGHLIGHT_STYLE_ID)).toContain('[data-hl="c_remote"]')
   })
 })

@@ -905,8 +905,8 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .markdown-pane-host { background: var(--workspace); }
 .pane-doc .markdown-pane {
   --md-paper-w: calc(820px * var(--md-zoom, 1));
-  padding: 18px var(--md-link-gutter, 0px) 40px 0;
-  --md-center: calc(50% - var(--md-link-gutter, 0px) / 2);
+  padding: 18px var(--md-link-gutter, 0px) 40px;
+  --md-center: 50%;
   scrollbar-width: none;
   /* 종이: 가운데 흰 기둥(내용과 함께 스크롤된다) */
   background:

@@ -258,3 +258,16 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .pane-doc .pdf-memo-bar-scroll:is(:hover, :focus-within) { scrollbar-color: color-mix(in srgb, var(--ink) 35%, transparent) transparent; }
 /* 좌우 여백 = 12px(바 배율 --bar-zoom 만큼 같이 커진다). 스크롤 막대(10px, 배율 안 탐) 자리까지 합쳐 오른쪽도 같게 맞춘다 */
 .pane-doc .pdf-memo-bar-scroll.pdf-memo-bar-scroll { padding-left: 12px; padding-right: calc(12px - 10px / var(--bar-zoom, 1)); }
+
+/* 호버 탭이 스크롤 상자 위 가장자리와 서식 도구 줄에 잘리지 않게: 탭을 카드에 닻(anchor)으로 묶은 fixed 로 둔다.
+   fixed 는 스크롤 상자의 overflow 에 잘리지 않고, 닻이라 카드를 따라 스크롤된다. 스크롤 상자(z 5)가 서식 도구 줄(z 4)보다 위라서 탭이 도구 줄을 덮는다.
+   도구 줄의 메뉴·팔레트가 열려 있는 동안에는 도구 줄을 다시 위로 올려 메뉴가 카드에 가리지 않게 한다 */
+@supports (anchor-name: --a) and (position-anchor: --a) {
+  .pane-doc .pdf-memo-bar-scroll .note-block { anchor-scope: --memo-card; anchor-name: --memo-card; }
+  .pane-doc .pdf-memo-bar-scroll .note-block-tabs {
+    position: fixed; position-anchor: --memo-card;
+    left: anchor(left); right: anchor(right); bottom: anchor(top);
+  }
+  .pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .pdf-memo-bar-scroll { z-index: 5; }
+  .pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .note-format-dock:has(.pdf-memo-format-menu, .pdf-memo-format-palette) { z-index: 12; }
+}

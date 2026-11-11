@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { CaretDown, CaretRight, Check, Code, DotsSixVertical, HighlighterCircle, ListBullets, ListChecks, ListNumbers, Star, Table, TextAa, TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline, Trash } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
+import { restoreInlineStyles } from '../app/runtimeStyle'
 import { hasMemoFormatting, memoDisplayHtml, plainMemoTextToHtml, sanitizeMemoHtml, togglePlainCheck } from './memoRichText'
 import { addTableColumn, addTableRow, deleteTableColumn, deleteTableRow, insertTable, moveTableCell, tableCellAt } from './memoTableEditing'
 import {
@@ -345,6 +346,7 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
     const element = ref.current
     if (element === null) return
     element.innerHTML = memoDisplayHtml(initialText, initialHtml)
+    restoreInlineStyles(element)
     element.focus()
     const range = document.createRange()
     range.selectNodeContents(element)
@@ -472,8 +474,15 @@ export function MemoNoteView({ note, noteHtml, onEdit, onChange }: {
   readonly onEdit: () => void
   readonly onChange?: (content: MemoContent) => void
 }) {
+  const viewRef = useRef<HTMLDivElement>(null)
+  const displayHtml = memoDisplayHtml(note, noteHtml)
+  // 저장된 서식(글자색 등)의 style="" 는 제품 빌드 CSP 가 막으므로 CSSOM 으로 다시 입힌다
+  useLayoutEffect(() => {
+    if (viewRef.current !== null) restoreInlineStyles(viewRef.current)
+  }, [displayHtml])
   return (
     <div
+      ref={viewRef}
       className="pdf-memo-card-text"
       role="button"
       tabIndex={0}
@@ -504,7 +513,7 @@ export function MemoNoteView({ note, noteHtml, onEdit, onChange }: {
           onEdit()
         }
       }}
-      dangerouslySetInnerHTML={{ __html: memoDisplayHtml(note, noteHtml) }}
+      dangerouslySetInnerHTML={{ __html: displayHtml }}
     />
   )
 }

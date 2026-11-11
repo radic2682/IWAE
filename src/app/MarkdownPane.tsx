@@ -635,7 +635,8 @@ export function MarkdownPane({
     if (article === null || paneFrame === null) return
     const box = article.getBoundingClientRect()
     const adjacent = paneFrame.getBoundingClientRect().left - box.right < 2
-    const next = adjacent ? Math.round(Math.min(Math.max(box.width - MARKDOWN_PAPER_GUTTER * 2 - MARKDOWN_PAPER_WIDTH * 0.5, 0), MEMO_LINK_GUTTER)) : 0
+    // 선 자리는 좌우에 같은 폭으로 둔다(종이가 가운데) — 가장 작은 배율의 종이가 양쪽 선 자리를 빼고도 들어가게
+    const next = adjacent ? Math.round(Math.min(Math.max((box.width - MARKDOWN_PAPER_WIDTH * 0.5) / 2, 0), MEMO_LINK_GUTTER)) : 0
     if (next !== dockRoom) setDockRoom(next)
   })
   // 노트 바 칸이 열리고 닫히는 폭에 비례해 자란다(전환과 함께 움직여 한 프레임에 튀지 않는다)
@@ -647,7 +648,7 @@ export function MarkdownPane({
     const article = articleRef.current
     if (!fitWidth || article === null || onFitZoom === undefined) return undefined
     const fit = () => {
-      const next = markdownFitWidthZoom(article.clientWidth - linkGutter)
+      const next = markdownFitWidthZoom(article.clientWidth - 2 * Math.max(linkGutter - MARKDOWN_PAPER_GUTTER, 0))
       if (Math.abs(next - zoom) > 0.05) onFitZoom(next)
     }
     fit()

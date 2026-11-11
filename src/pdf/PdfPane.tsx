@@ -591,12 +591,14 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   // 선 자리는 노트 바 칸이 열리고 닫히는 폭에 비례해 자란다(칸 폭 전환과 함께 움직여 한 프레임에 튀지 않는다)
   const dockOpenness = paneFrame === null || memoBarSize <= 0 ? 1 : Math.min(Math.max(paneFrame.getBoundingClientRect().width / memoBarSize, 0), 1)
   const connectorGutter = (memoColumn || noteBarPresence.rendered) && cellPlace.atRight && cellPlace.nextToDock ? Math.round(MEMO_LINK_GUTTER * dockOpenness) : 0
-  const fittedWidth = Math.max(measured.width - PAGE_GUTTER * 2 - connectorGutter, 0)
+  // 선 자리는 오른쪽에만 두면 페이지가 왼쪽으로 쏠린다 — 왼쪽도 같은 폭을 비워 좌우 여백을 같게 한다(선 자리가 없으면 PAGE_GUTTER)
+  const sideGutter = Math.max(PAGE_GUTTER, connectorGutter)
+  const fittedWidth = Math.max(measured.width - sideGutter * 2, 0)
   const contentWidth = Math.max((fittedWidth * zoomPercent) / 100, 0)
-  // 페이지(와 메모 열)를 가운데에 놓았을 때 페이지 왼쪽 끝(선 자리는 오른쪽 끝에 따로 둔다)
-  const contentLeft = Math.max((measured.width - connectorGutter - contentWidth) / 2, 0)
+  // 페이지(와 메모 열)를 가운데에 놓았을 때 페이지 왼쪽 끝(창보다 넓어도 왼쪽에 선 자리만큼은 둔다)
+  const contentLeft = Math.max((measured.width - contentWidth) / 2, connectorGutter)
   // 스크롤 상자 안쪽 폭: 페이지가 창보다 넓어도 맨 오른쪽까지 가면 선 자리가 보인다
-  const spacerWidth = Math.max(contentWidth + connectorGutter, measured.width)
+  const spacerWidth = Math.max(contentLeft + contentWidth + connectorGutter, measured.width)
 
   // 90·270도 돌리면 배치에 쓰는 페이지 크기는 가로세로가 바뀐 것이다.
   const quarterTurned = rotation === 90 || rotation === 270

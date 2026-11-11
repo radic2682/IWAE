@@ -1,5 +1,6 @@
 import { pageImageUrl } from '../bridge/pdf'
 import { inkPath, type PdfLine, type PdfOverlay, type PdfTextBox } from '../core/pdfOverlays'
+import { addTransientSheet } from './runtimeStyle'
 
 /** 인쇄용 쪽 그림 폭(px). A4·Letter 를 약 200dpi 로 */
 const PRINT_WIDTH = 1700
@@ -96,17 +97,15 @@ export async function printPdfPages(
     return image
   })
   // 용지 방향·여백. @page 는 인쇄 동안만 넣는다
-  const style = document.createElement('style')
   // 쪽 칸 크기를 용지 크기 - 여백×2 로 정확히 준다(인쇄에서 vh 는 용지를 따르지 않아 위아래 여백이 어긋났다).
   // 0.5mm 덜어 반올림으로 빈 장이 끼지 않게 한다
   const orientation = resolveOrientation(options.orientation, pageSize)
   const [paperWidth, paperHeight] = paperSizeMm(options.paper, orientation)
   const margin = Math.min(options.marginMm, Math.min(paperWidth, paperHeight) / 2 - 10)
-  style.textContent = [
+  const removeStyle = addTransientSheet([
     `@page { size: ${paperWidth}mm ${paperHeight}mm; margin: ${margin}mm; }`,
     `@media print { .iwae-print-sheet { width: ${paperWidth - margin * 2}mm; height: ${paperHeight - margin * 2 - 0.5}mm; } }`,
-  ].join(' ')
-  document.head.appendChild(style)
+  ].join(' '))
   document.body.appendChild(root)
   await Promise.all(images.map((image) => image.decode().catch(() => undefined)))
   const previousTitle = document.title
@@ -118,7 +117,7 @@ export async function printPdfPages(
     document.body.classList.remove('iwae-printing')
     document.title = previousTitle
     root.remove()
-    style.remove()
+    removeStyle()
     window.removeEventListener('afterprint', cleanup)
   }
   window.addEventListener('afterprint', cleanup)
@@ -232,14 +231,12 @@ export function printMarkdown(title: string, html: string, options: PrintOptions
   article.className = 'markdown-pane markdown-print-body'
   article.innerHTML = html
   root.appendChild(article)
-  const style = document.createElement('style')
   const orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait'
   const [paperWidth, paperHeight] = paperSizeMm(options.paper, orientation)
-  style.textContent = [
+  const removeStyle = addTransientSheet([
     `@page { size: ${paperWidth}mm ${paperHeight}mm; margin: ${options.marginMm}mm; }`,
     '@media print { .iwae-print-markdown .markdown-print-body { display: block; height: auto; overflow: visible; padding: 0; color: #111; background: #fff; font-size: 10.5pt; } .iwae-print-markdown .markdown-print-body > * { max-width: none; zoom: 1; } }',
-  ].join(' ')
-  document.head.appendChild(style)
+  ].join(' '))
   document.body.appendChild(root)
   const previousTitle = document.title
   document.title = title
@@ -250,7 +247,7 @@ export function printMarkdown(title: string, html: string, options: PrintOptions
     document.body.classList.remove('iwae-printing')
     document.title = previousTitle
     root.remove()
-    style.remove()
+    removeStyle()
     window.removeEventListener('afterprint', cleanup)
   }
   window.addEventListener('afterprint', cleanup)

@@ -1,19 +1,16 @@
 import { useSyncExternalStore } from 'react'
 import { highlightCssRules, type HighlightColorDef } from '../core/highlightColors'
 import { getAppPrefs, subscribeAppPrefs } from './appPrefs'
+import { setRuntimeSheet } from './runtimeStyle'
 
 export const HIGHLIGHT_STYLE_ID = 'iwae-highlight-colors'
 
-/** <style id="iwae-highlight-colors"> 한 개를 목록에 맞춰 다시 쓴다. [data-hl="id"] 규칙이 색 변수(--hlc-*)를 정한다 */
+/**
+ * 형광펜 색 규칙([data-hl="id"] 가 --hlc-* 색 변수를 정한다)을 문서에 한 벌 단다.
+ * <style> 요소는 제품 빌드의 CSP(nonce)에 막혀 적용되지 않으므로 constructable stylesheet(CSSOM)로 넣는다.
+ */
 export function applyHighlightColors(colors: readonly HighlightColorDef[], doc: Document = document): void {
-  let style = doc.getElementById(HIGHLIGHT_STYLE_ID)
-  if (style === null) {
-    style = doc.createElement('style')
-    style.id = HIGHLIGHT_STYLE_ID
-    doc.head.appendChild(style)
-  }
-  const css = highlightCssRules(colors)
-  if (style.textContent !== css) style.textContent = css
+  setRuntimeSheet(HIGHLIGHT_STYLE_ID, highlightCssRules(colors), doc)
 }
 
 let installed = false
