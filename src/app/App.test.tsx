@@ -906,7 +906,7 @@ describe('App — PDF 도구', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'PDF 도구…' }))
     // 도구는 팝업이 아니라 왼쪽 바 「PDF 도구」 목록 안(그 줄 아래)으로 펼쳐진다. 메뉴가 그 탭을 열어 준다
     expect(screen.getByRole('radio', { name: 'PDF 도구' }).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(await screen.findByRole('button', { name: 'OCR 로 글자 입히기' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'OCR (스캔 글자 인식)' }))
     const dialog = await screen.findByRole('region', { name: /PDF 도구 —/ })
     expect(dialog.closest('.pdf-tools-body')).not.toBeNull()
     fireEvent.click(within(dialog).getByRole('button', { name: 'OCR 시작' }))

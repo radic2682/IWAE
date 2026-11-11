@@ -105,7 +105,7 @@ interface SelectionLayerProps {
    * 지금 노트 바에 없는 형광펜(id → 마우스를 올렸을 때 보일 말). 흐리게 그리거나(dim) 아예 그리지 않는다(hide).
    * 없애면(null·생략) 모두 보통으로 그린다
    */
-  otherNote?: { readonly mode: 'dim' | 'hide'; readonly labels: ReadonlyMap<string, string> } | null
+  otherNote?: { readonly mode: 'dim' | 'hide'; readonly labels: ReadonlyMap<string, string>; /** 말풍선 둘째 줄: 그 메모의 글(없으면 줄이 없다) */ readonly bodies?: ReadonlyMap<string, string> } | null
   passiveHighlights?: readonly { blockId: string; anchor: Anchor }[]
   searchHighlights?: readonly { id: string; rects: Anchor['rects']; active: boolean }[]
   onAnchorCreated?: (anchor: Anchor) => void
@@ -208,7 +208,7 @@ const TIP_GAP = 12
 const TIP_MARGIN = 6
 
 /** 마우스 곁에 띄우되 스크롤 칸(없으면 창)의 보이는 영역 안에 늘 다 들어오게 옆·위아래로 뒤집고 눌러 담는다 */
-function OtherNoteTip({ x, y, label, within }: { x: number; y: number; label: string; within: Element | null }) {
+function OtherNoteTip({ x, y, label, body, within }: { x: number; y: number; label: string; body: string; within: Element | null }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   useLayoutEffect(() => {
@@ -228,9 +228,12 @@ function OtherNoteTip({ x, y, label, within }: { x: number; y: number; label: st
       left: Math.max(minX, Math.min(left, maxX - width)),
       top: Math.max(minY, Math.min(top, maxY - height)),
     })
-  }, [x, y, label, within])
+  }, [x, y, label, body, within])
   return createPortal(
-    <div ref={ref} className="selection-other-tip" role="tooltip" style={{ left: `${pos?.left ?? 0}px`, top: `${pos?.top ?? 0}px`, visibility: pos === null ? 'hidden' : 'visible' }}>{label}</div>,
+    <div ref={ref} className="selection-other-tip" role="tooltip" style={{ left: `${pos?.left ?? 0}px`, top: `${pos?.top ?? 0}px`, visibility: pos === null ? 'hidden' : 'visible' }}>
+      <span className="selection-other-tip-label">{label}</span>
+      {body === '' ? null : <span className="selection-other-tip-body">{body}</span>}
+    </div>,
     document.body,
   )
 }
@@ -270,7 +273,7 @@ export function SelectionLayer({
   const isOther = (id: string) => otherNote !== null && otherNote.labels.has(id) && !isFreshHighlight(id) && id !== flashHighlightId
   // 숨기기: 그리지도, 눌러지지도 않는다(그 자리에서 글을 고르고 새로 칠할 수 있게)
   const persistentHighlights = otherNote?.mode === 'hide' ? allPersistentHighlights.filter(({ id }) => !isOther(id)) : allPersistentHighlights
-  const [otherTip, setOtherTip] = useState<{ x: number; y: number; cx: number; cy: number; label: string } | null>(null)
+  const [otherTip, setOtherTip] = useState<{ x: number; y: number; cx: number; cy: number; label: string; body: string } | null>(null)
   // 노트를 바꾸거나 설정이 바뀌면 떠 있던 말풍선은 거둔다(마우스가 움직이지 않으면 거두는 계기가 없다)
   useEffect(() => { setOtherTip(null) }, [otherNote])
   const [gesture, setGesture] = useState<SelectionGesture | null>(null)
@@ -517,10 +520,11 @@ export function SelectionLayer({
       if (over !== hoverHighlight) setHoverHighlight(over)
       // 노트에 없는 형광펜이면 어느 노트의 것인지 작은 말풍선으로
       const tipLabel = hit !== undefined && isOther(hit.id) ? otherNote?.labels.get(hit.id) : undefined
+      const tipBody = hit !== undefined && tipLabel !== undefined ? otherNote?.bodies?.get(hit.id) ?? '' : ''
       if (tipLabel === undefined) {
         if (otherTip !== null) setOtherTip(null)
-      } else if (otherTip === null || otherTip.label !== tipLabel || Math.abs(otherTip.x - point.x) > 6 || Math.abs(otherTip.y - point.y) > 6) {
-        setOtherTip({ x: point.x, y: point.y, cx: event.clientX, cy: event.clientY, label: tipLabel })
+      } else if (otherTip === null || otherTip.label !== tipLabel || otherTip.body !== tipBody || Math.abs(otherTip.x - point.x) > 6 || Math.abs(otherTip.y - point.y) > 6) {
+        setOtherTip({ x: point.x, y: point.y, cx: event.clientX, cy: event.clientY, label: tipLabel, body: tipBody })
       }
       if (resizeEnabled) {
         const edge = regionEdgeAt(point)
@@ -804,7 +808,7 @@ export function SelectionLayer({
           setOtherTip(null)
         }}
       />
-      {otherTip === null ? null : <OtherNoteTip x={otherTip.cx} y={otherTip.cy} label={otherTip.label} within={interactionLayerRef.current} />}
+      {otherTip === null ? null : <OtherNoteTip x={otherTip.cx} y={otherTip.cy} label={otherTip.label} body={otherTip.body} within={interactionLayerRef.current} />}
       {passiveHighlights.map(({ blockId, anchor: passiveAnchor }) => {
         const bounds = anchorBounds(passiveAnchor)
         return bounds === null ? null : (
@@ -829,7 +833,7 @@ export function SelectionLayer({
           onClose={() => setDocMenu(null)}
           entries={(() => {
             const picked = docMenu.selection
-            // 이 쪽에 글자가 있나: 없으면(스캔 쪽) 「OCR 로 글자 입히기」를 보인다
+            // 이 쪽에 글자가 있나: 없으면(스캔 쪽) 「OCR (스캔 글자 인식)」를 보인다
             const pdf = { docId, hasText: index.chars.some((char) => char.c.trim() !== '' && char.w > 0) }
             return documentContextEntries(picked === null ? { pdf } : {
               pdf,

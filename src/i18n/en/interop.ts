@@ -27,8 +27,8 @@ export const INTEROP: Readonly<Record<string, string>> = {
   'Zotero 에서 가져왔습니다: {summary}': 'Imported from Zotero: {summary}',
   'Zotero 에서 가져오기…': 'Import from Zotero…',
   // PDF 안의 기존 표시
-  'PDF 안의 기존 표시 가져오기': 'Import existing marks from this PDF',
-  'PDF: 안의 기존 표시 가져오기': 'PDF: Import existing marks from the PDF',
+  'PDF 안의 기존 주석 가져오기': 'Import existing annotations from the PDF',
+  'PDF: 기존 주석 가져오기': 'PDF: Import existing annotations',
   '이 PDF 에는 가져올 표시가 없습니다': 'This PDF has no marks to import',
   '{count}개 가져왔습니다': 'Imported {count}',
   '(이미 있거나 글자를 찾지 못한 표시 {skipped}개는 건너뜀)': '({skipped} marks skipped: already imported or no text found)',

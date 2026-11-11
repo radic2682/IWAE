@@ -280,11 +280,17 @@
   stroke-width: 2px;
 }
 .selection-other-tip {
-  position: fixed; z-index: 1000; max-width: min(260px, calc(100vw - 24px)); box-sizing: border-box; padding: 4px 9px; border-radius: var(--r-sm);
+  position: fixed; z-index: 1000; display: flex; flex-direction: column; gap: 2px; max-width: min(300px, calc(100vw - 24px)); box-sizing: border-box; padding: 5px 10px; border-radius: var(--r-sm);
   background: var(--paper); color: var(--text-strong); font-size: 12px; font-weight: 600; line-height: 1.4;
   box-shadow: 0 2px 10px rgb(var(--rgb-black) / 22%), 0 0 0 1px var(--divider);
-  pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  pointer-events: none; overflow: hidden;
   animation: motion-fade-in var(--motion-fast) ease-out backwards;
+}
+.selection-other-tip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 둘째 줄: 그 메모의 글. 보통 굵기, 길면 세 줄에서 …으로 */
+.selection-other-tip-body {
+  display: -webkit-box; overflow: hidden; font-weight: 400; overflow-wrap: anywhere;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
 }
 
 /* ---------- 메모 열 머리: 노트 검색 · 닫기 · 메모만 보기 ---------- */
@@ -911,6 +917,7 @@
 .note-switch-item:hover, .note-switch-item:focus-visible { background: var(--chrome-hover); outline: 0; }
 .note-switch-item-current, .note-switch-item-current:hover { background: var(--selected-bg); font-weight: 700; }
 .note-switch-create { color: var(--accent); font-weight: 600; }
+.note-switch-danger, .note-switch-danger:hover, .note-switch-danger:focus-visible { color: var(--danger); }
 .note-switch-sep { height: 1px; margin: 6px 2px; border: 0; background: var(--divider); }
 .note-switch-empty { margin: 0; padding: 8px; font-size: 13px; color: var(--text-strong); }
 

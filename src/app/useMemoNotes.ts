@@ -3,6 +3,7 @@ import { applySnapshotChange } from '../core/jsonMerge'
 import { registerSaveFlusher } from './useCanvasAutosave'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { subscribeVaultFolder, type VaultHandle } from '../bridge/vault'
+import type { TrashSource } from '../bridge/vaultFiles'
 import { isVaultExternalChangeError } from '../core/vaultSync'
 import {
   adoptMemoNoteText,
@@ -71,7 +72,7 @@ export function useMemoNotes(
   readonly close: () => void
   readonly closed: boolean
   readonly rename: (path: string, title: string) => Promise<string>
-  readonly trash: (path: string) => Promise<void>
+  readonly trash: (path: string, source?: TrashSource) => Promise<void>
   /** 「노트」 아래 하위 폴더들(Vault 상대 경로, 예: 노트/회의) */
   readonly folders: readonly string[]
   /** 새 노트를 그 폴더에 만든다(빈 문자열이면 「노트」 맨 위) */
@@ -632,7 +633,7 @@ export function useMemoNotes(
     return next
   }, [flushPending, open, openPath, vault])
 
-  const trash = useCallback(async (path: string) => {
+  const trash = useCallback(async (path: string, source: TrashSource = 'unspecified') => {
     if (vault === null) return
     const pending = timersRef.current.get(path)
     if (pending !== undefined) {
@@ -641,7 +642,7 @@ export function useMemoNotes(
     }
     heldRef.current.delete(path)
     publishConflicts()
-    await trashMemoNote(vault, path)
+    await trashMemoNote(vault, path, source)
     const rest = [...notesRef.current.keys()].filter((item) => item !== path)
     applyNotes((current) => {
       const map = new Map(current)

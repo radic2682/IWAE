@@ -209,6 +209,8 @@ function NameList({ names }: { readonly names: readonly string[] }) {
 }
 
 export interface DeleteEntryDialogProps {
+  /** 문서(기본) 또는 노트. 문구만 달라진다 */
+  readonly kind?: 'document' | 'note'
   readonly name: string
   readonly path: string
   readonly onConfirm: () => Promise<void>
@@ -216,7 +218,7 @@ export interface DeleteEntryDialogProps {
 }
 
 /** 문서 하나를 휴지통으로 옮기기 전 확인. 이름을 대고, 지워지는 것이 아니라 옮겨진다고 말한다 */
-export function DeleteEntryDialog({ name, path, onConfirm, onClose }: DeleteEntryDialogProps) {
+export function DeleteEntryDialog({ kind = 'document', name, path, onConfirm, onClose }: DeleteEntryDialogProps) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const cancelRef = useRef<HTMLButtonElement>(null)
@@ -234,17 +236,19 @@ export function DeleteEntryDialog({ name, path, onConfirm, onClose }: DeleteEntr
   }
   return (
     <DialogFrame
-      label={t('문서 삭제')}
+      label={kind === 'note' ? t('노트 삭제') : t('문서 삭제')}
       icon={<Trash size={16} weight="duotone" />}
       tone="danger"
-      title={t('‘{name}’ 문서를 휴지통으로 옮길까요?', { name })}
+      title={kind === 'note' ? t('‘{name}’ 노트를 휴지통으로 옮길까요?', { name }) : t('‘{name}’ 문서를 휴지통으로 옮길까요?', { name })}
       subtitle={t('위치: {location}', { location: locationLabel(path) })}
       busy={busy}
       onClose={onClose}
     >
       <div className="side-dialog-body">
         <p className="side-dialog-message">
-          {t('파일은 지워지지 않고 Vault 휴지통으로 옮겨지며, 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
+          {kind === 'note'
+            ? t('노트 파일은 지워지지 않고 Vault 의 .iwae/trash/notes 폴더로 옮겨집니다.')
+            : t('파일은 지워지지 않고 Vault 휴지통으로 옮겨지며, 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
         </p>
         <p className="side-dialog-error" role={error === null ? undefined : 'alert'}>{error ?? ''}</p>
         <footer className="side-dialog-foot">

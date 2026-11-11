@@ -77,34 +77,34 @@ export interface ToolInfo { readonly id: PdfToolViewId; readonly label: string; 
 /** 도구 묶음 — 왼쪽 바 목록과 도구 화면 제목이 함께 쓴다 */
 export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools: readonly ToolInfo[] }[] = [
   { title: '글자', tools: [
-    { id: 'ocr', label: 'OCR 로 글자 입히기', icon: <TextT size={16} /> },
+    { id: 'ocr', label: 'OCR (스캔 글자 인식)', icon: <TextT size={16} /> },
     { id: 'compare', label: '다른 버전과 글자 비교', icon: <GitDiff size={16} /> },
   ] },
-  { title: '내 표시', tools: [
-    { id: 'importMarks', label: 'PDF 안의 기존 표시 가져오기', icon: <Highlighter size={16} /> },
-    { id: 'flatten', label: '표시 넣은 사본', icon: <Stamp size={16} /> },
-    { id: 'redact', label: '가린 사본', icon: <EyeSlash size={16} /> },
+  { title: '주석', tools: [
+    { id: 'importMarks', label: 'PDF 안의 기존 주석 가져오기', icon: <Highlighter size={16} /> },
+    { id: 'flatten', label: '주석을 넣은 PDF 저장', icon: <Stamp size={16} /> },
+    { id: 'redact', label: '민감 정보 가린 PDF 저장', icon: <EyeSlash size={16} /> },
   ] },
   { title: '쪽', tools: [
     { id: 'pageEdit', label: '쪽 편집', icon: <NotePencil size={16} /> },
-    { id: 'extract', label: '쪽 뽑아 새 PDF', icon: <Copy size={16} /> },
-    { id: 'split', label: '목차 단위로 나누기', icon: <Scissors size={16} /> },
-    { id: 'merge', label: '다른 PDF 와 합치기', icon: <Stack size={16} /> },
-    { id: 'blanks', label: '빈 쪽 빼기', icon: <Broom size={16} /> },
-    { id: 'orient', label: '스캔 쪽 방향 바로잡기', icon: <ArrowsClockwise size={16} /> },
+    { id: 'extract', label: '쪽 추출', icon: <Copy size={16} /> },
+    { id: 'split', label: 'PDF 분할 (목차별)', icon: <Scissors size={16} /> },
+    { id: 'merge', label: 'PDF 병합', icon: <Stack size={16} /> },
+    { id: 'blanks', label: '빈 쪽 삭제', icon: <Broom size={16} /> },
+    { id: 'orient', label: '스캔 쪽 방향 자동 보정', icon: <ArrowsClockwise size={16} /> },
   ] },
   { title: '모양', tools: [
     { id: 'numbers', label: '쪽 번호 넣기', icon: <Hash size={16} /> },
-    { id: 'watermark', label: '워터마크', icon: <Stamp size={16} weight="duotone" /> },
+    { id: 'watermark', label: '워터마크 넣기', icon: <Stamp size={16} weight="duotone" /> },
     { id: 'crop', label: '여백 자르기', icon: <Crop size={16} /> },
-    { id: 'nup', label: '모아찍기', icon: <SquaresFour size={16} /> },
-    { id: 'compress', label: '압축', icon: <ArrowsInSimple size={16} /> },
+    { id: 'nup', label: '모아찍기 (한 장에 여러 쪽)', icon: <SquaresFour size={16} /> },
+    { id: 'compress', label: 'PDF 압축 (용량 줄이기)', icon: <ArrowsInSimple size={16} /> },
   ] },
   { title: '내보내기', tools: [
-    { id: 'images', label: '쪽 그림(PNG)으로', icon: <FileImage size={16} /> },
-    { id: 'markdown', label: '글을 Markdown 으로', icon: <FileText size={16} /> },
+    { id: 'images', label: '쪽을 PNG 이미지로', icon: <FileImage size={16} /> },
+    { id: 'markdown', label: '본문을 Markdown 으로', icon: <FileText size={16} /> },
     { id: 'notesMarkdown', label: '노트를 Markdown 으로', icon: <Export size={16} /> },
-    { id: 'unlock', label: '암호 푼 사본', icon: <LockOpen size={16} /> },
+    { id: 'unlock', label: '암호 해제한 PDF 저장', icon: <LockOpen size={16} /> },
   ] },
 ]
 
@@ -332,7 +332,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       return (
         <>
           <Note>{t('목차 맨 위 단계(장)마다 PDF 를 하나씩 만들어 원본 옆 「{title} 나눔」 폴더에 둡니다.', { title: props.title })}</Note>
-          {chapters.length === 0 ? <Note>{t('이 PDF 에는 나눌 목차가 없습니다. 「쪽 뽑아 새 PDF」를 쓰세요.')}</Note> : (
+          {chapters.length === 0 ? <Note>{t('이 PDF 에는 나눌 목차가 없습니다. 「쪽 추출」을 쓰세요.')}</Note> : (
             <ol className="pdf-tools-chapters">
               {chapters.map((chapter, index) => (
                 <li key={index}><span>{chapter.title}</span><b>{chapter.from + 1}–{chapter.to + 1}</b></li>

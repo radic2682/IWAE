@@ -36,8 +36,8 @@ export function documentContextEntries(options: {
     { key: 'palette', icon: <TerminalWindow size={15} />, label: t('명령 팔레트'), shortcut: 'Ctrl+Shift+P', onSelect: () => runAppCommand('commandPalette') },
     ...(options.pdf === undefined ? [] : [
       { key: 'sep-pdf', separator: true as const },
-      ...(options.pdf.hasText ? [] : [{ key: 'ocr', icon: <TextT size={15} />, label: t('OCR 로 글자 입히기'), onSelect: () => runAppCommand('ocrDocument', { docId: options.pdf!.docId }) }]),
-      { key: 'import-marks', icon: <Highlighter size={15} />, label: t('PDF 안의 기존 표시 가져오기'), onSelect: () => runAppCommand('importPdfMarks', { docId: options.pdf!.docId }) },
+      ...(options.pdf.hasText ? [] : [{ key: 'ocr', icon: <TextT size={15} />, label: t('OCR (스캔 글자 인식)'), onSelect: () => runAppCommand('ocrDocument', { docId: options.pdf!.docId }) }]),
+      { key: 'import-marks', icon: <Highlighter size={15} />, label: t('PDF 안의 기존 주석 가져오기'), onSelect: () => runAppCommand('importPdfMarks', { docId: options.pdf!.docId }) },
       { key: 'pdf-tools', icon: <Toolbox size={15} />, label: t('PDF 도구…'), onSelect: () => runAppCommand('pdfTools', { docId: options.pdf!.docId }) },
     ]),
     { key: 'sep-hint', separator: true as const },

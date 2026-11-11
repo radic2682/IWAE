@@ -1,6 +1,7 @@
 import { t } from '../i18n'
 import { forgetObservedFile, inspectVaultRelativeFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
 import type { SyncCodec } from '../core/vaultSync'
+import type { TrashSource } from './vaultFiles'
 import {
   MEMO_NOTES_FOLDER_CANDIDATES,
   detectMemoNotesFolder,
@@ -135,14 +136,25 @@ export async function renameMemoNote(vault: VaultHandle, from: string, to: strin
   await announceNotesChanged(vault)
 }
 
-export async function trashMemoNote(vault: VaultHandle, path: string): Promise<void> {
+/** 노트 하나를 .iwae/trash/notes 로 옮긴다. 어느 화면에서 옮겼는지(source)는 옆에 .why.json 으로 남긴다(진단용, 실패해도 옮기기는 그대로) */
+export async function trashMemoNote(vault: VaultHandle, path: string, source: TrashSource = 'unspecified'): Promise<void> {
   const { mkdir, rename } = await import('@tauri-apps/plugin-fs')
   const trash = await absolute(vault, '.iwae/trash/notes')
   await mkdir(trash, { recursive: true })
   const name = path.replaceAll('\\', '/').split('/').at(-1) ?? 'note.iwnote'
-  const source = await absolute(vault, path)
-  await rename(source, await absolute(vault, `.iwae/trash/notes/${Date.now()}-${name}`))
-  forgetObservedFile(source)
+  const from = await absolute(vault, path)
+  const stamp = Date.now()
+  const trashedRelative = `.iwae/trash/notes/${stamp}-${name}`
+  await rename(from, await absolute(vault, trashedRelative))
+  forgetObservedFile(from)
+  if (source !== 'unspecified') {
+    try {
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs')
+      await writeTextFile(await absolute(vault, `${trashedRelative}.why.json`), JSON.stringify({ originalPath: path, deletedAt: new Date(stamp).toISOString(), source }))
+    } catch {
+      // 기록은 진단용이라 실패해도 노트는 이미 옮겨졌다
+    }
+  }
   await announceNotesChanged(vault)
 }
 

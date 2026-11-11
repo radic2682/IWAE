@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import type { TrashSource } from '../bridge/vaultFiles'
 import type { MemoNote, MemoNoteEntry, MemoTicket } from '../core/memoNote'
 import type { TicketIndex } from '../core/memoTickets'
 import type { PersistentPdfHighlight } from './persistentHighlight'
@@ -33,6 +34,8 @@ export interface MemoNoteApi {
   readonly docOwner?: (docId: string) => string | null
   /** 문서 id → 사람이 읽는 이름(버전 묶음이면 묶음 이름) */
   readonly docLabel?: (docId: string) => string
+  /** 노트 하나를 휴지통으로 옮기고 그 노트의 이모지·색을 정리한다(열린 노트였으면 오른쪽 바는 왼쪽 바에서 지울 때와 같이 다른 노트로 물러난다). 없으면 노트 바에 지우기 항목을 보이지 않는다 */
+  readonly trashNote?: (path: string, source: TrashSource) => Promise<void>
   /** 이 PDF 에 노트를 만들어 오른쪽 바에 열고 이름을 고치게 한다. 만든 경로 */
   readonly createForDoc?: (docId: string) => Promise<string | null>
   /** 모든 노트의 티켓(ID 가 붙은 메모 블록)을 ID 별로 모은 것: 같은 ID 가 놓인 곳들과 충돌 */

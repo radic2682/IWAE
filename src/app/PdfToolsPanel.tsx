@@ -46,6 +46,7 @@ export function PdfToolsPanel({ docTitle, activeTool, onPick, renderTool }: PdfT
                   <button
                     type="button"
                     className={`pdf-tools-item${open ? ' pdf-tools-item-on' : ''}`}
+                    title={t(item.label)}
                     aria-current={open ? 'true' : undefined}
                     aria-expanded={body === null ? undefined : true}
                     disabled={disabled}

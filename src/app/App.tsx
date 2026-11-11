@@ -1072,23 +1072,23 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const meta = openedDocs.find((doc) => doc.docId === docId)
     return [
       { id: 'pdf-tools', kind: 'action', label: t('PDF 도구…'), keywords: 'pdf tools stirling', run: open(meta?.hasText === false ? 'ocr' : 'flatten') },
-      { id: 'pdf-ocr', kind: 'action', label: t('PDF: OCR 로 글자 입히기'), keywords: 'ocr scan text recognize', run: () => { void ocrDocumentRef.current(docId).catch((cause: unknown) => announceAction(errorText(cause))) } },
-      { id: 'pdf-flatten', kind: 'action', label: t('PDF: 표시 넣은 사본'), keywords: 'flatten annotate export share', run: open('flatten') },
-      { id: 'pdf-redact', kind: 'action', label: t('PDF: 가린 사본'), keywords: 'redact hide privacy', run: open('redact') },
-      { id: 'pdf-compare', kind: 'action', label: t('PDF: 다른 버전과 글자 비교'), keywords: 'compare diff version', run: open('compare') },
-      { id: 'pdf-extract', kind: 'action', label: t('PDF: 쪽 뽑아 새 PDF'), keywords: 'extract split pages', run: open('extract') },
-      { id: 'pdf-split', kind: 'action', label: t('PDF: 목차 단위로 나누기'), keywords: 'split chapters', run: open('split') },
-      { id: 'pdf-merge', kind: 'action', label: t('PDF: 다른 PDF 와 합치기'), keywords: 'merge combine', run: open('merge') },
-      { id: 'pdf-blanks', kind: 'action', label: t('PDF: 빈 쪽 빼기'), keywords: 'blank remove pages', run: open('blanks') },
-      { id: 'pdf-orient', kind: 'action', label: t('PDF: 스캔 쪽 방향 바로잡기'), keywords: 'orientation rotate scan upside down sideways', run: open('orient') },
-      { id: 'pdf-compress', kind: 'action', label: t('PDF: 압축'), keywords: 'compress shrink size images', run: open('compress') },
-      { id: 'pdf-numbers', kind: 'action', label: t('PDF: 쪽 번호 넣기'), keywords: 'page numbers', run: open('numbers') },
-      { id: 'pdf-watermark', kind: 'action', label: t('PDF: 워터마크'), keywords: 'watermark stamp', run: open('watermark') },
-      { id: 'pdf-crop', kind: 'action', label: t('PDF: 여백 자르기'), keywords: 'crop margins', run: open('crop') },
-      { id: 'pdf-nup', kind: 'action', label: t('PDF: 모아찍기'), keywords: 'n-up layout print', run: open('nup') },
-      { id: 'pdf-images', kind: 'action', label: t('PDF: 쪽 그림(PNG)으로 내보내기'), keywords: 'images png export', run: open('images') },
-      { id: 'pdf-markdown', kind: 'action', label: t('PDF: 글을 Markdown 으로'), keywords: 'markdown text export', run: open('markdown') },
-      { id: 'pdf-import-marks', kind: 'action', label: t('PDF: 안의 기존 표시 가져오기'), keywords: 'import annotations highlights acrobat preview zotero', run: open('importMarks') },
+      { id: 'pdf-ocr', kind: 'action', label: t('PDF: OCR (스캔 글자 인식)'), keywords: 'ocr scan text recognize 스캔 글자 인식', run: () => { void ocrDocumentRef.current(docId).catch((cause: unknown) => announceAction(errorText(cause))) } },
+      { id: 'pdf-flatten', kind: 'action', label: t('PDF: 주석을 넣은 PDF 저장'), keywords: 'flatten annotate export share 주석 저장 공유', run: open('flatten') },
+      { id: 'pdf-redact', kind: 'action', label: t('PDF: 민감 정보 가린 PDF 저장'), keywords: 'redact hide privacy 가리기 민감 정보', run: open('redact') },
+      { id: 'pdf-compare', kind: 'action', label: t('PDF: 다른 버전과 글자 비교'), keywords: 'compare diff version 비교 버전', run: open('compare') },
+      { id: 'pdf-extract', kind: 'action', label: t('PDF: 쪽 추출'), keywords: 'extract split pages 쪽 추출 뽑기 발췌', run: open('extract') },
+      { id: 'pdf-split', kind: 'action', label: t('PDF: PDF 분할 (목차별)'), keywords: 'split chapters 분할 나누기 목차 장', run: open('split') },
+      { id: 'pdf-merge', kind: 'action', label: t('PDF: PDF 병합'), keywords: 'merge combine 병합 합치기 붙이기', run: open('merge') },
+      { id: 'pdf-blanks', kind: 'action', label: t('PDF: 빈 쪽 삭제'), keywords: 'blank remove delete pages 빈 쪽 삭제 빼기', run: open('blanks') },
+      { id: 'pdf-orient', kind: 'action', label: t('PDF: 스캔 쪽 방향 자동 보정'), keywords: 'orientation rotate scan upside down sideways 방향 보정 회전 바로잡기', run: open('orient') },
+      { id: 'pdf-compress', kind: 'action', label: t('PDF: PDF 압축 (용량 줄이기)'), keywords: 'compress shrink size images 압축 용량 줄이기', run: open('compress') },
+      { id: 'pdf-numbers', kind: 'action', label: t('PDF: 쪽 번호 넣기'), keywords: 'page numbers 쪽 번호', run: open('numbers') },
+      { id: 'pdf-watermark', kind: 'action', label: t('PDF: 워터마크 넣기'), keywords: 'watermark stamp 워터마크 도장', run: open('watermark') },
+      { id: 'pdf-crop', kind: 'action', label: t('PDF: 여백 자르기'), keywords: 'crop margins 여백 자르기', run: open('crop') },
+      { id: 'pdf-nup', kind: 'action', label: t('PDF: 모아찍기 (한 장에 여러 쪽)'), keywords: 'n-up layout print 모아찍기 한 장에 여러 쪽', run: open('nup') },
+      { id: 'pdf-images', kind: 'action', label: t('PDF: 쪽을 PNG 이미지로 내보내기'), keywords: 'images png export 이미지 그림 내보내기', run: open('images') },
+      { id: 'pdf-markdown', kind: 'action', label: t('PDF: 본문을 Markdown 으로'), keywords: 'markdown text export 본문 글 내보내기', run: open('markdown') },
+      { id: 'pdf-import-marks', kind: 'action', label: t('PDF: 기존 주석 가져오기'), keywords: 'import annotations highlights acrobat preview zotero 주석 가져오기 형광펜', run: open('importMarks') },
       { id: 'pdf-notes-markdown', kind: 'action', label: t('PDF: 노트를 Markdown 으로'), keywords: 'markdown export obsidian notion notes', run: open('notesMarkdown') },
     ]
   }
@@ -1400,7 +1400,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }
     return path
   }, [memoNotes, noteDocLabel, noteDocOwner])
-  const memoNoteApi: MemoNoteApi = { ...memoNotes, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc }
+  const memoNoteApi: MemoNoteApi = { ...memoNotes, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc, trashNote: async (path, source) => { await memoNotes.trash(path, source); forgetMemoPaths([path]) } }
   // 들여오기·내보내기: PDF 안의 기존 표시, Zotero, Markdown
   const interop = useInteropActions({
     vault,
@@ -1940,7 +1940,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     })
     setDraftPdfHighlight(null)
     setCanvasEpoch((epoch) => epoch + 1)
-    // 쪽 편집 화면에서 저장했을 때만 닫는다(빈 쪽 빼기·방향 바로잡기는 왼쪽 바에서 펼친 채 결과를 보인다)
+    // 쪽 편집 화면에서 저장했을 때만 닫는다(빈 쪽 삭제·방향 바로잡기는 왼쪽 바에서 펼친 채 결과를 보인다)
     setPdfToolsTarget((current) => (current?.tool === 'pageEdit' ? null : current))
     announceAction(t('쪽 편집을 저장했습니다. 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다'))
   }

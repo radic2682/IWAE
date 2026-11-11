@@ -131,11 +131,11 @@ Everything runs on your PC. Most tools can apply to the original or write a copy
 
 | Group | Tools |
 | --- | --- |
-| Text | Add a text layer with OCR; compare the text of two versions |
-| My marks | A copy with your highlights, memos and drawings flattened into the pages; a redacted copy that really removes the covered text |
-| Pages | Edit pages (reorder, rotate, remove, insert from another PDF; highlights follow their pages and the original is backed up first); extract pages; split by chapters; merge PDFs; remove blank pages; fix sideways and upside-down scans |
-| Layout | Page numbers, watermark, crop margins, N-up, compress |
-| Export | Pages as PNG, text as Markdown, unlocked copy of a password-protected PDF |
+| Text | OCR (recognize scanned text); compare the text of two versions |
+| Annotations | Import existing annotations from the PDF; save a PDF with your highlights, memos and drawings flattened into the pages; save a PDF with sensitive info really removed |
+| Pages | Edit pages (reorder, rotate, remove, insert from another PDF; highlights follow their pages and the original is backed up first); extract pages; split PDF (by chapters); merge PDFs; delete blank pages; auto-fix sideways and upside-down scans |
+| Layout | Add page numbers, add watermark, crop margins, N-up, compress PDF |
+| Export | Pages as PNG images, text to Markdown, save unlocked copy of a password-protected PDF |
 
 <p align="center">
   <img src="docs/images/pdf-tools.gif" width="900" alt="Running Add page numbers as a copy from PDF tools, then briefly opening the page editor">

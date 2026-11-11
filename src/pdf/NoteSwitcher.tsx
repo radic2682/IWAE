@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { NotePencil, Plus } from '@phosphor-icons/react'
+import { NotePencil, Plus, Trash } from '@phosphor-icons/react'
 import { groupMemoNotesByDoc, type MemoNoteEntry } from '../core/memoNote'
 import { t } from '../i18n'
 import type { MemoNoteApi } from './memoNoteContext'
@@ -25,12 +25,14 @@ export function noteSwitcherGroups(api: MemoNoteApi, currentDocId: string): {
 }
 
 /** 오른쪽 바 머리의 노트 바꾸기 목록: 「이 PDF 의 노트」 · 구분선 · 「다른 노트」 */
-export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose }: {
+export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose, onTrashOpen }: {
   readonly api: MemoNoteApi
   readonly currentDocId: string
   /** 「이 PDF 의 노트 · …」 에 쓸 문서 이름 */
   readonly docLabel: string
   readonly onClose: () => void
+  /** 「이 노트 휴지통으로 이동…」을 눌렀다(열린 노트가 있을 때만 항목이 보인다) */
+  readonly onTrashOpen?: () => void
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const { owner, mine, others } = useMemo(() => noteSwitcherGroups(api, currentDocId), [api, currentDocId])
@@ -110,6 +112,15 @@ export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose }: {
         </div>
       ) : null}
       {owner === null && others.length === 0 ? <p className="note-switch-empty">{t('노트가 없습니다')}</p> : null}
+      {onTrashOpen === undefined || api.openPath === null ? null : (
+        <>
+          <hr className="note-switch-sep" />
+          <button type="button" role="menuitem" className="note-switch-item note-switch-danger" onClick={() => { onClose(); onTrashOpen() }}>
+            <Trash size={14} aria-hidden="true" />
+            <span>{t('이 노트 휴지통으로 이동…')}</span>
+          </button>
+        </>
+      )}
     </div>
   )
 }

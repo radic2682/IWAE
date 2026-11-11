@@ -3,6 +3,7 @@ import { ArrowsIn, ArrowsInLineVertical, ArrowsOut, ArrowsOutLineVertical, Magni
 import { t } from '../i18n'
 import { CategoryTag } from './CategoryTag'
 import { NoteTitle } from './NoteTitle'
+import { DeleteEntryDialog } from '../app/SidebarDialogs'
 import { NoteSwitcherMenu, noteSwitcherGroups } from './NoteSwitcher'
 import type { MemoNoteApi } from './memoNoteContext'
 import type { PersistentPdfHighlight } from './persistentHighlight'
@@ -65,6 +66,7 @@ export function NoteBarHeader({
     .slice(0, 30)
   const noteOpen = api !== null && api.openPath !== null
   const [switchOpen, setSwitchOpen] = useState(false)
+  const [trashTarget, setTrashTarget] = useState<{ readonly path: string; readonly title: string } | null>(null)
   // 노트 바꾸기: 노트가 하나라도 있거나 이 PDF 에 만들 수 있을 때만
   const switcherGroups = api === null ? null : noteSwitcherGroups(api, currentDocId)
   const canSwitch = api !== null && switcherGroups !== null && (api.entries.length > 0 || (switcherGroups.owner !== null && api.createForDoc !== undefined))
@@ -87,6 +89,16 @@ export function NoteBarHeader({
           currentDocId={currentDocId}
           docLabel={api.docLabel?.(currentDocId) ?? (docTitles?.[currentDocId] ?? '').split(' · ')[0] ?? ''}
           onClose={() => setSwitchOpen(false)}
+          onTrashOpen={api.trashNote === undefined || api.openPath === null ? undefined : () => setTrashTarget({ path: api.openPath!, title: api.openTitle ?? fallbackTitle })}
+        />
+      ) : null}
+      {trashTarget !== null && api?.trashNote !== undefined ? (
+        <DeleteEntryDialog
+          kind="note"
+          name={trashTarget.title}
+          path={trashTarget.path.replaceAll('\\', '/').split('/').slice(0, -1).join('/')}
+          onConfirm={() => api.trashNote!(trashTarget.path, 'note-bar-confirmed')}
+          onClose={() => setTrashTarget(null)}
         />
       ) : null}
       {searchOpen ? (
