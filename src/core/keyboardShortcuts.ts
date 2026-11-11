@@ -58,5 +58,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
  */
 export function resolveAppShortcut(event: KeyboardEvent): AppShortcut | null {
   if (event.key.toLowerCase() === 'escape') return 'escape'
-  return resolveShortcut(event, isEditableTarget(event.target)) as AppShortcut | null
+  // 아직 고치지 않은 숫자 칸(data-undo-passthrough)에서는 Ctrl+Z 가 칸 글자가 아니라 앱의 되돌리기다
+  const passthrough = event.target instanceof HTMLElement && event.target.dataset.undoPassthrough === 'true' && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z'
+  return resolveShortcut(event, !passthrough && isEditableTarget(event.target)) as AppShortcut | null
 }

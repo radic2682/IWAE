@@ -33,7 +33,7 @@ export function countMarks(docId: string, highlights: readonly PersistentPdfHigh
 function overlayToFlat(overlay: PdfOverlay): PdfFlatOverlay | null {
   switch (overlay.kind) {
     case 'text':
-      return overlay.text.trim() === '' ? null : { kind: 'text', page: overlay.page, x: overlay.x, y: overlay.y, w: overlay.w, text: overlay.text, size: overlay.size, color: overlay.color, bold: overlay.bold === true, fill: overlay.fill ?? null, border: overlay.border === true }
+      return overlay.text.trim() === '' ? null : { kind: 'text', page: overlay.page, x: overlay.x, y: overlay.y, w: overlay.w, text: overlay.text, size: overlay.size, color: overlay.color, bold: overlay.bold === true, fill: overlay.fill ?? null, border: overlay.border === true, ...(overlay.border === true && overlay.borderColor !== undefined ? { borderColor: overlay.borderColor } : {}), ...(overlay.font === undefined ? {} : { font: overlay.font }) }
     case 'line':
       return { kind: 'line', page: overlay.page, x1: overlay.x1, y1: overlay.y1, x2: overlay.x2, y2: overlay.y2, color: overlay.color, width: overlay.width, arrow: overlay.arrow === true, arrowStart: overlay.arrowStart === true, dashed: overlay.dashed === true, dotted: overlay.dotted === true }
     case 'ink':

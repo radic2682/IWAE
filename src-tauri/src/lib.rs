@@ -19,6 +19,7 @@ pub mod pdf;
 pub mod protocol;
 pub mod rag;
 pub mod storage;
+pub mod screen_capture;
 pub mod support;
 pub mod translation;
 pub mod usage;
@@ -82,6 +83,8 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             support::support_log_tail,
+            screen_capture::capture_window_png,
+            screen_capture::copy_capture_to_clipboard,
             usage::app_usage,
             pdf::pdf_open,
             pdf::pdf_file_hash,
@@ -102,6 +105,7 @@ pub fn run() {
             pdf::shared::pdf_render_shared,
             pdf::pdf_edit_pages,
             pdf::pdf_page_text,
+            pdf::pdf_char_style,
             pdf::pdf_outline,
             pdf::pdf_page_links,
             pdf::pdf_metadata,

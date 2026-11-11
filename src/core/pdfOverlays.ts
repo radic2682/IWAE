@@ -3,12 +3,35 @@
  * 좌표는 모두 쪽 좌표(points, 왼쪽 위 기준)라서 확대·축소에도 쪽의 같은 자리에 남는다. 눈 단추(깨끗이 보기)로 감출 수 있다.
  */
 
+import { isOverlayFont } from './overlayFonts'
+
 /** 색: 기본 일곱 가지 또는 직접 고른 #rrggbb */
 export type OverlayColor = string
 export const OVERLAY_COLORS: readonly OverlayColor[] = ['#111111', '#d9363e', '#1a73e8', '#188038', '#f29900', '#7b1fa2', '#ffffff']
 /** #rrggbb 인가 */
 export function isOverlayColor(value: unknown): value is OverlayColor {
   return typeof value === 'string' && /^#[0-9a-f]{6}$/iu.test(value)
+}
+
+/** 글 상자 배경: 'white' · 'yellow' 또는 직접 고른 #rrggbb */
+export type TextFill = 'white' | 'yellow' | OverlayColor
+const TEXT_FILL_COLORS: Readonly<Record<string, string>> = { white: '#ffffff', yellow: '#fff3a8' }
+export function isTextFill(value: unknown): value is TextFill {
+  return value === 'white' || value === 'yellow' || isOverlayColor(value)
+}
+/** 배경 값 → CSS 색 */
+export function textFillColor(fill: TextFill): string {
+  return TEXT_FILL_COLORS[fill] ?? fill
+}
+
+/** 글자 크기 범위(points)와 한 칸 */
+export const TEXT_SIZE_MIN = 4
+export const TEXT_SIZE_MAX = 144
+export const TEXT_SIZE_STEP = 0.5
+/** 4~144 로 묶고 0.5 단위로 맞춘다 */
+export function normalizeTextSize(value: number): number {
+  const clamped = Math.min(Math.max(value, TEXT_SIZE_MIN), TEXT_SIZE_MAX)
+  return Math.round(clamped / TEXT_SIZE_STEP) * TEXT_SIZE_STEP
 }
 
 export interface PdfTextBox {
@@ -26,9 +49,13 @@ export interface PdfTextBox {
   readonly color: OverlayColor
   readonly bold?: boolean
   /** 배경: 없으면 투명, 'white' 는 흰 바탕(원문 글자를 가릴 때), 'yellow' 는 옅은 노랑 */
-  readonly fill?: 'white' | 'yellow'
+  readonly fill?: TextFill
   /** 테두리를 그릴까 */
   readonly border?: boolean
+  /** 테두리 색(없으면 글자색) */
+  readonly borderColor?: OverlayColor
+  /** 글꼴(OVERLAY_FONTS 의 id 또는 설치 글꼴 이름). 없으면 앱 글꼴 */
+  readonly font?: string
 }
 
 export interface PdfLine {
@@ -64,7 +91,7 @@ export interface PdfInk {
 
 /**
  * 도형(네모·동그라미·가리기). x, y 는 왼쪽 위, w, h 는 크기(쪽 좌표).
- * 'redact'(가리기)는 화면에서는 검은 상자로 덮어 보이고, 「가린 사본」을 만들 때 그 자리의 글자·그림을 정말로 지운다.
+ * 'redact'(가리기)는 화면에서는 검은 상자로 덮어 보이고, 「민감 정보 가린 PDF 저장」을 만들 때 그 자리의 글자·그림을 정말로 지운다.
  */
 export interface PdfShape {
   readonly id: string
@@ -138,7 +165,8 @@ export const EMPTY_PDF_OVERLAYS: PdfOverlaysFile = { version: 1, overlays: {} }
 
 export const TEXT_BOX_MIN_WIDTH = 40
 export const TEXT_BOX_DEFAULT_WIDTH = 180
-export const TEXT_SIZES: readonly number[] = [7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 32]
+/** 글자 크기 빠른 고르기 */
+export const TEXT_SIZES: readonly number[] = [7, 8, 9, 9.5, 10, 10.5, 11, 12, 14, 16, 20, 24, 32, 48]
 export const LINE_WIDTHS: readonly number[] = [1, 2, 3, 5]
 
 let counter = 0
@@ -156,11 +184,13 @@ export function createTextBox(page: number, x: number, y: number, init: Partial<
     y,
     w: init.w ?? TEXT_BOX_DEFAULT_WIDTH,
     text: init.text ?? '',
-    size: init.size ?? 9,
+    size: normalizeTextSize(init.size ?? 9),
     color: init.color ?? '#d9363e',
     ...(init.bold === true ? { bold: true } : {}),
     ...(init.fill === undefined ? {} : { fill: init.fill }),
     ...(init.border === true ? { border: true } : {}),
+    ...(init.border === true && init.borderColor !== undefined ? { borderColor: init.borderColor } : {}),
+    ...(init.font === undefined || init.font === '' ? {} : { font: init.font }),
   }
 }
 
@@ -301,11 +331,13 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
           id, kind: 'text', page, x, y,
           w: Math.max(w ?? TEXT_BOX_DEFAULT_WIDTH, TEXT_BOX_MIN_WIDTH),
           text: item.text.slice(0, 4000),
-          size: Math.min(Math.max(size ?? 12, 4), 96),
+          size: normalizeTextSize(size ?? 12),
           color,
           ...(item.bold === true ? { bold: true } : {}),
-          ...(item.fill === 'white' || item.fill === 'yellow' ? { fill: item.fill } : {}),
+          ...(isTextFill(item.fill) ? { fill: item.fill.toLowerCase() as TextFill } : {}),
           ...(item.border === true ? { border: true } : {}),
+          ...(isOverlayColor(item.borderColor) ? { borderColor: item.borderColor.toLowerCase() } : {}),
+          ...(isOverlayFont(item.font) ? { font: item.font } : {}),
         }]
       }
       if (item.kind === 'shape') {

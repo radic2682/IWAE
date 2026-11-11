@@ -10,7 +10,7 @@ mod thread;
 mod tools;
 
 pub use engine::{
-    find_unicode_font, pdf_space_rect, sanitize_uri, CharBox, CropRect, ExportHighlight,
+    find_unicode_font, pdf_space_rect, sanitize_uri, CharBox, CharStyle, CropRect, ExportHighlight,
     ImportedAnnotation, LayoutChar, LayoutRect, LayoutSegment, LinkRect, PageLayout, PageTextIndex, PdfDocMeta, PdfLink, PdfLinkTarget, PdfMetadata,
     PdfOutlineEntry, PdfRenderError, SearchableLine, SearchablePage, SearchableReport,
     CROP_PIXELS_PER_POINT, MAX_RENDER_PIXELS, MAX_RENDER_WIDTH, MAX_TILE_PAGE_WIDTH, MAX_TILE_SIDE, MIN_RENDER_WIDTH,
@@ -75,6 +75,22 @@ pub async fn pdf_page_text(
     tauri::async_runtime::spawn_blocking(move || pdf.page_text_blocking(doc_id, page))
         .await
         .map_err(|err| tr!("페이지 텍스트 작업이 중단되었습니다: {err}", "Page text task was interrupted: {err}"))?
+        .map_err(|err| err.to_string())
+}
+
+/// 글자 하나의 글꼴 크기·이름·굵기(글 상자 「서식 가져오기」). `index` 는 `pdf_page_text` 의 글자 번호.
+#[tauri::command]
+pub async fn pdf_char_style(
+    state: State<'_, PdfThread>,
+    doc_id: String,
+    page: i32,
+    index: usize,
+) -> Result<CharStyle, String> {
+    let pdf = state.inner().clone();
+
+    tauri::async_runtime::spawn_blocking(move || pdf.char_style_blocking(doc_id, page, index))
+        .await
+        .map_err(|err| tr!("글자 서식 작업이 중단되었습니다: {err}", "Character style task was interrupted: {err}"))?
         .map_err(|err| err.to_string())
 }
 

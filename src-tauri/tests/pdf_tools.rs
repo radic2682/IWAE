@@ -133,6 +133,37 @@ fn flatten_writes_my_marks_and_redaction_really_removes_text() {
         bold: false,
         fill: Some("yellow".into()),
         border: true,
+        border_color: None,
+        font: None,
+    };
+    // 글꼴·소수 크기·직접 고른 배경색·테두리색(한글 글꼴은 시스템 글꼴 파일, 영문은 PDF 기본 글꼴)
+    let styled = FlatOverlay::Text {
+        page: 1,
+        x: 40.0,
+        y: 120.0,
+        w: 220.0,
+        text: "Batang sample 9.5pt".into(),
+        size: 9.5,
+        color: "#222222".into(),
+        bold: true,
+        fill: Some("#cde8ff".into()),
+        border: true,
+        border_color: Some("#e4572e".into()),
+        font: Some("batang".into()),
+    };
+    let serif = FlatOverlay::Text {
+        page: 1,
+        x: 40.0,
+        y: 160.0,
+        w: 220.0,
+        text: "Times serif sample".into(),
+        size: 10.5,
+        color: "#222222".into(),
+        bold: false,
+        fill: None,
+        border: false,
+        border_color: None,
+        font: Some("times".into()),
     };
     let line = FlatOverlay::Line { page: 1, x1: 40.0, y1: 200.0, x2: 300.0, y2: 200.0, color: "#1a73e8".into(), width: 2.0, arrow: true, arrow_start: false, dashed: true, dotted: false };
     // 첫 쪽 전체를 가린다
@@ -142,7 +173,7 @@ fn flatten_writes_my_marks_and_redaction_really_removes_text() {
     let result = pdf
         .tool_blocking(
             meta.doc_id,
-            ToolOp::Flatten { highlights: vec![highlight], overlays: vec![overlay, line], notes: vec![], redactions: vec![redaction] },
+            ToolOp::Flatten { highlights: vec![highlight], overlays: vec![overlay, styled, serif, line], notes: vec![], redactions: vec![redaction] },
             target,
         )
         .expect("굽기");
@@ -153,6 +184,8 @@ fn flatten_writes_my_marks_and_redaction_really_removes_text() {
     assert!(first.text.trim().is_empty(), "가린 쪽에는 글자가 남지 않는다: {:?}", first.text);
     let second = pdf.page_text_blocking(baked.doc_id, 1).expect("둘째 쪽").text;
     assert!(second.contains("Reviewer note"), "{second:?}");
+    assert!(second.contains("Batang sample 9.5pt"), "{second:?}");
+    assert!(second.contains("Times serif sample"), "{second:?}");
 }
 
 #[test]

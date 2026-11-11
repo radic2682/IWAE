@@ -1,5 +1,6 @@
 import { pageImageUrl } from '../bridge/pdf'
-import { inkPath, type PdfLine, type PdfOverlay, type PdfTextBox } from '../core/pdfOverlays'
+import { inkPath, textFillColor, type PdfLine, type PdfOverlay, type PdfTextBox } from '../core/pdfOverlays'
+import { overlayFontCss, PRINT_DEFAULT_FONT_CSS } from '../core/overlayFonts'
 import { addTransientSheet } from './runtimeStyle'
 
 /** 인쇄용 쪽 그림 폭(px). A4·Letter 를 약 200dpi 로 */
@@ -208,15 +209,16 @@ function appendPrintedLine(svg: Element, ns: string, line: PdfLine) {
 function printedText(box: PdfTextBox, pageW: number, pageH: number, mmPerPoint: number): HTMLElement {
   const element = document.createElement('div')
   element.className = `iwae-print-text${box.border === true ? ' iwae-print-text-border' : ''}`
+  if (box.border === true && box.borderColor !== undefined) element.style.borderColor = box.borderColor
   element.textContent = box.text
   element.style.left = `${(box.x / pageW) * 100}%`
   element.style.top = `${(box.y / pageH) * 100}%`
   element.style.width = `${(box.w / pageW) * 100}%`
   element.style.fontSize = `${box.size * mmPerPoint}mm`
   element.style.color = box.color
-  element.style.fontFamily = "'Segoe UI Variable Text', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif"
+  element.style.fontFamily = overlayFontCss(box.font, PRINT_DEFAULT_FONT_CSS)
   element.style.fontWeight = box.bold === true ? '700' : '400'
-  if (box.fill !== undefined) element.style.background = box.fill === 'white' ? '#ffffff' : '#fff3a8'
+  if (box.fill !== undefined) element.style.background = textFillColor(box.fill)
   return element
 }
 

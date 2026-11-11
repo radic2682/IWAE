@@ -3,7 +3,8 @@ import { getHighlightColors } from './highlightColorStyle'
 import { t } from '../i18n'
 import { coalesceHighlightRects } from '../core/anchor'
 import { useEffect, useMemo, useState, type RefObject } from 'react'
-import { useOverlayTool, useToolStyle } from '../pdf/overlayToolStore'
+import { patchToolStyle, setFormatSampling, useFormatSampling, useOverlayTool, useToolStyle } from '../pdf/overlayToolStore'
+import { applySamplePick } from '../pdf/formatSamplerPdf'
 import { HighlighterStrip } from '../pdf/HighlighterTool'
 import { ChatTeardropText } from '@phosphor-icons/react'
 import { BOX_DEFAULT_WIDTH, placeBoxMemo, type MemoBox } from '../core/boxMemo'
@@ -180,6 +181,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
   // 편집 도구창 상태
   const [overlayTool, setOverlayTool] = useOverlayTool()
   const [overlayStyle, patchOverlayStyle] = useToolStyle(overlayTool)
+  const formatSampling = useFormatSampling()
   const [selectedOverlay, setSelectedOverlay] = useState<string | null>(null)
   useEffect(() => { if (mode !== 'edit') setSelectedOverlay(null) }, [mode])
   const [boxFormatSlot, setBoxFormatSlot] = useState<HTMLDivElement | null>(null)
@@ -270,6 +272,15 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
               }}
               selectedId={selectedOverlay}
               onSelect={setSelectedOverlay}
+              sampling={formatSampling}
+              onSamplePick={(pick) => {
+                setFormatSampling(false)
+                void applySamplePick(pick, {
+                  selected: overlays.find((item) => item.id === selectedOverlay) ?? null,
+                  onUpdateSelected: (patch) => { if (selectedOverlay !== null) props.onOverlayUpdate?.(selectedOverlay, patch) },
+                  patchToolStyle: (patch) => patchToolStyle('text', patch),
+                })
+              }}
             />
           ) : null}
         </div>

@@ -98,10 +98,16 @@
 .pdf-overlay-layer-edit[data-overlay-tool='eraser'] * { cursor: cell !important; }
 
 /* 글 상자 글꼴은 앱 글꼴 */
-.pdf-overlay-text, .pdf-overlay-editor { font-family: var(--font-ui); }
+.pdf-overlay-text { font-family: var(--font-ui); }
+.pdf-overlay-editor { font-family: inherit; }
 
 /* 깨끗이 보기(눈 단추): 편집 덮개도 감춘다 */
 .pdf-clean-view .pdf-overlay-layer { display: none !important; }
+/* 서식 가져오기(스포이트): 커서가 스포이트로 바뀐다 */
+.pdf-overlay-layer-sampling,
+.pdf-overlay-layer-sampling * {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M3 21l1-4 9-9 3 3-9 9z' fill='%23111' stroke='%23fff' stroke-width='1.4' stroke-linejoin='round'/><path d='M13 6l2-2a2.4 2.4 0 013.4 0l.6.6a2.4 2.4 0 010 3.4l-2 2z' fill='%23111' stroke='%23fff' stroke-width='1.4' stroke-linejoin='round'/></svg>") 3 21, crosshair !important;
+}
 .pdf-overlay-layer-edit[data-overlay-tool='pen'] { cursor: crosshair; touch-action: none; }
 
 /* ── 도구 서식 띠: 문서 도구줄(같은 바탕)에 이어 붙는 한 줄. 편집 도구·형광펜·박스 메모 공통 ── */
@@ -148,13 +154,40 @@
 .doc-strip-line-dot { height: 2.5px; background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 50% / 4px 3px repeat-x; }
 .doc-strip-fill { display: block; width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(var(--rgb-black) / 25%); }
 .doc-strip-fill-none { font-size: 11px; font-weight: 650; }
-.doc-format-strip .doc-strip-select { flex: 0 0 auto; width: 86px; }
+.doc-format-strip .doc-strip-select { flex: 0 0 auto; width: 86px; height: 28px; }
+.doc-format-strip .doc-strip-font { width: 128px; }
+/* 글자 크기 칸: 숫자를 직접 쓰고 ▾ 로 자주 쓰는 크기를 고른다 */
+.doc-strip-size {
+  display: inline-flex; flex: 0 0 auto; align-items: center; height: 28px; box-sizing: border-box; padding: 0 2px 0 8px;
+  border: 1px solid var(--divider-strong, var(--divider)); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong);
+}
+.doc-strip-size:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--divider))); }
+.doc-strip-size:focus-within, .doc-strip-size-open { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.doc-strip-size input {
+  width: 30px; min-width: 0; padding: 0; border: 0; outline: none; background: transparent; color: inherit;
+  font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; text-align: right;
+}
+.doc-strip-size-unit { padding: 0 2px 0 3px; font-size: 12px; }
+.doc-strip-size-caret { display: grid; place-items: center; width: 20px; height: 22px; padding: 0; border: 0; border-radius: var(--r-xs); background: transparent; color: inherit; cursor: pointer; }
+.doc-strip-size-caret:hover { background: var(--chrome-hover); }
+.doc-strip-size-list { max-height: 280px; }
+.doc-strip-opt-color { position: relative; cursor: pointer; }
+.doc-strip-opt-color input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.doc-strip-fill-rainbow { background: var(--swatch-rainbow); }
 .doc-format-strip .doc-strip-select button { height: 28px; }
 .doc-strip-hint { flex: 0 0 auto; margin-left: auto; padding-left: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
 /* 자리가 모자라면 안내는 감춘다(겹치거나 찌그러지지 않게). 폭은 재야 하니 자리에 둔 채 보이지만 않게 */
 .doc-strip-hint-off { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; }
 .doc-strip-kbd { flex: 0 0 auto; margin-left: auto; padding: 1px 5px; border: 1px solid var(--divider-strong); border-radius: var(--r-xs); font: inherit; font-size: 10.5px; font-weight: 700; }
 .doc-strip-hint + .doc-strip-kbd { margin-left: 0; }
+/* Esc 표시도 자리가 모자라면 감춘다(닫기 단추는 그대로) */
+.doc-strip-kbd-off { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; }
+.doc-strip-kbd-off + .doc-strip-close { margin-left: auto; }
+.doc-strip-hint-off + .doc-strip-kbd-off + .doc-strip-close { margin-left: auto; }
+/* 그래도 모자라 옆으로 밀리는 띠: 잘린 쪽 가장자리를 흐리게 */
+.doc-format-strip[data-edge='end'] { -webkit-mask-image: linear-gradient(90deg, rgb(var(--rgb-black)) calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, rgb(var(--rgb-black)) calc(100% - 28px), transparent); }
+.doc-format-strip[data-edge='start'] { -webkit-mask-image: linear-gradient(90deg, transparent, rgb(var(--rgb-black)) 28px); mask-image: linear-gradient(90deg, transparent, rgb(var(--rgb-black)) 28px); }
+.doc-format-strip[data-edge='both'] { -webkit-mask-image: linear-gradient(90deg, transparent, rgb(var(--rgb-black)) 28px, rgb(var(--rgb-black)) calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, rgb(var(--rgb-black)) 28px, rgb(var(--rgb-black)) calc(100% - 28px), transparent); }
 .doc-strip-hint-off + .doc-strip-kbd { margin-left: auto; }
 .doc-strip-close { display: grid; flex: 0 0 auto; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer; }
 .doc-strip-close:hover { background: var(--chrome-hover); }

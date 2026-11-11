@@ -64,4 +64,23 @@ describe('이름 있는 되돌리기 묶음', () => {
     set('pdf-hl:edit:h1', 2)
     expect(touchedAfter(info.id, new Set())).toBe(true)
   })
+
+  it('글 상자의 다른 칸(크기·배경·테두리)을 잇달아 고쳐도 칸마다 따로 되돌려지고, 같은 상자로 센다', async () => {
+    const { state, set } = cell()
+    beginUndoGroup('ai')
+    set('overlay:o1:size', 1)
+    const info = endUndoGroup()!
+    expect(info.objects).toEqual(['overlay:o1'])
+    await Promise.resolve()
+    set('overlay:o1:fill', 2)
+    await Promise.resolve()
+    set('overlay:o1:border+borderColor', 3)
+    expect(touchedAfter(info.id, new Set())).toBe(true)
+    expect(undo()).toBe(true)
+    expect(state.value).toBe(2)
+    expect(undo()).toBe(true)
+    expect(state.value).toBe(1)
+    expect(undo()).toBe(true)
+    expect(state.value).toBe(0)
+  })
 })

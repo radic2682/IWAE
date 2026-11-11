@@ -85,10 +85,16 @@ pub enum FlatOverlay {
         color: String,
         #[serde(default)]
         bold: bool,
+        /// 'white' | 'yellow' | '#rrggbb'
         #[serde(default)]
         fill: Option<String>,
         #[serde(default)]
         border: bool,
+        #[serde(default)]
+        border_color: Option<String>,
+        /// 글꼴 id(batang, gulim, dotum, gungsuh, arial, times, courier) 또는 화면에서 고른 설치 글꼴 이름
+        #[serde(default)]
+        font: Option<String>,
     },
     Line {
         page: i32,
@@ -530,6 +536,16 @@ fn flatten(
     let unicode_font = find_unicode_font().and_then(|font| document.fonts_mut().load_true_type_from_file(&font, true).ok());
     let fallback = document.fonts_mut().helvetica();
     let fallback_bold = document.fonts_mut().helvetica_bold();
+    let mut chosen: HashMap<String, OverlayFont> = HashMap::new();
+    for overlay in overlays {
+        if let FlatOverlay::Text { font: Some(id), .. } = overlay {
+            if !chosen.contains_key(id) {
+                if let Some(font) = load_overlay_font(document, id) {
+                    chosen.insert(id.clone(), font);
+                }
+            }
+        }
+    }
     let page_count = document.pages().len();
     let mut touched: Vec<i32> = Vec::new();
     for overlay in overlays {
@@ -539,7 +555,7 @@ fn flatten(
         }
         let mut page = document.pages().get(page_index).map_err(tool_err("page"))?;
         let geometry = geometry_of(&page);
-        draw_overlay(document, &mut page, &geometry, overlay, unicode_font, fallback, fallback_bold)?;
+        draw_overlay(document, &mut page, &geometry, overlay, unicode_font, fallback, fallback_bold, &chosen)?;
         report.written += 1;
         if !touched.contains(&page_index) {
             touched.push(page_index);
@@ -634,6 +650,7 @@ fn draw_overlay<'a>(
     unicode_font: Option<PdfFontToken>,
     fallback: PdfFontToken,
     fallback_bold: PdfFontToken,
+    chosen: &HashMap<String, OverlayFont>,
 ) -> Result<(), String> {
     match overlay {
         FlatOverlay::Line { x1, y1, x2, y2, color, width, arrow, arrow_start, dashed, dotted, .. } => {
@@ -696,9 +713,18 @@ fn draw_overlay<'a>(
                 }
             }
         }
-        FlatOverlay::Text { x, y, w, text, size, color, bold, fill, border, .. } => {
-            let size = size.clamp(4.0, 96.0);
-            let font = if text.is_ascii() { if *bold { fallback_bold } else { fallback } } else { unicode_font.unwrap_or(fallback) };
+        FlatOverlay::Text { x, y, w, text, size, color, bold, fill, border, border_color, font: font_id, .. } => {
+            let size = size.clamp(4.0, 144.0);
+            let picked = font_id.as_ref().and_then(|id| chosen.get(id));
+            // 글꼴을 고르지 않았거나 못 찾으면 예전처럼: 영문은 Helvetica, 한글은 시스템 유니코드 글꼴
+            let (font, fake_bold) = match picked {
+                Some(picked) if text.is_ascii() || picked.cjk => match (*bold, picked.bold_face) {
+                    (true, Some(face)) => (face, false),
+                    (true, None) => (picked.regular, true),
+                    _ => (picked.regular, false),
+                },
+                _ => (if text.is_ascii() { if *bold { fallback_bold } else { fallback } } else { unicode_font.unwrap_or(fallback) }, *bold && !text.is_ascii()),
+            };
             let padding = 4.0;
             let line_height = size * 1.3;
             let inner = (w - padding * 2.0).max(size);
@@ -706,13 +732,14 @@ fn draw_overlay<'a>(
             let height = lines.len().max(1) as f32 * line_height + padding * 2.0;
             let box_rect = LinkRect { x: *x, y: *y, w: *w, h: height };
             if let Some(fill) = fill.as_deref() {
-                let fill_color = if fill == "yellow" { PdfColor::new(255, 246, 191, 255) } else { PdfColor::new(255, 255, 255, 255) };
+                let fill_color = if fill == "yellow" { PdfColor::new(255, 246, 191, 255) } else if fill.starts_with('#') { parse_color(fill, 255) } else { PdfColor::new(255, 255, 255, 255) };
                 let object = PdfPagePathObject::new_rect(document, to_pdf_rect(box_rect, geometry), None, None, Some(fill_color)).map_err(tool_err("text fill"))?;
                 page.objects_mut().add_path_object(object).map_err(tool_err("add text fill"))?;
             }
             if *border {
                 let corners = [(*x, *y), (x + w, *y), (x + w, y + height), (*x, y + height), (*x, *y)];
-                add_polyline(document, page, geometry, &corners, parse_color(color, 255), 0.8, None)?;
+                let edge = border_color.as_deref().filter(|value| value.starts_with('#')).unwrap_or(color);
+                add_polyline(document, page, geometry, &corners, parse_color(edge, 255), 0.8, None)?;
             }
             for (index, line) in lines.iter().enumerate() {
                 if line.trim().is_empty() {
@@ -720,11 +747,48 @@ fn draw_overlay<'a>(
                 }
                 // 기준선(화면 좌표): 줄 위쪽 + 글자 크기
                 let baseline_y = y + padding + index as f32 * line_height + size * 1.0;
-                add_text_line(document, page, geometry, line, font, size, (x + padding, baseline_y), parse_color(color, 255), *bold && !text.is_ascii())?;
+                add_text_line(document, page, geometry, line, font, size, (x + padding, baseline_y), parse_color(color, 255), fake_bold)?;
             }
         }
     }
     Ok(())
+}
+
+/// 글 상자에 고른 글꼴: 보통·굵은 글꼴 토큰과 한글을 담을 수 있는지.
+struct OverlayFont {
+    regular: PdfFontToken,
+    bold_face: Option<PdfFontToken>,
+    cjk: bool,
+}
+
+/// 글 상자 글꼴 id -> PDF 글꼴. 영문 글꼴(Arial, Times, Courier)은 PDF 기본 글꼴로, 한글 글꼴은 시스템 글꼴 파일을 넣는다.
+/// 찾지 못하거나 모르는 이름(화면에서만 쓰는 설치 글꼴)이면 None -> 기본 글꼴.
+fn load_overlay_font(document: &mut PdfDocument, id: &str) -> Option<OverlayFont> {
+    match id {
+        "arial" => Some(OverlayFont { regular: document.fonts_mut().helvetica(), bold_face: Some(document.fonts_mut().helvetica_bold()), cjk: false }),
+        "times" => Some(OverlayFont { regular: document.fonts_mut().times_roman(), bold_face: Some(document.fonts_mut().times_bold()), cjk: false }),
+        "courier" => Some(OverlayFont { regular: document.fonts_mut().courier(), bold_face: Some(document.fonts_mut().courier_bold()), cjk: false }),
+        "batang" | "gungsuh" | "gulim" | "dotum" => {
+            let path = find_korean_font(id)?;
+            let regular = document.fonts_mut().load_true_type_from_file(&path, true).ok()?;
+            Some(OverlayFont { regular, bold_face: None, cjk: true })
+        }
+        _ => None,
+    }
+}
+
+/// 설치된 한글 글꼴 파일. 바탕·궁서는 batang.ttc, 굴림·돋움은 gulim.ttc 의 첫 글꼴(TTC 에서 짝을 고를 수 없어 가까운 쪽)을 쓴다.
+fn find_korean_font(id: &str) -> Option<std::path::PathBuf> {
+    let names: &[&str] = match id {
+        "batang" | "gungsuh" => &["batang.ttc", "NanumMyeongjo.ttf", "HMKMMAG.TTF"],
+        _ => &["gulim.ttc", "NGULIM.TTF", "NanumGothic.ttf"],
+    };
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(windows) = std::env::var_os("WINDIR") {
+        dirs.push(std::path::PathBuf::from(windows).join("Fonts"));
+    }
+    dirs.extend(["/System/Library/Fonts", "/Library/Fonts", "/System/Library/Fonts/Supplemental"].iter().map(std::path::PathBuf::from));
+    dirs.iter().flat_map(|dir| names.iter().map(move |name| dir.join(name))).find(|path| path.is_file())
 }
 
 /// 실선은 그대로, 점선·짧은 점선은 조각으로 나눈다(화면 좌표).

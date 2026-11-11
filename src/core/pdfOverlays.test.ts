@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { pdfOverlaysCodec } from '../bridge/vault'
+import { overlayFontCss, isOverlayFont } from './overlayFonts'
 import {
-  addOverlay, createInk, inkPath, createLine, createTextBox, isMeaningfulLine, parsePdfOverlays, remapOverlayPages, removeOverlay, snapLineEnd, updateOverlay,
+  addOverlay, createInk, inkPath, createLine, createTextBox, isMeaningfulLine, parsePdfOverlays, remapOverlayPages, removeOverlay, snapLineEnd, updateOverlay, normalizeTextSize, textFillColor, TEXT_SIZE_MAX, TEXT_SIZE_MIN,
 } from './pdfOverlays'
 
 describe('PDF 덮개(글 상자·선)', () => {
@@ -51,7 +53,7 @@ describe('PDF 덮개(글 상자·선)', () => {
     })
     expect(Object.keys(file.overlays)).toEqual(['d'])
     const [text, line] = file.overlays.d!
-    expect(text).toMatchObject({ w: 40, size: 96, color: '#d9363e' })
+    expect(text).toMatchObject({ w: 40, size: 144, color: '#d9363e' })
     expect(line).toMatchObject({ width: 20, color: '#1a73e8' })
     expect(file.overlays.d).toHaveLength(2)
   })
@@ -68,5 +70,46 @@ describe('펜 획', () => {
   })
   it('점이 없는 획은 버린다', () => {
     expect(parsePdfOverlays({ overlays: { d: [{ id: 'x', kind: 'ink', page: 0, points: [], color: '#111111', width: 2 }] } }).overlays.d).toBeUndefined()
+  })
+})
+
+describe('글 상자 서식(글꼴·크기·색)', () => {
+  it('크기는 4~144 로 묶고 0.5 단위로 맞춘다', () => {
+    expect(normalizeTextSize(9.5)).toBe(9.5)
+    expect(normalizeTextSize(9.26)).toBe(9.5)
+    expect(normalizeTextSize(9.2)).toBe(9)
+    expect(normalizeTextSize(1)).toBe(TEXT_SIZE_MIN)
+    expect(normalizeTextSize(999)).toBe(TEXT_SIZE_MAX)
+    expect(createTextBox(0, 0, 0, { text: 'a', size: 7.5 }).size).toBe(7.5)
+  })
+
+  it('글꼴·배경색·테두리색은 저장했다 읽어도 남고, 나쁜 값은 버린다', () => {
+    const box = createTextBox(0, 5, 6, { text: '원문처럼', size: 9.5, font: 'batang', fill: '#ffeecc', border: true, borderColor: '#336699', color: '#222222' })
+    expect(box).toMatchObject({ font: 'batang', fill: '#ffeecc', border: true, borderColor: '#336699', size: 9.5 })
+    const parsed = pdfOverlaysCodec.parse(pdfOverlaysCodec.serialize({ version: 1, overlays: { d: [box] } }))
+    expect(parsed.overlays.d![0]).toEqual(box)
+    const bad = parsePdfOverlays({ overlays: { d: [{ id: 'x', kind: 'text', page: 0, x: 1, y: 1, w: 100, text: 'a', size: 10, color: '#111111', font: '<script>', fill: 'pink', border: true, borderColor: 'red' }] } })
+    const [item] = bad.overlays.d!
+    expect(item).not.toHaveProperty('font')
+    expect(item).not.toHaveProperty('fill')
+    expect(item).not.toHaveProperty('borderColor')
+  })
+
+  it('예전 파일(글꼴·테두리색 없음, white/yellow 바탕)도 그대로 읽는다', () => {
+    const old = parsePdfOverlays({ overlays: { d: [{ id: 'x', kind: 'text', page: 0, x: 1, y: 1, w: 100, text: 'a', size: 12, color: '#111111', fill: 'yellow', border: true }] } })
+    expect(old.overlays.d![0]).toMatchObject({ fill: 'yellow', border: true, size: 12 })
+    expect(old.overlays.d![0]).not.toHaveProperty('font')
+    expect(textFillColor('yellow')).toBe('#fff3a8')
+    expect(textFillColor('#abcdef')).toBe('#abcdef')
+  })
+
+  it('글꼴 값: 알려진 id 와 설치 글꼴 이름만 받고 CSS 로 바꾼다', () => {
+    expect(isOverlayFont('batang')).toBe(true)
+    expect(isOverlayFont('Noto Serif KR')).toBe(true)
+    expect(isOverlayFont('a;b{}')).toBe(false)
+    expect(isOverlayFont('')).toBe(false)
+    expect(overlayFontCss(undefined)).toContain('--font-ui')
+    expect(overlayFontCss('times')).toContain("'Times New Roman'")
+    expect(overlayFontCss('Noto Serif KR')).toMatch(/^'Noto Serif KR', /u)
   })
 })

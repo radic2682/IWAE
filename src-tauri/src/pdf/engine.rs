@@ -245,6 +245,16 @@ pub struct LayoutChar {
     pub bold: bool,
 }
 
+/// 글자 하나의 서식(글 상자 서식 가져오기용): 글꼴 크기(포인트)·글꼴 이름·굵기·바탕체 여부.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CharStyle {
+    pub size: f32,
+    pub font_name: String,
+    pub bold: bool,
+    pub serif: bool,
+}
+
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct LayoutSegment {
     pub x0: f32,
@@ -1066,6 +1076,30 @@ impl OpenDocument {
         }
 
         Ok(PageTextIndex { text: all, chars })
+    }
+
+    /// 글자 하나(`page_text_index` 의 `chars` 번호)의 글꼴 크기·이름·굵기. `page` 는 0-기반.
+    pub fn char_style(&self, page: i32, index: usize) -> Result<CharStyle, PdfRenderError> {
+        let page_handle = self
+            .document
+            .pages()
+            .get(page)
+            .map_err(|err| PdfRenderError::Failed(tr!("페이지를 열지 못했습니다: {err}", "Could not open the page: {err}")))?;
+        let text = page_handle
+            .text()
+            .map_err(|err| PdfRenderError::Failed(tr!("텍스트를 읽지 못했습니다: {err}", "Could not read text: {err}")))?;
+        let chars = text.chars();
+        let handle = chars
+            .get(index)
+            .map_err(|err| PdfRenderError::Failed(tr!("글자를 읽지 못했습니다: {err}", "Could not read the character: {err}")))?;
+        let font_name = handle.font_name();
+        let weight_bold = match handle.font_weight() {
+            Some(PdfFontWeight::Weight600 | PdfFontWeight::Weight700Bold | PdfFontWeight::Weight800 | PdfFontWeight::Weight900) => true,
+            Some(PdfFontWeight::Custom(weight)) => weight >= 600,
+            _ => false,
+        };
+        let bold = weight_bold || handle.font_is_bold_reenforced() || font_name.to_ascii_lowercase().contains("bold");
+        Ok(CharStyle { size: handle.scaled_font_size().value, font_name, bold, serif: handle.font_is_serif() })
     }
 
     /// 색인용 쪽 배치. 글자는 [`Self::page_text_index`] 와 같은 순서·좌표에 크기·굵기를 더하고,

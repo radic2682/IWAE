@@ -61,7 +61,8 @@ export function usePdfOverlays(vault: VaultHandle | null) {
   return {
     overlays,
     add: useCallback((docId: string, overlay: PdfOverlay) => commit(addOverlay(ref.current, docId, overlay)), [commit]),
-    update: useCallback((docId: string, id: string, patch: OverlayPatch) => commit(updateOverlay(ref.current, docId, id, patch), id), [commit]),
+    // 같은 칸을 잇달아 고치는 것(글자 치기·끌어 옮기기)만 한 칸으로 합친다. 다른 칸(크기 → 배경 → 테두리)은 따로 되돌려지게 칸 이름을 열쇠에 넣는다
+    update: useCallback((docId: string, id: string, patch: OverlayPatch) => commit(updateOverlay(ref.current, docId, id, patch), `${id}:${Object.keys(patch).sort().join('+')}`), [commit]),
     remove: useCallback((docId: string, id: string) => commit(removeOverlay(ref.current, docId, id)), [commit]),
     /** 쪽 편집 뒤 쪽 번호 옮기기 */
     remapPages: useCallback((docId: string, moves: ReadonlyMap<number, number>) => commit(remapOverlayPages(ref.current, docId, moves)), [commit]),

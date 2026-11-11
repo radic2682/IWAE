@@ -36,6 +36,15 @@ describe('resolveAppShortcut', () => {
     expect(resolveAppShortcut(key('z', { ctrlKey: true, target: text }))).toBeNull()
   })
 
+  it('아직 고치지 않은 숫자 칸(data-undo-passthrough)에서도 Ctrl+Z 는 앱 되돌리기이고, 다른 키는 칸이 받는다', () => {
+    const size = document.createElement('input')
+    size.type = 'text'
+    size.dataset.undoPassthrough = 'true'
+    expect(resolveAppShortcut(key('z', { ctrlKey: true, target: size }))).toBe('undo')
+    expect(resolveAppShortcut(key('Delete', { target: size }))).toBeNull()
+    expect(resolveAppShortcut(key('t', { target: size }))).toBeNull()
+  })
+
   it('Ctrl+Shift+N 은 새 창을 연다(글 칸에 커서가 있어도, Ctrl+N 은 아니다)', () => {
     expect(resolveAppShortcut(key('N', { ctrlKey: true, shiftKey: true }))).toBe('newWindow')
     expect(resolveAppShortcut(key('n', { metaKey: true, shiftKey: true, target: document.createElement('textarea') }))).toBe('newWindow')

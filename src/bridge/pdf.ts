@@ -141,7 +141,7 @@ const PASSWORD_WRONG = 'IWAE_PDF_PASSWORD_WRONG'
 /** 암호를 묻는 창. App 이 하나 걸어 둔다. 취소하면 null */
 export type PdfPasswordPrompt = (request: { readonly path: string; readonly wrong: boolean }) => Promise<string | null>
 let passwordPrompt: PdfPasswordPrompt | null = null
-/** 암호로 연 문서(이 세션). 「암호 푼 사본」을 보일지 정한다 */
+/** 암호로 연 문서(이 세션). 「암호 해제한 PDF 저장」을 보일지 정한다 */
 const passwordDocIds = new Set<string>()
 export function isPasswordProtectedDoc(docId: string): boolean {
   return passwordDocIds.has(docId)
@@ -237,7 +237,7 @@ function forgetDocumentCaches(docId: string): void {
 
 /** 굽는 덮개(화면 좌표, points). Rust 의 FlatOverlay */
 export type PdfFlatOverlay =
-  | { kind: 'text'; page: number; x: number; y: number; w: number; text: string; size: number; color: string; bold?: boolean; fill?: string | null; border?: boolean }
+  | { kind: 'text'; page: number; x: number; y: number; w: number; text: string; size: number; color: string; bold?: boolean; fill?: string | null; border?: boolean; borderColor?: string; font?: string }
   | { kind: 'line'; page: number; x1: number; y1: number; x2: number; y2: number; color: string; width: number; arrow?: boolean; arrowStart?: boolean; dashed?: boolean; dotted?: boolean }
   | { kind: 'ink'; page: number; points: readonly (readonly [number, number])[]; color: string; width: number }
   | { kind: 'shape'; page: number; shape: 'rect' | 'ellipse'; x: number; y: number; w: number; h: number; color: string; width: number; fill?: boolean; dashed?: boolean; dotted?: boolean }
@@ -328,6 +328,26 @@ export function pageTextIndex(docId: string, page: number): Promise<PageTextInde
     if (textIndexCache.get(key) === request) textIndexCache.delete(key)
   })
   return request
+}
+
+/** 글자 하나의 글꼴 서식(PDFium). 서식 가져오기에서 쓴다 */
+export interface PdfCharStyle {
+  /** 글꼴 크기(pt) */
+  readonly size: number
+  readonly fontName: string
+  readonly bold: boolean
+  readonly serif: boolean
+}
+
+/** 글자 번호(pageTextIndex 의 chars 번호)의 글꼴 서식. 읽을 수 없으면(예시 문서·웹) null */
+export async function pdfCharStyle(docId: string, page: number, index: number): Promise<PdfCharStyle | null> {
+  if (docId === SAMPLE_DOC_ID || !isDesktop()) return null
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    return await invoke<PdfCharStyle>('pdf_char_style', { docId, page, index })
+  } catch {
+    return null
+  }
 }
 
 /** 열린 PDF의 북마크 트리. 같은 문서는 세션 동안 한 번만 읽는다. */

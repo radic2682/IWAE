@@ -42,4 +42,18 @@ describe('인쇄에 PDF 위 편집 넣기', () => {
     expect(Number.parseFloat(wrap.style.height)).toBeCloseTo(100, 3)
     expect(Number.parseFloat(wrap.style.width)).toBeCloseTo(100 * 612 / 792, 3)
   })
+
+  it('글꼴·소수 크기·배경색·테두리색도 인쇄에 그대로 간다', () => {
+    const box = createTextBox(0, 10, 10, { text: '원문처럼', size: 9.5, w: 100, font: 'batang', fill: '#cde8ff', border: true, borderColor: '#e4572e', color: '#222222' })
+    const wrap = printedPageWithOverlays(document.createElement('img'), [box], [612, 792], 190, 277)
+    const printed = wrap.querySelector<HTMLElement>('.iwae-print-text')!
+    expect(printed.style.fontFamily).toContain('Batang')
+    expect(Number.parseFloat(printed.style.fontSize)).toBeCloseTo(9.5 * 190 / 612, 3)
+    expect(printed.style.background).toContain('rgb(205, 232, 255)')
+    expect(printed.className).toContain('iwae-print-text-border')
+    expect(printed.style.borderColor).toBe('rgb(228, 87, 46)')
+    const plain = printedPageWithOverlays(document.createElement('img'), [createTextBox(0, 0, 0, { text: 'x' })], [612, 792], 190, 277).querySelector<HTMLElement>('.iwae-print-text')!
+    expect(plain.style.fontFamily).toContain('Malgun Gothic')
+    expect(plain.style.borderColor).toBe('')
+  })
 })

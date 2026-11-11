@@ -5,7 +5,7 @@ import { PdfOverlayPalette } from './PdfOverlayPalette'
 import { createLine, createShape, createTextBox } from '../core/pdfOverlays'
 import type { OverlayStyle } from './PdfOverlayLayer'
 
-const style: OverlayStyle = { color: '#d9363e', textSize: 12, lineWidth: 2, bold: false, textFill: 'none', border: false, dash: 'solid', arrowStart: false, arrowEnd: false, fill: false }
+const style: OverlayStyle = { color: '#d9363e', textSize: 12, lineWidth: 2, bold: false, textFill: 'none', border: false, textBorderColor: '', textFont: '', dash: 'solid', arrowStart: false, arrowEnd: false, fill: false }
 
 describe('PdfOverlayPalette (서식 띠)', () => {
   it('도구 단추는 도구줄에 있고 띠에는 지금 도구 칩과 서식만', () => {
@@ -64,5 +64,91 @@ describe('PdfOverlayPalette (서식 띠)', () => {
     fireEvent.click(screen.getByRole('button', { name: '펜 닫기' }))
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onDone).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('PdfOverlayPalette 글 상자 서식(글꼴·크기·색·서식 가져오기)', () => {
+  const text = createTextBox(0, 10, 10, { text: '메모', size: 9.5, font: 'batang' })
+  // jsdom 에는 scrollIntoView 가 없다(Select 가 부른다)
+  Element.prototype.scrollIntoView = vi.fn()
+
+  it('글꼴 목록에서 고르면 고른 상자에 font 가 걸리고, 기본으로 돌리면 지운다', () => {
+    const onUpdate = vi.fn()
+    render(<PdfOverlayPalette tool="text" style={style} onStyleChange={vi.fn()} selected={text} onUpdateSelected={onUpdate} onDone={vi.fn()} />)
+    const font = screen.getByRole('combobox', { name: '글꼴' })
+    expect(font.textContent).toContain('바탕(명조)')
+    fireEvent.click(font)
+    fireEvent.click(screen.getByRole('option', { name: 'Times New Roman' }))
+    expect(onUpdate).toHaveBeenCalledWith({ font: 'times' })
+    fireEvent.click(font)
+    fireEvent.click(screen.getByRole('option', { name: '기본(맑은 고딕)' }))
+    expect(onUpdate).toHaveBeenCalledWith({ font: undefined })
+  })
+
+  it('가져온 설치 글꼴 이름은 목록에 더해 보인다', () => {
+    const custom = createTextBox(0, 0, 0, { text: 'x', font: 'Noto Serif KR' })
+    render(<PdfOverlayPalette tool="text" style={style} onStyleChange={vi.fn()} selected={custom} onUpdateSelected={vi.fn()} onDone={vi.fn()} />)
+    expect(screen.getByRole('combobox', { name: '글꼴' }).textContent).toContain('Noto Serif KR')
+  })
+
+  it('글자 크기: 9.5 처럼 직접 쓰고 Enter, ↑↓ 는 0.5 씩, 범위 밖은 4~144 로', () => {
+    const onUpdate = vi.fn()
+    render(<PdfOverlayPalette tool="text" style={style} onStyleChange={vi.fn()} selected={text} onUpdateSelected={onUpdate} onDone={vi.fn()} />)
+    const size = screen.getByRole('spinbutton', { name: '글자 크기' }) as HTMLInputElement
+    expect(size.value).toBe('9.5')
+    fireEvent.change(size, { target: { value: '10,5' } })
+    fireEvent.keyDown(size, { key: 'Enter' })
+    expect(onUpdate).toHaveBeenLastCalledWith({ size: 10.5 })
+    fireEvent.keyDown(size, { key: 'ArrowUp' })
+    expect(onUpdate).toHaveBeenLastCalledWith({ size: 10 })
+    fireEvent.keyDown(size, { key: 'ArrowDown', shiftKey: true })
+    expect(onUpdate).toHaveBeenLastCalledWith({ size: 4.5 })
+    fireEvent.change(size, { target: { value: '500' } })
+    fireEvent.blur(size)
+    expect(onUpdate).toHaveBeenLastCalledWith({ size: 144 })
+  })
+
+  it('자주 쓰는 크기 목록에서도 고른다', () => {
+    const onStyleChange = vi.fn()
+    render(<PdfOverlayPalette tool="text" style={style} onStyleChange={onStyleChange} onDone={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '자주 쓰는 크기' }))
+    fireEvent.click(screen.getByRole('option', { name: '7 pt' }))
+    expect(onStyleChange).toHaveBeenCalledWith({ textSize: 7 })
+  })
+
+  it('바탕색·테두리색을 직접 고른다. 테두리 색 칸은 테두리가 켜졌을 때만', () => {
+    const onUpdate = vi.fn()
+    const { rerender } = render(<PdfOverlayPalette tool="text" style={style} onStyleChange={vi.fn()} selected={text} onUpdateSelected={onUpdate} onDone={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('바탕색 직접 고르기'), { target: { value: '#ffeecc' } })
+    expect(onUpdate).toHaveBeenCalledWith({ fill: '#ffeecc' })
+    expect(screen.queryByLabelText('테두리 색 직접 고르기')).toBeNull()
+    const bordered = { ...text, border: true as const }
+    rerender(<PdfOverlayPalette tool="text" style={style} onStyleChange={vi.fn()} selected={bordered} onUpdateSelected={onUpdate} onDone={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('테두리 색 직접 고르기'), { target: { value: '#336699' } })
+    expect(onUpdate).toHaveBeenCalledWith({ borderColor: '#336699' })
+  })
+
+  it('고른 것이 없으면 도구 서식(새 글 상자)을 바꾼다', () => {
+    const onStyleChange = vi.fn()
+    render(<PdfOverlayPalette tool="text" style={style} onStyleChange={onStyleChange} onDone={vi.fn()} />)
+    fireEvent.click(screen.getByRole('combobox', { name: '글꼴' }))
+    fireEvent.click(screen.getByRole('option', { name: '궁서' }))
+    expect(onStyleChange).toHaveBeenCalledWith({ textFont: 'gungsuh' })
+    fireEvent.change(screen.getByLabelText('바탕색 직접 고르기'), { target: { value: '#ddeeff' } })
+    expect(onStyleChange).toHaveBeenCalledWith({ textFill: '#ddeeff' })
+  })
+
+  it('서식 가져오기 단추는 켜고 끄며, Esc 는 도구가 아니라 서식 가져오기만 끈다', () => {
+    const onDone = vi.fn()
+    render(<PdfOverlayPalette tool="text" style={style} onStyleChange={vi.fn()} onDone={onDone} />)
+    const pick = screen.getByRole('button', { name: '서식 가져오기' })
+    expect(pick.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(pick)
+    expect(pick.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(pick.getAttribute('aria-pressed')).toBe('false')
+    expect(onDone).not.toHaveBeenCalled()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onDone).toHaveBeenCalledTimes(1)
   })
 })

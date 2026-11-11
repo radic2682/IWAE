@@ -1,13 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  createInk, createLine, createShape, createTextBox, dashArray, dashOf, dashPatch, inkPath, isMeaningfulLine, shapeBox, snapLineEnd, SHAPE_MIN_SIZE, TEXT_BOX_MIN_WIDTH,
+  createInk, createLine, createShape, createTextBox, dashArray, dashOf, dashPatch, inkPath, isMeaningfulLine, shapeBox, snapLineEnd, textFillColor, SHAPE_MIN_SIZE, TEXT_BOX_MIN_WIDTH,
   type OverlayColor, type OverlayPatch, type PdfInk, type PdfLine, type PdfOverlay, type PdfShape, type PdfTextBox,
 } from '../core/pdfOverlays'
+import { overlayFontCss } from '../core/overlayFonts'
 import type { BoxPageLayout } from './PdfBoxMemos'
 import type { ToolStyle } from './overlayToolStore'
 import { TextB, Trash, PaintBucket, BoundingBox, ArrowRight, ArrowsHorizontal } from '@phosphor-icons/react'
 import '../ui/pdf-overlay.css'
 import { t } from '../i18n'
+
+/** 서식 가져오기 중 눌린 곳: 글 상자, 아니면 쪽 위의 한 점(쪽 좌표) */
+export type SamplePick =
+  | { readonly kind: 'box'; readonly box: PdfTextBox }
+  | { readonly kind: 'page'; readonly page: number; readonly point: { readonly x: number; readonly y: number } }
 
 export type OverlayTool = 'text' | 'pen' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'redact'
 
@@ -37,11 +43,13 @@ interface PdfOverlayLayerProps {
   /** 고른 덮개(서식은 위 떠 있는 도구창에서 바꾼다). 주면 고르기를 밖에서 쥔다 */
   readonly selectedId?: string | null
   readonly onSelect?: (id: string | null) => void
+  /** 서식 가져오기(스포이트) 중인가: 켜져 있으면 누른 곳을 onSamplePick 에 넘기고 다른 동작은 하지 않는다 */
+  readonly sampling?: boolean
+  readonly onSamplePick?: (pick: SamplePick) => void
 }
 
 type Point = { x: number; y: number }
 
-const FILL: Record<NonNullable<PdfTextBox['fill']>, string> = { white: '#ffffff', yellow: '#fff3a8' }
 
 /** 화살촉 두 변의 끝점(쪽 좌표). start 면 시작점 쪽 화살촉 */
 function arrowHead(line: PdfLine, start = false): [Point, Point] {
@@ -59,7 +67,7 @@ function arrowHead(line: PdfLine, start = false): [Point, Point] {
  * PDF 위에 직접 쓰는 글 상자와 선(덮개 층). 편집 모드에서 글 상자 도구는 누른 자리에, 선·화살표 도구는 끌어서 그린다(Shift 면 수평·수직·45°).
  * 만든 것은 눌러 고르고 끌어 옮기며, 고르면 위에 속성 막대(색·크기·굵기·화살표·지우기)가 뜬다. Delete 로도 지운다.
  */
-export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, editMode, tool, style, onAdd, onUpdate, onRemove, onErasePoint, selectedId: controlledSelected, onSelect }: PdfOverlayLayerProps) {
+export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, editMode, tool, style, onAdd, onUpdate, onRemove, onErasePoint, selectedId: controlledSelected, onSelect, sampling = false, onSamplePick }: PdfOverlayLayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [ownSelected, setOwnSelected] = useState<string | null>(null)
   const selectedId = controlledSelected === undefined ? ownSelected : controlledSelected
@@ -157,6 +165,24 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
     window.addEventListener('pointercancel', finish)
   }
 
+  // 서식 가져오기: 글 상자를 누르면 그 상자, 아니면 쪽 위의 점을 넘긴다(다른 동작은 막는다)
+  const handleSamplingDown = (event: React.PointerEvent<HTMLDivElement>): boolean => {
+    if (!editMode || !sampling || onSamplePick === undefined || event.button !== 0) return false
+    if (event.target instanceof Element && event.target.closest('.pdf-overlay-mini') !== null) return false
+    event.preventDefault()
+    event.stopPropagation()
+    commitEditingRef.current?.()
+    const id = event.target instanceof Element ? event.target.closest('[data-overlay-id]')?.getAttribute('data-overlay-id') : null
+    const box = id == null ? undefined : overlays.find((item): item is PdfTextBox => item.id === id && item.kind === 'text')
+    if (box !== undefined) {
+      onSamplePick({ kind: 'box', box })
+      return true
+    }
+    const hit = pageAt(event.clientX, event.clientY)
+    if (hit !== null) onSamplePick({ kind: 'page', page: hit.page, point: hit.point })
+    return true
+  }
+
   // 빈 곳을 누르면: 글 상자는 그 자리에 만들고, 선은 끌어서 그린다. 만든 것이 없는 자리면 고른 것을 푼다
   const handleSurfaceDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!editMode || event.button !== 0 || event.target !== event.currentTarget) return
@@ -178,7 +204,7 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
       const from = hit.point
       const target = event.currentTarget
       target.setPointerCapture?.(event.pointerId)
-      const textInit = { color: style.color, size: style.textSize, ...(style.bold ? { bold: true } : {}), ...(style.textFill === 'none' ? {} : { fill: style.textFill }), ...(style.border ? { border: true } : {}) }
+      const textInit = { color: style.color, size: style.textSize, ...(style.bold ? { bold: true } : {}), ...(style.textFill === 'none' ? {} : { fill: style.textFill }), ...(style.border ? { border: true, ...(style.textBorderColor === '' ? {} : { borderColor: style.textBorderColor }) } : {}), ...(style.textFont === '' ? {} : { font: style.textFont }) }
       setDrawing({ page, from, to: from, textBox: true })
       const onTextMove = (moveEvent: PointerEvent) => {
         const at = pageAt(moveEvent.clientX, moveEvent.clientY)
@@ -340,11 +366,11 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
   return (
     <div
       ref={rootRef}
-      className={`pdf-overlay-layer${editMode ? ' pdf-overlay-layer-edit' : ''}`}
+      className={`pdf-overlay-layer${editMode ? ' pdf-overlay-layer-edit' : ''}${editMode && sampling ? ' pdf-overlay-layer-sampling' : ''}`}
       data-overlay-tool={editMode ? tool : undefined}
       style={{ width, height }}
       onPointerDown={handleSurfaceDown}
-      onPointerDownCapture={handleEraserDown}
+      onPointerDownCapture={(event) => { if (!handleSamplingDown(event)) handleEraserDown(event) }}
     >
       <svg className="pdf-overlay-lines" width={width} height={height} aria-hidden="true">
         {shown.filter((item): item is PdfShape => item.kind === 'shape').map((shape) => {
@@ -517,7 +543,9 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
               fontSize: `${box.size * scale}px`,
               color: box.color,
               fontWeight: box.bold === true ? 700 : 400,
-              background: box.fill === undefined ? 'transparent' : FILL[box.fill],
+              background: box.fill === undefined ? 'transparent' : textFillColor(box.fill),
+              ...(box.font === undefined ? {} : { fontFamily: overlayFontCss(box.font) }),
+              ...(box.border === true && box.borderColor !== undefined ? { borderColor: box.borderColor } : {}),
             }}
             onPointerDown={(event) => {
               if (!editMode || editing) return
@@ -588,7 +616,7 @@ export function PdfOverlayLayer({ overlays, pageSizes, layoutOf, width, height, 
             {item.kind === 'text' ? (
               <>
                 <button type="button" className={`pdf-overlay-mini-btn${item.bold === true ? ' pdf-overlay-mini-on' : ''}`} aria-label={t('굵게')} aria-pressed={item.bold === true} title={t('굵게')} onClick={() => update({ bold: item.bold !== true })}><TextB size={14} weight="bold" /></button>
-                <button type="button" className={`pdf-overlay-mini-btn${item.fill !== undefined ? ' pdf-overlay-mini-on' : ''}`} aria-label={t('바탕')} title={t('바탕: 없음 → 흰색 → 노랑')} onClick={() => update({ fill: item.fill === undefined ? 'white' : item.fill === 'white' ? 'yellow' : undefined })}><span className="pdf-overlay-mini-swatch" style={{ background: item.fill === undefined ? 'transparent' : FILL[item.fill] }} /></button>
+                <button type="button" className={`pdf-overlay-mini-btn${item.fill !== undefined ? ' pdf-overlay-mini-on' : ''}`} aria-label={t('바탕')} title={t('바탕: 없음 → 흰색 → 노랑')} onClick={() => update({ fill: item.fill === undefined ? 'white' : item.fill === 'white' ? 'yellow' : undefined })}><span className="pdf-overlay-mini-swatch" style={{ background: item.fill === undefined ? 'transparent' : textFillColor(item.fill) }} /></button>
                 <button type="button" className={`pdf-overlay-mini-btn${item.border === true ? ' pdf-overlay-mini-on' : ''}`} aria-label={t('테두리')} aria-pressed={item.border === true} title={t('테두리')} onClick={() => update({ border: item.border !== true })}><BoundingBox size={14} /></button>
               </>
             ) : item.kind === 'shape' ? (

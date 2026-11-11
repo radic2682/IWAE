@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { PdfOverlayLayer, type OverlayStyle, type OverlayTool } from './PdfOverlayLayer'
 import { createLine, createTextBox, type PdfOverlay } from '../core/pdfOverlays'
 
-const style: OverlayStyle = { color: '#d9363e', textSize: 12, lineWidth: 2, bold: false, textFill: 'none', border: false, dash: 'solid', arrowStart: false, arrowEnd: true, fill: false }
+const style: OverlayStyle = { color: '#d9363e', textSize: 12, lineWidth: 2, bold: false, textFill: 'none', border: false, textBorderColor: '', textFont: '', dash: 'solid', arrowStart: false, arrowEnd: true, fill: false }
 
 function mount(overlays: PdfOverlay[] = [], extra: { editMode?: boolean; tool?: OverlayTool } = {}) {
   const handlers = { onAdd: vi.fn(), onUpdate: vi.fn(), onRemove: vi.fn() }

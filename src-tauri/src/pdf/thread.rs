@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 
 use super::cache::{DocCache, CAPACITY};
 use super::engine::{
-    self, CropRect, ExportHighlight, ImportedAnnotation, OpenDocument, PageEditOp, PageLayout, PageTextIndex, PdfDocMeta,
+    self, CropRect, ExportHighlight, ImportedAnnotation, OpenDocument, PageEditOp, PageLayout, PageTextIndex, CharStyle, PdfDocMeta,
     PdfEngine, PdfLink, PdfMetadata, PdfOutlineEntry, PdfRenderError, SearchablePage,
     SearchableReport, RawImage, TileRect,
 };
@@ -39,6 +39,13 @@ pub struct ToolResult {
 
 /// 스레드에 보내는 명령. 답은 요청마다 새로 만든 채널로 돌아온다(oneshot 대용).
 enum Command {
+    /// 글자 하나의 글꼴 크기·이름·굵기
+    CharStyle {
+        doc_id: String,
+        page: i32,
+        index: usize,
+        reply: Sender<Result<CharStyle, PdfRenderError>>,
+    },
     /// 색인용 쪽 배치(글자 크기·굵기, 선·사각형, 그림 자리)
     PageLayout {
         doc_id: String,
@@ -310,6 +317,14 @@ impl PdfThread {
                         Command::RenderRaw { doc_id, page, width, tile, reply } => {
                             screen.push(ScreenJob { doc_id, page, width, tile, reply, seq: next_seq });
                             next_seq += 1;
+                        }
+                        Command::CharStyle { doc_id, page, index, reply } => {
+                            let result = caught(&tr!("글자 서식 읽기", "character style read"), || match cache.get(&doc_id) {
+                                Some(document) => document.char_style(page, index),
+                                None => Err(PdfRenderError::UnknownDocument),
+                            })
+                            .unwrap_or_else(|message| Err(PdfRenderError::Failed(message)));
+                            let _ = reply.send(result);
                         }
                         Command::PageLayout { doc_id, page, reply } => {
                             let result = caught(&tr!("쪽 배치 읽기", "page layout read"),|| match cache.get(&doc_id) {
@@ -592,6 +607,17 @@ impl PdfThread {
         answer
             .recv()
             .map_err(|_| tr!("PDF 스레드가 답하지 못했습니다. 앱을 다시 시작해 주세요.", "The PDF thread did not respond. Please restart the app."))?
+    }
+
+    /// 열린 문서의 글자 하나의 서식.
+    pub fn char_style_blocking(&self, doc_id: String, page: i32, index: usize) -> Result<CharStyle, PdfRenderError> {
+        let (reply, answer) = channel();
+        self.tx
+            .send(Command::CharStyle { doc_id, page, index, reply })
+            .map_err(|_| PdfRenderError::Failed(tr!("PDF 스레드가 죽었습니다.", "The PDF thread has stopped.")))?;
+        answer
+            .recv()
+            .map_err(|_| PdfRenderError::Failed(tr!("PDF 스레드가 답하지 못했습니다.", "The PDF thread did not respond.")))?
     }
 
     /// 열린 문서의 색인용 쪽 배치. `page` 는 0-기반.
@@ -956,6 +982,7 @@ mod tests {
 /// 진단용 이름(개발판 충돌 기록에 쓴다)
 fn command_label(command: &Command) -> &'static str {
     match command {
+        Command::CharStyle { .. } => "CharStyle",
         Command::PageLayout { .. } => "PageLayout",
         Command::EditPages { .. } => "EditPages",
         Command::Open { .. } => "Open",

@@ -5,8 +5,11 @@ import { noteBarAnchorTop, useIsNoteHostPane, useNoteBarPresence, useNoteDock } 
 import { useClearMask, useClearZones } from './clearZones'
 import { MEMO_BAR_WIDTH, MEMO_LINK_GUTTER, useMemoBarWidth } from './memoBarWidth'
 import { NoteBarHeader } from './NoteBarHeader'
+import { otherNoteTipBody } from './otherNoteTip'
 import { useHighlightTool } from './highlightToolStore'
-import { useOverlayTool, useToolStyle } from './overlayToolStore'
+import { patchToolStyle, useFormatSampling, useOverlayTool, useToolStyle } from './overlayToolStore'
+import { applySamplePick } from './formatSamplerPdf'
+import { setFormatSampling } from './overlayToolStore'
 import { HighlighterStrip } from './HighlighterTool'
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type JSX, type PointerEvent as ReactPointerEvent, type UIEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { PdfPins, PinHead, type PlacedPin, type PdfPinPatchInput } from './PdfPins'
@@ -295,6 +298,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const [overlayStyle, patchOverlayStyle] = useToolStyle(overlayTool)
   // PDF 편집에서 고른 덮개(서식은 위 도구창에서 바꾼다)
   const [overlaySelectedId, setOverlaySelectedId] = useState<string | null>(null)
+  // 서식 가져오기(스포이트) 중이면 쪽 위 클릭은 그 자리의 서식을 읽는다
+  const formatSampling = useFormatSampling()
   useEffect(() => { if (interactionMode !== 'edit') setOverlaySelectedId(null) }, [interactionMode])
   // 박스 메모 서식 단추를 놓을 자리(위 도구창 안)
   const [boxFormatSlot, setBoxFormatSlot] = useState<HTMLDivElement | null>(null)
@@ -508,13 +513,17 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     const inNote = new Set<string>(draftMemo === null ? [] : [draftMemo.id])
     for (const block of noteApi.openNote.blocks) for (const id of memoHighlightIds(block)) inNote.add(id)
     const labels = new Map<string, string>()
+    const bodies = new Map<string, string>()
     for (const highlight of persistentHighlights) {
       if (highlight.anchor.docId !== docId || highlight.box !== undefined || inNote.has(highlight.id)) continue
       const path = noteApi.notesOf(highlight.id)[0]
       const noteTitle = path === undefined ? undefined : noteApi.entries.find((entry) => entry.path === path)?.title
       labels.set(highlight.id, noteTitle === undefined ? t('노트에 없는 메모') : t('다른 노트: {title}', { title: noteTitle }))
+      // 둘째 줄: 그 메모의 글(없으면 줄을 두지 않는다)
+      const body = otherNoteTipBody(highlight.note)
+      if (body !== '') bodies.set(highlight.id, body)
     }
-    return { mode: otherNotePref, labels }
+    return { mode: otherNotePref, labels, bodies }
   }, [docId, draftMemo, memoColumnVisible, noteApi, otherNotePref, persistentHighlights])
   // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
   useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
@@ -1878,6 +1887,16 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               }}
               selectedId={overlaySelectedId}
               onSelect={setOverlaySelectedId}
+              sampling={formatSampling && primary}
+              onSamplePick={(pick) => {
+                setFormatSampling(false)
+                void applySamplePick(pick, {
+                  pdf: { docId, pageSizes },
+                  selected: overlays.find((item) => item.id === overlaySelectedId) ?? null,
+                  onUpdateSelected: (patch) => { if (overlaySelectedId !== null) onOverlayUpdate?.(overlaySelectedId, patch) },
+                  patchToolStyle: (patch) => patchToolStyle('text', patch),
+                })
+              }}
             />
           ) : null}
           {memoColumn && memoTargets.length > 0 ? (

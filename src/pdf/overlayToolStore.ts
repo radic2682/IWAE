@@ -60,14 +60,19 @@ export interface ToolStyle {
   readonly lineWidth: number
   readonly textSize: number
   readonly bold: boolean
-  readonly textFill: 'none' | 'white' | 'yellow'
+  /** 'none' · 'white' · 'yellow' · 직접 고른 #rrggbb */
+  readonly textFill: string
   readonly border: boolean
+  /** 테두리 색(빈 값 = 글자색) */
+  readonly textBorderColor: string
+  /** 글꼴(빈 값 = 기본). OVERLAY_FONTS 의 id 또는 설치 글꼴 이름 */
+  readonly textFont: string
   readonly dash: 'solid' | 'dash' | 'dot'
   readonly arrowStart: boolean
   readonly arrowEnd: boolean
   readonly fill: boolean
 }
-const BASE_STYLE: ToolStyle = { color: '#d9363e', lineWidth: 2, textSize: 12, bold: false, textFill: 'none', border: false, dash: 'solid', arrowStart: false, arrowEnd: false, fill: false }
+const BASE_STYLE: ToolStyle = { color: '#d9363e', lineWidth: 2, textSize: 12, bold: false, textFill: 'none', border: false, textBorderColor: '', textFont: '', dash: 'solid', arrowStart: false, arrowEnd: false, fill: false }
 const DEFAULT_STYLES: Readonly<Record<OverlayTool, ToolStyle>> = {
   text: { ...BASE_STYLE, color: '#111111' },
   pen: BASE_STYLE,
@@ -96,4 +101,19 @@ export function patchToolStyle(tool: OverlayTool, patch: Partial<ToolStyle>): vo
 export function useToolStyle(tool: OverlayTool): readonly [ToolStyle, (patch: Partial<ToolStyle>) => void] {
   const all = useSyncExternalStore((listener) => { styleListeners.add(listener); return () => styleListeners.delete(listener) }, () => styles, () => styles)
   return [all[tool], (patch) => patchToolStyle(tool, patch)]
+}
+
+/**
+ * 「서식 가져오기」(스포이트) 중인가. 서식 띠의 단추가 켜고, 쪽 위 클릭 한 번이나 Esc 로 끝난다.
+ * 띠(PdfOverlayPalette)와 클릭을 받는 층(PdfPane·MarkdownWriteLayer)이 값 하나를 같이 본다.
+ */
+let sampling = false
+const samplingListeners = new Set<() => void>()
+export function setFormatSampling(next: boolean): void {
+  if (next === sampling) return
+  sampling = next
+  for (const listener of samplingListeners) listener()
+}
+export function useFormatSampling(): boolean {
+  return useSyncExternalStore((listener) => { samplingListeners.add(listener); return () => samplingListeners.delete(listener) }, () => sampling, () => sampling)
 }

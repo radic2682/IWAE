@@ -128,7 +128,7 @@ export interface UndoGroupInfo {
 
 /** 대상 이름: 같은 형광펜을 고치는 열쇠(pdf-hl:edit:id)와 만드는 열쇠(pdf-hl:id)를 같게 본다 */
 function objectOf(key: string): string {
-  return key.replace(/^pdf-hl:edit:/u, 'pdf-hl:')
+  return key.replace(/^pdf-hl:edit:/u, 'pdf-hl:').replace(/^(overlay:[^:]+):.+$/u, '$1')
 }
 
 export function endUndoGroup(): UndoGroupInfo | null {
