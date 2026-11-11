@@ -47,6 +47,7 @@ import { PaneShell } from './PaneShell'
 import { DocumentView, type DocumentViewController, type DocumentViewState } from './DocumentView'
 import { DocumentSearchPanel, SearchScopeSwitch, useDocumentSearch } from './DocumentSearchPanel'
 import { PageEditDialog } from './PageEditDialog'
+import { forgetPageEditDraft, setPageDragHost } from './pageDrag'
 import { pageMoves, remapAnchor, remapDocumentReferences, type PageEditItem, type PageRotation } from '../core/pdfPageEdit'
 import type { CanvasTranslationResult, ReaderExcerptInsertRequest } from './NoteCanvas'
 import { createInitialCanvasDocument } from '../core/initialCanvasDocument'
@@ -1917,6 +1918,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    */
   const savePageEdit = async (docId: string, sizes: readonly (readonly [number, number])[], items: readonly PageEditItem[]) => {
     await flushCanvasSaves()
+    forgetPageEditDraft(docId)
     const moves = pageMoves(items)
     await editDocumentPages(
       docId,
@@ -1953,6 +1955,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         docId={docId}
         title={title}
         pageCount={meta.pageCount}
+        sourcePath={vaultPdfs.find((pdf) => pdf.docId === docId)?.path}
         onCancel={() => setPdfToolsTarget(null)}
         onSave={(items) => savePageEdit(meta.docId, meta.pageSizes, items)}
       />
@@ -2545,6 +2548,26 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPaneLayout(layout)
     setActivePaneId(PANE_IDS[target]!)
   }
+  // 쪽 편집 화면에서 쪽을 끌어 다른 PDF 의 탭·쪽 편집 화면에 놓는 끌기(pageDrag.ts)가 묻고 시키는 것들
+  const pageDragRef = useRef({ vaultPdfs, openedDocs })
+  pageDragRef.current = { vaultPdfs, openedDocs }
+  useEffect(() => {
+    setPageDragHost({
+      docInfo: (docId) => {
+        const { vaultPdfs: pdfs, openedDocs: docs } = pageDragRef.current
+        const entry = pdfs.find((pdf) => pdf.docId === docId)
+        if (entry === undefined && !docs.some((doc) => doc.docId === docId)) return null
+        return { docId, title: entry?.title ?? docs.find((doc) => doc.docId === docId)?.title ?? 'PDF', editable: entry !== undefined, locked: isPasswordProtectedDoc(docId) }
+      },
+      activateTab: (pane, tabId) => {
+        setPanes((current) => ({ ...current, [pane]: activateTab(current[pane], tabId) }))
+        setActivePaneId(pane)
+      },
+      openEditor: (docId) => setPdfToolsTarget({ docId, tool: 'pageEdit' }),
+      announce: announceAction,
+    })
+    return () => setPageDragHost(null)
+  })
   const renderPaneTabs = (pane: PaneId) => (
     <PaneTabsMenu
       onClosePane={shownPaneCount > 1 ? () => closePane(pane) : undefined}
