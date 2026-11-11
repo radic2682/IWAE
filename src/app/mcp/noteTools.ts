@@ -92,7 +92,7 @@ function describeBlock(note: MemoNote, at: number, ctx: OpContext, includeText: 
     section_id: sectionId,
     highlight_id: block.highlightId,
     memo_kind: summary.kind,
-    ...(block.ticket === undefined ? {} : { ticket: block.ticket, ticket_title: ticketLabel(block.ticket), ...(block.ticket.id === undefined ? {} : { ticket_id: block.ticket.id }) }),
+    ...(block.ticket === undefined ? {} : { ticket: block.ticket, ticket_label: ticketLabel(block.ticket), ...(block.ticket.title === undefined ? {} : { ticket_title: block.ticket.title }), ...(block.ticket.id === undefined ? {} : { ticket_id: block.ticket.id }) }),
     ...(highlight.box === undefined ? {} : { style: 'box' }),
   }
 }

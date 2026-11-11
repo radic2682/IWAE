@@ -153,6 +153,7 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
     return { pane, page: options.page ?? null }
   }
 
+  let cachedDocs: McpLibraryDoc[] | undefined
   return {
     vaultRoot: input.vaultRoot,
     paneCount: input.paneCount,
@@ -163,7 +164,11 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
     }])) as unknown as McpAppDeps['panes'],
     docViews: input.docViews,
     selection: input.liveSelection,
-    docs: libraryDocs(input, input.pdfToolBusy),
+    // 색인 기록 전체를 훑으므로 쓸 때만 계산한다(App 이 그릴 때마다 만들지 않는다)
+    get docs() {
+      cachedDocs ??= libraryDocs(input, input.pdfToolBusy)
+      return cachedDocs
+    },
     bookmarks: input.bookmarks.list,
 
     openDocument,
