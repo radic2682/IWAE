@@ -77,7 +77,7 @@ export function UpdateSettings({ currentVersion, state }: UpdateSettingsProps) {
 
       <div className="settings-list">
         <label className="settings-toggle-row">
-          <span><strong>{t('업데이트 자동 확인')}</strong><small>{t('작업 공간을 연 뒤, 그리고 켜 둔 동안 6시간마다 백그라운드에서 확인합니다.')}</small></span>
+          <span><strong>{t('업데이트 자동 확인')}</strong><small>{t('작업 공간을 열 때와, 켜 둔 동안 6시간마다 백그라운드에서 확인합니다.')}</small></span>
           <input
             type="checkbox"
             aria-label={t('업데이트 자동 확인')}

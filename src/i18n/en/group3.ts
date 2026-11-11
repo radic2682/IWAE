@@ -198,7 +198,7 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '확인 기록 없음': 'No check recorded',
   '새 버전을 확인하고 내려받는 방법을 선택합니다. 설치는 항상 직접 시작합니다.': 'Choose how new versions are checked and downloaded. Installing always starts manually.',
   '업데이트 자동 확인': 'Check for updates automatically',
-  '작업 공간을 연 뒤, 그리고 켜 둔 동안 6시간마다 백그라운드에서 확인합니다.': 'Checks in the background after the workspace opens and every 6 hours while the app stays open.',
+  '작업 공간을 열 때와, 켜 둔 동안 6시간마다 백그라운드에서 확인합니다.': 'Checks in the background after the workspace opens and every 6 hours while the app stays open.',
   '업데이트를 확인하는 중…': 'Checking for updates…',
   '최신 버전을 사용 중입니다.': 'You are on the latest version.',
   '업데이트를 확인하지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.': 'Could not check for updates. Check your network connection and try again.',
