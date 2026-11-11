@@ -68,9 +68,6 @@ export function NoteBarHeader({
   // 노트 바꾸기: 노트가 하나라도 있거나 이 PDF 에 만들 수 있을 때만
   const switcherGroups = api === null ? null : noteSwitcherGroups(api, currentDocId)
   const canSwitch = api !== null && switcherGroups !== null && (api.entries.length > 0 || (switcherGroups.owner !== null && api.createForDoc !== undefined))
-  // 이 PDF 에 노트가 있는데 다른 노트를 보고 있으면 개수를 작게 알린다
-  const mineCount = switcherGroups?.mine.length ?? 0
-  const showMineChip = mineCount > 0 && api !== null && switcherGroups !== null && !switcherGroups.mine.some((entry) => entry.path === api.openPath)
 
   return (
     <div className={className}>
@@ -82,17 +79,6 @@ export function NoteBarHeader({
             fallback={fallbackTitle}
             switcher={canSwitch ? { open: switchOpen, onToggle: () => setSwitchOpen((open) => !open), onRename: () => setSwitchOpen(false) } : undefined}
           />
-          {showMineChip ? (
-            <button
-              type="button"
-              className="note-head-mine-chip"
-              aria-label={t('이 PDF의 노트 {count}개', { count: mineCount })}
-              title={t('이 PDF의 노트 {count}개', { count: mineCount })}
-              onClick={() => setSwitchOpen((open) => !open)}
-            >
-              {t('이 PDF {count}', { count: mineCount })}
-            </button>
-          ) : null}
         </span>
       )}
       {!searchOpen && switchOpen && canSwitch ? (

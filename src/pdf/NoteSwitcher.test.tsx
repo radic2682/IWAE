@@ -72,13 +72,8 @@ describe('노트 바꾸기(오른쪽 바 머리)', () => {
     expect(api.createForDoc).toHaveBeenCalledWith('docS')
   })
 
-  it('이 PDF 에 노트가 있는데 다른 노트를 보고 있으면 제목 옆에 개수 칩이 붙는다', () => {
+  it('제목 옆에 이 PDF 의 노트 개수 칩을 붙이지 않는다(제목 자리를 넓게 쓴다)', () => {
     renderHeader(makeApi())
-    expect(screen.getByRole('button', { name: '이 PDF의 노트 2개' }).textContent).toBe('이 PDF 2')
-  })
-
-  it('이 PDF 의 노트를 보고 있으면 칩이 없다', () => {
-    renderHeader(makeApi({ openPath: '노트/S2.iwnote' }))
-    expect(screen.queryByRole('button', { name: /이 PDF의 노트 \d개/ })).toBeNull()
+    expect(screen.queryByText(/이 PDF \d/)).toBeNull()
   })
 })

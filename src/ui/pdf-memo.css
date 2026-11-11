@@ -897,10 +897,6 @@
 }
 .note-head-title-button:hover, .note-head-title-button[aria-expanded='true'] { border-color: var(--divider-strong); background: var(--chrome-hover); }
 .note-head-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.note-head-mine-chip {
-  flex: 0 0 auto; height: 20px; padding: 0 8px; border: 1px solid var(--accent); border-radius: var(--r-full);
-  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text-strong); font: inherit; font-size: 11.5px; font-weight: 700; line-height: 1; cursor: pointer; white-space: nowrap;
-}
 .note-switch-menu {
   position: absolute; z-index: 30; top: calc(100% - 2px); left: 10px; right: 10px; max-height: 360px; overflow: auto; padding: 6px;
   border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper); color: var(--text-strong);
