@@ -53,6 +53,8 @@ tauri-plugin-window-state = "2"
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"
 windows-core = "0.61"
+# 화면 캡처 클립보드(screen_capture.rs). webview2-com 이 이미 쓰는 같은 판 — 새 크레이트가 아니라 기능만 더한다.
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_DataExchange", "Win32_System_Memory"] }
 
 [dev-dependencies]
 tauri = { version = "2.11.3", features = ["test"] }

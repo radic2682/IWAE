@@ -31,3 +31,25 @@ export async function saveReportFile(suggestedName: string, text: string): Promi
 export async function copyText(text: string): Promise<void> {
   await navigator.clipboard.writeText(text)
 }
+
+/** 이 창의 화면을 PNG 로 찍는다(Windows 데스크톱). 찍은 그림은 Rust 쪽에도 남아 「클립보드에 복사」가 쓴다 */
+export async function captureWindowPng(): Promise<Uint8Array> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return new Uint8Array(await invoke<ArrayBuffer>('capture_window_png'))
+}
+
+/** 마지막 캡처를 클립보드에 그림으로 올린다 */
+export async function copyCaptureToClipboard(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('copy_capture_to_clipboard')
+}
+
+/** 캡처를 PNG 파일로 저장한다. 저장한 곳(취소하면 null) */
+export async function saveCapturePng(suggestedName: string, png: Uint8Array): Promise<string | null> {
+  const { save } = await import('@tauri-apps/plugin-dialog')
+  const path = await save({ defaultPath: suggestedName, filters: [{ name: 'PNG', extensions: ['png'] }] })
+  if (path === null) return null
+  const { writeFile } = await import('@tauri-apps/plugin-fs')
+  await writeFile(path, png)
+  return path
+}
