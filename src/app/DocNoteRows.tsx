@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from 'react'
+import { fitMenuInViewport } from '../ui/fitMenu'
 import { ArrowSquareIn, ArrowSquareOut, ClipboardText, Eraser, PencilSimple, Smiley, Trash } from '@phosphor-icons/react'
 import type { FolderColor } from '../core/folderColors'
 import type { MemoNoteEntry } from '../core/memoNote'
@@ -98,9 +99,7 @@ export function DocNoteRows({ entries, openPath, depth, onOpen, onRename, onTras
             style={{ left: menu.x, top: menu.y }}
             ref={(element) => {
               if (element === null) return
-              const rect = element.getBoundingClientRect()
-              if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
-              if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
+              fitMenuInViewport(element)
             }}
           >
             <button type="button" role="menuitem" onClick={() => { onOpen(menu.path); setMenu(null) }}>

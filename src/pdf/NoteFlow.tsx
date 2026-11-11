@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { fitMenuInViewport } from '../ui/fitMenu'
 import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
@@ -963,9 +964,7 @@ export function NoteFlow({
             style={{ left: menu.x, top: menu.y }}
             ref={(element) => {
               if (element === null) return
-              const rect = element.getBoundingClientRect()
-              if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
-              if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
+              fitMenuInViewport(element)
               // 메뉴 틀에 초점을 두어 Escape·화살표가 듣게 한다. 첫 항목에 두면(앞서 키보드를 썼을 때) 열자마자 칠해진다
               if (!element.contains(document.activeElement)) element.focus({ preventScroll: true })
             }}

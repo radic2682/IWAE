@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { fitMenuInViewport } from './fitMenu'
 import { createPortal } from 'react-dom'
 import './context-menu.css'
 
@@ -32,9 +33,7 @@ export function ContextMenu({ x, y, label, entries, onClose }: {
   useLayoutEffect(() => {
     const element = ref.current
     if (element === null) return
-    const rect = element.getBoundingClientRect()
-    if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
-    if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
+    fitMenuInViewport(element)
   }, [x, y])
   useEffect(() => {
     const onDown = (event: PointerEvent) => {

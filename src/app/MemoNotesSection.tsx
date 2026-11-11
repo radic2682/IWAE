@@ -1,4 +1,5 @@
 import { t } from '../i18n'
+import { fitMenuInViewport } from '../ui/fitMenu'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { ArrowSquareIn, ArrowSquareOut, ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, ClipboardText, Eraser, Export, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, PencilSimple, Plus, Smiley, Trash } from '@phosphor-icons/react'
 import { memoNotesFolder, isInsideMemoFolder, memoParentOf, type MemoNoteEntry } from '../core/memoNote'
@@ -604,9 +605,7 @@ export function MemoNotesSection({
             // 창 아래·오른쪽 끝에서 열면 메뉴가 창 밖으로 나간다. 창 안으로 들어오게 옮긴다.
             ref={(element) => {
               if (element === null) return
-              const rect = element.getBoundingClientRect()
-              if (rect.bottom > window.innerHeight - 8) element.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
-              if (rect.right > window.innerWidth - 8) element.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
+              fitMenuInViewport(element)
             }}
           >
             {menu.kind === 'note' ? (
