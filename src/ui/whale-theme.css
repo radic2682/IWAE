@@ -241,7 +241,7 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
   position: relative;
   display: flex;
   flex: 0 0 auto;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   min-height: 32px;
   margin-top: 6px;
@@ -257,7 +257,7 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
   border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer;
 }
 .note-section-toggle:hover { background: var(--chrome-hover); }
-.note-section-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+.note-section-title { flex: 1 1 auto; min-width: 0; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.4; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
 .note-section-input { flex: 1 1 auto; min-width: 0; height: 26px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong); font: inherit; font-size: 15px; font-weight: 700; }
 .note-section-count { flex: 0 0 auto; min-width: 20px; padding: 0 6px; border-radius: var(--r-full); background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-muted); font-size: 11.5px; font-weight: 600; text-align: center; }
 .note-section .pdf-memo-card-actions { display: none; }

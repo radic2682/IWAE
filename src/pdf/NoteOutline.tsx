@@ -90,7 +90,7 @@ export function outlineEntries(items: readonly NoteFlowItem[], query = ''): read
     } else if (item.draft !== true) {
       const { highlight } = item
       const quote = highlight.kind === 'region' ? t('표·그림') : clip(highlight.anchor.quote.replace(/\s+/gu, ' ').trim())
-      const text = clip(item.ticket?.title?.trim() ?? '') || firstLine(highlight.note) || quote
+      const text = (item.ticket?.title?.trim() ?? '') || firstLine(highlight.note) || quote
       entries.push({ key: item.key, kind: 'memo', text, ...(item.ticket?.id === undefined ? {} : { id: item.ticket.id }), color: highlight.color, nested: inSection })
     }
   }
