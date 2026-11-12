@@ -123,19 +123,19 @@ export function makeEnv(options: { app?: McpAppDeps; pdfs?: Record<string, strin
 
 /** 시험용 App 상태. 필요한 칸만 덮어쓴다 */
 export function fakeApp(overrides: Partial<McpAppDeps> = {}): McpAppDeps {
-  const empty = { tabs: [], activeId: null }
   return {
     vaultRoot: 'C:/vault',
     paneCount: 1,
-    activePane: 'left',
-    panes: { left: empty, right: empty, third: empty, fourth: empty },
+    layout: { kind: 'pane', paneId: 'p1' },
+    activePane: 'p1',
+    panes: [{ index: 0, id: 'p1', tabs: [], activeId: null, channel: 'blue' }],
     docViews: {},
     selection: () => null,
     docs: [],
     bookmarks: [],
-    openDocument: async (_docId, options) => ({ pane: 'left', page: options.page ?? null }),
-    openNote: () => ({ pane: 'left' }),
-    setLayout: (paneCount, focus) => ({ paneCount, activePane: focus ?? 'left' }),
+    openDocument: async (_docId, options) => ({ pane: 'p1', page: options.page ?? null }),
+    openNote: () => ({ pane: 'p1' }),
+    setLayout: (paneCount, focus) => ({ paneCount, activePane: focus ?? 0 }),
     goto: async (input) => ({ flashed: input.flash }),
     closeTab: () => true,
     addBookmark: () => 'bm-1',

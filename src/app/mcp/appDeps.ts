@@ -6,15 +6,29 @@ import type { PdfBookmark } from '../../core/pdfBookmarks'
 import type { VaultSearchRecord } from '../../core/vaultSearch'
 import type { LibraryDoc } from '../../core/vaultTree'
 import type { PersistentPdfHighlight } from '../../pdf/persistentHighlight'
-import { otherPane, PANE_IDS, tabDocId, type PaneId, type PanesState, type Tab } from '../tabs'
+import { leaves, MAX_PANES, type LayoutNode } from '../../core/layoutTree'
+import { otherPane, tabDocId, tabsOf, type PaneId, type PanesState, type Tab } from '../tabs'
+import { channelOf, type PaneChannels } from '../workspaceChannels'
 import type { McpAppDeps, McpBookmarkPatch, McpLibraryDoc, PaneRef } from './types'
 
-type PaneCount = 1 | 2 | 3 | 4
+/** 예전 칸 이름 → 칸 번호(왼쪽 위부터 0) */
+const LEGACY_PANE_INDEX: Readonly<Record<string, number>> = { left: 0, right: 1, third: 2, fourth: 3 }
+
+/** 칸 참조(예전 이름·'0'…'7')의 칸 번호. 이름이 아니면 null */
+export function paneIndexOfRef(ref: string): number | null {
+  const legacy = LEGACY_PANE_INDEX[ref]
+  if (legacy !== undefined) return legacy
+  return /^[0-7]$/u.test(ref) ? Number(ref) : null
+}
 
 /** App 이 가진 상태와 손잡이. buildMcpAppDeps 가 이것을 MCP 의 McpAppDeps 로 바꾼다 */
 export interface McpAppInput {
   readonly vaultRoot: string | null
   readonly paneCount: number
+  readonly layout: LayoutNode
+  readonly channels: PaneChannels
+  /** 적어도 count 칸이 되게 늘리고 칸 차례를 돌려준다(아직 없는 칸 번호를 가리켰을 때) */
+  readonly growPanes: (count: number) => readonly PaneId[]
   readonly activePaneId: PaneId
   readonly panes: PanesState
   readonly docViews: Readonly<Partial<Record<PaneId, { readonly docId: string; readonly page: number }>>>
@@ -44,7 +58,8 @@ export interface McpAppInput {
   readonly markdownDocById: (docId: string) => LibraryDoc | undefined
   readonly openInPane: (tab: Tab, pane?: PaneId) => void
   readonly moveTab: (id: string, target: PaneId) => void
-  readonly setPaneCount: (count: PaneCount) => void
+  /** 칸 수를 바꾸고 바뀐 칸 차례를 돌려준다 */
+  readonly setPaneCount: (count: number) => readonly PaneId[]
   readonly setActivePane: (pane: PaneId) => void
   readonly setPaneRoute: (kind: 'doc' | 'note', pane: PaneId) => void
   readonly activateTabIn: (pane: PaneId, tabId: string) => void
@@ -103,30 +118,37 @@ function libraryDocs(input: McpAppInput, ocrBusy: (docId: string) => boolean): M
 }
 
 export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
+  const order = leaves(input.layout)
+  /**
+   * 칸 참조를 칸 id 로. active·other·칸 id·칸 번호('0'…'7', left/right/third/fourth = 0–3).
+   * 아직 없는 칸 번호는 칸을 늘려서 만든다(칸이 상한이거나 너무 작아 못 만들면 오류)
+   */
   const resolvePane = (ref: PaneRef | undefined): PaneId => {
     if (ref === undefined || ref === 'active') return input.activePaneId
-    if (ref === 'other') return otherPane(input.activePaneId)
-    return ref
-  }
-  const ensurePane = (pane: PaneId) => {
-    const needed = (PANE_IDS.indexOf(pane) + 1) as PaneCount
-    if (needed > input.paneCount) input.setPaneCount(needed)
+    if (ref === 'other') return otherPane(order, input.activePaneId)
+    if (order.includes(ref)) return ref
+    const index = paneIndexOfRef(ref)
+    if (index === null) throw new Error('unknown pane: ' + ref)
+    const existing = order[index]
+    if (existing !== undefined) return existing
+    const grown = input.growPanes(index + 1)[index]
+    if (grown === undefined) throw new Error('pane ' + index + ' could not be created (at most ' + MAX_PANES + ' panes, each at least 240x160 px)')
+    return grown
   }
   const tabLocation = (tabId: string): { pane: PaneId; tab: Tab } | null => {
-    for (const pane of PANE_IDS) {
-      const tab = input.panes[pane].tabs.find((candidate) => candidate.id === tabId)
+    for (const pane of order) {
+      const tab = tabsOf(input.panes, pane).tabs.find((candidate) => candidate.id === tabId)
       if (tab !== undefined) return { pane, tab }
     }
     return null
   }
-  const docLocation = (docId: string): PaneId | undefined => PANE_IDS.find((pane) => input.panes[pane].tabs.some((tab) => tabDocId(tab) === docId))
+  const docLocation = (docId: string): PaneId | undefined => order.find((pane) => tabsOf(input.panes, pane).tabs.some((tab) => tabDocId(tab) === docId))
 
   const openDocument: McpAppDeps['openDocument'] = async (docId, options) => {
     const doc = input.shownLibrary.find((item) => item.docId === docId) ?? input.markdownDocById(docId)
     if (doc === undefined) throw new Error(`doc_id not found: ${docId}`)
     const explicit = options.pane !== undefined && options.pane !== 'active'
     const target = resolvePane(options.pane)
-    if (explicit) ensurePane(target)
     const isMarkdown = input.shownLibrary.every((item) => item.docId !== docId)
     const placed = docLocation(docId)
     if (isMarkdown) {
@@ -159,11 +181,15 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
   return {
     vaultRoot: input.vaultRoot,
     paneCount: input.paneCount,
+    layout: input.layout,
     activePane: input.activePaneId,
-    panes: Object.fromEntries(PANE_IDS.map((pane) => [pane, {
-      tabs: input.panes[pane].tabs.map((tab) => ({ id: tab.id, title: tab.title, kind: tab.kind })),
-      activeId: input.panes[pane].activeId,
-    }])) as unknown as McpAppDeps['panes'],
+    panes: order.map((pane, index) => ({
+      index,
+      id: pane,
+      tabs: tabsOf(input.panes, pane).tabs.map((tab) => ({ id: tab.id, title: tab.title, kind: tab.kind })),
+      activeId: tabsOf(input.panes, pane).activeId,
+      channel: channelOf(input.channels, pane),
+    })),
     docViews: input.docViews,
     selection: input.liveSelection,
     // 색인 기록 전체를 훑으므로 쓸 때만 계산한다(App 이 그릴 때마다 만들지 않는다)
@@ -177,13 +203,14 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
     openNote: (path, pane) => {
       const explicit = pane !== undefined && pane !== 'active'
       const target = explicit ? resolvePane(pane) : undefined
-      if (target !== undefined) ensurePane(target)
       return { pane: input.openMemoNote(path, target) }
     },
     setLayout: (count, focus) => {
-      input.setPaneCount(count)
-      if (focus !== undefined) input.setActivePane(focus)
-      return { paneCount: count, activePane: focus ?? input.activePaneId }
+      const after = input.setPaneCount(count)
+      const focused = focus === undefined ? undefined : after[Math.min(focus, after.length - 1)]
+      if (focused !== undefined) input.setActivePane(focused)
+      const active = focused ?? (after.includes(input.activePaneId) ? input.activePaneId : after[after.length - 1]!)
+      return { paneCount: after.length, activePane: after.indexOf(active) }
     },
     goto: async ({ docId, page, quote, flash, pane }) => {
       const doc = input.shownLibrary.find((item) => item.docId === docId)

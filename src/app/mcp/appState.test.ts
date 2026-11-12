@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearUndo } from '../undoStack'
 import { resetAiActivity } from './aiActivityStore'
 import { resetAiChangeLog } from './aiChangeLog'
+import { layoutForLegacyId } from '../../core/layoutTree'
 import { fakeApp, makeEnv } from './testHarness'
 import type { McpDeps } from './types'
 
@@ -21,14 +22,13 @@ describe('app_state / settings_get / sources', () => {
   it('app_state 는 창·탭·지금 문서·선택·열린 노트·AI 변경 수를 작게 돌려준다', async () => {
     const app = fakeApp({
       paneCount: 2,
-      activePane: 'right',
-      panes: {
-        left: { tabs: [{ id: 'd1', title: '사양서', kind: 'pdf' }], activeId: 'd1' },
-        right: { tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' }], activeId: '노트/전원.iwnote' },
-        third: { tabs: [], activeId: null },
-        fourth: { tabs: [], activeId: null },
-      },
-      docViews: { left: { docId: 'd1', page: 3, pageCount: 10 } },
+      activePane: 'pB',
+      layout: layoutForLegacyId('cols2', ['pA', 'pB'], 0.4),
+      panes: [
+        { index: 0, id: 'pA', tabs: [{ id: 'd1', title: '사양서', kind: 'pdf' }], activeId: 'd1', channel: 'blue' },
+        { index: 1, id: 'pB', tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' }], activeId: '노트/전원.iwnote', channel: null },
+      ],
+      docViews: { pA: { docId: 'd1', page: 3, pageCount: 10 } },
       docs: [{ docId: 'd1', title: '사양서', kind: 'pdf', folder: '', favorite: false, pageCount: 10, lastOpenedAt: null, addedAt: null, pagesWithText: 10, scanned: false, ocr: 'done' }],
       selection: () => ({ docId: 'd1', page: 3, text: '고른 글' }),
     })
@@ -37,16 +37,39 @@ describe('app_state / settings_get / sources', () => {
     const state = await env.call('app_state') as Record<string, unknown>
     expect(state).toMatchObject({
       vault: { open: true, documents: 1, notes: 1 },
-      layout: { pane_count: 2, active_pane: 'right' },
+      layout: {
+        pane_count: 2,
+        active_pane: 1,
+        active_pane_id: 'pB',
+        // 칸 번호로 적은 트리: 좌우로 나눈 두 칸, 왼쪽 몫 0.4
+        tree: { split: 'h', ratio: 0.4, a: { pane: 0 }, b: { pane: 1 } },
+      },
       active_doc: { doc_id: 'd1', title: '사양서', page: 3, page_count: 10 },
       selection: { doc_id: 'd1', page: 3, text: '고른 글' },
       open_notes: ['전원'],
       ai_session: { changes: 1 },
     })
-    const panes = state.panes as { id: string; tabs: { id: string; kind: string; doc_id?: string; note?: string }[]; active_tab: string | null }[]
-    expect(panes.map((pane) => pane.id)).toEqual(['left', 'right'])
+    const panes = state.panes as { index: number; id: string; channel: string | null; tabs: { id: string; kind: string; doc_id?: string; note?: string }[]; active_tab: string | null }[]
+    expect(panes.map((pane) => [pane.index, pane.id, pane.channel])).toEqual([[0, 'pA', 'blue'], [1, 'pB', null]])
     expect(panes[0]!.tabs[0]).toMatchObject({ id: 'd1', kind: 'pdf', doc_id: 'd1' })
     expect(panes[1]!.tabs[0]).toMatchObject({ kind: 'memoNote', note: '전원' })
+  })
+
+  it('app_state 의 트리는 칸 번호로 중첩해 적는다(위아래 나누기 포함)', async () => {
+    const app = fakeApp({
+      paneCount: 3,
+      activePane: 'z',
+      layout: layoutForLegacyId('left1-right2', ['x', 'y', 'z']),
+      panes: [
+        { index: 0, id: 'x', tabs: [], activeId: null, channel: 'blue' },
+        { index: 1, id: 'y', tabs: [], activeId: null, channel: 'blue' },
+        { index: 2, id: 'z', tabs: [], activeId: null, channel: 'blue' },
+      ],
+    })
+    const env = makeEnv({ app })
+    const state = await env.call('app_state') as { layout: { active_pane: number; tree: unknown } }
+    expect(state.layout.active_pane).toBe(2)
+    expect(state.layout.tree).toEqual({ split: 'h', ratio: 0.5, a: { pane: 0 }, b: { split: 'v', ratio: 0.5, a: { pane: 1 }, b: { pane: 2 } } })
   })
 
   it('앱 화면 정보가 없어도 app_state 가 돌고, settings_get 은 비밀 없이 언어·테마·번역 방식만 준다', async () => {

@@ -1,5 +1,6 @@
 import { t } from '../../i18n'
-import { PANE_IDS, type PaneId } from '../tabs'
+import { MAX_PANES } from '../../core/layoutTree'
+import { paneIndexOfRef } from './appDeps'
 import { op, type McpAppDeps, type OpContext, type OpDef, type PaneRef } from './types'
 
 function needApp(ctx: OpContext): McpAppDeps {
@@ -7,10 +8,15 @@ function needApp(ctx: OpContext): McpAppDeps {
   return ctx.deps.app
 }
 
+/**
+ * 칸 참조: 칸 번호('0'…'7', 숫자도 받는다), 예전 이름(left=0, right=1, third=2, fourth=3), active, other, 또는 app_state 가 알려 준 칸 id.
+ * 그 칸이 아직 없으면 앱이 칸을 늘려서 만든다(resolvePane)
+ */
 function paneOf(value: unknown): PaneRef | undefined {
   if (value === undefined) return undefined
-  if (value === 'active' || value === 'other' || (PANE_IDS as readonly unknown[]).includes(value)) return value as PaneRef
-  throw new Error('pane 은 left, right, third, fourth, active, other 중 하나입니다.')
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < MAX_PANES) return String(value)
+  if (typeof value === 'string' && (value === 'active' || value === 'other' || paneIndexOfRef(value) !== null || /^p\d+$/u.test(value))) return value
+  throw new Error('pane 은 칸 번호(0–7), left, right, third, fourth, active, other 또는 app_state 의 칸 id 입니다.')
 }
 
 /** 문서가 서재에 있는지, 쪽이 범위 안인지 본다. PDF 가 아니면 쪽 검사는 건너뛴다 */
@@ -56,10 +62,11 @@ const openNote = (args: Record<string, unknown>, ctx: OpContext) => {
 const setLayout = (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
   const count = typeof args.pane_count === 'number' ? Math.floor(args.pane_count) : 0
-  if (count < 1 || count > 4) throw new Error('pane_count 는 1–4 입니다.')
-  const focus = args.focus === undefined ? undefined : paneOf(args.focus) as PaneId
-  if (focus !== undefined && PANE_IDS.indexOf(focus) >= count) throw new Error('focus 패널이 pane_count 안에 없습니다.')
-  const result = app.setLayout(count as 1 | 2 | 3 | 4, focus)
+  if (count < 1 || count > MAX_PANES) throw new Error('pane_count 는 1–' + MAX_PANES + ' 입니다.')
+  const focusRef = args.focus === undefined ? undefined : paneOf(args.focus)
+  const focus = focusRef === undefined ? undefined : paneIndexOfRef(focusRef)
+  if (focusRef !== undefined && (focus === null || focus === undefined || focus >= count)) throw new Error('focus 칸이 pane_count 안에 없습니다.')
+  const result = app.setLayout(count, focus ?? undefined)
   ctx.change.target = t('{count}단 보기', { count })
   return { pane_count: result.paneCount, active_pane: result.activePane }
 }
@@ -79,7 +86,7 @@ const goto = async (args: Record<string, unknown>, ctx: OpContext) => {
 const closeTab = (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
   if (typeof args.tab_id !== 'string') throw new Error('tab_id 가 필요합니다.')
-  const tab = PANE_IDS.flatMap((id) => app.panes[id].tabs).find((item) => item.id === args.tab_id)
+  const tab = app.panes.flatMap((pane) => pane.tabs).find((item) => item.id === args.tab_id)
   if (tab === undefined) throw new Error(`tab not found: ${args.tab_id}. app_state 로 tab id 를 확인하세요.`)
   if (!app.closeTab(tab.id)) throw new Error('탭을 닫지 못했습니다(저장되지 않은 작업이 있을 수 있습니다).')
   ctx.change.target = tab.title

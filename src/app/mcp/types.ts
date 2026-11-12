@@ -3,14 +3,19 @@ import type { DocSource } from '../../core/docSources'
 import type { MemoNote } from '../../core/memoNote'
 import type { PdfBookmark } from '../../core/pdfBookmarks'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../../pdf/persistentHighlight'
+import type { LayoutNode } from '../../core/layoutTree'
 import type { PaneId, TabKind } from '../tabs'
+import type { PaneChannel } from '../workspaceChannels'
 import type { NoteAdapter, NoteStoreDeps } from './noteAdapter'
 
 /** 도구 한 번의 성격(Rust app_tools.rs 의 Class 와 같다) */
 export type OpClass = 'read' | 'write' | 'destructive' | 'ui'
 
-/** 어느 창이든(left/right/third/fourth) 또는 active·other */
-export type PaneRef = PaneId | 'active' | 'other'
+/**
+ * 어느 칸인가. 칸 번호(왼쪽 위부터 0 — '0'…'7', 예전 이름 left=0, right=1, third=2, fourth=3), 칸 id(app_state 가 알려 준다),
+ * 또는 active(지금 만진 칸)·other(만진 칸의 다음 칸)
+ */
+export type PaneRef = string
 
 export interface McpTab {
   readonly id: string
@@ -19,8 +24,13 @@ export interface McpTab {
 }
 
 export interface McpPaneState {
+  /** 칸 번호(왼쪽 위부터 0) */
+  readonly index: number
+  readonly id: PaneId
   readonly tabs: readonly McpTab[]
   readonly activeId: string | null
+  /** 색 채널(같은 색끼리 연동). null 은 연동 없음 */
+  readonly channel: PaneChannel
 }
 
 /** 서재의 문서 한 건(PDF·Markdown) */
@@ -59,8 +69,11 @@ export interface McpPdfToolResult {
 export interface McpAppDeps {
   readonly vaultRoot: string | null
   readonly paneCount: number
+  /** 칸 나누기 트리(칸 id 가 잎) */
+  readonly layout: LayoutNode
   readonly activePane: PaneId
-  readonly panes: Readonly<Record<PaneId, McpPaneState>>
+  /** 칸 번호 차례의 칸들 */
+  readonly panes: readonly McpPaneState[]
   /** 패널마다 지금 보이는 PDF 와 쪽(1부터) */
   readonly docViews: Readonly<Partial<Record<PaneId, { readonly docId: string; readonly page: number; readonly pageCount?: number }>>>
   /** 지금 PDF 에서 고른 글(없으면 null) */
@@ -72,7 +85,8 @@ export interface McpAppDeps {
   readonly openDocument: (docId: string, options: { readonly pane?: PaneRef; readonly page?: number; readonly activate?: boolean }) => Promise<{ readonly pane: PaneId; readonly page: number | null }>
   /** 노트를 탭으로 연다(path 는 Vault 상대 경로) */
   readonly openNote: (path: string, pane?: PaneRef) => { readonly pane: PaneId }
-  readonly setLayout: (paneCount: 1 | 2 | 3 | 4, focus?: PaneId) => { readonly paneCount: number; readonly activePane: PaneId }
+  /** 칸 수를 바꾼다(1–8). focus 는 만질 칸 번호. 바꾼 뒤의 칸 수와 만진 칸 번호 */
+  readonly setLayout: (paneCount: number, focus?: number) => { readonly paneCount: number; readonly activePane: number }
   /** 그 쪽으로 가서(문서를 열고) quote 가 있으면 칠해 깜박인다 */
   readonly goto: (input: { readonly docId: string; readonly page: number; readonly quote?: string; readonly flash: boolean; readonly pane?: PaneRef }) => Promise<{ readonly flashed: boolean }>
   readonly closeTab: (tabId: string) => boolean

@@ -1,52 +1,63 @@
 import { memoNoteTitleOf } from '../../core/memoNote'
-import { PANE_IDS, isDocumentKind } from '../tabs'
+import type { LayoutNode } from '../../core/layoutTree'
+import { isDocumentKind } from '../tabs'
 import { aiChangeCount, aiChanges, aiUndo } from './aiChangeLog'
 import { op, type OpContext, type OpDef } from './types'
 
 const SELECTION_LIMIT = 2000
+
+/**
+ * 칸 나누기 트리를 알리는 모양: 칸은 { pane: 칸 번호 }, 나누기는 { split: 'h' | 'v', ratio, a, b }.
+ * 'h' 는 좌우로(a 가 왼쪽, b 가 오른쪽), 'v' 는 위아래로(a 가 위, b 가 아래) 나눈 것이고, ratio 는 a 가 차지하는 몫이다.
+ */
+export function treeShape(node: LayoutNode, order: readonly string[]): unknown {
+  if (node.kind === 'pane') return { pane: order.indexOf(node.paneId) }
+  return { split: node.dir, ratio: Math.round(node.ratio * 100) / 100, a: treeShape(node.a, order), b: treeShape(node.b, order) }
+}
 
 /** 화면에 대한 작은 요약. 문서 글(선택한 글·제목)은 믿을 수 없는 글이다 */
 const appState = (_args: Record<string, unknown>, ctx: OpContext) => {
   const app = ctx.deps.app
   const notes = ctx.notes.available ? ctx.notes.list() : []
   const docs = app?.docs ?? []
-  const visible = app?.paneCount ?? 0
-  const panes = app === undefined
-    ? []
-    : PANE_IDS.flatMap((id, index) => {
-        const pane = app.panes[id]
-        if (index >= visible && pane.tabs.length === 0) return []
-        return [{
-          id,
-          tabs: pane.tabs.map((tab) => ({
-            id: tab.id,
-            kind: tab.kind,
-            ...(tab.kind === 'memoNote' ? { note: memoNoteTitleOf(tab.id) } : tab.kind === 'canvas' ? { canvas: tab.id } : { doc_id: tab.id }),
-            title: tab.title,
-          })),
-          active_tab: pane.activeId,
-        }]
-      })
-  const activePaneState = app?.panes[app.activePane]
+  const paneStates = app?.panes ?? []
+  const panes = paneStates.map((pane) => ({
+    index: pane.index,
+    id: pane.id,
+    channel: pane.channel,
+    tabs: pane.tabs.map((tab) => ({
+      id: tab.id,
+      kind: tab.kind,
+      ...(tab.kind === 'memoNote' ? { note: memoNoteTitleOf(tab.id) } : tab.kind === 'canvas' ? { canvas: tab.id } : { doc_id: tab.id }),
+      title: tab.title,
+    })),
+    active_tab: pane.activeId,
+  }))
+  const activePaneState = paneStates.find((pane) => pane.id === app?.activePane)
   const activeTab = activePaneState?.tabs.find((tab) => tab.id === activePaneState.activeId)
   // 지금 본 PDF: 만진 패널이 PDF 면 그것, 아니면 PDF 를 보는 다른 패널
   const viewPane = app === undefined
     ? undefined
     : activeTab !== undefined && isDocumentKind(activeTab.kind) && app.docViews[app.activePane] !== undefined
       ? app.activePane
-      : PANE_IDS.find((id) => app.docViews[id] !== undefined)
+      : paneStates.find((pane) => app.docViews[pane.id] !== undefined)?.id
   const view = viewPane === undefined ? undefined : app?.docViews[viewPane]
   const viewDoc = view === undefined ? undefined : docs.find((doc) => doc.docId === view.docId)
   const selection = app?.selection() ?? null
   return {
     vault: { open: app?.vaultRoot != null || ctx.notes.available, documents: docs.length, notes: notes.length },
-    layout: { pane_count: app?.paneCount ?? 0, active_pane: app?.activePane ?? 'left' },
+    layout: {
+      pane_count: app?.paneCount ?? 0,
+      active_pane: activePaneState?.index ?? 0,
+      active_pane_id: app?.activePane ?? null,
+      tree: app === undefined ? null : treeShape(app.layout, paneStates.map((pane) => pane.id)),
+    },
     panes,
     active_doc: view === undefined
       ? null
       : {
           doc_id: view.docId,
-          title: viewDoc?.title ?? app?.panes[viewPane!]?.tabs.find((tab) => tab.id === view.docId)?.title ?? '',
+          title: viewDoc?.title ?? paneStates.find((pane) => pane.id === viewPane)?.tabs.find((tab) => tab.id === view.docId)?.title ?? '',
           page: view.page,
           page_count: view.pageCount ?? viewDoc?.pageCount ?? null,
         },

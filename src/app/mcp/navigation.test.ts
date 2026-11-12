@@ -11,7 +11,7 @@ vi.mock('../../bridge/pdf', async () => {
 const doc = (docId: string): McpLibraryDoc => ({ docId, title: `문서 ${docId}`, kind: 'pdf', folder: '', favorite: false, pageCount: 3, lastOpenedAt: null, addedAt: null, pagesWithText: null, scanned: null, ocr: null })
 
 function setup() {
-  const openDocument = vi.fn(async (_id: string, o: { page?: number }) => ({ pane: 'right' as const, page: o.page ?? null }))
+  const openDocument = vi.fn(async (_id: string, o: { page?: number }) => ({ pane: 'p1', page: o.page ?? null }))
   const goto = vi.fn(async (i: { flash: boolean }) => ({ flashed: i.flash }))
   const closeTab = vi.fn(() => true)
   const app = fakeApp({
@@ -19,7 +19,7 @@ function setup() {
     openDocument,
     goto,
     closeTab,
-    panes: { left: { tabs: [{ id: 'd1', title: 'T', kind: 'pdf' }], activeId: 'd1' }, right: { tabs: [], activeId: null }, third: { tabs: [], activeId: null }, fourth: { tabs: [], activeId: null } },
+    panes: [{ index: 0, id: 'p1', tabs: [{ id: 'd1', title: 'T', kind: 'pdf' }], activeId: 'd1', channel: 'blue' }],
   })
   const env = makeEnv({ app, pdfs: { d1: ['a', 'b', 'c'] } })
   return { env, openDocument, goto, closeTab }
@@ -29,10 +29,23 @@ describe('MCP 탐색 도구', () => {
   it('open_document 는 문서와 쪽을 확인하고 연다', async () => {
     const { env, openDocument } = setup()
     const result = await env.call('open_document', { doc_id: 'd1', page: 2, pane: 'right' }) as { opened: unknown }
-    expect(result.opened).toEqual({ doc_id: 'd1', pane: 'right', page: 2 })
+    expect(result.opened).toEqual({ doc_id: 'd1', pane: 'p1', page: 2 })
     expect(openDocument).toHaveBeenCalledWith('d1', { pane: 'right', page: 2, activate: true })
     await expect(env.call('open_document', { doc_id: 'zz' })).rejects.toThrow(/doc_id not found/u)
     await expect(env.call('open_document', { doc_id: 'd1', page: 9 })).rejects.toThrow(/범위/u)
+  })
+
+  it('pane 은 칸 번호·예전 이름·active·other·칸 id 를 받고 그대로 앱에 넘긴다(숫자는 문자열로)', async () => {
+    const { env, openDocument } = setup()
+    for (const pane of ['left', 'right', 'third', 'fourth', 'active', 'other', '0', '7', 'p12']) {
+      await env.call('open_document', { doc_id: 'd1', pane })
+      expect(openDocument).toHaveBeenLastCalledWith('d1', { pane, activate: true })
+    }
+    await env.call('open_document', { doc_id: 'd1', pane: 3 })
+    expect(openDocument).toHaveBeenLastCalledWith('d1', { pane: '3', activate: true })
+    for (const pane of ['8', 'middle', -1, 8, 'P1']) {
+      await expect(env.call('open_document', { doc_id: 'd1', pane }), String(pane)).rejects.toThrow(/pane 은/u)
+    }
   })
 
   it('goto 는 flash 기본 true 로 이동한다', async () => {
@@ -52,9 +65,14 @@ describe('MCP 탐색 도구', () => {
 
   it('set_layout 은 범위를 검사하고 close_tab 은 모르는 탭을 거절한다', async () => {
     const { env, closeTab } = setup()
-    expect(await env.call('set_layout', { pane_count: 2, focus: 'right' })).toEqual({ pane_count: 2, active_pane: 'right' })
-    await expect(env.call('set_layout', { pane_count: 5 })).rejects.toThrow()
+    expect(await env.call('set_layout', { pane_count: 2, focus: 'right' })).toEqual({ pane_count: 2, active_pane: 1 })
+    // 칸 번호로도 부른다(숫자도 문자열도)
+    expect(await env.call('set_layout', { pane_count: 3, focus: 2 })).toEqual({ pane_count: 3, active_pane: 2 })
+    expect(await env.call('set_layout', { pane_count: 8, focus: '7' })).toEqual({ pane_count: 8, active_pane: 7 })
+    await expect(env.call('set_layout', { pane_count: 9 })).rejects.toThrow()
+    await expect(env.call('set_layout', { pane_count: 0 })).rejects.toThrow()
     await expect(env.call('set_layout', { pane_count: 1, focus: 'right' })).rejects.toThrow()
+    await expect(env.call('set_layout', { pane_count: 2, focus: 'sideways' })).rejects.toThrow(/pane 은/u)
     expect(await env.call('close_tab', { tab_id: 'd1' })).toEqual({ closed: 'd1' })
     expect(closeTab).toHaveBeenCalledWith('d1')
     await expect(env.call('close_tab', { tab_id: 'nope' })).rejects.toThrow(/tab not found/u)
