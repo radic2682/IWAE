@@ -30,8 +30,8 @@
 Most PDF readers open one file at a time and leave the organizing to your file manager. Reference managers organize well, but they want metadata and keep your files in their own library. IWAE sits in between.
 
 - **Your folder is the library.** Open any folder (a **Vault**) and its PDFs and Markdown files appear as they are on disk. Nothing is imported or locked in.
-- **Highlight, and the memo is already there.** Select a sentence and a memo opens in the note on the right, joined to the highlight by a line. Click the memo later and the PDF jumps back to that exact sentence.
-- **Read side by side.** Tabs, nine split layouts, windows you can pull a tab out into, and a note bar that stays put while you read.
+- **Highlight, and the memo is already there.** Select a sentence and a memo opens in the note beside the document, joined to the highlight by a line. Click the memo later and the PDF jumps back to that exact sentence.
+- **Read side by side.** Tabs, nine split layouts, windows you can pull a tab out into, and a note pane that stays beside the document while you read (“Open note beside”, plus presets: Reading, Note left, Compare, Organize).
 - **Yours, and local.** Everything is stored in your Vault folder. Only text you choose to translate with a cloud service, or an external AI you connect yourself, ever leaves your PC.
 
 <p align="center">
@@ -98,14 +98,14 @@ Box a chart or table to add it to the note as an image, with your description:
 
 ### Notes that stay linked
 
-A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. The note bar is fixed at the right edge, scrolls on its own, and has its own zoom.
+A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. The note opens in its own pane beside the document (a tab like any other, so it can sit on the left, be stacked, or be used in several panes), scrolls on its own, and has its own zoom.
 
 - **Memo:** your comment with its sources underneath; click a source to jump to it. A memo can hold several sources, including captured regions.
 - **ID and title (tickets):** give any memo a free-form ID such as `REQ-01` and a title, which is handy for tracking requirements. IWAE suggests the next number and warns about an ID already used in the note. Type an ID at the start of a memo and it turns into the ID badge.
 - **Section** groups the blocks under it; collapse it or drag it as one unit. **Text** is free writing with bold, lists, tables and code.
 - Select several blocks (Ctrl+click or Shift+click) and drag them together.
-- **A note per PDF:** each PDF can have its own notes, listed under it in the left bar, with a note switcher in the note bar title.
-- **Memo-only view:** open the note as a wide column with an outline for organizing and polishing.
+- **A note per PDF:** each PDF can have its own notes, listed under it in the left bar, with a note switcher in the note title.
+- **Wide note view:** drag the note pane wide and it becomes a wide column with an outline, for organizing and polishing.
 
 <p align="center">
   <img src="docs/images/ticket.gif" width="900" alt="Adding the ID SLEEP-01 and a title to a memo, then giving the next memo the suggested ID SLEEP-02 and a title">
@@ -123,7 +123,7 @@ A note is built from blocks, and one note can mix memos from several PDFs and Ma
   <img src="docs/images/search.gif" width="900" alt="Searching the whole Vault for the word canopy and opening the first result at the matching passage">
 </p>
 
-The left bar, the note bar and the library each zoom separately with Ctrl+wheel (80 to 150%).
+The left bar, the note pane and the library each zoom separately with Ctrl+wheel (80 to 150%).
 
 ### PDF tools
 

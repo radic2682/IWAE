@@ -138,7 +138,7 @@
     <tr><td>2 Tabs</td><td>One tab per document. Drag to reorder, move to a pane, or detach into a window.</td></tr>
     <tr><td>3 Document pane</td><td>PDFs and Markdown. Split into two, three or four panes to read side by side.</td></tr>
     <tr><td>4 Toolbar</td><td>Hand, Select text, Region capture, Highlight, Box memo, Text box, Pen, Eraser, Edit pages.</td></tr>
-    <tr><td>5 Note bar</td><td>Fixed at the right edge. Memo cards are linked to PDF highlights by lines.</td></tr>
+    <tr><td>5 Note pane</td><td>A memo note opened beside the document (“Open note beside”). Memo cards are linked to PDF highlights by lines.</td></tr>
     <tr><td>6 Bottom bar</td><td>Page navigation, fit width, fit page, fit height, zoom.</td></tr>
   </table>
 
@@ -191,7 +191,7 @@
   <table class="free">
     <tr><td>Left bar</td><td>Documents and notes, outline, thumbnails, PDF tools, search. Drag its edge to resize.</td></tr>
     <tr><td>Center</td><td>Tabs for open documents, split into panes to read side by side.</td></tr>
-    <tr><td>Right note bar</td><td>The open note. It scrolls separately, and its memos are linked to highlights by lines.</td></tr>
+    <tr><td>Note pane</td><td>A memo note (a tab) opened beside the document. It scrolls separately, and its memos are linked to highlights by lines. Open and close it with “Open note beside” in the top row; the “Reading” layout (document | note) is the default.</td></tr>
   </table>
 
   <div class="tip"><b class="k">Good to know</b>Only two things ever leave your PC: the selected text when you choose a cloud translation service, and requests from an external AI when you turn that connection on yourself. Details are on <a href="#p11">p. 11</a>.</div>
@@ -233,7 +233,7 @@
     <tr><td>Drag within a pane</td><td>Reorders the tabs.</td></tr>
     <tr><td>Drag to another pane's tab bar</td><td>Moves the tab to that pane.</td></tr>
     <tr><td>Drag to a pane edge</td><td>Drag a tab to the edge of a pane and a new pane is created on that side.</td></tr>
-    <tr><td>Drag out of the window</td><td>The PDF tab becomes its own window, showing just the document and the note bar.</td></tr>
+    <tr><td>Drag out of the window</td><td>The PDF tab becomes its own window, showing just the document; use “Open note beside” to put a note next to it.</td></tr>
     <tr><td>Drag onto a tab bar</td><td>Close the detached window or choose “Reattach to the main window” and the tab returns with its page and zoom.</td></tr>
   </table>
   <p><b>New window</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>) opens a second window on the same Vault. What you highlight or write in one window shows up in the other, and edits from both windows are merged instead of overwriting each other. With two monitors, keep the document on one and the note on the other.</p>
@@ -275,7 +275,7 @@
     <tr><td>Drag with Select text</td><td>Paints a highlight and opens a memo.</td></tr>
     <tr><td>Drag with the Hand tool</td><td>Selects text without highlighting, for copying.</td></tr>
     <tr><td>Buttons above a selection</td><td>Copy · Copy with source · Search documents · Translate · Send to note</td></tr>
-    <tr><td>Click a highlight</td><td>Opens its memo card in the note so you can edit it. With the note bar closed, a small popover lets you change the color, write a memo, send it to the note, or delete it.</td></tr>
+    <tr><td>Click a highlight</td><td>Opens its memo card in the note pane so you can edit it, opening the note beside the document if it is not visible. A highlight that is in no note gets a small popover to change the color, write a memo, send it to a note, or delete it.</td></tr>
     <tr><td>Click a memo card's source</td><td>The PDF jumps to the spot. “Show in source” in the card menu does the same, and “Delete highlight and memo” removes it.</td></tr>
   </table>
 
@@ -290,7 +290,7 @@
   </div>
 
   <h3>The connector lines</h3>
-  <p>The note bar is fixed at the right edge of the window, so even with several panes the connector lines cross the other panes to reach their cards. A line has the color of its highlight. The eye button on the toolbar, “Hide all marks”, hides highlights, memos and lines at once. Undo (<kbd>Ctrl</kbd>+<kbd>Z</kbd>) reverts changes to highlights, drawings and memo notes without touching what another window added.</p>
+  <p>Connector lines join a document pane and the note pane next to it when both have the same color dot. A card whose document is not next to it shows “→ document name”, which brings that document into view. A line has the color of its highlight. The eye button on the toolbar, “Hide all marks”, hides highlights, memos and lines at once. Undo (<kbd>Ctrl</kbd>+<kbd>Z</kbd>) reverts changes to highlights, drawings and memo notes without touching what another window added.</p>
 
   <div class="try"><span class="tag">Try it 2</span>
     <ol>
@@ -372,18 +372,18 @@
   <div class="req"><b>REQ-04</b> Text to translate must only be sent where the user chose.</div>
   <p>The example note in this Vault already holds REQ-01 and REQ-03 as tickets.</p>
 
-  <h3>Working with the note bar</h3>
+  <h3>Working with the note pane</h3>
   <table class="free">
-    <tr><td>Switch note</td><td>Click the arrow beside the note title to list this PDF's notes and other notes, and to create a note for this PDF. The magnifier searches all notes.</td></tr>
+    <tr><td>Open note</td><td>Click the arrow beside the note title to list this PDF's notes and other notes; the note you pick opens as a tab. You can also create a note for this PDF or move this note to the trash there. The magnifier searches all memos.</td></tr>
     <tr><td>Notes per PDF</td><td>Expand the caret on a PDF row in the left “Explorer” to see that PDF's notes under it, and create new ones there.</td></tr>
-    <tr><td>Show memos only</td><td>Spreads the note into a wide column with an outline. Good for organizing and polishing; “Show with document” brings the PDF back.</td></tr>
+    <tr><td>Wide view</td><td>Drag the note pane wide (about 460px and up) and it becomes a wide column with an outline. Good for organizing and polishing; narrow it again for the card list.</td></tr>
     <tr><td>Expand all memos</td><td>Opens or closes the quoted source text on every memo card at once. “Insert text block” (+) adds free writing to the note.</td></tr>
   </table>
 
   <div class="try"><span class="tag">Try it</span>
     <ol>
       <li>Highlight the REQ-02 sentence to make a memo, then press “+ ID” on it and enter REQ-02. Add a title with “+ Title”.</li>
-      <li>Turn on “Show memos only” at the top of the note bar, look at the outline, then close it.</li>
+      <li>Drag the note pane wide to see the outline, then narrow it again.</li>
     </ol>
   </div>
   <div class="foot"><span>IWAE User Guide</span><span class="pn">7</span></div>
@@ -414,7 +414,7 @@
   <p>Group the draft, revised and final files of one document as its versions and switch between them. Use “Group with another file as versions…” on a file row; ungrouping leaves the files as they are. The PDF tool “Compare text with another version” (<a href="#p9">p. 9</a>) shows only what changed between two versions, side by side.</p>
 
   <h3>Zoom each bar separately</h3>
-  <p>Ctrl+wheel over the left bar, the right note bar or the library zooms each one separately between 80% and 150%. The values are saved and do not affect PDF zoom. The size of the whole interface is set under “Interface size” in Settings.</p>
+  <p>Ctrl+wheel over the left bar, the note pane (card list view) or the library zooms each one separately between 80% and 150%. The values are saved and do not affect PDF zoom. The size of the whole interface is set under “Interface size” in Settings.</p>
 
   <div class="try"><span class="tag">Try it</span>
     <ol>

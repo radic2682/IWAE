@@ -9,7 +9,7 @@
       { "kind": "memo", "page": 3, "quote": "A Vault is a plain folder, so you can copy or back it up with your file manager.", "note": "Copying the whole Vault folder is a backup. App records live in `.iwae`." },
       { "kind": "memo", "page": 4, "quote": "Drag a tab to the edge of a pane and a new pane is created on that side.", "note": "Tabs reorder, move between panes, split at an edge, or detach into a window, all by dragging. Drag a detached window's tab back onto a tab bar to reattach it." },
       { "kind": "section", "title": "Marking and capturing" },
-      { "kind": "memo", "page": 5, "quote": "A highlighted sentence is linked to its memo card by a thin line.", "note": "The line has the highlight's color. With several panes the note bar stays at the right edge, so lines cross the other panes to reach it." },
+      { "kind": "memo", "page": 5, "quote": "A highlighted sentence is linked to its memo card by a thin line.", "note": "The line has the highlight's color. When a document pane and a note pane sit next to each other with the same color, the line joins the two." },
       { "kind": "memo", "page": 6, "quote": "A captured box can be resized by dragging its edges and corners.", "note": "If a captured table got cut off, drag the box to fit it again." },
       { "kind": "section", "title": "Working with notes" },
       { "kind": "memo", "page": 7, "quote": "Drag the handle on the left to change the order of blocks.", "note": "Dragging a section moves the blocks under it too." },
