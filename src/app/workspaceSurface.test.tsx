@@ -9,6 +9,8 @@ import { paneNode, splitLeaf } from '../core/layoutTree'
 import { InputSettings } from './BehaviorSettings'
 import { FloatLayer } from './FloatLayer'
 import { PaneCard } from './PaneCard'
+import { PaneTabsMenu } from './PaneTabsMenu'
+import { cssRules, cssSource, rulesMatching } from './cssRules.testutil'
 import { PrefixChip } from './PrefixChip'
 import { SplitPanes, snapRect } from './SplitPanes'
 import { useOverlayToolShortcuts } from './PaneToolbar'
@@ -19,7 +21,7 @@ import {
   REACTION_FLASH_MS, flashReaction, paneReactionOf, reactingPanes, resetPaneReaction, setHoverReaction, usePaneReaction,
   type ReactionInput,
 } from './paneReaction'
-import type { PanesState } from './tabs'
+import type { PanesState, TabsState } from './tabs'
 
 afterEach(() => { cleanup(); resetPaneReaction(); vi.useRealTimers() })
 
@@ -31,15 +33,25 @@ const rule = (source: string, selector: string) => {
 }
 
 describe('아래 상태 줄 · 「⌘ 명령」 단추 · 접두키 칩', () => {
-  it('접두키 칩은 대기(prefix · confirm) 중에만 그려지고 평소(idle)에는 아무것도 없다', () => {
+  it('접두키 칩의 알림 영역(role=status)은 늘 그려져 있고 글만 바뀐다(스크린 리더가 바뀐 글을 읽는다). 평소(idle)에는 글이 비고 보이지 않는다', () => {
     const { container, rerender } = render(<PrefixChip phase="idle" prefixText="Ctrl+B" confirmText="화면을 닫을까요? y/n" />)
-    expect(container.firstChild).toBeNull()
+    const region = screen.getByRole('status')
+    expect(container.firstChild).toBe(region)
+    expect(region.textContent).toBe('')
+    expect(region.getAttribute('data-phase')).toBe('idle')
     rerender(<PrefixChip phase="prefix" prefixText="Ctrl+B" confirmText="화면을 닫을까요? y/n" />)
-    expect(screen.getByRole('status').textContent).toBe('Ctrl+B …')
+    // 같은 요소가 그대로 있고 글만 바뀐다 — aria-label 이 내용을 가리지 않는다
+    expect(screen.getByRole('status')).toBe(region)
+    expect(region.textContent).toBe('Ctrl+B …')
+    expect(region.hasAttribute('aria-label')).toBe(false)
     rerender(<PrefixChip phase="confirm" prefixText="Ctrl+B" confirmText="화면을 닫을까요? y/n" />)
-    expect(screen.getByRole('status').textContent).toBe('화면을 닫을까요? y/n')
+    expect(screen.getByRole('status')).toBe(region)
+    expect(region.textContent).toBe('화면을 닫을까요? y/n')
     rerender(<PrefixChip phase="idle" prefixText="Ctrl+B" confirmText="" />)
-    expect(container.firstChild).toBeNull()
+    expect(screen.getByRole('status')).toBe(region)
+    expect(region.textContent).toBe('')
+    // 평소에는 눈에 보이지 않는다(자리는 절대 위치라 아무것도 밀지 않는다)
+    expect(rule(css('prefix-chip.css'), ".prefix-chip[data-phase='idle']")).toContain('opacity: 0;')
   })
 
   it('칩은 맨 위 줄 안에서 흐름 밖(절대 위치)이라 나타나도 도구줄이 줄지 않고, 칸 위를 덮지 않는다. UI 글꼴 키캡 · 높이 24 · 줄 가운데 · 눌리지 않음 · 움직임 없음', () => {
@@ -113,12 +125,13 @@ describe('만지는 칸 · 채널 가장자리 · 빈 칸 (PaneCard)', () => {
       expect(onFocusPane).not.toHaveBeenCalled()
     })
 
-    it('이미 만지는 칸이면 누를 때마다 다시 하지 않는다', () => {
+    it('이미 만지는 칸이어도 부른다 — 칸 안에서 탭을 바꾼 뒤 눌러도 연결 경로를 다시 잡는다(이미 그 칸이면 focusPane 이 아무것도 하지 않는다)', () => {
       const { onFocusPane } = setup(true)
       press(screen.getByText('본문'))
+      expect(onFocusPane).toHaveBeenCalledExactlyOnceWith('a')
       press(screen.getByRole('tab'))
       fireEvent.pointerUp(window, { clientX: 10, clientY: 10 })
-      expect(onFocusPane).not.toHaveBeenCalled()
+      expect(onFocusPane).toHaveBeenCalledTimes(2)
     })
 
     it('탭을 눌러 끌기 시작하면 끄는 동안 칸을 바꾸지 않는다(상단바 도구줄이 흔들리지 않게). 끌지 않고 놓으면 그때 바꾼다', () => {
@@ -553,16 +566,36 @@ describe('D1 · 노트 서식 줄과 노트 단추 묶음은 한 덩어리로 �
   })
 })
 
-describe('D2 · 좁은 탭도 알약으로 읽힌다', () => {
-  it('탭 폭 76px 이하: 다른 탭은 아이콘만 · 보는 탭은 × 만 남고, 아이콘만 남은 탭은 알약 바탕(옅은 바탕 · 올리면 진하게)을 가진다. 탭 최소 폭 40px', () => {
-    const surface = css('workspace-surface.css')
-    const query = surface.slice(surface.indexOf('@container (max-width: 76px) {'))
-    const block = query.slice(0, query.indexOf('\n}\n'))
-    expect(block).toContain('.pane-head .pane-top-tab-label { display: none; }')
-    expect(block).toMatch(/\.pane-top-tab:not\(\.pane-top-tab-active\) \.pane-top-tab-title \{[^}]*border-radius: var\(--r-sm\);[^}]*background: color-mix\(in srgb, var\(--text-strong\) 5%, transparent\)/u)
-    expect(block).toMatch(/:not\(\.pane-top-tab-active\):hover \.pane-top-tab-title \{[^}]*9%/u)
-    expect(rule(surface, '.pane-head .pane-top-tab')).toMatch(/min-width: 40px;/u)
-    expect(rule(surface, '.pane-head .pane-top-tab')).toMatch(/height: var\(--icon-btn\);/u)
+describe('D2 · 탭 닫기 × 와 좁은 탭', () => {
+  const tabs: TabsState = { tabs: [{ id: 'a', title: 'Alpha', kind: 'pdf' }, { id: 'b', title: 'Beta', kind: 'pdf' }], activeId: 'a' }
+  const allRules = readdirSync(join(__dirname, '../ui')).filter((name) => name.endsWith('.css')).flatMap((name) => cssRules(cssSource(name)))
+
+  it('안 보이는 탭의 × 도 보인다: 이 칸 머리의 × 에 걸리는 규칙 가운데 투명 · 숨김으로 만드는 것이 없다(좁은 탭 조건부 규칙은 따로)', () => {
+    const { container } = render(<div className="pane-head"><PaneTabsMenu state={tabs} label="탭" onActivate={vi.fn()} onClose={vi.fn()} /></div>)
+    for (const id of ['a', 'b']) {
+      const close = container.querySelector(`[data-tab-id="${id}"] .pane-top-tab-close`)!
+      const hiding = rulesMatching(close, allRules).filter((rule) => /(^|;|\s)(opacity:\s*0\s*[;}]?|visibility:\s*hidden|display:\s*none)/u.test(`${rule.body};`))
+      expect(hiding.map((rule) => rule.selectors.join(', '))).toEqual([])
+    }
+  })
+
+  it('좁은 탭(탭 폭 76px 이하): 안 보이는 탭만 아이콘 알약이 되고, 보는 탭은 min-width 128px 라 이 구간에 들지 않아 조건부 규칙에 보는 탭 선택자가 없다', () => {
+    const { container } = render(<div className="pane-head"><PaneTabsMenu state={tabs} label="탭" onActivate={vi.fn()} onClose={vi.fn()} /></div>)
+    const narrow = allRules.filter((rule) => rule.at === '@container (max-width: 76px)')
+    expect(narrow.length).toBeGreaterThan(0)
+    expect(narrow.flatMap((rule) => rule.selectors).filter((selector) => selector.includes('pane-top-tab-active') && !selector.includes(':not(.pane-top-tab-active)'))).toEqual([])
+    const active = container.querySelector('[data-tab-id="a"]')!
+    const inactive = container.querySelector('[data-tab-id="b"]')!
+    const minWidth = /min-width:\s*(\d+)px/u.exec(rulesMatching(active, allRules).filter((rule) => rule.selectors.some((selector) => selector.includes('.pane-top-tab-active'))).map((rule) => rule.body).join(';'))
+    expect(Number(minWidth?.[1])).toBeGreaterThan(76)
+    // 안 보이는 탭: 이름 감춤 · 알약 바탕 · 올리면 진하게, 최소 폭 40px · 높이 28px
+    const labelRule = narrow.find((rule) => rule.selectors.includes('.pane-head .pane-top-tab-label'))
+    expect(labelRule?.body).toContain('display: none')
+    expect(narrow.some((rule) => rule.selectors.some((selector) => selector.includes(':not(.pane-top-tab-active) .pane-top-tab-title')) && /border-radius: var\(--r-sm\)/u.test(rule.body) && /5%/u.test(rule.body))).toBe(true)
+    expect(narrow.some((rule) => rule.selectors.some((selector) => selector.includes(':hover .pane-top-tab-title')) && /9%/u.test(rule.body))).toBe(true)
+    const pill = rulesMatching(inactive, allRules).map((rule) => rule.body).join(';')
+    expect(pill).toMatch(/min-width:\s*40px/u)
+    expect(pill).toMatch(/height:\s*var\(--icon-btn\)/u)
   })
 })
 
@@ -574,5 +607,28 @@ describe('toolbarOwnerOf — 상단바 도구줄의 주인', () => {
     expect(toolbarOwnerOf(tab('memoNote'), 'green', 2)?.kind).toBe('memoNote')
     expect(toolbarOwnerOf(tab('canvas'), 'blue', 0)).toBeNull()
     expect(toolbarOwnerOf(null, 'blue', 0)).toBeNull()
+  })
+})
+
+describe('상단바 도구줄 · 앱 단추의 키보드 초점 고리', () => {
+  const allRules = readdirSync(join(__dirname, '../ui')).filter((name) => name.endsWith('.css')).flatMap((name) => cssRules(cssSource(name)))
+  const noRing = (element: Element) => {
+    ;(element as HTMLElement).focus()
+    const hits = rulesMatching(element, allRules.map((rule) => ({ ...rule, selectors: rule.selectors.map((selector) => selector.split(':focus-visible').join(':focus')) })))
+    // jsdom 의 선택자 엔진은 :is(…:focus…) 를 느슨하게 맞춘다: 이 요소의 클래스를 실제로 가리키는 규칙만 본다
+    const own = [...element.classList].map((name) => `.${name}`)
+    return hits
+      .filter((rule) => /outline:\s*(none|0)\b/u.test(rule.body) && rule.selectors.some((selector) => own.some((name) => selector.includes(name))))
+      .map((rule) => rule.selectors.join(', '))
+  }
+
+  it('도구 단추 · 노트 도구 단추 · 앱 단추에 :focus-visible 일 때 outline 을 없애는 규칙이 없다(focus-ring.css 의 강조색 고리가 그대로 보인다)', () => {
+    document.body.innerHTML = `<div class="topbar"><div class="topbar-session-row">
+      <div class="topbar-toolbar-host"><div class="pane-toolbar topbar-toolbar-slot"><button class="toolbar-tool-btn pdf-compact-tool" aria-label="도구">t</button><div class="memo-note-tab-actions"><button class="pdf-memo-header-button" aria-label="검색">s</button></div><button class="pdf-memo-format-button" aria-label="굵게">b</button></div></div>
+      <div class="topbar-app-group"><button class="topbar-app-btn" aria-label="번역기">x</button></div></div></div>`
+    for (const selector of ['.toolbar-tool-btn', '.pdf-memo-header-button', '.pdf-memo-format-button', '.topbar-app-btn']) {
+      expect(noRing(document.querySelector(selector)!), selector).toEqual([])
+    }
+    document.body.innerHTML = ''
   })
 })

@@ -51,7 +51,10 @@ body.pane-tab-dragging :is(.sidebar, .topbar) * { pointer-events: none !importan
 .tab-drag-ghost .pane-top-tab:not(.pane-top-tab-active),
 .tab-drag-ghost .pane-top-tab.pane-top-tab-active {
   margin: 0 !important;
-  border-radius: var(--r-md) !important;
+  /* 끌어 든 탭도 칸 머리의 알약과 같다: 높이 28 · 둥글기 --r-sm (이 규칙이 들린 탭 모양의 유일한 자리다) */
+  height: var(--icon-btn) !important;
+  align-items: center;
+  border-radius: var(--r-sm) !important;
   border: 1px solid var(--divider-strong) !important;
   background: var(--paper) !important;
   color: var(--ink) !important;

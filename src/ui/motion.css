@@ -161,12 +161,7 @@ li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron
 .ai-settings-switch[aria-checked='true']:active:not(:disabled) > span,
 .settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']:checked:active::before { transform: translateX(12px); }
 /* ================= 탭·분할 ================= */
-/* 탭 끌기: 들린 탭 · 놓을 자리 미리보기 모두 넘치지 않는 ease-out 으로 따라온다(스프링 없음). 나뉘어 새로 생긴 칸은 애니메이션 없이 바로 나타난다 */
-.tab-drag-ghost .pane-top-tab,
-.tab-drag-ghost .pane-top-tab:not(.pane-top-tab-active),
-.tab-drag-ghost .pane-top-tab.pane-top-tab-active {
-  transition: scale var(--motion-base) var(--ease-out), box-shadow var(--motion-base) ease;
-}
+/* 탭 끌기: 놓을 자리 미리보기는 넘치지 않는 ease-out 으로 따라온다(스프링 없음; 들린 탭의 움직임은 tab-drag.css). 나뉘어 새로 생긴 칸은 애니메이션 없이 바로 나타난다 */
 .tab-dock-preview {
   transition:
     left var(--motion-base) var(--ease-out),

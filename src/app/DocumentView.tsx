@@ -551,6 +551,8 @@ export function DocumentView(props: DocumentViewProps) {
   useOverlayToolShortcuts(props.shortcutTarget && props.paneActive !== false, setToolMode)
   const toolbar = (
     <PaneToolbar
+      // 종류가 바뀌면(같은 칸에서 PDF 탭 → Markdown 탭) 도구줄을 새로 그려 그 종류의 기억(넘침 단계 · 검색 단추)을 받는다
+      key={tab.kind === 'markdown' ? 'markdown' : 'pdf'}
       kind={tab.kind === 'markdown' ? 'markdown' : 'pdf'}
       mode={toolMode}
       onModeChange={setToolMode}

@@ -14,12 +14,12 @@ import { usePaneReaction } from './paneReaction'
 const TAB_PRESS_SLOP_PX = 4
 
 /**
- * 카드를 누르면 그 칸을 만지는 칸으로: 왼쪽 단추(button 0)만, 이미 만지는 칸이면 하지 않는다(오른쪽 · 가운데 클릭이나 같은 칸을 또 눌러
- * 상단바 도구줄과 연결 경로를 다시 바꾸지 않는다). 탭을 누른 것은 끌기의 시작일 수 있으므로 놓을 때(움직이지 않았을 때)로 미룬다 —
+ * 카드를 누르면 그 칸을 만지는 칸으로: 왼쪽 단추(button 0)만(오른쪽 · 가운데 클릭으로는 바꾸지 않는다). 이미 만지는 칸이어도 부른다 — 칸 안에서 탭을 바꾼 뒤 누르면
+ * 연결 경로(노트 · 문서가 오는 칸)를 이 칸으로 다시 잡아야 한다(`focusPane` 은 이미 그 칸이고 경로도 같으면 아무것도 하지 않는다). 탭을 누른 것은 끌기의 시작일 수 있으므로 놓을 때(움직이지 않았을 때)로 미룬다 —
  * 끄는 동안 상단바 도구줄이 바뀌면 끌기 위의 화면이 흔들린다.
  */
-function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, active: boolean, onFocusPane: (paneId: string) => void): void {
-  if (event.button !== 0 || active) return
+function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onFocusPane: (paneId: string) => void): void {
+  if (event.button !== 0) return
   if (!(event.target instanceof Element) || event.target.closest('[role="tab"]') === null) { onFocusPane(paneId); return }
   const startX = event.clientX
   const startY = event.clientY
@@ -54,7 +54,7 @@ export function PaneCard({ paneId, channel, active, empty = false, className = '
     <div
       className={`pane-card${active ? ' pane-card-active' : ''}${className === '' ? '' : ` ${className}`}`}
       data-card-pane={paneId}
-      onPointerDownCapture={onFocusPane === undefined ? undefined : (event) => focusOnPress(event, paneId, active, onFocusPane)}
+      onPointerDownCapture={onFocusPane === undefined ? undefined : (event) => focusOnPress(event, paneId, onFocusPane)}
       data-channel={channel ?? 'none'}
       data-empty={empty ? '' : undefined}
       data-reacting={reacting ?? undefined}

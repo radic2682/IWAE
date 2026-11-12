@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { HighlighterStrip } from '../pdf/HighlighterTool'
 import { PaneToolbar } from './PaneToolbar'
-import { resetPaneToolbarMemory } from './paneToolbarMemory'
+import { freshPaneToolbarMemory, paneToolbarMemoryKeys, prunePaneToolbarMemory, readPaneToolbarMemory, resetPaneToolbarMemory, writePaneToolbarMemory } from './paneToolbarMemory'
 import { PaneIdContext } from './workspaceContext'
 import { PdfBottomBar } from './PdfBottomBar'
 
@@ -33,6 +33,32 @@ describe('PaneToolbar — 칸을 옮겨 만져도 칸마다 상태를 이어 받
     second.unmount()
     render(toolbar('a'))
     expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('같은 칸이어도 문서 종류가 다르면 기억이 따로다(PDF 도구줄의 상태가 Markdown 도구줄로 새지 않는다)', () => {
+    const make = (kind: 'pdf' | 'markdown') => (
+      <PaneIdContext.Provider value="a">
+        <PaneToolbar key={kind} kind={kind} mode="text" onModeChange={vi.fn()} query="" onQueryChange={vi.fn()} />
+      </PaneIdContext.Provider>
+    )
+    const view = render(make('markdown'))
+    fireEvent.click(screen.getByRole('button', { name: '검색' }))
+    expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('true')
+    view.rerender(make('pdf'))
+    expect(screen.queryByRole('button', { name: '검색' })?.getAttribute('aria-pressed') ?? 'false').toBe('false')
+    view.rerender(make('markdown'))
+    expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('true')
+    expect(paneToolbarMemoryKeys()).toContain('a:markdown')
+  })
+
+  it('닫힌 칸의 기억은 prune 으로 버려진다', () => {
+    writePaneToolbarMemory('a', 'pdf', { ...freshPaneToolbarMemory(), overflowLevel: 2, needWidth: [300, 280] })
+    writePaneToolbarMemory('a', 'markdown', freshPaneToolbarMemory())
+    writePaneToolbarMemory('gone:1', 'pdf', freshPaneToolbarMemory())
+    prunePaneToolbarMemory(['a'])
+    expect(paneToolbarMemoryKeys().sort()).toEqual(['a:markdown', 'a:pdf'])
+    expect(readPaneToolbarMemory('a', 'pdf')).toMatchObject({ overflowLevel: 2, needWidth: [300, 280] })
+    expect(readPaneToolbarMemory('gone:1', 'pdf').overflowLevel).toBe(0)
   })
 
   it('칸 id 가 없는(시험 · 단독) 도구줄은 이어 받지 않는다', () => {

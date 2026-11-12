@@ -145,7 +145,7 @@ export function PaneToolbar({
   }
   // 칸을 옮겨 만지면 이 도구줄은 사라졌다 다시 그려진다: 넘침 단계 · 검색 단추 상태는 칸마다 적어 두었다가 이어 받는다(paneToolbarMemory)
   const paneId = useContext(PaneIdContext)
-  const [remembered] = useState(() => readPaneToolbarMemory(paneId))
+  const [remembered] = useState(() => readPaneToolbarMemory(paneId, kind))
   const [toolbarState, updateToolbarState] = useReducer(readerToolReducer, remembered.reader)
   const state: ReaderToolState = {
     ...toolbarState,
@@ -172,7 +172,9 @@ export function PaneToolbar({
   const [overflowLevel, setOverflowLevel] = useState(remembered.overflowLevel)
   const [, setResizeTick] = useState(0)
   const needWidthRef = useRef<number[]>(remembered.needWidth)
-  useEffect(() => { writePaneToolbarMemory(paneId, { overflowLevel, needWidth: needWidthRef.current, reader: toolbarState }) }, [paneId, overflowLevel, toolbarState])
+  // 넘침 단계 · 그 단계를 처음 넘쳤던 너비(needWidth) · 검색 단추 상태가 바뀔 때마다 (칸, 종류)별로 적는다
+  const needWidthKey = needWidthRef.current.join(',')
+  useEffect(() => { writePaneToolbarMemory(paneId, kind, { overflowLevel, needWidth: needWidthRef.current, reader: toolbarState }) }, [paneId, kind, overflowLevel, needWidthKey, toolbarState])
   const [moreOpen, setMoreOpen] = useState<{ top: number; right: number } | null>(null)
   useLayoutEffect(() => {
     const bar = leftRef.current?.parentElement

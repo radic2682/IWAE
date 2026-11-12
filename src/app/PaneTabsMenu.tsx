@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import './menuGuard'
 import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { ChannelDot } from './ChannelDot'
@@ -6,7 +7,7 @@ import type { PaneChannel } from './workspaceChannels'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
 import { platformShortcut } from '../core/platform'
-import { hasHiddenTabs, subFitsInTitle } from './tabStripOverflow'
+import { hasHiddenTabs, subFitsInTitle, tabsWithHiddenTitle } from './tabStripOverflow'
 import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
 import type { DockEdge } from './tabDock'
 import { popIn, slideFrom } from './motion'
@@ -152,6 +153,19 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     observer.observe(strip)
     return () => observer.disconnect()
   }, [subKey, activeTitle, state.activeId, state.tabs.length])
+  // 이름이 잘렸거나 아이콘만 남은 탭에만 말풍선(title)을 단다: 이름이 다 보이는 탭에는 같은 이름의 말풍선이 또 뜨지 않게
+  const [hiddenTitles, setHiddenTitles] = useState('')
+  const titlesKey = state.tabs.map((tab) => `${tab.id}${tab.title}`).join('')
+  useLayoutEffect(() => {
+    const strip = stripRef.current
+    if (strip === null) return undefined
+    const measure = () => setHiddenTitles(tabsWithHiddenTitle(strip).join(''))
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(strip)
+    return () => observer.disconnect()
+  }, [titlesKey, state.activeId, subKey, subFits, renaming])
   // 끌기를 마친 직후 따라오는 click 은 탭 전환이 아니다.
   const suppressClickRef = useRef(false)
   // 끄는 동안 다시 그려져도 최신 값을 읽도록 ref 로 둔다
@@ -292,8 +306,8 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
               }}
               onPointerDown={(event) => {
                 if ((event.target as HTMLElement).closest('.pane-top-tab-close') !== null || event.button !== 0) return
-                // 크롬처럼 누르는 순간 그 탭이 보이는 탭이 된다
-                if (tab.id !== state.activeId) onActivate(tab.id)
+                // 누르는 순간에는 아무것도 바꾸지 않는다: 안 보이는 탭을 끌어도 보이는 탭 · 만지는 칸 · 상단바 도구줄이 바뀌지 않는다.
+                // 탭이 보이는 탭이 되고 칸이 만지는 칸이 되는 것은 놓을 때(onClick)다 — 끌었으면 click 이 막혀 아무것도 바뀌지 않는다
                 startTabDrag(event, event.currentTarget, () => dragHostRef.current(tab))
               }}
             >
@@ -323,7 +337,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 role="tab"
                 aria-selected={active}
                 tabIndex={active || (state.activeId === null && tab === state.tabs[0]) ? 0 : -1}
-                title={canRenameTab?.(tab) === true ? t('{title} · 두 번 눌러 이름 바꾸기', { title: tab.title }) : tab.title}
+                title={hiddenTitles.split('').includes(tab.id) ? (canRenameTab?.(tab) === true ? t('{title} · 두 번 눌러 이름 바꾸기', { title: tab.title }) : tab.title) : undefined}
                 onDoubleClick={onRenameTab !== undefined && canRenameTab?.(tab) === true ? () => setRenaming(tab.id) : undefined}
                 onKeyDown={(event) => {
                   // 탭 줄 방향키: ←→ 이웃 탭(자동으로 보이게), Home·End 처음·끝

@@ -133,6 +133,15 @@ describe('TopBar', () => {
       expect(container.textContent).not.toContain('명령')
     })
 
+    it('주인 칩은 접근성 이름을 가진다: 「칸 2 · PDF 도구」 · 「떠 있는 칸 · Markdown 도구」 · 「칸 0 · 노트 도구」', () => {
+      const { rerender } = render(<TopBar {...props} toolbarOwner={{ channel: 'green', number: 2, kind: 'pdf' }} />)
+      expect(screen.getByRole('img', { name: '칸 2 · PDF 도구' })).toBeDefined()
+      rerender(<TopBar {...props} toolbarOwner={{ channel: null, number: null, kind: 'markdown' }} />)
+      expect(screen.getByRole('img', { name: '떠 있는 칸 · Markdown 도구' })).toBeDefined()
+      rerender(<TopBar {...props} toolbarOwner={{ channel: 'blue', number: 0, kind: 'memoNote' }} />)
+      expect(screen.getByRole('img', { name: '칸 0 · 노트 도구' })).toBeDefined()
+    })
+
     it('도구줄 주인 칩: 만지는 칸이 도구줄을 가진 종류일 때만 색 점 · 칸 번호 · 문서 종류 아이콘이 도구줄 앞에 붙는다', () => {
       const { container, rerender } = render(<TopBar {...props} toolbarOwner={{ channel: 'green', number: 2, kind: 'markdown' }} />)
       const chip = container.querySelector('.topbar-owner-chip') as HTMLElement

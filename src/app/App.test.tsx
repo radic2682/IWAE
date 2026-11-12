@@ -1045,7 +1045,7 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     openMenu(0)
     const menu = screen.getByRole('menu', { name: '칸 메뉴' })
     expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-      '오른쪽으로 나누기Ctrl+B %', '아래로 나누기Ctrl+B "', '크게Ctrl+B z', '새 화면으로 떼기Ctrl+B !', '띄우기float-pane', '칸 자리 바꾸기Ctrl+B { }', '색 바꾸기파랑', '칸 닫기Ctrl+B x',
+      '오른쪽으로 나누기Ctrl+B %', '아래로 나누기Ctrl+B "', '이 칸만 크게Ctrl+B z', '새 화면으로 떼기Ctrl+B !', '띄우기', '칸 자리 바꾸기Ctrl+B { }', '색 바꾸기파랑', '칸 닫기Ctrl+B x',
     ])
     pick(/오른쪽으로 나누기/u)
     expect(cells(container)).toHaveLength(3)
@@ -1242,8 +1242,8 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
   const press = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
   const prefix = () => press({ key: 'b', code: 'KeyB', ctrlKey: true })
   const after = (init: KeyboardEventInit) => { prefix(); press(init) }
-  /** 접두키 대기 칩의 글(없으면 undefined) */
-  const chipText = () => document.querySelector('.prefix-chip')?.textContent ?? undefined
+  /** 접두키 대기 칩의 글(알림 영역은 늘 있고 평소에는 글이 빈다 — 빈 글이면 undefined) */
+  const chipText = () => { const text = document.querySelector('.prefix-chip')?.textContent; return text === undefined || text === '' ? undefined : text }
   /** 가장 최근의 짧은 알림(토스트) */
   const statusMessage = () => { const texts = [...document.querySelectorAll('.notice-toast')].map((toast) => toast.textContent); return texts.length === 0 ? undefined : texts.join(' | ') }
   // 「:」 명령줄은 명령 팔레트가 「:」 로 채워져 열린 것이다(아래 상태 줄은 없다)
@@ -1623,6 +1623,19 @@ describe('App — 떠 있는 칸', () => {
     await waitFor(() => expect(statusMessage()).toContain('번역이 꺼져 있습니다'))
     expect(document.querySelector('.translator-window')).toBeNull()
     expect(getTranslatorWindow().open).toBe(false)
+  })
+
+  it('번역을 꺼 둔 설정에서는 저장된 열림(open:true)이 있어도, 다른 창이 열어도 번역기 창을 그리지 않고 닫아 둔다', async () => {
+    localStorage.setItem('iwae:translation-settings:v1', JSON.stringify({ executionMode: 'auto', enabled: false }))
+    localStorage.setItem('iwae:translator-window:v1', JSON.stringify({ open: true, x: null, y: null, w: 340, h: 300 }))
+    reloadTranslatorWindow()
+    render(<App developmentPreview />)
+    await waitFor(() => expect(getTranslatorWindow().open).toBe(false))
+    expect(document.querySelector('.translator-window')).toBeNull()
+    // 다른 창의 동기화(storage 이벤트) · 예전 값 옮기기로 다시 열려도 같다
+    act(() => { updateTranslatorWindow({ open: true }) })
+    await waitFor(() => expect(getTranslatorWindow().open).toBe(false))
+    expect(document.querySelector('.translator-window')).toBeNull()
   })
 
   it('번역기 창은 어느 칸 · 탭에도 속하지 않는다: 칸을 옮기고 닫아도 그대로 떠 있다', async () => {

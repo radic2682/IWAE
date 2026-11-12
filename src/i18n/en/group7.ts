@@ -317,7 +317,6 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '칸 메뉴': 'Pane menu',
   '오른쪽으로 나누기': 'Split to the right',
   '아래로 나누기': 'Split downward',
-  '크게': 'Zoom',
   '새 화면으로 떼기': 'Break out to a new screen',
   '칸 자리 바꾸기': 'Swap pane position',
   '칸 {n}': 'Pane {n}',

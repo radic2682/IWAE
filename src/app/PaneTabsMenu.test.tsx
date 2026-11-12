@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import type { TabsState } from './tabs'
@@ -110,5 +110,36 @@ describe('PaneTabsMenu', () => {
     expect(screen.queryByText('열린 캔버스 없음')).toBeNull()
     fireEvent.contextMenu(empty)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('PaneTabsMenu — 말풍선(title)은 이름이 다 안 보이는 탭에만', () => {
+  const three: TabsState = {
+    tabs: [
+      { id: 'a', title: 'Fits', kind: 'pdf' },
+      { id: 'b', title: 'A very long title that is cut', kind: 'pdf' },
+      { id: 'c', title: 'Icon only', kind: 'pdf' },
+    ],
+    activeId: 'a',
+  }
+  const widths = { clientWidth: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth'), scrollWidth: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollWidth') }
+  afterEach(() => {
+    if (widths.clientWidth !== undefined) Object.defineProperty(HTMLElement.prototype, 'clientWidth', widths.clientWidth)
+    if (widths.scrollWidth !== undefined) Object.defineProperty(Element.prototype, 'scrollWidth', widths.scrollWidth)
+    document.head.querySelectorAll('style[data-test]').forEach((style) => style.remove())
+  })
+
+  it('이름이 다 보이는 탭에는 title 이 없고, 줄임표로 잘린 탭 · 아이콘만 남은 탭에만 이름이 말풍선으로 붙는다', () => {
+    // jsdom 에는 레이아웃이 없다: 탭 폭 200 · 이름 칸 폭 50, 긴 이름만 내용이 120(잘림)
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return (this as HTMLElement).classList.contains('pane-top-tab-label') ? 50 : 200 } })
+    Object.defineProperty(Element.prototype, 'scrollWidth', { configurable: true, get() { return (this as HTMLElement).textContent?.startsWith('A very long') === true && (this as HTMLElement).classList.contains('pane-top-tab-label') ? 120 : 50 } })
+    const style = document.createElement('style')
+    style.dataset.test = ''
+    style.textContent = '[data-tab-id="c"] .pane-top-tab-label { display: none; }'
+    document.head.append(style)
+    render(<PaneTabsMenu state={three} label="PDF" onActivate={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByRole('tab', { name: 'Fits' }).hasAttribute('title')).toBe(false)
+    expect(screen.getByRole('tab', { name: 'A very long title that is cut' }).getAttribute('title')).toBe('A very long title that is cut')
+    expect(screen.getByRole('tab', { name: 'Icon only' }).getAttribute('title')).toBe('Icon only')
   })
 })

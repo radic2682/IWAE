@@ -22,6 +22,12 @@ import type { ToolbarOwner } from './topBarToolbar'
 import '../ui/screens.css'
 import { t } from '../i18n'
 
+/** 주인 칩의 접근성 이름: 「칸 2 · PDF 도구」 · 「떠 있는 칸 · Markdown 도구」(색 점 · 숫자 · 아이콘은 눈으로만 읽히므로) */
+export function ownerLabel(owner: ToolbarOwner): string {
+  const pane = owner.number === null ? t('떠 있는 칸') : t('칸 {n}', { n: owner.number })
+  return owner.kind === 'markdown' ? t('{pane} · Markdown 도구', { pane }) : owner.kind === 'memoNote' ? t('{pane} · 노트 도구', { pane }) : t('{pane} · PDF 도구', { pane })
+}
+
 export type SidebarMode = 'library' | 'thumbnails' | 'outline' | 'tools' | 'search'
 
 interface TopBarProps {
@@ -56,9 +62,9 @@ interface TopBarProps {
   }
   /** 도구줄 자리(화면 탭과 창 단추 사이)의 요소를 App 에 알린다. 지금 만지는 칸의 도구줄이 포털로 여기에 그려진다(topBarToolbar.tsx) */
   toolbarSlotRef?: (element: HTMLElement | null) => void
-  /** 도구줄을 가진 칸이 만지는 칸일 때 그 주인: 색 점 · 칸 번호 · 문서 종류 아이콘 칩이 도구줄 앞에 붙는다(어느 칸의 도구인지 보이게). 없으면(빈 칸 · 캔버스) 칩도 구분선도 없다 */
   /** 맨 위 줄 안의 짧은 상태 칩 자리(접두키 대기). 도구줄 묶음 뒤 남는 자리에 놓여 아무것도 밀지 않는다 */
   statusChip?: React.ReactNode
+  /** 도구줄을 가진 칸이 만지는 칸일 때 그 주인: 색 점 · 칸 번호 · 문서 종류 아이콘 칩이 도구줄 앞에 붙는다(어느 칸의 도구인지 보이게). 없으면(빈 칸 · 캔버스) 칩도 구분선도 없다 */
   toolbarOwner?: ToolbarOwner | null
 }
 
@@ -219,10 +225,10 @@ export function TopBar({
           />
         )}
         {/* 지금 만지는 칸의 도구줄(MD · PDF 도구 · 노트 서식 줄). 남는 폭을 다 쓰고, 모자라면 도구줄이 스스로 「⋯」 로 접는다.
-            바깥은 .pane-doc 별칭이다: 칸 안에서 쓰던 도구 단추 규칙(.pane-doc …)이 그대로 맞는다 */}
+            앞의 주인 칩(색 점 · 칸 번호 · 문서 종류)은 어느 칸의 도구인지 보이고, 도구 단추 규칙은 이 자리의 자기 규칙(.topbar-toolbar-host …)이다 */}
         <div className="topbar-toolbar-host" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
           {toolbarOwner === null ? null : (
-            <span className="topbar-owner-chip" data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 지금 만지는 칸의 것입니다')}>
+            <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 지금 만지는 칸의 것입니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />
               {toolbarOwner.number === null ? null : <span className="topbar-owner-number">{toolbarOwner.number}</span>}
               {toolbarOwner.kind === 'markdown' ? <FileText size={16} aria-hidden="true" /> : toolbarOwner.kind === 'memoNote' ? <NotePencil size={16} aria-hidden="true" /> : <FilePdf size={16} aria-hidden="true" />}

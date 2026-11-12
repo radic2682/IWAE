@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import './menuGuard'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
@@ -47,6 +48,7 @@ import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
 import { EmptyPane, type EmptyPaneRecent } from './EmptyPane'
 import { PrefixChip } from './PrefixChip'
+import { prunePaneToolbarMemory } from './paneToolbarMemory'
 import { TopBarToolbarContext, toolbarOwnerOf } from './topBarToolbar'
 import { reactingPanes } from './paneReaction'
 import { KeysHelpSheet } from './KeysHelpSheet'
@@ -1439,6 +1441,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (!usable(paneRouteRef.current.doc)) setPaneRoute('doc', paneOrder[0]!)
     if (!usable(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
   }, [orphanKey, floatKey, paneOrder, activePaneId, setPanes, setPaneRoute, paneRouteRef])
+  // 닫힌 칸의 도구줄 기억(넘침 단계 · 검색 단추)은 버린다
+  const livePaneKey = [...paneOrder, ...floatIds].join(' ')
+  useEffect(() => { prunePaneToolbarMemory(livePaneKey === '' ? [] : livePaneKey.split(' ')) }, [livePaneKey])
   const focusPane = useCallback((pane: PaneId) => {
     const tab = activeTab(tabsOf(panes, pane))
     const routes: ('doc' | 'note')[] = tab !== null ? [paneRouteOf(tab.kind)] : ['doc', 'note']
@@ -2659,6 +2664,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
 
   // 번역기 창(앱 창 전체에 떠 있다): 열림은 도구줄 단추 · 접두키 w · display-popup 이 바꾼다
   const translatorWindow = useTranslatorWindow()
+  // 번역을 꺼 두면 번역기 창도 없다: 저장된 열림 · 다른 창의 동기화 · 예전 값 옮기기로 열려 있어도 닫는다(닫는 단추가 있는 상단바 단추도 번역을 꺼 두면 없다)
+  const translationOn = translation.settings.enabled
+  useEffect(() => { if (!translationOn && translatorWindow.open) updateTranslatorWindow({ open: false }) }, [translationOn, translatorWindow.open])
   // 상단바 도구줄의 주인 칩(색 점 · 칸 번호 · 문서 종류): 도구줄이 있는 종류(PDF · MD · 메모 노트)를 보는 칸이 만지는 칸일 때만
   const ownerTab = activeTab(tabsOf(panes, activePaneId))
   const toolbarOwner = toolbarOwnerOf(ownerTab, channelOf(channels, activePaneId), paneOrder.indexOf(activePaneId) < 0 || floatIds.includes(activePaneId) ? null : leaves(layoutRoot).indexOf(activePaneId))
@@ -3460,6 +3468,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       onActivate={(id) => {
         setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), id) }))
         setActivePaneId(pane)
+        // 탭을 바꾸면 노트 · 문서가 오는 칸도 이 칸으로(PDF 탭에서 노트 탭으로 바꾼 뒤의 다음 노트는 이 칸으로 온다)
+        const tab = tabsOf(panes, pane).tabs.find((candidate) => candidate.id === id)
+        if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), pane)
       }}
       onClose={closePaneTab}
       onMoveTab={SPLIT_PANES_ENABLED ? movePaneTab : undefined}
@@ -4344,7 +4355,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     />
     {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
     {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} prefixText={prefixHint} /> : null}
-    <TranslatorPanel />
+    {translationOn ? <TranslatorPanel /> : null}
     {paneNumbersOpen ? <PaneNumbersOverlay panes={paneOrder} activePane={activePaneId} onDone={() => setPaneNumbersOpen(false)} /> : null}
     {paletteOpen ? <CommandPalette commands={paletteCommands()} completion={{ screenNames: screens.map((screen) => screen.name), sessionNames, templateNames: availableScreenTemplates(CANVAS_ENABLED).map((template) => template.label) }} initialQuery={paletteInitial} onRunLine={(line) => { void runWorkspaceLine(line) }} onClose={() => { setPaletteOpen(false); setPaletteInitial('') }} /> : null}
     {shortcutsOpen ? <ShortcutOverlay onClose={() => setShortcutsOpen(false)} onOpenSettings={() => { setSettingsSection('input'); setSettingsOpen(true) }} /> : null}

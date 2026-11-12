@@ -40,3 +40,20 @@ export function subFitsInTitle(title: HTMLElement | null): boolean {
   const need = label.scrollWidth + sep.getBoundingClientRect().width + sub.scrollWidth + others + gap * (count + 2) + padding
   return need <= title.clientWidth
 }
+
+/**
+ * 이름이 다 보이지 않는 탭의 id: 제목이 줄임표(…)로 잘렸거나, 아주 좁아져 아이콘만 남아 이름이 감춰진 탭.
+ * 이런 탭에만 말풍선(title)으로 이름을 보인다 — 이름이 다 보이는 탭에 같은 이름의 말풍선이 또 뜨지 않게.
+ * 레이아웃이 없으면(폭 0, jsdom) 잘린 탭이 없다.
+ */
+export function tabsWithHiddenTitle(strip: HTMLElement): string[] {
+  const hidden: string[] = []
+  for (const tab of Array.from(strip.querySelectorAll<HTMLElement>('.pane-top-tab'))) {
+    const id = tab.dataset.tabId
+    const label = tab.querySelector<HTMLElement>('.pane-top-tab-label')
+    if (id === undefined || label === null || tab.clientWidth <= 0) continue
+    const iconOnly = getComputedStyle(label).display === 'none'
+    if (iconOnly || label.scrollWidth > label.clientWidth) hidden.push(id)
+  }
+  return hidden
+}
