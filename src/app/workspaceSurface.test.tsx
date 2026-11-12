@@ -87,6 +87,63 @@ describe('만지는 칸 · 채널 가장자리 · 빈 칸 (PaneCard)', () => {
     expect(card.hasAttribute('data-empty')).toBe(false)
   })
 
+  describe('누르면 그 칸을 만지는 칸으로 — 왼쪽 단추 · 아직 만지지 않은 칸만, 탭 끌기는 놓을 때', () => {
+    const press = (target: Element, init: PointerEventInit = {}) => fireEvent.pointerDown(target, { button: 0, clientX: 10, clientY: 10, ...init })
+    const setup = (active = false) => {
+      const onFocusPane = vi.fn()
+      const { container } = render(
+        <PaneCard paneId="a" channel="blue" active={active} onFocusPane={onFocusPane}>
+          <div role="tab" aria-label="탭">탭</div>
+          <p>본문</p>
+        </PaneCard>,
+      )
+      return { onFocusPane, container }
+    }
+
+    it('왼쪽 단추로 본문을 누르면 그 칸이 된다', () => {
+      const { onFocusPane } = setup()
+      press(screen.getByText('본문'))
+      expect(onFocusPane).toHaveBeenCalledExactlyOnceWith('a')
+    })
+
+    it('오른쪽 · 가운데 클릭은 칸을 바꾸지 않는다', () => {
+      const { onFocusPane } = setup()
+      press(screen.getByText('본문'), { button: 2 })
+      press(screen.getByText('본문'), { button: 1 })
+      expect(onFocusPane).not.toHaveBeenCalled()
+    })
+
+    it('이미 만지는 칸이면 누를 때마다 다시 하지 않는다', () => {
+      const { onFocusPane } = setup(true)
+      press(screen.getByText('본문'))
+      press(screen.getByRole('tab'))
+      fireEvent.pointerUp(window, { clientX: 10, clientY: 10 })
+      expect(onFocusPane).not.toHaveBeenCalled()
+    })
+
+    it('탭을 눌러 끌기 시작하면 끄는 동안 칸을 바꾸지 않는다(상단바 도구줄이 흔들리지 않게). 끌지 않고 놓으면 그때 바꾼다', () => {
+      const { onFocusPane } = setup()
+      press(screen.getByRole('tab'))
+      expect(onFocusPane).not.toHaveBeenCalled()
+      fireEvent.pointerMove(window, { clientX: 60, clientY: 12 })
+      fireEvent.pointerUp(window, { clientX: 60, clientY: 12 })
+      expect(onFocusPane).not.toHaveBeenCalled()
+      // 같은 자리에서 놓은 누름
+      press(screen.getByRole('tab'))
+      fireEvent.pointerMove(window, { clientX: 11, clientY: 11 })
+      fireEvent.pointerUp(window, { clientX: 11, clientY: 11 })
+      expect(onFocusPane).toHaveBeenCalledExactlyOnceWith('a')
+    })
+
+    it('탭 누름을 취소(pointercancel)하면 칸을 바꾸지 않고, 놓은 뒤 남는 리스너도 없다', () => {
+      const { onFocusPane } = setup()
+      press(screen.getByRole('tab'))
+      fireEvent.pointerCancel(window)
+      fireEvent.pointerUp(window, { clientX: 10, clientY: 10 })
+      expect(onFocusPane).not.toHaveBeenCalled()
+    })
+  })
+
   it('SplitPanes: 칸이 여럿이면 만지는 칸 카드만 active, 칸이 하나면 강조하지 않는다. 칸마다 채널 · 빈 칸이 카드에 달린다', () => {
     const root = splitLeaf(paneNode('a'), 'a', 'h', 'b')
     const view = (activePane: string, r = root) => (

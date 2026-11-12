@@ -1429,15 +1429,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (!usable(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
   }, [orphanKey, floatKey, paneOrder, activePaneId, setPanes, setPaneRoute, paneRouteRef])
   const focusPane = useCallback((pane: PaneId) => {
-    setActivePaneId(pane)
     const tab = activeTab(tabsOf(panes, pane))
-    if (tab !== null) setPaneRoute(paneRouteOf(tab.kind), pane)
-    else {
-      // 빈 창을 눌렀다: 다음에 여는 문서·노트가 이 창으로 온다
-      setPaneRoute('doc', pane)
-      setPaneRoute('note', pane)
-    }
-  }, [panes, setPaneRoute])
+    const routes: ('doc' | 'note')[] = tab !== null ? [paneRouteOf(tab.kind)] : ['doc', 'note']
+    // 이미 만지는 칸이고 연결 경로도 이 칸이면 할 것이 없다(같은 칸을 또 눌러 상단바 도구줄 · 경로를 다시 바꾸지 않는다)
+    if (pane === activePaneId && routes.every((kind) => paneRouteRef.current[kind] === pane)) return
+    setActivePaneId(pane)
+    // 빈 창을 눌렀다: 다음에 여는 문서·노트가 이 창으로 온다
+    for (const kind of routes) setPaneRoute(kind, pane)
+  }, [panes, activePaneId, setPaneRoute, paneRouteRef])
   const workspaceSources = useWorkspaceSources({
     scopeId: activeNoteId,
     activeDocId: activePdfDoc?.docId ?? null,

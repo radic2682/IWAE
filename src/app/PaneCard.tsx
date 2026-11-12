@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { PaneChannel } from './workspaceChannels'
 import { usePaneReaction } from './paneReaction'
 
@@ -10,6 +10,34 @@ import { usePaneReaction } from './paneReaction'
  *   점선이 모서리에서도 고르게 이어지도록 CSS border-style 이 아니라 둥근 사각형 선으로 그린다). 만지는 칸이면 같은 윤곽이 강조색이다.
  * - 같은 색의 다른 창에서 신호가 올 창(마우스를 올린 동안)과 신호가 방금 움직인 창(0.6초)은 `data-reacting` 이 채널 색이 되어 안쪽 윤곽이 생긴다.
  */
+/** 탭을 눌러 끌기 시작한 것으로 치는 움직임(px): 이보다 적게 움직이고 놓으면 그냥 누른 것이다 */
+const TAB_PRESS_SLOP_PX = 4
+
+/**
+ * 카드를 누르면 그 칸을 만지는 칸으로: 왼쪽 단추(button 0)만, 이미 만지는 칸이면 하지 않는다(오른쪽 · 가운데 클릭이나 같은 칸을 또 눌러
+ * 상단바 도구줄과 연결 경로를 다시 바꾸지 않는다). 탭을 누른 것은 끌기의 시작일 수 있으므로 놓을 때(움직이지 않았을 때)로 미룬다 —
+ * 끄는 동안 상단바 도구줄이 바뀌면 끌기 위의 화면이 흔들린다.
+ */
+function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, active: boolean, onFocusPane: (paneId: string) => void): void {
+  if (event.button !== 0 || active) return
+  if (!(event.target instanceof Element) || event.target.closest('[role="tab"]') === null) { onFocusPane(paneId); return }
+  const startX = event.clientX
+  const startY = event.clientY
+  let moved = false
+  const move = (next: PointerEvent) => { if (Math.hypot(next.clientX - startX, next.clientY - startY) > TAB_PRESS_SLOP_PX) moved = true }
+  const finish = (focus: boolean) => {
+    window.removeEventListener('pointermove', move, true)
+    window.removeEventListener('pointerup', up, true)
+    window.removeEventListener('pointercancel', cancel, true)
+    if (focus && !moved) onFocusPane(paneId)
+  }
+  const up = () => finish(true)
+  const cancel = () => finish(false)
+  window.addEventListener('pointermove', move, true)
+  window.addEventListener('pointerup', up, true)
+  window.addEventListener('pointercancel', cancel, true)
+}
+
 export function PaneCard({ paneId, channel, active, empty = false, className = '', onFocusPane, children }: {
   readonly paneId: string
   readonly channel: PaneChannel
@@ -26,7 +54,7 @@ export function PaneCard({ paneId, channel, active, empty = false, className = '
     <div
       className={`pane-card${active ? ' pane-card-active' : ''}${className === '' ? '' : ` ${className}`}`}
       data-card-pane={paneId}
-      onPointerDownCapture={onFocusPane === undefined ? undefined : () => onFocusPane(paneId)}
+      onPointerDownCapture={onFocusPane === undefined ? undefined : (event) => focusOnPress(event, paneId, active, onFocusPane)}
       data-channel={channel ?? 'none'}
       data-empty={empty ? '' : undefined}
       data-reacting={reacting ?? undefined}
