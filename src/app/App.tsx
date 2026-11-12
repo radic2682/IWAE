@@ -108,13 +108,15 @@ import {
 } from './usePdfBookmarks'
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
-import { collapseEmptyPane, dockTab, dockableEdges, moveTabToPaneAt, type DockEdge } from './tabDock'
-import { cyclePaneChannel, remapChannelsByKeep, swapPaneChannels, type PaneChannel, type PaneChannels } from './workspaceChannels'
+import { closePaneTree, collapseEmptyPane, dockTab, moveTabToPaneAt, type DockEdge } from './tabDock'
+import { applyLegacyLayout, moveTabToNewPane, setPaneCountTree, swapSplitSides } from './paneLayoutOps'
+import { MAX_PANES, leaves, matchLegacyLayout, type LayoutNode, type Size, type SplitRefusal } from '../core/layoutTree'
+import { channelOf, cyclePaneChannel, type PaneChannel, type PaneChannels } from './workspaceChannels'
 import { useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
 import { emitPointSignal, subscribePointSignal, type DeliveredSignal } from './workspaceSignal'
 import { activeKindOf, isNoteSurface, memoNoteTargetFor, needForMemo, needForPlace, resolvePointSignal, visibleNotePathsIn } from './workspaceRouting'
-import { closeSplitCell, isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
+import type { PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePanel, ThumbnailPanel } from './SidePanels'
 import { MarkdownOutline, MarkdownSectionPreview } from './MarkdownOutline'
@@ -133,14 +135,13 @@ import {
   closeTabEverywhere,
   nextViewTabId,
   otherPane,
-  PANE_IDS,
   allPaneTabs,
-  mergeHiddenPanes,
+  closePaneInto,
+  paneIdsOf,
+  paneLabel,
   paneOfTab,
   pinTabInPanes,
-  visiblePanes,
-  paneLabel,
-  type PaneCount,
+  tabsOf,
   type TabsState,
   tabDocId,
   isDocumentKind,
@@ -228,11 +229,11 @@ const PDF_EMPTY = '사이드바에서 PDF 문서를 여세요'
 const NOTE_EMPTY = '사이드바에서 노트를 여세요'
 /** 나눈 창의 빈 칸. 탭을 끌어 오거나 사이드바에서 문서를 열면 된다 */
 const SPLIT_PANE_EMPTY = '탭을 여기로 끌어 오거나 사이드바에서 문서를 여세요'
-/** 좌우로만 나누는 배치(탭이 상단바에 놓인다) */
 /** 떼어 낸 새 창에서 첫 탭이 놓이는 자리(창 왼쪽 위에서, CSS 픽셀). 탭을 끌어 떼어 낼 때 마우스가 그 탭 위에 오게 한다 */
 const DETACHED_TAB_LEFT = 54
 const DETACHED_TAB_TOP = 5
-const COLUMN_LAYOUTS: ReadonlySet<string> = new Set(['single', 'cols2', 'cols3'])
+/** 탭 메뉴 「새 오른쪽 패널로 옮기기」가 가리키는 칸(아직 없다) */
+const NEW_PANE_TARGET = '__new-pane__'
 
 const LazyNoteCanvas = lazy(async () => {
   const module = await import('./NoteCanvas')
@@ -413,12 +414,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     notebooks: shownNotebooks,
     tree,
     openedDocs,
-    pdfTabs,
-    setPdfTabs,
     panes,
     setPanes,
     channels,
     setChannels,
+    paneLayout: layoutRoot,
+    setPaneLayout: setLayoutRoot,
+    setWorkspace,
     openInPane,
     moveTab,
     setPaneRoute,
@@ -676,7 +678,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const aiPointerSeenRef = useRef<string | null>(null)
   useEffect(() => {
     if (aiPointer === null) { aiPointerSeenRef.current = null; return }
-    const open = PANE_IDS.some((id) => panes[id].tabs.some((tab) => tabDocId(tab) === aiPointer.docId))
+    const open = allPaneTabs(panes).some((tab) => tabDocId(tab) === aiPointer.docId)
     if (open) aiPointerSeenRef.current = aiPointer.id
     else if (aiPointerSeenRef.current === aiPointer.id) setAiPointer(null)
   }, [aiPointer, panes])
@@ -688,22 +690,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [canvasEpoch, setCanvasEpoch] = useState(0)
   // 왼쪽 바 검색 보기의 범위: 지금 문서(pdf) / Vault 의 모든 문서(vault)
   const [searchScope, setSearchScope] = useState<'pdf' | 'vault'>('pdf')
-  // 창 나누기 배치(PDF 안 화면 나누기와 같은 9가지). 처음엔 한 화면이고 다음 실행에도 기억한다.
-  // 예전 값(단 수 1·2·3)이 있으면 좌우 배치로 옮긴다
-  const [paneLayoutId, setPaneLayoutIdState] = useState<PdfSplitLayoutId>(() => {
-    if (!SPLIT_PANES_ENABLED || isDetachedWindow) return 'single'
-    try {
-      const saved = window.localStorage.getItem('iwae:pane-layout:v1')
-      if (isPdfSplitLayoutId(saved)) return saved
-      const count = window.localStorage.getItem('iwae:pane-count:v1')
-      if (count === '2') return 'cols2'
-      if (count === '3') return 'cols3'
-      if (count === null && window.localStorage.getItem('iwae:single-pane:v2') === '0') return 'cols2'
-    } catch { /* 기본값 */ }
-    // 샘플 작업 공간은 PDF 와 캔버스가 나란히 보여야 한다(한 화면이면 캔버스 탭이 PDF 창에 합쳐져 숨는다)
-    return previewEnabled && CANVAS_ENABLED && SPLIT_PANES_ENABLED ? 'cols2' : 'single'
-  })
-  const paneCount = pdfSplitLayout(paneLayoutId).cells.length as PaneCount
+  // 칸 나누기 트리(layoutRoot)는 useVault 가 칸의 탭·색과 함께 갖고 세션에 저장한다(예전 세션의 배치 id 는 읽을 때 트리로 옮긴다).
+  // 칸 번호(0, 1, 2 …)는 트리를 왼쪽 위부터 센 차례다
+  const paneOrder = useMemo(() => leaves(layoutRoot), [layoutRoot])
+  const paneCount = paneOrder.length
   const singlePane = paneCount === 1
   const documentSearch = useDocumentSearch()
   const [pendingExternalLink, setPendingExternalLink] = useState<string | null>(null)
@@ -757,8 +747,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const doc = shownLibrary.find((item) => item.docId === docId) ?? markdownDocById(docId)
     if (doc === undefined) return
     // 읽던 자리: 이 탭이 보이는 패널의 지금 쪽(1-기반)
-    const pane = PANE_IDS.find((id) => panes[id].tabs.some((tab) => tab.id === tabId))
-    const oldTab = pane === undefined ? undefined : panes[pane].tabs.find((tab) => tab.id === tabId)
+    const pane = paneOfTab(panes, tabId) ?? undefined
+    const oldTab = pane === undefined ? undefined : tabsOf(panes, pane).tabs.find((tab) => tab.id === tabId)
     const oldDocId = oldTab === undefined ? null : tabDocId(oldTab)
     const fromPage = pane !== undefined && docControllersRef.current[pane]?.docId === oldDocId ? docViews[pane]?.page ?? null : null
     const meta = await openAnyDocument(doc, false)
@@ -776,9 +766,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   /** 판 나란히 비교: 고른 판을 옆 패널에 열고(1단이면 2단으로) 같은 절로 맞춘다 */
   const compareTabVersion = async (tabId: string, docId: string) => {
     const doc = shownLibrary.find((item) => item.docId === docId) ?? markdownDocById(docId)
-    const pane = PANE_IDS.find((id) => panes[id].tabs.some((tab) => tab.id === tabId))
+    const pane = paneOfTab(panes, tabId) ?? undefined
     if (doc === undefined || pane === undefined) return
-    const oldTab = panes[pane].tabs.find((tab) => tab.id === tabId)
+    const oldTab = tabsOf(panes, pane).tabs.find((tab) => tab.id === tabId)
     const oldDocId = oldTab === undefined ? null : tabDocId(oldTab)
     const fromPage = docControllersRef.current[pane]?.docId === oldDocId ? docViews[pane]?.page ?? null : null
     const meta = await openAnyDocument(doc, false)
@@ -786,10 +776,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const [fromOutline, toOutline] = await Promise.all([pdfOutline(oldDocId).catch(() => []), pdfOutline(docId).catch(() => [])])
       pendingDocPageRef.current = { docId, page: matchVersionPage(fromOutline, fromPage - 1, toOutline, meta.pageCount) + 1 }
     }
-    const target: PaneId = pane === 'left' ? 'right' : 'left'
-    const needed = (PANE_IDS.indexOf(target) + 1) as PaneCount
-    if (needed > paneCount) setPaneCount(needed)
-    const existing = PANE_IDS.find((id) => panes[id].tabs.some((tab) => tab.id === docId))
+    // 옆 칸(다음 칸, 없으면 오른쪽에 새로 만든 칸)에 연다
+    const target = paneOrder.length > 1 ? otherPane(paneOrder, pane) : growPanes(2)[1]!
+    const existing = paneOfTab(panes, docId) ?? undefined
     if (existing !== undefined && existing !== target) moveTab(docId, target)
     else openInPane({ id: docId, title: doc.title, kind: 'pdf' }, target)
     setActivePaneId(target)
@@ -883,10 +872,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return !open
     })
   }, [])
-  const toggleFocus = useCallback((pane: Exclude<FocusedPane, 'split'>) => {
+  // 칸 하나를 화면 전체로(다시 누르면 되돌린다)
+  const [zoomedPane, setZoomedPane] = useState<PaneId | null>(null)
+  const toggleFocus = useCallback((pane: PaneId) => {
     setLibraryExpanded(false)
-    setFocusedPane((current) => current === pane ? 'split' : pane)
-  }, [])
+    setFocusedPane((current) => (current === 'zoom' && zoomedPane === pane ? 'split' : 'zoom'))
+    setZoomedPane(pane)
+  }, [zoomedPane])
   const [excerptInsertRequest, setExcerptInsertRequest] = useState<ReaderExcerptInsertRequest>()
   const [markdownJumpRequest, setMarkdownJumpRequest] = useState<MarkdownSourceJumpRequest | null>(null)
   useEffect(() => {
@@ -1068,8 +1060,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     nextTab: () => paneShortcutsRef.current.cycleTab(1),
     prevTab: () => paneShortcutsRef.current.cycleTab(-1),
     closeTab: () => paneShortcutsRef.current.closeActiveTab(),
-    focusLeftPane: () => paneShortcutsRef.current.focus('left'),
-    focusRightPane: () => { if (SPLIT_PANES_ENABLED) paneShortcutsRef.current.focus('right') },
+    focusLeftPane: () => paneShortcutsRef.current.focus(0),
+    focusRightPane: () => { if (SPLIT_PANES_ENABLED) paneShortcutsRef.current.focus(1) },
     goTo: () => window.dispatchEvent(new CustomEvent('iwae:goto')),
     print: () => window.dispatchEvent(new CustomEvent('iwae:print')),
     openSettings: () => { setSettingsSection(undefined); setSettingsOpen(true) },
@@ -1205,7 +1197,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const paneShortcutsRef = useRef({
     cycleTab: (_step: number) => undefined as void,
     closeActiveTab: () => undefined as void,
-    focus: (_pane: PaneId) => undefined as void,
+    focus: (_index: number) => undefined as void,
   })
   const canvasStorage = useMemo<CanvasStorage>(
     () => previewEnabled
@@ -1249,7 +1241,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   )
   const pdfBookmarks = usePdfBookmarks(pdfBookmarkStorage)
   // 마지막으로 만진 패널. 사이드바 목차·축소판·주석과 Ctrl+F 가 이 패널의 문서를 따른다.
-  const [activePaneId, setActivePaneId] = useState<PaneId>('left')
+  const [activePaneId, setActivePaneId] = useState<PaneId>(() => leaves(layoutRoot)[0]!)
   /** 방금 나눠서 생긴 패널(자라듯 나타나는 동안만) */
   const [freshPane, setFreshPane] = useState<PaneId | null>(null)
   // 패널마다 지금 보이는 PDF 와 쪽. DocumentView 가 알려 준다.
@@ -1267,13 +1259,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [])
   const isDocTab = (tab: Tab | null) => tab !== null && isDocumentKind(tab.kind)
   // 문서 기능(목차·검색·쪽 이동)이 향할 패널: 만진 패널이 문서면 그쪽, 아니면 반대편 문서.
-  const docPaneId: PaneId | null = isDocTab(activeTab(panes[activePaneId]))
+  const docPaneId: PaneId | null = isDocTab(activeTab(tabsOf(panes, activePaneId)))
     ? activePaneId
-    : isDocTab(activeTab(panes[otherPane(activePaneId)])) ? otherPane(activePaneId) : null
+    : paneOrder.find((pane) => pane !== activePaneId && isDocTab(activeTab(tabsOf(panes, pane)))) ?? null
   // 발췌를 받을 캔버스: 만진 패널이 캔버스면 그쪽, 아니면 반대편 캔버스.
   // 창이 둘 넘게 있어도 보이는 캔버스를 찾는다(만진 창 → 같은 색 → 아무 캔버스)
-  const notePaneId: PaneId | null = pickCanvasPane({ panes, channels, visible: visiblePanes(paneCount), active: activePaneId })
-  const activeDocumentTab = docPaneId === null ? null : activeTab(panes[docPaneId])
+  const notePaneId: PaneId | null = pickCanvasPane({ panes, channels, visible: paneOrder, active: activePaneId })
+  const activeDocumentTab = docPaneId === null ? null : activeTab(tabsOf(panes, docPaneId))
   // Markdown 탭마다 지금 절(왼쪽 바 「목차」에 지금 자리로 보인다)
   const [markdownSectionState, setMarkdownSectionState] = useState<Readonly<Record<string, number>>>({})
   useEffect(() => {
@@ -1288,65 +1280,76 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ? openedDocs.find((doc) => doc.docId === tabDocId(activeDocumentTab)) ?? null
     : null
   const activeMarkdownPath = activeDocumentTab?.kind === 'markdown' ? activeDocumentTab.id : null
-  const activeNoteId = notePaneId === null ? null : activeTab(panes[notePaneId])?.id ?? null
+  const activeNoteId = notePaneId === null ? null : activeTab(tabsOf(panes, notePaneId))?.id ?? null
   const currentPdfPage = docPaneId === null ? 1 : docViews[docPaneId]?.page ?? 1
   paneShortcutsRef.current = {
     cycleTab: (step) => {
-      const state = panes[activePaneId]
+      const state = tabsOf(panes, activePaneId)
       if (state.tabs.length < 2) return
       const index = state.tabs.findIndex((tab) => tab.id === state.activeId)
       const next = state.tabs[(index + step + state.tabs.length) % state.tabs.length]
-      if (next !== undefined) setPanes((current) => ({ ...current, [activePaneId]: activateTab(current[activePaneId], next.id) }))
+      if (next !== undefined) setPanes((current) => ({ ...current, [activePaneId]: activateTab(tabsOf(current, activePaneId), next.id) }))
     },
     closeActiveTab: () => {
-      const id = panes[activePaneId].activeId
+      const id = tabsOf(panes, activePaneId).activeId
       if (id === null) return
-      const tab = panes[activePaneId].tabs.find((candidate) => candidate.id === id)
+      const tab = tabsOf(panes, activePaneId).tabs.find((candidate) => candidate.id === id)
       if (tab?.kind === 'canvas') closeNoteTabSafely(id)
       else setPanes((current) => closeTabEverywhere(current, id))
     },
-    focus: (pane) => setActivePaneId(pane),
+    // 칸 번호(왼쪽 위부터 0)로 옮긴다
+    focus: (index) => { const pane = paneOrder[index]; if (pane !== undefined) setActivePaneId(pane) },
   }
-  /**
-   * 단 수를 바꾼다(1·2·3단). 줄이면 숨는 패널의 탭은 남는 맨 끝 패널로 합쳐지고(아래 효과), 늘리면 새 패널은 빈 채로
-   * 시작한다 — 탭을 끌거나 탭 메뉴 「… 패널로 옮기기」로 채운다.
-   */
+  /** 칸의 지금 크기(px)를 DOM 에서 잰다(나누기가 칸을 너무 작게 만들지 않는지 볼 때). 재지 못하면 null */
+  const paneSizeOf = (pane: PaneId): Size | null => {
+    const cell = document.querySelector(`.pane-focus-scope[data-pane-id="${pane}"]`)?.closest<HTMLElement>('.pane-grid-cell')
+    if (cell == null) return null
+    const box = cell.getBoundingClientRect()
+    return box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : null
+  }
+  /** 칸을 못 나눈 까닭을 알린다 */
+  const announceRefusal = (reason: SplitRefusal) => announceAction(reason === 'max' ? t('칸은 {max}개까지입니다', { max: MAX_PANES }) : t('칸이 너무 작습니다'))
+  /** 「창 나누기」 목록에서 예전 배치 하나를 고른다: 지금 칸들을 그 모양으로 다시 짠다(남는 칸의 탭은 마지막 칸 뒤에 합친다) */
   const setPaneLayout = (next: PdfSplitLayoutId) => {
-    setPaneLayoutIdState(next)
-    // 나눔 배치는 다음 실행에 메인 창이 되살린다. 다른 창의 배치로 바꾸지 않는다
-    if (isMainWindow) {
-      try { window.localStorage.setItem('iwae:pane-layout:v1', next) } catch { /* 이번 실행에만 */ }
-    }
+    const now = workspaceLatest.current
+    const result = applyLegacyLayout({ panes: now.panes, channels: now.channels, layout: now.layout }, next)
+    applyWorkspace(result)
     if (next === 'single') setFocusedPane('split')
+    if (!result.kept.includes(now.activePaneId)) setActivePaneId(result.kept[result.kept.length - 1]!)
   }
-  /** 패널 수만 정할 때(탭을 새 패널로 옮기기 등): 1 한 화면, 2 좌우 둘, 3 좌우 셋, 4 넷 */
-  const setPaneCount = (next: PaneCount) => setPaneLayout(next === 1 ? 'single' : next === 2 ? 'cols2' : next === 3 ? 'cols3' : 'grid4')
-  // Ctrl+\ : 한 화면 → 좌우 둘 → 좌우 셋 → 한 화면
-  const toggleSinglePaneRef = useRef(() => setPaneCount(paneCount >= 3 ? 1 : (paneCount + 1) as PaneCount))
-  toggleSinglePaneRef.current = () => setPaneCount(paneCount >= 3 ? 1 : (paneCount + 1) as PaneCount)
-  const shownLayoutId: PdfSplitLayoutId = paneLayoutId
-  const shownPaneCount = pdfSplitLayout(shownLayoutId).cells.length as PaneCount
-  // 위아래·2×2 같은 격자 배치: 패널마다 바로 위에 탭 줄을 둔다(좌우 배치는 상단바에 탭)
-  const gridLayout = !COLUMN_LAYOUTS.has(shownLayoutId) && focusedPane === 'split' ? pdfSplitLayout(shownLayoutId) : null
-  // 보이지 않는 패널에 탭이 남으면(단 수를 줄임, 지난 세션 복원, 문서 검색을 닫은 뒤) 남는 맨 끝 패널로 합친다
-  const hiddenTabCount = PANE_IDS.filter((pane) => !visiblePanes(shownPaneCount).includes(pane))
-    .reduce((sum, pane) => sum + panes[pane].tabs.length, 0)
+  /** 칸 수만 정할 때(MCP 칸 수·Ctrl+\): 줄이면 뒤 칸을 합치고, 늘리면 마지막 칸을 좌우로 나눈다. 칸 수를 바꾼 뒤의 칸 차례 */
+  const setPaneCount = (next: number): readonly PaneId[] => {
+    const now = workspaceLatest.current
+    const result = setPaneCountTree({ panes: now.panes, channels: now.channels, layout: now.layout }, next, paneSizeOf)
+    applyWorkspace(result)
+    if (result.refused !== null) announceRefusal(result.refused)
+    const order = leaves(result.layout)
+    if (!order.includes(now.activePaneId)) setActivePaneId(order[order.length - 1]!)
+    if (next === 1) setFocusedPane('split')
+    return order
+  }
+  /** 적어도 count 칸이 되게 늘린다(MCP 가 아직 없는 칸 번호를 가리킬 때). 칸 차례를 돌려준다 */
+  const growPanes = (count: number): readonly PaneId[] => {
+    const order = leaves(workspaceLatest.current.layout)
+    return order.length >= count ? order : setPaneCount(count)
+  }
+  // Ctrl+\ : 한 칸 → 좌우 둘 → 좌우 셋 → 한 칸
+  const toggleSinglePaneRef = useRef(() => setPaneCount(paneCount >= 3 ? 1 : paneCount + 1))
+  toggleSinglePaneRef.current = () => setPaneCount(paneCount >= 3 ? 1 : paneCount + 1)
+  // 트리와 칸 상태가 어긋나면(칸이 닫혔는데 탭이 남음, 만지던 칸이 사라짐) 바로잡는다: 남은 탭은 마지막 칸 뒤에 합친다
+  const orphanKey = paneIdsOf(panes).filter((pane) => !paneOrder.includes(pane)).join(' ')
   useEffect(() => {
-    const shown = visiblePanes(shownPaneCount)
-    if (hiddenTabCount === 0) {
-      if (!shown.includes(activePaneId)) setActivePaneId(shown[shown.length - 1]!)
-      return
-    }
-    setPanes((current) => mergeHiddenPanes(current, shownPaneCount, activePaneId))
-    const target = shown[shown.length - 1]!
-    if (!shown.includes(activePaneId)) setActivePaneId(target)
-    for (const kind of ['doc', 'note'] as const) {
-      if (!shown.includes(paneRouteRef.current[kind])) setPaneRoute(kind, target)
-    }
-  }, [shownPaneCount, hiddenTabCount, activePaneId, setPanes, setPaneRoute, paneRouteRef])
+    const last = paneOrder[paneOrder.length - 1]!
+    if (orphanKey !== '') setPanes((current) => orphanKey.split(' ').reduce((next, pane) => closePaneInto(next, pane, last), current))
+    if (!paneOrder.includes(activePaneId)) setActivePaneId(paneOrder[0]!)
+    if (!paneOrder.includes(paneRouteRef.current.doc)) setPaneRoute('doc', paneOrder[0]!)
+    if (!paneOrder.includes(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
+    // 크게 보던 칸이 사라졌다(탭을 다 끌어내 닫힘 …): 전체 화면을 푼다
+    if (focusedPane === 'zoom' && (zoomedPane === null || !paneOrder.includes(zoomedPane))) setFocusedPane('split')
+  }, [orphanKey, paneOrder, activePaneId, focusedPane, zoomedPane, setPanes, setPaneRoute, paneRouteRef])
   const focusPane = useCallback((pane: PaneId) => {
     setActivePaneId(pane)
-    const tab = activeTab(panes[pane])
+    const tab = activeTab(tabsOf(panes, pane))
     if (tab !== null) setPaneRoute(paneRouteOf(tab.kind), pane)
     else {
       // 빈 창을 눌렀다: 다음에 여는 문서·노트가 이 창으로 온다
@@ -1373,14 +1376,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const navigateToPdfLocation = useCallback((location: NavLocation) => {
     // 같은 PDF 가 양쪽에 열려 있으면 지금 만지는 패널이 먼저다
     // 보이는 모든 창에서 찾는다(만진 창이 먼저)
-    const showing = [activePaneId, ...visiblePanes(shownPaneCount).filter((pane) => pane !== activePaneId)].find((pane) => docControllersRef.current[pane]?.docId === location.docId)
+    const showing = [activePaneId, ...paneOrder.filter((pane) => pane !== activePaneId)].find((pane) => docControllersRef.current[pane]?.docId === location.docId)
     if (showing !== undefined) {
       docControllersRef.current[showing]?.requestPage(location.page)
       setActivePaneId(showing)
       return
     }
     pendingDocPageRef.current = location
-    const placed = PANE_IDS.find((pane) => panes[pane].tabs.some((tab) => tabDocId(tab) === location.docId))
+    const placed = paneIdsOf(panes).find((pane) => tabsOf(panes, pane).tabs.some((tab) => tabDocId(tab) === location.docId))
     setActivePaneId(placed ?? paneRouteRef.current.doc)
     const opened = openedDocs.find((doc) => doc.docId === location.docId)
     if (opened !== undefined) {
@@ -1390,7 +1393,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const libraryDoc = shownLibrary.find((doc) => doc.docId === location.docId)
     if (libraryDoc !== undefined) void openDocument(libraryDoc)
     else pendingDocPageRef.current = null
-  }, [activePaneId, openDocument, openInPane, openedDocs, paneRouteRef, panes, shownLibrary, shownPaneCount])
+  }, [activePaneId, openDocument, openInPane, openedDocs, paneOrder, paneRouteRef, panes, shownLibrary])
 
   const navigation = useNavigationHistory({
     current: () => activePdfDoc === null ? null : { docId: activePdfDoc.docId, page: currentPdfPage },
@@ -1447,8 +1450,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 여기서 「필요한 문서·노트가 같은 색 창에 보이게」 한다(탭 활성화 → 미리보기 탭 → 옆에 새 창). 스크롤·깜빡임은 받는 창이 한다.
   const previewTabsEnabled = useAppPrefs().previewTabs
   const pinPaneTab = useCallback((tabId: string) => setPanes((current) => pinTabInPanes(current, tabId)), [setPanes])
-  const workspaceLatest = useRef({ panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled, docPaneId, activePaneId })
-  workspaceLatest.current = { panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled, docPaneId, activePaneId }
+  const workspaceLatest = useRef({ panes, channels, layout: layoutRoot, previewTabsEnabled, docPaneId, activePaneId })
+  workspaceLatest.current = { panes, channels, layout: layoutRoot, previewTabsEnabled, docPaneId, activePaneId }
   const memoNotesRef = useRef(memoNotes)
   memoNotesRef.current = memoNotes
 
@@ -1468,25 +1471,26 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    * 창·색·배치를 바꾼다. 같은 틱의 다음 호출이 새 배치를 보도록 최신 값(workspaceLatest)도 바로 고친다.
    * fresh: 새로 생긴 창(자라듯 나타나게 한다)
    */
-  const applyWorkspace = (next: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: PdfSplitLayoutId }, fresh?: PaneId) => {
+  const applyWorkspace = (next: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode }, fresh?: PaneId) => {
     const latest = workspaceLatest.current
-    workspaceLatest.current = { ...latest, panes: next.panes, channels: next.channels, shownLayoutId: next.layout, shownPaneCount: pdfSplitLayout(next.layout).cells.length as PaneCount }
-    if (next.panes !== latest.panes) setPanes(next.panes)
-    if (next.channels !== latest.channels) setChannels(next.channels)
-    if (next.layout !== latest.shownLayoutId) setPaneLayout(next.layout)
+    workspaceLatest.current = { ...latest, panes: next.panes, channels: next.channels, layout: next.layout }
+    if (next.panes !== latest.panes || next.channels !== latest.channels || next.layout !== latest.layout) {
+      setWorkspace({ panes: next.panes, channels: next.channels, layout: next.layout })
+    }
     if (fresh !== undefined) announceFreshPane(fresh)
   }
   /** 노트를 붙일 문서 창: 지금 보는 문서 창, 없으면 문서를 보는 첫 창. 문서가 없으면 null */
   const anchorDocPane = (): PaneId | null => {
     const now = workspaceLatest.current
     if (now.docPaneId !== null) return now.docPaneId
-    return visiblePanes(now.shownPaneCount).find((pane) => isDocTab(activeTab(now.panes[pane]))) ?? null
+    return leaves(now.layout).find((pane) => isDocTab(activeTab(tabsOf(now.panes, pane)))) ?? null
   }
   // 옆에 노트 열기의 흐름(어느 노트를 열지 → 어디에 놓을지 → 반영)은 noteBeside.ts 가 맡고, 앱은 손잡이만 내준다
   const besideHostRef = useRef<NoteBesideHost | null>(null)
   besideHostRef.current = {
-    snapshot: () => ({ panes: workspaceLatest.current.panes, channels: workspaceLatest.current.channels, visible: visiblePanes(workspaceLatest.current.shownPaneCount), layoutId: workspaceLatest.current.shownLayoutId }),
+    snapshot: () => ({ panes: workspaceLatest.current.panes, channels: workspaceLatest.current.channels, layout: workspaceLatest.current.layout }),
     apply: applyWorkspace,
+    sizeOf: paneSizeOf,
     lastTouched: () => memoNotesRef.current.openPath,
     entries: () => memoNotesRef.current.entries,
     docOwner: noteDocOwner,
@@ -1517,7 +1521,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   /** 노트 탭 열기(사이드바·노트 열기 메뉴·티켓의 다른 자리): 이미 탭이면 그 탭으로, 노트를 보이는 창이 있으면 거기에 탭으로, 아니면 문서 창 옆에 새 창. 놓은 창 */
   const openMemoNoteTab = (path: string, from?: PaneId): PaneId => {
     const now = workspaceLatest.current
-    const anchor = from ?? (activeTab(now.panes[now.activePaneId])?.kind === 'memoNote' ? now.activePaneId : anchorDocPane() ?? now.activePaneId)
+    const anchor = from ?? (activeTab(tabsOf(now.panes, now.activePaneId))?.kind === 'memoNote' ? now.activePaneId : anchorDocPane() ?? now.activePaneId)
     const outcome = besideRef.current!.place(anchor, path)
     setActivePaneId(outcome.pane)
     setPaneRoute('note', outcome.pane)
@@ -1531,14 +1535,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const now = workspaceLatest.current
     const tab: Tab = { id: note.path, title: note.title, kind: 'canvas' }
     const active = now.activePaneId
-    const anchor = activeTab(now.panes[active])?.kind === 'canvas' ? active : anchorDocPane() ?? active
-    if (!SPLIT_PANES_ENABLED || isDetachedWindow || now.panes[anchor].tabs.length === 0) {
+    const anchor = activeTab(tabsOf(now.panes, active))?.kind === 'canvas' ? active : anchorDocPane() ?? active
+    if (!SPLIT_PANES_ENABLED || isDetachedWindow || tabsOf(now.panes, anchor).tabs.length === 0) {
       openInPane(tab, anchor)
       setActivePaneId(anchor)
       setPaneRoute('note', anchor)
       return anchor
     }
-    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, visible: visiblePanes(now.shownPaneCount), layoutId: now.shownLayoutId, anchor, tab })
+    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab, sizeOf: paneSizeOf })
     applyWorkspace({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
     setActivePaneId(outcome.pane)
     setPaneRoute('note', outcome.pane)
@@ -1556,16 +1560,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       })
       return
     }
-    const landed = result.outcome.remap(anchor)
+    const landed = anchor
     setActivePaneId(landed)
     setPaneRoute('doc', landed)
   }
   /** 노트를 보이는 같은 색 창이 있는가(상단바 단추의 눌림 표시) */
-  const noteBesideShown = docPaneId !== null && visibleNotePathsIn(panes, channels, visiblePanes(shownPaneCount), channels[docPaneId]).length > 0
+  const noteBesideShown = docPaneId !== null && visibleNotePathsIn(panes, channels, paneOrder, channelOf(channels, docPaneId)).length > 0
   /** 이름 붙은 배치: 지금 탭들을 그 모양으로 다시 놓는다(탭은 닫지 않는다) */
   // 마지막으로 만진 캔버스: 캔버스 탭이 보이는 창에 포커스가 가면 그 캔버스(「정리」가 고른다)
   const lastCanvasRef = useRef<string | null>(null)
-  const focusedCanvasTab = activeTab(panes[activePaneId])
+  const focusedCanvasTab = activeTab(tabsOf(panes, activePaneId))
   if (focusedCanvasTab?.kind === 'canvas') lastCanvasRef.current = focusedCanvasTab.id
   /** 「정리」에 놓을 새 캔버스(같은 이름이 있으면 번호를 붙인다). 못 만들면 undefined */
   const createCanvasForPreset = async (): Promise<{ path: string; title: string } | undefined> => {
@@ -1579,7 +1583,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const applyPreset = async (id: LayoutPresetId) => {
     const now = workspaceLatest.current
     const anchor = anchorDocPane()
-    const docTab = anchor === null ? null : activeTab(now.panes[anchor])
+    const docTab = anchor === null ? null : activeTab(tabsOf(now.panes, anchor))
     const docId = docTab !== null && isDocumentKind(docTab.kind) ? tabDocId(docTab) : null
     const hasNote = allPaneTabs(now.panes).some((tab) => tab.kind === 'memoNote')
     // 「정리」: 열린 캔버스가 없으면 마지막으로 만진 캔버스 → 목록의 첫 캔버스 → 새 캔버스(노트를 만드는 것과 같은 길)
@@ -1595,12 +1599,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (fallbackPath === null && docId !== null) fallbackPath = await createNoteForDoc(docId)
     }
     const latest = workspaceLatest.current
-    const result = applyLayoutPreset({ id, panes: latest.panes, channels: latest.channels, anchor, lastTouched: memoNotesRef.current.openPath, fallbackNote: fallbackPath === null ? null : noteTabOf(fallbackPath), lastCanvas: lastCanvasRef.current, fallbackCanvas })
+    const result = applyLayoutPreset({ id, panes: latest.panes, channels: latest.channels, layout: latest.layout, anchor, lastTouched: memoNotesRef.current.openPath, fallbackNote: fallbackPath === null ? null : noteTabOf(fallbackPath), lastCanvas: lastCanvasRef.current, fallbackCanvas })
     applyWorkspace({ panes: result.panes, channels: result.channels, layout: result.layout })
     setActivePaneId(result.focus)
-    const focusTab = activeTab(result.panes[result.focus])
+    const focusTab = activeTab(tabsOf(result.panes, result.focus))
     if (focusTab !== null) setPaneRoute(paneRouteOf(focusTab.kind), result.focus)
-    announceFreshPane(result.focus === 'left' ? 'right' : 'left')
+    announceFreshPane(result.fresh)
   }
   /** 문서 창에서 누른 형광펜을 보여 줄 노트가 같은 색 창에 안 보일 때: 그 메모의 노트를 옆에 열고(미리보기 설정이면 미리보기 탭) 그 카드를 보인다 */
   const revealMemoBeside = (pane: PaneId | null, memoId: string) => {
@@ -1609,11 +1613,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const owner = memoNotesRef.current.notesOf(memoId)[0]
     void openNoteBeside(anchor, owner, workspaceLatest.current.previewTabsEnabled).then((path) => {
       if (path === null) return
-      emitPointSignal({ from: anchor, channel: workspaceLatest.current.channels[anchor], target: { kind: 'memo', memoId, notePath: path }, reason: 'click', origin: 'document' })
+      emitPointSignal({ from: anchor, channel: channelOf(workspaceLatest.current.channels, anchor), target: { kind: 'memo', memoId, notePath: path }, reason: 'click', origin: 'document' })
     })
   }
   // 마지막으로 만진 노트: 노트 탭이 보이는 창에 포커스가 가면 그 노트가 「마지막으로 만진 노트」(openPath)다. 편집·열기는 useMemoNotes 가 같은 값을 바꾼다
-  const focusedMemoNotePath = (() => { const tab = activeTab(panes[activePaneId]); return tab?.kind === 'memoNote' ? tab.id : null })()
+  const focusedMemoNotePath = (() => { const tab = activeTab(tabsOf(panes, activePaneId)); return tab?.kind === 'memoNote' ? tab.id : null })()
   const touchMemoNote = memoNotes.open
   const memoNotesLoaded = memoNotes.loaded
   useEffect(() => {
@@ -1629,12 +1633,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     } catch { /* 저장 못 하면 이번 실행에서만 한 번 */ }
     const now = workspaceLatest.current
     const anchor = anchorDocPane()
-    const docTab = anchor === null ? null : activeTab(now.panes[anchor])
+    const docTab = anchor === null ? null : activeTab(tabsOf(now.panes, anchor))
     const docId = docTab !== null && isDocumentKind(docTab.kind) ? tabDocId(docTab) : null
     const { openPath, entries } = memoNotesRef.current
     // 예전 바가 보이던 노트: 기억해 둔 열린 노트 → 이 문서의 노트 → 첫 노트
     const notePath = pickNotePath({ lastTouched: openPath, docId, entries, docOwner: noteDocOwner }) ?? entries[0]?.path ?? null
-    const outcome = migrateNoteBar({ barOpen: legacyBarWasOpen(window.localStorage), panes: now.panes, channels: now.channels, visible: visiblePanes(now.shownPaneCount), layoutId: now.shownLayoutId, anchor, notePath })
+    const outcome = migrateNoteBar({ barOpen: legacyBarWasOpen(window.localStorage), panes: now.panes, channels: now.channels, layout: now.layout, anchor, notePath })
     if (outcome === null) return
     applyWorkspace({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
     // 같은 색 노트 창이 문서 창 옆에 붙었다. 보던 문서 창이 계속 만진 창이다
@@ -1647,17 +1651,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const revealMemoBesideRef = useRef(revealMemoBeside)
   revealMemoBesideRef.current = revealMemoBeside
   const workspaceLink = useMemo<WorkspaceLink>(() => {
-    const visible = visiblePanes(shownPaneCount)
+    const visible = paneOrder
     return {
       channels,
       memoNoteTargetFor: (pane) => (pane === null ? null : memoNoteTargetFor(panes, channels, visible, pane)),
-      visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channels[pane])),
+      visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channelOf(channels, pane))),
       pinTab: pinPaneTab,
       openNoteBeside: (pane, notePath) => openNoteBesideRef.current(pane, notePath),
       revealMemo: (pane, memoId) => revealMemoBesideRef.current(pane, memoId),
-      canvasShowsMemo: (pane, memoId) => pane !== null && canvasShowsMemoRef.current(channels[pane], memoId, pane),
+      canvasShowsMemo: (pane, memoId) => pane !== null && canvasShowsMemoRef.current(channelOf(channels, pane), memoId, pane),
     }
-  }, [channels, panes, pinPaneTab, shownPaneCount])
+  }, [channels, paneOrder, panes, pinPaneTab])
   /** 신호가 보여 줄 문서 탭: 이미 어느 창에 열린 문서·열린 PDF·라이브러리 PDF·Markdown. 알 수 없으면 null */
   const signalDocTab = (docId: string): Tab | null => {
     const existing = allPaneTabs(workspaceLatest.current.panes).find((tab) => isDocumentKind(tab.kind) && tabDocId(tab) === docId)
@@ -1674,9 +1678,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   canvasShowsMemoRef.current = (channel, memoId, except) => {
     if (!CANVAS_ENABLED || channel === null) return false
     const now = workspaceLatest.current
-    return visibleCanvasPanes(now.panes, visiblePanes(now.shownPaneCount)).some((pane) => {
-      if (pane === except || now.channels[pane] !== channel) return false
-      const noteId = activeTab(now.panes[pane])?.id
+    return visibleCanvasPanes(now.panes, leaves(now.layout)).some((pane) => {
+      if (pane === except || channelOf(now.channels, pane) !== channel) return false
+      const noteId = activeTab(tabsOf(now.panes, pane))?.id
       const document = noteId === undefined ? undefined : liveCanvas(noteId)?.get()
       return document !== undefined && blocksForTarget(document.nodes, { kind: 'memo', memoId }, canvasHighlights).length > 0
     })
@@ -1690,7 +1694,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const memo = target.kind === 'memo' ? pdfHighlights.highlights.find((highlight) => highlight.id === target.memoId) : undefined
     // 문서의 형광펜을 눌렀는데 같은 색 창에 보이는 캔버스가 그 메모의 블록을 갖고 있고 보이는 노트는 없다: 노트를 새로 열지 않는다(캔버스가 그 블록을 보인다)
     if (target.kind === 'memo' && !fromNote && target.notePath === undefined
-      && visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, visiblePanes(workspaceLatest.current.shownPaneCount), signal.channel).length === 0
+      && visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, leaves(workspaceLatest.current.layout), signal.channel).length === 0
       && canvasShowsMemoRef.current(signal.channel, target.memoId, signal.from)) return
     const need = target.kind === 'memo'
       ? needForMemo({
@@ -1698,7 +1702,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         notePath: target.notePath,
         fromNote,
         notesOf: memoNotes.notesOf,
-        visibleNotes: visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, visiblePanes(workspaceLatest.current.shownPaneCount), signal.channel),
+        visibleNotes: visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, leaves(workspaceLatest.current.layout), signal.channel),
         docIdOf: () => memo?.anchor.docId ?? null,
         docTab: signalDocTab,
         noteTab: (path) => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' }),
@@ -1718,8 +1722,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const outcome = resolvePointSignal({
       panes: now.panes,
       channels: now.channels,
-      visible: visiblePanes(now.shownPaneCount),
-      layoutId: now.shownLayoutId,
+      layout: now.layout,
+      sizeOf: paneSizeOf,
       from: signal.from,
       channel: signal.channel,
       need,
@@ -1742,7 +1746,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   useEffect(() => subscribePointSignal((signal) => { void routePointSignalRef.current(signal) }), [])
   /** 노트 화면(메모 노트 탭의 카드·출처)에서 메모의 원문으로: 색 채널이 있으면 신호로(같은 색 창에 문서를 보인다), 없으면 예전처럼 */
   const jumpFromNotePane = (highlight: PersistentPdfHighlight, pane: PaneId) => {
-    const channel = channels[pane]
+    const channel = channelOf(channels, pane)
     if (isDetachedWindow || channel === null) {
       jumpToAnnotation(highlight)
       return
@@ -1817,6 +1821,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     app: buildMcpAppDeps({
       vaultRoot: vault?.root ?? null,
       paneCount,
+      layout: layoutRoot,
+      channels,
+      growPanes,
       activePaneId,
       panes,
       docViews,
@@ -1844,7 +1851,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setPaneCount,
       setActivePane: setActivePaneId,
       setPaneRoute,
-      activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(current[pane], tabId) })),
+      activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), tabId) })),
       closeTab: (tab) => {
         if (tab.kind === 'canvas') closeNoteTabSafely(tab.id)
         else setPanes((current) => closeTabEverywhere(current, tab.id))
@@ -1963,7 +1970,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return
     }
     // 같은 색 창에 그 문서가 보이게 한다(탭 활성화 → 미리보기 탭 → 옆에 새 창). 색 채널이 없는 창이면 예전처럼 쪽으로만 간다
-    const senderChannel = workspaceLatest.current.channels[activePaneId]
+    const senderChannel = channelOf(workspaceLatest.current.channels, activePaneId)
     if (senderChannel !== null) emitPointSignal({ from: activePaneId, channel: senderChannel, target: { kind: 'place', docId: location.docId, page: location.page }, reason: 'ai' })
     navigation.jump({ docId: location.docId, page: location.page })
     const pageIndex = location.page - 1
@@ -2198,8 +2205,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   /** 문서 창 pane 에서 보낸 발췌를 받을 캔버스 탭(없으면 null: 보내기 단추를 감춘다) */
   const canvasTargetFor = (pane: PaneId): string | null => {
     if (!CANVAS_ENABLED) return null
-    const target = pickCanvasPane({ panes, channels, visible: visiblePanes(shownPaneCount), active: activePaneId, from: pane })
-    return target === null ? null : activeTab(panes[target])?.id ?? null
+    const target = pickCanvasPane({ panes, channels, visible: paneOrder, active: activePaneId, from: pane })
+    return target === null ? null : activeTab(tabsOf(panes, target))?.id ?? null
   }
 
   // 번역 카드의 언어·번역기 칩
@@ -2466,12 +2473,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    * 문서가 한 패널에만 있으면 고를 것이 없으니 보이지 않는다(문서 이름은 탭에 이미 있다).
    */
   const renderDocTargetSwitch = () => {
-    const docPanes = PANE_IDS.filter((pane) => isDocTab(activeTab(panes[pane])))
+    const docPanes = paneOrder.filter((pane) => isDocTab(activeTab(tabsOf(panes, pane))))
     if (docPanes.length < 2) return null
     return (
       <div className="side-doc-target" role="radiogroup" aria-label={t('목차를 볼 문서')}>
         {docPanes.map((pane) => {
-          const tab = activeTab(panes[pane])
+          const tab = activeTab(tabsOf(panes, pane))
           const selected = pane === docPaneId
           return (
             <button
@@ -2483,7 +2490,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               title={tab === null ? undefined : docTitles[tabDocId(tab)] ?? tab.title}
               onClick={() => setActivePaneId(pane)}
             >
-              <span className="side-doc-target-side">{pane === 'left' ? t('왼쪽') : t('오른쪽')}</span>
+              <span className="side-doc-target-side">{paneLabel(paneOrder.indexOf(pane))}</span>
               <span className="side-doc-target-name">{tab === null ? '' : docTitles[tabDocId(tab)] ?? tab.title}</span>
             </button>
           )
@@ -2491,8 +2498,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       </div>
     )
   }
-  /** 패널 하나를 화면 전체로. SplitPanes 의 'reader'/'note' 는 각각 왼쪽/오른쪽 패널이다 */
-  const fullscreenModeOf = (pane: PaneId): Exclude<FocusedPane, 'split'> => pane === 'left' ? 'reader' : 'note'
   const closePaneTab = (id: string) => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
     if (tab?.kind === 'canvas') closeNoteTabSafely(id)
@@ -2500,7 +2505,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   /** 이 창이 지금 보는 쪽(1부터)과 배율. 활성 탭이 아니면 마지막으로 읽던 쪽 */
   const viewOfDoc = (docId: string, tabId: string): { page: number; zoom: DocZoom | null } => {
-    const pane = PANE_IDS.find((candidate) => panes[candidate].tabs.some((tab) => tab.id === tabId))
+    const pane = paneOfTab(panes, tabId) ?? undefined
     const controller = pane === undefined ? undefined : docControllersRef.current[pane]
     const view = pane === undefined ? undefined : docViews[pane]
     return {
@@ -2555,7 +2560,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const acceptTabDropRef = useRef<(request: ReattachRequest) => void>(() => undefined)
   acceptTabDropRef.current = (request) => {
     if (request.zoom !== null) queueInitialZoom(request.docId, request.zoom)
-    const pane = visiblePanes(shownPaneCount).find((candidate) => candidate === request.pane)
+    const pane = paneOrder.find((candidate) => candidate === request.pane)
     if (pane !== undefined && request.x !== undefined) {
       pendingPlacementRef.current = { docId: request.docId, pane, index: insertionIndexInPane(pane, request.x) }
       setPaneRoute('doc', pane)
@@ -2681,11 +2686,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const source = paneOfTab(panes, id)
     const moved = moveTabToPaneAt(panes, id, target, index)
     // 탭을 다 끌어낸 패널은 닫힌다(크롬에서 창의 탭을 다 끌어내면 그 창이 닫히듯). 남은 패널이 그 자리를 채운다
-    const collapsed = SPLIT_PANES_ENABLED && !isDetachedWindow && source !== null && source !== target ? collapseEmptyPane(moved, shownLayoutId, source, channels) : null
-    const landed = collapsed === null ? target : collapsed.remap(target)
-    setPanes(collapsed === null ? moved : collapsed.panes)
-    // 칸이 닫히면 남은 창의 색 채널도 새 자리로 따라간다
-    if (collapsed !== null) { setChannels(collapsed.channels); setPaneLayout(collapsed.layout) }
+    const collapsed = SPLIT_PANES_ENABLED && !isDetachedWindow && source !== null && source !== target ? collapseEmptyPane({ panes: moved, channels, layout: layoutRoot }, source) : null
+    const landed = target
+    if (collapsed === null) setPanes(moved)
+    else applyWorkspace(collapsed)
     setActivePaneId(landed)
     if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
     if (collapsed !== null) {
@@ -2695,43 +2699,49 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }, 280)
     }
   }
-  /** 이 패널에서 탭을 가장자리로 끌어 나눌 수 있는 쪽들(창 모드·배치·탭 수에 따라 달라진다) */
+  /**
+   * 이 패널에서 탭을 가장자리로 끌어 나눌 수 있는 쪽들(창 모드·탭 수에 따라 달라진다). 칸이 상한이거나 너무 작아 못 나누는 것은
+   * 놓았을 때 까닭을 알린다(「칸이 너무 작습니다」·「칸은 8개까지입니다」)
+   */
   const dockEdgesFor = (pane: PaneId, id: string): readonly DockEdge[] => {
     if (!SPLIT_PANES_ENABLED || isDetachedWindow || focusedPane !== 'split' || libraryExpanded) return []
-    if (!visiblePanes(shownPaneCount).includes(pane)) return []
-    if (paneOfTab(panes, id) === pane && panes[pane].tabs.length <= 1) return []
-    return dockableEdges(shownLayoutId, PANE_IDS.indexOf(pane))
+    if (!paneOrder.includes(pane)) return []
+    if (paneOfTab(panes, id) === pane && tabsOf(panes, pane).tabs.length <= 1) return []
+    return ['left', 'right', 'top', 'bottom']
   }
   /** 탭을 패널의 edge 쪽을 갈라 새 패널에 넣는다 */
   const dockPaneTab = (id: string, target: PaneId, edge: DockEdge) => {
-    const result = dockTab(panes, shownLayoutId, id, target, edge, channels)
+    const result = dockTab({ panes, channels, layout: layoutRoot }, id, target, edge, paneSizeOf)
     if (result === null) return
+    if ('refused' in result) {
+      announceRefusal(result.refused)
+      return
+    }
     const tab = openTabIds.find((candidate) => candidate.id === id)
-    // 하나뿐인 탭을 다른 패널의 가장자리로 끌어 나누면, 비어 버린 원래 패널은 닫힌다
-    const collapsed = collapseEmptyPane(result.panes, result.layout, result.sourcePane, result.channels)
-    const landed = collapsed === null ? result.newPane : collapsed.remap(result.newPane)
-    setPanes(collapsed === null ? result.panes : collapsed.panes)
-    // 새 창은 탭이 떠난 창의 색 채널을 받는다
-    setChannels(collapsed === null ? result.channels : collapsed.channels)
-    setPaneLayout(collapsed === null ? result.layout : collapsed.layout)
+    // 하나뿐인 탭을 다른 패널의 가장자리로 끌어 나누면, 비어 버린 원래 패널은 닫힌다(dockTab 이 한다). 새 창은 탭이 떠난 창의 색 채널을 받는다
+    const landed = result.newPane
+    applyWorkspace(result, landed)
     setActivePaneId(landed)
     if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
-    // 새 패널은 자라듯 나타나고, 끝나면 연결선이 새 자리를 다시 잰다
-    setFreshPane(landed)
-    window.setTimeout(() => setFreshPane(null), 320)
-    window.setTimeout(() => {
-      window.dispatchEvent(new Event('resize'))
-      window.dispatchEvent(new Event('iwae:pane-resize-end'))
-    }, 280)
+    // 새 패널은 자라듯 나타나고, 끝나면 연결선이 새 자리를 다시 잰다(applyWorkspace 가 함께 한다)
   }
+  /** 탭을 다른 칸으로 옮긴다. target 이 NEW_PANE_TARGET 이면 이 탭이 있는 칸의 오른쪽에 새 칸을 만들어 옮긴다 */
   const movePaneTab = (id: string, target: PaneId) => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
-    // 보이지 않는 패널로 옮기면 그만큼 단을 늘려 나란히 보인다(안 그러면 다시 합쳐진다)
-    const needed = (PANE_IDS.indexOf(target) + 1) as PaneCount
-    if (needed > paneCount) setPaneCount(needed)
-    moveTab(id, target)
-    setActivePaneId(target)
-    if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), target)
+    let landed = target
+    if (target === NEW_PANE_TARGET) {
+      const source = paneOfTab(panes, id)
+      if (source === null) return
+      const result = moveTabToNewPane({ panes, channels, layout: layoutRoot }, id, source, 'right', paneSizeOf)
+      if (result === null) return
+      if ('refused' in result) { announceRefusal(result.refused); return }
+      applyWorkspace(result, result.newPane)
+      landed = result.newPane
+    } else {
+      moveTab(id, target)
+    }
+    setActivePaneId(landed)
+    if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
   }
   /** Markdown 안의 상대 링크: 그 경로의 문서를 왼쪽 바 목록에서 찾아 연다. 없으면 알린다 */
   const openMarkdownPath = (path: string) => {
@@ -2870,27 +2880,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }
     })()
   }
-  /** 칸막이 「양쪽 바꾸기」: 두 패널의 탭(과 보던 탭)을 통째로 맞바꾼다. 쪽 위치는 탭마다 기억해 그대로 돌아온다 */
-  const swapPanes = (boundary: 0 | 1) => {
-    const [a, b]: readonly [PaneId, PaneId] = boundary === 0 ? ['left', 'right'] : ['right', 'third']
-    setPanes((current) => ({ ...current, [a]: current[b], [b]: current[a] }))
-    setChannels((current) => swapPaneChannels(current, a, b))
-    setActivePaneId((current) => current === a ? b : current === b ? a : current)
-    for (const kind of ['doc', 'note'] as const) {
-      const route = paneRouteRef.current[kind]
-      if (route === a) setPaneRoute(kind, b)
-      else if (route === b) setPaneRoute(kind, a)
-    }
+  /** 칸막이 「양쪽 바꾸기」: 그 나누기의 두 쪽을 맞바꾼다. 칸의 탭·색·읽던 쪽은 칸 id 에 붙어 있어 칸과 함께 자리를 옮긴다 */
+  const swapPanes = (splitId: string) => {
+    const now = workspaceLatest.current
+    applyWorkspace(swapSplitSides({ panes: now.panes, channels: now.channels, layout: now.layout }, splitId))
   }
-  /** 이 패널의 탭을 옮길 곳: 보이는 다른 패널들 + (3단 전까지) 단을 하나 늘려 새로 여는 오른쪽 패널 */
+  /** 이 패널의 탭을 옮길 곳: 다른 칸들 + (칸이 상한 전까지) 이 칸 오른쪽에 새로 여는 칸 */
   const paneMoveTargets = (pane: PaneId) => {
-    const shown = visiblePanes(shownPaneCount)
-    const targets = shown.filter((target) => target !== pane)
-      .map((target) => ({ pane: target, label: gridLayout !== null ? t('{index}번 패널로 옮기기', { index: PANE_IDS.indexOf(target) + 1 }) : t('{pane} 패널로 옮기기', { pane: paneLabel(target, shownPaneCount) }) }))
-    if (shownPaneCount < 3) {
-      const next = PANE_IDS[shownPaneCount]!
-      targets.push({ pane: next, label: t('새 오른쪽 패널로 옮기기 ({count}단)', { count: shownPaneCount + 1 }) })
-    }
+    const targets = paneOrder.filter((target) => target !== pane)
+      .map((target) => ({ pane: target, label: t('{index}번 패널로 옮기기', { index: paneOrder.indexOf(target) + 1 }) }))
+    if (paneCount < MAX_PANES) targets.push({ pane: NEW_PANE_TARGET, label: t('새 오른쪽 패널로 옮기기') })
     return targets
   }
   /** 판 묶음의 문서는 탭 이름을 「묶음 이름 판 이름」으로(같은 문서의 두 판이 열려도 구별된다) */
@@ -2907,27 +2906,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }),
     }
   }
-  // 창 하나만 닫기: 남은 창이 그 자리를 채우고(배치는 한 칸 적은 것으로), 닫은 창의 탭은 옆 창으로
+  // 칸 하나만 닫기: 남은 칸이 그 자리를 채우고, 닫은 칸의 탭은 다음 칸 뒤로 합친다
   const closePane = (pane: PaneId) => {
-    const shown = visiblePanes(shownPaneCount)
-    const index = shown.indexOf(pane)
-    if (index < 0 || shown.length <= 1) return
-    const { layout, keep } = closeSplitCell(shownLayoutId, index)
-    const target = Math.min(index, keep.length - 1)
-    setPanes((current) => {
-      const old = PANE_IDS.map((id) => current[id])
-      const next = { ...current }
-      PANE_IDS.forEach((id, slot) => { next[id] = slot < keep.length ? old[keep[slot]!]! : emptyTabs })
-      const closed = old[index]!
-      if (closed.tabs.length > 0) {
-        const into = PANE_IDS[target]!
-        next[into] = { tabs: [...next[into].tabs, ...closed.tabs], activeId: next[into].activeId ?? closed.activeId }
-      }
-      return next
-    })
-    setChannels((current) => remapChannelsByKeep(current, keep))
-    setPaneLayout(layout)
-    setActivePaneId(PANE_IDS[target]!)
+    const now = workspaceLatest.current
+    const result = closePaneTree({ panes: now.panes, channels: now.channels, layout: now.layout }, pane)
+    if (result === null) return
+    applyWorkspace(result)
+    setActivePaneId(result.landed)
+    if (zoomedPane === pane) setFocusedPane('split')
   }
   // 쪽 편집 화면에서 쪽을 끌어 다른 PDF 의 탭·쪽 편집 화면에 놓는 끌기(pageDrag.ts)가 묻고 시키는 것들
   const pageDragRef = useRef({ vaultPdfs, openedDocs })
@@ -2941,7 +2927,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         return { docId, title: entry?.title ?? docs.find((doc) => doc.docId === docId)?.title ?? 'PDF', editable: entry !== undefined, locked: isPasswordProtectedDoc(docId) }
       },
       activateTab: (pane, tabId) => {
-        setPanes((current) => ({ ...current, [pane]: activateTab(current[pane], tabId) }))
+        setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), tabId) }))
         setActivePaneId(pane)
       },
       openEditor: (docId) => setPdfToolsTarget({ docId, tool: 'pageEdit' }),
@@ -2951,23 +2937,23 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   })
   const renderPaneTabs = (pane: PaneId) => (
     <PaneTabsMenu
-      onClosePane={shownPaneCount > 1 ? () => closePane(pane) : undefined}
+      onClosePane={paneCount > 1 ? () => closePane(pane) : undefined}
       // 색 점은 창이 둘 이상일 때만(하나뿐이면 연동할 상대가 없다)
-      channel={channels[pane]}
-      onCycleChannel={shownPaneCount > 1 ? () => setChannels((current) => cyclePaneChannel(current, pane)) : undefined}
+      channel={channelOf(channels, pane)}
+      onCycleChannel={paneCount > 1 ? () => setChannels((current) => cyclePaneChannel(current, pane)) : undefined}
       onPinTab={(id) => setPanes((current) => pinTabInPanes(current, id))}
-      state={tabsWithVersion(panes[pane])}
+      state={tabsWithVersion(tabsOf(panes, pane))}
       label={t('탭')}
       paneId={pane}
       focused={activePaneId === pane}
       onActivate={(id) => {
-        setPanes((current) => ({ ...current, [pane]: activateTab(current[pane], id) }))
+        setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), id) }))
         setActivePaneId(pane)
       }}
       onClose={closePaneTab}
       onMoveTab={SPLIT_PANES_ENABLED ? movePaneTab : undefined}
       moveTargets={SPLIT_PANES_ENABLED ? paneMoveTargets(pane) : undefined}
-      onReorderTab={(id, toIndex) => setPanes((current) => ({ ...current, [pane]: reorderTab(current[pane], id, toIndex) }))}
+      onReorderTab={(id, toIndex) => setPanes((current) => ({ ...current, [pane]: reorderTab(tabsOf(current, pane), id, toIndex) }))}
       onMoveTabAt={SPLIT_PANES_ENABLED ? movePaneTabAt : undefined}
       onDockTab={SPLIT_PANES_ENABLED && !isDetachedWindow ? dockPaneTab : undefined}
       dockEdges={dockEdgesFor}
@@ -2983,8 +2969,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         const tab = openTabIds.find((candidate) => candidate.id === id)
         if (tab === undefined || tab.kind !== 'pdf') return
         const docId = tabDocId(tab)
-        // 같은 PDF 를 한 군데 더: 1단이면 같은 패널, 2단이면 반대편 패널에 연다
-        const target = singlePane ? pane : otherPane(pane)
+        // 같은 PDF 를 한 군데 더: 한 칸이면 같은 패널, 여럿이면 다음 패널에 연다
+        const target = otherPane(paneOrder, pane)
         openInPane({ id: nextViewTabId(panes, docId), title: docTitles[docId] ?? tab.title, kind: 'pdf' }, target)
         setActivePaneId(target)
       }}
@@ -3004,10 +2990,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     return { main, sub: fileName === undefined || fileName === main ? undefined : fileName }
   }
   const renderPaneBody = (pane: PaneId) => {
-    const state = panes[pane]
+    const state = tabsOf(panes, pane)
     const tab = activeTab(state)
     if (tab === null) {
-      const hint = pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
+      const hint = pane === paneOrder[0] ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
       return <PaneShell state={state} emptyHint={hint} placeholder="" />
     }
     if (tab.kind === 'memoNote') {
@@ -3048,7 +3034,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               storage={canvasStorage}
               onOpenSource={openSource}
               onSourceStateChange={workspaceSources.setSourceState}
-              onToggleFullscreen={() => toggleFocus(fullscreenModeOf(pane))}
+              onToggleFullscreen={() => toggleFocus(pane)}
               onExportWithEvidence={(document) => exportWithEvidence(noteTab.title, document)}
               insertRequest={excerptInsertRequest}
               onTranslateText={translation.selectedModel === null ? undefined : translateCanvasText}
@@ -3073,8 +3059,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         state={state}
         tab={tab}
         meta={meta}
-        fullscreen={focusedPane === fullscreenModeOf(pane)}
-        onToggleFullscreen={() => toggleFocus(fullscreenModeOf(pane))}
+        fullscreen={focusedPane === 'zoom' && zoomedPane === pane}
+        onToggleFullscreen={() => toggleFocus(pane)}
         pendingPageRef={pendingDocPageRef}
         readingPositions={readingPositions}
         recordReadingPosition={recordReadingPosition}
@@ -3165,7 +3151,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 패널 안 어디를 누르든 그 패널이 "지금 만지는 패널"이 된다. display: contents 라 배치에는 끼지 않는다.
   // PDF 도구 화면이 대신할 창: 그 문서를 보이는 창(없으면 지금 문서 창)
   const pdfToolsPane: PaneId | null = pdfToolsTarget === null ? null
-    : PANE_IDS.find((pane) => { const tab = activeTab(panes[pane]); return tab?.kind === 'pdf' && tabDocId(tab) === pdfToolsTarget.docId }) ?? docPaneId
+    : paneOrder.find((pane) => { const tab = activeTab(tabsOf(panes, pane)); return tab?.kind === 'pdf' && tabDocId(tab) === pdfToolsTarget.docId }) ?? docPaneId
   // 다른 PDF 로 옮겨 가면 펼쳐 둔 도구는 접는다(쪽 편집 화면은 그 문서 것이라 둔다)
   const activePdfDocId = activePdfDoc?.docId
   useEffect(() => {
@@ -3174,7 +3160,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 「PDF 도구」 탭이 다루는 문서: 도구를 연 문서(문서 우클릭 메뉴 등), 없으면 지금 보는 PDF
   const pdfToolsDoc = (pdfToolsTarget === null ? null : openedDocs.find((doc) => doc.docId === pdfToolsTarget.docId)) ?? activePdfDoc
   const renderPane = (pane: PaneId) => (
-    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && shownPaneCount > 1 ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
+    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && paneCount > 1 ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
       <PaneIdContext.Provider value={pane}>
         {renderPaneBody(pane)}
       </PaneIdContext.Provider>
@@ -3459,11 +3445,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       focusedPane={focusedPane}
       libraryExpanded={libraryExpanded}
       onLibraryHost={setLibraryHost}
-      singlePane={singlePane}
-      threePane={shownPaneCount === 3 && gridLayout === null}
-      grid={gridLayout === null ? undefined : { layout: gridLayout, tabs: visiblePanes(shownPaneCount).map((pane) => renderPaneTabs(pane)) }}
-      onSwapPanes={swapPanes}
-      topBar={({ sidebarPx, leftFrac, sidebarVisible, paneGrows, gridZones }) => (
+      zoomedPane={zoomedPane}
+      root={layoutRoot}
+      onRootChange={setLayoutRoot}
+      renderPane={(pane) => renderPane(pane)}
+      // 칸이 둘 이상이면 탭 줄은 칸마다 칸 안 맨 위에 둔다(하나뿐일 때만 상단바에 있다)
+      renderTabs={(pane) => renderPaneTabs(pane)}
+      onSwapSplit={swapPanes}
+      topBar={({ sidebarPx, leftFrac, sidebarVisible }) => (
         <TopBar
           sidebarCollapsed={sidebarCollapsed}
           sidebarVisible={sidebarVisible}
@@ -3500,17 +3489,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           ]}
           sidebarPx={sidebarPx}
           leftFrac={leftFrac}
-          leftTabs={gridLayout !== null ? null : renderPaneTabs('left')}
-          rightTabs={gridLayout !== null ? null : renderPaneTabs('right')}
-          thirdTabs={shownPaneCount === 3 && gridLayout === null ? renderPaneTabs('third') : undefined}
-          gridZones={gridLayout === null || gridZones === undefined ? undefined : gridZones.map((zone) => {
-            const pane = visiblePanes(shownPaneCount)[zone.index] ?? 'left'
-            return { paneId: pane, tabs: renderPaneTabs(pane), grow: zone.grow }
-          })}
-          paneGrows={paneGrows}
+          leftTabs={singlePane ? renderPaneTabs(paneOrder[0]!) : null}
+          leftPaneId={paneOrder[0]}
           docSearchActive={!sidebarCollapsed && sidebarMode === 'search' && searchScope === 'vault'}
           singlePane={singlePane}
-          paneLayout={paneLayoutId}
+          paneLayout={matchLegacyLayout(layoutRoot)}
           onPaneLayoutChange={SPLIT_PANES_ENABLED && !isDetachedWindow ? setPaneLayout : undefined}
           noteBeside={docPaneId !== null && vault !== null ? { shown: noteBesideShown, onToggle: toggleNoteBeside } : undefined}
           layoutPresets={SPLIT_PANES_ENABLED && !isDetachedWindow && vault !== null ? { presets: availableLayoutPresets(CANVAS_ENABLED), onApply: (id) => { void applyPreset(id) } } : undefined}
@@ -3520,10 +3503,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         />
       )}
       sidebarCollapsed={sidebarCollapsed}
-      left={renderPane('left')}
-      right={renderPane('right')}
-      third={renderPane('third')}
-      fourth={renderPane('fourth')}
     />
     {CANVAS_ENABLED && focusedPane === 'split' && !libraryExpanded ? (
       <SourceTrace

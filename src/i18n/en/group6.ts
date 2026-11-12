@@ -154,11 +154,9 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '검색 결과가 없습니다.': 'No results.',
   // SplitPanes
   '양쪽 패널 바꾸기': 'Swap panes',
-  '가운데·오른쪽 패널 바꾸기': 'Swap middle and right panes',
   '양쪽 바꾸기': 'Swap sides',
   '사이드바 너비 조절': 'Resize sidebar',
   '패널 너비 조절': 'Resize pane',
-  '가운데·오른쪽 패널 너비 조절': 'Resize middle and right panes',
   '패널 크기 조절': 'Resize pane',
   // useVault
   '표시 이름을 입력해 주세요.': 'Enter a display name.',

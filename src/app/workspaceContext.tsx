@@ -3,7 +3,7 @@ import type { MemoTicket } from '../core/memoNote'
 import type { MemoContent } from '../pdf/MemoColumn'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import type { PaneId } from './tabs'
-import { DEFAULT_CHANNELS, type PaneChannel, type PaneChannels } from './workspaceChannels'
+import { DEFAULT_CHANNELS, channelOf, type PaneChannel, type PaneChannels } from './workspaceChannels'
 import { emitPointSignal, paneReceives, pendingPointSignal, subscribePointSignal, type DeliveredSignal, type PointSignal } from './workspaceSignal'
 
 /**
@@ -53,7 +53,7 @@ export function useWorkspaceLink(): WorkspaceLink {
 export function usePaneChannel(): { readonly pane: PaneId | null; readonly channel: PaneChannel } {
   const pane = useContext(PaneIdContext)
   const { channels } = useContext(WorkspaceContext)
-  return { pane, channel: pane === null ? null : channels[pane] }
+  return { pane, channel: pane === null ? null : channelOf(channels, pane) }
 }
 
 /**

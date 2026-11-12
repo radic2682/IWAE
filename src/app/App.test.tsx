@@ -275,10 +275,10 @@ describe('App — 껍데기 배선', () => {
     expect(fileDropMocks.unlisten).toHaveBeenCalledOnce()
   })
 
-  it('처음에는 양쪽 패널이 비어 있다', () => {
-    renderApp()
+  it('처음에는 한 칸이 비어 있다', () => {
+    const { container } = renderApp()
     expect(screen.getByText('사이드바에서 PDF 문서를 여세요')).toBeDefined()
-    expect(screen.getAllByText('탭을 여기로 끌어 오거나 사이드바에서 문서를 여세요').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.pane-grid-cell')).toHaveLength(1)
   })
 
   it('사이드바의 문서를 누르면 왼쪽 상단에 현재 문서명이 나온다', () => {
@@ -351,8 +351,8 @@ describe('App — bridge 로부터의 읽기', () => {
     expect(within(notes).queryByRole('button', { name: 'Markdown 테스트, Markdown' })).toBeNull()
     fireEvent.click(markdown)
 
-    const leftPane = view.container.querySelector('.pane-left')
-    const rightPane = view.container.querySelector('.pane-right')
+    const leftPane = view.container.querySelector('.pane-grid-cell[data-pane-index="0"]')
+    const rightPane = view.container.querySelector('.pane-grid-cell[data-pane-index="1"]')
     if (!(leftPane instanceof HTMLElement) || !(rightPane instanceof HTMLElement)) throw new Error('패널을 찾지 못했다')
     expect(within(leftPane).getByRole('article', { name: 'Markdown 테스트' })).toBeDefined()
     expect(within(rightPane).queryByRole('article', { name: 'Markdown 테스트' })).toBeNull()
@@ -412,10 +412,10 @@ describe('App — bridge 로부터의 읽기', () => {
     expect(view.container.querySelector('[data-source-trace]')).toBeNull()
     const toggle = await screen.findByRole('button', { name: '노트 전체 화면' })
     fireEvent.click(toggle)
-    expect(view.container.querySelector('.pane-left')?.getAttribute('aria-hidden')).toBe('true')
+    expect(view.container.querySelector('.pane-grid-cell[data-pane-index="0"]')?.getAttribute('aria-hidden')).toBe('true')
     expect(view.container.querySelector('[data-source-trace]')).toBeNull()
     fireEvent.click(toggle)
-    expect(view.container.querySelector('.pane-left')?.getAttribute('aria-hidden')).toBe('false')
+    expect(view.container.querySelector('.pane-grid-cell[data-pane-index="0"]')?.hasAttribute('aria-hidden')).toBe(false)
   })
 
   it.skipIf(!CANVAS_ENABLED)('노트를 근거와 함께 HTML 한 파일로 내보낸다', async () => {
@@ -833,6 +833,75 @@ describe('App — 한 패널', () => {
     expect(screen.queryByRole('button', { name: '2단 보기로' })).toBeNull()
     expect(view.container.querySelector('.app-single-pane')).not.toBeNull()
     expect(screen.queryByRole('menuitem', { name: /패널로 옮기기/u })).toBeNull()
+  })
+})
+
+describe('App — 칸 나누기 트리', () => {
+  const cells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell')
+
+  it('샘플 작업 공간은 문서 | 캔버스 두 칸이고, 칸마다 자기 탭 줄이 칸 안 맨 위에 있다', () => {
+    const { container } = render(<App developmentPreview />)
+    expect(cells(container)).toHaveLength(2)
+    expect(container.querySelectorAll('.pane-grid-tabs')).toHaveLength(2)
+    // 탭 줄은 상단바에 없다
+    expect(container.querySelector('.topbar .topbar-panetab-zone')).toBeNull()
+    expect(container.querySelectorAll('.pane-divider, .pane-tree-divider')).toHaveLength(1)
+  })
+
+  it('「창 나누기」 목록에서 예전 배치를 고르면 같은 모양의 칸들로 바뀐다(넷 → 한 화면)', () => {
+    const { container } = render(<App developmentPreview />)
+    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
+    fireEvent.click(screen.getAllByRole('menuitemradio').find((item) => item.textContent === '넷(2×2)')!)
+    expect(cells(container)).toHaveLength(4)
+    expect(container.querySelectorAll('.pane-tree-divider')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
+    fireEvent.click(screen.getAllByRole('menuitemradio').find((item) => item.textContent === '한 화면')!)
+    expect(cells(container)).toHaveLength(1)
+    // 칸이 하나면 탭 줄은 다시 상단바에 있다
+    expect(container.querySelector('.topbar .topbar-panetab-zone')).not.toBeNull()
+  })
+
+  it('Ctrl+\ 는 칸을 늘리고(둘 → 셋) 한 번 더 누르면 한 칸으로 돌아온다', () => {
+    const { container } = render(<App developmentPreview />)
+    fireEvent.keyDown(document.body, { key: '\\', ctrlKey: true })
+    expect(cells(container)).toHaveLength(3)
+    fireEvent.keyDown(document.body, { key: '\\', ctrlKey: true })
+    expect(cells(container)).toHaveLength(1)
+  })
+
+  it('Ctrl+1·Ctrl+2 는 칸 번호 0·1 의 칸을 만진 칸으로 삼는다', () => {
+    const { container } = render(<App developmentPreview />)
+    const active = () => [...container.querySelectorAll('.pane-focus-scope')].findIndex((scope) => scope.hasAttribute('data-pane-active'))
+    fireEvent.keyDown(document.body, { key: '2', ctrlKey: true })
+    expect(active()).toBe(1)
+    fireEvent.keyDown(document.body, { key: '1', ctrlKey: true })
+    expect(active()).toBe(0)
+  })
+
+  it('빈 칸의 닫기 단추는 그 칸을 빼고 남은 칸이 자리를 채우며 탭은 하나도 잃지 않는다', () => {
+    const { container } = render(<App developmentPreview />)
+    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
+    fireEvent.click(screen.getAllByRole('menuitemradio').find((item) => item.textContent === '넷(2×2)')!)
+    expect(cells(container)).toHaveLength(4)
+    // 새로 생긴 두 칸은 비어 있고 닫기 단추가 있다
+    fireEvent.click(screen.getAllByRole('button', { name: '이 창 닫기' })[0]!)
+    expect(cells(container)).toHaveLength(3)
+    fireEvent.click(screen.getAllByRole('button', { name: '이 창 닫기' })[0]!)
+    expect(cells(container)).toHaveLength(2)
+    expect(screen.getByRole('tab', { name: SAMPLE_TITLE })).toBeDefined()
+    expect(screen.getByRole('tab', { name: 'Evidence Map — Sample Research Note' })).toBeDefined()
+  })
+
+  it('칸이 너무 작아 더 나눌 수 없으면 「칸이 너무 작습니다」를 알린다(크기를 잴 수 있을 때)', async () => {
+    const rect = (width: number, height: number) => ({ left: 0, top: 0, right: width, bottom: height, width, height, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('pane-grid-cell') ? rect(300, 500) : rect(0, 0)
+    })
+    onTestFinished(() => spy.mockRestore())
+    const { container } = render(<App developmentPreview />)
+    fireEvent.keyDown(document.body, { key: '\\', ctrlKey: true })
+    expect(await screen.findByText('칸이 너무 작습니다')).toBeDefined()
+    expect(cells(container)).toHaveLength(2)
   })
 })
 
