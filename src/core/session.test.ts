@@ -92,7 +92,7 @@ describe('꺼 둔 캔버스 탭은 저장할 때 그대로 지나간다(통과)'
   const saved = () => captureSession({ screens: [{ id: 'w1', name: '읽기', ...two(pdfTabs, noteTabs), zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }, windowLayout)
 
   it('되살리지 않은 캔버스 탭 id 를 같은 칸 뒤에 다시 적고 노트 탭 목록에도 남긴다', () => {
-    const dormant = dormantTabsOf(saved(), new Set([canvasId]))
+    const dormant = dormantTabsOf(screensFromSession(saved(), null, '읽기'), new Set([canvasId]))
     expect(dormant).toEqual({ b: [canvasId] })
     // 캔버스를 끈 실행: 칸 b 는 빈 칸으로 보인다
     const shown = { screens: [{ id: 'w1', name: '읽기', ...two(pdfTabs, { tabs: [], activeId: null }), zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }
@@ -107,7 +107,7 @@ describe('꺼 둔 캔버스 탭은 저장할 때 그대로 지나간다(통과)'
   })
 
   it('칸이 닫히면 같이 사라지고, 칸에 다른 탭이 새로 생겨도 캔버스 id 는 그 뒤에 남는다', () => {
-    const dormant = dormantTabsOf(saved(), new Set([canvasId]))
+    const dormant = dormantTabsOf(screensFromSession(saved(), null, '읽기'), new Set([canvasId]))
     const closed = captureSession({ screens: [{ id: 'w1', name: '읽기', layout: paneNode('a'), panes: { a: pdfTabs } as PanesState, channels: { a: 'blue' as const }, zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }, windowLayout, dormant)
     expect(closed.noteTabIds).toEqual([])
     const added = captureSession({ screens: [{ id: 'w1', name: '읽기', ...two(pdfTabs, { tabs: [{ id: 'doc-c', title: 'C', kind: 'pdf' }], activeId: 'doc-c' }), zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }, windowLayout, dormant)
@@ -115,8 +115,34 @@ describe('꺼 둔 캔버스 탭은 저장할 때 그대로 지나간다(통과)'
   })
 
   it('통과할 탭이 없으면 저장 모양은 그대로다', () => {
-    expect(dormantTabsOf(saved(), new Set())).toEqual({})
+    expect(dormantTabsOf(screensFromSession(saved(), null, '읽기'), new Set())).toEqual({})
     expect(captureSession(two(pdfTabs, noteTabs), windowLayout, {})).toEqual(captureSession(two(pdfTabs, noteTabs), windowLayout))
+  })
+
+  it('v0.1.19 형식 세션(screens · paneState 없이 left/right 의 panes, 캔버스가 노트 탭 id)도 옮겨 읽은 칸 id 로 통과한다', () => {
+    // 그때는 캔버스가 노트 탭(noteTabIds)이었고 칸 이름 right 에 있었다
+    const old = parseSession({
+      pdfTabIds: ['doc-a'], noteTabIds: [canvasId], activePdfTabId: 'doc-a', activeNoteTabId: canvasId,
+      sidebarCollapsed: false, sidebarPx: 260, leftFrac: 0.5,
+      panes: { left: ['doc-a'], right: [canvasId], activeLeft: 'doc-a', activeRight: canvasId },
+      paneChannels: { left: 'green', right: 'blue', third: 'blue', fourth: 'blue' },
+    })
+    expect(old.screens).toBeUndefined()
+    expect(old.paneState).toBeUndefined()
+    const snapshot = screensFromSession(old, 'cols2', '읽기')
+    const [leftPane, rightPane] = leaves(snapshot.screens[0]!.layout)
+    const dormant = dormantTabsOf(snapshot, new Set([canvasId]))
+    expect(dormant).toEqual({ [rightPane!]: [canvasId] })
+    // 캔버스를 끈 실행에서 저장해도 그 탭이 같은 칸 뒤에 남고, 노트 탭 목록에도 남는다
+    const shown = {
+      screens: [{ id: snapshot.screens[0]!.id, name: '읽기', layout: snapshot.screens[0]!.layout, panes: { [leftPane!]: { tabs: [{ id: 'doc-a', title: 'A', kind: 'pdf' as const }], activeId: 'doc-a' }, [rightPane!]: { tabs: [], activeId: null } } as PanesState, channels: { [leftPane!]: 'green' as const, [rightPane!]: 'blue' as const }, zoomed: null, floats: [] }],
+      activeScreen: snapshot.screens[0]!.id, lastScreen: null,
+    }
+    const kept = captureSession(shown, windowLayout, dormant)
+    expect(kept.noteTabIds).toEqual([canvasId])
+    expect(kept.screens![0]!.paneState[rightPane!]!.tabIds).toEqual([canvasId])
+    // 통과가 없으면(예전 코드: 세션 파일의 screens · paneState 만 봤다) 탭이 사라진다
+    expect(captureSession(shown, windowLayout).noteTabIds).toEqual([])
   })
 })
 

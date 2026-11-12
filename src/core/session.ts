@@ -84,18 +84,20 @@ type CaptureWorkspace = { readonly panes: PanesState; readonly channels: PaneCha
  */
 export type DormantTabs = Readonly<Record<string, readonly string[]>>
 
-/** 읽어 온 세션에서 dormantIds 에 드는 탭이 어느 칸에 있었는지 모은다 */
-export function dormantTabsOf(session: SessionState, dormantIds: ReadonlySet<string>): DormantTabs {
+/**
+ * 읽어 온 화면들(`screensFromSession` 의 결과)에서 dormantIds 에 드는 탭이 어느 칸에 있었는지 모은다.
+ * 세션 파일이 아니라 옮겨 읽은 화면을 보는 까닭: 화면이 없던 예전 세션(v0.1.19: left/right/… 칸 이름의 `panes`)은 읽을 때 새 칸 id 가 붙으므로,
+ * 저장할 때 같은 칸 뒤에 되돌려 쓰려면 그 칸 id 로 적어 두어야 한다.
+ */
+export function dormantTabsOf(snapshot: Pick<ScreensSnapshot, 'screens'>, dormantIds: ReadonlySet<string>): DormantTabs {
   if (dormantIds.size === 0) return {}
   const out: Record<string, string[]> = {}
-  const collect = (paneState: Readonly<Record<string, PaneSnapshot>>) => {
-    for (const [pane, saved] of Object.entries(paneState)) {
+  for (const screen of snapshot.screens) {
+    for (const [pane, saved] of Object.entries(screen.paneState)) {
       const ids = saved.tabIds.filter((id) => dormantIds.has(id))
       if (ids.length > 0) out[pane] = [...new Set([...(out[pane] ?? []), ...ids])]
     }
   }
-  if (session.screens !== undefined) for (const screen of session.screens) collect(screen.paneState)
-  else if (session.paneState !== undefined) collect(session.paneState)
   return out
 }
 

@@ -437,7 +437,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState): 
     snapshot,
   )
   const screens = { ...restored, screens: restored.screens.map((screen) => ({ ...screen, panes: markPreviewTabs(screen.panes, session.previewTabIds ?? []) })) }
-  return { missing, documents, restoredMarkdownSources, screens, dormant: dormantTabsOf(session, dormantCanvasIds(session)) }
+  return { missing, documents, restoredMarkdownSources, screens, dormant: dormantTabsOf(snapshot, dormantCanvasIds(session)) }
 }
 
 /**
@@ -987,7 +987,7 @@ export function useVault(options: UseVaultOptions = {}) {
       setMarkdownSources((current) => ({ ...restored.restoredMarkdownSources, ...current }))
       remote = restored.screens
     }
-    dormantTabsRef.current = { ...dormantTabsRef.current, ...dormantTabsOf(session, dormantIds) }
+    dormantTabsRef.current = { ...dormantTabsRef.current, ...dormantTabsOf(screensFromSession(session, null, t('읽기')), dormantIds) }
     setScreensState((current) => mergeRemoteScreens(current, remote))
     // 상태가 화면에 닿을 때까지(엔진이 그 사이의 변화를 「우리가 만든 것」으로 세지 않게)
     await new Promise<void>((resolve) => { window.setTimeout(resolve, 60) })
