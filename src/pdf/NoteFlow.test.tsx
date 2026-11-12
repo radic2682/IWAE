@@ -85,6 +85,13 @@ describe('NoteFlow — 소제목', () => {
     // 펼쳐 두면 원문 전체, 점은 접기 단추, 메뉴는 「원문 접기」
     rerender(<NoteFlow {...props} items={items} openQuotes={new Set(['h1'])} />)
     expect(container.querySelector('.note-source[data-hl="green"]')?.textContent).toContain('원문 글')
+    // 형광펜 색이 닿는 것은 따옴표 글(.note-source-quote)뿐: 쪽 번호 · 번역 단추는 그 바깥(형제)이다
+    const source = container.querySelector('.note-source[data-hl="green"]')!
+    const quote = source.querySelector('.note-source-quote')!
+    expect(quote.textContent).toBe('원문 글')
+    expect(quote.querySelector('.note-source-page, .note-source-translate')).toBeNull()
+    expect(quote.parentElement).toBe(source)
+    expect(source.querySelector(':scope > .note-source-page')).not.toBeNull()
     expect(screen.getByRole('button', { name: '근거 접기' }).getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: '근거 접기' }))
     expect(props.onToggleCollapse).toHaveBeenLastCalledWith('h1', true)

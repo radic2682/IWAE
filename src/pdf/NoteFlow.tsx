@@ -1170,7 +1170,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
         >
           {dotButton(true)}
           {meta}
-          {source.anchor.quote.replace(/\s+/gu, ' ').trim()}
+          <span className="note-source-quote">{source.anchor.quote.replace(/\s+/gu, ' ').trim()}</span>
           {isMarkdownSource(source) ? null : <span className="note-source-page">p.{source.anchor.page + 1}</span>}
           {translateButton}
           {remove}
