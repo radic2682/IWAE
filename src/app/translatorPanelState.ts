@@ -79,14 +79,18 @@ export function useTranslatorPanelState(kind: TranslatorPanelKind): TranslatorPa
 export interface PanelBox { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 
 /** 문서 칸(bounds) 안에 들어오게: 크기는 칸보다 커지지 않고, 자리는 칸 가장자리 여백 안쪽. x·y 가 없으면 오른쪽 위 */
-export function placePanel(state: Pick<TranslatorPanelState, 'x' | 'y' | 'w' | 'h'>, bounds: { readonly width: number; readonly height: number }): PanelBox {
+/** bounds.top: 칸 위쪽을 덮는 문서 도구줄의 높이(PDF 도구줄은 칸 위에 떠 있다). 번역기는 그 아래에만 놓인다 */
+export function placePanel(state: Pick<TranslatorPanelState, 'x' | 'y' | 'w' | 'h'>, bounds: { readonly width: number; readonly height: number; readonly top?: number }): PanelBox {
+  const top = Math.max(0, bounds.top ?? 0)
   // 아직 칸 크기를 못 쟀으면(첫 그림) 저장된 값 그대로
-  if (bounds.width <= 0 || bounds.height <= 0) return { x: state.x ?? PANEL_MARGIN, y: state.y ?? PANEL_MARGIN, w: state.w, h: state.h }
+  if (bounds.width <= 0 || bounds.height <= 0) return { x: state.x ?? PANEL_MARGIN, y: Math.max(state.y ?? 0, top + PANEL_MARGIN), w: state.w, h: state.h }
   const w = Math.max(Math.min(state.w, bounds.width - PANEL_MARGIN * 2), Math.min(PANEL_MIN_WIDTH, bounds.width - PANEL_MARGIN * 2))
-  const h = Math.max(Math.min(state.h, bounds.height - PANEL_MARGIN * 2), Math.min(PANEL_MIN_HEIGHT, bounds.height - PANEL_MARGIN * 2))
+  const room = bounds.height - top - PANEL_MARGIN * 2
+  const h = Math.max(Math.min(state.h, room), Math.min(PANEL_MIN_HEIGHT, room))
   const maxX = Math.max(bounds.width - w - PANEL_MARGIN, PANEL_MARGIN)
-  const maxY = Math.max(bounds.height - h - PANEL_MARGIN, PANEL_MARGIN)
+  const minY = top + PANEL_MARGIN
+  const maxY = Math.max(bounds.height - h - PANEL_MARGIN, minY)
   const x = Math.min(Math.max(state.x ?? maxX - 8, PANEL_MARGIN), maxX)
-  const y = Math.min(Math.max(state.y ?? PANEL_MARGIN + 4, PANEL_MARGIN), maxY)
+  const y = Math.min(Math.max(state.y ?? minY + 4, minY), maxY)
   return { x, y, w: Math.max(w, 0), h: Math.max(h, 0) }
 }

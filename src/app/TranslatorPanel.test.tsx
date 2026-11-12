@@ -114,6 +114,18 @@ describe('떠 있는 번역기', () => {
     expect(service.translate).toHaveBeenLastCalledWith('hello world, this is a test', 'en', 'ja')
   })
 
+  it('⇄ 는 번역 결과를 입력으로 옮기고 거꾸로 번역한다', async () => {
+    const service = makeService()
+    renderInPane(service)
+    fireEvent.change(input(), { target: { value: 'hello world, this is a test' } })
+    fireEvent.click(screen.getByRole('button', { name: '번역' }))
+    await screen.findByLabelText('번역 결과')
+    fireEvent.click(screen.getByRole('button', { name: '원문과 번역 언어 바꾸기' }))
+    expect(input().value).toBe('안녕하세요 번역')
+    await waitFor(() => expect(service.translate).toHaveBeenCalledTimes(2))
+    expect(service.translate).toHaveBeenLastCalledWith('안녕하세요 번역', 'ko', 'en')
+  })
+
   it('「선택한 글 넣기」는 문서에서 고른 글이 있을 때만 나오고, 넣기만 한다(번역은 하지 않는다)', () => {
     const service = makeService()
     renderInPane(service)
@@ -187,6 +199,15 @@ describe('떠 있는 번역기: 자리·크기', () => {
     expect(box.x + box.w).toBeLessThanOrEqual(500 - 8)
     expect(box.y + box.h).toBeLessThanOrEqual(400 - 8)
     expect(box.x).toBeGreaterThanOrEqual(8)
+  })
+
+  it('칸 위에 떠 있는 도구줄(top) 아래에만 놓인다', () => {
+    const box = placePanel({ x: 100, y: 0, w: 340, h: 380 }, { width: 900, height: 900, top: 37 })
+    expect(box.y).toBeGreaterThanOrEqual(37 + 8)
+    const fresh = placePanel({ x: null, y: null, w: 340, h: 380 }, { width: 900, height: 900, top: 37 })
+    expect(fresh.y).toBeGreaterThanOrEqual(37 + 8)
+    const tall = placePanel({ x: 100, y: 0, w: 340, h: 2000 }, { width: 900, height: 600, top: 37 })
+    expect(tall.y + tall.h).toBeLessThanOrEqual(600 - 8)
   })
 
   it('열림·자리·크기는 문서 종류마다 저장되고, 다시 읽어도 그대로다', () => {

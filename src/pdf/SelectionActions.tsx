@@ -5,6 +5,7 @@ import { publishReaderSelection } from '../app/readerSelectionStore'
 import { t } from '../i18n'
 
 import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCard, useEffectiveTargetLanguage } from '../ui/TranslationCard'
+import { sourceForNewText } from '../ui/translationPair'
 
 export { OPEN_TRANSLATION_SETTINGS_EVENT }
 
@@ -94,7 +95,8 @@ export function SelectionActions({
     requestId.current = currentRequest
     setTranslationState({ status: 'pending' })
     try {
-      const options = { ...(force ? { force: true } : {}), ...(override === undefined ? {} : { targetLanguage: override }), ...(sourceOverride === undefined ? {} : { sourceLanguage: sourceOverride }) }
+      const source = force || supersede ? sourceOverride : sourceForNewText(selection.anchor.quote, sourceOverride)
+      const options = { ...(force ? { force: true } : {}), ...(override === undefined ? {} : { targetLanguage: override }), ...(source === undefined ? {} : { sourceLanguage: source }) }
       const translation = await (Object.keys(options).length > 0 ? onTranslate(selection, options) : onTranslate(selection))
       if (translation === null) throw new Error(t('번역 결과를 받지 못했습니다.'))
       if (requestId.current === currentRequest) setTranslationState({ status: 'result', translation })

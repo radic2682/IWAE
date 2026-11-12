@@ -7,7 +7,7 @@ import { guessLanguage, normalizeSelectionText } from '../core/translationText'
 import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCardSettingsContext, useEffectiveTargetLanguage } from '../ui/TranslationCard'
 import { TranslationLanguageBar } from '../ui/TranslationLanguageBar'
 import { isDragExempt } from '../ui/dragExempt'
-import { pickSource, pickTarget, setTranslationSource, swapPair, type LanguagePair } from '../ui/translationPair'
+import { pickSource, pickTarget, setTranslationSource, sourceForNewText, swapPair, type LanguagePair } from '../ui/translationPair'
 import { TranslatorContext } from './translatorContext'
 import { useReaderSelection } from './readerSelectionStore'
 import {
@@ -53,7 +53,7 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
   const stored = useTranslatorPanelState(kind)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
-  const [bounds, setBounds] = useState<{ readonly width: number; readonly height: number }>({ width: 0, height: 0 })
+  const [bounds, setBounds] = useState<{ readonly width: number; readonly height: number; readonly top: number }>({ width: 0, height: 0, top: 0 })
   const [draft, setDraft] = useState<PanelBox | null>(null)
   const gesture = useRef<Gesture | null>(null)
   const [input, setInput] = useState('')
@@ -71,24 +71,31 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
   useLayoutEffect(() => {
     const parent = rootRef.current?.parentElement
     if (parent == null) return undefined
-    const measure = () => setBounds({ width: parent.clientWidth, height: parent.clientHeight })
+    const toolbar = parent.parentElement?.querySelector<HTMLElement>(':scope > .pane-toolbar') ?? null
+    const measure = () => {
+      // 칸 위에 떠 있는 문서 도구줄과 겹치는 높이만큼 비켜 둔다
+      const overlap = toolbar === null ? 0 : Math.max(0, toolbar.getBoundingClientRect().bottom - parent.getBoundingClientRect().top)
+      setBounds({ width: parent.clientWidth, height: parent.clientHeight, top: Math.round(overlap) })
+    }
     measure()
     if (typeof ResizeObserver === 'undefined') return undefined
     const observer = new ResizeObserver(measure)
     observer.observe(parent)
+    if (toolbar !== null) observer.observe(toolbar)
     return () => observer.disconnect()
   }, [])
 
   const placed = placePanel(draft ?? stored, bounds)
 
-  const translateNow = useCallback(async (text: string) => {
+  // fresh: 사람이 번역을 눌렀다(언어를 바꿔 다시 번역하는 것이 아님). 기억한 원문 언어가 글과 다르면 자동 감지로 돌린다
+  const translateNow = useCallback(async (text: string, fresh = false) => {
     const body = normalizeSelectionText(text)
     if (service === null || body === '' || effective.target === null) return
     const current = requestId.current + 1
     requestId.current = current
     setResult({ status: 'pending' })
     try {
-      const translated = await service.translate(body, effective.sourceOverride, effective.target)
+      const translated = await service.translate(body, fresh ? sourceForNewText(body, effective.sourceOverride) : effective.sourceOverride, effective.target)
       if (requestId.current !== current) return
       setResult(translated === null
         ? { status: 'error', message: t('번역 결과를 받지 못했습니다.') }
@@ -121,15 +128,21 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
     if (sourceChanged) setTranslationSource(pair.source)
     if (targetChanged) settings.onChangeTargetLanguage(pair.target)
   }
+  // 방향 바꾸기: 보통 번역기처럼 번역 결과를 입력으로 옮기고 거꾸로 번역한다(결과가 없으면 언어만 바꾼다)
   const swap = () => {
     const pair = swapPair(sourceChoice, target, detected)
-    if (pair !== null) applyPair(pair)
+    if (pair === null) return
+    if (result.status === 'result' && result.text.trim() !== '') {
+      setInput(result.text)
+      inputValueRef.current = result.text
+    }
+    applyPair(pair)
   }
 
   const onInputKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault()
-      if (!pending) void translateNow(input)
+      if (!pending) void translateNow(input, true)
     }
   }
   // 고정된 창이라 Esc 는 닫지 않고 글쓰기 칸에서 포커스만 뺀다
@@ -252,7 +265,7 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
           className="translator-panel-button translator-panel-primary"
           disabled={pending || input.trim() === ''}
           title={t('번역 (Ctrl+Enter)')}
-          onClick={() => void translateNow(input)}
+          onClick={() => void translateNow(input, true)}
         >
           <Translate size={13} aria-hidden="true" />
           {t('번역')}
@@ -279,7 +292,7 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
           </button>
         ) : null}
         {result.status === 'error' ? (
-          <button type="button" className="translator-panel-button" disabled={input.trim() === ''} onClick={() => void translateNow(input)}>
+          <button type="button" className="translator-panel-button" disabled={input.trim() === ''} onClick={() => void translateNow(input, true)}>
             <ArrowClockwise size={13} aria-hidden="true" />
             {t('다시')}
           </button>

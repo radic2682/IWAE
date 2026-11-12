@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { guessLanguage, normalizeSelectionText } from '../core/translationText'
 
 /**
  * 번역 언어 쌍의 원문 쪽. 도착 언어는 번역 설정의 「번역 언어」(translation settings 저장소)가 그대로 맡고,
@@ -87,4 +88,16 @@ export const TRANSLATION_LANGUAGES: readonly { readonly code: string; readonly l
 
 export function languageLabel(code: string): string {
   return TRANSLATION_LANGUAGES.find((language) => language.code === code)?.label ?? code
+}
+
+/**
+ * 새로 고른 글을 처음 번역할 때 넘길 원문 언어. 기억해 둔 원문 언어가 이 글과 글자부터 다르면(한국어 글인데 English 로 기억)
+ * 자동 감지로 되돌리고 기억도 지운다 — 틀린 원문 언어로 번역하면 엉뚱한 결과가 나온다. 카드에서 언어를 고쳐 다시 번역할 때는 쓰지 않는다
+ */
+export function sourceForNewText(text: string, remembered: string | undefined): string | undefined {
+  if (remembered === undefined || remembered === AUTO_SOURCE) return undefined
+  const guessed = guessLanguage(normalizeSelectionText(text))
+  if (guessed === null || guessed === remembered) return remembered
+  setTranslationSource(AUTO_SOURCE)
+  return undefined
 }

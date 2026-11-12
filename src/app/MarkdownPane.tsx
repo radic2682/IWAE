@@ -58,6 +58,7 @@ import {
 } from '../core/markdownExcerpt'
 import type { VisibleSourceReference } from '../core/workspaceSources'
 import { createMarkdownCapture, markdownSourceHash } from '../core/markdownCapture'
+import { sourceForNewText } from '../ui/translationPair'
 import {
   createPersistentMarkdownHighlight,
   type PersistentMarkdownHighlight,
@@ -943,7 +944,8 @@ export function MarkdownPane({
     setTranslationState({ status: 'pending' })
     try {
       const quote = action.payload.selection.quote
-      const options = { ...(force ? { force: true } : {}), ...(override === undefined ? {} : { targetLanguage: override }), ...(sourceOverride === undefined ? {} : { sourceLanguage: sourceOverride }) }
+      const source = force || supersede ? sourceOverride : sourceForNewText(quote, sourceOverride)
+      const options = { ...(force ? { force: true } : {}), ...(override === undefined ? {} : { targetLanguage: override }), ...(source === undefined ? {} : { sourceLanguage: source }) }
       const translation = await (Object.keys(options).length > 0 ? onTranslateSelection(quote, options) : onTranslateSelection(quote))
       if (translationRequest.current !== current) return
       setTranslationState(translation === null
