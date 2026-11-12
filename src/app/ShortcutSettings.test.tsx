@@ -21,11 +21,11 @@ afterEach(() => { cleanup(); setAppPref('shortcuts', {}); setShortcutOverrides({
 describe('ShortcutSettings', () => {
   it('눌러서 새 키를 정하면 저장되고 등록부에 반영된다', () => {
     render(<ShortcutSettings />)
-    record('탭 닫기', { key: 'k', ctrlKey: true })
-    expect(getAppPrefs().shortcuts).toEqual({ closeTab: 'Mod+K' })
-    expect(getShortcutOverrides()).toEqual({ closeTab: 'Mod+K' })
-    expect(JSON.parse(window.localStorage.getItem(KEY) ?? '{}').shortcuts).toEqual({ closeTab: 'Mod+K' })
-    expect(keysButton('탭 닫기').textContent).toContain('K')
+    record('탭 닫기', { key: 'j', ctrlKey: true })
+    expect(getAppPrefs().shortcuts).toEqual({ closeTab: 'Mod+J' })
+    expect(getShortcutOverrides()).toEqual({ closeTab: 'Mod+J' })
+    expect(JSON.parse(window.localStorage.getItem(KEY) ?? '{}').shortcuts).toEqual({ closeTab: 'Mod+J' })
+    expect(keysButton('탭 닫기').textContent).toContain('J')
   })
 
   it('Esc 는 취소, Backspace 는 키 지우기', () => {
@@ -56,17 +56,17 @@ describe('ShortcutSettings', () => {
 
   it('수식 키 없는 글자 키는 받지 않고 계속 기다린다', () => {
     render(<ShortcutSettings />)
-    record('탭 닫기', { key: 'k' })
+    record('탭 닫기', { key: 'j' })
     expect(screen.getByRole('status').textContent).toContain('Ctrl')
     expect(getAppPrefs().shortcuts).toEqual({})
   })
 
   it('기본값으로(한 줄·전체)와 검색', () => {
     render(<ShortcutSettings />)
-    record('탭 닫기', { key: 'k', ctrlKey: true })
+    record('탭 닫기', { key: 'j', ctrlKey: true })
     fireEvent.click(screen.getByRole('button', { name: '탭 닫기: 기본값으로' }))
     expect(getAppPrefs().shortcuts).toEqual({})
-    record('탭 닫기', { key: 'k', ctrlKey: true })
+    record('탭 닫기', { key: 'j', ctrlKey: true })
     record('인쇄', { key: 'j', ctrlKey: true })
     fireEvent.click(screen.getByRole('button', { name: '모두 기본값으로' }))
     expect(getAppPrefs().shortcuts).toEqual({})

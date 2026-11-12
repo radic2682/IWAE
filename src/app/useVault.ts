@@ -382,6 +382,8 @@ export function useVault(options: UseVaultOptions = {}) {
     breakPane: (pane: string, name: string) => setScreensState((current) => breakPane(current, pane, name) ?? current),
     /** 보는 화면의 「크게」 칸(null 이면 푼다) */
     setZoomed: (pane: string | null) => setScreensState((current) => setZoomed(current, pane)),
+    /** 화면 상태를 통째로 바꾼다(명령줄 명령이 계산한 새 상태) */
+    replace: (next: ScreensState) => setScreensState(next),
   }), [])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(emptySession.sidebarCollapsed)
   const [layout, setLayout] = useState({

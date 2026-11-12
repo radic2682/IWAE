@@ -164,7 +164,8 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
                   <SquaresFour size={13} aria-hidden="true" className="screen-tab-icon" />
                   <span className="screen-tab-index">{index}</span>
                   <span className="screen-tab-name">{screen.name}</span>
-                  {active ? <span className="screen-tab-mark" aria-hidden="true">*</span> : last ? <span className="screen-tab-mark" aria-hidden="true">-</span> : null}
+                  {/* 보는 화면은 알약 모양이 이미 보여 준다(* 는 상태 줄에만). 바로 앞 화면만 - 로 흐리게 */}
+                  {!active && last ? <span className="screen-tab-mark" aria-hidden="true">-</span> : null}
                 </button>
               )}
             </div>

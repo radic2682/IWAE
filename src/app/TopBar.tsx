@@ -69,6 +69,15 @@ export function TopBar({
 }: TopBarProps) {
   const [sessionMenu, setSessionMenu] = useState<{ left: number; top: number } | null>(null)
   const sessionRef = useRef<HTMLButtonElement | null>(null)
+  // 접두키 + s: 지금 세션 메뉴를 연다(세션 목록은 다음 단계)
+  useEffect(() => {
+    const open = () => {
+      const box = sessionRef.current?.getBoundingClientRect()
+      setSessionMenu({ left: box?.left ?? 0, top: (box?.bottom ?? 0) + 4 })
+    }
+    window.addEventListener('iwae:open-session-menu', open)
+    return () => window.removeEventListener('iwae:open-session-menu', open)
+  }, [])
   // 왼쪽 위 단추 묶음의 실제 폭. 사이드바가 이보다 좁으면 묶음이 첫 탭(왼쪽 모서리·곡선)을 덮었다 — 그만큼 탭을 민다
   const actionsRef = useRef<HTMLDivElement | null>(null)
   const [actionsWidth, setActionsWidth] = useState<number | null>(null)

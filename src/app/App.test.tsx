@@ -1084,7 +1084,7 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     const { container } = render(<App developmentPreview />)
     openMenu(1)
     pick(/새 화면으로 떼기/u)
-    expect(screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)).toEqual(['0읽기-', '1화면 1*'])
+    expect(screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)).toEqual(['0읽기-', '1화면 1'])
     expect(cells(container)).toHaveLength(1)
     fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
     expect(cells(container)).toHaveLength(1)
@@ -1115,19 +1115,19 @@ describe('App — 화면 · 상태 줄', () => {
 
   it('처음에는 「0 읽기」 화면 하나뿐이다', () => {
     render(<App developmentPreview />)
-    expect(screenTabs()).toEqual(['0읽기*'])
+    expect(screenTabs()).toEqual(['0읽기'])
   })
 
   it('＋ 에서 빈 화면을 만들면 그 화면으로 가고, 이전 화면은 내려가(unmount) 있다가 돌아가면 다시 열린다', async () => {
     const { container } = render(<App developmentPreview />)
     expect(screen.getByRole('button', { name: '테스트 스크롤 보고' })).toBeDefined()
     await newScreen(/빈 화면/u)
-    expect(screenTabs()).toEqual(['0읽기-', '1화면 1*'])
+    expect(screenTabs()).toEqual(['0읽기-', '1화면 1'])
     expect(cells(container)).toHaveLength(1)
     // 숨은 화면의 PDF 보기는 마운트되어 있지 않다
     expect(screen.queryByRole('button', { name: '테스트 스크롤 보고' })).toBeNull()
     fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
-    expect(screenTabs()).toEqual(['0읽기*', '1화면 1-'])
+    expect(screenTabs()).toEqual(['0읽기', '1화면 1-'])
     expect(cells(container)).toHaveLength(2)
     expect(screen.getByRole('button', { name: '테스트 스크롤 보고' })).toBeDefined()
   })
@@ -1147,7 +1147,7 @@ describe('App — 화면 · 상태 줄', () => {
   it('「읽기」 템플릿으로 새 화면을 만들면 보던 문서가 문서 칸에 놓이고 노트 칸이 붙는다', async () => {
     const { container } = render(<App developmentPreview />)
     await newScreen(/^읽기/u)
-    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1읽기*']))
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1읽기']))
     expect(cells(container)).toHaveLength(2)
     expect(screen.getAllByRole('tab', { name: SAMPLE_TITLE }).length).toBeGreaterThan(0)
   })
@@ -1159,9 +1159,9 @@ describe('App — 화면 · 상태 줄', () => {
     const input = screen.getByRole('textbox', { name: '화면 이름' })
     fireEvent.change(input, { target: { value: '메모' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(screenTabs()).toEqual(['0읽기-', '1메모*'])
+    expect(screenTabs()).toEqual(['0읽기-', '1메모'])
     fireEvent.keyDown(screen.getByRole('tab', { name: /읽기/u }), { key: 'ArrowRight', altKey: true })
-    expect(screenTabs()).toEqual(['0메모*', '1읽기-'])
+    expect(screenTabs()).toEqual(['0메모', '1읽기-'])
   })
 
   it('아래 상태 줄: [기본] 0:읽기* 1:비교- 처럼 화면 목록을 보이고, 「?」가 키와 명령 목록을 연다', async () => {
@@ -1171,11 +1171,11 @@ describe('App — 화면 · 상태 줄', () => {
     expect(bar.querySelector('.status-bar-screens')?.textContent).toBe('0:읽기*')
     await newScreen(/빈 화면/u)
     expect([...bar.querySelectorAll('.status-bar-screen')].map((button) => button.textContent).join(' ')).toBe('0:읽기- 1:화면 1*')
-    // 접두키 칩은 단계 4 까지 꺼져 있다
+    // 접두키 칩은 접두키를 기다리는 동안만 켜진다
     expect(bar.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('false')
     fireEvent.click(within(bar).getByRole('button', { name: '키와 명령 보기' }))
     const sheet = screen.getByRole('dialog', { name: '키와 명령' })
-    expect(within(sheet).getByText('다음 단계')).toBeDefined()
+    expect(within(sheet).getAllByText('다음 단계').length).toBeGreaterThan(0)
     expect(within(sheet).getByText('split-window -h / -v')).toBeDefined()
   })
 

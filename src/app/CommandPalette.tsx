@@ -29,14 +29,18 @@ export function matchCommand(command: PaletteCommand, query: string): number | n
 }
 
 /**
- * Ctrl+Shift+P 명령 팔레트: 앱의 동작과 Vault 문서를 이름으로 찾아 바로 실행한다.
+ * Ctrl+K(Ctrl+Shift+P) 명령 팔레트: 앱의 동작과 Vault 문서를 이름으로 찾아 바로 실행한다.
  * ↑↓ 로 고르고 Enter, Esc 로 닫는다. 검색어가 없으면 동작만, 있으면 문서도 함께 보인다.
+ * 「:」 로 시작하면 명령줄이다: 나머지를 `:` 명령줄과 같은 명령으로 실행한다(`: split-window -h ; open 노트 A`).
  */
-export function CommandPalette({ commands, onClose }: {
+export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine }: {
   readonly commands: readonly PaletteCommand[]
   readonly onClose: () => void
+  readonly initialQuery?: string
+  /** 「:」 로 시작한 줄을 실행한다(워크스페이스 명령 실행기) */
+  readonly onRunLine?: (line: string) => void
 }) {
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLUListElement | null>(null)
   const dialogRef = useRef<HTMLDivElement | null>(null)
@@ -44,6 +48,10 @@ export function CommandPalette({ commands, onClose }: {
   useFocusTrap(dialogRef)
 
   const shown = useMemo(() => {
+    if (query.startsWith(':') && onRunLine !== undefined) {
+      const line = query.slice(1).trim()
+      return [{ id: 'command-line', kind: 'action' as const, label: line === '' ? t('명령을 치세요: 예) split-window -h ; open 노트 A') : t('명령 실행: {line}', { line }), run: () => { if (line !== '') onRunLine(line) } }]
+    }
     const scored = commands.flatMap((command) => {
       if (query.trim() === '' && command.kind !== 'action') return []
       const score = matchCommand(command, query)
@@ -52,7 +60,7 @@ export function CommandPalette({ commands, onClose }: {
     // 동작이 문서보다 먼저, 그 안에서는 앞에서 맞은 것부터
     scored.sort((a, b) => Number(a.command.kind !== 'action') - Number(b.command.kind !== 'action') || a.score - b.score)
     return scored.slice(0, 60).map(({ command }) => command)
-  }, [commands, query])
+  }, [commands, query, onRunLine])
 
   useEffect(() => setActive(0), [query])
   useEffect(() => {
@@ -73,6 +81,7 @@ export function CommandPalette({ commands, onClose }: {
           <MagnifyingGlass size={16} aria-hidden="true" />
           <input
             autoFocus
+            data-prefix-off=""
             aria-label={t('명령 찾기')}
             placeholder={t('명령이나 문서 이름을 치세요')}
             value={query}

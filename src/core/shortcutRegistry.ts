@@ -36,8 +36,14 @@ const app = (id: string, label: string, group: ShortcutGroup, defaultKeys: reado
 const editor = (id: string, label: string, defaultKeys: readonly string[], inEditable: boolean, keywords?: string): ShortcutDef =>
   ({ id, label, group: 'editor', scope: 'editor', defaultKeys, inEditable, keywords })
 
+/** 접두키 항목의 id */
+export const PREFIX_KEY_ID = 'prefixKey'
+
 export const SHORTCUT_DEFS: readonly ShortcutDef[] = [
-  app('commandPalette', '명령 팔레트', 'general', ['Mod+Shift+P'], true, 'command palette'),
+  // Ctrl+K 는 Ctrl+Shift+P 의 별칭(같은 팔레트). 글 칸에서도 열린다
+  app('commandPalette', '명령 팔레트', 'general', ['Mod+Shift+P', 'Mod+K'], true, 'command palette'),
+  // 접두키(tmux 의 prefix): 누르면 다음 키 하나를 기다린다. 해석은 usePrefixMode 가 따로 한다(resolveShortcut 은 건너뛴다)
+  app(PREFIX_KEY_ID, '접두키 (칸·화면 명령의 첫 키)', 'general', ['Ctrl+Space'], true, 'prefix key tmux leader'),
   app('newWindow', '새 창', 'general', ['Mod+Shift+N'], true, 'new window'),
   app('openSettings', '설정', 'general', ['Mod+,'], true, 'settings preferences'),
   app('showShortcuts', '단축키 보기', 'general', ['Mod+/'], true, 'keyboard shortcuts help'),
@@ -197,7 +203,9 @@ function codeOfEvent(event: Pick<KeyboardEvent, 'code'>): string | null {
   const letter = /^Key([A-Z])$/u.exec(code)
   if (letter !== null) return letter[1]?.toLowerCase() ?? null
   const digit = /^Digit([0-9])$/u.exec(code)
-  return digit === null ? null : digit[1] ?? null
+  if (digit !== null) return digit[1] ?? null
+  // 한글 입력기가 Ctrl+Space 의 key 를 'Process' 로 바꿔도 물리 키는 Space 다
+  return code === 'Space' ? 'space' : null
 }
 
 /** 키 입력이 이 키 조합과 맞는가(Ctrl·⌘·Alt·Shift 가 정확히 같아야 한다) */
@@ -335,6 +343,8 @@ export function isCustomized(id: string, map: ShortcutOverrides = overrides): bo
 /** 키 입력 → 명령 id(없으면 null). `editable`: 글 쓰는 칸에 커서가 있는가 */
 export function resolveShortcut(event: KeyboardEvent, editable: boolean, map: ShortcutOverrides = overrides, mac = isMacPlatform()): string | null {
   for (const def of SHORTCUT_DEFS) {
+    // 접두키는 usePrefixMode 가 가장 먼저 받는다(Ctrl+B 를 고르면 편집기의 굵게와 같은 키라 여기서 가로채면 안 된다)
+    if (def.id === PREFIX_KEY_ID) continue
     if (editable && !def.inEditable) continue
     for (const combo of effectiveKeys(def, map, mac)) {
       const parsed = parseCombo(combo, mac)

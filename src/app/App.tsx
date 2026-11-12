@@ -3,7 +3,7 @@ import { translateWithCacheUsing, useTranslationCacheBridge } from './translatio
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { ShortcutOverlay } from './ShortcutOverlay'
-import { shortcutText } from '../core/shortcutRegistry'
+import { PREFIX_KEY_ID, comboText, effectiveKeys, getShortcutDef, shortcutText } from '../core/shortcutRegistry'
 import { InputSettings, SearchSettings } from './BehaviorSettings'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
@@ -38,7 +38,10 @@ import { useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './useMemoNoteTabs'
 import { blocksForTarget, pickCanvasPane, visibleCanvasPanes, type PointableHighlight } from './canvasWorkspace'
 import { createNoteBesideOpener, pickNotePath, placeNoteTab, type NoteBesideOpener, type NoteBesideHost } from './noteBeside'
 import { applyLayoutPreset, availableScreenTemplates, buildTemplateScreen, templateScreenName, type LayoutPresetId, type ScreenTemplateId } from './layoutPresets'
-import { allScreenPaneIds } from './screens'
+import { activeScreenOf, allScreenPaneIds, workspaceOf } from './screens'
+import { pickByName, runCommandLine, type CommandHost, type CommandResult, type PaneRect, type WorkspaceModel } from './workspaceCommands'
+import { usePrefixMode } from './usePrefixMode'
+import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
 import { StatusBar } from './StatusBar'
 import { KeysHelpSheet } from './KeysHelpSheet'
@@ -1086,7 +1089,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (document.querySelector('.note-canvas') !== null) return
       if (!redoChange()) announceAction(t('다시 할 것이 없습니다'))
     },
-    commandPalette: () => setPaletteOpen((open) => !open),
+    commandPalette: () => { setPaletteInitial(''); setPaletteOpen((open) => !open) },
     showShortcuts: () => setShortcutsOpen((open) => !open),
     // 마지막으로 만진 문서 칸(PDF·Markdown)의 확대. 옛 캔버스 노트는 NoteCanvas 가 따로 받는다
     zoomIn: () => { if (document.querySelector('.note-canvas') === null) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'in' })) },
@@ -1463,10 +1466,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setLibraryExpanded(false)
     screenOps.switchTo(id)
   }, [screenOps])
-  /** 「?」 목록의 「지금 되는 키」 */
+  /** 명령 팔레트 단추 곁에 보일 키: Ctrl+K(별칭)가 있으면 그것, 없으면 대표 키 */
+  const paletteHint = (() => {
+    const def = getShortcutDef('commandPalette')
+    const keys = def === undefined ? [] : effectiveKeys(def)
+    const preferred = keys.includes('Mod+K') ? 'Mod+K' : keys[0]
+    return preferred === undefined ? undefined : comboText(preferred)
+  })()
+  const prefixHint = shortcutText(PREFIX_KEY_ID) ?? 'Ctrl+Space'
+  /** 「?」 목록의 「접두키 없이 되는 키」 */
   const shortcutKeys = (name: Parameters<typeof shortcutText>[0]) => shortcutText(name) ?? ''
   const keysHelpCurrentKeys = () => [
-    { label: t('명령 팔레트'), keys: shortcutKeys('commandPalette') },
+    { label: t('명령 팔레트'), keys: paletteHint ?? '' },
     { label: t('옆에 노트 열기·닫기'), keys: shortcutKeys('toggleNoteBeside') },
     { label: t('왼쪽 칸으로'), keys: shortcutKeys('focusLeftPane') },
     { label: t('오른쪽 칸으로'), keys: shortcutKeys('focusRightPane') },
@@ -1639,7 +1650,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     announceFreshPane(result.fresh)
   }
   /** 「새 화면 ▸ 템플릿」: 보던 문서와 마지막으로 만진 노트로 그 모양의 새 화면을 만들어 그리로 간다(바로, 움직임 없이) */
-  const newScreenFromTemplate = async (id: ScreenTemplateId) => {
+  const newScreenFromTemplate = async (id: ScreenTemplateId, nameOverride?: string) => {
     const now = workspaceLatest.current
     setLibraryExpanded(false)
     const anchor = id === 'blank' ? null : anchorDocPane()
@@ -1648,7 +1659,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const fallbacks = id === 'blank' ? { fallbackNote: null, fallbackCanvas: null } : await resolveTemplateFallbacks(id, {}, document === null ? null : tabDocId(document))
     const built = buildTemplateScreen({
       id,
-      name: templateScreenName(id, screens.length),
+      name: nameOverride ?? templateScreenName(id, screens.length),
       document,
       documentChannel: anchor === null ? null : channelOf(now.channels, anchor),
       lastTouched: memoNotesRef.current.openPath,
@@ -1719,6 +1730,101 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (docTab === null) announceAction(t('문서를 열면 번역기가 보입니다'))
     },
   }
+  // ───────── 접두키 · `:` 명령줄 · 워크스페이스 명령(설계 8) ─────────
+  const [commandLine, setCommandLine] = useState<{ readonly prefill: string } | null>(null)
+  const [paneNumbersOpen, setPaneNumbersOpen] = useState(false)
+  /** 명령 팔레트를 열 때 미리 채울 글(「:」 명령줄이 상태 줄이 꺼져 있을 때 팔레트로 온다) */
+  const [paletteInitial, setPaletteInitial] = useState('')
+  const commandModelRef = useRef<WorkspaceModel>({ screens: screensState, activePane: activePaneId })
+  commandModelRef.current = { screens: screensState, activePane: activePaneId }
+  const prefixApiRef = useRef<{ readonly startConfirm: () => void }>({ startConfirm: () => undefined })
+  /** 이름으로 열기(open 명령): 문서 · 노트 · 캔버스를 이름(없으면 경로)으로 찾아 pane 에 탭으로 연다 */
+  const openByName = async (query: string, pane: PaneId): Promise<CommandResult> => {
+    type Candidate = { readonly label: string; readonly hint: string; readonly run: () => void }
+    const focus = (kind: 'doc' | 'note') => { setPaneRoute(kind, pane); setActivePaneId(pane) }
+    const candidates: Candidate[] = [
+      ...searchRecords.filter((record) => record.kind === 'pdf' || record.kind === 'markdown').map((record): Candidate => ({
+        label: record.displayName || record.filename,
+        hint: record.path,
+        run: () => { focus('doc'); openVaultSearchResult({ record, page: null, snippet: '', query: '' }) },
+      })),
+      ...memoNotesRef.current.entries.map((entry): Candidate => ({
+        label: entry.title,
+        hint: entry.path,
+        run: () => { focus('note'); openInPane(noteTabOf(entry.path), pane); memoNotesRef.current.open(entry.path) },
+      })),
+      ...(CANVAS_ENABLED ? shownNotebooks.flatMap((group) => group.notes).filter((note) => !/.(?:md|markdown)$/iu.test(note.path)).map((note): Candidate => ({
+        label: note.title,
+        hint: note.path,
+        run: () => { focus('note'); openInPane({ id: note.path, title: note.title, kind: 'canvas' }, pane) },
+      })) : []),
+    ]
+    const picked = pickByName(candidates, query) ?? pickByName(candidates.map((candidate) => ({ ...candidate, label: candidate.hint })), query)
+    if (picked === null) return { ok: false, message: t('「{name}」을(를) 찾을 수 없습니다', { name: query }) }
+    picked.run()
+    return { ok: true, message: t('열었습니다: {name}', { name: picked.label }) }
+  }
+  /** 명령 실행기가 부르는 앱 쪽 손잡이. 렌더마다 새로 만들고, 실행기에는 늘 최신 것을 가리키는 commandHost 를 건넨다 */
+  const commandHostRef = useRef<CommandHost>(null as unknown as CommandHost)
+  commandHostRef.current = {
+    getModel: () => commandModelRef.current,
+    setModel: (model) => {
+      const previous = commandModelRef.current
+      commandModelRef.current = model
+      if (model.screens.activeScreen !== previous.screens.activeScreen) setLibraryExpanded(false)
+      screenOps.replace(model.screens)
+      setActivePaneId(model.activePane)
+      // 만진 칸이 비어 있으면 다음에 여는 문서·노트가 그 칸으로 온다(칸을 눌렀을 때와 같다)
+      const tab = activeTab(tabsOf(workspaceOf(activeScreenOf(model.screens)).panes, model.activePane))
+      if (tab === null) { setPaneRoute('doc', model.activePane); setPaneRoute('note', model.activePane) }
+      else setPaneRoute(paneRouteOf(tab.kind), model.activePane)
+    },
+    sizeOf: paneSizeOf,
+    paneRects: () => {
+      const rects = new Map<string, PaneRect>()
+      for (const pane of leaves(activeScreenOf(commandModelRef.current.screens).layout)) {
+        const cell = document.querySelector(`.pane-focus-scope[data-pane-id="${pane}"]`)?.closest<HTMLElement>('.pane-grid-cell')
+        const box = cell?.getBoundingClientRect()
+        if (box === undefined || box.width === 0) return null
+        rects.set(pane, { left: box.left, top: box.top, right: box.right, bottom: box.bottom })
+      }
+      return rects
+    },
+    blankScreenName: (count) => t('화면 {n}', { n: count }),
+    templates: () => availableScreenTemplates(CANVAS_ENABLED).map((template) => ({ id: template.id, label: template.label })),
+    settle: () => new Promise((resolve) => { window.setTimeout(resolve, 40) }),
+    newWindowFromTemplate: async (id, name) => { await newScreenFromTemplate(id, name) },
+    applyTemplate: async (id) => { await applyPreset(id) },
+    open: openByName,
+    noteBeside: async (pane) => {
+      const path = await openNoteBeside(pane)
+      if (path === null) announceAction(t('열 수 있는 노트가 없습니다'))
+    },
+    displayPanes: () => setPaneNumbersOpen(true),
+    listKeys: () => setKeysHelpOpen(true),
+    promptCommand: (prefill) => {
+      if (statusBarOn) setCommandLine({ prefill })
+      else { setPaletteInitial(`:${prefill}`); setPaletteOpen(true) }
+    },
+    confirmKillWindow: () => prefixApiRef.current.startConfirm(),
+    showSessionMenu: () => window.dispatchEvent(new CustomEvent('iwae:open-session-menu')),
+  }
+  const commandHost = useMemo<CommandHost>(() => new Proxy({} as CommandHost, { get: (_target, key) => (commandHostRef.current as unknown as Record<PropertyKey, unknown>)[key] }), [])
+  /** 접두키 · 명령줄 · 명령 팔레트(:) · MCP 가 같이 쓰는 실행기. 실패·알릴 말은 상태 줄(꺼져 있으면 알림)에 보인다 */
+  const runWorkspaceLine = useCallback(async (line: string): Promise<CommandResult> => {
+    const result = await runCommandLine(line, commandHost)
+    if (result.message !== '') announceAction(result.message)
+    return result
+  }, [commandHost])
+  const prefix = usePrefixMode({
+    run: (line) => { void runWorkspaceLine(line) },
+    announce: announceAction,
+    onConfirm: () => { void runWorkspaceLine('kill-window') },
+    numbersOpen: paneNumbersOpen,
+    onNumber: (index) => { setPaneNumbersOpen(false); void runWorkspaceLine(`select-pane -t ${index}`) },
+    onCloseNumbers: () => setPaneNumbersOpen(false),
+  })
+  prefixApiRef.current = prefix
   /** 문서 창에서 누른 형광펜을 보여 줄 노트가 같은 색 창에 안 보일 때: 그 메모의 노트를 옆에 열고(미리보기 설정이면 미리보기 탭) 그 카드를 보인다 */
   const revealMemoBeside = (pane: PaneId | null, memoId: string) => {
     const anchor = pane ?? anchorDocPane()
@@ -3618,8 +3724,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           lastId={lastScreenId}
           onSelectScreen={switchToScreen}
           onOpenHelp={() => setKeysHelpOpen(true)}
+          prefixPhase={prefix.phase}
+          onPrefixChip={() => (prefix.phase === 'idle' ? prefix.enter() : prefix.cancel())}
+          confirmText={t('화면을 닫을까요? y/n')}
+          commandLine={commandLine}
+          onRunCommand={(line) => { void runWorkspaceLine(line) }}
+          onCloseCommandLine={() => setCommandLine(null)}
+          screenNames={screens.map((screen) => screen.name)}
+          templateNames={availableScreenTemplates(CANVAS_ENABLED).map((template) => template.label)}
           paneCount={paneCount}
-          paletteShortcut={shortcutText('commandPalette')}
+          paletteShortcut={paletteHint}
         />
       ) : undefined}
       topBar={({ sidebarPx, leftFrac, sidebarVisible }) => (
@@ -3670,8 +3784,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             onClose: screenOps.close,
             onNew: (id) => { void newScreenFromTemplate(id as ScreenTemplateId) },
           } : undefined}
-          onOpenPalette={() => setPaletteOpen(true)}
-          paletteShortcut={shortcutText('commandPalette')}
+          onOpenPalette={() => { setPaletteInitial(''); setPaletteOpen(true) }}
+          paletteShortcut={paletteHint}
           onCloseWindow={closeWindowSafely}
           // 떼어 낸 창은 왼쪽 바 없이 시작한다(찾기 등으로 열렸을 때만 접을 수 있게 단추가 나온다)
           hideSidebarToggle={isDetachedWindow && sidebarCollapsed}
@@ -3885,8 +3999,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} /> : null}
     {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
-    {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} /> : null}
-    {paletteOpen ? <CommandPalette commands={paletteCommands()} onClose={() => setPaletteOpen(false)} /> : null}
+    {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} prefixText={prefixHint} /> : null}
+    {paneNumbersOpen ? <PaneNumbersOverlay panes={paneOrder} activePane={activePaneId} onDone={() => setPaneNumbersOpen(false)} /> : null}
+    {paletteOpen ? <CommandPalette commands={paletteCommands()} initialQuery={paletteInitial} onRunLine={(line) => { void runWorkspaceLine(line) }} onClose={() => { setPaletteOpen(false); setPaletteInitial('') }} /> : null}
     {shortcutsOpen ? <ShortcutOverlay onClose={() => setShortcutsOpen(false)} onOpenSettings={() => { setSettingsSection('input'); setSettingsOpen(true) }} /> : null}
     <ThemeIntakeHost resolvedTheme={theme.resolvedTheme} />
     <SettingsModal

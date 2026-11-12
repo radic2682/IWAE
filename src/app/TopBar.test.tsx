@@ -138,7 +138,7 @@ describe('TopBar', () => {
     it('「0 읽기」 「1 비교」 …를 보이고 보는 화면이 선택되어 있다', () => {
       render(<TopBar {...props} screens={screensProp()} />)
       const tabs = screen.getAllByRole('tab')
-      expect(tabs.map((tab) => tab.textContent)).toEqual(['0읽기*', '1비교-', '2정리'])
+      expect(tabs.map((tab) => tab.textContent)).toEqual(['0읽기', '1비교-', '2정리'])
       expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false'])
     })
 

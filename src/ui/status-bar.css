@@ -41,6 +41,7 @@
   border-radius: var(--r-xs);
   opacity: 0.55;
 }
+.status-bar-prefix:is(:hover, :focus-visible) { opacity: 1; outline: none; }
 .status-bar-prefix[data-active='true'] { border-color: var(--accent); background: var(--accent); color: var(--paper); opacity: 1; }
 .status-bar-help {
   display: inline-grid;
@@ -70,6 +71,9 @@
   font-size: 11px;
   font-weight: 600;
 }
+.keys-help-state { font-size: 11px; font-weight: 600; opacity: 0.85; }
+.keys-help-state[data-state='soon'] { padding: 1px 7px; border: 1px solid var(--divider-strong, var(--divider)); border-radius: var(--r-xs); opacity: 1; }
+.keys-help-state[data-state='partial'] { opacity: 0.7; }
 .keys-help-note { margin: 0 0 8px; font-size: 12.5px; }
 .keys-help-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .keys-help-table th { padding: 4px 8px; border-bottom: 1px solid var(--divider); font-weight: 700; text-align: left; }
@@ -78,3 +82,37 @@
 .keys-help-table code { font-size: 11.5px; }
 .keys-help .sko-group ul { margin: 0; padding: 0; list-style: none; }
 .keys-help .sko-group li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 8px; font-size: 12.5px; }
+
+/* `:` 명령줄: 상태 줄이 입력칸이 된다 */
+.status-bar-command { gap: 6px; }
+.status-bar-colon { flex: 0 0 auto; font-weight: 700; }
+.status-bar-command-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+}
+.status-bar-candidates { flex: 0 1 auto; min-width: 0; overflow: hidden; opacity: 0.7; text-overflow: ellipsis; }
+.status-bar-message[data-prefix] { font-weight: 700; }
+
+/* 칸 번호 겹침(display-panes): 칸마다 큰 숫자. 움직임 없이 나타났다 사라진다 */
+.pane-numbers-overlay { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.pane-number-badge {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  font-size: clamp(48px, 12vmin, 140px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--paper);
+  background: color-mix(in srgb, var(--text-strong) 72%, transparent);
+  border-radius: var(--r-md);
+}
+.pane-number-badge[data-active='true'] { background: var(--accent); }
+.keys-help-commandlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 12px; }
+.keys-help .keys-help-commandlist li { display: block; padding: 2px 8px; }
