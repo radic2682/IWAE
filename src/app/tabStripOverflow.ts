@@ -14,3 +14,29 @@ export function hasHiddenTabs(strip: HTMLElement): boolean {
     return at.left < left - 1 || at.right > right + 1
   })
 }
+
+/**
+ * 탭 제목 줄(.pane-top-tab-title) 안에 「제목 · 보조 글」 이 통째로 들어가는가.
+ * 보조 글(.pane-top-tab-sub)과 「·」 는 감춰도 자리를 재도록 절대 위치로 남아 있으므로 자연 폭을 잴 수 있다.
+ * 레이아웃이 없으면(폭 0) 들어간다고 본다.
+ */
+export function subFitsInTitle(title: HTMLElement | null): boolean {
+  if (title === null || title.clientWidth <= 0) return true
+  const label = title.querySelector<HTMLElement>('.pane-top-tab-label')
+  const sep = title.querySelector<HTMLElement>('.pane-top-tab-sep')
+  const sub = title.querySelector<HTMLElement>('.pane-top-tab-sub')
+  if (label === null || sep === null || sub === null) return true
+  const style = getComputedStyle(title)
+  const gap = Number.parseFloat(style.columnGap) || 0
+  const padding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0)
+  let others = 0
+  let count = 0
+  for (const child of Array.from(title.children)) {
+    if (child === label || child === sep || child === sub) continue
+    others += child.getBoundingClientRect().width
+    count += 1
+  }
+  // 제목 · 「·」 · 보조 글 세 칸이 더해져 칸 수는 count + 3, 사이 간격은 count + 2 개
+  const need = label.scrollWidth + sep.getBoundingClientRect().width + sub.scrollWidth + others + gap * (count + 2) + padding
+  return need <= title.clientWidth
+}

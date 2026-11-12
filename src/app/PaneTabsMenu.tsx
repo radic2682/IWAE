@@ -6,7 +6,7 @@ import type { PaneChannel } from './workspaceChannels'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
 import { platformShortcut } from '../core/platform'
-import { hasHiddenTabs } from './tabStripOverflow'
+import { hasHiddenTabs, subFitsInTitle } from './tabStripOverflow'
 import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
 import type { DockEdge } from './tabDock'
 import { popIn, slideFrom } from './motion'
@@ -139,6 +139,20 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     observer.observe(strip)
     return () => observer.disconnect()
   }, [state.tabs.length])
+  // 보조 글(쪽 · 폴더 · 경로)은 제목이 통째로 보이고 보조 글도 통째로 들어갈 때만 보인다. 모자라면 「·」 도 글자도 아예 감춘다(「설... · p」 처럼 잘려 보이지 않게)
+  const [subFits, setSubFits] = useState(true)
+  const subKey = secondary ?? ''
+  const activeTitle = state.tabs.find((tab) => tab.id === state.activeId)?.title ?? ''
+  useLayoutEffect(() => {
+    const strip = stripRef.current
+    if (strip === null || subKey === '') return undefined
+    const check = () => setSubFits(subFitsInTitle(strip.querySelector<HTMLElement>('.pane-top-tab-active .pane-top-tab-title')))
+    check()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(check)
+    observer.observe(strip)
+    return () => observer.disconnect()
+  }, [subKey, activeTitle, state.activeId, state.tabs.length])
   // 끌기를 마친 직후 따라오는 click 은 탭 전환이 아니다.
   const suppressClickRef = useRef(false)
   // 끄는 동안 다시 그려져도 최신 값을 읽도록 ref 로 둔다
@@ -334,8 +348,8 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 {/* 흐린 보조 글: 보는 탭의 제목 바로 뒤에 「·」 로 이어 붙는다(안 보이는 탭에는 없다) */}
                 {active && secondary !== null && secondary !== '' ? (
                   <>
-                    <span className="pane-top-tab-sep" aria-hidden="true">·</span>
-                    <span className="pane-top-tab-sub" aria-hidden="true" title={secondary}>{secondary}</span>
+                    <span className={`pane-top-tab-sep${subFits ? '' : ' pane-top-tab-aux-off'}`} aria-hidden="true">·</span>
+                    <span className={`pane-top-tab-sub${subFits ? '' : ' pane-top-tab-aux-off'}`} aria-hidden="true" title={secondary}>{secondary}</span>
                   </>
                 ) : null}
                 {/* 상태 점: 미리보기 탭일 때만(고치면 고정되어 사라진다) */}

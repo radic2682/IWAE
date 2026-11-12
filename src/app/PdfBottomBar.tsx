@@ -14,8 +14,8 @@ import { isDesktop } from '../bridge/window'
  * 폭이 모자라면 접는 묶음. 앞에 있는 것부터 막대에서 빠져 오른쪽 끝 「…」 메뉴로 들어간다(크롬 도구줄처럼).
  * 미리 정한 폭이 아니라 실제로 넘치는지를 재서 정하므로 단추가 늘거나 화면 크기가 바뀌어도 잘리지 않는다.
  */
-type CollapseGroup = 'zoomRange' | 'fitExtra' | 'edge' | 'history' | 'fit' | 'usage' | 'zoomInput' | 'zoomStep'
-const COLLAPSE_ORDER: readonly CollapseGroup[] = ['zoomRange', 'fitExtra', 'edge', 'history', 'fit', 'usage', 'zoomInput', 'zoomStep']
+type CollapseGroup = 'zoomRange' | 'fitExtra' | 'edge' | 'history' | 'fit' | 'usage' | 'zoomInput' | 'zoomStep' | 'pageStep'
+const COLLAPSE_ORDER: readonly CollapseGroup[] = ['zoomRange', 'fitExtra', 'edge', 'history', 'fit', 'usage', 'zoomInput', 'zoomStep', 'pageStep']
 /** 다시 꺼낼 때 남겨 둘 여유(px). 넣었다 뺐다 떨리지 않게 */
 const RESTORE_SLACK = 8
 
@@ -181,9 +181,11 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
             <CaretDoubleLeft size={16} aria-hidden="true" />
           </button>
         ) : null}
-        <button type="button" className="bottombar-btn" aria-label={t('이전 페이지')} title={t('이전 페이지')} disabled={page <= 1} onClick={() => onPageChange(Math.max(page - 1, 1))}>
-          <CaretLeft size={16} aria-hidden="true" />
-        </button>
+        {shown('pageStep') ? (
+          <button type="button" data-collapse="pageStep" className="bottombar-btn" aria-label={t('이전 페이지')} title={t('이전 페이지')} disabled={page <= 1} onClick={() => onPageChange(Math.max(page - 1, 1))}>
+            <CaretLeft size={16} aria-hidden="true" />
+          </button>
+        ) : null}
         <input
           aria-label={t('페이지')}
           className="bottombar-goto"
@@ -206,9 +208,11 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
           }}
         />
         <span>/ {pageCount}</span>
-        <button type="button" className="bottombar-btn" aria-label={t('다음 페이지')} title={t('다음 페이지')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(Math.min(page + 1, pageCount))}>
-          <CaretRight size={16} aria-hidden="true" />
-        </button>
+        {shown('pageStep') ? (
+          <button type="button" data-collapse="pageStep" className="bottombar-btn" aria-label={t('다음 페이지')} title={t('다음 페이지')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(Math.min(page + 1, pageCount))}>
+            <CaretRight size={16} aria-hidden="true" />
+          </button>
+        ) : null}
         {shown('edge') ? (
           <button type="button" data-collapse="edge" className="bottombar-btn pdf-bottom-edge" aria-label={t('마지막 페이지')} title={t('마지막 페이지 (End)')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(pageCount)}>
             <CaretDoubleRight size={16} aria-hidden="true" />
@@ -285,6 +289,12 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
               <>
                 {onFitHeight !== undefined ? <button type="button" role="menuitem" onClick={runMore(onFitHeight)}><ArrowsVertical size={16} aria-hidden="true" />{t('높이 맞춤')}</button> : null}
                 {onActualSize !== undefined ? <button type="button" role="menuitem" onClick={runMore(onActualSize)}><span className="pdf-bottom-more-glyph" aria-hidden="true">1:1</span>{t('실제 크기 (100%)')}</button> : null}
+              </>
+            ) : null}
+            {collapsed.has('pageStep') ? (
+              <>
+                <button type="button" role="menuitem" disabled={page <= 1} onClick={runMore(() => onPageChange(Math.max(page - 1, 1)))}><CaretLeft size={16} aria-hidden="true" />{t('이전 페이지')}</button>
+                <button type="button" role="menuitem" disabled={pageCount === 0 || page >= pageCount} onClick={runMore(() => onPageChange(Math.min(page + 1, pageCount)))}><CaretRight size={16} aria-hidden="true" />{t('다음 페이지')}</button>
               </>
             ) : null}
             {collapsed.has('zoomStep') ? (

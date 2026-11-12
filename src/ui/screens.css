@@ -367,3 +367,6 @@
   white-space: nowrap;
   cursor: default;
 }
+
+/* 보조 글이 제목과 함께 통째로 들어가지 않으면 감춘다. 자리를 재야 해서 지우지 않고 보이지만 않게(절대 위치) 둔다 */
+.pane-head .pane-top-tab-aux-off { position: absolute; visibility: hidden; pointer-events: none; }
