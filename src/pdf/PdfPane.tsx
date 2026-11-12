@@ -549,7 +549,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       tabPaths: noteApi.openPath === null ? [] : [noteApi.openPath],
       notesOf: noteApi.notesOf,
       ownIds,
-      isExempt: (id) => id === draftMemo?.id || id === draftBox?.id || id === editingMemoId || id === editingBoxId || id === flashHighlightId || createdHere.has(id),
+      isExempt: (id) => id === draftMemo?.id || id === draftBox?.id || id === editingMemoId || id === editingBoxId || id === flashHighlightId
+        // 여기서 막 만든 것은 아직 어느 노트에도 들어가지 않은 동안만 봐준다(노트에 들어간 뒤에는 그 노트 탭이 열려 있어야 보인다)
+        || (createdHere.has(id) && noteApi.notesOf(id).length === 0),
     })
   }, [clean, createdHere, draftBox, draftMemo, editingBoxId, editingMemoId, flashHighlightId, noteApi, onlyOpenNotes, persistentHighlights])
   const persistentHighlightsByPage = useMemo(() => {
