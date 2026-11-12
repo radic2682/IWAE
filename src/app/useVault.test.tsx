@@ -293,6 +293,41 @@ describe('useVault — 시작 복원', () => {
     expect(result.current.panes.right).toEqual({ tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' }], activeId: '노트/전원.iwnote' })
   })
 
+  it('창마다 색 채널과 미리보기 탭 표시를 세션에서 되살린다', async () => {
+    vi.mocked(readSession).mockResolvedValue({
+      pdfTabIds: [],
+      noteTabIds: [],
+      memoNoteTabIds: ['노트/전원.iwnote', '노트/회의/점검.iwnote'],
+      previewTabIds: ['노트/회의/점검.iwnote'],
+      paneChannels: { left: 'green', right: null, third: 'blue', fourth: 'orange' },
+      activePdfTabId: null,
+      activeNoteTabId: null,
+      sidebarCollapsed: false,
+      sidebarPx: 280,
+      leftFrac: 0.5,
+      panes: { left: ['노트/회의/점검.iwnote'], right: ['노트/전원.iwnote'], activeLeft: '노트/회의/점검.iwnote', activeRight: '노트/전원.iwnote' },
+    })
+
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+
+    expect(result.current.channels).toEqual({ left: 'green', right: null, third: 'blue', fourth: 'orange' })
+    expect(result.current.panes.left.tabs[0]!.preview).toBe(true)
+    expect(result.current.panes.right.tabs[0]!.preview).toBeUndefined()
+  })
+
+  it('예전 세션(채널 없음)은 모든 창이 파랑이고, 채널을 바꾸면 세션에 저장한다', async () => {
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(result.current.channels).toEqual({ left: 'blue', right: 'blue', third: 'blue', fourth: 'blue' })
+
+    act(() => result.current.setChannels((current) => ({ ...current, right: 'orange' })))
+    await waitFor(() => expect(vi.mocked(writeSession)).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ paneChannels: { left: 'blue', right: 'orange', third: 'blue', fourth: 'blue' } }),
+    ))
+  })
+
   it('이전 세션의 노트 쪽 Markdown 탭도 문서 탭으로 옮겨 복원한다', async () => {
     vi.mocked(readSession).mockResolvedValue({
       pdfTabIds: [],
