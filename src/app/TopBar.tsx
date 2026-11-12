@@ -13,6 +13,10 @@ import { AppMenu, type AppMenuGroups } from './AppMenu'
 import { SessionMenu, type SessionMenuActions } from './SessionMenu'
 import { ScreenTabs, type ScreenTabItem, type ScreenTemplateItem } from './ScreenTabs'
 import { isMacPlatform } from '../core/platform'
+import { useContext } from 'react'
+import { Translate } from '@phosphor-icons/react'
+import { TranslatorContext } from './translatorContext'
+import { toggleTranslatorWindow, useTranslatorWindow } from './translatorPanelState'
 import { FilePdf, FileText, NotePencil } from '@phosphor-icons/react'
 import type { PaneChannel } from './workspaceChannels'
 import '../ui/screens.css'
@@ -76,6 +80,9 @@ export function TopBar({
   toolbarSlotRef,
   toolbarOwner = null,
 }: TopBarProps) {
+  // 앱 묶음(창 단추 앞): 번역기 단추는 어느 칸을 만지든 늘 있다(번역을 켜 둔 때만)
+  const translatorService = useContext(TranslatorContext)
+  const translatorWindow = useTranslatorWindow()
   const [sessionMenu, setSessionMenu] = useState<{ left: number; top: number } | null>(null)
   const sessionRef = useRef<HTMLButtonElement | null>(null)
   // 접두키 + s: 세션 메뉴를 연다
@@ -220,6 +227,20 @@ export function TopBar({
           )}
           <div className="pane-toolbar topbar-toolbar-slot" ref={toolbarSlotRef} />
         </div>
+        {translatorService === null ? null : (
+          <div className="topbar-app-group" role="group" aria-label={t('앱')}>
+            <button
+              type="button"
+              className={`topbar-app-btn${translatorWindow.open ? ' topbar-app-btn-active' : ''}`}
+              aria-label={t('번역기')}
+              title={t('번역기 (창 띄우기)')}
+              aria-pressed={translatorWindow.open}
+              onClick={(event) => { event.currentTarget.blur(); toggleTranslatorWindow() }}
+            >
+              <Translate size={16} aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </div>
 
       <WindowControls onCloseWindow={onCloseWindow} />

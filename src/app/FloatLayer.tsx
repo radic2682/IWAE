@@ -32,6 +32,8 @@ export interface FloatLayerProps {
   readonly isActive?: (paneId: string) => boolean
   /** 탭이 하나도 없는 빈 칸인가(점선 테두리) */
   readonly paneEmpty?: (paneId: string) => boolean
+  /** 떠 있는 칸 카드 어디든 눌렀다: 그 칸을 만지는 칸으로 삼는다 */
+  readonly onFocusPane?: (paneId: string) => void
   /** 끌기 · 크기 바꾸기가 끝났다(저장 모양의 자리 · 크기) */
   readonly onChange: (paneId: string, patch: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h'> & { readonly anchor?: FloatAnchor }) => void
   /** 눌렀다: 맨 위로 올린다 */
@@ -50,7 +52,7 @@ interface Gesture {
  * 오른쪽 아래 모서리로 크기를 바꾼다. 끄는 동안은 이 안에서만 다시 그리고 놓을 때 한 번 알린다.
  * 카드는 보통 칸과 같은 껍질(.pane-grid-cell · .pane-grid-tabs · .pane-grid-body)이라 탭 끌어 놓기 · 연결선이 그대로 알아본다.
  */
-export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, renderBody, paneChannel, paneEmpty, isActive, onChange, onRaise }: FloatLayerProps) {
+export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, renderBody, paneChannel, paneEmpty, onFocusPane, isActive, onChange, onRaise }: FloatLayerProps) {
   return (
     <>
       {floats.map((float) => {
@@ -67,6 +69,7 @@ export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, 
             channel={paneChannel?.(float.paneId) ?? null}
             active={isActive?.(float.paneId) ?? false}
             empty={paneEmpty?.(float.paneId) ?? false}
+            onFocusPane={onFocusPane}
             onChange={onChange}
             onRaise={onRaise}
           />
@@ -76,7 +79,7 @@ export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, 
   )
 }
 
-function FloatCard({ float, anchor, screen, renderHead, renderBody, channel, active, empty, onChange, onRaise }: {
+function FloatCard({ float, anchor, screen, renderHead, renderBody, channel, active, empty, onFocusPane, onChange, onRaise }: {
   readonly float: FloatingPane
   readonly anchor: AnchorRect
   readonly screen: AnchorRect
@@ -85,6 +88,7 @@ function FloatCard({ float, anchor, screen, renderHead, renderBody, channel, act
   readonly channel: PaneChannel
   readonly active: boolean
   readonly empty: boolean
+  readonly onFocusPane?: (paneId: string) => void
   readonly onChange: FloatLayerProps['onChange']
   readonly onRaise: FloatLayerProps['onRaise']
 }) {
@@ -139,7 +143,7 @@ function FloatCard({ float, anchor, screen, renderHead, renderBody, channel, act
       style={style}
       onPointerDownCapture={() => onRaise(float.paneId)}
     >
-      <PaneCard paneId={float.paneId} channel={channel} active={active} empty={empty} className="pane-float-card">
+      <PaneCard paneId={float.paneId} channel={channel} active={active} empty={empty} onFocusPane={onFocusPane} className="pane-float-card">
         <div
           className="pane-grid-tabs topbar-panetab-zone pane-head pane-float-head"
           data-pane-head={float.paneId}

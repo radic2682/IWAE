@@ -2,6 +2,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { TopBar } from './TopBar'
+import { TranslatorContext } from './translatorContext'
+import { getTranslatorWindow, reloadTranslatorWindow } from './translatorPanelState'
 
 const props = { sidebarCollapsed: false, onToggleSidebar: vi.fn(), sidebarMode: 'library' as const, onSidebarModeChange: vi.fn(), sidebarPx: 240 }
 
@@ -145,6 +147,25 @@ describe('TopBar', () => {
       rerender(<TopBar {...props} toolbarOwner={null} />)
       expect(container.querySelector('.topbar-owner-chip')).toBeNull()
       expect(container.querySelector('.topbar-toolbar-host')?.hasAttribute('data-owner')).toBe(false)
+    })
+
+    it('앱 묶음: 번역기 단추는 도구줄 뒤 · 창 단추 앞에 늘 있고(번역을 켠 때만) 누르면 번역기 창을 연다', () => {
+      reloadTranslatorWindow()
+      const service = { providerLabel: '', translate: vi.fn() }
+      const { container, rerender } = render(<TopBar {...props} screens={screensProp()} />)
+      expect(container.querySelector('.topbar-app-group')).toBeNull()
+      rerender(<TranslatorContext.Provider value={service}><TopBar {...props} screens={screensProp()} toolbarOwner={{ channel: 'blue', number: 0, kind: 'pdf' }} /></TranslatorContext.Provider>)
+      const row = container.querySelector('.topbar-session-row') as HTMLElement
+      const group = row.querySelector('.topbar-app-group') as HTMLElement
+      expect(group.previousElementSibling?.classList.contains('topbar-toolbar-host')).toBe(true)
+      expect(row.lastElementChild).toBe(group)
+      const button = within(group).getByRole('button', { name: '번역기' })
+      expect(button.getAttribute('aria-pressed')).toBe('false')
+      fireEvent.click(button)
+      expect(getTranslatorWindow().open).toBe(true)
+      expect(within(group).getByRole('button', { name: '번역기' }).getAttribute('aria-pressed')).toBe('true')
+      fireEvent.click(within(group).getByRole('button', { name: '번역기' }))
+      expect(getTranslatorWindow().open).toBe(false)
     })
 
     it('화면 탭과 창 단추 사이에 도구줄 자리가 있고, 그 요소를 App 에 알린다', () => {

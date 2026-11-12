@@ -51,6 +51,8 @@ interface SplitPanesProps {
   renderHead?: (paneId: string, index: number) => React.ReactNode
   /** 칸의 색 채널(카드 맨 위 2px 가장자리의 색). 없으면 가장자리가 없다 */
   paneChannel?: (paneId: string) => PaneChannel
+  /** 칸 카드 어디든(머리의 빈 곳 포함) 눌렀다: 그 칸을 만지는 칸으로 삼는다 */
+  onFocusPane?: (paneId: string) => void
   /** 탭이 하나도 없는 빈 칸인가(카드가 점선 테두리가 된다) */
   paneEmpty?: (paneId: string) => boolean
   /** 지금 만지는 칸(떠 있는 칸 포함). 칸이 여럿이거나 떠 있는 칸이 있을 때 그 카드가 강조색 테두리로 또렷해진다 */
@@ -117,6 +119,7 @@ export function SplitPanes({
   renderHead,
   paneChannel,
   paneEmpty,
+  onFocusPane,
   activePane,
   onSwapSplit,
   floats = [],
@@ -422,7 +425,7 @@ export function SplitPanes({
                 inert={hidden}
               >
                 {/* 칸 하나 = 둥근 카드 하나(머리 + 본문). 칸 사이 틈은 CSS 가 낸다 */}
-                <PaneCard paneId={paneId} channel={paneChannel?.(paneId) ?? null} active={cardActive(paneId)} empty={paneEmpty?.(paneId) ?? false}>
+                <PaneCard paneId={paneId} channel={paneChannel?.(paneId) ?? null} active={cardActive(paneId)} empty={paneEmpty?.(paneId) ?? false} onFocusPane={onFocusPane}>
                   {renderHead !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head={paneId}>{renderHead(paneId, index)}</div> : null}
                   <div className="pane-grid-body">{renderPane(paneId, index)}</div>
                 </PaneCard>
@@ -464,6 +467,7 @@ export function SplitPanes({
               renderBody={(paneId) => renderPane(paneId, -1)}
               paneChannel={paneChannel}
               paneEmpty={paneEmpty}
+              onFocusPane={onFocusPane}
               isActive={cardActive}
               onChange={(paneId, patch) => onFloatChange?.(paneId, patch)}
               onRaise={(paneId) => onFloatRaise?.(paneId)}

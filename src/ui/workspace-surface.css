@@ -70,8 +70,9 @@
   flex: 1 1 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  /* 한 덩어리: 주인 칩 + 이 칸의 모든 도구가 왼쪽에 붙어 이어진다. 남는 빈자리는 묶음 뒤에 있다(space-between 없음) */
+  justify-content: flex-start;
+  gap: 0;
   width: 100%;
   min-width: 0;
   height: 100%;
@@ -88,7 +89,7 @@
 /* 도구줄 주인 칩(색 점 · 칸 번호 · 문서 종류 아이콘): 화면 탭 바로 뒤, 앞뒤에 구분선(1×16px)과 8px. 도구가 어느 칸 것인지 보인다.
    앱 전체 아이콘(왼쪽 바 보기 탭 · 사이드바 단추 · 창 단추)과 칸의 도구는 이 구분선 · 칩으로 갈린다. 칩 안은 아이콘 16px(regular), 점 8px, 간격 6px */
 .topbar-toolbar-host[data-owner] { padding-left: calc(var(--space-2) + 1px); background: linear-gradient(var(--divider), var(--divider)) left center / 1px 16px no-repeat; margin-left: var(--space-2); }
-.topbar-owner-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: var(--icon-btn); margin-right: var(--space-2); padding: 0 var(--space-2); border-radius: var(--r-md); background: color-mix(in srgb, var(--chrome-hover) 60%, transparent); color: var(--text-strong); font-size: 12.5px; font-variant-numeric: tabular-nums; line-height: 1; }
+.topbar-owner-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: var(--icon-btn); margin-right: var(--space-2); padding: 0 var(--space-2); border-radius: var(--r-md); background: color-mix(in srgb, var(--text-strong) 9%, transparent); color: var(--text-strong); font-size: 12.5px; font-variant-numeric: tabular-nums; line-height: 1; }
 .topbar-owner-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--divider-strong); }
 .topbar-owner-chip[data-channel='blue'] .topbar-owner-dot { background: var(--channel-blue); }
 .topbar-owner-chip[data-channel='green'] .topbar-owner-dot { background: var(--channel-green); }
@@ -96,8 +97,17 @@
 .topbar-owner-chip[data-channel='none'] .topbar-owner-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
 .topbar-owner-chip svg { width: var(--icon-size); height: var(--icon-size); }
 /* 칸의 도구 오른쪽 묶음(번역기 · 출처 · 인쇄 …)은 앞에 구분선 */
-.topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right { position: relative; padding-left: calc(var(--space-2) + 1px); }
+.topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right { position: relative; flex: 0 0 auto; margin-left: var(--space-2); padding-left: calc(var(--space-2) + 1px); }
+.topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right:empty { display: none; }
 .topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right::before { content: ''; position: absolute; left: 0; top: 50%; width: 1px; height: 16px; margin-top: -8px; background: var(--divider); }
+
+/* 앱 묶음(창 단추 바로 앞): 어느 칸을 만지든 늘 있는 앱 전체 단추(번역기). 접히지 않는다. 뒤에 구분선 1×16px, 그다음 창 단추 */
+.topbar-app-group { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 2px; height: 100%; padding-right: calc(var(--space-2) + 1px); }
+.topbar-app-group::after { content: ''; position: absolute; right: 0; top: 50%; width: 1px; height: 16px; margin-top: -8px; background: var(--divider); }
+.topbar-app-btn { display: grid; place-items: center; width: var(--icon-btn); height: var(--icon-btn); padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer; }
+.topbar-app-btn svg { width: var(--icon-size); height: var(--icon-size); }
+.topbar-app-btn:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
+.topbar-app-btn-active, .topbar-app-btn[aria-pressed='true'] { background: var(--selected-bg); }
 
 /* 도구 단추: 28px 누르는 자리 · 16px 아이콘 · 가운데. 테두리 없이, 마우스를 올리거나 눌렸을 때만 바탕 */
 .topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .pdf-memo-format-button, .pdf-highlighter-btn, .pdf-floating-control-trigger) {
@@ -229,16 +239,16 @@
   background: transparent;
   color: var(--text-muted);
 }
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover { background: color-mix(in srgb, var(--text-strong) 6%, transparent); color: var(--text-strong); }
+.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); color: var(--text-strong); }
 .panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab.pane-top-tab-active,
 .panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
-  background: color-mix(in srgb, var(--text-strong) 10%, transparent);
+  background: color-mix(in srgb, var(--text-strong) 16%, transparent);
   color: var(--text-strong);
 }
 /* 만지지 않는 칸의 고른 탭은 바탕도 글자도 한 단계 흐리게(단축키가 어느 칸에 듣는지) */
 .panes-tree .pane-head.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active,
 .panes-tree .pane-head.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
-  background: color-mix(in srgb, var(--text-strong) 6%, transparent);
+  background: color-mix(in srgb, var(--text-strong) 9%, transparent);
   color: var(--text-muted);
 }
 .panes-tree .pane-head .pane-top-tab:not([data-dragging])::before,
@@ -250,7 +260,12 @@
 .panes-tree .pane-head .pane-top-tab-sep,
 .panes-tree .pane-head .pane-top-tab-sub { font-size: 12.5px; line-height: 1; }
 .panes-tree .pane-head .pane-top-tab-kind { width: 14px; height: 14px; }
-.panes-tree .pane-head .pane-top-tab-active .pane-top-tab-title { font-weight: 600; }
+.panes-tree .pane-head .pane-top-tab .pane-top-tab-title { font-weight: 450; }
+.panes-tree .pane-head .pane-top-tab-active .pane-top-tab-title { font-weight: 650; }
+/* 끌어 든 탭(들린 그림자)도 같은 알약: 높이 28 · 둥글기 --r-sm */
+.tab-drag-ghost .pane-top-tab,
+.tab-drag-ghost .pane-top-tab:not(.pane-top-tab-active),
+.tab-drag-ghost .pane-top-tab.pane-top-tab-active { height: var(--icon-btn) !important; border-radius: var(--r-sm) !important; align-items: center; }
 .panes-tree .pane-head .pane-tabs-menu .pane-top-tab .pane-top-tab-close { width: 20px; height: 20px; margin: 0 var(--space-1) 0 0; }
 .pane-head .pane-tabs-overflow { align-self: center; flex: 0 0 auto; width: auto; min-width: var(--icon-btn); height: var(--icon-btn); margin: 0; }
 /* 오른쪽 끝: 칸 상태 자리 · 「크게」 표시 · ⋯ 메뉴. 모두 세로 가운데, ⋯ 는 28px 누르는 자리 · 16px 아이콘 */

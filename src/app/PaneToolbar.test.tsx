@@ -225,18 +225,10 @@ describe('PaneToolbar — GitHub 와 이어진 Markdown', () => {
     expect(onAction).toHaveBeenCalledWith('pull')
   })
 
-  it('번역기 단추는 번역을 켠 때(onToggleTranslator 를 줄 때)만 PDF·Markdown 도구줄에 나온다', () => {
+  it('번역기 단추는 도구줄에 없다(앱 전체 단추라 상단바 오른쪽 앱 묶음에 늘 있다) — 두 번 나오지 않는다', () => {
     for (const kind of ['pdf', 'markdown'] as const) {
-      const onToggle = vi.fn()
-      const { rerender, unmount } = render(<PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} />)
+      const { unmount } = render(<PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} />)
       expect(screen.queryByRole('button', { name: '번역기' })).toBeNull()
-      rerender(<PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} onToggleTranslator={onToggle} translatorOpen={false} />)
-      const button = screen.getByRole('button', { name: '번역기' })
-      expect(button.getAttribute('aria-pressed')).toBe('false')
-      fireEvent.click(button)
-      expect(onToggle).toHaveBeenCalledTimes(1)
-      rerender(<PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} onToggleTranslator={onToggle} translatorOpen />)
-      expect(screen.getByRole('button', { name: '번역기' }).getAttribute('aria-pressed')).toBe('true')
       unmount()
     }
   })

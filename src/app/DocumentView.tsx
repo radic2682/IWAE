@@ -115,10 +115,6 @@ export interface DocumentViewProps {
   controllersRef: MutableRefObject<Partial<Record<PaneId, DocumentViewController>>>
   /** 이 패널이 마지막으로 만진 문서 패널인가. Ctrl+F 같은 단축키를 받는다 */
   shortcutTarget: boolean
-  /** 번역기 창이 열려 있는가. 도구줄의 번역기 단추가 눌린 모양을 보인다 */
-  translatorOpen?: boolean
-  /** 번역기 단추: 번역기 창을 열고 닫는다. 없으면 단추가 없다 */
-  onToggleTranslator?: () => void
   /** 왼쪽 바의 PDF 검색 칸(「PDF 검색」 보기일 때). 검색 칸과 결과를 여기에 그린다 */
   searchSlot?: HTMLElement | null
   jumpToPage: (page: number) => void
@@ -568,8 +564,6 @@ export function DocumentView(props: DocumentViewProps) {
       github={tab.kind === 'markdown' ? props.github : undefined}
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
-      translatorOpen={props.translatorOpen === true}
-      onToggleTranslator={props.onToggleTranslator}
       cleanView={props.pdfViewPrefs.clean === true}
       onCleanViewChange={(clean) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, clean })}
       onlyOpenNotes={tab.kind === 'pdf' ? props.pdfViewPrefs.onlyOpenNotes === true : undefined}

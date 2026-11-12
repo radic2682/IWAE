@@ -242,6 +242,7 @@ export const COMMON: Readonly<Record<string, string>> = {
   '기본 버전으로 · 두 번 눌러 이름 바꾸기': 'Make default · double-click to rename',
   '번역기 (창 띄우기)': 'Translator (floating window)',
   '번역기 닫기': 'Close translator',
+  '앱': 'App',
   '이 도구는 지금 만지는 칸의 것입니다': 'These tools belong to the pane you are working in',
   '번역기 열기': 'Open translator',
   '문서에서 고른 글을 입력칸에 넣습니다': 'Put the text selected in the document into the input',

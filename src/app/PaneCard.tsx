@@ -10,13 +10,15 @@ import { usePaneReaction } from './paneReaction'
  *   점선이 모서리에서도 고르게 이어지도록 CSS border-style 이 아니라 둥근 사각형 선으로 그린다). 만지는 칸이면 같은 윤곽이 강조색이다.
  * - 같은 색의 다른 창에서 신호가 올 창(마우스를 올린 동안)과 신호가 방금 움직인 창(0.6초)은 `data-reacting` 이 채널 색이 되어 안쪽 윤곽이 생긴다.
  */
-export function PaneCard({ paneId, channel, active, empty = false, className = '', children }: {
+export function PaneCard({ paneId, channel, active, empty = false, className = '', onFocusPane, children }: {
   readonly paneId: string
   readonly channel: PaneChannel
   readonly active: boolean
   /** 탭이 하나도 없는 빈 칸인가 */
   readonly empty?: boolean
   readonly className?: string
+  /** 카드 어디든(머리의 빈 곳 포함) 누르면 이 칸이 만지는 칸이 된다. 본문은 칸 안쪽(.pane-focus-scope)도 따로 잡는다 */
+  readonly onFocusPane?: (paneId: string) => void
   readonly children: ReactNode
 }) {
   const reacting = usePaneReaction(paneId)
@@ -24,6 +26,7 @@ export function PaneCard({ paneId, channel, active, empty = false, className = '
     <div
       className={`pane-card${active ? ' pane-card-active' : ''}${className === '' ? '' : ` ${className}`}`}
       data-card-pane={paneId}
+      onPointerDownCapture={onFocusPane === undefined ? undefined : () => onFocusPane(paneId)}
       data-channel={channel ?? 'none'}
       data-empty={empty ? '' : undefined}
       data-reacting={reacting ?? undefined}

@@ -301,6 +301,36 @@ describe('칸 사각형은 정수 픽셀이다', () => {
   })
 })
 
+describe('머리의 빈 곳을 눌러도 그 칸이 만지는 칸이 된다', () => {
+  it('SplitPanes: 카드(머리 포함) 어디든 pointerdown 이면 onFocusPane(칸 id)', () => {
+    const onFocusPane = vi.fn()
+    const { container } = render(
+      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={splitLeaf(paneNode('a'), 'a', 'h', 'b')} renderPane={(id) => <p>{id}</p>}
+        renderHead={(id) => <span data-testid={'head-' + id}>머리 {id}</span>} onFocusPane={onFocusPane} />,
+    )
+    const heads = container.querySelectorAll<HTMLElement>('.pane-head')
+    fireEvent.pointerDown(heads[1]!)
+    expect(onFocusPane).toHaveBeenLastCalledWith('b')
+    fireEvent.pointerDown(heads[0]!)
+    expect(onFocusPane).toHaveBeenLastCalledWith('a')
+  })
+
+  it('떠 있는 칸도 같다(빈 칸 포함: 카드 전체가 대상이다)', () => {
+    const onFocusPane = vi.fn()
+    const { container } = render(
+      <FloatLayer
+        floats={[{ paneId: 'f', anchor: { kind: 'screen' }, x: 0.1, y: 0.1, w: 300, h: 200, collapsed: false }]}
+        anchorRect={() => ({ left: 0, top: 0, width: 800, height: 600 })}
+        epoch={0} renderHead={() => <i data-testid="fhead" />} renderBody={() => null} onChange={() => undefined} onRaise={() => undefined}
+        onFocusPane={onFocusPane} paneEmpty={() => true}
+      />,
+    )
+    fireEvent.pointerDown(screen.getByTestId('fhead'))
+    expect(onFocusPane).toHaveBeenCalledWith('f')
+    expect(container.querySelector('.pane-card')?.hasAttribute('data-empty')).toBe(true)
+  })
+})
+
 describe('칸 반응 표시 — 어느 창이 반응하는가', () => {
   const tab = (id: string, kind: 'pdf' | 'markdown' | 'memoNote' | 'canvas') => ({ tabs: [{ id, title: id, kind }], activeId: id })
   const base = (over: Partial<ReactionInput> = {}): ReactionInput => {

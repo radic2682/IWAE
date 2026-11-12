@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut, Translate } from '@phosphor-icons/react'
+import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut } from '@phosphor-icons/react'
 import { OVERLAY_TOOLS, overlayToolInfo } from '../pdf/PdfOverlayPalette'
 import { DRAW_TOOLS, isDrawTool, setLastDrawTool, setOverlayTool, useLastDrawTool, useOverlayTool } from '../pdf/overlayToolStore'
 import type { OverlayTool } from '../pdf/PdfOverlayLayer'
@@ -53,9 +53,6 @@ interface PaneToolbarProps {
   readonly onSplitLayoutChange?: (id: PdfSplitLayoutId) => void
   /** 쪽 편집(쪽 미리보기로 순서 바꾸기·끼워 넣기·빼기). 주면 쪽 편집 단추가 나온다 */
   readonly onEditPages?: () => void
-  /** 번역기 창 열기·닫기. 주면(번역을 켜 둔 때만) 번역기 단추가 나온다 */
-  readonly translatorOpen?: boolean
-  readonly onToggleTranslator?: () => void
 }
 
 /**
@@ -108,8 +105,6 @@ export function PaneToolbar({
   splitLayout,
   onSplitLayoutChange,
   onEditPages,
-  translatorOpen = false,
-  onToggleTranslator,
 }: PaneToolbarProps) {
   const [overlayTool, setOverlayTool] = useOverlayTool()
   const lastDraw = useLastDrawTool()
@@ -290,21 +285,6 @@ export function PaneToolbar({
   ) : null
   const docGroup = (
     <>
-      {onToggleTranslator !== undefined ? (
-        <button
-          type="button"
-          className={`toolbar-tool-btn pdf-compact-tool pane-translator${translatorOpen ? ' toolbar-tool-btn-active' : ''}`}
-          aria-label={t('번역기')}
-          title={t('번역기 (창 띄우기)')}
-          aria-pressed={translatorOpen}
-          onClick={(event) => {
-            event.currentTarget.blur()
-            onToggleTranslator()
-          }}
-        >
-          <Translate size={15} aria-hidden="true" />
-        </button>
-      ) : null}
       {versionLabel !== undefined && onOpenVersions !== undefined ? (
         <button
           type="button"
@@ -356,7 +336,7 @@ export function PaneToolbar({
       ) : null}
     </>
   )
-  const hasDocGroup = (versionLabel !== undefined && onOpenVersions !== undefined) || onOpenSources !== undefined || onCopyFile !== undefined || onPrint !== undefined || github !== undefined || onToggleTranslator !== undefined
+  const hasDocGroup = (versionLabel !== undefined && onOpenVersions !== undefined) || onOpenSources !== undefined || onCopyFile !== undefined || onPrint !== undefined || github !== undefined
   // 너비가 모자라면 덜 쓰는 묶음부터 「⋯」 안으로: 1 = 쪽 배치·화면 나누기, 2 = 판·출처·복사·인쇄, 3 = 박스 메모·편집 도구·쪽 편집
   const inMenu = (group: 1 | 2 | 3) => overflowLevel >= group
 
