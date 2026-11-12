@@ -122,6 +122,11 @@
      런타임에 만들어 <style id="iwae-highlight-colors"> 에 [data-hl="id"] 규칙으로 넣는다.
      기본 4색의 값은 src/core/highlightColors.ts 에 있다. */
 
+  /* AI 가 가리킨 자리(임시 표시): 형광펜·선택과 겹치지 않는 보라 계열 */
+  --ai-pointer: #7a5cd6;
+  --ai-pointer-tint: rgb(122 92 214 / 8%);
+  --on-ai-pointer: #fff;
+
   /* 캔버스 발췌 조각 */
   --clip-paper: #ffffff;
   --clip-shadow: 0 1px 2px rgb(60 45 20 / 18%), 0 6px 16px rgb(60 45 20 / 10%);

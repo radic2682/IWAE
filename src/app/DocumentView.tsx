@@ -15,6 +15,7 @@ import { MarkdownSearchPanel, type MarkdownSearchHit } from './MarkdownSearchPan
 import { PdfPane, pageFitZoom, pageHeightFitZoom } from '../pdf/PdfPane'
 import { publishPdfViewport } from '../pdf/pdfViewportStore'
 import type { VisibleRegion } from '../pdf/pageLayout'
+import type { AiPointer } from '../pdf/AiPointerLayer'
 import type { PdfSelectionTranslation } from '../pdf/SelectionActions'
 import type { PaneId, Tab, TabsState } from './tabs'
 import type { PdfDocMeta } from '../bridge/pdf'
@@ -132,6 +133,9 @@ export interface DocumentViewProps {
   rotations: Readonly<Record<string, PdfRotation>>
   onRotationsChange: (update: (current: Readonly<Record<string, PdfRotation>>) => Readonly<Record<string, PdfRotation>>) => void
   draftHighlight: Anchor | null
+  /** AI 가 가리킨 자리(저장되지 않는 임시 표시). 선택(draftHighlight)과 따로 그린다 */
+  aiPointer?: AiPointer | null
+  onAiPointerDismiss?: () => void
   onAnchorCreated: (anchor: Anchor | null) => void
   sourceHighlights: readonly VisibleSourceReference[]
   persistentHighlights: PdfPaneProps['persistentHighlights']
@@ -887,6 +891,8 @@ export function DocumentView(props: DocumentViewProps) {
                     onViewportChange={handlers.onViewportChange}
                     onZoomChange={handlers.onZoomChange}
                     highlightAnchor={props.draftHighlight?.docId === meta.docId ? props.draftHighlight : null}
+                    aiPointer={props.aiPointer?.docId === meta.docId ? props.aiPointer : null}
+                    onAiPointerDismiss={props.onAiPointerDismiss}
                     sourceHighlights={props.sourceHighlights.filter(
                       (source): source is VisiblePdfSourceReference => source.relation !== 'markdown-excerpt',
                     )}

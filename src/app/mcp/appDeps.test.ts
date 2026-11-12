@@ -54,7 +54,7 @@ function input(overrides: Partial<McpAppInput> = {}) {
     requestPage: () => false,
     pendingPage: (docId, page) => calls.push(`pending ${docId} ${page}`),
     jump: (docId, page) => calls.push(`jump ${docId} ${page}`),
-    flashHighlight: (highlight) => calls.push(`flash ${highlight.id}`),
+    pointAt: (anchor) => calls.push(`point ${anchor.quote}`),
     draftAnchor: (anchor) => calls.push(`draft ${anchor.quote}`),
     openMemoNote: (path) => calls.push(`note ${path}`),
     liveSelection: () => null,
@@ -106,15 +106,16 @@ describe('buildMcpAppDeps', () => {
     expect(base.bookmarks.list.some((item) => item.id === 'd1:2')).toBe(true)
   })
 
-  it('goto: 칠한 형광펜이 있으면 깜박이고, 없으면 글을 찾아 임시 표시를 한다', async () => {
+  it('goto: 칠한 형광펜이 있으면 그 자리에, 없으면 글을 찾아 AI 가리킴을 그린다(선택 표시는 건드리지 않는다)', async () => {
     const { base, calls } = input({
       highlights: [{ id: 'h1', color: 'yellow', anchor: { docId: 'd1', page: 0, coordSpace: 'pdfium-page', rects: [], charRange: [0, 5], quote: 'The regulator', prefix: '', suffix: '' } }],
     })
     const app = buildMcpAppDeps(base)
     expect(await app.goto({ docId: 'd1', page: 1, quote: 'the regulator', flash: true })).toEqual({ flashed: true })
-    expect(calls).toContain('flash h1')
+    expect(calls).toContain('point The regulator')
     expect(await app.goto({ docId: 'd1', page: 1, quote: 'within 5 ms', flash: true })).toEqual({ flashed: true })
-    expect(calls).toContain('draft within 5 ms')
+    expect(calls).toContain('point within 5 ms')
+    expect(calls.some((call) => call.startsWith('draft'))).toBe(false)
     expect(await app.goto({ docId: 'd1', page: 1, quote: 'not on the page', flash: true })).toEqual({ flashed: false })
     expect(await app.goto({ docId: 'd1', page: 1, flash: false })).toEqual({ flashed: false })
   })

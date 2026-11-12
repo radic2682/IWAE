@@ -1,0 +1,42 @@
+/* AI 가 가리킨 자리(저장되지 않는 임시 표시). 형광펜(칠)·선택과 달리 점선 테두리 + 옅은 바탕 + 「AI」 칩.
+   움직임은 한 번 나타날 때뿐이고 반복하지 않는다(동작 줄이기는 motion.css 가 전역으로 끈다). */
+.ai-pointer-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ai-pointer-rect {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--ai-pointer);
+  border-radius: 4px;
+  background: var(--ai-pointer-tint);
+  animation: ai-pointer-in 180ms ease-out backwards;
+}
+
+.ai-pointer-chip {
+  position: absolute;
+  left: -2px;
+  bottom: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 2px;
+  padding: 1px 6px 1px 4px;
+  border-radius: 6px;
+  background: var(--ai-pointer);
+  color: var(--on-ai-pointer);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: .02em;
+  pointer-events: auto;
+  cursor: default;
+}
+
+@keyframes ai-pointer-in {
+  from { opacity: 0; transform: scale(.98); }
+  to { opacity: 1; transform: scale(1); }
+}

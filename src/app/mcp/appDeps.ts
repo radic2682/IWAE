@@ -54,7 +54,8 @@ export interface McpAppInput {
   /** 문서가 열린 뒤 이 쪽으로 가도록 맡겨 둔다 */
   readonly pendingPage: (docId: string, page: number) => void
   readonly jump: (docId: string, page: number) => void
-  readonly flashHighlight: (highlight: PersistentPdfHighlight) => void
+  /** AI 가 가리키는 임시 표시(저장되지 않는다. 선택·형광펜과 따로 그린다) */
+  readonly pointAt: (anchor: Anchor, message?: string | null) => void
   readonly draftAnchor: (anchor: Anchor) => void
   readonly openMemoNote: (path: string) => void
   readonly liveSelection: () => { readonly docId: string; readonly page: number; readonly text: string } | null
@@ -190,13 +191,14 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
       const wanted = norm(quote)
       const hit = input.highlights.find((item) => item.anchor.docId === docId && item.anchor.page === page - 1 && norm(item.anchor.quote).includes(wanted))
       if (hit !== undefined) {
-        input.flashHighlight(hit)
+        // 저장된 형광펜은 건드리지 않고 그 자리에 AI 가리킴만 그린다
+        input.pointAt(hit.anchor)
         return { flashed: true }
       }
       try {
         const index = await pageTextIndex(docId, page - 1)
         const [start, end] = findTextRange(index, quote)
-        input.draftAnchor(buildAnchor(docId, page - 1, index, start, end))
+        input.pointAt(buildAnchor(docId, page - 1, index, start, end))
         return { flashed: true }
       } catch {
         return { flashed: false }

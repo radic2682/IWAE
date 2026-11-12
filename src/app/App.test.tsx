@@ -112,7 +112,7 @@ vi.mock('../bridge/pdf', () => ({
 }))
 
 vi.mock('../pdf/PdfPane', () => ({
-  PdfPane: ({ docId, onAnchorCreated, onPersistentHighlightCreated, persistentHighlights = [], onPageChange, pageRequest, highlightAnchor, sourceHighlights = [], onSendToCanvas, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink }: {
+  PdfPane: ({ docId, onAnchorCreated, onPersistentHighlightCreated, persistentHighlights = [], onPageChange, pageRequest, highlightAnchor, aiPointer, onAiPointerDismiss, sourceHighlights = [], onSendToCanvas, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink }: {
     docId: string
     onAnchorCreated?: (anchor: Anchor) => void
     onPersistentHighlightCreated?: (highlight: { id: string; anchor: Anchor }) => void
@@ -120,6 +120,8 @@ vi.mock('../pdf/PdfPane', () => ({
     onPageChange?: (page: number) => void
     pageRequest?: { page: number; nonce: number }
     highlightAnchor?: Anchor | null
+    aiPointer?: { id: string; page: number; message?: string } | null
+    onAiPointerDismiss?: () => void
     sourceHighlights?: readonly VisiblePdfSourceReference[]
     onSendToCanvas?: (selection: PdfExcerptSelection) => void
     onTranslateSelection?: (selection: PdfExcerptSelection) => Promise<{ text: string; targetLanguage: string; model: string } | null>
@@ -212,6 +214,9 @@ vi.mock('../pdf/PdfPane', () => ({
       <output aria-label="페이지 이동 요청 nonce">{pageRequest?.nonce ?? -1}</output>
       <output aria-label="페이지 이동 요청 쪽">{pageRequest?.page ?? -1}</output>
       <output aria-label="강조 앵커 페이지">{highlightAnchor?.page ?? -1}</output>
+      <output aria-label="AI 가리킴 쪽">{aiPointer?.page ?? -1}</output>
+      <output aria-label="AI 가리킴 말">{aiPointer?.message ?? ''}</output>
+      <button type="button" onClick={onAiPointerDismiss}>AI 가리킴 지우기</button>
       <output aria-label="영구 형광펜 수">{persistentHighlights.length}</output>
     </div>
   ),
@@ -893,7 +898,29 @@ describe('App — 바깥 AI가 보낸 위치', () => {
     expect(within(card).getByText(SAMPLE_TITLE)).toBeDefined()
     fireEvent.click(within(card).getByRole('button', { name: '이동' }))
     await waitFor(() => expect((screen.getByRole('textbox', { name: '페이지' }) as HTMLInputElement).value).toBe('3'))
-    expect(screen.queryByText('정의가 여기 있습니다')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('이동하면 선택(강조) 표시가 아니라 AI 가리킴만 켜지고, 새 가리킴이 이전 것을 바꾸며, 지우기로 사라진다', async () => {
+    render(<App developmentPreview />)
+    await waitFor(() => expect(aiLocationHandlers.length).toBeGreaterThan(0))
+    act(() => {
+      aiLocationHandlers.at(-1)!({ id: 'loc1', docId: SAMPLE_DOC_ID, page: 3, charStart: 0, charEnd: 8, message: '정의가 여기 있습니다', receivedAt: '1' })
+    })
+    fireEvent.click(within(await screen.findByRole('alert')).getByRole('button', { name: '이동' }))
+    await waitFor(() => expect(screen.getByLabelText('AI 가리킴 쪽').textContent).toBe('2'))
+    expect(screen.getByLabelText('AI 가리킴 말').textContent).toBe('정의가 여기 있습니다')
+    expect(screen.getByLabelText('강조 앵커 페이지').textContent).toBe('-1')
+    // 저장되는 것(형광펜)은 늘지 않는다 — AI 가리킴은 상태에만 있다
+    expect(screen.getByLabelText('영구 형광펜 수').textContent).toBe('0')
+    act(() => {
+      aiLocationHandlers.at(-1)!({ id: 'loc2', docId: SAMPLE_DOC_ID, page: 1, charStart: 0, charEnd: 5, message: '여기도', receivedAt: '2' })
+    })
+    fireEvent.click(within(await screen.findByRole('alert')).getByRole('button', { name: '이동' }))
+    await waitFor(() => expect(screen.getByLabelText('AI 가리킴 쪽').textContent).toBe('0'))
+    expect(screen.getByLabelText('AI 가리킴 말').textContent).toBe('여기도')
+    fireEvent.click(screen.getByRole('button', { name: 'AI 가리킴 지우기' }))
+    expect(screen.getByLabelText('AI 가리킴 쪽').textContent).toBe('-1')
   })
 })
 

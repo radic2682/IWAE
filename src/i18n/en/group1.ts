@@ -281,6 +281,7 @@ export const GROUP_1: Readonly<Record<string, string>> = {
   'AI가 위치를 보냈습니다': 'AI sent a location',
   '알 수 없는 문서': 'Unknown document',
   '이동': 'Go',
+  'AI가 가리키는 곳': 'Where the AI is pointing',
 
   // LinkLayer
   '외부 링크 {host}': 'External link {host}',

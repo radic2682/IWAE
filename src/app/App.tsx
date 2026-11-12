@@ -138,6 +138,7 @@ import {
 import type { LibraryDoc, NotebookGroup, VaultMarkdownNode, VaultTreeNode } from '../core/vaultTree'
 import type { LibraryOpenTarget } from '../core/libraryItems'
 import type { Anchor } from '../core/anchor'
+import type { AiPointer } from '../pdf/AiPointerLayer'
 import type { PdfExcerptSelection, SourceJumpRequest } from '../core/pdfExcerpt'
 import { OPEN_TRANSLATION_SETTINGS_EVENT, type PdfSelectionTranslation } from '../pdf/SelectionActions'
 import { TranslationCardSettingsContext, type TranslationCardSettings } from '../ui/TranslationCard'
@@ -638,6 +639,23 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [draftPdfHighlight, setDraftPdfHighlight] = useState<Anchor | null>(null)
   const draftPdfHighlightRef = useRef(draftPdfHighlight)
   draftPdfHighlightRef.current = draftPdfHighlight
+  /** AI 가 가리킨 자리. 저장·실행 취소와 무관한 임시 표시이고 선택(draftPdfHighlight)과 따로 둔다 */
+  const [aiPointer, setAiPointer] = useState<AiPointer | null>(null)
+  const aiPointerSeq = useRef(0)
+  const pointAt = useCallback((anchor: Anchor, message?: string | null) => {
+    aiPointerSeq.current += 1
+    const text = (message ?? '').trim()
+    setAiPointer({ id: `ai-pointer-${aiPointerSeq.current}`, docId: anchor.docId, page: anchor.page, anchor, ...(text === '' ? {} : { message: text }) })
+  }, [])
+  const dismissAiPointer = useCallback(() => setAiPointer(null), [])
+  // 가리키던 문서가 닫히면(탭이 한 번 보였다가 사라지면) 표시도 지운다
+  const aiPointerSeenRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (aiPointer === null) { aiPointerSeenRef.current = null; return }
+    const open = PANE_IDS.some((id) => panes[id].tabs.some((tab) => tabDocId(tab) === aiPointer.docId))
+    if (open) aiPointerSeenRef.current = aiPointer.id
+    else if (aiPointerSeenRef.current === aiPointer.id) setAiPointer(null)
+  }, [aiPointer, panes])
   const [focusedPane, setFocusedPane] = useState<FocusedPane>('split')
   const [libraryExpanded, setLibraryExpanded] = useState(false)
   /** 펼친 라이브러리가 올라갈 자리(왼쪽 바 오른쪽 영역). Sidebar 가 여기에 그린다 */
@@ -1509,7 +1527,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       },
       pendingPage: (docId, page) => { pendingDocPageRef.current = { docId, page } },
       jump: (docId, page) => navigation.jump({ docId, page }),
-      flashHighlight: (highlight) => jumpToAnnotation(highlight),
+      pointAt,
       draftAnchor: setDraftPdfHighlight,
       openMemoNote: (path) => {
         memoNotes.open(path)
@@ -1617,9 +1635,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         const at = index.text.indexOf(location.quote)
         if (at >= 0) range = [at, at + location.quote.length]
       }
-      if (range !== null) setDraftPdfHighlight(buildAnchor(location.docId, pageIndex, index, range[0], range[1]))
+      if (range !== null) pointAt(buildAnchor(location.docId, pageIndex, index, range[0], range[1]), location.message ?? location.quote)
     }).catch(() => undefined)
-  }, [docTitles, navigation, openMarkdown, searchRecords])
+  }, [pointAt, docTitles, navigation, openMarkdown, searchRecords])
   /** PDF 도구 화면(대상 문서·펼친 도구). 있으면 그 문서를 보이던 PDF 창 자리를 도구 화면이 대신한다. 쪽 편집도 도구 하나다 */
   const [pdfToolsTarget, setPdfToolsTarget] = useState<{ docId: string; tool?: PdfToolViewId } | null>(null)
   /** 왼쪽 바 「PDF 도구」 탭을 열고 그 도구를 펼친다(명령 팔레트·탭 메뉴·문서 우클릭 메뉴가 부른다). 쪽 편집만 PDF 창 자리를 쓴다 */
@@ -2687,6 +2705,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         rotations={pdfRotations}
         onRotationsChange={setPdfRotations}
         draftHighlight={draftPdfHighlight}
+        aiPointer={aiPointer}
+        onAiPointerDismiss={dismissAiPointer}
         onAnchorCreated={setDraftPdfHighlight}
         sourceHighlights={workspaceSources.visibleSources}
         persistentHighlights={pdfHighlights.highlights}

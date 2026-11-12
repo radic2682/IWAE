@@ -54,6 +54,7 @@ import { markFreshHighlight } from './freshHighlight'
 import type { PdfSelectionTranslation } from './SelectionActions'
 import { createFrameScheduler } from '../core/frameScheduler'
 import '../ui/pdf-followup.css'
+import { AiPointerLayer, useAiPointerDismiss, type AiPointer } from './AiPointerLayer'
 import { t } from '../i18n'
 
 /**
@@ -157,6 +158,10 @@ interface PdfPaneProps {
   onPersistentHighlightRemoved?: (highlightId: string) => void
   persistentHighlights?: readonly PersistentPdfHighlight[]
   highlightAnchor?: Anchor | null
+  /** AI 가 가리킨 자리(저장되지 않는 임시 표시). 선택(highlightAnchor)과 따로 그린다 */
+  aiPointer?: AiPointer | null
+  /** Esc·쪽 클릭으로 AI 가리킴을 지운다 */
+  onAiPointerDismiss?: () => void
   sourceHighlights?: readonly VisiblePdfSourceReference[]
   searchMatches?: readonly PdfSearchMatch[]
   activeSearchMatchId?: string | null
@@ -254,7 +259,8 @@ export function pageHeightFitZoom(pageSize: readonly [number, number], viewport:
   return Math.max(10, Math.round((viewport.height / widthFitHeight) * 100))
 }
 
-export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent = 100, zoomScale = 0, onPageChange, onVisibleRegions, pageRequest, onViewportChange, onZoomChange, onAnchorCreated, onPersistentHighlightCreated, onPersistentHighlightRemoved, persistentHighlights = [], highlightAnchor = null, sourceHighlights = [], searchMatches = [], activeSearchMatchId = null, interactionMode = 'text', highlightColor, onInteractionModeChange, onHighlightColorChange, onSendToCanvas, onCopyWithSource, onSearchDocuments, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink, onPersistentHighlightUpdated, onPersistentHighlightsPatched, flashHighlightId = null, viewKey, onMovePin, overlays = [], onOverlayAdd, onOverlayUpdate, onOverlayRemove, searchJumpNonce = 0, spread = 'single', continuous = true, tone = 'none', rotation = 0, invert = false, onMemoJump, docTitles, primary = true, inSplit = false, clean = false, pins = [], onAddPin, onUpdatePin, onRemovePin }: PdfPaneProps) {
+export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent = 100, zoomScale = 0, onPageChange, onVisibleRegions, pageRequest, onViewportChange, onZoomChange, onAnchorCreated, onPersistentHighlightCreated, onPersistentHighlightRemoved, persistentHighlights = [], highlightAnchor = null, aiPointer = null, onAiPointerDismiss, sourceHighlights = [], searchMatches = [], activeSearchMatchId = null, interactionMode = 'text', highlightColor, onInteractionModeChange, onHighlightColorChange, onSendToCanvas, onCopyWithSource, onSearchDocuments, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink, onPersistentHighlightUpdated, onPersistentHighlightsPatched, flashHighlightId = null, viewKey, onMovePin, overlays = [], onOverlayAdd, onOverlayUpdate, onOverlayRemove, searchJumpNonce = 0, spread = 'single', continuous = true, tone = 'none', rotation = 0, invert = false, onMemoJump, docTitles, primary = true, inSplit = false, clean = false, pins = [], onAddPin, onUpdatePin, onRemovePin }: PdfPaneProps) {
+  useAiPointerDismiss(aiPointer !== null, onAiPointerDismiss)
   useEffect(() => {
     // OCR 엔진(수십 MB)은 스캔 쪽을 열었고 OCR 이 켜져 있을 때만, 화면이 한가할 때 미리 띄운다.
     // 꺼 두면 영역을 처음 잡을 때 그제야 띄운다.
@@ -1647,6 +1653,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                   }}
             />
           ) : null}
+          {aiPointer !== null && aiPointer.page === page ? <AiPointerLayer pointer={aiPointer} renderScale={renderScale} /> : null}
           {(interactionMode === 'text' || interactionMode === 'hand') && linksEnabled && !rotated ? (
             <LinkLayer
               links={pageLinks.get(page) ?? []}
