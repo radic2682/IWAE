@@ -3,6 +3,7 @@ import { fitMenuInViewport } from '../ui/fitMenu'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
 import { createPillGhost, startDockSession, type DockSession, type SidebarDropItem, type SidebarPaneDrop } from './dockSession'
+import { setDockDragging, setDockDropOk } from './tabDrag'
 import type { TabDropTarget } from './tabDock'
 import { sidebarDefaults } from './sidebarDefaults'
 import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, PencilSimple, Quotes, Smiley, Stack, Star, Toolbox, Trash, WarningCircle } from '@phosphor-icons/react'
@@ -1030,20 +1031,20 @@ export function Sidebar({
     const stopSession = () => {
       session?.end()
       session = null
-      document.body.classList.remove('dock-dragging', 'dock-drop-ok')
+      setDockDragging(false)
     }
     startInternalDrag(event, {}, {
       preview: pill.element,
       onStart: () => {
         pill.lift()
         setDraggedNode(dragged)
-        document.body.classList.add('dock-dragging')
+        setDockDragging(true)
         if (toPane) session = startDockSession({ edgesFor: (pane) => paneDrop.edgesFor(pane, item) })
       },
       onOver: (target, x, y) => {
         const drop = dropFor(target, y)
         const paneTarget = session?.update(x, y) ?? null
-        document.body.classList.toggle('dock-drop-ok', drop !== null || paneTarget !== null)
+        setDockDropOk(drop !== null || paneTarget !== null)
         setDropTarget(drop === null ? null : {
           section: drop.section,
           nodeId: drop.nodeId,

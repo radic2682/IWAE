@@ -8,6 +8,7 @@ import { ItemEmoji } from './ItemEmoji'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { DeleteFolderDialog } from './SidebarDialogs'
 import { createPillGhost, startDockSession, type DockSession, type PillGhost, type SidebarPaneDrop } from './dockSession'
+import { setDockDragging, setDockDropOk } from './tabDrag'
 import type { TabDropTarget } from './tabDock'
 
 /** 노트 이모지·색의 열쇠(파일·폴더 이모지와 같은 표에 둔다) */
@@ -290,7 +291,7 @@ export function MemoNotesSection({
         press.active = true
         ghost = createPillGhost(icon, title)
         ghost.attach()
-        document.body.classList.add('dock-dragging')
+        setDockDragging(true)
         window.getSelection()?.removeAllRanges()
         if (toPane) session = startDockSession({ edgesFor: (pane) => paneDrop.edgesFor(pane, { kind: 'note', path: row.kind === 'note' ? row.entry.path : '' }) })
       }
@@ -299,7 +300,7 @@ export function MemoNotesSection({
       const inside = insideList(moveEvent.clientX, moveEvent.clientY)
       target = session?.update(moveEvent.clientX, moveEvent.clientY) ?? null
       const drop = inside && inList ? dropAt(press.row, moveEvent.clientY) : null
-      document.body.classList.toggle('dock-drop-ok', drop !== null || target !== null)
+      setDockDropOk(drop !== null || target !== null)
       setDrag({ from: rowKey(press.row), drop })
     }
     const up = (upEvent: PointerEvent) => {
@@ -329,7 +330,7 @@ export function MemoNotesSection({
       ghost = null
       session?.end()
       session = null
-      document.body.classList.remove('dock-dragging', 'dock-drop-ok')
+      setDockDragging(false)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', stop)

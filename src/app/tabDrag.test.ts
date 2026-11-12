@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { paneHitAt, startTabDrag, type TabDragHost } from './tabDrag'
+import { buildGhostShell, createDockVisuals, paintDockTarget, paneHitAt, resolveDockTarget, setDockDragging, setDockDropOk, startTabDrag, stripGapPx, type TabDragHost } from './tabDrag'
 import type { Tab } from './tabs'
 
 /**
@@ -306,5 +306,70 @@ describe('탭 끌기: 자리 판정 · 표시', () => {
     expect(preview.style.left).toBe('204px') // 카드 전체(가운데 구역)
     fire('pointerup', 390, 200)
     expect(fixture.host.calls).toEqual([`move:a:right:${Number.MAX_SAFE_INTEGER}`])
+  })
+})
+
+describe('공용 놓을 자리 판정 · 표시 (탭 끌기와 왼쪽 바 끌기가 같이 쓴다)', () => {
+  it('resolveDockTarget: 머리 위는 strip, 본문은 구역 · 기준 상자(칸 카드 전체), 칸 밖은 none. 가장자리 목록은 함수로도 준다', () => {
+    build()
+    const edgesAsked: string[] = []
+    const edges = (pane: string) => { edgesAsked.push(pane); return ['left', 'right'] as const }
+    expect(resolveDockTarget(paneHitAt(50, 10), 50, 10, edges)).toMatchObject({ kind: 'strip', pane: 'left' })
+    const body = resolveDockTarget(paneHitAt(300, 200), 300, 200, edges)
+    expect(body).toMatchObject({ kind: 'body', pane: 'right', zone: 'center' })
+    expect(body.kind === 'body' ? body.box : null).toMatchObject({ left: 203, top: 3, width: 194, height: 434 })
+    // 허락된 가장자리(left)에서는 나눔 구역, 허락 안 된 가장자리(top)는 가운데로 본다
+    expect(resolveDockTarget(paneHitAt(210, 200), 210, 200, edges)).toMatchObject({ kind: 'body', pane: 'right', zone: 'left' })
+    expect(resolveDockTarget(paneHitAt(300, 45), 300, 45, edges)).toMatchObject({ kind: 'body', zone: 'center' })
+    expect(edgesAsked).toEqual(['right', 'right', 'right'])
+    expect(resolveDockTarget(paneHitAt(-5, 200), -5, 200, ['left'])).toEqual({ kind: 'none' })
+  })
+
+  it('paintDockTarget: 본문은 구역 미리보기와 머리 표시 해제, 탭 줄은 구역 표시 + 틈(gap 이 있을 때만), 없음은 모두 치운다', () => {
+    build()
+    const visuals = createDockVisuals()
+    paintDockTarget(visuals, resolveDockTarget(paneHitAt(300, 200), 300, 200, []), null)
+    const preview = document.querySelector<HTMLElement>('.tab-dock-preview')!
+    expect(preview.classList.contains('tab-dock-preview-on')).toBe(true)
+    paintDockTarget(visuals, resolveDockTarget(paneHitAt(50, 10), 50, 10, []), { index: 1, tabWidth: 100 })
+    expect(preview.classList.contains('tab-dock-preview-on')).toBe(false)
+    expect(document.querySelector('[data-pane-head="left"]')!.classList.contains('pane-drop-target')).toBe(true)
+    expect(document.querySelector<HTMLElement>('.pane-tabs-strip')!.style.paddingRight).not.toBe('')
+    // gap 이 없으면 틈을 열지 않고 열려 있던 것도 닫는다(같은 줄 순서 바꾸기)
+    paintDockTarget(visuals, resolveDockTarget(paneHitAt(50, 10), 50, 10, []), null)
+    expect(document.querySelector('[data-pane-head="left"]')!.classList.contains('pane-drop-target')).toBe(true)
+    paintDockTarget(visuals, { kind: 'none' }, null)
+    expect(document.querySelector('.pane-drop-target')).toBeNull()
+    visuals.clear(true)
+  })
+
+  it('stripGapPx: CSS column-gap 을 재고, 못 재면 디자인 값 4px 를 쓴다(예전 3px 상수가 아니다)', () => {
+    build()
+    const strip = document.querySelector<HTMLElement>('.pane-tabs-strip')!
+    expect(stripGapPx(strip)).toBe(4)
+    strip.style.columnGap = '6px'
+    expect(stripGapPx(strip)).toBe(6)
+  })
+
+  it('buildGhostShell: 탭 둘레에 좌우 20 · 위아래 4 여백을 두른 껍질이고, 머리 바탕 class 는 뺀다', () => {
+    const tab = document.createElement('div')
+    const shell = buildGhostShell('topbar-panetab-zone pane-head pane-grid-tabs pane-drop-target', tab, 120, 28)
+    expect(shell.className).toBe('tab-drag-ghost topbar-panetab-zone pane-head')
+    expect(shell.style.width).toBe('160px')
+    expect(shell.style.height).toBe('36px')
+    expect(tab.style.width).toBe('120px')
+    expect(shell.querySelector('.pane-tabs-menu > .pane-tabs-strip > div')).toBe(tab)
+  })
+
+  it('setDockDragging / setDockDropOk: 끄는 동안 body 표시를 켜고, 끄면 복사 커서 표시도 같이 거둔다', () => {
+    setDockDragging(true)
+    setDockDropOk(true)
+    expect(document.body.classList.contains('dock-dragging')).toBe(true)
+    expect(document.body.classList.contains('dock-drop-ok')).toBe(true)
+    setDockDropOk(false)
+    expect(document.body.classList.contains('dock-drop-ok')).toBe(false)
+    setDockDropOk(true)
+    setDockDragging(false)
+    expect(document.body.className).toBe('')
   })
 })

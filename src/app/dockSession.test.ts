@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPillGhost, startDockSession } from './dockSession'
+import { PILL_HEIGHT_PX, PILL_WIDTH_PX, createPillGhost, startDockSession } from './dockSession'
 
 /** 왼쪽 바 → 칸 끌어 놓기의 자리 판정 · 표시. 칸은 앱과 같은 모양이다(tabDrag.test.ts 와 같은 틀) */
 
@@ -86,6 +86,21 @@ describe('왼쪽 바 끌기 세션', () => {
     expect(session.update(480, 20)).toEqual({ kind: 'strip', pane: 'one', index: 2 })
     session.end()
     expect(document.querySelector('.pane-drop-target')).toBeNull()
+  })
+
+  it('탭 줄 틈은 알약 너비(200) + 탭 사이 간격(재서 쓴다)이고, 알약 껍질도 같은 알약 너비다', () => {
+    const strip = document.querySelector<HTMLElement>('.pane-tabs-strip')!
+    strip.style.columnGap = '4px'
+    const session = startDockSession({ edgesFor: () => ALL })
+    session.update(150, 20)
+    expect(strip.style.paddingRight).toBe(`${PILL_WIDTH_PX + 4}px`)
+    expect(document.querySelector<HTMLElement>('.tab-gap-hint')!.style.width).toBe(`${PILL_WIDTH_PX}px`)
+    session.end()
+    const pill = createPillGhost(null, '이름')
+    pill.attach()
+    expect(document.querySelector<HTMLElement>('.tab-drag-ghost .pane-top-tab')!.style.width).toBe(`${PILL_WIDTH_PX}px`)
+    expect(document.querySelector<HTMLElement>('.tab-drag-ghost')!.style.height).toBe(`${PILL_HEIGHT_PX + 8}px`)
+    pill.remove()
   })
 
   it('칸 밖(왼쪽 바)에서는 놓을 자리가 없고 미리보기도 복사 커서도 없다', () => {

@@ -129,6 +129,50 @@ export function dockZoneInCard(card: HTMLElement, x: number, y: number, allowed:
   return { zone, box }
 }
 
+/**
+ * 끄는 자리가 어디인가: 탭 줄(머리) 위 · 칸 본문 위 · 칸 밖. 탭 끌기(startTabDrag)와 왼쪽 바 끌기(startDockSession)가 같은 판정을 쓴다.
+ * 본문은 구역(zone)과 그 구역의 기준 상자(box)까지 정해서 준다. edges: 그 칸에서 나눌 수 있는 가장자리들(칸마다 달라서 함수도 받는다)
+ */
+export type DockTarget =
+  | { readonly kind: 'strip'; readonly pane: PaneId; readonly strip: HTMLElement | null; readonly zone: HTMLElement }
+  | { readonly kind: 'body'; readonly pane: PaneId; readonly zone: DockZone; readonly box: Box }
+  | { readonly kind: 'none' }
+
+export function resolveDockTarget(hit: Hit, x: number, y: number, edges: readonly DockEdge[] | ((pane: PaneId) => readonly DockEdge[])): DockTarget {
+  if (hit.kind === 'strip') return { kind: 'strip', pane: hit.pane, strip: hit.strip, zone: hit.zone }
+  if (hit.kind === 'body') {
+    const { zone, box } = dockZoneInCard(hit.card, x, y, typeof edges === 'function' ? edges(hit.pane) : edges)
+    return { kind: 'body', pane: hit.pane, zone, box }
+  }
+  return { kind: 'none' }
+}
+
+/**
+ * 끄는 동안의 표시(미리보기 · 탭 줄 틈 · 머리 표시)를 target 에 맞춘다. gap 이 있고 탭 줄 위일 때만 그 줄에 탭 하나(tabWidth)의 틈을 연다
+ * (같은 줄 안에서 순서를 바꿀 때처럼 틈이 필요 없으면 null).
+ */
+export function paintDockTarget(visuals: DockVisuals, target: DockTarget, gap: { readonly index: number; readonly tabWidth: number } | null): void {
+  if (target.kind === 'strip') {
+    visuals.showPreview(null)
+    visuals.markZone(target.zone)
+    if (gap !== null && target.strip !== null) visuals.setGap(target.strip, gap.index, gap.tabWidth)
+    else visuals.clearGap()
+    return
+  }
+  visuals.clearGap()
+  visuals.markZone(null)
+  visuals.showPreview(target.kind === 'body' ? dockZoneBox(target.box, target.zone) : null)
+}
+
+/** 왼쪽 바 끌기 중 body 표시: dock-dragging 은 칸 안 내용에 마우스가 걸리지 않게, dock-drop-ok 는 받을 수 있는 자리 위에서만 「복사」 커서를 낸다(tab-drag.css) */
+export function setDockDragging(on: boolean): void {
+  document.body.classList.toggle('dock-dragging', on)
+  if (!on) document.body.classList.remove('dock-drop-ok')
+}
+export function setDockDropOk(ok: boolean): void {
+  document.body.classList.toggle('dock-drop-ok', ok)
+}
+
 export const tabsIn = (strip: HTMLElement | null): HTMLElement[] => strip === null ? [] : Array.from(strip.querySelectorAll<HTMLElement>(':scope > .pane-top-tab'))
 
 /** 미끄러지는 중(transform)이어도 흔들리지 않게, 변환을 뺀 원래 자리(왼쪽·너비) */
@@ -164,8 +208,16 @@ export function flip(elements: readonly HTMLElement[], mutate: () => void, durat
   }
 }
 
-/** 탭 줄(strip)의 index 번째 앞에 width 만큼 빈자리를 연다(그 뒤 탭들이 오른쪽으로 미끄러진다). index 가 null 이면 닫는다 */
-export function setStripGap(strip: HTMLElement, index: number | null, width: number, immediate = false): void {
+/** 탭 줄의 탭 사이 간격(px): CSS 의 column-gap 을 재서 쓴다. 못 재면(jsdom) 디자인 값 4px */
+export function stripGapPx(strip: HTMLElement): number {
+  const gap = Number.parseFloat(getComputedStyle(strip).columnGap)
+  return Number.isFinite(gap) ? gap : 4
+}
+
+/** 탭 줄(strip)의 index 번째 앞에 탭 하나(tabWidth)와 탭 사이 간격만큼 빈자리를 연다(그 뒤 탭들이 오른쪽으로 미끄러진다). index 가 null 이면 닫는다 */
+export function setStripGap(strip: HTMLElement, index: number | null, tabWidth: number, immediate = false): void {
+  const gap = stripGapPx(strip)
+  const width = tabWidth + gap
   // 줄 상자는 탭 폭만큼만 자라 있어서(overflow 가 잘린다) 벌어지는 만큼 오른쪽 안쪽 여백도 함께 늘려 준다
   if (index !== null) {
     if (strip.dataset.gapBase === undefined) strip.dataset.gapBase = String(parseFloat(getComputedStyle(strip).paddingRight) || 0)
@@ -192,11 +244,11 @@ export function setStripGap(strip: HTMLElement, index: number | null, width: num
     element.style.transform = shift === 0 ? '' : `translateX(${shift}px)`
     if (shift === 0) window.setTimeout(() => { if (element.dataset.gapShift === undefined) element.style.transition = '' }, SPRING_FIRM_MS + 30)
   })
-  updateGapHint(strip, index, width, immediate)
+  updateGapHint(strip, index, tabWidth, gap, immediate)
 }
 
 /** 벌어진 자리에 「여기에 놓인다」는 점선 칸을 보인다(원래 탭이 비운 구멍과 같은 모양) */
-function updateGapHint(strip: HTMLElement, index: number | null, width: number, immediate: boolean): void {
+function updateGapHint(strip: HTMLElement, index: number | null, tabWidth: number, gap: number, immediate: boolean): void {
   const menu = strip.parentElement
   if (menu === null) return
   const shown = menu.querySelector<HTMLElement>(':scope > .tab-gap-hint.tab-gap-hint-on')
@@ -213,7 +265,7 @@ function updateGapHint(strip: HTMLElement, index: number | null, width: number, 
   const menuBox = menu.getBoundingClientRect()
   const anchorBox = anchor.getBoundingClientRect()
   const layout = layoutBox(anchor)
-  const left = (index < tabs.length ? layout.left : layout.left + layout.width + 3) - menuBox.left
+  const left = (index < tabs.length ? layout.left : layout.left + layout.width + gap) - menuBox.left
   let hint = shown
   if (hint === null) {
     hint = document.createElement('div')
@@ -224,7 +276,7 @@ function updateGapHint(strip: HTMLElement, index: number | null, width: number, 
   }
   hint.style.left = `${left}px`
   hint.style.top = `${anchorBox.top - menuBox.top}px`
-  hint.style.width = `${Math.max(0, width - 3)}px`
+  hint.style.width = `${Math.max(0, tabWidth)}px`
   hint.style.height = `${anchorBox.height}px`
   if (!hint.classList.contains('tab-gap-hint-on')) {
     void hint.offsetWidth
@@ -233,28 +285,38 @@ function updateGapHint(strip: HTMLElement, index: number | null, width: number, 
   }
 }
 
-function ghostFor(tabElement: HTMLElement, rect: DOMRect): HTMLElement {
-  const zoneClass = tabElement.closest<HTMLElement>('.topbar-panetab-zone, .pane-grid-tabs')?.className ?? ''
+/** 들린 탭 껍질이 탭 둘레에 두르는 여백(px): 좌우 20 씩, 위아래 4 씩(tab-drag.css 의 padding 0 20px 과 같다) */
+const GHOST_PAD_X = 40
+const GHOST_PAD_Y = 8
+
+/**
+ * 들린 탭의 껍질: 탭 하나(tab)를 탭 줄 모양(.pane-tabs-menu > .pane-tabs-strip)으로 감싼다. 탭 끌기(ghostFor)와 왼쪽 바 끌기(createPillGhost)가 같이 쓴다.
+ * zoneClass: 상단바 안에서만 맞는 탭 모양 규칙(.topbar-panetab-zone …)이 그대로 걸리게 하는 머리 구역 class. 머리 바탕을 그려 주는
+ * pane-grid-tabs(와 표시용 pane-drop-target)는 뺀다: 들린 것은 탭 하나뿐이어야 한다.
+ */
+export function buildGhostShell(zoneClass: string, tab: HTMLElement, tabWidth: number, tabHeight: number): HTMLElement {
   const root = document.createElement('div')
-  // 상단바 안에서만 맞는 탭 모양 규칙(.topbar-panetab-zone …)이 그대로 걸리게 같은 껍질을 씌운다
-  // 머리 바탕을 그려 주는 pane-grid-tabs(와 표시용 pane-drop-target)는 뺀다: 들린 것은 탭 하나뿐이어야 한다
   root.className = `tab-drag-ghost ${zoneClass}`.replace(/\b(?:pane-drop-target|pane-grid-tabs)\b/gu, '').replace(/\s+/gu, ' ').trim()
   root.setAttribute('aria-hidden', 'true')
   const menu = document.createElement('div')
   menu.className = 'pane-tabs-menu pane-tabs-focused'
   const strip = document.createElement('div')
   strip.className = 'pane-tabs-strip'
+  tab.style.width = `${tabWidth}px`
+  tab.style.flex = '0 0 auto'
+  strip.append(tab)
+  menu.append(strip)
+  root.append(menu)
+  root.style.width = `${tabWidth + GHOST_PAD_X}px`
+  root.style.height = `${tabHeight + GHOST_PAD_Y}px`
+  return root
+}
+
+function ghostFor(tabElement: HTMLElement, rect: DOMRect): HTMLElement {
   const clone = tabElement.cloneNode(true) as HTMLElement
   for (const name of ['data-tab-id', 'data-dragging', 'data-collapsed', 'data-landing', 'data-entering', 'data-gap-shift', 'style']) clone.removeAttribute(name)
   clone.querySelectorAll('[tabindex]').forEach((node) => node.removeAttribute('tabindex'))
-  clone.style.width = `${rect.width}px`
-  clone.style.flex = '0 0 auto'
-  strip.append(clone)
-  menu.append(strip)
-  root.append(menu)
-  root.style.width = `${rect.width + 40}px`
-  root.style.height = `${rect.height + 8}px`
-  return root
+  return buildGhostShell(tabElement.closest<HTMLElement>('.topbar-panetab-zone, .pane-grid-tabs')?.className ?? '', clone, rect.width, rect.height)
 }
 
 const INSET = 1
@@ -263,8 +325,8 @@ const INSET = 1
 export interface DockVisuals {
   /** 구역 미리보기. null 이면 숨긴다. 한 번 만들어 두고 자리·크기만 옮겨 다닌다(전환으로 미끄러진다) */
   showPreview(box: Box | null): void
-  /** 탭 줄(strip)의 index 자리에 width 만큼 틈을 연다. 다른 줄에 열려 있던 틈은 닫는다 */
-  setGap(strip: HTMLElement | null, index: number, width: number): void
+  /** 탭 줄(strip)의 index 자리에 탭 하나(tabWidth)와 탭 사이 간격만큼 틈을 연다. 다른 줄에 열려 있던 틈은 닫는다 */
+  setGap(strip: HTMLElement | null, index: number, tabWidth: number): void
   clearGap(immediate?: boolean): void
   markZone(zone: HTMLElement | null): void
   /** 모두 치운다 */
@@ -305,11 +367,11 @@ export function createDockVisuals(): DockVisuals {
         preview.classList.add('tab-dock-preview-on')
       }
     },
-    setGap(strip, index, width) {
+    setGap(strip, index, tabWidth) {
       if (gapStrip !== null && gapStrip !== strip) clearGap()
       if (strip === null) return
       gapStrip = strip
-      setStripGap(strip, index, width)
+      setStripGap(strip, index, tabWidth)
     },
     clearGap,
     markZone(zone) {
@@ -367,7 +429,6 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     ghost.style.transform = `translate3d(${ghostX}px, ${ghostY}px, 0)`
   }
 
-  const setGap = (strip: HTMLElement | null, index: number) => visuals.setGap(strip, index, startRect.width + 3)
   const collapseHole = (collapsed: boolean) => {
     if (collapsed === holeCollapsed) return
     holeCollapsed = collapsed
@@ -375,7 +436,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     if (hole === null) return
     flip(tabsIn(hole.parentElement), () => { if (collapsed) hole.dataset.collapsed = ''; else delete hole.dataset.collapsed }, 170)
   }
-  const { clearGap, markZone, showPreview } = visuals
+  const { clearGap } = visuals
 
   const reorderAt = (strip: HTMLElement) => {
     const h = getHost()
@@ -393,42 +454,37 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     if (!dragging) return
     const h = getHost()
     placeGhost()
-    const hit = paneHitAt(lastX, lastY)
-    if (hit.kind === 'strip') {
-      showPreview(null)
-      markZone(hit.zone)
-      if (hit.pane === sourcePane) {
-        clearGap()
+    const target = resolveDockTarget(paneHitAt(lastX, lastY), lastX, lastY, (pane) => h.dockEdges?.(pane, tabId) ?? [])
+    if (target.kind === 'strip') {
+      if (target.pane === sourcePane) {
+        paintDockTarget(visuals, target, null)
         collapseHole(false)
-        if (hit.strip !== null) reorderAt(hit.strip)
+        if (target.strip !== null) reorderAt(target.strip)
         drop = { kind: 'reorder' }
         return
       }
-      if (h.moveAt === undefined) { drop = { kind: 'none' }; return }
+      if (h.moveAt === undefined) { paintDockTarget(visuals, target, null); drop = { kind: 'none' }; return }
       collapseHole(true)
-      const index = insertionIndexAt(tabsIn(hit.strip).map(layoutBox), lastX - grabX + startRect.width / 2)
-      setGap(hit.strip, index)
-      drop = { kind: 'move', pane: hit.pane, index }
+      const index = insertionIndexAt(tabsIn(target.strip).map(layoutBox), lastX - grabX + startRect.width / 2)
+      paintDockTarget(visuals, target, { index, tabWidth: startRect.width })
+      drop = { kind: 'move', pane: target.pane, index }
       return
     }
-    clearGap()
-    markZone(null)
-    if (hit.kind === 'body' && h.moveAt !== undefined) {
-      const { zone, box } = dockZoneInCard(hit.card, lastX, lastY, h.dockEdges?.(hit.pane, tabId) ?? [])
-      if (hit.pane === sourcePane && zone === 'center') {
+    if (target.kind === 'body' && h.moveAt !== undefined) {
+      if (target.pane === sourcePane && target.zone === 'center') {
         // 자기 패널의 한가운데: 아무 일도 하지 않는다(구멍은 그대로)
         collapseHole(false)
-        showPreview(null)
+        paintDockTarget(visuals, { kind: 'none' }, null)
         drop = { kind: 'none' }
         return
       }
-      collapseHole(hit.pane !== sourcePane && zone === 'center')
-      showPreview(dockZoneBox(box, zone))
-      drop = zone === 'center' ? { kind: 'move', pane: hit.pane, index: Number.MAX_SAFE_INTEGER } : { kind: 'dock', pane: hit.pane, edge: zone }
+      collapseHole(target.pane !== sourcePane && target.zone === 'center')
+      paintDockTarget(visuals, target, null)
+      drop = target.zone === 'center' ? { kind: 'move', pane: target.pane, index: Number.MAX_SAFE_INTEGER } : { kind: 'dock', pane: target.pane, edge: target.zone }
       return
     }
     collapseHole(false)
-    showPreview(null)
+    paintDockTarget(visuals, { kind: 'none' }, null)
     drop = { kind: 'none' }
   }
 
