@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { VisibleSourceReference } from '../core/workspaceSources'
+import { isCanvasLinkedToDoc, subscribeLinkPairs } from './workspaceLinks'
 
 interface Point {
   readonly x: number
@@ -45,10 +46,16 @@ function sourceTarget(active: VisibleSourceReference): HTMLElement | null {
     : elementWithAttribute('data-pdf-source-target', active.blockId)
 }
 
+function sourceDocId(active: VisibleSourceReference): string {
+  return active.relation === 'markdown-excerpt' ? active.selection.path : active.anchor.docId
+}
+
 function geometry(active: VisibleSourceReference): TraceGeometry | null {
   const source = elementWithAttribute('data-canvas-block-id', active.blockId)
   const pane = sourcePane(active)
   if (source === null || pane === null) return null
+  // 이웃한 같은 색 문서 창과는 작업 공간 층(workspaceLinks)이 이미 선을 그린다 — 옛 선은 이웃하지 않은 경우에만 남는다
+  if (isCanvasLinkedToDoc(source.closest<HTMLElement>('[data-canvas-pane]')?.dataset.canvasPane ?? null, sourceDocId(active))) return null
   const sourceRect = source.getBoundingClientRect()
   // 캔버스에서 화면 밖으로 밀려난 블록은 잇지 않는다. 그 좌표는 옆 패널(PDF) 뒤라 선이 문서를 가로지른다
   const canvas = source.closest<HTMLElement>('.react-flow') ?? source.closest<HTMLElement>('.note-canvas')
@@ -104,6 +111,7 @@ export function SourceTrace({ sources }: SourceTraceProps) {
     window.addEventListener('resize', schedule)
     window.addEventListener('iwae:canvas-geometry', schedule)
     document.addEventListener('scroll', schedule, true)
+    const unsubscribePairs = subscribeLinkPairs(schedule)
 
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
     for (const active of sources) {
@@ -119,6 +127,7 @@ export function SourceTrace({ sources }: SourceTraceProps) {
       window.removeEventListener('resize', schedule)
       window.removeEventListener('iwae:canvas-geometry', schedule)
       document.removeEventListener('scroll', schedule, true)
+      unsubscribePairs()
       observer?.disconnect()
       if (frameRef.current !== null && typeof cancelAnimationFrame === 'function') {
         cancelAnimationFrame(frameRef.current)

@@ -3,6 +3,7 @@ import { INTERNAL_DROP_EVENT, type InternalDropDetail } from '../core/internalDr
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -97,6 +98,18 @@ import { textBlockNodeTypes, type TextBlockFlowNode } from './TextBlockNode'
 import { translationBlockNodeTypes, type TranslationBlockFlowNode } from './TranslationBlockNode'
 import { BlockContextMenu, type BlockMenuAction } from './BlockContextMenu'
 import { NoteToolbar } from './NoteToolbar'
+import { emitPointSignal } from './workspaceSignal'
+import { usePaneChannel, usePointSignalReceiver } from './workspaceContext'
+import { registerPaneLinks, requestPaneLinks, type PaneLinkSnapshot } from './workspaceLinks'
+import {
+  blocksForTarget,
+  linkIdsOfBlock,
+  pointTargetForBlock,
+  viewportCenteredOn,
+  visibleBlockLinkItems,
+  type CanvasNodeLike,
+  type PointableHighlight,
+} from './canvasWorkspace'
 import { useAppShortcuts } from './useAppShortcuts'
 import type { CanvasSaveStatus } from './useCanvasAutosave'
 import type { WorkspaceSourceState } from './useWorkspaceSources'
@@ -225,6 +238,8 @@ interface NoteCanvasProps {
   onTranslateText?: (text: string) => Promise<CanvasTranslationResult | null>
   userPresets?: readonly UserBlockPreset[]
   onSaveUserPreset?: (block: CanvasBlockData) => void
+  /** 형광펜(메모)들: 블록이 어느 메모에 이어졌는지(신호를 보내고 받는 자리, 연결선) 알아내는 데 쓴다 */
+  highlights?: readonly PointableHighlight[]
 }
 
 export interface CanvasTranslationResult {
@@ -911,6 +926,10 @@ function nextBlockSequence(document: CanvasDocumentV2, prefix: CanvasBlockPreset
   }, 0)
 }
 
+const NO_HIGHLIGHTS: readonly PointableHighlight[] = []
+/** 신호로 찾아간 블록이 표시되는 시간(ms) */
+const POINT_FLASH_MS = 1300
+
 function NoteFlow({
   noteId,
   initialDocument,
@@ -924,7 +943,8 @@ function NoteFlow({
   onTranslateText,
   userPresets = [],
   onSaveUserPreset,
-}: Pick<NoteCanvasProps, 'noteId' | 'onDocumentChange' | 'onOpenSource' | 'onSourceTraceChange' | 'onSourceStateChange' | 'onExportWithEvidence' | 'insertRequest' | 'onTranslateText' | 'userPresets' | 'onSaveUserPreset'> & {
+  highlights = NO_HIGHLIGHTS,
+}: Pick<NoteCanvasProps, 'noteId' | 'onDocumentChange' | 'onOpenSource' | 'onSourceTraceChange' | 'onSourceStateChange' | 'onExportWithEvidence' | 'insertRequest' | 'onTranslateText' | 'userPresets' | 'onSaveUserPreset' | 'highlights'> & {
   initialDocument: CanvasDocumentV2
   onToggleFullscreen?: () => void
 }) {
@@ -974,6 +994,8 @@ function NoteFlow({
   const viewportRef = useRef<Viewport>(initialDocument.viewport)
   const lastDocumentSignature = useRef(serializeCanvasDoc(initialDocument))
   const [hoveredSourceId, setHoveredSourceId] = useState<string | null>(null)
+  // 가리키기 신호로 찾아간 블록(잠깐 표시)
+  const [pointedBlockId, setPointedBlockId] = useState<string | null>(null)
   const [magnetContact, setMagnetContact] = useState<MagnetContact | null>(null)
   const [contextMenu, setContextMenu] = useState<
     | { kind: 'block'; nodeId: string; x: number; y: number }
@@ -1066,6 +1088,7 @@ function NoteFlow({
       className = appendClassName(className, 'canvas-node-magnet')
       className = appendClassName(className, `canvas-node-magnet-${magnetSide}`)
     }
+    if (pointedBlockId === node.id) className = appendClassName(className, 'canvas-node-pointed')
     for (const token of (node.className ?? '').split(/\s+/u)) {
       if (token.startsWith('canvas-node-') && !token.startsWith('canvas-node-linked') && !token.startsWith('canvas-node-joined') && !token.startsWith('canvas-node-magnet') && token !== 'canvas-node-join-marker') className = appendClassName(className, token)
     }
@@ -1090,7 +1113,7 @@ function NoteFlow({
         ...(node.type === 'pdfExcerpt' ? { linkedHighlights } : {}),
       },
     } as NoteCanvasNode
-  }), [nodes, edges, joinedEdges, magnetContact, touchingSidesByNode])
+  }), [nodes, edges, joinedEdges, magnetContact, touchingSidesByNode, pointedBlockId])
   const edgeGeometryNodeIds = useMemo(() => nodes.map(({ id }) => id), [nodes])
   const derivedNodeState = useMemo(
     () => deriveCanvasNodeState(nodes as unknown as readonly CanvasNode[]),
@@ -1760,6 +1783,74 @@ function NoteFlow({
     setEdges((current) => current.map((edge) => edge.selected ? { ...edge, selected: false } : edge))
   }, [setEdges, setNodes])
 
+  // ---------- 작업 공간: 신호 보내기·받기, 연결선 ----------
+  const { pane: workspacePane, channel: workspaceChannel } = usePaneChannel()
+  const highlightsRef = useRef(highlights)
+  highlightsRef.current = highlights
+  const getViewportRef = useRef(getViewport)
+  getViewportRef.current = getViewport
+  /** 출처가 있는 블록을 누르면 같은 색 창에 가리키기 신호를 보낸다(메모에 이어졌으면 memo, 아니면 문서·쪽·범위의 place) */
+  const sendBlockPoint = useCallback((event: ReactMouseEvent, node: NoteCanvasNode) => {
+    if (workspacePane === null || workspaceChannel === null || event.shiftKey || event.ctrlKey || event.metaKey) return
+    const target = pointTargetForBlock(node.data.block as CanvasBlockData, highlightsRef.current)
+    if (target === null) return
+    emitPointSignal({ from: workspacePane, channel: workspaceChannel, target, reason: 'click' })
+  }, [workspacePane, workspaceChannel])
+  /** 신호가 가리키는 블록을 고르고 틀 가운데로 가져와 잠깐 표시한다 */
+  const pointedTimerRef = useRef<number | null>(null)
+  useEffect(() => () => { if (pointedTimerRef.current !== null) window.clearTimeout(pointedTimerRef.current) }, [])
+  const revealBlock = useCallback((blockId: string) => {
+    const node = nodesRef.current.find((candidate) => candidate.id === blockId)
+    if (node === undefined) return
+    selectBlock(blockId)
+    const frame = flowRef.current?.getBoundingClientRect()
+    if (frame !== undefined && frame.width > 0 && frame.height > 0) {
+      const next = viewportCenteredOn(node as unknown as CanvasNodeLike, getViewportRef.current().zoom, frame)
+      viewportRef.current = next
+      void setViewport(next)
+    }
+    setPointedBlockId(blockId)
+    if (pointedTimerRef.current !== null) window.clearTimeout(pointedTimerRef.current)
+    pointedTimerRef.current = window.setTimeout(() => setPointedBlockId(null), POINT_FLASH_MS)
+  }, [selectBlock, setViewport])
+  usePointSignalReceiver((signal) => {
+    const [first] = blocksForTarget(nodesRef.current as unknown as readonly CanvasNodeLike[], signal.target, highlightsRef.current)
+    if (first === undefined) return false
+    revealBlock(first)
+    return true
+  }, noteId)
+  // 이웃한 같은 색 문서 창이 있으면 보이는 블록의 사각형을 연결선 층에 내놓는다(화면 이동·확대를 따른다)
+  const linkSourceRef = useRef({ nodes, highlights })
+  linkSourceRef.current = { nodes, highlights }
+  useLayoutEffect(() => {
+    if (workspacePane === null) return undefined
+    const measure = (): PaneLinkSnapshot | null => {
+      const root = flowRef.current
+      if (root === null) return null
+      const rect = root.getBoundingClientRect()
+      const body = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
+      const frame = (root.closest<HTMLElement>('.pane-grid-body, .pane') ?? root).getBoundingClientRect()
+      const source = linkSourceRef.current
+      const activeIds = source.nodes.flatMap((node) => node.selected === true ? linkIdsOfBlock(node.id, node.data.block as CanvasBlockData, source.highlights) : [])
+      return {
+        frame: { left: frame.left, top: frame.top, right: frame.right, bottom: frame.bottom },
+        body,
+        items: visibleBlockLinkItems(source.nodes as unknown as readonly CanvasNodeLike[], getViewportRef.current(), body, source.highlights),
+        activeIds,
+      }
+    }
+    return registerPaneLinks({ pane: workspacePane, role: 'canvas', channel: workspaceChannel }, measure)
+  }, [workspacePane, workspaceChannel])
+  // 블록·형광펜이 바뀌었을 수 있다: 그릴 때마다 층을 다시 맞춘다. 크기 변화도 따른다
+  useLayoutEffect(() => { requestPaneLinks() })
+  useEffect(() => {
+    const root = flowRef.current
+    if (root === null || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => requestPaneLinks())
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [])
+
   const updateExcerptHighlights = useCallback((blockId: string, update: (highlights: readonly ExcerptHighlight[]) => readonly ExcerptHighlight[]) => {
     setNodes((current) => current.map((node) => {
       if (node.id !== blockId) return node
@@ -2360,6 +2451,7 @@ function NoteFlow({
         ref={flowRef}
         className="note-flow"
         data-internal-drop="canvas"
+        data-canvas-pane={workspacePane ?? undefined}
         onWheel={shiftWheel}
         onPointerDownCapture={startRightPan}
         onPointerMoveCapture={trackRightPan}
@@ -2383,6 +2475,8 @@ function NoteFlow({
           onConnect={onConnect}
           onDragOver={onDragOver}
           onDrop={onDrop}
+          onNodeClick={(event, node) => sendBlockPoint(event, node)}
+          onMove={() => requestPaneLinks()}
           onNodeDragStart={(_, node) => startNodeDrag(node)}
           onNodeDrag={(_, node) => dragNode(node)}
           onNodeDragStop={(event, node) => {
@@ -2585,6 +2679,7 @@ export function NoteCanvas({
   onTranslateText,
   userPresets,
   onSaveUserPreset,
+  highlights,
 }: NoteCanvasProps) {
   const document = useMemo(
     () => initialDocument ?? createInitialCanvasDocument(title),
@@ -2606,6 +2701,7 @@ export function NoteCanvas({
       onTranslateText={onTranslateText}
       userPresets={userPresets}
       onSaveUserPreset={onSaveUserPreset}
+          highlights={highlights}
         />
         <NoteBottomBar status={saveStatus} error={saveError} />
       </ReactFlowProvider>

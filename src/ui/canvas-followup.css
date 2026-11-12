@@ -23,6 +23,17 @@
   transform: translateY(-3px);
 }
 
+/* 다른 창에서 누른 메모·출처가 가리키는 블록: 테두리가 잠깐 진해졌다가 사라진다(작업 공간 신호) */
+.note-canvas .react-flow__node.canvas-node-pointed .canvas-block-shell {
+  outline: 3px solid transparent;
+  outline-offset: 3px;
+  animation: canvas-node-pointed 1.2s ease-out 1;
+}
+@keyframes canvas-node-pointed {
+  0%, 40% { outline-color: var(--accent); }
+  100% { outline-color: transparent; }
+}
+
 .note-canvas .react-flow__node.canvas-node-contact .canvas-block-shell {
   border-color: var(--accent);
   box-shadow:

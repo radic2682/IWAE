@@ -25,6 +25,7 @@ import { useHighlightTool } from '../pdf/highlightToolStore'
 import { addMemoRef, insertBlock, memoBlock, type MemoNote, type MemoTicket } from '../core/memoNote'
 import type { MemoContent } from '../pdf/MemoColumn'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from './workspaceLinks'
+import { sourceTargetItems } from './sourceLinkItems'
 import { getAttachRequest, setAttachRequest, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink } from './workspaceContext'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../pdf/persistentHighlight'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
@@ -708,6 +709,8 @@ export function MarkdownPane({
           },
         })
       }
+      // 이웃한 캔버스 블록의 출처 자리
+      items.push(...sourceTargetItems(hostRef.current ?? article, 'data-markdown-source-target', box))
       return {
         frame: { left: frame.left, top: frame.top, right: frame.right, bottom: frame.bottom },
         body: { left: box.left, top: box.top, right: box.right, bottom: box.bottom },

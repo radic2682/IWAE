@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Anchor } from '../core/anchor'
 import type { VisibleSourceReference } from '../core/workspaceSources'
 import { SourceTrace } from './SourceTrace'
+import { registerPaneLinks, resetPaneLinks } from './workspaceLinks'
 
 const anchor: Anchor = {
   docId: '5511aa99cc33',
@@ -41,6 +42,7 @@ function marker(attribute: string, value: string, bounds: DOMRect) {
 afterEach(() => {
   document.body.replaceChildren()
   vi.restoreAllMocks()
+  resetPaneLinks()
 })
 
 describe('SourceTrace', () => {
@@ -121,6 +123,45 @@ describe('SourceTrace', () => {
     await waitFor(() => {
       expect(screen.getByTestId('source-trace-block-1').getAttribute('d')).toContain('M 880 431')
     })
+  })
+
+  it('작업 공간 층이 이미 같은 문서·캔버스에 선을 그리면(이웃한 같은 색 창) 옛 선은 그리지 않는다', () => {
+    const canvasBody = document.createElement('div')
+    canvasBody.setAttribute('data-canvas-pane', 'right')
+    const block = document.createElement('div')
+    block.setAttribute('data-canvas-block-id', 'block-1')
+    vi.spyOn(block, 'getBoundingClientRect').mockReturnValue(rect(920, 500, 1040, 522))
+    canvasBody.append(block)
+    document.body.append(canvasBody)
+    marker('data-pdf-source-target', 'block-1', rect(300, 240, 560, 280))
+    marker('data-pdf-pane', anchor.docId, rect(260, 40, 760, 1000))
+    const snapshot = (frame: DOMRect) => ({ frame, body: frame, items: [], activeIds: [] })
+    registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: anchor.docId }, () => snapshot(rect(0, 0, 400, 600)))
+    registerPaneLinks({ pane: 'right', role: 'canvas', channel: 'blue' }, () => snapshot(rect(404, 0, 800, 600)))
+
+    render(<SourceTrace sources={[source('block-1', anchor, true)]} />)
+
+    expect(screen.queryByTestId('source-trace-block-1')).toBeNull()
+  })
+
+  it('이웃하지 않은(같은 색 문서 창이 옆에 없는) 캔버스에는 옛 선이 남는다', () => {
+    const canvasBody = document.createElement('div')
+    canvasBody.setAttribute('data-canvas-pane', 'right')
+    const block = document.createElement('div')
+    block.setAttribute('data-canvas-block-id', 'block-1')
+    vi.spyOn(block, 'getBoundingClientRect').mockReturnValue(rect(920, 500, 1040, 522))
+    canvasBody.append(block)
+    document.body.append(canvasBody)
+    marker('data-pdf-source-target', 'block-1', rect(300, 240, 560, 280))
+    marker('data-pdf-pane', anchor.docId, rect(260, 40, 760, 1000))
+    // 문서 창과 캔버스 창이 다른 색이라 짝이 없다
+    const snapshot = (frame: DOMRect) => ({ frame, body: frame, items: [], activeIds: [] })
+    registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: anchor.docId }, () => snapshot(rect(0, 0, 400, 600)))
+    registerPaneLinks({ pane: 'right', role: 'canvas', channel: 'green' }, () => snapshot(rect(404, 0, 800, 600)))
+
+    render(<SourceTrace sources={[source('block-1', anchor, true)]} />)
+
+    expect(screen.getByTestId('source-trace-block-1')).toBeDefined()
   })
 
   it('블록이 선택되거나 호버되지 않아도 PDF 출처 연결선을 그린다', () => {

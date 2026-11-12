@@ -38,6 +38,7 @@ import { announceAction } from '../app/actionFeedback'
 import { BOX_DEFAULT_WIDTH, placeBoxMemo } from '../core/boxMemo'
 import { useMemoNoteApi } from './memoNoteContext'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from '../app/workspaceLinks'
+import { sourceTargetItems } from '../app/sourceLinkItems'
 import { getAttachRequest, setAttachRequest, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, type AttachRequest } from '../app/workspaceContext'
 import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, type MemoNote, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
@@ -789,6 +790,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
           })
         }
       }
+      // 이웃한 캔버스 블록의 출처 자리(이어진 메모가 없는 블록은 이 자리와 잇는다)
+      items.push(...sourceTargetItems(scroller, 'data-pdf-source-target', body))
       return {
         frame: { left: frame.left, top: frame.top, right: frame.right, bottom: frame.bottom },
         body: { left: body.left, top: body.top, right: body.right, bottom: body.bottom },
