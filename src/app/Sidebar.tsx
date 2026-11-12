@@ -2,6 +2,8 @@ import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, 
 import { fitMenuInViewport } from '../ui/fitMenu'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { startInternalDrag } from '../core/internalDrag'
+import { createPillGhost, startDockSession, type DockSession, type SidebarDropItem, type SidebarPaneDrop } from './dockSession'
+import type { TabDropTarget } from './tabDock'
 import { sidebarDefaults } from './sidebarDefaults'
 import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, PencilSimple, Quotes, Smiley, Stack, Star, Toolbox, Trash, WarningCircle } from '@phosphor-icons/react'
 import {
@@ -56,6 +58,8 @@ const LazyEmojiPicker = lazy(async () => {
 
 interface SidebarProps {
   library: readonly LibraryDoc[]
+  /** 문서 · 노트 줄을 칸으로 끌어 열기(칸 가운데 · 가장자리 · 탭 줄). 없으면 트리 안에서만 옮긴다 */
+  paneDrop?: SidebarPaneDrop
   notebooks: readonly NotebookGroup[]
   onOpenDoc: (doc: LibraryDoc) => void
   /** 노트(캔버스) 구역을 보일까. 기능 스위치로 끌 수 있다 */
@@ -257,6 +261,7 @@ function FolderGlyph({ color }: { readonly color?: FolderColor }) {
 
 export function Sidebar({
   library,
+  paneDrop,
   notebooks,
   onOpenDoc,
   showNotes = true,
@@ -995,8 +1000,21 @@ export function Sidebar({
     })
   }
 
+  /** 줄을 칸으로 끌어 열 때 열 것(줄을 누를 때와 같다: 묶음 줄은 기본 판). 폴더 · 캔버스 줄은 null */
+  const dropItemOf = (node: VaultTreeNode, versionGroup: VersionGroup | undefined): SidebarDropItem | null => {
+    if (node.kind === 'pdf') {
+      const doc = versionGroup === undefined ? node.doc : library.find((candidate) => candidate.docId === defaultVersion(versionGroup).docId) ?? node.doc
+      return { kind: 'pdf', doc }
+    }
+    if (node.kind === 'markdown') {
+      const defaultDoc = versionGroup === undefined || defaultVersion(versionGroup).docId === node.indexId ? undefined : library.find((candidate) => candidate.docId === defaultVersion(versionGroup).docId)
+      return defaultDoc === undefined ? { kind: 'markdown', node } : { kind: 'pdf', doc: defaultDoc }
+    }
+    return null
+  }
+
   // 왼쪽 트리 끌기도 포인터로 한다(core/internalDrag — Windows 의 Tauri 에서 HTML5 드래그가 놓이지 않는다)
-  const startTreeDrag = (event: ReactPointerEvent<HTMLLIElement>, dragged: DraggedNode, label: string) => {
+  const startTreeDrag = (event: ReactPointerEvent<HTMLLIElement>, dragged: DraggedNode, label: string, item: SidebarDropItem | null) => {
     if (event.button !== 0 || !canDrag) return
     if ((event.target as Element).closest('input, textarea, .side-tree-add, [data-emoji-pick]') !== null) return
     event.stopPropagation()
@@ -1005,21 +1023,45 @@ export function Sidebar({
       const drop = treeDropAt(dragged, target, y)
       return drop !== null && groupDropAllowed(group, drop) ? drop : null
     }
+    // 칸으로 열 수 있는 것은 PDF · Markdown 줄 하나다(여럿 · 폴더는 트리 안에서만 옮긴다)
+    const toPane = paneDrop !== undefined && item !== null && group.length === 1
+    let session: DockSession | null = null
+    const pill = createPillGhost(event.currentTarget.querySelector('.item-emoji, svg'), group.length > 1 ? t('{count}개 항목', { count: group.length }) : label)
+    const stopSession = () => {
+      session?.end()
+      session = null
+      document.body.classList.remove('dock-dragging', 'dock-drop-ok')
+    }
     startInternalDrag(event, {}, {
-      label: group.length > 1 ? t('{count}개 항목', { count: group.length }) : label,
-      onStart: () => setDraggedNode(dragged),
-      onOver: (target, _x, y) => {
+      preview: pill.element,
+      onStart: () => {
+        pill.lift()
+        setDraggedNode(dragged)
+        document.body.classList.add('dock-dragging')
+        if (toPane) session = startDockSession({ edgesFor: (pane) => paneDrop.edgesFor(pane, item) })
+      },
+      onOver: (target, x, y) => {
         const drop = dropFor(target, y)
+        const paneTarget = session?.update(x, y) ?? null
+        document.body.classList.toggle('dock-drop-ok', drop !== null || paneTarget !== null)
         setDropTarget(drop === null ? null : {
           section: drop.section,
           nodeId: drop.nodeId,
           position: drop.kind === 'move' || drop.kind === 'stack' ? 'inside' : drop.kind === 'place' ? drop.request.position : drop.position,
         })
       },
-      onEnd: (_dropped, target, _x, y) => {
+      onEnd: (_dropped, target, x, y) => {
+        // 취소(Esc · 포인터 잃음)는 좌표가 (0, 0) 으로 온다 — 그 자리는 칸이 아니라 target 이 null 이다
+        const paneTarget: TabDropTarget | null = session?.update(x, y) ?? null
+        stopSession()
         const drop = dropFor(target, y)
         setDraggedNode(null)
         setDropTarget(null)
+        if (paneTarget !== null && item !== null) {
+          setActionError(null)
+          paneDrop?.open(item, paneTarget)
+          return
+        }
         if (drop === null) return
         setActionError(null)
         if (group.length > 1) {
@@ -1191,7 +1233,7 @@ export function Sidebar({
             data-parent-path={parentPath}
             data-kind={node.kind}
             data-path={node.kind === 'folder' ? node.path : undefined}
-            onPointerDown={editingEntryId === node.id ? undefined : (event) => startTreeDrag(event, { section, parentPath, nodeId: node.id }, node.name)}
+            onPointerDown={editingEntryId === node.id ? undefined : (event) => startTreeDrag(event, { section, parentPath, nodeId: node.id }, node.name, dropItemOf(node, versionGroup))}
             onKeyDown={moveWithKeyboard}
           >
             <div className="side-tree-row" style={{ '--side-tree-depth': depth } as CSSProperties}>
@@ -1739,6 +1781,7 @@ export function Sidebar({
         {memoNotes !== undefined && !libraryExpanded ? (
           <MemoNotesSection
             {...memoNotes}
+            paneDrop={paneDrop}
             entries={noteGroups.general}
             icons={itemIcons}
             onPickIcon={onItemIconChange === undefined ? undefined : (key, x, y) => setEmojiTarget({ key, x, y })}

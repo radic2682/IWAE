@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoNotesSection, memoFolderIconKey, memoNoteIconKey } from './MemoNotesSection'
 
+/** 노트 목록 구역의 자리를 정한다(jsdom 은 자리를 모른다). 목록 밖 판정이 이것으로 이뤄진다 */
+function placeSection(container: HTMLElement): void {
+  container.querySelector('.side-memo-notes')!.getBoundingClientRect = () => ({ top: 0, height: 200, bottom: 200, left: 0, right: 200, width: 200, x: 0, y: 0, toJSON: () => ({}) })
+}
+
 describe('MemoNotesSection', () => {
   const entries = [{ path: '노트/TODO.iwnote', title: 'TODO' }]
 
@@ -67,6 +72,7 @@ describe('MemoNotesSection', () => {
     container.querySelectorAll('.side-memo-note-list > li').forEach((item, index) => {
       item.getBoundingClientRect = () => ({ top: index * 30, height: 30, bottom: index * 30 + 30, left: 0, right: 200, width: 200, x: 0, y: index * 30, toJSON: () => ({}) })
     })
+    placeSection(container)
     const first = screen.getByRole('button', { name: 'A' })
     fireEvent.pointerDown(first, { button: 0, clientY: 10, pointerId: 1 })
     fireEvent.pointerMove(window, { clientY: 40, pointerId: 1 })
@@ -77,6 +83,50 @@ describe('MemoNotesSection', () => {
     expect(onReorder).toHaveBeenCalledWith(['노트/B.iwnote', '노트/C.iwnote', '노트/A.iwnote'])
     expect(onOpen).not.toHaveBeenCalled()
     expect(container.querySelector('.side-memo-drop-after')).toBeNull()
+  })
+
+  it('끄는 알약이 뜨고, 포인터가 목록 밖으로 나가면 놓을 자리 줄이 사라지고 놓아도 차례는 그대로다', () => {
+    const onReorder = vi.fn()
+    const { container } = render(<MemoNotesSection entries={three} openPath={null} onOpen={vi.fn()} onCreate={vi.fn()} onRename={vi.fn()} onTrash={vi.fn()} onReorder={onReorder} />)
+    container.querySelectorAll('.side-memo-note-list > li').forEach((item, index) => {
+      item.getBoundingClientRect = () => ({ top: index * 30, height: 30, bottom: index * 30 + 30, left: 0, right: 200, width: 200, x: 0, y: index * 30, toJSON: () => ({}) })
+    })
+    placeSection(container)
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'A' }), { button: 0, clientX: 20, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(window, { clientX: 20, clientY: 85, pointerId: 1 })
+    expect(container.ownerDocument.querySelector('.tab-drag-ghost .pane-top-tab-label')!.textContent).toBe('A')
+    expect(container.querySelector('.side-memo-drop-after')).not.toBeNull()
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 85, pointerId: 1 })
+    expect(container.querySelector('.side-memo-drop-after')).toBeNull()
+    expect(container.querySelector('[class*="side-memo-drop"], .side-tree-drop-before, .side-tree-drop-after, .side-tree-drop-inside')).toBeNull()
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 85, pointerId: 1 })
+    expect(onReorder).not.toHaveBeenCalled()
+    expect(container.ownerDocument.querySelector('.tab-drag-ghost')).toBeNull()
+    expect(document.body.classList.contains('dock-dragging')).toBe(false)
+  })
+
+  it('칸 위에 놓으면 그 자리로 노트를 열고, 목록의 차례는 건드리지 않는다.', () => {
+    const open = vi.fn()
+    const onReorder = vi.fn()
+    const { container } = render(<MemoNotesSection entries={three} openPath={null} onOpen={vi.fn()} onCreate={vi.fn()} onRename={vi.fn()} onTrash={vi.fn()} onReorder={onReorder} paneDrop={{ edgesFor: () => [], open }} />)
+    placeSection(container)
+    const panes = document.createElement('div')
+    panes.className = 'panes'
+    panes.innerHTML = '<div class="pane-grid-cell"><div class="pane-card" data-card-pane="p1"><div class="pane-grid-body"></div></div></div>'
+    document.body.append(panes)
+    const cell = panes.querySelector<HTMLElement>('.pane-grid-cell')!
+    const rect = (x: number, y: number, w: number, h: number) => () => ({ left: x, top: y, width: w, height: h, right: x + w, bottom: y + h, x, y, toJSON: () => ({}) }) as DOMRect
+    cell.getBoundingClientRect = rect(300, 0, 400, 400)
+    panes.querySelector<HTMLElement>('.pane-card')!.getBoundingClientRect = rect(303, 3, 394, 394)
+    document.elementFromPoint = () => panes.querySelector('.pane-grid-body')
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'B' }), { button: 0, clientX: 20, clientY: 40, pointerId: 1 })
+    fireEvent.pointerMove(window, { clientX: 400, clientY: 200, pointerId: 1 })
+    expect(document.querySelector('.tab-dock-preview-on')).not.toBeNull()
+    expect(document.body.classList.contains('dock-drop-ok')).toBe(true)
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 200, pointerId: 1 })
+    expect(open).toHaveBeenCalledWith({ kind: 'note', path: '노트/B.iwnote' }, { kind: 'body', pane: 'p1', zone: 'center' })
+    expect(onReorder).not.toHaveBeenCalled()
+    panes.remove()
   })
 
   it('Alt+↑/↓ 로 한 칸씩 옮긴다', () => {
@@ -112,6 +162,7 @@ describe('MemoNotesSection', () => {
       container.querySelectorAll('.side-memo-note-list > li').forEach((item, index) => {
         item.getBoundingClientRect = () => ({ top: index * 30, height: 30, bottom: index * 30 + 30, left: 0, right: 200, width: 200, x: 0, y: index * 30, toJSON: () => ({}) })
       })
+      placeSection(container)
       // 줄 차례: 회의(폴더), A
       const note = screen.getByRole('button', { name: 'A' })
       fireEvent.pointerDown(note, { button: 0, clientY: 45, pointerId: 1 })

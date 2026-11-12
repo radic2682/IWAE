@@ -58,6 +58,7 @@ async function renderSidebar(
     memoCategories?: Readonly<Record<string, { total: number; untagged: number; topics: readonly (readonly [string, number])[] }>>
     memoFilter?: { docId: string; topic: string | null } | null
     onSelectMemoCategory?: (doc: { docId: string }, topic: string | null) => void
+    paneDrop?: ComponentProps<typeof Sidebar>['paneDrop']
   } = {},
 ) {
   const onOpenDoc = overrides.onOpenDoc ?? vi.fn()
@@ -115,6 +116,7 @@ async function renderSidebar(
       memoCategories={overrides.memoCategories}
       memoFilter={overrides.memoFilter}
       onSelectMemoCategory={overrides.onSelectMemoCategory}
+      paneDrop={overrides.paneDrop}
     />,
   )
   return { ...view, onOpenDoc, onOpenNote, onOpenMarkdown, onAddDoc, onCreateNote, onRelinkDoc, onRenameEntry }
@@ -969,6 +971,74 @@ function dragTreeNode(source: HTMLElement, target: HTMLElement) {
     document.elementFromPoint = original
   }
 }
+
+describe('Sidebar — 칸으로 끌어 열기', () => {
+  function panesAt(): { cleanup: () => void } {
+    const panes = document.createElement('div')
+    panes.className = 'panes'
+    panes.innerHTML = '<div class="pane-grid-cell"><div class="pane-card" data-card-pane="p1"><div class="pane-grid-body"></div></div></div>'
+    document.body.append(panes)
+    const rect = (x: number, y: number, w: number, h: number) => () => ({ left: x, top: y, width: w, height: h, right: x + w, bottom: y + h, x, y, toJSON: () => ({}) }) as DOMRect
+    panes.querySelector<HTMLElement>('.pane-grid-cell')!.getBoundingClientRect = rect(300, 0, 400, 400)
+    panes.querySelector<HTMLElement>('.pane-card')!.getBoundingClientRect = rect(303, 3, 394, 394)
+    return { cleanup: () => panes.remove() }
+  }
+
+  it('PDF 줄을 칸 위에 놓으면 그 칸 자리로 열고, 트리의 순서·위치는 바꾸지 않는다', async () => {
+    const open = vi.fn()
+    const onReorderNode = vi.fn()
+    await renderSidebar({ tree: emojiTree, onReorderNode, paneDrop: { edgesFor: () => ['left', 'right', 'top', 'bottom'], open } })
+    const { cleanup } = panesAt()
+    const original = document.elementFromPoint
+    document.elementFromPoint = () => document.querySelector('.pane-grid-body')
+    try {
+      const row = screen.getByRole('button', { name: /첫 논문/ }).closest('li')!
+      fireEvent.pointerDown(row, { clientX: 10, clientY: 10, pointerId: 3, button: 0 })
+      fireEvent.pointerMove(window, { clientX: 500, clientY: 200, pointerId: 3 })
+      // 끄는 동안: 알약이 뜨고 미리보기와 복사 커서 표시가 있다
+      expect(document.querySelector('.tab-drag-ghost .pane-top-tab-label')!.textContent).toBe('첫 논문')
+      expect(document.querySelector('.tab-dock-preview-on')).not.toBeNull()
+      expect(document.body.classList.contains('dock-drop-ok')).toBe(true)
+      fireEvent.pointerUp(window, { clientX: 500, clientY: 200, pointerId: 3 })
+    } finally {
+      document.elementFromPoint = original
+      cleanup()
+    }
+    expect(open).toHaveBeenCalledWith({ kind: 'pdf', doc: expect.objectContaining({ docId: 'doc-1' }) }, { kind: 'body', pane: 'p1', zone: 'center' })
+    expect(onReorderNode).not.toHaveBeenCalled()
+    expect(document.querySelector('.tab-drag-ghost')).toBeNull()
+    expect(document.querySelector('.tab-dock-preview-on')).toBeNull()
+    expect(document.body.classList.contains('dock-dragging')).toBe(false)
+  })
+
+  it('칸 밖에 놓거나 Esc 로 취소하면 열지 않고 표시를 모두 치운다. 받을 수 없는 자리에서는 복사 커서 표시가 없다', async () => {
+    const open = vi.fn()
+    await renderSidebar({ tree: emojiTree, onReorderNode: vi.fn(), paneDrop: { edgesFor: () => [], open } })
+    const { cleanup } = panesAt()
+    const original = document.elementFromPoint
+    try {
+      const row = screen.getByRole('button', { name: /첫 논문/ }).closest('li')!
+      document.elementFromPoint = () => document.body
+      fireEvent.pointerDown(row, { clientX: 10, clientY: 10, pointerId: 3, button: 0 })
+      fireEvent.pointerMove(window, { clientX: 150, clientY: 200, pointerId: 3 })
+      expect(document.body.classList.contains('dock-drop-ok')).toBe(false)
+      expect(document.querySelector('.tab-dock-preview-on')).toBeNull()
+      fireEvent.pointerUp(window, { clientX: 150, clientY: 200, pointerId: 3 })
+      expect(open).not.toHaveBeenCalled()
+      // Esc: 칸 위에서도 열지 않는다
+      document.elementFromPoint = () => document.querySelector('.pane-grid-body')
+      fireEvent.pointerDown(row, { clientX: 10, clientY: 10, pointerId: 3, button: 0 })
+      fireEvent.pointerMove(window, { clientX: 500, clientY: 200, pointerId: 3 })
+      expect(document.querySelector('.tab-dock-preview-on')).not.toBeNull()
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(open).not.toHaveBeenCalled()
+      expect(document.body.classList.contains('dock-dragging')).toBe(false)
+    } finally {
+      document.elementFromPoint = original
+      cleanup()
+    }
+  })
+})
 
 describe('vaultFolderName', () => {
   it('Vault 경로에서 마지막 폴더 이름만 꺼낸다', () => {

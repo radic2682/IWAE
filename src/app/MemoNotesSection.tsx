@@ -7,6 +7,8 @@ import { FOLDER_COLORS, folderColorHex, folderColorLabel, type FolderColor } fro
 import { ItemEmoji } from './ItemEmoji'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { DeleteFolderDialog } from './SidebarDialogs'
+import { createPillGhost, startDockSession, type DockSession, type PillGhost, type SidebarPaneDrop } from './dockSession'
+import type { TabDropTarget } from './tabDock'
 
 /** 노트 이모지·색의 열쇠(파일·폴더 이모지와 같은 표에 둔다) */
 export function memoNoteIconKey(path: string): string {
@@ -57,6 +59,8 @@ export interface MemoNotesSectionProps {
   readonly onCopyPath?: (path: string) => void
   /** 펼친 폴더를 기억할 저장소 열쇠(Vault 마다). 없으면 이번 실행 동안만 */
   readonly expandedStorageKey?: string
+  /** 노트 줄을 칸으로 끌어 열기. 없으면 목록 안에서만 옮긴다 */
+  readonly paneDrop?: SidebarPaneDrop
 }
 
 /** 이만큼(px) 움직여야 누르기가 아니라 끌기로 본다 */
@@ -138,6 +142,7 @@ export function MemoNotesSection({
   onReveal,
   onCopyPath,
   expandedStorageKey,
+  paneDrop,
 }: MemoNotesSectionProps) {
   const [menu, setMenu] = useState<{ kind: 'note' | 'folder'; path: string; title: string; x: number; y: number } | null>(null)
   const [colorPop, setColorPop] = useState<{ key: string; label: string; x: number; y: number } | null>(null)
@@ -257,29 +262,60 @@ export function MemoNotesSection({
   const canDrag = onReorder !== undefined || onMove !== undefined || onMoveFolder !== undefined
 
   const startPress = (row: Row) => (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!canDrag || event.button !== 0 || rows.length < 2) return
+    if (event.button !== 0) return
+    // 칸으로 끌어 열 수 있는 것은 노트 줄이다(폴더는 아니다). 목록 안에서 옮기는 것은 줄이 둘 이상일 때만
+    const toPane = paneDrop !== undefined && row.kind === 'note'
+    const inList = canDrag && rows.length >= 2
+    if (!toPane && !inList) return
     if ((event.target as Element).closest('[data-emoji-pick]') !== null) return
     stopPressRef.current?.()
+    const startX = event.clientX
     pressRef.current = { row, startY: event.clientY, pointerId: event.pointerId, active: false }
+    const icon = event.currentTarget.querySelector('.item-emoji, svg')
+    const title = row.kind === 'folder' ? row.name : row.entry.title
+    const section = listRef.current?.closest('.side-memo-notes') ?? listRef.current
+    /** 목록 안인가: 밖에서는 목록의 놓을 자리 줄을 보이지 않고, 놓아도 차례를 바꾸지 않는다 */
+    const insideList = (x: number, y: number) => {
+      const bounds = section?.getBoundingClientRect()
+      return bounds !== undefined && x >= bounds.left && x < bounds.right && y >= bounds.top && y < bounds.bottom
+    }
+    let ghost: PillGhost | null = null
+    let session: DockSession | null = null
+    let target: TabDropTarget | null = null
     const move = (moveEvent: PointerEvent) => {
       const press = pressRef.current
       if (press === null || moveEvent.pointerId !== press.pointerId) return
       if (!press.active) {
-        if (Math.abs(moveEvent.clientY - press.startY) < DRAG_START_PX) return
+        if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - press.startY) < DRAG_START_PX) return
         press.active = true
+        ghost = createPillGhost(icon, title)
+        ghost.attach()
+        document.body.classList.add('dock-dragging')
+        window.getSelection()?.removeAllRanges()
+        if (toPane) session = startDockSession({ edgesFor: (pane) => paneDrop.edgesFor(pane, { kind: 'note', path: row.kind === 'note' ? row.entry.path : '' }) })
       }
       moveEvent.preventDefault()
-      const drop = dropAt(press.row, moveEvent.clientY)
+      ghost?.move(moveEvent.clientX, moveEvent.clientY)
+      const inside = insideList(moveEvent.clientX, moveEvent.clientY)
+      target = session?.update(moveEvent.clientX, moveEvent.clientY) ?? null
+      const drop = inside && inList ? dropAt(press.row, moveEvent.clientY) : null
+      document.body.classList.toggle('dock-drop-ok', drop !== null || target !== null)
       setDrag({ from: rowKey(press.row), drop })
     }
     const up = (upEvent: PointerEvent) => {
       const press = pressRef.current
       if (press === null || upEvent.pointerId !== press.pointerId) return
+      const final = session?.update(upEvent.clientX, upEvent.clientY) ?? null
       stop()
       if (!press.active) return
       // 끈 뒤에 따라오는 click 은 노트 열기가 아니다
       suppressClickRef.current = true
       window.setTimeout(() => { suppressClickRef.current = false }, 0)
+      if (final !== null && press.row.kind === 'note') {
+        paneDrop?.open({ kind: 'note', path: press.row.entry.path }, final)
+        return
+      }
+      if (!inList || !insideList(upEvent.clientX, upEvent.clientY)) return
       const drop = dropAt(press.row, upEvent.clientY)
       if (drop !== null) finishDrop(press.row, drop)
     }
@@ -289,6 +325,11 @@ export function MemoNotesSection({
     const stop = () => {
       pressRef.current = null
       setDrag(null)
+      ghost?.remove()
+      ghost = null
+      session?.end()
+      session = null
+      document.body.classList.remove('dock-dragging', 'dock-drop-ok')
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', stop)
