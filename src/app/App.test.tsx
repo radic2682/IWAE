@@ -8,6 +8,7 @@ import type { Anchor } from '../core/anchor'
 import type { VisiblePdfSourceReference } from '../core/workspaceSources'
 import { PDF_EXCERPT_DRAG_MIME, serializePdfExcerptDrag, type PdfExcerptSelection } from '../core/pdfExcerpt'
 import { SAMPLE_DOC_ID, SAMPLE_TITLE } from '../pdf/samplePage'
+import { getOverlayTool, setOverlayTool } from '../pdf/overlayToolStore'
 import { SelectionActions } from '../pdf/SelectionActions'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { getAppPrefs, setAppPref } from './appPrefs'
@@ -874,6 +875,19 @@ describe('App — 칸 나누기 트리', () => {
     expect(active()).toBe(1)
     fireEvent.keyDown(document.body, { key: '1', ctrlKey: true })
     expect(active()).toBe(0)
+  })
+
+  it('한 글자 도구 단축키(P)는 문서 칸을 만지고 있을 때만 편집 도구를 고르고, 노트 칸을 만지는 동안은 건드리지 않는다', () => {
+    render(<App developmentPreview />)
+    const key = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
+    key({ key: '1', ctrlKey: true })
+    setOverlayTool('text')
+    key({ key: 'p' })
+    expect(getOverlayTool()).toBe('pen')
+    key({ key: '2', ctrlKey: true })
+    setOverlayTool('text')
+    key({ key: 'p' })
+    expect(getOverlayTool()).toBe('text')
   })
 
   it('칸이 너무 작아 더 나눌 수 없으면 「칸이 너무 작습니다」를 알린다(크기를 잴 수 있을 때)', async () => {

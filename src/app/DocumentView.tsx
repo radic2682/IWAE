@@ -115,6 +115,8 @@ export interface DocumentViewProps {
   controllersRef: MutableRefObject<Partial<Record<PaneId, DocumentViewController>>>
   /** 이 패널이 마지막으로 만진 문서 패널인가. Ctrl+F 같은 단축키를 받는다 */
   shortcutTarget: boolean
+  /** 지금 만지는 칸이 이 칸인가. 한 글자 도구 단축키(T · P · L …)는 이 칸을 만지고 있을 때만 받는다(노트 칸을 만지는 중에는 노트 서식줄이 보이므로) */
+  paneActive?: boolean
   /** 왼쪽 바의 PDF 검색 칸(「PDF 검색」 보기일 때). 검색 칸과 결과를 여기에 그린다 */
   searchSlot?: HTMLElement | null
   jumpToPage: (page: number) => void
@@ -546,7 +548,7 @@ export function DocumentView(props: DocumentViewProps) {
   const addPin = useCallback((page: number, y: number, title: string) => (docId === null ? '' : onAddPin(docId, page, y, title)), [docId, onAddPin])
   // 도구줄은 지금 만지는 칸 것만 상단바에 그린다. 상단바 자리가 없는 곳(시험 · 단독)에서는 칸 안에 그대로 둔다
   const hasTopBarSlot = useHasTopBarSlot()
-  useOverlayToolShortcuts(props.shortcutTarget, setToolMode)
+  useOverlayToolShortcuts(props.shortcutTarget && props.paneActive !== false, setToolMode)
   const toolbar = (
     <PaneToolbar
       kind={tab.kind === 'markdown' ? 'markdown' : 'pdf'}

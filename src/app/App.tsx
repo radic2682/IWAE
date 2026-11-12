@@ -3655,6 +3655,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onViewChange={handleDocViewChange}
         controllersRef={docControllersRef}
         shortcutTarget={docPaneId === pane}
+        paneActive={activePaneId === pane}
         searchSlot={sidebarMode === 'search' && !libraryExpanded ? pdfSearchSlot : null}
         jumpToPage={jumpToPage}
         canGoBack={navigation.canBack}
