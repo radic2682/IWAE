@@ -57,3 +57,20 @@
   flex: 0 0 37px; box-sizing: border-box; height: 37px; padding: 0; position: relative; z-index: 4;
   border-bottom: 1px solid var(--divider); background: var(--paper);
 }
+
+/* 창 머리의 색 채널 점: 같은 색의 창끼리 연동한다. 누를 자리는 넉넉히(22px), 점은 작게 */
+.pane-channel-dot {
+  display: inline-grid; place-items: center; flex: 0 0 auto; width: 22px; height: 24px; margin: 0 2px 0 0; padding: 0;
+  border: 0; border-radius: var(--r-sm); background: transparent; cursor: pointer; align-self: center;
+}
+.pane-channel-dot-mark { width: 9px; height: 9px; box-sizing: border-box; border-radius: 50%; background: var(--text-muted); }
+.pane-channel-dot[data-channel='blue'] .pane-channel-dot-mark { background: var(--channel-blue); }
+.pane-channel-dot[data-channel='green'] .pane-channel-dot-mark { background: var(--channel-green); }
+.pane-channel-dot[data-channel='orange'] .pane-channel-dot-mark { background: var(--channel-orange); }
+/* 없음: 속이 빈 고리 */
+.pane-channel-dot[data-channel='none'] .pane-channel-dot-mark { background: transparent; border: 1.5px solid var(--text-muted); }
+.pane-channel-dot:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
+.pane-channel-dot:focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: -2px; }
+
+/* 미리보기 탭: 제목을 기울임으로 */
+.pane-top-tab-preview .pane-top-tab-label { font-style: italic; }

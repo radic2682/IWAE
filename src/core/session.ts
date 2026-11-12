@@ -1,10 +1,15 @@
 import type { TabsState } from '../app/tabs'
+import { parsePaneChannels, type PaneChannels } from '../app/workspaceChannels'
 
 export interface SessionState {
   pdfTabIds: readonly string[]
   noteTabIds: readonly string[]
   /** 탭으로 연 메모 노트(.iwnote)들. 어느 패널에 있는지는 panes 가 말한다. 없으면(예전 세션) 없다 */
   memoNoteTabIds?: readonly string[]
+  /** 미리보기 탭(기울임 글씨, 다음 미리보기가 오면 갈아 끼운다)으로 열려 있던 탭들. 없으면 없다 */
+  previewTabIds?: readonly string[]
+  /** 창마다 색 채널(같은 색끼리 연동). 없으면(예전 세션) 모두 파랑 */
+  paneChannels?: PaneChannels
   activePdfTabId: string | null
   activeNoteTabId: string | null
   sidebarCollapsed: boolean
@@ -44,17 +49,21 @@ export function captureSession(
   layout: { sidebarCollapsed: boolean; sidebarPx: number; leftFrac: number },
   thirdTabs: TabsState = { tabs: [], activeId: null },
   fourthTabs: TabsState = { tabs: [], activeId: null },
+  channels?: PaneChannels,
 ): SessionState {
   const all = [...leftTabs.tabs, ...rightTabs.tabs, ...thirdTabs.tabs, ...fourthTabs.tabs]
   const docTabs = all.filter((tab) => tab.kind === 'pdf' || tab.kind === 'markdown')
   const noteTabs = all.filter((tab) => tab.kind === 'canvas')
   const memoNoteTabs = all.filter((tab) => tab.kind === 'memoNote')
+  const previewIds = all.filter((tab) => tab.preview === true).map((tab) => tab.id)
   const activeOf = (ids: readonly string[]) => [leftTabs.activeId, rightTabs.activeId, thirdTabs.activeId, fourthTabs.activeId]
     .find((id) => id !== null && ids.includes(id)) ?? null
   return {
     pdfTabIds: docTabs.map((tab) => tab.id),
     noteTabIds: noteTabs.map((tab) => tab.id),
     ...(memoNoteTabs.length === 0 ? {} : { memoNoteTabIds: memoNoteTabs.map((tab) => tab.id) }),
+    ...(previewIds.length === 0 ? {} : { previewTabIds: previewIds }),
+    ...(channels === undefined ? {} : { paneChannels: channels }),
     activePdfTabId: activeOf(docTabs.map((tab) => tab.id)),
     activeNoteTabId: activeOf(noteTabs.map((tab) => tab.id)),
     sidebarCollapsed: layout.sidebarCollapsed,
@@ -126,6 +135,8 @@ export function parseSession(raw: unknown): SessionState {
     pdfTabIds: raw.pdfTabIds,
     noteTabIds: raw.noteTabIds,
     ...(isStringArray(raw.memoNoteTabIds) && raw.memoNoteTabIds.length > 0 ? { memoNoteTabIds: raw.memoNoteTabIds } : {}),
+    ...(isStringArray(raw.previewTabIds) && raw.previewTabIds.length > 0 ? { previewTabIds: raw.previewTabIds } : {}),
+    ...(raw.paneChannels === undefined ? {} : { paneChannels: parsePaneChannels(raw.paneChannels) }),
     activePdfTabId: raw.activePdfTabId,
     activeNoteTabId: raw.activeNoteTabId,
     sidebarCollapsed: raw.sidebarCollapsed,

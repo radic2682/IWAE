@@ -295,6 +295,17 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '탭으로 열기': 'Open in tab',
   '이 노트를 탭으로 열기': 'Open this note in a tab',
 
+  // BehaviorSettings (미리보기 탭)
+  '탭 열기': 'Opening tabs',
+  '다른 노트·문서를 미리보기 탭으로 열기': 'Open other notes and documents as preview tabs',
+  '같은 색 창에 없는 노트나 문서를 가리키면 기울임 글씨의 미리보기 탭으로 엽니다. 다음 미리보기가 그 자리를 갈아 끼우고, 고치거나 탭을 두 번 누르면 고정됩니다. 끄면 보통 탭으로 엽니다.': 'When you point at a note or document that is not shown in a pane of the same color, it opens as an italic preview tab. The next preview replaces it; editing it or double-clicking the tab keeps it. When off, it opens as a normal tab.',
+
+  // ChannelDot (창의 색 채널)
+  '색 채널: 파랑 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기)': 'Color channel: blue — panes of the same color link together (click to change)',
+  '색 채널: 초록 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기)': 'Color channel: green — panes of the same color link together (click to change)',
+  '색 채널: 주황 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기)': 'Color channel: orange — panes of the same color link together (click to change)',
+  '색 채널: 없음 — 어느 창과도 연동하지 않습니다 (눌러서 바꾸기)': 'Color channel: none — this pane links with no other pane (click to change)',
+
   // markdownCapture, sampleVaultDesktop
   'Markdown 캡처 크기가 올바르지 않습니다.': 'Invalid Markdown capture size.',
   '예시 파일을 읽지 못했습니다: {file}': 'Could not read sample file: {file}',

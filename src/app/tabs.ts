@@ -34,6 +34,8 @@ export interface Tab {
   id: string
   title: string
   kind: TabKind
+  /** 미리보기 탭: 제목이 기울임으로 보이고, 다음 미리보기가 오면 그 자리를 갈아 끼운다. 고치거나 두 번 누르면 고정된다 */
+  preview?: boolean
 }
 
 export interface TabsState {
@@ -49,6 +51,43 @@ export function openTab(state: TabsState, tab: Tab): TabsState {
     return { tabs: state.tabs, activeId: tab.id }
   }
   return { tabs: [...state.tabs, tab], activeId: tab.id }
+}
+
+/**
+ * 미리보기 탭으로 연다: 이미 열린 탭이면 그 탭을 활성화하고(고정 여부는 그대로), 아니면 이 줄의 미리보기 탭 자리를 갈아 끼운다(같은 자리).
+ * 미리보기 탭이 없으면 맨 뒤에 붙인다. 열린 탭은 하나도 닫히지 않는다 — 갈아 끼우는 것은 이전 미리보기 탭뿐이다.
+ */
+export function openPreviewTab(state: TabsState, tab: Tab): TabsState {
+  if (state.tabs.some((candidate) => candidate.id === tab.id)) return { tabs: state.tabs, activeId: tab.id }
+  const preview: Tab = { ...tab, preview: true }
+  const at = state.tabs.findIndex((candidate) => candidate.preview === true)
+  if (at < 0) return { tabs: [...state.tabs, preview], activeId: preview.id }
+  const tabs = state.tabs.slice()
+  tabs[at] = preview
+  return { tabs, activeId: preview.id }
+}
+
+/** 미리보기 탭을 보통 탭으로 고정한다(편집·두 번 누르기·다른 창으로 끌기). 미리보기가 아니면 같은 객체 */
+export function pinTab(state: TabsState, id: string): TabsState {
+  if (!state.tabs.some((tab) => tab.id === id && tab.preview === true)) return state
+  return { tabs: state.tabs.map((tab) => tab.id === id ? unpinned(tab) : tab), activeId: state.activeId }
+}
+
+function unpinned(tab: Tab): Tab {
+  const { preview: _preview, ...rest } = tab
+  return rest
+}
+
+/** 모든 창에서 id 탭을 고정한다. 바뀐 것이 없으면 같은 객체 */
+export function pinTabInPanes(panes: PanesState, id: string): PanesState {
+  if (!allPaneTabs(panes).some((tab) => tab.id === id && tab.preview === true)) return panes
+  return { left: pinTab(panes.left, id), right: pinTab(panes.right, id), third: pinTab(panes.third, id), fourth: pinTab(panes.fourth, id) }
+}
+
+/** 저장해 둔 미리보기 탭 표시를 되살린다. 바뀐 것이 없으면 같은 객체 */
+export function markPreviewTabs(panes: PanesState, ids: readonly string[]): PanesState {
+  if (ids.length === 0) return panes
+  return mapPaneTabs(panes, (tab) => ids.includes(tab.id) ? { ...tab, preview: true } : tab)
 }
 
 export function closeTab(state: TabsState, id: string): TabsState {
@@ -188,6 +227,16 @@ export function openTabInPanes(panes: PanesState, tab: Tab, preferred: PaneId): 
   return { ...panes, [preferred]: openTab(panes[preferred], tab) }
 }
 
+/**
+ * 가리키기 신호가 연 탭: 열려 있으면 그 패널에서 활성화하고, 없으면 preferred 패널에 **미리보기 탭**으로 연다(그 패널의 이전 미리보기 탭을 갈아 끼운다).
+ * preview 가 false(설정에서 끔)면 보통 탭으로 연다.
+ */
+export function openPreviewTabInPanes(panes: PanesState, tab: Tab, preferred: PaneId, preview = true): PanesState {
+  const existing = paneOfTab(panes, tab.id)
+  if (existing !== null) return { ...panes, [existing]: activateTab(panes[existing], tab.id) }
+  return { ...panes, [preferred]: preview ? openPreviewTab(panes[preferred], tab) : openTab(panes[preferred], tab) }
+}
+
 /** 탭을 반대편(또는 지정한) 패널로 옮긴다. 옮긴 패널에서 활성 탭이 된다. */
 export function moveTabToPane(panes: PanesState, id: string, target: PaneId): PanesState {
   const source = paneOfTab(panes, id)
@@ -196,7 +245,8 @@ export function moveTabToPane(panes: PanesState, id: string, target: PaneId): Pa
   return {
     ...panes,
     [source]: closeTab(panes[source], id),
-    [target]: openTab(panes[target], tab),
+    // 다른 창으로 옮긴 미리보기 탭은 고정된다
+    [target]: openTab(panes[target], unpinned(tab)),
   }
 }
 

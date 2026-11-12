@@ -18,6 +18,8 @@ export interface AppFlagPrefs {
   readonly autoIndex: boolean
   /** 글자 층이 없는 쪽(스캔)을 OCR 로 읽는다: 검색 색인, 영역 캡처의 글자 */
   readonly ocr: boolean
+  /** 가리키기 신호(다른 노트·문서 보여 주기)가 새 탭을 미리보기 탭으로 연다. 끄면 보통 탭 */
+  readonly previewTabs: boolean
 }
 
 export interface AppPrefs extends AppFlagPrefs {
@@ -37,7 +39,7 @@ export interface AppPrefs extends AppFlagPrefs {
   readonly shortcuts: Readonly<Record<string, string>>
 }
 
-const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true }
+const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true, previewTabs: true }
 export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT, libraryZoom: BAR_ZOOM_DEFAULT, libraryView: 'list', highlightColors: DEFAULT_HIGHLIGHT_COLORS, otherNoteHighlights: 'dim', shortcuts: {} }
 const KEY = 'iwae:app-prefs:v1'
 

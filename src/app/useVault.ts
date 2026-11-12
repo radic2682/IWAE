@@ -79,6 +79,7 @@ import {
   emptyTabs,
   isDocumentKind,
   mapPaneTabs,
+  markPreviewTabs,
   moveTabToPane,
   openTabInPanes,
   paneRouteOf,
@@ -88,6 +89,7 @@ import {
   type TabsState,
 } from './tabs'
 import { useVaultWatcher } from './useVaultWatcher'
+import { DEFAULT_CHANNELS, type PaneChannels } from './workspaceChannels'
 import {
   convertReferenceToCopy,
   copyVaultEntryPath,
@@ -268,6 +270,8 @@ export function useVault(options: UseVaultOptions = {}) {
     third: emptyTabs,
     fourth: emptyTabs,
   }))
+  // 창마다 색 채널(같은 색의 창끼리 연동). 처음엔 모두 파랑 — 지금처럼 모두 한데 연동한다
+  const [channels, setChannels] = useState<PaneChannels>(DEFAULT_CHANNELS)
   const pdfTabs = panes.left
   const noteTabs = panes.right
   const setPdfTabs = useCallback((update: SetStateAction<TabsState>) => {
@@ -489,7 +493,8 @@ export function useVault(options: UseVaultOptions = {}) {
         reconciledIndex.entries,
       ))
       setOpenedDocs(documents)
-      setPanes(restoredPanes(
+      setChannels(session.paneChannels ?? DEFAULT_CHANNELS)
+      setPanes(markPreviewTabs(restoredPanes(
         restoredTabs(
           availableDocumentRecords.map((record) => record.tab),
           migratedActiveMarkdownId ?? session.activePdfTabId,
@@ -503,7 +508,7 @@ export function useVault(options: UseVaultOptions = {}) {
           migratedActiveMarkdownId === null ? session.activeNoteTabId : null,
         ),
         session.panes,
-      ))
+      ), session.previewTabIds ?? []))
       setMarkdownSources(restoredMarkdownSources)
       setMissingDocIds(missing)
       setAbsentDocIds(settled.absentDocIds)
@@ -756,7 +761,7 @@ export function useVault(options: UseVaultOptions = {}) {
       sidebarCollapsed,
       sidebarPx: layout.sidebarPx,
       leftFrac: layout.leftFrac,
-    }, panes.third, panes.fourth),
+    }, panes.third, panes.fourth, channels),
   }
   const flushSession = useCallback(async () => {
     const { vault: handle, session } = sessionSnapshotRef.current
@@ -772,11 +777,11 @@ export function useVault(options: UseVaultOptions = {}) {
         sidebarCollapsed,
         sidebarPx: layout.sidebarPx,
         leftFrac: layout.leftFrac,
-      }, panes.third, panes.fourth)
+      }, panes.third, panes.fourth, channels)
       void writeSession(vault, session).catch((err: unknown) => setError(errorText(err)))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [layout, noteTabs, panes.third, panes.fourth, pdfTabs, sessionReady, sidebarCollapsed, vault, windowMode])
+  }, [channels, layout, noteTabs, panes.third, panes.fourth, pdfTabs, sessionReady, sidebarCollapsed, vault, windowMode])
 
   /** PDF 를 열어 탭에 띄운다. 연 문서의 메타를 돌려주고, 열지 못하면 null */
   /** openTab 이 false 면 PDF 를 열어 두기만 하고 탭은 만들지 않는다(탭 안에서 판을 바꿀 때) */
@@ -1617,6 +1622,7 @@ export function useVault(options: UseVaultOptions = {}) {
     setTree([])
     setOpenedDocs([])
     setPanes({ left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs })
+    setChannels(DEFAULT_CHANNELS)
     setMarkdownSources({})
     setMissingDocIds([])
     setSessionReady(false)
@@ -1833,6 +1839,8 @@ export function useVault(options: UseVaultOptions = {}) {
     setNoteTabs,
     panes,
     setPanes,
+    channels,
+    setChannels,
     openInPane,
     moveTab,
     setPaneRoute,

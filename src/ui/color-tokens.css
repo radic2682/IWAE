@@ -35,6 +35,11 @@
   --star-on: #f5b301;       /* 메모 별(중요) */
   --match-em: #e59a8d;      /* 검색 결과 강조 */
   --winclose: #e5484d;
+
+  /* 창의 색 채널 점(같은 색의 창끼리 연동). 라이트 */
+  --channel-blue: #3b7dd8;
+  --channel-green: #2e9d5b;
+  --channel-orange: #e0832f;
   --winclose-active: #c93b40;
 
   /* 글에서 찾은 결과 표시 */
@@ -133,6 +138,9 @@
 }
 
 :root[data-theme='dark'] {
+  --channel-blue: #6aa6ff;
+  --channel-green: #4cc27e;
+  --channel-orange: #f0a35a;
   --status-ok: #4ac26b;
   --clip-paper: #f4f1ea;
   --clip-shadow: 0 1px 2px rgb(0 0 0 / 50%), 0 8px 20px rgb(0 0 0 / 35%);

@@ -1,5 +1,6 @@
 import { PDF_SPLIT_LAYOUTS, closeSplitCell, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import { PANE_IDS, closeTab, openTab, emptyTabs, paneOfTab, type PaneId, type PanesState, type TabsState } from './tabs'
+import { DEFAULT_CHANNELS, remapChannelsByKeep, remapChannelsBySlots, type PaneChannels } from './workspaceChannels'
 
 /**
  * 탭을 끌어 창(패널)을 나누는 규칙. DOM 을 모르는 순수 함수만 둔다 —
@@ -142,6 +143,13 @@ export function dockableEdges(layoutId: PdfSplitLayoutId, cellIndex: number): Do
   return (['left', 'right', 'top', 'bottom'] as const).filter((edge) => dockSplit(layoutId, cellIndex, edge) !== null)
 }
 
+/** 미리보기 표시를 뗀 탭(다른 창으로 끌린 탭은 보통 탭이 된다) */
+function pinned(tab: TabsState['tabs'][number]): TabsState['tabs'][number] {
+  if (tab.preview !== true) return tab
+  const { preview: _preview, ...rest } = tab
+  return rest
+}
+
 /** 탭을 같은 줄의 index 자리에 넣는다(이미 있으면 옮긴다). 활성 탭이 된다 */
 export function insertTabAt(state: TabsState, tab: TabsState['tabs'][number], index: number): TabsState {
   const rest = state.tabs.filter((candidate) => candidate.id !== tab.id)
@@ -156,18 +164,20 @@ export function moveTabToPaneAt(panes: PanesState, id: string, target: PaneId, i
   if (source === null) return panes
   const tab = panes[source].tabs.find((candidate) => candidate.id === id)!
   if (source === target) return { ...panes, [target]: insertTabAt(panes[target], tab, index) }
+  // 다른 창으로 끌어 옮긴 미리보기 탭은 고정된다
   return {
     ...panes,
     [source]: closeTab(panes[source], id),
-    [target]: insertTabAt(panes[target], tab, index),
+    [target]: insertTabAt(panes[target], pinned(tab), index),
   }
 }
 
 /**
  * 탭을 패널(targetPane)의 edge 쪽을 갈라 새 패널에 넣는다. 결과: 바뀐 배치와 패널 내용.
  * 자리가 없거나(칸이 넷) 모양이 없으면, 또는 그 패널의 하나뿐인 탭을 자기 패널에서 갈라내려 하면 null.
+ * 새 패널은 탭이 떠난 패널의 색 채널을 받고, 나머지 패널의 채널은 새 칸 차례에 맞춰 따라간다(channels).
  */
-export function dockTab(panes: PanesState, layoutId: PdfSplitLayoutId, id: string, targetPane: PaneId, edge: DockEdge): { readonly layout: PdfSplitLayoutId; readonly panes: PanesState; readonly newPane: PaneId; readonly sourcePane: PaneId } | null {
+export function dockTab(panes: PanesState, layoutId: PdfSplitLayoutId, id: string, targetPane: PaneId, edge: DockEdge, channels: PaneChannels = DEFAULT_CHANNELS): { readonly layout: PdfSplitLayoutId; readonly panes: PanesState; readonly newPane: PaneId; readonly sourcePane: PaneId; readonly channels: PaneChannels } | null {
   const source = paneOfTab(panes, id)
   const cellIndex = PANE_IDS.indexOf(targetPane)
   if (source === null) return null
@@ -181,7 +191,7 @@ export function dockTab(panes: PanesState, layoutId: PdfSplitLayoutId, id: strin
   result.slots.forEach((slot, index) => {
     const pane = PANE_IDS[index]!
     if (slot === 'new') {
-      next[pane] = openTab(emptyTabs, tab)
+      next[pane] = openTab(emptyTabs, pinned(tab))
       newPane = pane
     } else {
       next[pane] = without[PANE_IDS[slot]!]
@@ -189,19 +199,46 @@ export function dockTab(panes: PanesState, layoutId: PdfSplitLayoutId, id: strin
   })
   // 탭이 떠난 패널의 새 이름(새 칸이 앞에 끼면 한 칸씩 밀린다)
   const sourcePane = PANE_IDS[result.slots.indexOf(PANE_IDS.indexOf(source))]!
-  return { layout: result.layout, panes: next, newPane, sourcePane }
+  return { layout: result.layout, panes: next, newPane, sourcePane, channels: remapChannelsBySlots(channels, result.slots, source) }
+}
+
+/**
+ * 탭을 senderPane 옆에 새 패널로 연다(가리키기 신호의 3 단계: 맞는 창이 없을 때 보낸 창 옆에 새 창).
+ * 오른쪽 → 아래 → 왼쪽 → 위 차례로 갈라 보고, 어느 쪽도 못 가르면(칸이 이미 넷) null.
+ * 새 패널은 보낸 창의 색 채널을 받는다.
+ */
+export function openTabBeside(panes: PanesState, layoutId: PdfSplitLayoutId, senderPane: PaneId, tab: TabsState['tabs'][number], channels: PaneChannels = DEFAULT_CHANNELS): { readonly layout: PdfSplitLayoutId; readonly panes: PanesState; readonly newPane: PaneId; readonly channels: PaneChannels } | null {
+  const cellIndex = PANE_IDS.indexOf(senderPane)
+  for (const edge of ['right', 'bottom', 'left', 'top'] as const) {
+    const result = dockSplit(layoutId, cellIndex, edge)
+    if (result === null) continue
+    const next: PanesState = { left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs }
+    let newPane: PaneId = PANE_IDS[0]!
+    result.slots.forEach((slot, index) => {
+      const pane = PANE_IDS[index]!
+      if (slot === 'new') {
+        next[pane] = openTab(emptyTabs, tab)
+        newPane = pane
+      } else {
+        next[pane] = panes[PANE_IDS[slot]!]
+      }
+    })
+    return { layout: result.layout, panes: next, newPane, channels: remapChannelsBySlots(channels, result.slots, senderPane) }
+  }
+  return null
 }
 
 /**
  * 탭을 다 옮겨 비어 버린 패널의 칸을 닫는다(크롬에서 탭을 다 끌어내면 그 창이 닫히듯). 남은 칸들이 그 자리를 채우고,
  * 칸이 하나뿐이거나 비어 있지 않으면 null. remap 은 닫기 전 패널 이름이 닫은 뒤에 무엇이 되는지
  */
-export function collapseEmptyPane(panes: PanesState, layoutId: PdfSplitLayoutId, pane: PaneId): { readonly layout: PdfSplitLayoutId; readonly panes: PanesState; readonly remap: (pane: PaneId) => PaneId } | null {
+export function collapseEmptyPane(panes: PanesState, layoutId: PdfSplitLayoutId, pane: PaneId, channels: PaneChannels = DEFAULT_CHANNELS): { readonly layout: PdfSplitLayoutId; readonly panes: PanesState; readonly remap: (pane: PaneId) => PaneId; readonly channels: PaneChannels } | null {
   const index = PANE_IDS.indexOf(pane)
   if (pdfSplitLayout(layoutId).cells.length <= 1 || index >= pdfSplitLayout(layoutId).cells.length || panes[pane].tabs.length > 0) return null
   const { layout, keep } = closeSplitCell(layoutId, index)
   const next: PanesState = { left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs }
   keep.forEach((from, slot) => { next[PANE_IDS[slot]!] = panes[PANE_IDS[from]!] })
   const remap = (from: PaneId): PaneId => PANE_IDS[Math.max(keep.indexOf(PANE_IDS.indexOf(from)), 0)]!
-  return { layout, panes: next, remap }
+  // 창의 색 채널도 창을 따라 옮겨 간다
+  return { layout, panes: next, remap, channels: remapChannelsByKeep(channels, keep) }
 }

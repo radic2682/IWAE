@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
+import { ChannelDot } from './ChannelDot'
+import type { PaneChannel } from './workspaceChannels'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
 import { platformShortcut } from '../core/platform'
@@ -44,6 +46,11 @@ interface PaneTabsMenuProps {
   onTearOffTab?: (id: string, info: TearOffInfo) => Promise<boolean> | boolean
   /** 이 창에 탭이 이것뿐인 떼어 낸 창: 탭을 끌면 창 전체가 따라간다 */
   dragWindow?: boolean
+  /** 이 창의 색 채널. onCycleChannel 을 함께 주면 탭 줄 맨 앞에 색 점이 보인다(눌러서 바꾸기) */
+  channel?: PaneChannel
+  onCycleChannel?: () => void
+  /** 미리보기 탭을 보통 탭으로 고정한다(탭을 두 번 눌렀을 때) */
+  onPinTab?: (id: string) => void
 }
 
 /**
@@ -63,7 +70,8 @@ function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
 }
 
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane }: PaneTabsMenuProps) {
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab }: PaneTabsMenuProps) {
+  const channelDot = onCycleChannel === undefined ? null : <ChannelDot channel={channel} onCycle={onCycleChannel} />
   const label = t(rawLabel)
   const [menuOpen, setMenuOpen] = useState(false)
   const overflowRef = useRef<HTMLButtonElement>(null)
@@ -186,6 +194,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   if (state.tabs.length === 0) {
     return (
       <span className="pane-tabs-empty-row">
+        {channelDot}
         <span className="pane-tabs-empty">{t('열린 {label} 없음', { label })}</span>
         {onClosePane === undefined ? null : (
           <button type="button" className="pane-close-button" aria-label={t('이 창 닫기')} title={t('이 창 닫기')} onClick={onClosePane}>
@@ -206,6 +215,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
         setMenuOpen(true)
       }}
     >
+      {channelDot}
       <div ref={stripRef} className={`pane-tabs-strip${frozenWidth === null ? '' : ' pane-tabs-strip-frozen'}`} onPointerLeave={() => setFrozenWidth(null)} onWheel={(event) => {
         if (stripRef.current === null || stripRef.current.scrollWidth <= stripRef.current.clientWidth) return
         stripRef.current.scrollLeft += event.deltaY
@@ -216,7 +226,10 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
             <div
               key={tab.id}
               data-tab-id={tab.id}
-              className={`pane-top-tab pane-top-tab-${tab.kind}${active ? ' pane-top-tab-active' : ''}`}
+              className={`pane-top-tab pane-top-tab-${tab.kind}${active ? ' pane-top-tab-active' : ''}${tab.preview === true ? ' pane-top-tab-preview' : ''}`}
+              data-preview={tab.preview === true ? '' : undefined}
+              // 미리보기 탭은 두 번 누르면 보통 탭으로 고정된다
+              onDoubleClick={() => { if (tab.preview === true) onPinTab?.(tab.id) }}
               style={frozenWidth === null ? undefined : { flex: '0 0 auto', width: `${frozenWidth}px`, minWidth: `${frozenWidth}px`, maxWidth: `${frozenWidth}px` }}
               // 가운데 단추(휠 클릭)로도 닫는다
               onAuxClick={(event) => {

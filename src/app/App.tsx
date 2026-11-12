@@ -106,6 +106,7 @@ import {
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { collapseEmptyPane, dockTab, dockableEdges, moveTabToPaneAt, type DockEdge } from './tabDock'
+import { cyclePaneChannel, remapChannelsByKeep, swapPaneChannels } from './workspaceChannels'
 import { closeSplitCell, isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePanel, ThumbnailPanel } from './SidePanels'
@@ -129,6 +130,7 @@ import {
   allPaneTabs,
   mergeHiddenPanes,
   paneOfTab,
+  pinTabInPanes,
   visiblePanes,
   paneLabel,
   type PaneCount,
@@ -401,6 +403,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPdfTabs,
     panes,
     setPanes,
+    channels,
+    setChannels,
     openInPane,
     moveTab,
     setPaneRoute,
@@ -2353,10 +2357,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const source = paneOfTab(panes, id)
     const moved = moveTabToPaneAt(panes, id, target, index)
     // 탭을 다 끌어낸 패널은 닫힌다(크롬에서 창의 탭을 다 끌어내면 그 창이 닫히듯). 남은 패널이 그 자리를 채운다
-    const collapsed = SPLIT_PANES_ENABLED && !isDetachedWindow && source !== null && source !== target ? collapseEmptyPane(moved, shownLayoutId, source) : null
+    const collapsed = SPLIT_PANES_ENABLED && !isDetachedWindow && source !== null && source !== target ? collapseEmptyPane(moved, shownLayoutId, source, channels) : null
     const landed = collapsed === null ? target : collapsed.remap(target)
     setPanes(collapsed === null ? moved : collapsed.panes)
-    if (collapsed !== null) setPaneLayout(collapsed.layout)
+    // 칸이 닫히면 남은 창의 색 채널도 새 자리로 따라간다
+    if (collapsed !== null) { setChannels(collapsed.channels); setPaneLayout(collapsed.layout) }
     setActivePaneId(landed)
     if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
     if (collapsed !== null) {
@@ -2375,13 +2380,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   /** 탭을 패널의 edge 쪽을 갈라 새 패널에 넣는다 */
   const dockPaneTab = (id: string, target: PaneId, edge: DockEdge) => {
-    const result = dockTab(panes, shownLayoutId, id, target, edge)
+    const result = dockTab(panes, shownLayoutId, id, target, edge, channels)
     if (result === null) return
     const tab = openTabIds.find((candidate) => candidate.id === id)
     // 하나뿐인 탭을 다른 패널의 가장자리로 끌어 나누면, 비어 버린 원래 패널은 닫힌다
-    const collapsed = collapseEmptyPane(result.panes, result.layout, result.sourcePane)
+    const collapsed = collapseEmptyPane(result.panes, result.layout, result.sourcePane, result.channels)
     const landed = collapsed === null ? result.newPane : collapsed.remap(result.newPane)
     setPanes(collapsed === null ? result.panes : collapsed.panes)
+    // 새 창은 탭이 떠난 창의 색 채널을 받는다
+    setChannels(collapsed === null ? result.channels : collapsed.channels)
     setPaneLayout(collapsed === null ? result.layout : collapsed.layout)
     setActivePaneId(landed)
     if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
@@ -2543,6 +2550,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const swapPanes = (boundary: 0 | 1) => {
     const [a, b]: readonly [PaneId, PaneId] = boundary === 0 ? ['left', 'right'] : ['right', 'third']
     setPanes((current) => ({ ...current, [a]: current[b], [b]: current[a] }))
+    setChannels((current) => swapPaneChannels(current, a, b))
     setActivePaneId((current) => current === a ? b : current === b ? a : current)
     for (const kind of ['doc', 'note'] as const) {
       const route = paneRouteRef.current[kind]
@@ -2593,6 +2601,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }
       return next
     })
+    setChannels((current) => remapChannelsByKeep(current, keep))
     setPaneLayout(layout)
     setActivePaneId(PANE_IDS[target]!)
   }
@@ -2619,6 +2628,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const renderPaneTabs = (pane: PaneId) => (
     <PaneTabsMenu
       onClosePane={shownPaneCount > 1 ? () => closePane(pane) : undefined}
+      // 색 점은 창이 둘 이상일 때만(하나뿐이면 연동할 상대가 없다)
+      channel={channels[pane]}
+      onCycleChannel={shownPaneCount > 1 ? () => setChannels((current) => cyclePaneChannel(current, pane)) : undefined}
+      onPinTab={(id) => setPanes((current) => pinTabInPanes(current, id))}
       state={tabsWithVersion(panes[pane])}
       label={t('탭')}
       paneId={pane}
