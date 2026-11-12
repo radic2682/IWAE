@@ -50,6 +50,16 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
   const service = useContext(TranslatorContext)
   const settings = useContext(TranslationCardSettingsContext)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
+  const windowRef = useRef<HTMLDivElement | null>(null)
+  // 열릴 때 포커스가 있던 곳: 닫거나 Esc 를 누르면 그 자리로 돌려준다(키 · 명령으로 열면 입력칸이 포커스를 가져가므로)
+  const [opener] = useState<Element | null>(() => document.activeElement)
+  const restoreFocus = (): boolean => {
+    if (!(opener instanceof HTMLElement) || !opener.isConnected || opener === document.body || windowRef.current?.contains(opener) === true) return false
+    opener.focus({ preventScroll: true })
+    return true
+  }
+  const restoreRef = useRef(restoreFocus)
+  restoreRef.current = restoreFocus
   // 앱 창 크기(창을 줄여도 번역기는 창 안에 머문다)
   const [bounds, setBounds] = useState<{ readonly width: number; readonly height: number }>(() => ({ width: window.innerWidth, height: window.innerHeight }))
   useLayoutEffect(() => {
@@ -130,11 +140,11 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
       if (!pending) void translateNow(input, true)
     }
   }
-  // 고정된 창이라 Esc 는 닫지 않고 글쓰기 칸에서 포커스만 뺀다
+  // 고정된 창이라 Esc 는 닫지 않고 글쓰기 칸에서 포커스를 뺀다: 열 때 포커스가 있던 곳이 남아 있으면 그곳으로, 없으면 그냥 뺀다
   const onPanelKey = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape') return
     event.stopPropagation()
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    if (!restoreFocus() && document.activeElement instanceof HTMLElement) document.activeElement.blur()
   }
 
   const copy = () => {
@@ -156,8 +166,12 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
     return subscribeTranslatorFocus(focus)
   }, [])
 
-  // 닫히면 진행 중인 요청 결과는 버린다
-  useEffect(() => () => { requestId.current += 1 }, [])
+  // 닫히면 진행 중인 요청 결과는 버린다. 닫는 단추가 눌려 있던 포커스가 사라졌으면(body) 열기 전의 포커스 자리로 돌려준다
+  useEffect(() => () => {
+    requestId.current += 1
+    const active = document.activeElement
+    if (active === null || active === document.body) restoreRef.current()
+  }, [])
 
   const notConfigured = (result.status === 'error' && isTranslationNotConfigured(result.message)) || service === null
 
@@ -196,6 +210,7 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
       role="dialog"
       aria-modal="false"
       aria-label={t('번역기')}
+      ref={windowRef}
       style={{ left: placed.x, top: placed.y, width: placed.w, height: placed.h }}
       onKeyDown={onPanelKey}
     >

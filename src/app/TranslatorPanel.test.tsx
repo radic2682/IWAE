@@ -21,6 +21,8 @@ import {
   isLegacyTranslatorTabId,
   openTranslatorWindow,
   placePanel,
+  consumeTranslatorFocus,
+  requestTranslatorFocus,
   readLegacyTranslatorPanels,
   reloadTranslatorWindow,
   toggleTranslatorWindow,
@@ -217,6 +219,49 @@ describe('번역기 창의 내용', () => {
     expect(document.activeElement).not.toBe(input())
     expect(screen.getByRole('region', { name: '번역기' })).toBeDefined()
     expect(getTranslatorWindow().open).toBe(true)
+  })
+
+  it('열 때 포커스가 있던 곳을 기억했다가 Esc · 닫기에서 돌려준다', () => {
+    const opener = document.createElement('button')
+    document.body.append(opener)
+    render(<Harness service={makeService()} />)
+    opener.focus()
+    act(() => { openTranslatorWindow() })
+    expect(document.activeElement).toBe(input())
+    fireEvent.keyDown(input(), { key: 'Escape' })
+    expect(document.activeElement).toBe(opener)
+    expect(getTranslatorWindow().open).toBe(true)
+    // 닫기: 창 안(닫기 단추)에 있던 포커스가 사라져도 열기 전의 자리로
+    screen.getByRole('button', { name: '번역기 닫기' }).focus()
+    fireEvent.click(screen.getByRole('button', { name: '번역기 닫기' }))
+    expect(document.querySelector('.translator-window')).toBeNull()
+    expect(document.activeElement).toBe(opener)
+  })
+
+  it('닫을 때 포커스를 다른 곳으로 옮겨 둔 사용자에게서는 포커스를 빼앗지 않는다', () => {
+    const opener = document.createElement('button')
+    const other = document.createElement('input')
+    document.body.append(opener, other)
+    render(<Harness service={makeService()} />)
+    opener.focus()
+    act(() => { openTranslatorWindow() })
+    other.focus()
+    act(() => { updateTranslatorWindow({ open: false }) })
+    expect(document.activeElement).toBe(other)
+  })
+
+  it('포커스 요청은 번호로 구분한다: 먼저 한 요청의 타이머가 새 요청을 지우지 않는다', () => {
+    vi.useFakeTimers()
+    try {
+      requestTranslatorFocus()
+      vi.advanceTimersByTime(300)
+      requestTranslatorFocus()
+      vi.advanceTimersByTime(250)
+      expect(consumeTranslatorFocus()).toBe(true)
+      requestTranslatorFocus()
+      vi.advanceTimersByTime(600)
+      expect(consumeTranslatorFocus()).toBe(false)
+    } finally { vi.useRealTimers() }
   })
 
   it('번역기를 설정하지 않았으면(서비스 없음) 입력 전에 안내한다', () => {

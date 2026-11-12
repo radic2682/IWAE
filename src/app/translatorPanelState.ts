@@ -79,21 +79,25 @@ export function updateTranslatorWindow(patch: Partial<TranslatorWindowState>): v
   for (const listener of listeners) listener()
 }
 
-// 키보드 · 명령으로 열 때 입력칸에 포커스를 준다: 이미 떠 있으면 바로, 막 열리는 중이면 그려진 뒤(consume) 한 번만
-let focusRequested = false
+// 키보드 · 명령으로 열 때 입력칸에 포커스를 준다: 이미 떠 있으면 바로, 막 열리는 중이면 그려진 뒤(consume) 한 번만.
+// 요청마다 번호(token)를 붙인다 — 먼저 한 요청의 500ms 타이머가 그 사이 새로 한 요청을 지우지 않게
+let focusRequest: number | null = null
+let focusSerial = 0
 const focusListeners = new Set<() => void>()
 
 /** 다음에(또는 지금) 그려지는 번역기 입력칸이 포커스를 받게 한다. 그려질 창이 없어도 잠깐 뒤에 거둔다 */
 export function requestTranslatorFocus(): void {
-  focusRequested = true
+  focusSerial += 1
+  const token = focusSerial
+  focusRequest = token
   for (const listener of focusListeners) listener()
-  setTimeout(() => { focusRequested = false }, 500)
+  setTimeout(() => { if (focusRequest === token) focusRequest = null }, 500)
 }
 
 /** 포커스 요청이 있었으면 true 를 주고 거둔다 */
 export function consumeTranslatorFocus(): boolean {
-  const had = focusRequested
-  focusRequested = false
+  const had = focusRequest !== null
+  focusRequest = null
   return had
 }
 
@@ -104,9 +108,9 @@ export function subscribeTranslatorFocus(listener: () => void): () => void {
 
 /** 키 · 명령으로 번역기를 연다(이미 열려 있어도 입력칸으로 포커스를 옮긴다) */
 export function openTranslatorWindow(): void {
-  focusRequested = true
-  updateTranslatorWindow({ open: true })
+  // 요청을 먼저 걸어 두면 막 열리는 창이 그려질 때 한 번 받아 가고, 이미 떠 있는 창은 바로 받는다
   requestTranslatorFocus()
+  updateTranslatorWindow({ open: true })
 }
 
 /** 번역기 단추: 열려 있으면 닫고 닫혀 있으면 연다 */
