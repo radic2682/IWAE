@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowCounterClockwise, Lock, MagnifyingGlass } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import {
-  GROUP_LABEL, GROUP_ORDER, SHORTCUT_DEFS, comboText, effectiveKeys, eventToCombo, findConflict, isCustomized, isRebindable, isSafeBinding,
+  GROUP_LABEL, GROUP_ORDER, PREFIX_KEY_ID, SHORTCUT_DEFS, comboText, normalizeCombo, effectiveKeys, eventToCombo, findConflict, isCustomized, isRebindable, isSafeBinding,
   withBinding, withSwap, withoutBinding, type ShortcutDef, type ShortcutOverrides,
 } from '../core/shortcutRegistry'
 import { KeyCaps } from './KeyCaps'
@@ -12,6 +12,9 @@ import '../ui/shortcuts.css'
 type Notice =
   | { readonly kind: 'conflict'; readonly id: string; readonly combo: string; readonly other: ShortcutDef }
   | { readonly kind: 'info'; readonly text: string }
+
+/** 접두키로 고를 수 있는 키(Ctrl+Space 가 기본). 직접 정하기는 위의 키 칸 */
+export const PREFIX_PRESETS: readonly string[] = ['Ctrl+Space', 'Ctrl+B', 'Ctrl+A']
 
 /** 검색어에 맞는가(이름·영어 낱말·키 글자) */
 export function matchesShortcutQuery(def: ShortcutDef, query: string, overrides: ShortcutOverrides): boolean {
@@ -156,6 +159,24 @@ export function ShortcutSettings() {
                         >
                           <ArrowCounterClockwise size={13} aria-hidden="true" />
                         </button>
+                        {def.id !== PREFIX_KEY_ID ? null : (
+                          <div className="sk-presets" role="group" aria-label={t('접두키 고르기')}>
+                            {PREFIX_PRESETS.map((preset) => {
+                              const normalized = normalizeCombo(preset)
+                              const chosen = normalized !== null && keys[0] === normalized
+                              return (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  className={`sk-preset${chosen ? ' sk-preset-on' : ''}`}
+                                  aria-pressed={chosen}
+                                  onClick={() => { commit(withBinding(shortcutsRef.current, PREFIX_KEY_ID, preset)); setNotice(null) }}
+                                >{preset}</button>
+                              )
+                            })}
+                            <span className="sk-preset-note">{t('Ctrl+B 를 고르면 글 쓰는 칸에서는 Ctrl+B 를 두 번 눌러야 굵게가 됩니다. 입력기가 Ctrl+Space 를 쓰면 다른 키를 고르세요.')}</span>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <span className="sk-fixed" title={t('편집기에서 쓰는 키라 바꿀 수 없습니다')}>

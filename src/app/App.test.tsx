@@ -1198,3 +1198,199 @@ describe('App — 화면 · 상태 줄', () => {
     }
   })
 })
+
+describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
+  beforeEach(() => { Element.prototype.scrollIntoView = vi.fn() })
+  const cells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell')
+  const screenTabs = () => screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)
+  const press = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
+  const prefix = () => press({ key: ' ', code: 'Space', ctrlKey: true })
+  const after = (init: KeyboardEventInit) => { prefix(); press(init) }
+  const statusMessage = () => document.querySelector('.status-bar-message')?.textContent
+  const commandInput = () => screen.getByRole('textbox', { name: '명령줄' }) as HTMLInputElement
+  const runLine = async (line: string) => {
+    after({ key: ':', code: 'Semicolon', shiftKey: true })
+    fireEvent.change(commandInput(), { target: { value: line } })
+    fireEvent.keyDown(commandInput(), { key: 'Enter' })
+  }
+
+  it('Ctrl+Space 로 칩이 켜지고 「접두키 — 다음 키를 누르세요」 가 뜬다. Esc 로 그만둔다', () => {
+    render(<App developmentPreview />)
+    prefix()
+    expect(statusMessage()).toBe('접두키 — 다음 키를 누르세요')
+    expect(document.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('true')
+    press({ key: 'Escape', code: 'Escape' })
+    expect(document.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('false')
+  })
+
+  it('칩을 눌러도 접두키 모드에 들어간다(입력기가 Ctrl+Space 를 먹을 때)', () => {
+    render(<App developmentPreview />)
+    fireEvent.click(screen.getByRole('button', { name: '접두키' }))
+    expect(statusMessage()).toBe('접두키 — 다음 키를 누르세요')
+  })
+
+  it('% 와 " 는 좌우 · 위아래로 나누고, 한글 입력 상태(code)에서도 같다', async () => {
+    const { container } = render(<App developmentPreview />)
+    const before = cells(container).length
+    after({ key: '%', code: 'Digit5', shiftKey: true })
+    await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
+    after({ key: '"', code: 'Quote', shiftKey: true })
+    await waitFor(() => expect(cells(container)).toHaveLength(before + 2))
+  })
+
+  it('z(ㅋ) 는 이 칸만 크게, 한 번 더 누르면 되돌린다. x 는 칸을 닫는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    const before = cells(container).length
+    after({ key: '%', code: 'Digit5', shiftKey: true })
+    await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
+    after({ key: 'ㅋ', code: 'KeyZ' })
+    await waitFor(() => expect(screen.queryByRole('button', { name: '크기 되돌리기' })).not.toBeNull())
+    after({ key: 'ㅋ', code: 'KeyZ' })
+    await waitFor(() => expect(screen.queryByRole('button', { name: '크기 되돌리기' })).toBeNull())
+    after({ key: 'x', code: 'KeyX' })
+    await waitFor(() => expect(cells(container)).toHaveLength(before))
+  })
+
+  it('c · , · n · p · l · 0-9 · & 는 화면을 만들고 이름을 묻고 오가고 닫는다', async () => {
+    render(<App developmentPreview />)
+    after({ key: 'c', code: 'KeyC' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1화면 1']))
+    // , 는 이름 바꾸기 명령을 미리 채워 명령줄을 연다
+    after({ key: ',', code: 'Comma' })
+    expect(commandInput().value).toBe('rename-window 화면 1')
+    fireEvent.change(commandInput(), { target: { value: 'rename-window 메모' } })
+    fireEvent.keyDown(commandInput(), { key: 'Enter' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1메모']))
+    after({ key: '0', code: 'Digit0' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기', '1메모-']))
+    after({ key: 'n', code: 'KeyN' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1메모']))
+    after({ key: 'p', code: 'KeyP' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기', '1메모-']))
+    after({ key: 'l', code: 'KeyL' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1메모']))
+    // & : 확인 줄 → n 은 그만둔다, y 는 닫는다
+    after({ key: '&', code: 'Digit7', shiftKey: true })
+    expect(statusMessage()).toBe('화면을 닫을까요? y/n')
+    press({ key: 'n', code: 'KeyN' })
+    expect(statusMessage()).not.toBe('화면을 닫을까요? y/n')
+    expect(screenTabs()).toEqual(['0읽기-', '1메모'])
+    after({ key: '&', code: 'Digit7', shiftKey: true })
+    press({ key: 'y', code: 'KeyY' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기']))
+  })
+
+  it('! 는 칸을 새 화면으로 떼고, { } 는 자리를 바꾸고, Space 는 배치를 돌린다', async () => {
+    const { container } = render(<App developmentPreview />)
+    after({ key: '%', code: 'Digit5', shiftKey: true })
+    await waitFor(() => expect(cells(container).length).toBeGreaterThan(2))
+    after({ key: '{', code: 'BracketLeft', shiftKey: true })
+    after({ key: '}', code: 'BracketRight', shiftKey: true })
+    after({ key: ' ', code: 'Space' })
+    await waitFor(() => expect(statusMessage()).toBe('even-horizontal'))
+    after({ key: '!', code: 'Digit1', shiftKey: true })
+    await waitFor(() => expect(screenTabs()).toHaveLength(2))
+    expect(cells(container).length).toBeGreaterThan(0)
+  })
+
+  it('q 는 칸 번호를 겹쳐 보이고, 숫자 키가 그 칸으로 간다', async () => {
+    const { container } = render(<App developmentPreview />)
+    after({ key: '%', code: 'Digit5', shiftKey: true })
+    await waitFor(() => expect(cells(container).length).toBeGreaterThan(2))
+    after({ key: 'q', code: 'KeyQ' })
+    expect(screen.getByTestId('pane-numbers')).toBeDefined()
+    press({ key: '0', code: 'Digit0' })
+    await waitFor(() => expect(screen.queryByTestId('pane-numbers')).toBeNull())
+    const first = container.querySelectorAll('.pane-focus-scope')[0]?.getAttribute('data-pane-id')
+    await waitFor(() => expect(container.querySelector('.pane-focus-scope[data-pane-active]')?.getAttribute('data-pane-id')).toBe(first))
+  })
+
+  it('f · d 는 「다음 단계에서 됩니다」, s 는 세션 메뉴, ? 는 키 목록, 모르는 키는 안내', async () => {
+    render(<App developmentPreview />)
+    after({ key: 'f', code: 'KeyF' })
+    await waitFor(() => expect(statusMessage()).toBe('다음 단계에서 됩니다'))
+    after({ key: 'd', code: 'KeyD' })
+    await waitFor(() => expect(statusMessage()).toBe('다음 단계에서 됩니다'))
+    after({ key: 's', code: 'KeyS' })
+    await waitFor(() => expect(screen.getByRole('menu', { name: '세션' })).toBeDefined())
+    press({ key: 'Escape', code: 'Escape' })
+    after({ key: '/', code: 'Slash', shiftKey: true })
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '키와 명령' })).toBeDefined())
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '키와 명령' }), { key: 'Escape' })
+    after({ key: 'j', code: 'KeyJ' })
+    expect(statusMessage()).toBe('모르는 키: j — ? 로 목록')
+  })
+
+  it('명령줄: Enter 로 실행하고 `;` 로 잇고, 오류는 상태 줄에 보이며, 기록(↑)이 남는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    const before = cells(container).length
+    await runLine('split-window -h ; new-window -n 둘 ; rename-window 셋')
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1셋']))
+    fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
+    await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
+    await runLine('모르는명령')
+    await waitFor(() => expect(statusMessage()).toBe('모르는 명령: 모르는명령 — ? 로 목록'))
+    await runLine('next')
+    after({ key: ':', code: 'Semicolon', shiftKey: true })
+    fireEvent.keyDown(commandInput(), { key: 'ArrowUp' })
+    expect(commandInput().value).toBe('next')
+    fireEvent.keyDown(commandInput(), { key: 'Escape' })
+    expect(screen.queryByRole('textbox', { name: '명령줄' })).toBeNull()
+  })
+
+  it('명령줄 select-pane · swap-pane · select-layout · break-pane · join-pane', async () => {
+    const { container } = render(<App developmentPreview />)
+    await runLine('split-window -h')
+    await waitFor(() => expect(cells(container).length).toBeGreaterThan(2))
+    await runLine('select-layout main-vertical ; select-pane -L ; swap-pane -D')
+    await runLine('break-pane')
+    await waitFor(() => expect(screenTabs()).toHaveLength(2))
+    await runLine('select-window -t 0 ; join-pane -s 1')
+    await waitFor(() => expect(screenTabs()).toHaveLength(1))
+  })
+
+  it('Ctrl+K 가 명령 팔레트를 열고, 상단바 단추에 「명령 (Ctrl+K)」 가 보인다', () => {
+    render(<App developmentPreview />)
+    expect(screen.getByRole('button', { name: /명령 팔레트/u }).textContent).toContain('명령 (Ctrl+K)')
+    press({ key: 'k', code: 'KeyK', ctrlKey: true })
+    expect(screen.getByRole('dialog', { name: '명령 팔레트' })).toBeDefined()
+  })
+
+  it('명령 팔레트에 「:」 로 시작해 쓰면 같은 실행기로 간다', async () => {
+    const { container } = render(<App developmentPreview />)
+    const before = cells(container).length
+    press({ key: 'k', code: 'KeyK', ctrlKey: true })
+    const input = screen.getByRole('combobox', { name: '명령 찾기' })
+    fireEvent.change(input, { target: { value: ':split-window -h' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
+  })
+
+  it('상태 줄을 끄면 `:` 는 명령 팔레트를 「:」 로 채워서 연다', async () => {
+    setAppPref('statusBar', false)
+    try {
+      render(<App developmentPreview />)
+      after({ key: ':', code: 'Semicolon', shiftKey: true })
+      const input = await screen.findByRole('combobox', { name: '명령 찾기' })
+      expect((input as HTMLInputElement).value).toBe(':')
+    } finally {
+      setAppPref('statusBar', true)
+    }
+  })
+
+  it('글 쓰는 칸(입력칸) 안에서도 접두키가 먹고, 다음 키는 입력칸에 들어가지 않는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    const field = document.createElement('input')
+    document.body.append(field)
+    field.focus()
+    const before = cells(container).length
+    const send = (init: KeyboardEventInit) => { act(() => { field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
+    let reached = 0
+    field.addEventListener('keydown', () => { reached += 1 })
+    send({ key: ' ', code: 'Space', ctrlKey: true })
+    send({ key: '%', code: 'Digit5', shiftKey: true })
+    await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
+    expect(reached).toBe(0)
+    field.remove()
+  })
+})

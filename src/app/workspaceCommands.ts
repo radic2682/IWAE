@@ -68,6 +68,8 @@ export interface CommandHost {
   /** 「화면을 닫을까요? y/n」 */
   confirmKillWindow?: () => void
   showSessionMenu?: () => void
+  /** `.iwae/keys.conf` 를 다시 읽는다(source-file) */
+  reloadKeys?: () => Promise<CommandResult>
 }
 
 // ── 명령 표 ───────────────────────────────────────────────────────────────────
@@ -107,6 +109,7 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { name: 'set-channel', usage: 'set-channel blue|green|orange|none' },
   { name: 'note-beside', usage: 'note-beside' },
   { name: 'apply-template', usage: 'apply-template 이름' },
+  { name: 'source-file', aliases: ['source'], usage: 'source-file  (.iwae/keys.conf 다시 읽기)' },
   // 접두키 표가 쓰는 안쪽 명령(목록·완성에는 보이지 않는다)
   { name: 'command-prompt', usage: 'command-prompt' },
   { name: 'rename-prompt', usage: 'rename-prompt' },
@@ -635,6 +638,9 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       if (host.confirmKillWindow === undefined) return apply(killWindow(model))
       host.confirmKillWindow()
       return ok()
+    case 'source-file':
+      if (host.reloadKeys === undefined) return fail(t('지금은 안 됩니다'))
+      return host.reloadKeys()
     case 'choose-session':
       if (host.showSessionMenu === undefined) return fail(t('지금은 안 됩니다'))
       host.showSessionMenu()

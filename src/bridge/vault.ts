@@ -1309,6 +1309,17 @@ export async function updateLibraryPageCount(
   return updated
 }
 
+/** 접두키 설정 `.iwae/keys.conf`(설계 8.3). 없거나 못 읽으면 null */
+export async function readKeysConf(vault: VaultHandle): Promise<string | null> {
+  try {
+    const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+    const path = await iwaePath(vault, 'keys.conf')
+    return (await exists(path)) ? await readTextFile(path) : null
+  } catch {
+    return null
+  }
+}
+
 /** 번역 캐시(번역 기록): `.iwae/translations.json`. 없거나 깨졌으면 빈 목록 */
 export async function readTranslationCache(vault: VaultHandle): Promise<TranslationCacheEntry[]> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')

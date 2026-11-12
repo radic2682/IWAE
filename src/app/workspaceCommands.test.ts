@@ -485,6 +485,14 @@ describe('명령 실행: 앱이 하는 일', () => {
     expect(h.model().screens.screens).toHaveLength(2)
   })
 
+  it('source-file 은 keys.conf 를 다시 읽는 손잡이를 부른다', async () => {
+    const reloadKeys = vi.fn(async () => ({ ok: true, message: 'keys.conf 를 읽었습니다' }))
+    const h = harness(oneScreen(), { reloadKeys })
+    expect(await h.run('source')).toEqual({ ok: true, message: 'keys.conf 를 읽었습니다' })
+    expect(reloadKeys).toHaveBeenCalledOnce()
+    expect((await harness().run('source-file')).ok).toBe(false)
+  })
+
   it('다음 단계 명령은 「다음 단계에서 됩니다」', async () => {
     const h = harness()
     for (const name of ['new-session', 'switch-client -t 기본', 'save-session', 'float-pane', 'embed-pane', 'toggle-floating', 'display-popup', 'new-client', 'detach']) {

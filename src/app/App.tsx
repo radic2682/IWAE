@@ -3,7 +3,8 @@ import { translateWithCacheUsing, useTranslationCacheBridge } from './translatio
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { ShortcutOverlay } from './ShortcutOverlay'
-import { PREFIX_KEY_ID, comboText, effectiveKeys, getShortcutDef, shortcutText } from '../core/shortcutRegistry'
+import { PREFIX_KEY_ID, comboText, effectiveKeys, getShortcutDef, getShortcutOverrides, shortcutText, withBinding } from '../core/shortcutRegistry'
+import { parseKeysConf } from '../core/keysConf'
 import { InputSettings, SearchSettings } from './BehaviorSettings'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
@@ -120,7 +121,7 @@ import { closePaneTree, collapseEmptyPane, dockTab, moveTabToPaneAt, type DockEd
 import { moveTabToNewPane, setPaneCountTree, splitPane, swapSplitSides } from './paneLayoutOps'
 import { MAX_PANES, leaves, swapLeaves, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
 import { channelOf, cyclePaneChannel, type PaneChannel, type PaneChannels } from './workspaceChannels'
-import { useAppPrefs } from './appPrefs'
+import { setAppPref, useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
 import { emitPointSignal, subscribePointSignal, type DeliveredSignal } from './workspaceSignal'
 import { activeKindOf, isNoteSurface, memoNoteTargetFor, needForMemo, needForPlace, resolvePointSignal, visibleNotePathsIn } from './workspaceRouting'
@@ -1738,6 +1739,25 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const commandModelRef = useRef<WorkspaceModel>({ screens: screensState, activePane: activePaneId })
   commandModelRef.current = { screens: screensState, activePane: activePaneId }
   const prefixApiRef = useRef<{ readonly startConfirm: () => void }>({ startConfirm: () => undefined })
+  // .iwae/keys.conf: bind-key · unbind-key · set prefix. Vault 를 열 때와 source-file 때 읽는다(파일 감시는 하지 않는다)
+  const [keyBindings, setKeyBindings] = useState<Readonly<Record<string, string>>>({})
+  const loadKeysConf = useCallback(async (): Promise<CommandResult & { readonly found: boolean }> => {
+    if (vault === null) { setKeyBindings({}); return { ok: false, found: false, message: t('Vault 를 연 뒤에 쓸 수 있습니다') } }
+    try {
+      const { readKeysConf } = await import('../bridge/vault')
+      const text = await readKeysConf(vault)
+      const conf = parseKeysConf(text ?? '')
+      setKeyBindings(conf.bindings)
+      if (conf.prefix !== null) setAppPref('shortcuts', withBinding(getShortcutOverrides(), PREFIX_KEY_ID, conf.prefix))
+      if (conf.errors.length > 0) return { ok: false, found: true, message: t('keys.conf 를 일부 건너뛰었습니다: {line}', { line: conf.errors[0]! }) }
+      return { ok: true, found: text !== null, message: text === null ? t('keys.conf 가 없습니다') : t('keys.conf 를 읽었습니다') }
+    } catch {
+      return { ok: false, found: false, message: t('keys.conf 를 읽지 못했습니다') }
+    }
+  }, [vault])
+  useEffect(() => {
+    void loadKeysConf().then((result) => { if (!result.ok && result.found) announceAction(result.message) })
+  }, [loadKeysConf])
   /** 이름으로 열기(open 명령): 문서 · 노트 · 캔버스를 이름(없으면 경로)으로 찾아 pane 에 탭으로 연다 */
   const openByName = async (query: string, pane: PaneId): Promise<CommandResult> => {
     type Candidate = { readonly label: string; readonly hint: string; readonly run: () => void }
@@ -1808,6 +1828,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     },
     confirmKillWindow: () => prefixApiRef.current.startConfirm(),
     showSessionMenu: () => window.dispatchEvent(new CustomEvent('iwae:open-session-menu')),
+    reloadKeys: loadKeysConf,
   }
   const commandHost = useMemo<CommandHost>(() => new Proxy({} as CommandHost, { get: (_target, key) => (commandHostRef.current as unknown as Record<PropertyKey, unknown>)[key] }), [])
   /** 접두키 · 명령줄 · 명령 팔레트(:) · MCP 가 같이 쓰는 실행기. 실패·알릴 말은 상태 줄(꺼져 있으면 알림)에 보인다 */
@@ -1823,6 +1844,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     numbersOpen: paneNumbersOpen,
     onNumber: (index) => { setPaneNumbersOpen(false); void runWorkspaceLine(`select-pane -t ${index}`) },
     onCloseNumbers: () => setPaneNumbersOpen(false),
+    bindings: keyBindings,
   })
   prefixApiRef.current = prefix
   /** 문서 창에서 누른 형광펜을 보여 줄 노트가 같은 색 창에 안 보일 때: 그 메모의 노트를 옆에 열고(미리보기 설정이면 미리보기 탭) 그 카드를 보인다 */

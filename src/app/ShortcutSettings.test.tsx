@@ -84,4 +84,25 @@ describe('ShortcutSettings', () => {
     expect(getShortcutOverrides()).toEqual({ print: 'Mod+J' })
     expect(keysButton('인쇄').textContent).toContain('J')
   })
+
+  it('접두키: 기본 Ctrl+Space, 프리셋 Ctrl+B · Ctrl+A 로 바꾸고 다시 Ctrl+Space 로 돌아간다(굵게와 겹쳐도 고를 수 있다)', () => {
+    render(<ShortcutSettings />)
+    expect(keysButton('접두키 .*').textContent).toContain('Space')
+    const group = screen.getByRole('group', { name: '접두키 고르기' })
+    expect(group.querySelector('[aria-pressed="true"]')?.textContent).toBe('Ctrl+Space')
+    fireEvent.click(screen.getByRole('button', { name: 'Ctrl+B' }))
+    expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+B' })
+    expect(getShortcutOverrides()).toEqual({ prefixKey: 'Mod+B' })
+    expect(screen.getByRole('button', { name: 'Ctrl+B' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Ctrl+A' }))
+    expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+A' })
+    fireEvent.click(screen.getByRole('button', { name: 'Ctrl+Space' }))
+    expect(getAppPrefs().shortcuts).toEqual({})
+  })
+
+  it('접두키를 직접 눌러 정할 수도 있다(Ctrl+J)', () => {
+    render(<ShortcutSettings />)
+    record('접두키 .*', { key: 'j', ctrlKey: true })
+    expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+J' })
+  })
 })

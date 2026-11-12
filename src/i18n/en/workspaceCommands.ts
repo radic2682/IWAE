@@ -1,5 +1,15 @@
 /** 영어 사전: 접두키 · `:` 명령줄 · 워크스페이스 명령(설계 8) */
 export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
+  // keys.conf
+  'Vault 를 연 뒤에 쓸 수 있습니다': 'Available after a vault is open',
+  'keys.conf 를 일부 건너뛰었습니다: {line}': 'Some keys.conf lines were skipped: {line}',
+  'keys.conf 가 없습니다': 'There is no keys.conf',
+  'keys.conf 를 읽었습니다': 'keys.conf loaded',
+  'keys.conf 를 읽지 못했습니다': 'Could not read keys.conf',
+  // 접두키 설정
+  '접두키 (칸·화면 명령의 첫 키)': 'Prefix key (first key of pane and screen commands)',
+  '접두키 고르기': 'Choose the prefix key',
+  'Ctrl+B 를 고르면 글 쓰는 칸에서는 Ctrl+B 를 두 번 눌러야 굵게가 됩니다. 입력기가 Ctrl+Space 를 쓰면 다른 키를 고르세요.': 'With Ctrl+B, press it twice in a text field to get bold. If your input method uses Ctrl+Space, pick another key.',
   // 상태 줄 · 접두키
   '접두키 — 다음 키를 누르세요': 'Prefix — press the next key',
   '접두키(기본 Ctrl+Space): 누르면 다음 키를 기다립니다. 입력기에 막힐 때는 여기를 누르세요': 'Prefix key (Ctrl+Space by default): waits for the next key. Click here if your input method swallows it',
