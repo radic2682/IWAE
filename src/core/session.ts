@@ -130,7 +130,9 @@ export function captureSession(
   const docTabs = all.filter((tab) => tab.kind === 'pdf' || tab.kind === 'markdown')
   const noteTabs = all.filter((tab) => tab.kind === 'canvas')
   const memoNoteTabs = all.filter((tab) => tab.kind === 'memoNote')
-  const snapshots = screens === null ? [] : screens.screens.map((screen) => snapshotPanes(screen, screenPaneIds(screen), dormant))
+  // 화면마다 칸 상태를 화면과 짝지어 둔다(번호로 다시 찾지 않는다)
+  const screenSnapshots = screens === null ? [] : screens.screens.map((screen) => ({ screen, paneState: snapshotPanes(screen, screenPaneIds(screen), dormant) }))
+  const snapshots = screenSnapshots.map((entry) => entry.paneState)
   const activeSnapshot = snapshotPanes(active, leaves(active.layout), dormant)
   // 칸에 아직 남아 있는 꺼 둔 탭 id 는 노트 탭 목록에도 그대로 적는다(칸이 닫혔으면 같이 사라진다)
   const dormantIds = new Set(Object.values(dormant).flat())
@@ -149,11 +151,11 @@ export function captureSession(
     sidebarPx: layout.sidebarPx,
     leftFrac: layout.leftFrac,
     ...(screens === null ? {} : {
-      screens: screens.screens.map((screen, index): ScreenSnapshot => ({
+      screens: screenSnapshots.map(({ screen, paneState }): ScreenSnapshot => ({
         id: screen.id,
         name: screen.name,
         layout: screen.layout,
-        paneState: snapshots[index]!,
+        paneState,
         ...(screen.zoomed === null ? {} : { zoomed: screen.zoomed }),
         ...(screen.floats.length === 0 ? {} : { floats: screen.floats, ...(screen.floatsHidden === true ? { floatsHidden: true } : {}) }),
       })),

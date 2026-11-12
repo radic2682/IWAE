@@ -1038,8 +1038,9 @@ export function Sidebar({
       onStart: () => {
         pill.lift()
         setDraggedNode(dragged)
-        setDockDragging(true)
+        // 칸으로 열 수 있으면 끌기 세션이 dock-dragging 을 켠다(startDockSession). 아니면(폴더 · 여러 줄) 여기서 켠다
         if (toPane) session = startDockSession({ edgesFor: (pane) => paneDrop.edgesFor(pane, item) })
+        else setDockDragging(true)
       },
       onOver: (target, x, y) => {
         const drop = dropFor(target, y)

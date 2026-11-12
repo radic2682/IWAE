@@ -105,6 +105,32 @@ describe('MemoNotesSection', () => {
     expect(document.body.classList.contains('dock-dragging')).toBe(false)
   })
 
+  it('끄는 중의 Esc 는 끌기만 취소하고 다른 곳(바깥의 Esc 듣는 것)으로 가지 않는다. 끌기 전의 Esc 는 그대로 지나간다', () => {
+    const onReorder = vi.fn()
+    const { container } = render(<MemoNotesSection entries={three} openPath={null} onOpen={vi.fn()} onCreate={vi.fn()} onRename={vi.fn()} onTrash={vi.fn()} onReorder={onReorder} />)
+    container.querySelectorAll('.side-memo-note-list > li').forEach((item, index) => {
+      item.getBoundingClientRect = () => ({ top: index * 30, height: 30, bottom: index * 30 + 30, left: 0, right: 200, width: 200, x: 0, y: index * 30, toJSON: () => ({}) })
+    })
+    placeSection(container)
+    const outside = vi.fn()
+    document.addEventListener('keydown', outside)
+    try {
+      fireEvent.pointerDown(screen.getByRole('button', { name: 'A' }), { button: 0, clientX: 20, clientY: 10, pointerId: 1 })
+      // 아직 끌기 전(움직이지 않았다): Esc 는 막지 않는다
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(outside).toHaveBeenCalledTimes(1)
+      fireEvent.pointerDown(screen.getByRole('button', { name: 'A' }), { button: 0, clientX: 20, clientY: 10, pointerId: 1 })
+      fireEvent.pointerMove(window, { clientX: 20, clientY: 85, pointerId: 1 })
+      expect(container.ownerDocument.querySelector('.tab-drag-ghost')).not.toBeNull()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      // 끌기는 취소되고 Esc 는 아무 데도 더 가지 않았다
+      expect(container.ownerDocument.querySelector('.tab-drag-ghost')).toBeNull()
+      expect(outside).toHaveBeenCalledTimes(1)
+      fireEvent.pointerUp(window, { clientX: 20, clientY: 85, pointerId: 1 })
+      expect(onReorder).not.toHaveBeenCalled()
+    } finally { document.removeEventListener('keydown', outside) }
+  })
+
   it('칸 위에 놓으면 그 자리로 노트를 열고, 목록의 차례는 건드리지 않는다.', () => {
     const open = vi.fn()
     const onReorder = vi.fn()

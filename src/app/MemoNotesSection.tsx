@@ -291,9 +291,10 @@ export function MemoNotesSection({
         press.active = true
         ghost = createPillGhost(icon, title)
         ghost.attach()
-        setDockDragging(true)
         window.getSelection()?.removeAllRanges()
+        // 칸으로 열 수 있으면 끌기 세션이 dock-dragging 을 켠다(startDockSession). 아니면 여기서 켠다
         if (toPane) session = startDockSession({ edgesFor: (pane) => paneDrop.edgesFor(pane, { kind: 'note', path: row.kind === 'note' ? row.entry.path : '' }) })
+        else setDockDragging(true)
       }
       moveEvent.preventDefault()
       ghost?.move(moveEvent.clientX, moveEvent.clientY)
@@ -320,8 +321,14 @@ export function MemoNotesSection({
       const drop = dropAt(press.row, upEvent.clientY)
       if (drop !== null) finishDrop(press.row, drop)
     }
+    // Esc: 끄는 중이면 끌기만 취소하고 그 Esc 는 다른 곳(팔레트 · 메뉴 · 닫기)으로 가지 않게 먼저 받는다(capture + stopPropagation — tabDrag · internalDrag 와 같다)
     const key = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key === 'Escape') stop()
+      if (keyEvent.key !== 'Escape') return
+      if (pressRef.current?.active === true) {
+        keyEvent.preventDefault()
+        keyEvent.stopPropagation()
+      }
+      stop()
     }
     const stop = () => {
       pressRef.current = null
@@ -334,14 +341,14 @@ export function MemoNotesSection({
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', stop)
-      window.removeEventListener('keydown', key)
+      window.removeEventListener('keydown', key, true)
       stopPressRef.current = null
     }
     stopPressRef.current = stop
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
     window.addEventListener('pointercancel', stop)
-    window.addEventListener('keydown', key)
+    window.addEventListener('keydown', key, true)
   }
 
   const commitRename = () => {
