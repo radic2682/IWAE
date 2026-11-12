@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { SIDEBAR_DEFAULT, clampLeftFrac, clampSidebar, fracFromPointer } from './splitLayout'
 import { evenFractions, fractionOffset, moveSplitBoundary, splitDividers, type PdfSplitLayout } from '../core/pdfSplit'
 import { NoteDockContext } from './noteDock'
+import { WorkspaceLinkLayer } from './WorkspaceLinkLayer'
 import '../ui/layout-transitions.css'
 import { t } from '../i18n'
 
@@ -445,6 +446,8 @@ export function SplitPanes({
         {/* 노트 바 칸: 어느 창에 문서가 있든, 창이 비었든 늘 맨 오른쪽. 열고 닫을 때 폭이 부드럽게 움직인다 */}
         <div ref={setNoteDock} className="note-dock pane-doc" data-note-dock="" aria-hidden={libraryExpanded || undefined} inert={libraryExpanded} />
         {libraryExpanded ? <div ref={onLibraryHost} className="library-host" /> : null}
+        {/* 작업 공간 층: 문서 창과 이웃한 메모 노트 창 사이의 연결선을 모든 칸 위에 그린다(포인터는 지나간다) */}
+        {libraryExpanded ? null : <WorkspaceLinkLayer />}
       </div>
     </div>
     </NoteDockContext.Provider>
