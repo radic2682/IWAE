@@ -318,3 +318,20 @@ body.note-block-dragging .note-block-tabs { display: none; }
   background: color-mix(in srgb, var(--accent) 14%, var(--paper)) !important;
   box-shadow: 0 0 0 1.5px var(--accent) !important;
 }
+
+/* ---------- 서식 줄은 늘 한 줄: 모자라면 뒤쪽 묶음이 「⋯」 메뉴로 간다(MemoColumn 의 useFormatOverflow) ---------- */
+.pane-doc .note-format-dock .pdf-memo-format-bar { position: relative; flex-wrap: nowrap; }
+.pane-doc .note-format-dock .pdf-memo-format-bar > .pdf-memo-format-cluster { flex: 0 0 auto; }
+.pane-doc .note-format-dock .pdf-memo-format-more { flex: 0 0 auto; margin-left: 6px; }
+.pane-doc .note-format-dock .pdf-memo-format-more[aria-expanded='true'] { background: var(--chrome-hover); }
+.pane-doc .note-format-dock .pdf-memo-format-overflow {
+  position: absolute; z-index: 41; top: calc(100% + 4px); left: 11px; max-width: calc(100% - 11px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; padding: 4px;
+  border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper); box-shadow: 0 8px 24px var(--shadow-soft);
+}
+/* 메뉴 안에서는 묶음 사이 선 · 왼쪽 여백(줄 밖으로 밀어 자르던 것)을 쓰지 않는다: 묶음은 줄바꿈으로만 나뉜다 */
+.pane-doc .note-format-dock .pdf-memo-format-overflow .pdf-memo-format-cluster,
+.pane-doc .note-format-dock .pdf-memo-format-overflow .pdf-memo-format-cluster + .pdf-memo-format-cluster { margin-left: 0; padding-left: 0; }
+.pane-doc .note-format-dock .pdf-memo-format-overflow .pdf-memo-format-cluster::before { display: none; }
+/* 「⋯」 메뉴가 열려 있는 동안 도구줄을 노트 블록(z-index 2~3)과 목차 위로 올린다 */
+.pane-doc .note-format-dock:has(.pdf-memo-format-overflow) { z-index: 30; }

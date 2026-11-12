@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { CaretDown, CaretRight, Check, Code, DotsSixVertical, HighlighterCircle, ListBullets, ListChecks, ListNumbers, Star, Table, TextAa, TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline, Trash } from '@phosphor-icons/react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from 'react'
+import { CaretDown, CaretRight, Check, Code, DotsSixVertical, DotsThree, HighlighterCircle, ListBullets, ListChecks, ListNumbers, Star, Table, TextAa, TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline, Trash } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { restoreInlineStyles } from '../app/runtimeStyle'
 import { hasMemoFormatting, memoDisplayHtml, plainMemoTextToHtml, sanitizeMemoHtml, togglePlainCheck } from './memoRichText'
@@ -114,6 +114,7 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
     document.addEventListener('selectionchange', update)
     return () => document.removeEventListener('selectionchange', update)
   }, [disabled])
+  const barRef = useRef<HTMLDivElement | null>(null)
   const withEditor = (action: (editor: HTMLElement) => void) => () => {
     const editor = activeMemoEditor()
     if (editor !== null) action(editor)
@@ -134,9 +135,8 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
       {content}
     </button>
   )
-  return (
-    <div className={`pdf-memo-format-bar${disabled ? ' pdf-memo-format-bar-idle' : ''}`} role="toolbar" aria-label={t('메모 서식')} aria-disabled={disabled || undefined}>
-      <span className="pdf-memo-format-cluster">
+  const clusters: ReactNode[] = [
+      <span key="block" className="pdf-memo-format-cluster" data-cluster="0">
       <span className="pdf-memo-format-group">
         <button
           type="button"
@@ -191,15 +191,15 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
           </span>
         ) : null}
       </span>
-      </span>
-      <span className="pdf-memo-format-cluster">
+      </span>,
+      <span key="text" className="pdf-memo-format-cluster" data-cluster="1">
       {button(t('굵게 (Ctrl+B · **글**)'), <TextB size={15} weight="bold" aria-hidden="true" />, () => run('bold'))}
       {button(t('기울임 (Ctrl+I · *글*)'), <TextItalic size={15} aria-hidden="true" />, () => run('italic'))}
       {button(t('밑줄 (Ctrl+U)'), <TextUnderline size={15} aria-hidden="true" />, () => run('underline'))}
       {button(t('취소선 (~~글~~)'), <TextStrikethrough size={15} aria-hidden="true" />, () => run('strikeThrough'))}
       {button(t('코드 (Ctrl+E · `글`)'), <Code size={15} weight="bold" aria-hidden="true" />, withEditor(toggleInlineCode))}
-      </span>
-      <span className="pdf-memo-format-cluster">
+      </span>,
+      <span key="color" className="pdf-memo-format-cluster" data-cluster="2">
       <span className="pdf-memo-format-group">
         {button(t('글자색'), <TextAa size={15} aria-hidden="true" />, () => setPalette((current) => current === 'fore' ? null : 'fore'))}
         {palette === 'fore' ? (
@@ -246,8 +246,8 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
           </span>
         ) : null}
       </span>
-      </span>
-      <span className="pdf-memo-format-cluster">
+      </span>,
+      <span key="list" className="pdf-memo-format-cluster" data-cluster="3">
       {button(t('글머리 목록 (- 띄어쓰기)'), <ListBullets size={15} aria-hidden="true" />, () => run('insertUnorderedList'))}
       {button(t('번호 목록 (1. 띄어쓰기)'), <ListNumbers size={15} aria-hidden="true" />, () => run('insertOrderedList'))}
       {button(t('할 일 목록 ([ ] 띄어쓰기)'), <ListChecks size={15} aria-hidden="true" />, withEditor(toggleChecklist))}
@@ -284,9 +284,91 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
         ) : null}
       </span>
       {button(t('서식 지우기'), <TextTSlash size={15} aria-hidden="true" />, () => run('removeFormat'))}
-      </span>
+      </span>,
+  ]
+  const [visible, moreOpen, setMoreOpen] = useFormatOverflow(barRef, clusters.length)
+  return (
+    <div ref={barRef} className={`pdf-memo-format-bar${disabled ? ' pdf-memo-format-bar-idle' : ''}`} role="toolbar" aria-label={t('메모 서식')} aria-disabled={disabled || undefined}>
+      {clusters.slice(0, visible)}
+      {visible < clusters.length ? (
+        <button
+          type="button"
+          className="pdf-memo-format-button pdf-memo-format-more"
+          aria-label={t('서식 더 보기')}
+          title={t('서식 더 보기')}
+          aria-haspopup="true"
+          aria-expanded={moreOpen}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => setMoreOpen((open) => !open)}
+        >
+          <DotsThree size={16} weight="bold" aria-hidden="true" />
+        </button>
+      ) : null}
+      {moreOpen && visible < clusters.length ? <div className="pdf-memo-format-overflow" role="group" aria-label={t('서식 더 보기')}>{clusters.slice(visible)}</div> : null}
     </div>
   )
+}
+
+/**
+ * 노트 도구줄(.note-format-dock) 안의 서식 줄은 늘 한 줄이다: 폭이 모자라면 뒤쪽 묶음(목록 → 색 → 글자 모양 순)부터 「⋯」 메뉴로 옮긴다.
+ * 첫 묶음(문단 모양)과 「⋯」 은 늘 줄에 있다. 묶음 폭은 줄에 있을 때 재어 두고(처음엔 모두 줄에 그린다) 그 폭으로 몇 개가 들어가는지 정한다.
+ * 도구줄 밖(박스 메모 등)의 서식 줄은 건드리지 않는다.
+ */
+function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: number): [number, boolean, Dispatch<SetStateAction<boolean>>] {
+  const [visible, setVisible] = useState(total)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const widths = useRef<number[]>([])
+  const [tick, setTick] = useState(0)
+  useLayoutEffect(() => {
+    const bar = barRef.current
+    if (bar === null || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => setTick((value) => value + 1))
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [barRef])
+  useLayoutEffect(() => {
+    const bar = barRef.current
+    if (bar === null || bar.closest('.note-format-dock') === null) return
+    for (const element of Array.from(bar.querySelectorAll<HTMLElement>(':scope > [data-cluster]'))) {
+      widths.current[Number(element.dataset.cluster)] = element.offsetWidth
+    }
+    const capacity = bar.clientWidth
+    const known = widths.current
+    if (capacity <= 0 || known.length < total || known.some((width) => !(width > 0))) return
+    const next = fitFormatClusters(known, capacity, FORMAT_MORE_W)
+    if (next !== visible) setVisible(next)
+  })
+  useEffect(() => {
+    if (!moreOpen) return undefined
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !(event.target instanceof Node && barRef.current?.contains(event.target))) setMoreOpen(false)
+    }
+    window.addEventListener('pointerdown', close, true)
+    window.addEventListener('keydown', close)
+    return () => {
+      window.removeEventListener('pointerdown', close, true)
+      window.removeEventListener('keydown', close)
+    }
+  }, [moreOpen, barRef])
+  void tick
+  return [visible, moreOpen, setMoreOpen]
+}
+
+/** 「⋯」 단추가 차지하는 폭(px): 28px + 앞 여백 6px */
+const FORMAT_MORE_W = 34
+
+/** 묶음 폭들(앞에서부터)이 capacity 안에 몇 개 들어가는가. 다 안 들어가면 「⋯」 자리(moreWidth)를 남기고, 첫 묶음은 늘 남긴다 */
+export function fitFormatClusters(widths: readonly number[], capacity: number, moreWidth: number): number {
+  const all = widths.reduce((sum, width) => sum + width, 0)
+  if (all <= capacity) return widths.length
+  let used = moreWidth
+  let count = 0
+  for (const width of widths) {
+    if (used + width > capacity) break
+    used += width
+    count += 1
+  }
+  return Math.max(count, 1)
 }
 
 /** 글 끝(마지막 의미 있는 노드)을 고른다. 빈 글자 노드는 건너뛴다 */
