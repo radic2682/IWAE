@@ -14,6 +14,42 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl, We
 pub const MAIN_LABEL: &str = "main";
 /// 창을 닫으라는 알림(메인 창이 닫힐 때 다른 창에 보낸다)
 pub const CLOSE_NOW_EVENT: &str = "iwae:close-now";
+/// 앱 창(메인 · 새 창)이 없어졌다는 알림. 창이 스스로 「나간다」고 알리지 못하고 사라져도(충돌) 다른 앱 창이 목록에서 빼고
+/// 세션 소유권을 넘겨받게 한다. 알림 내용은 창 label 글자 하나다
+pub const CLIENT_GONE_EVENT: &str = "iwae:client-gone";
+
+/// 세션에 붙는 앱 창의 label 인가(메인 창 · 새 창). 떼어 낸 PDF 창(`detached-…`)은 세션에 붙지 않는다
+pub fn is_app_client_label(label: &str) -> bool {
+    label == MAIN_LABEL || label.starts_with("window-")
+}
+
+/// 창이 없어졌다: 앱 창이면 다른 창들에 알린다
+pub fn announce_window_gone(app: &AppHandle, label: &str) {
+    if is_app_client_label(label) {
+        let _ = app.emit(CLIENT_GONE_EVENT, label.to_string());
+    }
+}
+
+/// 이 창을 숨긴다. 메인 창은 다른 앱 창이 남아 있는 동안 닫지 않고 숨긴다(MCP · 백업을 맡는 창이라 앱이 살아 있어야 한다)
+#[tauri::command]
+pub fn hide_this_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.hide().map_err(|error| error.to_string())
+}
+
+/// label 의 앱 창을 다시 보이고 앞으로 가져온다(숨겨 둔 메인 창을 앱을 끝내기 전에 보일 때). 앱 창이 아니면 거절한다
+#[tauri::command]
+pub fn show_app_window(app: AppHandle, label: String) -> Result<(), String> {
+    if !is_app_client_label(&label) {
+        return Err(format!("not an app window: {label}"));
+    }
+    match app.get_webview_window(&label) {
+        Some(window) => {
+            focus(&window);
+            Ok(())
+        }
+        None => Err(format!("no such window: {label}")),
+    }
+}
 
 #[derive(Serialize)]
 pub struct OpenedWindow {
@@ -496,6 +532,15 @@ mod tests {
     fn same_document_gets_the_same_label() {
         assert_eq!(detached_label("0123abcd"), detached_label("0123abcd"));
         assert_ne!(detached_label("0123abcd"), detached_label("0123abce"));
+    }
+
+    #[test]
+    fn only_the_main_window_and_new_windows_are_app_clients() {
+        assert!(is_app_client_label("main"));
+        assert!(is_app_client_label("window-1731400000000"));
+        assert!(!is_app_client_label("detached-0123abcd"));
+        assert!(!is_app_client_label("mainframe"));
+        assert!(!is_app_client_label(""));
     }
 
     #[test]

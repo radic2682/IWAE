@@ -81,6 +81,13 @@ pub fn run() {
                 .with_filter(|label| !label.starts_with("window-"))
                 .build(),
         )
+        // 앱 창이 사라지면(닫힘 · 충돌) 다른 앱 창에 알려 세션 소유권을 넘기게 한다
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                use tauri::Manager;
+                windows::announce_window_gone(window.app_handle(), window.label());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             support::support_log_tail,
             screen_capture::capture_window_png,
@@ -144,6 +151,8 @@ pub fn run() {
             windows::tab_drag_move,
             windows::tab_drag_end,
             windows::destroy_app_window,
+            windows::hide_this_window,
+            windows::show_app_window,
             i18n::set_locale,
             translation::translation_install_ollama,
             storage::atomic_write_text,
