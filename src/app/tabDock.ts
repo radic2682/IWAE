@@ -1,5 +1,5 @@
 import { MAX_PANES, hasPane, leaves, newPaneId, paneCount, removeLeaf, splitLeaf, splitRefusal, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
-import { closeTab, closePaneInto, openTab, emptyTabs, paneIdsOf, paneOfTab, tabsOf, type PaneId, type PanesState, type TabsState } from './tabs'
+import { closeTab, closePaneInto, openTab, emptyTabs, paneIdsOf, paneOfTab, tabsOf, type PaneId, type PanesState, type Tab, type TabsState } from './tabs'
 import { inheritChannel, pruneChannels, type PaneChannels } from './workspaceChannels'
 
 /**
@@ -88,6 +88,17 @@ export type PaneSizer = (pane: PaneId) => Size | null
 /** 칸 pane 의 edge 쪽을 나눌 수 있는가. 못 하면 까닭(칸이 상한 · 너무 작아진다) */
 export function dockRefusal(layout: LayoutNode, pane: PaneId, edge: DockEdge, sizeOf?: PaneSizer): SplitRefusal | null {
   return splitRefusal(layout, pane, edgeSplit(edge).dir, sizeOf?.(pane) ?? null)
+}
+
+export const ALL_DOCK_EDGES: readonly DockEdge[] = ['left', 'right', 'top', 'bottom']
+
+/**
+ * 칸 pane 에서 실제로 나눌 수 있는 가장자리들(칸 상한 · 너무 작음을 뺀다). 못 나누는 쪽은 미리보기 없이 「가운데」로 본다 —
+ * 미리보기가 보이면 놓았을 때 꼭 된다. closingSource: 이 끌기로 비어 닫힐 칸(하나뿐인 탭을 다른 칸으로 끌 때), 아니면 null
+ */
+export function allowedDockEdges(layout: LayoutNode, pane: PaneId, closingSource: PaneId | null, sizeOf?: PaneSizer): readonly DockEdge[] {
+  const base = closingSource !== null && paneCount(layout) >= MAX_PANES ? removeLeaf(layout, closingSource) ?? layout : layout
+  return ALL_DOCK_EDGES.filter((edge) => dockRefusal(base, pane, edge, sizeOf) === null)
 }
 
 /** 미리보기 표시를 뗀 탭(다른 창으로 끌린 탭은 보통 탭이 된다) */
@@ -210,4 +221,53 @@ export function closePaneTree(input: TreeWorkspace, pane: PaneId): (TreeWorkspac
   if (next === null) return null
   const landed = order[index + 1] ?? order[index - 1]!
   return { layout: next, panes: closePaneInto(panes, pane, landed), channels: pruneChannels(channels, leaves(next)), landed }
+}
+
+/** 탭을 놓을 자리: 칸 탭 줄의 index 번째, 또는 칸 본문의 구역(가운데 · 가장자리) */
+export type TabDropTarget =
+  | { readonly kind: 'strip'; readonly pane: PaneId; readonly index: number }
+  | { readonly kind: 'body'; readonly pane: PaneId; readonly zone: DockZone }
+
+export interface TabDropOutcome extends TreeWorkspace {
+  /** 탭이 앉은 칸(활성 칸이 된다) */
+  readonly landed: PaneId
+  /** 새로 생긴 칸(나눴을 때) */
+  readonly created: PaneId | null
+}
+
+/**
+ * 왼쪽 바에서 끌어 온 문서·노트 탭을 target 에 연다(보통 탭이다 — 미리보기 아님). 이미 어디 열려 있으면 그 탭을 옮긴다(탭 끌기와 같다).
+ * 가장자리가 상한·크기로 안 나뉘면 { refused }, 놓을 칸이 없으면 null.
+ */
+export function dropTabAt(input: TreeWorkspace, tab: Tab, target: TabDropTarget, sizeOf?: PaneSizer): TabDropOutcome | { readonly refused: SplitRefusal } | null {
+  const { panes, layout, channels } = input
+  if (panes[target.pane] === undefined) return null
+  const source = paneOfTab(panes, tab.id)
+  const zone: DockZone = target.kind === 'strip' ? 'center' : target.zone
+  if (zone === 'center') {
+    const index = target.kind === 'strip' ? target.index : Number.MAX_SAFE_INTEGER
+    if (source !== null) {
+      const moved = moveTabToPaneAt(panes, tab.id, target.pane, index)
+      const next = source !== target.pane ? collapseEmptyPane({ panes: moved, channels, layout }, source) : null
+      return { ...(next ?? { panes: moved, channels, layout }), landed: target.pane, created: null }
+    }
+    return { panes: { ...panes, [target.pane]: insertTabAt(tabsOf(panes, target.pane), pinned(tab), index) }, channels, layout, landed: target.pane, created: null }
+  }
+  if (source !== null) {
+    const outcome = dockTab(input, tab.id, target.pane, zone, sizeOf)
+    if (outcome === null) return null
+    if ('refused' in outcome) return outcome
+    return { panes: outcome.panes, channels: outcome.channels, layout: outcome.layout, landed: outcome.newPane, created: outcome.newPane }
+  }
+  const refused = dockRefusal(layout, target.pane, zone, sizeOf)
+  if (refused !== null) return { refused }
+  const created = newPaneId(paneIdsOf(panes))
+  const { dir, before } = edgeSplit(zone)
+  return {
+    layout: splitLeaf(layout, target.pane, dir, created, { before }),
+    panes: { ...panes, [created]: openTab(emptyTabs, pinned(tab)) },
+    channels: inheritChannel(channels, target.pane, created),
+    landed: created,
+    created,
+  }
 }
