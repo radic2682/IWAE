@@ -132,6 +132,8 @@ import {
   type PaneCount,
   type TabsState,
   tabDocId,
+  isDocumentKind,
+  paneRouteOf,
   type PaneId,
   type Tab,
 } from './tabs'
@@ -255,7 +257,7 @@ const DEVELOPMENT_PDF_TABS = openTab(emptyTabs, {
 const DEVELOPMENT_NOTE_TABS = openTab(emptyTabs, {
   id: DEVELOPMENT_NOTE.path,
   title: DEVELOPMENT_NOTE.title,
-  kind: 'note',
+  kind: 'canvas',
 })
 
 interface AppProps {
@@ -999,14 +1001,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }
     if (record.kind === 'canvas' && CANVAS_ENABLED) {
       const note = shownNotebooks.flatMap((group) => group.notes).find((entry) => entry.path === record.path)
-      if (note !== undefined) openInPane({ id: note.path, title: note.title, kind: 'note' })
+      if (note !== undefined) openInPane({ id: note.path, title: note.title, kind: 'canvas' })
     }
   }, [openDocument, openInPane, openMarkdown, shownLibrary, shownNotebooks])
   /** 라이브러리에서 연 항목은 해당 패널에 탭으로 열고, 그 패널이 보이도록 라이브러리를 접는다 */
   const openLibraryItem = useCallback((target: LibraryOpenTarget) => {
     if (target.kind === 'pdf') void openDocument(target.doc)
     else if (target.kind === 'markdown') void openMarkdown(target.node)
-    else if (CANVAS_ENABLED) openInPane({ id: target.note.path, title: target.note.title, kind: 'note' })
+    else if (CANVAS_ENABLED) openInPane({ id: target.note.path, title: target.note.title, kind: 'canvas' })
     setLibraryExpanded(false)
   }, [openDocument, openInPane, openMarkdown])
   /** Ctrl+Shift+F: 왼쪽 바 검색 보기를 모든 문서 범위로 연다 */
@@ -1236,15 +1238,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return next
     })
   }, [])
-  const isDocTab = (tab: Tab | null) => tab !== null && tab.kind !== 'note'
+  const isDocTab = (tab: Tab | null) => tab !== null && isDocumentKind(tab.kind)
   // 문서 기능(목차·검색·쪽 이동)이 향할 패널: 만진 패널이 문서면 그쪽, 아니면 반대편 문서.
   const docPaneId: PaneId | null = isDocTab(activeTab(panes[activePaneId]))
     ? activePaneId
     : isDocTab(activeTab(panes[otherPane(activePaneId)])) ? otherPane(activePaneId) : null
   // 발췌를 받을 캔버스: 만진 패널이 캔버스면 그쪽, 아니면 반대편 캔버스.
-  const notePaneId: PaneId | null = activeTab(panes[activePaneId])?.kind === 'note'
+  const notePaneId: PaneId | null = activeTab(panes[activePaneId])?.kind === 'canvas'
     ? activePaneId
-    : activeTab(panes[otherPane(activePaneId)])?.kind === 'note' ? otherPane(activePaneId) : null
+    : activeTab(panes[otherPane(activePaneId)])?.kind === 'canvas' ? otherPane(activePaneId) : null
   const activeDocumentTab = docPaneId === null ? null : activeTab(panes[docPaneId])
   // 노트 바(창 맨 오른쪽)를 그리는 문서 창. 만진 문서 창이 기본이지만, PDF 가 다른 창에 있으면 그 PDF 창이 그린다 —
   // 그래야 만지는 창이 바뀌어도 바가 다시 만들어지지 않고, PDF 형광펜 선이 카드까지 이어진다(Markdown 창의 선은 바를 보고 따로 그린다)
@@ -1279,7 +1281,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const id = panes[activePaneId].activeId
       if (id === null) return
       const tab = panes[activePaneId].tabs.find((candidate) => candidate.id === id)
-      if (tab?.kind === 'note') closeNoteTabSafely(id)
+      if (tab?.kind === 'canvas') closeNoteTabSafely(id)
       else setPanes((current) => closeTabEverywhere(current, id))
     },
     focus: (pane) => setActivePaneId(pane),
@@ -1324,7 +1326,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const focusPane = useCallback((pane: PaneId) => {
     setActivePaneId(pane)
     const tab = activeTab(panes[pane])
-    if (tab !== null) setPaneRoute(tab.kind === 'note' ? 'note' : 'doc', pane)
+    if (tab !== null) setPaneRoute(paneRouteOf(tab.kind), pane)
     else {
       // 빈 창을 눌렀다: 다음에 여는 문서·노트가 이 창으로 온다
       setPaneRoute('doc', pane)
@@ -1517,7 +1519,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setPaneRoute,
       activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(current[pane], tabId) })),
       closeTab: (tab) => {
-        if (tab.kind === 'note') closeNoteTabSafely(tab.id)
+        if (tab.kind === 'canvas') closeNoteTabSafely(tab.id)
         else setPanes((current) => closeTabEverywhere(current, tab.id))
       },
       requestPage: (pane, docId, page) => {
@@ -2150,7 +2152,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const fullscreenModeOf = (pane: PaneId): Exclude<FocusedPane, 'split'> => pane === 'left' ? 'reader' : 'note'
   const closePaneTab = (id: string) => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
-    if (tab?.kind === 'note') closeNoteTabSafely(id)
+    if (tab?.kind === 'canvas') closeNoteTabSafely(id)
     else setPanes((current) => closeTabEverywhere(current, id))
   }
   /** 이 창이 지금 보는 쪽(1부터)과 배율. 활성 탭이 아니면 마지막으로 읽던 쪽 */
@@ -2341,7 +2343,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPanes(collapsed === null ? moved : collapsed.panes)
     if (collapsed !== null) setPaneLayout(collapsed.layout)
     setActivePaneId(landed)
-    if (tab !== undefined) setPaneRoute(tab.kind === 'note' ? 'note' : 'doc', landed)
+    if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
     if (collapsed !== null) {
       window.setTimeout(() => {
         window.dispatchEvent(new Event('resize'))
@@ -2367,7 +2369,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPanes(collapsed === null ? result.panes : collapsed.panes)
     setPaneLayout(collapsed === null ? result.layout : collapsed.layout)
     setActivePaneId(landed)
-    if (tab !== undefined) setPaneRoute(tab.kind === 'note' ? 'note' : 'doc', landed)
+    if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
     // 새 패널은 자라듯 나타나고, 끝나면 노트 바·연결선이 새 자리를 다시 잰다
     setFreshPane(landed)
     window.setTimeout(() => setFreshPane(null), 320)
@@ -2383,7 +2385,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (needed > paneCount) setPaneCount(needed)
     moveTab(id, target)
     setActivePaneId(target)
-    if (tab !== undefined) setPaneRoute(tab.kind === 'note' ? 'note' : 'doc', target)
+    if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), target)
   }
   /** Markdown 안의 상대 링크: 그 경로의 문서를 왼쪽 바 목록에서 찾아 연다. 없으면 알린다 */
   const openMarkdownPath = (path: string) => {
@@ -2656,7 +2658,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const hint = pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
       return <PaneShell state={state} emptyHint={hint} placeholder="" />
     }
-    if (tab.kind === 'note') {
+    if (tab.kind === 'canvas') {
       return (
         <PaneShell
           state={state}
@@ -2890,7 +2892,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                   .catch((cause: unknown) => announceAction(errorText(cause)))
               },
             }}
-            onOpenNote={(note) => openInPane({ id: note.path, title: note.title, kind: 'note' })}
+            onOpenNote={(note) => openInPane({ id: note.path, title: note.title, kind: 'canvas' })}
             onOpenMarkdown={(markdown) => void openMarkdown(markdown)}
             onAddDoc={(policy) => void addDocument(policy)}
             onCreateNote={addNote}
@@ -2960,8 +2962,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             recentVaultPaths={recentVaultPaths}
             onOpenRecentVault={openRecentVaultSafely}
             onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true) }}
-            openDocIds={openTabIds.filter((tab) => tab.kind !== 'note').map(tabDocId)}
-            openNotePaths={openTabIds.filter((tab) => tab.kind === 'note').map((tab) => tab.id)}
+            openDocIds={openTabIds.filter((tab) => isDocumentKind(tab.kind)).map(tabDocId)}
+            openNotePaths={openTabIds.filter((tab) => tab.kind === 'canvas').map((tab) => tab.id)}
             activeDocId={activeDocumentTab === null ? null : tabDocId(activeDocumentTab)}
             activeNotePath={activeNoteId}
             tree={tree}

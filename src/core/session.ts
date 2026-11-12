@@ -3,6 +3,8 @@ import type { TabsState } from '../app/tabs'
 export interface SessionState {
   pdfTabIds: readonly string[]
   noteTabIds: readonly string[]
+  /** 탭으로 연 메모 노트(.iwnote)들. 어느 패널에 있는지는 panes 가 말한다. 없으면(예전 세션) 없다 */
+  memoNoteTabIds?: readonly string[]
   activePdfTabId: string | null
   activeNoteTabId: string | null
   sidebarCollapsed: boolean
@@ -44,13 +46,15 @@ export function captureSession(
   fourthTabs: TabsState = { tabs: [], activeId: null },
 ): SessionState {
   const all = [...leftTabs.tabs, ...rightTabs.tabs, ...thirdTabs.tabs, ...fourthTabs.tabs]
-  const docTabs = all.filter((tab) => tab.kind !== 'note')
-  const noteTabs = all.filter((tab) => tab.kind === 'note')
+  const docTabs = all.filter((tab) => tab.kind === 'pdf' || tab.kind === 'markdown')
+  const noteTabs = all.filter((tab) => tab.kind === 'canvas')
+  const memoNoteTabs = all.filter((tab) => tab.kind === 'memoNote')
   const activeOf = (ids: readonly string[]) => [leftTabs.activeId, rightTabs.activeId, thirdTabs.activeId, fourthTabs.activeId]
     .find((id) => id !== null && ids.includes(id)) ?? null
   return {
     pdfTabIds: docTabs.map((tab) => tab.id),
     noteTabIds: noteTabs.map((tab) => tab.id),
+    ...(memoNoteTabs.length === 0 ? {} : { memoNoteTabIds: memoNoteTabs.map((tab) => tab.id) }),
     activePdfTabId: activeOf(docTabs.map((tab) => tab.id)),
     activeNoteTabId: activeOf(noteTabs.map((tab) => tab.id)),
     sidebarCollapsed: layout.sidebarCollapsed,
@@ -121,6 +125,7 @@ export function parseSession(raw: unknown): SessionState {
   return {
     pdfTabIds: raw.pdfTabIds,
     noteTabIds: raw.noteTabIds,
+    ...(isStringArray(raw.memoNoteTabIds) && raw.memoNoteTabIds.length > 0 ? { memoNoteTabIds: raw.memoNoteTabIds } : {}),
     activePdfTabId: raw.activePdfTabId,
     activeNoteTabId: raw.activeNoteTabId,
     sidebarCollapsed: raw.sidebarCollapsed,

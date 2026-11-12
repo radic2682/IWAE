@@ -3,7 +3,7 @@ import type { DocSource } from '../../core/docSources'
 import type { MemoNote } from '../../core/memoNote'
 import type { PdfBookmark } from '../../core/pdfBookmarks'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../../pdf/persistentHighlight'
-import type { PaneId } from '../tabs'
+import type { PaneId, TabKind } from '../tabs'
 import type { NoteAdapter, NoteStoreDeps } from './noteAdapter'
 
 /** 도구 한 번의 성격(Rust app_tools.rs 의 Class 와 같다) */
@@ -15,7 +15,7 @@ export type PaneRef = PaneId | 'active' | 'other'
 export interface McpTab {
   readonly id: string
   readonly title: string
-  readonly kind: 'pdf' | 'markdown' | 'note'
+  readonly kind: TabKind
 }
 
 export interface McpPaneState {

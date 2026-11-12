@@ -76,9 +76,11 @@ import {
 import {
   closeTabEverywhere,
   emptyTabs,
+  isDocumentKind,
   mapPaneTabs,
   moveTabToPane,
   openTabInPanes,
+  paneRouteOf,
   type PaneId,
   type PanesState,
   type Tab,
@@ -279,7 +281,7 @@ export function useVault(options: UseVaultOptions = {}) {
     paneRouteRef.current = { ...paneRouteRef.current, [kind]: pane }
   }, [])
   const openInPane = useCallback((tab: Tab, pane?: PaneId) => {
-    setPanes((current) => openTabInPanes(current, tab, pane ?? paneRouteRef.current[tab.kind === 'note' ? 'note' : 'doc']))
+    setPanes((current) => openTabInPanes(current, tab, pane ?? paneRouteRef.current[paneRouteOf(tab.kind)]))
   }, [])
   const moveTab = useCallback((id: string, target: PaneId) => {
     setPanes((current) => moveTabToPane(current, id, target))
@@ -492,7 +494,7 @@ export function useVault(options: UseVaultOptions = {}) {
           migratedActiveMarkdownId ?? session.activePdfTabId,
         ),
         restoredTabs(
-          restoredNotes.map((note) => ({ id: note.path, title: note.title, kind: 'note' })),
+          restoredNotes.map((note) => ({ id: note.path, title: note.title, kind: 'canvas' })),
           migratedActiveMarkdownId === null ? session.activeNoteTabId : null,
         ),
         session.panes,
@@ -886,7 +888,7 @@ export function useVault(options: UseVaultOptions = {}) {
     // "Vault 파일을 찾지 못했습니다" 로 실패한다
     await refreshVaultFilesRef.current(vault)
     const title = path.split('/').at(-1)?.replace(/\.canvas$/iu, '') ?? noteName
-    openInPane({ id: path, title, kind: 'note' })
+    openInPane({ id: path, title, kind: 'canvas' })
   }, [vault])
 
   const reorderTreeNode = useCallback(async (request: VaultTreeReorderRequest) => {
@@ -914,7 +916,7 @@ export function useVault(options: UseVaultOptions = {}) {
     setVaultIndex(nextIndex)
     setTree(buildVaultWorkspaceTree(treeEntries, displayEntries(entries, nextIndex), treeOrder, indexedDisplayNames(nextIndex), nextIndex))
     setPanes((current) => mapPaneTabs(current, (tab) => (
-      tab.id === updated.path || (tab.kind !== 'note' && tab.id === id) ? { ...tab, title: updated.displayName } : tab
+      tab.id === updated.path || (isDocumentKind(tab.kind) && tab.id === id) ? { ...tab, title: updated.displayName } : tab
     )))
   }, [entries, injected, treeEntries, treeOrder, vault, vaultIndex])
 

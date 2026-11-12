@@ -1,5 +1,5 @@
 import { memoNoteTitleOf } from '../../core/memoNote'
-import { PANE_IDS } from '../tabs'
+import { PANE_IDS, isDocumentKind } from '../tabs'
 import { aiChangeCount, aiChanges, aiUndo } from './aiChangeLog'
 import { op, type OpContext, type OpDef } from './types'
 
@@ -21,7 +21,7 @@ const appState = (_args: Record<string, unknown>, ctx: OpContext) => {
           tabs: pane.tabs.map((tab) => ({
             id: tab.id,
             kind: tab.kind,
-            ...(tab.kind === 'note' ? { note: memoNoteTitleOf(tab.id) } : { doc_id: tab.id }),
+            ...(tab.kind === 'memoNote' ? { note: memoNoteTitleOf(tab.id) } : tab.kind === 'canvas' ? { canvas: tab.id } : { doc_id: tab.id }),
             title: tab.title,
           })),
           active_tab: pane.activeId,
@@ -32,7 +32,7 @@ const appState = (_args: Record<string, unknown>, ctx: OpContext) => {
   // 지금 본 PDF: 만진 패널이 PDF 면 그것, 아니면 PDF 를 보는 다른 패널
   const viewPane = app === undefined
     ? undefined
-    : activeTab !== undefined && activeTab.kind !== 'note' && app.docViews[app.activePane] !== undefined
+    : activeTab !== undefined && isDocumentKind(activeTab.kind) && app.docViews[app.activePane] !== undefined
       ? app.activePane
       : PANE_IDS.find((id) => app.docViews[id] !== undefined)
   const view = viewPane === undefined ? undefined : app?.docViews[viewPane]
@@ -51,7 +51,7 @@ const appState = (_args: Record<string, unknown>, ctx: OpContext) => {
           page_count: view.pageCount ?? viewDoc?.pageCount ?? null,
         },
     selection: selection === null || selection.text.trim() === '' ? null : { doc_id: selection.docId, page: selection.page, text: selection.text.slice(0, SELECTION_LIMIT) },
-    open_notes: panes.flatMap((pane) => pane.tabs.flatMap((tab) => (tab.kind === 'note' ? [memoNoteTitleOf(tab.id)] : []))),
+    open_notes: panes.flatMap((pane) => pane.tabs.flatMap((tab) => (tab.kind === 'memoNote' ? [memoNoteTitleOf(tab.id)] : []))),
     ai_session: { changes: aiChangeCount() },
   }
 }

@@ -7,10 +7,30 @@ import { t } from '../i18n'
  * 열기·닫기·전환과, 탭을 끌어 순서 바꾸기(reorderTab)를 둔다.
  */
 
-export type TabKind = 'pdf' | 'markdown' | 'note'
+/**
+ * 탭의 종류. memoNote 는 메모 노트(.iwnote), canvas 는 YOLO 노트(캔버스, .canvas).
+ * 예전에는 캔버스를 'note' 라고 불렀다 — 남아 있는 'note' 는 normalizeTabKind 가 'canvas' 로 옮긴다.
+ */
+export type TabKind = 'pdf' | 'markdown' | 'memoNote' | 'canvas'
+
+/** 저장된 값·바깥(MCP)에서 온 탭 종류를 읽는다. 예전 'note' 는 'canvas'. 모르는 값이면 null */
+export function normalizeTabKind(raw: unknown): TabKind | null {
+  if (raw === 'note') return 'canvas'
+  return raw === 'pdf' || raw === 'markdown' || raw === 'memoNote' || raw === 'canvas' ? raw : null
+}
+
+/** 문서(PDF·Markdown) 탭인가. 메모 노트·캔버스는 문서가 아니다 */
+export function isDocumentKind(kind: TabKind): boolean {
+  return kind === 'pdf' || kind === 'markdown'
+}
+
+/** 새 탭을 어느 패널에 열지 정하는 길: 문서는 'doc', 노트(메모 노트·캔버스)는 'note' */
+export function paneRouteOf(kind: TabKind): 'doc' | 'note' {
+  return isDocumentKind(kind) ? 'doc' : 'note'
+}
 
 export interface Tab {
-  /** pdf 는 docId, note 는 vault 상대 경로. 패널 안에서 유일하다. */
+  /** pdf 는 docId, memoNote·canvas 는 vault 상대 경로. 패널 안에서 유일하다. */
   id: string
   title: string
   kind: TabKind

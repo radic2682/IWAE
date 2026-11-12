@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   emptyTabs,
+  isDocumentKind,
+  normalizeTabKind,
+  paneRouteOf,
   openTab,
   closeTab,
   activateTab,
@@ -113,7 +116,7 @@ describe('불변성', () => {
 
 describe('좌우 패널', () => {
   const pdf = (id: string) => ({ id, title: id, kind: 'pdf' as const })
-  const note = (id: string) => ({ id, title: id, kind: 'note' as const })
+  const note = (id: string) => ({ id, title: id, kind: 'canvas' as const })
   const empty: PanesState = { left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs }
 
   it('이미 반대편에 열린 탭은 새로 열지 않고 그 패널에서 활성화한다', () => {
@@ -125,7 +128,7 @@ describe('좌우 패널', () => {
 
   it('한 패널에 PDF 와 캔버스를 섞어 담고, 탭을 반대편으로 옮긴다', () => {
     const mixed = openTabInPanes(openTabInPanes(empty, pdf('a'), 'left'), note('n.canvas'), 'left')
-    expect(mixed.left.tabs.map((tab) => tab.kind)).toEqual(['pdf', 'note'])
+    expect(mixed.left.tabs.map((tab) => tab.kind)).toEqual(['pdf', 'canvas'])
     const moved = moveTabToPane(mixed, 'a', 'right')
     expect(moved.left).toEqual({ tabs: [note('n.canvas')], activeId: 'n.canvas' })
     expect(moved.right).toEqual({ tabs: [pdf('a')], activeId: 'a' })
@@ -191,3 +194,24 @@ describe('replaceTab (탭 안에서 판 바꾸기)', () => {
   })
 })
 
+
+describe('탭 종류 이름 정리 (note → canvas, memoNote 추가)', () => {
+  it('예전에 저장된 note 는 canvas 로 읽고, 새 종류는 그대로, 모르는 값은 null', () => {
+    expect(normalizeTabKind('note')).toBe('canvas')
+    expect(normalizeTabKind('canvas')).toBe('canvas')
+    expect(normalizeTabKind('memoNote')).toBe('memoNote')
+    expect(normalizeTabKind('pdf')).toBe('pdf')
+    expect(normalizeTabKind('markdown')).toBe('markdown')
+    expect(normalizeTabKind('folder')).toBeNull()
+    expect(normalizeTabKind(undefined)).toBeNull()
+  })
+  it('문서 종류와 새 탭 길: 문서는 doc, 메모 노트·캔버스는 note', () => {
+    expect(isDocumentKind('pdf')).toBe(true)
+    expect(isDocumentKind('markdown')).toBe(true)
+    expect(isDocumentKind('memoNote')).toBe(false)
+    expect(isDocumentKind('canvas')).toBe(false)
+    expect(paneRouteOf('pdf')).toBe('doc')
+    expect(paneRouteOf('memoNote')).toBe('note')
+    expect(paneRouteOf('canvas')).toBe('note')
+  })
+})

@@ -224,7 +224,7 @@ describe('useVault — 시작 복원', () => {
       activeId: goodEntry.docId,
     })
     expect(result.current.noteTabs).toEqual({
-      tabs: [{ id: 'HTTP/OPTIONS.canvas', title: 'OPTIONS', kind: 'note' }],
+      tabs: [{ id: 'HTTP/OPTIONS.canvas', title: 'OPTIONS', kind: 'canvas' }],
       activeId: 'HTTP/OPTIONS.canvas',
     })
     expect(result.current.missingDocIds).toEqual([missingEntry.docId])
@@ -457,7 +457,7 @@ describe('useVault — 시작 복원', () => {
       activeId: 'HTTP/README.md',
     })
     expect(result.current.noteTabs).toEqual({
-      tabs: [{ id: 'HTTP/OPTIONS.canvas', title: 'OPTIONS', kind: 'note' }],
+      tabs: [{ id: 'HTTP/OPTIONS.canvas', title: 'OPTIONS', kind: 'canvas' }],
       activeId: 'HTTP/OPTIONS.canvas',
     })
   })

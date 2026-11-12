@@ -24,7 +24,7 @@ describe('app_state / settings_get / sources', () => {
       activePane: 'right',
       panes: {
         left: { tabs: [{ id: 'd1', title: '사양서', kind: 'pdf' }], activeId: 'd1' },
-        right: { tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'note' }], activeId: '노트/전원.iwnote' },
+        right: { tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' }], activeId: '노트/전원.iwnote' },
         third: { tabs: [], activeId: null },
         fourth: { tabs: [], activeId: null },
       },
@@ -46,7 +46,7 @@ describe('app_state / settings_get / sources', () => {
     const panes = state.panes as { id: string; tabs: { id: string; kind: string; doc_id?: string; note?: string }[]; active_tab: string | null }[]
     expect(panes.map((pane) => pane.id)).toEqual(['left', 'right'])
     expect(panes[0]!.tabs[0]).toMatchObject({ id: 'd1', kind: 'pdf', doc_id: 'd1' })
-    expect(panes[1]!.tabs[0]).toMatchObject({ kind: 'note', note: '전원' })
+    expect(panes[1]!.tabs[0]).toMatchObject({ kind: 'memoNote', note: '전원' })
   })
 
   it('앱 화면 정보가 없어도 app_state 가 돌고, settings_get 은 비밀 없이 언어·테마·번역 방식만 준다', async () => {

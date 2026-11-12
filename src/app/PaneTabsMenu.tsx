@@ -56,7 +56,7 @@ export function shortTabTitle(title: string): string {
 }
 
 function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
-  if (kind === 'note') return <Graph size={13} aria-hidden="true" className="pane-top-tab-kind" />
+  if (kind === 'canvas') return <Graph size={13} aria-hidden="true" className="pane-top-tab-kind" />
   if (kind === 'markdown') return <FileText size={13} aria-hidden="true" className="pane-top-tab-kind" />
   return <FilePdf size={13} aria-hidden="true" className="pane-top-tab-kind" />
 }
