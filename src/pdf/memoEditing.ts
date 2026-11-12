@@ -390,8 +390,30 @@ export function insideCodeBlock(editor: HTMLElement): boolean {
   return caret !== null && closestIn(caret.startContainer, editor, (element) => element.tagName === 'PRE') !== null
 }
 
+const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'PRE', 'BLOCKQUOTE', 'TR'])
+
+/** innerText 와 비슷한 모양의 글: 블록 요소와 <br> 는 줄바꿈이 된다 */
+function domText(root: Node): string {
+  let out = ''
+  const newline = () => { if (out !== '' && !out.endsWith('\n')) out += '\n' }
+  const walk = (node: Node) => {
+    if (node.nodeType === 3) { out += node.textContent ?? ''; return }
+    if (node.nodeType !== 1) return
+    const tag = (node as Element).tagName
+    if (tag === 'BR') { out += '\n'; return }
+    const block = node !== root && BLOCK_TAGS.has(tag)
+    if (block) newline()
+    node.childNodes.forEach(walk)
+    if (block) newline()
+  }
+  walk(root)
+  return out
+}
+
 /** 저장할 글: 화면에 보이는 대로(폭 없는 글자·&nbsp; 는 지운다) */
 export function memoPlainText(element: HTMLElement): string {
-  const raw = element.innerText ?? element.textContent ?? ''
+  let raw = element.innerText ?? element.textContent ?? ''
+  // 카드가 화면 밖이라 그려지지 않으면(content-visibility) innerText 가 비어 나온다. 글이 있는데 빈 글로 저장하지 않게 DOM 을 돌아 같은 모양으로 만든다
+  if (raw.trim() === '' && (element.textContent ?? '').replaceAll(ZERO_WIDTH, '').trim() !== '') raw = domText(element)
   return raw.replaceAll(ZERO_WIDTH, '').replace(/ /gu, ' ').replace(/\n{3,}/gu, '\n\n').trim()
 }

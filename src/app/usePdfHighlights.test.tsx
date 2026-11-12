@@ -2,6 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Anchor } from '../core/anchor'
+import { canUndo, clearUndo } from './undoStack'
 import { createPersistentPdfHighlight } from '../pdf/persistentHighlight'
 import {
   createBrowserPdfHighlightStorage,
@@ -135,5 +136,22 @@ describe('usePdfHighlights', () => {
     expect(added).toBe(1)
     expect(result.current.highlights).toEqual([existing, second])
     expect(storage.save).toHaveBeenCalledTimes(1)
+  })
+
+  it('바뀐 것이 없는 update 는 되돌리기 단계도 저장도 만들지 않는다', async () => {
+    clearUndo()
+    const existing = { ...createPersistentPdfHighlight(anchor), note: '메모' }
+    const storage: PdfHighlightStorage = {
+      load: vi.fn().mockResolvedValue([existing]),
+      save: vi.fn().mockResolvedValue(undefined),
+    }
+    const { result } = renderHook(() => usePdfHighlights(storage))
+    await waitFor(() => expect(result.current.highlights).toEqual([existing]))
+    act(() => result.current.update(existing.id, { note: '메모' }))
+    expect(canUndo()).toBe(false)
+    expect(storage.save).not.toHaveBeenCalled()
+    act(() => result.current.update(existing.id, { note: '고침' }))
+    expect(canUndo()).toBe(true)
+    clearUndo()
   })
 })

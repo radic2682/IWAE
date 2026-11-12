@@ -43,6 +43,18 @@ export function createVaultPdfHighlightStorage(vault: VaultHandle): PdfHighlight
   }
 }
 
+/** 키 순서와 상관없이 값이 같은가(JSON 으로 쓰는 값만) */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  const left = a as Record<string, unknown>
+  const right = b as Record<string, unknown>
+  const keys = Object.keys(left).filter((key) => left[key] !== undefined)
+  const other = Object.keys(right).filter((key) => right[key] !== undefined)
+  return keys.length === other.length && keys.every((key) => sameValue(left[key], right[key]))
+}
+
 export function usePdfHighlights(storage: PdfHighlightStorage) {
   const [highlights, setHighlights] = useState<readonly PersistentPdfHighlight[]>([])
   const highlightsRef = useRef<readonly PersistentPdfHighlight[]>([])
@@ -133,7 +145,10 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
 
   /** 색·메모·근거·주제를 고친다. 없는 id 는 조용히 지나간다 */
   const update = useCallback((highlightId: string, patch: PersistentPdfHighlightPatch) => {
-    if (!highlightsRef.current.some(({ id }) => id === highlightId)) return
+    const current = highlightsRef.current.find(({ id }) => id === highlightId)
+    if (current === undefined) return
+    // 바뀐 것이 없으면(같은 글로 다시 저장) 되돌리기 단계도 저장도 만들지 않는다
+    if (sameValue(updatePersistentPdfHighlight(current, patch), current)) return
     const next = highlightsRef.current.map((item) => item.id === highlightId ? updatePersistentPdfHighlight(item, patch) : item)
     remember(highlightsRef.current, next, `edit:${highlightId}`)
     highlightsRef.current = next
