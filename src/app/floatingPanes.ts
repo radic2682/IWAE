@@ -17,9 +17,9 @@ export const FLOAT_MIN_H = 160
 export const FLOAT_HEAD_H = 34
 export const FLOAT_DEFAULT_W = 380
 export const FLOAT_DEFAULT_H = 300
-/** 번역기를 담은 떠 있는 칸의 처음 크기(예전 떠 있는 번역기 창과 같다) */
+/** 번역기를 담은 떠 있는 칸의 처음 크기: 내용(언어 줄 · 입력 3줄 · 번역 단추 · 결과 3줄 · 복사)에 맞춰 작게. 이미 저장된 칸은 저장된 크기를 그대로 쓴다 */
 export const TRANSLATOR_FLOAT_W = 340
-export const TRANSLATOR_FLOAT_H = 380
+export const TRANSLATOR_FLOAT_H = 300
 export const MAX_FLOATS = 4
 
 export interface FloatSize {

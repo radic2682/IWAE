@@ -179,6 +179,12 @@ describe('display-popup · 번역기', () => {
     expect(leaves(screen.layout)).toHaveLength(3)
   })
 
+  it('번역기 칸은 내용에 맞게 작게 열린다(300px 안팎 높이 · 340px 폭)', () => {
+    expect(TRANSLATOR_FLOAT_W).toBe(340)
+    expect(TRANSLATOR_FLOAT_H).toBeGreaterThanOrEqual(280)
+    expect(TRANSLATOR_FLOAT_H).toBeLessThanOrEqual(300)
+  })
+
   it('같은 곳에 붙은 번역기가 이미 있으면 새로 만들지 않고 보여 준다(숨김 · 접힘도 푼다)', () => {
     const first = ok(openTranslatorFloat(threePanes(), 'b'))
     const paneId = screenOf(first).floats[0]!.paneId
