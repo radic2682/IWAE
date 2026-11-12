@@ -59,6 +59,27 @@ describe('접두키 받기', () => {
     expect(spies.run).not.toHaveBeenCalled()
   })
 
+  it('모달 대화상자가 떠 있으면 접두키를 받지 않는다: Ctrl+B 다음 % 가 뒤의 칸을 나누지 않고 키는 모달로 간다', () => {
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    dialog.setAttribute('aria-modal', 'true')
+    const close = document.createElement('button')
+    dialog.append(close)
+    document.body.append(dialog)
+    const { container } = render(<Harness />)
+    const event = ctrlSpace(close)
+    expect(event.defaultPrevented).toBe(false)
+    expect(phase(container)).toBe('idle')
+    keydown(close, { key: '%', code: 'Digit5', shiftKey: true })
+    expect(spies.run).not.toHaveBeenCalled()
+    // 모달이 닫히면 다시 받는다
+    dialog.remove()
+    ctrlSpace()
+    expect(phase(container)).toBe('prefix')
+    keydown(document.body, { key: '%', code: 'Digit5', shiftKey: true })
+    expect(spies.run).toHaveBeenCalledWith(DEFAULT_PREFIX_BINDINGS['%'])
+  })
+
   it('접두키로 직접 고른 Ctrl+Space 는 한글 입력기가 key 를 Process 로 바꿔도(물리 키 Space) 접두키다', () => {
     setShortcutOverrides({ prefixKey: 'Mod+Space' })
     const { container } = render(<Harness />)

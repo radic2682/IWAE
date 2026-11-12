@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
 import { prefixBindingFor, prefixTokenLabel, prefixTokenOf, isModifierOnly } from '../core/prefixKeys'
+import { modalDialogOpen } from '../ui/modalOpen'
 import { PREFIX_KEY_ID, effectiveKeys, eventMatches, getShortcutDef, parseCombo } from '../core/shortcutRegistry'
 
 /** 접두키를 누른 뒤 다음 키를 기다려 주는 시간(ms) */
@@ -44,9 +45,13 @@ export function matchesPrefixKey(event: KeyboardEvent): boolean {
   })
 }
 
-/** 단축키를 새로 정하는 중이거나 명령줄·팔레트 입력칸이면 접두키를 받지 않는다 */
+/**
+ * 단축키를 새로 정하는 중이거나 명령줄·팔레트 입력칸이면 접두키를 받지 않는다. 모달 대화상자(키 목록 · 설정 · 확인 …)가 떠 있으면 시작하지 않는다 —
+ * 안 그러면 Ctrl+B 다음 % 가 뒤의 칸을 나눈다(접두키는 글 쓰는 칸 안에서도 되지만 모달의 입력은 모달의 것이다). 이미 시작한 접두키 대기는 건드리지 않는다.
+ */
 function blocked(event: KeyboardEvent): boolean {
   if (document.querySelector('.sk-keys-recording') !== null) return true
+  if (modalDialogOpen()) return true
   const target = event.target
   return target instanceof Element && target.closest('[data-prefix-off]') !== null
 }

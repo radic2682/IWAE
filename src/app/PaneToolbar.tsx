@@ -15,6 +15,7 @@ import '../ui/pdf-followup.css'
 import { t } from '../i18n'
 import { PaneIdContext } from './workspaceContext'
 import { readPaneToolbarMemory, writePaneToolbarMemory } from './paneToolbarMemory'
+import { modalDialogOpen } from '../ui/modalOpen'
 
 /** hand: 손 도구(PDF). 글자 위에서는 글을 고르고, 빈 곳은 잡고 끌어 화면을 옮긴다 */
 export type ReaderPaneToolMode = 'hand' | 'text' | 'lasso' | 'highlight' | 'box' | 'edit'
@@ -69,6 +70,8 @@ export function useOverlayToolShortcuts(enabled: boolean, onModeChange: (mode: R
     const onKey = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
       if (!getAppPrefs().singleKeyShortcuts) return
+      // 모달 대화상자(키 목록 · 설정 …)가 떠 있으면 뒤 칸의 도구를 바꾸지 않는다
+      if (modalDialogOpen()) return
       const target = event.target
       if (target instanceof HTMLElement && (target.isContentEditable || /^(input|textarea|select)$/iu.test(target.tagName))) return
       const info = OVERLAY_TOOLS.find((item) => item.shortcut.toLowerCase() === event.key.toLowerCase())
