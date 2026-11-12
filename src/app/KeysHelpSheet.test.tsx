@@ -55,9 +55,9 @@ describe('KeysHelpSheet', () => {
     expect(actionCell('f · w').textContent).toBe('떠 있는 칸 숨기기·보이기 · 번역기')
   })
 
-  it('동작 열은 220px, 명령 열이 나머지를 쓰며(고정 폭 표), 토막은 칸보다 길 때만 안에서 꺾인다', () => {
+  it('동작 열은 190px, 명령 열이 나머지를 쓰며(고정 폭 표), 토막은 칸보다 길 때만 안에서 꺾인다', () => {
     expect(ruleDecl('keys-help.css', '.keys-help-table', 'table-layout')).toBe('fixed')
-    expect(ruleDecl('keys-help.css', '.keys-help-table th:nth-child(2)', 'width')).toBe('220px')
+    expect(ruleDecl('keys-help.css', '.keys-help-table th:nth-child(2)', 'width')).toBe('190px')
     expect(ruleDecl('keys-help.css', '.keys-help-table th:nth-child(3)', 'width')).toBeUndefined()
     expect(ruleDecl('keys-help.css', '.keys-help-seg', 'display')).toBe('inline-block')
     expect(ruleDecl('keys-help.css', '.keys-help-seg', 'max-width')).toBe('100%')
@@ -69,6 +69,9 @@ describe('KeysHelpSheet', () => {
     expect(family).toContain('Consolas')
     expect(family).not.toBe('monospace')
     expect(ruleDecl('keys-help.css', '.keys-help code', 'letter-spacing')).toBe('normal')
+    // 굵지 않고(400) 흐린 글색 — 다른 곳의 코드와 같다
+    expect(ruleDecl('keys-help.css', '.keys-help code', 'font-weight')).toBe('400')
+    expect(ruleDecl('keys-help.css', '.keys-help code', 'color')).toBe('var(--text-muted)')
   })
 
   it('본문은 스크롤되고 맨 아래에 여백이 있어 마지막 줄이 가려지지 않는다', () => {
