@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowCounterClockwise, Lock, MagnifyingGlass } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import {
@@ -13,8 +13,9 @@ type Notice =
   | { readonly kind: 'conflict'; readonly id: string; readonly combo: string; readonly other: ShortcutDef }
   | { readonly kind: 'info'; readonly text: string }
 
-/** 접두키로 고를 수 있는 키(Ctrl+Space 가 기본). 직접 정하기는 위의 키 칸 */
-export const PREFIX_PRESETS: readonly string[] = ['Ctrl+Space', 'Ctrl+B', 'Ctrl+A']
+/** 접두키로 고를 수 있는 키(Ctrl+B 가 기본, tmux 와 같다). 직접 정하기는 위의 키 칸 */
+export const PREFIX_PRESETS: readonly string[] = ['Ctrl+B', 'Ctrl+Space', 'Ctrl+A']
+export const PREFIX_DEFAULT_PRESET = 'Ctrl+B'
 
 /** 검색어에 맞는가(이름·영어 낱말·키 글자) */
 export function matchesShortcutQuery(def: ShortcutDef, query: string, overrides: ShortcutOverrides): boolean {
@@ -165,13 +166,15 @@ export function ShortcutSettings() {
                               const normalized = normalizeCombo(preset)
                               const chosen = normalized !== null && keys[0] === normalized
                               return (
+                                <Fragment key={preset}>
                                 <button
-                                  key={preset}
                                   type="button"
                                   className={`sk-preset${chosen ? ' sk-preset-on' : ''}`}
                                   aria-pressed={chosen}
                                   onClick={() => { commit(withBinding(shortcutsRef.current, PREFIX_KEY_ID, preset)); setNotice(null) }}
                                 >{preset}</button>
+                                {preset === PREFIX_DEFAULT_PRESET ? <span className="sk-preset-default">{t('기본(tmux)')}</span> : null}
+                                </Fragment>
                               )
                             })}
                             <span className="sk-preset-note">{t('Ctrl+B 를 고르면 글 쓰는 칸에서는 Ctrl+B 를 두 번 눌러야 굵게가 됩니다. 입력기가 Ctrl+Space 를 쓰면 다른 키를 고르세요.')}</span>

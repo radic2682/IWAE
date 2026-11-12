@@ -52,7 +52,7 @@ function blocked(event: KeyboardEvent): boolean {
 }
 
 /**
- * 접두키(기본 Ctrl+Space): 글 쓰는 칸 안에서도 동작한다(tmux 와 같다). 창 맨 앞(capture)에서 받아 편집기보다 먼저 가로채고,
+ * 접두키(기본 Ctrl+B): 글 쓰는 칸 안에서도 동작한다(tmux 와 같다). 창 맨 앞(capture)에서 받아 편집기보다 먼저 가로채고,
  * 다음 키 하나는 편집기로 보내지 않는다. 접두키를 한 번 더 누르면(Ctrl+B 의 굵게) 가로채지 않고 그대로 보낸다(send-prefix).
  * 다음 키는 `code` 로 읽는다(prefixKeys.ts). 2 초 안에 키가 없거나 Esc 면 그만둔다.
  */

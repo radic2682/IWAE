@@ -13,10 +13,10 @@ function press(key: string, options: Partial<KeyboardEvent> = {}): KeyboardEvent
 afterEach(() => setShortcutOverrides({}))
 
 describe('등록부', () => {
-  it('id 는 겹치지 않고, 기본 키도 두 명령이 나눠 쓰지 않는다', () => {
+  it('id 는 겹치지 않고, 기본 키도 두 명령이 나눠 쓰지 않는다(접두키 Ctrl+B 는 굵게와 같은 키지만 접두키를 두 번 눌러 보내는 것이라 뺀다)', () => {
     expect(new Set(SHORTCUT_DEFS.map((def) => def.id)).size).toBe(SHORTCUT_DEFS.length)
     const seen = new Map<string, string>()
-    for (const def of SHORTCUT_DEFS) {
+    for (const def of SHORTCUT_DEFS.filter((candidate) => candidate.id !== 'prefixKey')) {
       for (const key of effectiveKeys(def, {}, false)) {
         expect(seen.get(key), `${def.id} 와 ${seen.get(key)} 의 ${key}`).toBeUndefined()
         seen.set(key, def.id)
@@ -84,11 +84,13 @@ describe('해석과 바꾼 키', () => {
     expect(resolveAppShortcut(press('k', { ctrlKey: true }))).toBeNull()
   })
 
-  it('접두키 항목은 기본 Ctrl+Space 이고, 일반 해석(resolveShortcut)은 건너뛴다(Ctrl+B 를 골라도 굵게가 먼저다)', () => {
+  it('접두키 항목은 기본 Ctrl+B(tmux 와 같다)이고, 일반 해석(resolveShortcut)은 건너뛴다(굵게가 먼저다). 직접 고른 Ctrl+Space 는 그대로 남는다', () => {
     const def = SHORTCUT_DEFS.find((candidate) => candidate.id === 'prefixKey')!
-    expect(effectiveKeys(def, {}, false)).toEqual(['Mod+Space'])
+    expect(effectiveKeys(def, {}, false)).toEqual(['Mod+B'])
+    expect(resolveAppShortcut(press('b', { ctrlKey: true }))).toBe('bold')
     expect(resolveAppShortcut(press(' ', { ctrlKey: true }))).toBeNull()
-    setShortcutOverrides({ prefixKey: 'Mod+B' })
+    expect(effectiveKeys(def, { prefixKey: 'Mod+Space' }, false)).toEqual(['Mod+Space'])
+    setShortcutOverrides({ prefixKey: 'Mod+Space' })
     expect(resolveAppShortcut(press('b', { ctrlKey: true }))).toBe('bold')
   })
 

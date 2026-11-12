@@ -23,6 +23,7 @@
 .sk-preset:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
 .sk-preset-on { border-color: var(--accent); background: var(--accent); color: var(--paper); }
 .sk-preset-on:is(:hover, :focus-visible) { background: var(--accent); }
+.sk-preset-default { margin-left: -2px; color: var(--text-dim); font-size: 11px; }
 .sk-preset-note { flex: 1 1 220px; font-size: 11.5px; opacity: .7; }
 .sk-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sk-keys { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 120px; min-height: 28px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; cursor: pointer; }

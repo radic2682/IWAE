@@ -34,7 +34,7 @@ const keydown = (target: Element | Window, init: KeyboardEventInit): KeyboardEve
   act(() => { target.dispatchEvent(event) })
   return event
 }
-const ctrlSpace = (target: Element | Window = document.body) => keydown(target, { key: ' ', code: 'Space', ctrlKey: true })
+const ctrlSpace = (target: Element | Window = document.body) => keydown(target, { key: 'b', code: 'KeyB', ctrlKey: true })
 const phase = (container: HTMLElement) => container.querySelector('[data-testid="phase"]')!.textContent
 
 beforeEach(() => {
@@ -51,7 +51,7 @@ afterEach(() => {
 })
 
 describe('접두키 받기', () => {
-  it('Ctrl+Space 를 누르면 다음 키를 기다리고, 그 키 입력은 삼킨다', () => {
+  it('Ctrl+B(기본 접두키)를 누르면 다음 키를 기다리고, 그 키 입력은 삼킨다', () => {
     const { container } = render(<Harness />)
     const event = ctrlSpace()
     expect(event.defaultPrevented).toBe(true)
@@ -59,7 +59,8 @@ describe('접두키 받기', () => {
     expect(spies.run).not.toHaveBeenCalled()
   })
 
-  it('한글 입력기가 key 를 Process 로 바꿔도 Ctrl+Space(물리 키 Space)는 접두키다', () => {
+  it('접두키로 직접 고른 Ctrl+Space 는 한글 입력기가 key 를 Process 로 바꿔도(물리 키 Space) 접두키다', () => {
+    setShortcutOverrides({ prefixKey: 'Mod+Space' })
     const { container } = render(<Harness />)
     keydown(document.body, { key: 'Process', code: 'Space', ctrlKey: true })
     expect(phase(container)).toBe('prefix')
@@ -118,7 +119,7 @@ describe('접두키 받기', () => {
   it('누르고 있어서 반복되는 접두키는 두 번 누른 것으로 치지 않는다', () => {
     const { container } = render(<Harness />)
     ctrlSpace()
-    keydown(document.body, { key: ' ', code: 'Space', ctrlKey: true, repeat: true })
+    keydown(document.body, { key: 'b', code: 'KeyB', ctrlKey: true, repeat: true })
     expect(phase(container)).toBe('prefix')
   })
 
@@ -162,8 +163,7 @@ describe('글 쓰는 칸 안에서', () => {
     expect(spies.editorKeys).toHaveLength(1)
   })
 
-  it('접두키가 Ctrl+B 이면 한 번 누르면 가로채고, 두 번 누르면(send-prefix) 굵게가 편집기로 간다', () => {
-    setShortcutOverrides({ prefixKey: 'Mod+B' })
+  it('기본 접두키 Ctrl+B 는 한 번 누르면 가로채고, 두 번 누르면(send-prefix) 굵게가 편집기로 간다', () => {
     const { container, getByTestId } = render(<Harness />)
     const editor = getByTestId('editor')
     const first = keydown(editor, { key: 'b', code: 'KeyB', ctrlKey: true })
@@ -193,7 +193,7 @@ describe('글 쓰는 칸 안에서', () => {
     expect(spies.editorKeys).toHaveLength(1)
   })
 
-  it('Ctrl+Space 를 두 번 누르면 접두키 모드가 풀린다', () => {
+  it('접두키를 두 번 누르면 접두키 모드가 풀린다', () => {
     const { container } = render(<Harness />)
     ctrlSpace()
     ctrlSpace()

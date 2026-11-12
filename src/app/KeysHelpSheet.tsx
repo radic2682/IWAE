@@ -38,7 +38,7 @@ export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
  * 아래 상태 줄의 「?」: 키와 명령 목록. 접두키 다음 키마다 지금 되는지(됩니다 · 일부만 · 다음 단계)를 표시한다.
  * 접두키 없이 되는 키는 위쪽에 따로 둔다.
  */
-export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+Space' }: {
+export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
   readonly onClose: () => void
   /** 지금 되는 키(동작 이름 → 키 글자) */
   readonly currentKeys: readonly { readonly label: string; readonly keys: string }[]

@@ -1524,7 +1524,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const preferred = keys.includes('Mod+K') ? 'Mod+K' : keys[0]
     return preferred === undefined ? undefined : comboText(preferred)
   })()
-  const prefixHint = shortcutText(PREFIX_KEY_ID) ?? 'Ctrl+Space'
+  const prefixHint = shortcutText(PREFIX_KEY_ID) ?? 'Ctrl+B'
   /** 「?」 목록의 「접두키 없이 되는 키」 */
   const shortcutKeys = (name: Parameters<typeof shortcutText>[0]) => shortcutText(name) ?? ''
   const keysHelpCurrentKeys = () => [
@@ -3425,6 +3425,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const renderPaneHead = (pane: PaneId, index: number) => (
     <PaneHead
       tabs={renderPaneTabs(pane, index)}
+      prefixText={prefixHint}
       paneCount={paneCount}
       zoomed={zoomedPane === pane}
       splitEnabled={SPLIT_PANES_ENABLED && !isDetachedWindow}
@@ -3979,6 +3980,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           templateNames={availableScreenTemplates(CANVAS_ENABLED).map((template) => template.label)}
           paneCount={paneCount}
           paletteShortcut={paletteHint}
+          prefixText={prefixHint}
         />
       ) : undefined}
       topBar={({ sidebarPx, leftFrac, sidebarVisible }) => (

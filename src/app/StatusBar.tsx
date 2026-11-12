@@ -23,7 +23,7 @@ interface StatusBarProps {
   readonly onOpenHelp: () => void
   /** 접두키 상태: prefix 는 다음 키를 기다리는 중, confirm 은 y/n 을 기다리는 중 */
   readonly prefixPhase?: PrefixPhase
-  /** 칩을 눌렀다: 접두키를 누른 것과 같다(Ctrl+Space 가 입력기에 걸린 PC 용) */
+  /** 칩을 눌렀다: 접두키를 누른 것과 같다(접두키가 입력기에 걸린 PC 용) */
   readonly onPrefixChip?: () => void
   /** 「화면을 닫을까요? y/n」 에 보일 글(confirm 일 때) */
   readonly confirmText?: string
@@ -40,6 +40,8 @@ interface StatusBarProps {
   readonly templateNames?: readonly string[]
   /** 이 화면의 칸 수(왼쪽 「칸 n개」) */
   readonly paneCount?: number
+  /** 지금 접두키 표기(칩 설명) */
+  readonly prefixText?: string
   /** 명령 팔레트 키(오른쪽 「명령」 힌트) */
   readonly paletteShortcut?: string
 }
@@ -51,7 +53,7 @@ interface StatusBarProps {
  */
 export function StatusBar({
   sessionName, screens, activeId, lastId, onSelectScreen, onOpenHelp, prefixPhase = 'idle', onPrefixChip, confirmText,
-  commandLine = null, onRunCommand, onCloseCommandLine, screenNames = [], sessionNames = [], attached = 1, templateNames = [], paneCount, paletteShortcut,
+  commandLine = null, onRunCommand, onCloseCommandLine, screenNames = [], sessionNames = [], attached = 1, templateNames = [], paneCount, paletteShortcut, prefixText = 'Ctrl+B',
 }: StatusBarProps) {
   const [message, setMessage] = useState('')
   const timer = useRef<number | null>(null)
@@ -111,7 +113,7 @@ export function StatusBar({
           className="status-bar-prefix"
           data-active={prefixActive ? 'true' : 'false'}
           aria-pressed={prefixActive}
-          title={t('접두키(기본 Ctrl+Space): 누르면 다음 키를 기다립니다. 입력기에 막힐 때는 여기를 누르세요')}
+          title={t('접두키({keys}): 누르면 다음 키를 기다립니다. 입력기에 막힐 때는 여기를 누르세요', { keys: prefixText })}
           onClick={onPrefixChip}
         >{t('접두키')}</button>
         <button type="button" className="status-bar-help" aria-label={t('키와 명령 보기')} title={t('키와 명령 보기')} onClick={onOpenHelp}>

@@ -15,7 +15,8 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   'Ctrl+B 를 고르면 글 쓰는 칸에서는 Ctrl+B 를 두 번 눌러야 굵게가 됩니다. 입력기가 Ctrl+Space 를 쓰면 다른 키를 고르세요.': 'With Ctrl+B, press it twice in a text field to get bold. If your input method uses Ctrl+Space, pick another key.',
   // 상태 줄 · 접두키
   '접두키 — 다음 키를 누르세요': 'Prefix — press the next key',
-  '접두키(기본 Ctrl+Space): 누르면 다음 키를 기다립니다. 입력기에 막힐 때는 여기를 누르세요': 'Prefix key (Ctrl+Space by default): waits for the next key. Click here if your input method swallows it',
+  '접두키({keys}): 누르면 다음 키를 기다립니다. 입력기에 막힐 때는 여기를 누르세요': 'Prefix key ({keys}): waits for the next key. Click here if your input method swallows it',
+  '기본(tmux)': 'Default (tmux)',
   '화면을 닫을까요? y/n': 'Close this screen? y/n',
   '모르는 키: {key} — ? 로 목록': 'Unknown key: {key} — ? for the list',
   '명령줄': 'Command line',

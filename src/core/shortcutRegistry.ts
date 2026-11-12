@@ -42,8 +42,8 @@ export const PREFIX_KEY_ID = 'prefixKey'
 export const SHORTCUT_DEFS: readonly ShortcutDef[] = [
   // Ctrl+K 는 Ctrl+Shift+P 의 별칭(같은 팔레트). 글 칸에서도 열린다
   app('commandPalette', '명령 팔레트', 'general', ['Mod+Shift+P', 'Mod+K'], true, 'command palette'),
-  // 접두키(tmux 의 prefix): 누르면 다음 키 하나를 기다린다. 해석은 usePrefixMode 가 따로 한다(resolveShortcut 은 건너뛴다)
-  app(PREFIX_KEY_ID, '접두키 (칸·화면 명령의 첫 키)', 'general', ['Ctrl+Space'], true, 'prefix key tmux leader'),
+  // 접두키(tmux 의 prefix, 기본 Ctrl+B — tmux 와 같다. 편집기의 굵게는 접두키를 한 번 더 눌러 보낸다): 누르면 다음 키 하나를 기다린다. 해석은 usePrefixMode 가 따로 한다(resolveShortcut 은 건너뛴다)
+  app(PREFIX_KEY_ID, '접두키 (칸·화면 명령의 첫 키)', 'general', ['Ctrl+B'], true, 'prefix key tmux leader'),
   app('newWindow', '새 창', 'general', ['Mod+Shift+N'], true, 'new window'),
   app('openSettings', '설정', 'general', ['Mod+,'], true, 'settings preferences'),
   app('showShortcuts', '단축키 보기', 'general', ['Mod+/'], true, 'keyboard shortcuts help'),
@@ -301,7 +301,9 @@ export function shortcutText(id: string, map: ShortcutOverrides = overrides, mac
 export function findConflict(id: string, combo: string, map: ShortcutOverrides = overrides, mac = isMacPlatform()): ShortcutDef | null {
   const target = normalizeCombo(combo, mac)
   if (target === null) return null
-  for (const def of SHORTCUT_DEFS) {
+  // 접두키는 마지막에 본다: Ctrl+B 가 접두키여도 굵게(바꿀 수 없는 편집 키)가 먼저 알려지게
+  const ordered = [...SHORTCUT_DEFS.filter((def) => def.id !== PREFIX_KEY_ID), ...SHORTCUT_DEFS.filter((def) => def.id === PREFIX_KEY_ID)]
+  for (const def of ordered) {
     if (def.id === id) continue
     if (effectiveKeys(def, map, mac).includes(target)) return def
   }

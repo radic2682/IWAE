@@ -8,7 +8,7 @@ import type { PaneChannel } from './workspaceChannels'
 
 /**
  * 칸 머리(설계 3): 모든 칸의 맨 위에 탭 줄(색 점 · 칸 번호 · 탭들)과 ⋯ 메뉴가 놓인다. 칸이 하나여도 같다.
- * 「크게」로 키운 칸에는 작은 「Z」가 붙는다(누르면 되돌린다). 접두키(Ctrl+Space …)는 다음 단계라 메뉴에는 키 힌트만 보인다.
+ * 「크게」로 키운 칸에는 작은 「Z」가 붙는다(누르면 되돌린다). 메뉴의 키 힌트는 지금 접두키(prefixText)를 앞에 붙여 보인다.
  */
 export interface PaneHeadProps {
   /** 탭 줄(PaneTabsMenu: 색 점 · 칸 번호 · 탭들) */
@@ -30,6 +30,8 @@ export interface PaneHeadProps {
   readonly onCycleChannel: () => void
   readonly onClose: () => void
   readonly channel: PaneChannel
+  /** 지금 접두키 표기(`Ctrl+B` · `⌃B`). 메뉴 키 힌트 앞에 붙는다 */
+  readonly prefixText?: string
 }
 
 const CHANNEL_NAME: Record<'blue' | 'green' | 'orange' | 'none', string> = {
@@ -39,7 +41,7 @@ const CHANNEL_NAME: Record<'blue' | 'green' | 'orange' | 'none', string> = {
   none: '없음',
 }
 
-export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit, onToggleZoom, onBreak, onSwap, onFloat, onCycleChannel, onClose, channel }: PaneHeadProps) {
+export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit, onToggleZoom, onBreak, onSwap, onFloat, onCycleChannel, onClose, channel, prefixText = 'Ctrl+B' }: PaneHeadProps) {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const [at, setAt] = useState<{ right: number; top: number } | null>(null)
@@ -55,6 +57,7 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
     action()
   }
   const multi = paneCount > 1
+  const hint = (key: string) => `${prefixText} ${key}`
 
   return (
     <>
@@ -85,29 +88,29 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
           onClose={(restoreFocus) => { setOpen(false); if (restoreFocus) buttonRef.current?.focus() }}
         >
           <button type="button" role="menuitem" disabled={!splitEnabled} onClick={run(() => onSplit('h'))}>
-            <SquareSplitHorizontal size={15} aria-hidden="true" /><span>{t('오른쪽으로 나누기')}</span><kbd>%</kbd>
+            <SquareSplitHorizontal size={15} aria-hidden="true" /><span>{t('오른쪽으로 나누기')}</span><kbd>{hint('%')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!splitEnabled} onClick={run(() => onSplit('v'))}>
-            <Rows size={15} aria-hidden="true" /><span>{t('아래로 나누기')}</span><kbd>&quot;</kbd>
+            <Rows size={15} aria-hidden="true" /><span>{t('아래로 나누기')}</span><kbd>{hint('"')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi && !zoomed} onClick={run(onToggleZoom)}>
-            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('크기 되돌리기') : t('크게')}</span><kbd>z</kbd>
+            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('크기 되돌리기') : t('크게')}</span><kbd>{hint('z')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi || !splitEnabled} onClick={run(onBreak)}>
-            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('새 화면으로 떼기')}</span><kbd>!</kbd>
+            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('새 화면으로 떼기')}</span><kbd>{hint('!')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi || onFloat === undefined} title={multi ? undefined : t('칸이 하나뿐이라 띄울 수 없습니다')} onClick={run(() => onFloat?.())}>
             <PictureInPicture size={15} aria-hidden="true" /><span>{t('띄우기')}</span><kbd>float-pane</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi} onClick={run(onSwap)}>
-            <ArrowsLeftRight size={15} aria-hidden="true" /><span>{t('칸 자리 바꾸기')}</span><kbd>{'{ }'}</kbd>
+            <ArrowsLeftRight size={15} aria-hidden="true" /><span>{t('칸 자리 바꾸기')}</span><kbd>{hint('{ }')}</kbd>
           </button>
           <div className="pane-tab-context-sep" role="separator" />
           <button type="button" role="menuitem" onClick={run(onCycleChannel)}>
             <Circle size={15} aria-hidden="true" /><span>{t('색 바꾸기')}</span><kbd>{t(CHANNEL_NAME[channel ?? 'none'])}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi} onClick={run(onClose)}>
-            <X size={15} aria-hidden="true" /><span>{t('칸 닫기')}</span><kbd>x</kbd>
+            <X size={15} aria-hidden="true" /><span>{t('칸 닫기')}</span><kbd>{hint('x')}</kbd>
           </button>
         </PopupMenu>
       ) : null}

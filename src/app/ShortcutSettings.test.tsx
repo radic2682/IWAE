@@ -85,18 +85,19 @@ describe('ShortcutSettings', () => {
     expect(keysButton('인쇄').textContent).toContain('J')
   })
 
-  it('접두키: 기본 Ctrl+Space, 프리셋 Ctrl+B · Ctrl+A 로 바꾸고 다시 Ctrl+Space 로 돌아간다(굵게와 겹쳐도 고를 수 있다)', () => {
+  it('접두키: 기본 Ctrl+B(기본(tmux) 표시), 프리셋 Ctrl+Space · Ctrl+A 로 바꾸고 다시 Ctrl+B 로 돌아간다', () => {
     render(<ShortcutSettings />)
-    expect(keysButton('접두키 .*').textContent).toContain('Space')
+    expect(keysButton('접두키 .*').textContent).toContain('B')
     const group = screen.getByRole('group', { name: '접두키 고르기' })
-    expect(group.querySelector('[aria-pressed="true"]')?.textContent).toBe('Ctrl+Space')
-    fireEvent.click(screen.getByRole('button', { name: 'Ctrl+B' }))
-    expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+B' })
-    expect(getShortcutOverrides()).toEqual({ prefixKey: 'Mod+B' })
-    expect(screen.getByRole('button', { name: 'Ctrl+B' }).getAttribute('aria-pressed')).toBe('true')
+    expect(group.querySelector('[aria-pressed="true"]')?.textContent).toBe('Ctrl+B')
+    expect(screen.getByText('기본(tmux)')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Ctrl+Space' }))
+    expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+Space' })
+    expect(getShortcutOverrides()).toEqual({ prefixKey: 'Mod+Space' })
+    expect(screen.getByRole('button', { name: 'Ctrl+Space' }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: 'Ctrl+A' }))
     expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+A' })
-    fireEvent.click(screen.getByRole('button', { name: 'Ctrl+Space' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ctrl+B' }))
     expect(getAppPrefs().shortcuts).toEqual({})
   })
 

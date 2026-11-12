@@ -1027,7 +1027,7 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     openMenu(0)
     const menu = screen.getByRole('menu', { name: '칸 메뉴' })
     expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-      '오른쪽으로 나누기%', '아래로 나누기"', '크게z', '새 화면으로 떼기!', '띄우기float-pane', '칸 자리 바꾸기{ }', '색 바꾸기파랑', '칸 닫기x',
+      '오른쪽으로 나누기Ctrl+B %', '아래로 나누기Ctrl+B "', '크게Ctrl+B z', '새 화면으로 떼기Ctrl+B !', '띄우기float-pane', '칸 자리 바꾸기Ctrl+B { }', '색 바꾸기파랑', '칸 닫기Ctrl+B x',
     ])
     pick(/오른쪽으로 나누기/u)
     expect(cells(container)).toHaveLength(3)
@@ -1212,7 +1212,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
   const cells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell')
   const screenTabs = () => screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)
   const press = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
-  const prefix = () => press({ key: ' ', code: 'Space', ctrlKey: true })
+  const prefix = () => press({ key: 'b', code: 'KeyB', ctrlKey: true })
   const after = (init: KeyboardEventInit) => { prefix(); press(init) }
   const statusMessage = () => document.querySelector('.status-bar-message')?.textContent
   const commandInput = () => screen.getByRole('textbox', { name: '명령줄' }) as HTMLInputElement
@@ -1222,7 +1222,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     fireEvent.keyDown(commandInput(), { key: 'Enter' })
   }
 
-  it('Ctrl+Space 로 칩이 켜지고 「접두키 — 다음 키를 누르세요」 가 뜬다. Esc 로 그만둔다', () => {
+  it('Ctrl+B(기본 접두키)로 칩이 켜지고 「접두키 — 다음 키를 누르세요」 가 뜬다. Esc 로 그만둔다', () => {
     render(<App developmentPreview />)
     prefix()
     expect(statusMessage()).toBe('접두키 — 다음 키를 누르세요')
@@ -1231,7 +1231,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     expect(document.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('false')
   })
 
-  it('칩을 눌러도 접두키 모드에 들어간다(입력기가 Ctrl+Space 를 먹을 때)', () => {
+  it('칩을 눌러도 접두키 모드에 들어간다(입력기가 접두키를 먹을 때)', () => {
     render(<App developmentPreview />)
     fireEvent.click(screen.getByRole('button', { name: '접두키' }))
     expect(statusMessage()).toBe('접두키 — 다음 키를 누르세요')
@@ -1457,7 +1457,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     const send = (init: KeyboardEventInit) => { act(() => { field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
     let reached = 0
     field.addEventListener('keydown', () => { reached += 1 })
-    send({ key: ' ', code: 'Space', ctrlKey: true })
+    send({ key: 'b', code: 'KeyB', ctrlKey: true })
     send({ key: '%', code: 'Digit5', shiftKey: true })
     await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
     expect(reached).toBe(0)
@@ -1472,7 +1472,7 @@ describe('App — 떠 있는 칸', () => {
   const openMenu = (index: number) => fireEvent.click(screen.getAllByRole('button', { name: '칸 메뉴' })[index]!)
   const pick = (name: RegExp) => fireEvent.click(screen.getByRole('menuitem', { name }))
   const press = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
-  const after = (init: KeyboardEventInit) => { press({ key: ' ', code: 'Space', ctrlKey: true }); press(init) }
+  const after = (init: KeyboardEventInit) => { press({ key: 'b', code: 'KeyB', ctrlKey: true }); press(init) }
   const statusMessage = () => document.querySelector('.status-bar-message')?.textContent
   const runLine = (line: string) => {
     after({ key: ':', code: 'Semicolon', shiftKey: true })

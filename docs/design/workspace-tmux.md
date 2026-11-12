@@ -115,9 +115,10 @@ interface Screen { readonly id: string; readonly name: string; readonly root: La
 
 ### 8.1 접두키
 
-- 기본값은 **`Ctrl+Space`** 이다. `Ctrl+B`(tmux 기본)는 메모 편집기의 굵게, `Ctrl+A` 는 전체 선택과 겹친다.
-  - 설정에서 `Ctrl+B` · `Ctrl+A` · 직접 지정으로 바꿀 수 있다. `Ctrl+B` 를 고르면 편집기 안에서는 `Ctrl+B Ctrl+B` 가 굵게가 된다(tmux `send-prefix` 와 같은 규칙).
-  - 한국어 Windows 에서 `Ctrl+Space` 가 입력기 전환에 걸려 있는 PC 도 있다. 첫 실행 때 접두키가 들어오는지 확인하고, 안 들어오면 바꾸도록 안내한다(열린 질문).
+- 기본값은 **`Ctrl+B`**(tmux 기본)이다. 사용자가 tmux 와 같기를 원했고(처음에는 `Ctrl+Space` 로 했다가 바꿨다), 겹치는 메모 편집기의 굵게는 접두키를 한 번 더 누르는 send-prefix(`Ctrl+B Ctrl+B`)로 보낸다.
+  - 설정에서 `Ctrl+B`(기본(tmux)) · `Ctrl+Space` · `Ctrl+A` · 직접 지정으로 바꿀 수 있다. 직접 고른 접두키는 그대로 남고 기본값만 바뀐다. `Ctrl+A` 를 고르면 전체 선택이 `Ctrl+A Ctrl+A` 가 된다.
+  - 한국어 Windows 에서 `Ctrl+Space` 가 입력기 전환에 걸려 있는 PC 도 있어 기본으로 두지 않았다. 처음 실행(접두키를 고른 적이 없는 첫 실행)에는 「접두키 고르기」 창이 한 번 떠서 고르게 한다(`PrefixKeyDialog`, 확인 · 나중에 모두 다시 묻지 않는다). `.iwae/keys.conf` 가 접두키를 정하면 창은 뜨지 않는다.
+  - 화면의 접두키 힌트(상태 줄 칩, 키 목록, 칸 ⋯ 메뉴, 빈 칸)는 등록부 `prefixKey` 의 지금 키(`shortcutText`)를 읽는다.
 - 접두키 다음 키는 **자판 위치(`KeyboardEvent.code`)로 읽는다.** 한글 입력 상태에서 `z` 가 `ㅋ` 로 오거나 Shift 조합(`%` · `"` · `!`)이 숫자로 오는 문제를 피한다. 조작용 예시에서 확인했다.
 - 접두키는 편집기 안에서도 동작한다(tmux 와 같음). 접두키 다음 키는 편집기로 가지 않는다.
 
@@ -187,7 +188,7 @@ interface Screen { readonly id: string; readonly name: string; readonly root: La
 
 ## 11. 열린 질문
 
-- **접두키 기본값.** `Ctrl+Space` 가 입력기 전환과 겹치는 PC 가 있다. 첫 실행 확인으로 충분한지, 아니면 기본값을 `Ctrl+B` 로 하고 편집기에서만 `Ctrl+B Ctrl+B` 를 굵게로 할지.
+- ~~접두키 기본값~~ — `Ctrl+B` 로 정했다(8.1).
 - **세션을 Vault 안에 둘지.** Vault 를 여럿이 같이 쓰면(GitHub 동기화) 세션이 서로 섞인다. `.iwae/sessions/` 를 `.gitignore` 에 넣을지, 사람마다 하위 폴더를 둘지.
 - **칸 8개 상한.** 노트북 화면에서는 4칸도 좁다. 앱 창 크기에 따라 상한을 낮출지.
 - **떠 있는 칸의 키보드 포커스.** 칸 이동(접두키 + 방향키)에 떠 있는 칸을 넣을지, `f` 로만 오가게 할지.
