@@ -14,10 +14,12 @@ import {
   TRANSLATOR_PANEL_STORAGE_KEY,
   TRANSLATOR_WINDOW_H,
   TRANSLATOR_WINDOW_STORAGE_KEY,
+  TOPBAR_HEIGHT_PX,
   TRANSLATOR_WINDOW_W,
   finishLegacyTranslatorMigration,
   getTranslatorWindow,
   isLegacyTranslatorTabId,
+  openTranslatorWindow,
   placePanel,
   readLegacyTranslatorPanels,
   reloadTranslatorWindow,
@@ -64,6 +66,67 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   document.body.innerHTML = ''
+})
+
+describe('번역기 창 상태는 같은 저장소를 쓰는 창들이 나눠 갖는다(storage 이벤트)', () => {
+  const fromOtherWindow = (value: object | null) => {
+    const next = value === null ? null : JSON.stringify(value)
+    if (next === null) window.localStorage.removeItem(TRANSLATOR_WINDOW_STORAGE_KEY)
+    else window.localStorage.setItem(TRANSLATOR_WINDOW_STORAGE_KEY, next)
+    // storage 이벤트는 값을 바꾼 창이 아니라 다른 창에 온다
+    act(() => { window.dispatchEvent(new StorageEvent('storage', { key: TRANSLATOR_WINDOW_STORAGE_KEY, newValue: next })) })
+  }
+
+  it('다른 창이 열고 옮기면 이 창도 다시 읽어 같은 값을 그린다', () => {
+    render(<Harness service={makeService()} />)
+    expect(document.querySelector('.translator-window')).toBeNull()
+    fromOtherWindow({ open: true, x: 200, y: 120, w: 400, h: 320 })
+    expect(getTranslatorWindow()).toMatchObject({ open: true, x: 200, y: 120, w: 400, h: 320 })
+    expect(windowEl()).not.toBeNull()
+    fromOtherWindow({ open: false, x: 200, y: 120, w: 400, h: 320 })
+    expect(document.querySelector('.translator-window')).toBeNull()
+  })
+
+  it('다른 창이 바꾼 뒤 이 창이 저장해도 낡은 값으로 덮어쓰지 않는다(다시 읽은 값에 이 창의 바뀜만 얹는다)', () => {
+    fromOtherWindow({ open: true, x: 50, y: 60, w: 500, h: 400 })
+    act(() => { updateTranslatorWindow({ x: 70 }) })
+    expect(JSON.parse(window.localStorage.getItem(TRANSLATOR_WINDOW_STORAGE_KEY)!)).toMatchObject({ open: true, x: 70, y: 60, w: 500, h: 400 })
+  })
+
+  it('이 번역기 값과 상관없는 키의 storage 이벤트는 무시하고, 저장소를 비웠다(key=null)는 이벤트는 다시 읽는다', () => {
+    act(() => { updateTranslatorWindow({ open: true, x: 10, y: 10 }) })
+    act(() => { window.dispatchEvent(new StorageEvent('storage', { key: 'iwae:other', newValue: '1' })) })
+    expect(getTranslatorWindow()).toMatchObject({ open: true, x: 10 })
+    window.localStorage.clear()
+    act(() => { window.dispatchEvent(new StorageEvent('storage', { key: null })) })
+    expect(getTranslatorWindow().open).toBe(false)
+  })
+
+  it('키 · 명령으로 열면 입력칸이 포커스를 받는다(이미 열려 있어도)', () => {
+    render(<Harness service={makeService()} />)
+    act(() => { openTranslatorWindow() })
+    expect(document.activeElement).toBe(input())
+    input().blur()
+    act(() => { openTranslatorWindow() })
+    expect(document.activeElement).toBe(input())
+  })
+
+  it('다른 창의 동기화로 열릴 때는 포커스를 빼앗지 않는다', () => {
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    outside.focus()
+    render(<Harness service={makeService()} />)
+    fromOtherWindow({ open: true, x: 20, y: 20, w: 340, h: 300 })
+    expect(document.activeElement).toBe(outside)
+    outside.remove()
+  })
+})
+
+describe('상단바 높이 상수는 --bar-h 와 같다', () => {
+  it('TOPBAR_HEIGHT_PX 가 tokens.css 의 --bar-h 값이다', () => {
+    const tokens = readFileSync('src/ui/tokens.css', 'utf8')
+    expect(tokens).toContain(`--bar-h: ${TOPBAR_HEIGHT_PX}px;`)
+  })
 })
 
 describe('번역기 창의 내용', () => {

@@ -4,6 +4,9 @@ import { useSyncExternalStore } from 'react'
  * 번역기: 앱 창 전체에 떠 있는 창(칸에 붙지 않는다). 열림 · 자리 · 크기는 창 하나에 하나만 있고
  * localStorage `iwae:translator-window:v1` 에 둔다. x·y 가 null 이면 기본 자리(창 오른쪽 아래, 가장자리 12px).
  *
+ * 어느 창에 그리나: 앱의 모든 창(메인 · 세션에 붙은 새 창 · 떼어 낸 창)이 같은 값을 그린다. 값은 같은 저장소를 쓰는 창들이 하나를 나눠 갖고,
+ * 다른 창이 바꾸면 `storage` 이벤트로 바로 다시 읽어서(아래) 창끼리 낡은 값으로 덮어쓰지 않는다. 한 창에서 열면 다른 창에도 같은 자리에 열린다.
+ *
  * 한때(2026-11-12) 번역기는 떠 있는 칸의 탭이었다. 그 세션 · 그보다 앞선 문서 종류별 저장값(`iwae:translator-panel:v1`)은
  * 여기서 한 번 이 창의 열림 · 자리 · 크기로 옮긴다(아래 migrate 함수들).
  */
@@ -23,6 +26,8 @@ export const PANEL_MIN_HEIGHT = 240
 /** 창 가장자리에서 띄우는 여백 */
 export const PANEL_MARGIN = 12
 export const TRANSLATOR_WINDOW_STORAGE_KEY = 'iwae:translator-window:v1'
+/** 상단바 높이(px): CSS 의 --bar-h 와 같은 값이다(tokens.css, 시험이 맞는지 본다). 번역기는 이 아래에만 놓인다 */
+export const TOPBAR_HEIGHT_PX = 36
 /** 문서 종류별로 저장하던 예전 값 */
 export const TRANSLATOR_PANEL_STORAGE_KEY = 'iwae:translator-panel:v1'
 /** 옮기고 나면 적어 두는 표시: 같은 값을 두 번 옮기지 않는다 */
@@ -74,6 +79,36 @@ export function updateTranslatorWindow(patch: Partial<TranslatorWindowState>): v
   for (const listener of listeners) listener()
 }
 
+// 키보드 · 명령으로 열 때 입력칸에 포커스를 준다: 이미 떠 있으면 바로, 막 열리는 중이면 그려진 뒤(consume) 한 번만
+let focusRequested = false
+const focusListeners = new Set<() => void>()
+
+/** 다음에(또는 지금) 그려지는 번역기 입력칸이 포커스를 받게 한다. 그려질 창이 없어도 잠깐 뒤에 거둔다 */
+export function requestTranslatorFocus(): void {
+  focusRequested = true
+  for (const listener of focusListeners) listener()
+  setTimeout(() => { focusRequested = false }, 500)
+}
+
+/** 포커스 요청이 있었으면 true 를 주고 거둔다 */
+export function consumeTranslatorFocus(): boolean {
+  const had = focusRequested
+  focusRequested = false
+  return had
+}
+
+export function subscribeTranslatorFocus(listener: () => void): () => void {
+  focusListeners.add(listener)
+  return () => { focusListeners.delete(listener) }
+}
+
+/** 키 · 명령으로 번역기를 연다(이미 열려 있어도 입력칸으로 포커스를 옮긴다) */
+export function openTranslatorWindow(): void {
+  focusRequested = true
+  updateTranslatorWindow({ open: true })
+  requestTranslatorFocus()
+}
+
 /** 번역기 단추: 열려 있으면 닫고 닫혀 있으면 연다 */
 export function toggleTranslatorWindow(): void {
   updateTranslatorWindow({ open: !state.open })
@@ -83,6 +118,15 @@ export function toggleTranslatorWindow(): void {
 export function reloadTranslatorWindow(): void {
   state = load()
   for (const listener of listeners) listener()
+}
+
+/** 다른 창이 저장한 값을 다시 읽는다(이 창 자신의 저장에는 storage 이벤트가 오지 않는다) */
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== null && event.key !== TRANSLATOR_WINDOW_STORAGE_KEY) return
+    state = load()
+    for (const listener of listeners) listener()
+  })
 }
 
 function subscribe(listener: () => void) {
@@ -180,8 +224,8 @@ export function translatorWindowFromFloat(float: LegacyTranslatorFloat, viewport
   }
 }
 
-/** 세션에서 읽은 번역기 떠 있는 칸을 창 상태로 옮긴다(상단바 높이 36px 를 비켜서 앉힌다) */
+/** 세션에서 읽은 번역기 떠 있는 칸을 창 상태로 옮긴다(상단바 높이를 비켜서 앉힌다) */
 export function adoptLegacyTranslatorFloat(float: LegacyTranslatorFloat): void {
   if (typeof window === 'undefined') return
-  updateTranslatorWindow(translatorWindowFromFloat(float, { width: window.innerWidth, height: window.innerHeight, top: 36 }))
+  updateTranslatorWindow(translatorWindowFromFloat(float, { width: window.innerWidth, height: window.innerHeight, top: TOPBAR_HEIGHT_PX }))
 }

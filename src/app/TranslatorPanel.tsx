@@ -11,7 +11,7 @@ import { pickSource, pickTarget, setTranslationSource, sourceForNewText, swapPai
 import { isDragExempt } from '../ui/dragExempt'
 import { TranslatorContext } from './translatorContext'
 import { useReaderSelection } from './readerSelectionStore'
-import { PANEL_MIN_HEIGHT, PANEL_MIN_WIDTH, placePanel, updateTranslatorWindow, useTranslatorWindow, type PanelBox } from './translatorPanelState'
+import { PANEL_MIN_HEIGHT, PANEL_MIN_WIDTH, TOPBAR_HEIGHT_PX, consumeTranslatorFocus, placePanel, subscribeTranslatorFocus, updateTranslatorWindow, useTranslatorWindow, type PanelBox } from './translatorPanelState'
 import '../ui/translator-panel.css'
 
 type ResultState =
@@ -27,9 +27,6 @@ function friendlyError(message: string): string {
   const explained = explainTranslationError(message, /ollama/iu.test(message))
   return explained.kind === 'key' || explained.kind === 'quota' || explained.kind === 'region' ? explained.text : message
 }
-
-/** 상단바 높이(--bar-h): 번역기는 이 아래에만 놓인다 */
-const TOPBAR_H = 36
 
 interface Gesture {
   readonly mode: 'move' | 'resize'
@@ -63,7 +60,7 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
   }, [])
   const [draft, setDraft] = useState<PanelBox | null>(null)
   const gesture = useRef<Gesture | null>(null)
-  const placed = placePanel(draft ?? stored, { ...bounds, top: TOPBAR_H })
+  const placed = placePanel(draft ?? stored, { ...bounds, top: TOPBAR_HEIGHT_PX })
   const [input, setInput] = useState('')
   const [result, setResult] = useState<ResultState>({ status: 'idle' })
   const requestId = useRef(0)
@@ -152,6 +149,13 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
     inputRef.current?.focus()
   }
 
+  // 키 · 명령으로 열었으면(이미 떠 있을 때 포함) 입력칸에 포커스를 둔다
+  useEffect(() => {
+    const focus = () => { if (consumeTranslatorFocus()) inputRef.current?.focus() }
+    focus()
+    return subscribeTranslatorFocus(focus)
+  }, [])
+
   // 닫히면 진행 중인 요청 결과는 버린다
   useEffect(() => () => { requestId.current += 1 }, [])
 
@@ -169,7 +173,7 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
     if (g === null) return
     const dx = event.clientX - g.startX
     const dy = event.clientY - g.startY
-    const area = { ...bounds, top: TOPBAR_H }
+    const area = { ...bounds, top: TOPBAR_HEIGHT_PX }
     if (g.mode === 'move') {
       setDraft(placePanel({ x: g.box.x + dx, y: g.box.y + dy, w: g.box.w, h: g.box.h }, area))
     } else {

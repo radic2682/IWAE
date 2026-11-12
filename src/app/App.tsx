@@ -51,7 +51,7 @@ import { TopBarToolbarContext } from './topBarToolbar'
 import { reactingPanes } from './paneReaction'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { TranslatorPanel } from './TranslatorPanel'
-import { finishLegacyTranslatorMigration, readLegacyTranslatorPanels, toggleTranslatorWindow, translatorWindowFromLegacy, updateTranslatorWindow, useTranslatorWindow } from './translatorPanelState'
+import { finishLegacyTranslatorMigration, readLegacyTranslatorPanels, toggleTranslatorWindow, translatorWindowFromLegacy, openTranslatorWindow, updateTranslatorWindow, useTranslatorWindow } from './translatorPanelState'
 import { closeFloat, embedPane, floatIdsOf, floatOf, floatPane, patchFloat, raiseFloat, visibleFloats, type FloatOutcome } from './floatingPanes'
 import { setFloatingLinkPanes } from './workspaceLinks'
 import { barMigrationKey, legacyBarWasOpen, migrateNoteBar } from './noteBarMigration'
@@ -952,6 +952,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     [],
   )
   const translation = useTranslation({ provider: translationProvider })
+  // 키 · 명령(접두키 w · display-popup · 팔레트)으로 번역기 창 열기: 번역을 꺼 두었으면 열지 않고 알린다. 열리면 입력칸에 포커스
+  const translationEnabledRef = useRef(translation.settings.enabled)
+  translationEnabledRef.current = translation.settings.enabled
+  const openTranslator = useCallback(() => {
+    if (!translationEnabledRef.current) { announceAction(t('번역이 꺼져 있습니다. 설정에서 켜 주세요')); return }
+    openTranslatorWindow()
+  }, [])
   // 번역 캐시(번역 기록): 같은 글·언어·번역기면 다시 묻지 않는다. 노트 카드·글 고르기·설정이 함께 쓴다
   const translateText = translation.translate
   const translateForCache = useCallback(async (text: string, targetLanguage?: string, sourceLanguage?: string) => {
@@ -1209,7 +1216,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           : []),
       { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: shortcutText('openSettings'), keywords: 'settings preferences', run: act('openSettings') },
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
-      { id: 'translator', kind: 'action', label: translatorWindow.open ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: toggleTranslatorWindow },
+      { id: 'translator', kind: 'action', label: translatorWindow.open ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open) toggleTranslatorWindow(); else openTranslator() } },
       { id: 'keys-help', kind: 'action', label: t('키와 명령 보기'), shortcut: `${prefixHint} ?`, keywords: 'keys help shortcuts commands list-keys 키 명령 도움말', run: () => setKeysHelpOpen(true) },
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
@@ -1886,7 +1893,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     listKeys: () => setKeysHelpOpen(true),
     // `:` 명령줄은 명령 팔레트가 `:` 와 미리 채울 글로 열린 것이다(아래 상태 줄은 없앴다)
     promptCommand: (prefill) => { setPaletteInitial(`:${prefill}`); setPaletteOpen(true) },
-    openTranslator: () => updateTranslatorWindow({ open: true }),
+    openTranslator: () => openTranslator(),
     confirmKillWindow: () => { confirmKindRef.current = 'kill-window'; prefixApiRef.current.startConfirm() },
     newClient: (wanted) => openNewClient(wanted),
     detach: () => detachThisClient(),

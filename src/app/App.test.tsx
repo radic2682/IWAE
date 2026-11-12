@@ -11,7 +11,7 @@ import { SAMPLE_DOC_ID, SAMPLE_TITLE } from '../pdf/samplePage'
 import { SelectionActions } from '../pdf/SelectionActions'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { getAppPrefs, setAppPref } from './appPrefs'
-import { reloadTranslatorWindow, updateTranslatorWindow } from './translatorPanelState'
+import { getTranslatorWindow, reloadTranslatorWindow, updateTranslatorWindow } from './translatorPanelState'
 import { announceAction } from './actionFeedback'
 import * as windowBridge from '../bridge/window'
 import { setWindowModeForTest } from '../core/windowMode'
@@ -1575,6 +1575,22 @@ describe('App — 떠 있는 칸', () => {
     after({ key: 'w', code: 'KeyW' })
     await new Promise((resolve) => { window.setTimeout(resolve, 60) })
     expect(document.querySelectorAll('.translator-window')).toHaveLength(1)
+  })
+
+  it('접두키 w 로 열면 번역기의 입력칸에 포커스가 간다', async () => {
+    render(<App developmentPreview />)
+    after({ key: 'w', code: 'KeyW' })
+    await waitFor(() => expect(document.querySelector('.translator-window')).not.toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('번역할 글')))
+  })
+
+  it('번역을 꺼 둔 설정이면 접두키 w · display-popup(이름 없음)은 창을 열지 않고 짧게 알린다', async () => {
+    localStorage.setItem('iwae:translation-settings:v1', JSON.stringify({ executionMode: 'auto', enabled: false }))
+    render(<App developmentPreview />)
+    after({ key: 'w', code: 'KeyW' })
+    await waitFor(() => expect(statusMessage()).toContain('번역이 꺼져 있습니다'))
+    expect(document.querySelector('.translator-window')).toBeNull()
+    expect(getTranslatorWindow().open).toBe(false)
   })
 
   it('번역기 창은 어느 칸 · 탭에도 속하지 않는다: 칸을 옮기고 닫아도 그대로 떠 있다', async () => {
