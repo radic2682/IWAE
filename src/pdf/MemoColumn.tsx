@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { CaretDown, CaretRight, Check, Code, DotsSixVertical, DotsThree, HighlighterCircle, ListBullets, ListChecks, ListNumbers, Star, Table, TextAa, TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline, Trash } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { restoreInlineStyles } from '../app/runtimeStyle'
+import { useHasTopBarSlot } from '../app/topBarToolbar'
 import { hasMemoFormatting, memoDisplayHtml, plainMemoTextToHtml, sanitizeMemoHtml, togglePlainCheck } from './memoRichText'
 import { addTableColumn, addTableRow, deleteTableColumn, deleteTableRow, insertTable, moveTableCell, tableCellAt } from './memoTableEditing'
 import {
@@ -423,6 +424,7 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
   const doneRef = useRef(false)
   const [empty, setEmpty] = useState(initialText.trim() === '')
   const formatSlot = useContext(MemoFormatSlotContext)
+  const hasTopBarSlot = useHasTopBarSlot()
 
   useLayoutEffect(() => {
     const element = ref.current
@@ -457,7 +459,9 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
     <div className="pdf-memo-editor-wrap">
       {(() => {
         const bar = <MemoFormatBar onCommand={() => setEmpty(ref.current === null || isBlank(ref.current))} />
-        return formatSlot === null ? bar : createPortal(bar, formatSlot)
+        // 서식 줄은 상단바 도구줄(노트 칸이 만지는 칸일 때만 있는 자리)에 포털로만 그린다. 그 칸을 만지지 않아 자리가 없을 때 카드 안으로 뛰어들면 글이 밀린다 — 상단바가 있는 앱에서는 아무것도 그리지 않는다(칸 안에 두는 것은 상단바가 없는 시험 · 단독일 때뿐)
+        if (formatSlot !== null) return createPortal(bar, formatSlot)
+        return hasTopBarSlot ? null : bar
       })()}
       <div
         ref={ref}

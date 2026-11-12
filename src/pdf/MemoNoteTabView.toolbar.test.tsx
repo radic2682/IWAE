@@ -6,6 +6,7 @@ import { MemoNoteContext, clearBlockReveal, peekBlockReveal, type MemoNoteApi } 
 import { MemoNoteTabView } from './MemoNoteTabView'
 import type { MemoNote } from '../core/memoNote'
 import type { PersistentPdfHighlight } from './persistentHighlight'
+import { TopBarToolbarContext } from '../app/topBarToolbar'
 import { PaneIdContext, WorkspaceContext, getAttachRequest, setAttachRequest, setRoutedMemoDraft, type WorkspaceLink } from '../app/workspaceContext'
 import { DEFAULT_CHANNELS } from '../app/workspaceChannels'
 import { resetPointSignals, subscribePointSignal, type DeliveredSignal } from '../app/workspaceSignal'
@@ -226,5 +227,34 @@ describe('MemoNoteTabView — 확대·카드 신호', () => {
     const { container } = render(<Harness spies={makeSpies()} />)
     fireEvent.click(container.querySelector('[data-memo-id="h1"]')!)
     expect(received[0]).toMatchObject({ from: 'right', channel: 'blue', target: { kind: 'memo', memoId: 'h1' }, origin: 'note' })
+  })
+})
+
+describe('MemoNoteTabView — 서식 줄은 상단바 자리에만 그리고, 칸을 만지지 않으면 카드 안으로 뛰어들지 않는다', () => {
+  const withTopBar = (slot: HTMLElement, activePane: string | null, spies: Spies) => (
+    <TopBarToolbarContext.Provider value={{ element: slot, activePane }}><Harness spies={spies} /></TopBarToolbarContext.Provider>
+  )
+
+  it('만지는 칸일 때는 서식 줄이 상단바 자리에 있고, 칸을 벗어나면 카드 안에도 어디에도 서식 단추가 생기지 않는다(글 쓰는 칸은 그대로)', () => {
+    const slot = document.createElement('div')
+    document.body.append(slot)
+    const spies = makeSpies()
+    const { container, rerender } = render(withTopBar(slot, 'right', spies))
+    fireEvent.click(screen.getByRole('button', { name: '글 블록 넣기' }))
+    const editor = screen.getByRole('textbox', { name: '글' })
+    expect(slot.querySelectorAll('.pdf-memo-format-button').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.pdf-memo-format-button')).toHaveLength(0)
+    // 다른 칸이 만지는 칸이 되었다: 도구줄은 사라지고, 카드 안으로 옮겨 오지 않는다
+    rerender(withTopBar(slot, 'left', spies))
+    expect(screen.getByRole('textbox', { name: '글' })).toBe(editor)
+    expect(container.querySelectorAll('.pdf-memo-format-button')).toHaveLength(0)
+    expect(slot.querySelectorAll('.pdf-memo-format-button')).toHaveLength(0)
+    slot.remove()
+  })
+
+  it('상단바 자리가 없는 곳(시험 · 단독)에서는 예전처럼 칸 안(노트 맨 위)에 둔다', () => {
+    const { container } = render(<Harness spies={makeSpies()} />)
+    fireEvent.click(screen.getByRole('button', { name: '글 블록 넣기' }))
+    expect(container.querySelectorAll('.pdf-memo-format-button').length).toBeGreaterThan(0)
   })
 })
