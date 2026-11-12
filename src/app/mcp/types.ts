@@ -34,6 +34,13 @@ export interface McpPaneState {
   readonly channel: PaneChannel
 }
 
+/** 떠 있는 칸 하나(칸 번호는 없다) */
+export interface McpFloatState {
+  readonly id: PaneId
+  readonly tabs: readonly McpTab[]
+  readonly activeId: string | null
+}
+
 /** 화면(tmux window) 하나: 번호 · 이름 · 보는 화면인가 · 그 화면의 칸들 */
 /** 세션 하나의 요약(app_state.session) */
 export interface McpSessionInfo {
@@ -64,6 +71,8 @@ export interface McpScreenState {
   readonly name: string
   readonly active: boolean
   readonly panes: readonly McpPaneState[]
+  /** 떠 있는 칸들 */
+  readonly floats: readonly McpFloatState[]
 }
 
 /** 서재의 문서 한 건(PDF·Markdown) */
@@ -109,6 +118,8 @@ export interface McpAppDeps {
   readonly panes: readonly McpPaneState[]
   /** 모든 화면(맨 위 줄 차례). 보는 화면의 칸들은 panes 와 같다 */
   readonly screens: readonly McpScreenState[]
+  /** 지금 보는 화면의 떠 있는 칸들 */
+  readonly floats: readonly McpFloatState[]
   /** 패널마다 지금 보이는 PDF 와 쪽(1부터) */
   readonly docViews: Readonly<Partial<Record<PaneId, { readonly docId: string; readonly page: number; readonly pageCount?: number }>>>
   /** 지금 PDF 에서 고른 글(없으면 null) */

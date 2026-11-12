@@ -9,7 +9,7 @@ import type { PersistentPdfHighlight } from '../../pdf/persistentHighlight'
 import { leaves, MAX_PANES, type LayoutNode } from '../../core/layoutTree'
 import { otherPane, tabDocId, tabsOf, type PaneId, type PanesState, type Tab } from '../tabs'
 import { channelOf, type PaneChannels } from '../workspaceChannels'
-import type { McpAppDeps, McpBookmarkPatch, McpLibraryDoc, McpPaneState, McpScreenState, PaneRef } from './types'
+import type { McpAppDeps, McpBookmarkPatch, McpFloatState, McpLibraryDoc, McpPaneState, McpScreenState, PaneRef } from './types'
 import type { Screen } from '../screens'
 
 /** 예전 칸 이름 → 칸 번호(왼쪽 위부터 0) */
@@ -138,6 +138,15 @@ function paneStatesOf(layout: LayoutNode, panes: PanesState, channels: PaneChann
   }))
 }
 
+/** 화면 하나의 떠 있는 칸들 */
+function floatStatesOf(screen: Screen, panes: PanesState): McpFloatState[] {
+  return screen.floats.map((float) => ({
+    id: float.paneId,
+    tabs: tabsOf(panes, float.paneId).tabs.map((tab) => ({ id: tab.id, title: tab.title, kind: tab.kind })),
+    activeId: tabsOf(panes, float.paneId).activeId,
+  }))
+}
+
 export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
   const order = leaves(input.layout)
   /**
@@ -212,7 +221,9 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
       active: screen.id === input.activeScreenId,
       // 보는 화면은 App 이 막 만든 최신 값(layout · panes · channels), 나머지는 저장된 화면의 값
       panes: screen.id === input.activeScreenId ? paneStatesOf(input.layout, input.panes, input.channels) : paneStatesOf(screen.layout, screen.panes, screen.channels),
+      floats: floatStatesOf(screen, screen.id === input.activeScreenId ? input.panes : screen.panes),
     })),
+    floats: floatStatesOf(input.screens.find((screen) => screen.id === input.activeScreenId) ?? input.screens[0]!, input.panes),
     docViews: input.docViews,
     selection: input.liveSelection,
     // 색인 기록 전체를 훑으므로 쓸 때만 계산한다(App 이 그릴 때마다 만들지 않는다)

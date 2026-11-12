@@ -1,5 +1,6 @@
 import { leaves } from '../../core/layoutTree'
 import { activeScreenOf } from '../screens'
+import { isFloatPane } from '../floatingPanes'
 import { tabsOf } from '../tabs'
 import { channelOf } from '../workspaceChannels'
 import type { WorkspaceModel } from '../workspaceCommands'
@@ -8,7 +9,10 @@ import { op, type McpAppDeps, type OpContext, type OpDef } from './types'
 /** 명령을 실행한 뒤의 화면 · 칸 요약(app_state 보다 짧다) */
 export interface McpWorkspaceState {
   readonly active_screen: number
+  /** 칸 번호(트리의 칸만 센다). 떠 있는 칸이 만지는 칸일 때는 0 이므로 active_float 를 함께 본다 */
   readonly active_pane: number
+  /** 만지는 떠 있는 칸의 id(없으면 null) */
+  readonly active_float: string | null
   readonly screens: readonly {
     readonly index: number
     readonly name: string
@@ -23,6 +27,13 @@ export interface McpWorkspaceState {
       readonly tabs: readonly string[]
       readonly active_tab: string | null
     }[]
+    /** 떠 있는 칸들(칸 번호는 없고 id 로 부른다) */
+    readonly floats: readonly {
+      readonly id: string
+      readonly active: boolean
+      readonly tabs: readonly string[]
+      readonly active_tab: string | null
+    }[]
   }[]
 }
 
@@ -33,6 +44,7 @@ export function summarizeWorkspace(model: WorkspaceModel): McpWorkspaceState {
   return {
     active_screen: Math.max(screens.findIndex((screen) => screen.id === activeScreen), 0),
     active_pane: Math.max(leaves(current.layout).indexOf(model.activePane), 0),
+    active_float: isFloatPane(current, model.activePane) ? model.activePane : null,
     screens: screens.map((screen, index) => {
       const order = leaves(screen.layout)
       return {
@@ -47,6 +59,15 @@ export function summarizeWorkspace(model: WorkspaceModel): McpWorkspaceState {
             id: pane,
             active: screen.id === activeScreen && pane === model.activePane,
             channel: channelOf(screen.channels, pane),
+            tabs: state.tabs.map((tab) => tab.title),
+            active_tab: state.tabs.find((tab) => tab.id === state.activeId)?.title ?? null,
+          }
+        }),
+        floats: screen.floats.map((float) => {
+          const state = tabsOf(screen.panes, float.paneId)
+          return {
+            id: float.paneId,
+            active: screen.id === activeScreen && float.paneId === model.activePane,
             tabs: state.tabs.map((tab) => tab.title),
             active_tab: state.tabs.find((tab) => tab.id === state.activeId)?.title ?? null,
           }

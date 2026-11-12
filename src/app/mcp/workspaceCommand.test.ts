@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { leaves } from '../../core/layoutTree'
+import { addFloat } from '../floatingPanes'
 import { blankScreen, type Screen } from '../screens'
 import { runCommandLine, type CommandHost, type WorkspaceModel } from '../workspaceCommands'
 import { fakeApp, makeEnv } from './testHarness'
 import { summarizeWorkspace, type McpWorkspaceState } from './workspaceCommand'
 
-const EMPTY: McpWorkspaceState = { active_screen: 0, active_pane: 0, screens: [] }
+const EMPTY: McpWorkspaceState = { active_screen: 0, active_pane: 0, active_float: null, screens: [] }
 
 describe('MCP workspace_command', () => {
   it('명령을 앱의 실행기로 보내고 {ok, message, state} 를 돌려준다', async () => {
@@ -69,6 +70,22 @@ describe('summarizeWorkspace', () => {
     expect(summary.screens.map((screen) => [screen.index, screen.name, screen.active, screen.zoomed])).toEqual([[0, '읽기', true, null], [1, '비교', false, null]])
     expect(summary.screens[0]!.panes).toEqual([{ index: 0, id: first, active: true, channel: 'green', tabs: ['문서'], active_tab: '문서' }])
     expect(summary.screens[1]!.panes[0]!.active).toBe(false)
+  })
+
+  it('떠 있는 칸을 floats 로 알리고, 떠 있는 칸이 만지는 칸이면 active_float 로 알린다', () => {
+    const base = model()
+    const added = addFloat(base, { tab: { id: 'n1', title: '노트', kind: 'memoNote' } })
+    if ('error' in added) throw new Error(added.error)
+    const summary = summarizeWorkspace(added.model)
+    expect(summary.active_float).toBe(added.paneId)
+    expect(summary.active_pane).toBe(0)
+    expect(summary.screens[0]!.panes.every((pane) => !pane.active)).toBe(true)
+    expect(summary.screens[0]!.floats).toEqual([{ id: added.paneId, active: true, tabs: ['노트'], active_tab: '노트' }])
+    expect(summary.screens[1]!.floats).toEqual([])
+    // 칸을 만지면 active_float 는 null, 떠 있는 칸은 active:false
+    const touched = summarizeWorkspace({ ...added.model, activePane: leaves(added.model.screens.screens[0]!.layout)[0]! })
+    expect(touched.active_float).toBeNull()
+    expect(touched.screens[0]!.floats[0]!.active).toBe(false)
   })
 
   it('실제 명령을 돌린 뒤의 요약에 나눈 칸과 새 화면이 보인다(같은 실행기)', async () => {

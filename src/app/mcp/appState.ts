@@ -2,7 +2,7 @@ import { memoNoteTitleOf } from '../../core/memoNote'
 import type { LayoutNode } from '../../core/layoutTree'
 import { isDocumentKind } from '../tabs'
 import { aiChangeCount, aiChanges, aiUndo } from './aiChangeLog'
-import { op, type McpPaneState, type OpContext, type OpDef } from './types'
+import { op, type McpFloatState, type McpPaneState, type McpTab, type OpContext, type OpDef } from './types'
 
 const SELECTION_LIMIT = 2000
 
@@ -21,21 +21,24 @@ const appState = async (_args: Record<string, unknown>, ctx: OpContext) => {
   const notes = ctx.notes.available ? ctx.notes.list() : []
   const docs = app?.docs ?? []
   const paneStates = app?.panes ?? []
+  const tabJson = (tab: McpTab) => ({
+    id: tab.id,
+    kind: tab.kind,
+    ...(tab.kind === 'memoNote' ? { note: memoNoteTitleOf(tab.id) } : tab.kind === 'canvas' ? { canvas: tab.id } : { doc_id: tab.id }),
+    title: tab.title,
+  })
   const paneJson = (pane: McpPaneState) => ({
     index: pane.index,
     id: pane.id,
     channel: pane.channel,
-    tabs: pane.tabs.map((tab) => ({
-      id: tab.id,
-      kind: tab.kind,
-      ...(tab.kind === 'memoNote' ? { note: memoNoteTitleOf(tab.id) } : tab.kind === 'canvas' ? { canvas: tab.id } : { doc_id: tab.id }),
-      title: tab.title,
-    })),
+    tabs: pane.tabs.map(tabJson),
     active_tab: pane.activeId,
   })
   const panes = paneStates.map(paneJson)
   // 모든 화면: 보는 화면의 panes 는 위 panes 와 같다(예전 도구가 panes 만 읽어도 지금 보는 화면이 온다)
-  const screens = (app?.screens ?? []).map((screen) => ({ index: screen.index, name: screen.name, active: screen.active, panes: screen.panes.map(paneJson) }))
+  const floatJson = (float: McpFloatState) => ({ id: float.id, active: float.id === app?.activePane, tabs: float.tabs.map(tabJson), active_tab: float.activeId })
+  const screens = (app?.screens ?? []).map((screen) => ({ index: screen.index, name: screen.name, active: screen.active, panes: screen.panes.map(paneJson), floats: screen.floats.map(floatJson) }))
+  const floats = (app?.floats ?? []).map(floatJson)
   const activePaneState = paneStates.find((pane) => pane.id === app?.activePane)
   const activeTab = activePaneState?.tabs.find((tab) => tab.id === activePaneState.activeId)
   // 지금 본 PDF: 만진 패널이 PDF 면 그것, 아니면 PDF 를 보는 다른 패널
@@ -54,9 +57,11 @@ const appState = async (_args: Record<string, unknown>, ctx: OpContext) => {
       pane_count: app?.paneCount ?? 0,
       active_pane: activePaneState?.index ?? 0,
       active_pane_id: app?.activePane ?? null,
+      active_float: floats.find((float) => float.active)?.id ?? null,
       tree: app === undefined ? null : treeShape(app.layout, paneStates.map((pane) => pane.id)),
     },
     panes,
+    floats,
     screens,
     session,
     clients: app?.clients() ?? [],

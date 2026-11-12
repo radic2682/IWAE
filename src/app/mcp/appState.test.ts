@@ -19,6 +19,19 @@ beforeEach(() => {
 })
 
 describe('app_state / settings_get / sources', () => {
+  it('app_state 는 떠 있는 칸을 floats 와 active_float 로 알린다', async () => {
+    const app = fakeApp({
+      activePane: 'fl1',
+      panes: [{ index: 0, id: 'p1', tabs: [], activeId: null, channel: 'blue' }],
+      floats: [{ id: 'fl1', tabs: [{ id: 'n/a.iwnote', title: 'a', kind: 'memoNote' }], activeId: 'n/a.iwnote' }],
+      screens: [{ index: 0, id: 'w1', name: '읽기', active: true, panes: [{ index: 0, id: 'p1', tabs: [], activeId: null, channel: 'blue' }], floats: [{ id: 'fl1', tabs: [{ id: 'n/a.iwnote', title: 'a', kind: 'memoNote' }], activeId: 'n/a.iwnote' }] }],
+    })
+    const state = await makeEnv({ app }).call('app_state') as { layout: Record<string, unknown>; floats: unknown[]; screens: { floats: unknown[] }[] }
+    expect(state.layout).toMatchObject({ active_pane: 0, active_float: 'fl1' })
+    expect(state.floats).toEqual([{ id: 'fl1', active: true, tabs: [{ id: 'n/a.iwnote', kind: 'memoNote', note: 'a', title: 'a' }], active_tab: 'n/a.iwnote' }])
+    expect(state.screens[0]!.floats).toHaveLength(1)
+  })
+
   it('app_state 는 창·탭·지금 문서·선택·열린 노트·AI 변경 수를 작게 돌려준다', async () => {
     const app = fakeApp({
       paneCount: 2,
@@ -65,8 +78,8 @@ describe('app_state / settings_get / sources', () => {
       activePane: 'pC',
       panes: second,
       screens: [
-        { index: 0, id: 'w1', name: '읽기', active: false, panes: first },
-        { index: 1, id: 'w2', name: '비교', active: true, panes: second },
+        { index: 0, id: 'w1', name: '읽기', active: false, panes: first, floats: [] },
+        { index: 1, id: 'w2', name: '비교', active: true, panes: second, floats: [] },
       ],
     })
     const env = makeEnv({ app })
