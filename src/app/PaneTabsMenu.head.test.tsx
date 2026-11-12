@@ -52,12 +52,23 @@ describe('PaneTabsMenu — 보조 글은 제목 바로 뒤, 같은 알약 안', 
   })
 })
 
-describe('칸 머리 × 는 올리거나 초점이 갈 때만 보인다(스타일)', () => {
-  const css = readFileSync(join(__dirname, '../ui/screens.css'), 'utf8').split('\r').join('')
+describe('칸 머리 탭은 예전 탭 모양(알약 스타일 없음)', () => {
+  const css = readFileSync(join(__dirname, '../ui/screens.css'), 'utf8').split(String.fromCharCode(13)).join('')
 
-  it('모든 알약의 × 는 평소 숨고, 알약에 올리거나 초점이 가면 보인다', () => {
-    expect(css).toContain('.pane-head .pane-top-tab .pane-top-tab-close { opacity: 0; }')
-    expect(css).toContain('.pane-head .pane-top-tab:is(:hover, :focus-within) .pane-top-tab-close { opacity: 1; }')
+  it('알약 규칙(고른 탭 연한 바탕 · × 숨김 · 칸 머리 높이 30px)이 없고 탭은 예전 .topbar-panetab-zone 규칙을 쓴다', () => {
+    expect(css).not.toContain('pane-top-tab.pane-top-tab')
+    expect(css).not.toContain('.pane-head .pane-top-tab .pane-top-tab-close')
+    expect(css).not.toContain('.pane-top-tab-title { height: 100%')
+    expect(css).not.toContain('flex: 0 0 30px')
+    expect(css).not.toContain('Herdr')
+  })
+
+  it('탭 줄 마크업은 예전 그대로: 탭 > 제목 단추(아이콘 · 이름) + ×, 알약 클래스는 없다', () => {
+    const { container } = render(<PaneTabsMenu {...base} state={two} />)
+    expect(container.innerHTML).not.toContain('pill')
+    const tab = container.querySelector('.pane-top-tab.pane-top-tab-active')!
+    expect([...tab.children].map((child) => child.className.split(' ')[0])).toEqual(['pane-top-tab-title', 'pane-top-tab-close'])
+    expect(tab.querySelector('.pane-top-tab-kind')).not.toBeNull()
   })
 
   it('보조 글은 칸 머리 바깥 따로 요소(.pane-head-sub)가 아니라 알약 안(.pane-top-tab-sub)에 있다', () => {
