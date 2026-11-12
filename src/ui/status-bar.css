@@ -88,6 +88,7 @@
 .keys-help-table th:nth-child(4) { width: 86px; }
 .keys-help-table :is(th, td):nth-child(4) { white-space: nowrap; }
 .keys-help-command code { overflow-wrap: break-word; word-break: normal; }
+.keys-help-token { white-space: nowrap; }
 /* 본문: 왼쪽 좁은 칸(접두키 없이 되는 키) + 오른쪽 접두키 표, 명령줄 명령은 아래 전체 폭 */
 .keys-help .sko-body { grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); }
 .keys-help .keys-help-commands { grid-column: 1 / -1; }

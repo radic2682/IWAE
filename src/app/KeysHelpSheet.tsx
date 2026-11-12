@@ -89,7 +89,10 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
                   <tr key={row.keys}>
                     <td><kbd className="keycap">{row.keys}</kbd></td>
                     <td>{t(row.action)}</td>
-                    <td className="keys-help-command"><code>{row.command}</code></td>
+                    {/* 낱말 안(select-pane -L 의 하이픈 뒤 등)에서는 줄을 꺾지 않고, 띄어쓰기에서만 꺾는다 */}
+                    <td className="keys-help-command"><code>{row.command.split(' ').map((word, index) => (
+                      <span key={index}>{index > 0 ? ' ' : ''}<span className="keys-help-token">{word}</span></span>
+                    ))}</code></td>
                     <td><span className="keys-help-state" data-state={row.status}>{row.status === 'on' ? t('됨') : row.status === 'partial' ? t('일부') : t('다음 단계')}</span></td>
                   </tr>
                 ))}
