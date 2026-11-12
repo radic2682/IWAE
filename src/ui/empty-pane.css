@@ -47,6 +47,4 @@
   font-size: 11px;
 }
 
-/* 낮은 칸에서는 「최근」 을 접고, 아주 낮으면 안내 줄도 접는다 */
-@container (max-height: 400px) { .empty-pane-recent { display: none; } }
-@container (max-height: 260px) { .empty-pane-hint { display: none; } }
+/* 낮은 칸: 「최근」 줄 · 안내 줄은 CSS 가 아니라 EmptyPane 이 실제 높이를 재어 덜어 낸다(세로 스크롤 막대가 생기지 않게) */

@@ -90,9 +90,9 @@ describe('EmptyPane', () => {
 
 describe('EmptyPane 스타일', () => {
   const css = readFileSync(join(__dirname, '../ui/empty-pane.css'), 'utf8').split(String.fromCharCode(13)).join('')
-  it('최대 360px 기둥이고, 낮은 칸에서는 「최근」 을 접으며, 움직임이 없다', () => {
+  it('최대 360px 기둥이고, 움직임이 없으며, 낮은 칸 줄이기는 CSS 400px 기준이 아니라 실제 높이로 한다', () => {
     expect(css).toContain('max-width: 360px')
-    expect(css).toMatch(/@container \(max-height: \d+px\) \{ \.empty-pane-recent \{ display: none; \} \}/u)
+    expect(css).not.toMatch(/@container/u)
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
   })
 })

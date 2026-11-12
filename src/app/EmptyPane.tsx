@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { FilePdf, FileText, Graph, NotePencil, SquaresFour, Translate, X } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import '../ui/empty-pane.css'
@@ -35,6 +35,29 @@ interface Row {
 }
 
 const ICON = 15
+const MAX_RECENTS = 4
+
+/** 칸이 낮을 때 줄이는 정도: 「최근」 줄 수(먼저 줄인다) → 그래도 넘치면 안내 줄도 감춘다 */
+export interface EmptyPaneTrim {
+  readonly recents: number
+  readonly hint: boolean
+}
+
+/**
+ * 내용 높이(natural)가 쓸 수 있는 높이(avail)를 넘으면 「최근」 줄을 하나씩 덜고(맨 아래 줄부터), 다 덜어도 넘치면 「최근」 제목 줄 · 안내 줄을 덜어 낸다.
+ * 세로 스크롤 막대가 생기지 않도록 실제로 잰 높이로 정한다(전엔 400px 기준을 따로 두었다). 순수 계산이라 따로 시험한다.
+ */
+export function fitEmptyPane(natural: number, avail: number, recents: number, pitch: number, sectionH: number): EmptyPaneTrim {
+  let need = natural
+  let n = recents
+  while (need > avail && n > 0) {
+    n -= 1
+    need -= pitch
+    if (n === 0) need -= sectionH
+  }
+  const hint = need <= avail
+  return { recents: n, hint }
+}
 
 /**
  * 빈 칸(설계 3): 가운데 한 줄 기둥 — 흐린 아이콘 · 「빈 칸」 · 한 줄 안내 · 조용한 명령 목록(왼쪽 아이콘 · 이름 · 오른쪽 키 힌트) · 「최근」.
@@ -43,6 +66,17 @@ const ICON = 15
  */
 export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onCanvas, onTranslator, onClose, recents = [] }: EmptyPaneProps) {
   const listRef = useRef<HTMLDivElement>(null)
+  const [trim, setTrim] = useState<EmptyPaneTrim>({ recents: MAX_RECENTS, hint: true })
+  // 높이를 재는 값: 줄 하나 · 「최근」 제목 · 안내 줄이 차지하는 높이(화면에 있을 때 잰다)
+  const sizes = useRef({ pitch: 31, sectionH: 33, hintH: 36 })
+  const [tick, setTick] = useState(0)
+  useLayoutEffect(() => {
+    const host = listRef.current?.parentElement
+    if (host === null || host === undefined || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => setTick((value) => value + 1))
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [])
   const rows: Row[] = []
   if (onPdf !== undefined) rows.push({ id: 'pdf', icon: <FilePdf size={ICON} aria-hidden="true" />, label: t('PDF 열기'), run: onPdf })
   if (onMarkdown !== undefined) rows.push({ id: 'markdown', icon: <FileText size={ICON} aria-hidden="true" />, label: t('Markdown 열기'), run: onMarkdown })
@@ -61,12 +95,40 @@ export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onCanvas, onT
     buttons[next]?.focus()
   }
 
-  const recentRows = recents.slice(0, 4)
+  const total = Math.min(recents.length, MAX_RECENTS)
+  useLayoutEffect(() => {
+    const el = listRef.current
+    const host = el?.parentElement
+    if (el === null || host === null || host === undefined) return
+    const box = getComputedStyle(host)
+    const avail = host.clientHeight - (Number.parseFloat(box.paddingTop) || 0) - (Number.parseFloat(box.paddingBottom) || 0)
+    if (avail <= 0 || el.offsetHeight <= 0) return
+    const rows = el.querySelectorAll<HTMLElement>('.empty-pane-recent .empty-pane-row')
+    const section = el.querySelector<HTMLElement>('.empty-pane-section')
+    const hint = el.querySelector<HTMLElement>('.empty-pane-hint')
+    const known = sizes.current
+    const first = rows[0]
+    const last = rows[rows.length - 1]
+    if (first !== undefined && last !== undefined) {
+      known.pitch = rows.length >= 2 ? (last.getBoundingClientRect().top - first.getBoundingClientRect().top) / (rows.length - 1) : first.offsetHeight + 1
+    }
+    if (section !== null) { const m = getComputedStyle(section); known.sectionH = section.offsetHeight + (Number.parseFloat(m.marginTop) || 0) + (Number.parseFloat(m.marginBottom) || 0) }
+    if (hint !== null) { const m = getComputedStyle(hint); known.hintH = hint.offsetHeight + (Number.parseFloat(m.marginTop) || 0) + (Number.parseFloat(m.marginBottom) || 0) }
+    // 지금 덜어 낸 만큼을 더해 「다 보일 때」 높이를 구한 뒤 다시 정한다
+    let natural = el.offsetHeight
+    natural += (total - trim.recents) * known.pitch
+    if (trim.recents === 0 && total > 0) natural += known.sectionH
+    if (!trim.hint) natural += known.hintH
+    const next = fitEmptyPane(natural, avail, total, known.pitch, known.sectionH)
+    if (next.recents !== trim.recents || next.hint !== trim.hint) setTrim(next)
+  }, [tick, total, trim.recents, trim.hint])
+
+  const recentRows = recents.slice(0, Math.min(MAX_RECENTS, trim.recents))
   return (
     <div className="empty-pane" ref={listRef} onKeyDown={onKeyDown}>
       <SquaresFour className="empty-pane-icon" size={28} aria-hidden="true" />
       <p className="empty-pane-title">{t('빈 칸')}</p>
-      <p className="empty-pane-hint">{t('문서를 열거나, 다른 칸의 탭을 끌어 오세요')}</p>
+      {trim.hint ? <p className="empty-pane-hint">{t('문서를 열거나, 다른 칸의 탭을 끌어 오세요')}</p> : null}
       {rows.length === 0 ? null : (
         <div className="empty-pane-actions" role="group" aria-label={t('이 칸에 열기')}>
           {rows.map((row, index) => (

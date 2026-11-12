@@ -14,8 +14,8 @@ import { isDesktop } from '../bridge/window'
  * 폭이 모자라면 접는 묶음. 앞에 있는 것부터 막대에서 빠져 오른쪽 끝 「…」 메뉴로 들어간다(크롬 도구줄처럼).
  * 미리 정한 폭이 아니라 실제로 넘치는지를 재서 정하므로 단추가 늘거나 화면 크기가 바뀌어도 잘리지 않는다.
  */
-type CollapseGroup = 'zoomRange' | 'fitExtra' | 'edge' | 'history' | 'fit' | 'usage'
-const COLLAPSE_ORDER: readonly CollapseGroup[] = ['zoomRange', 'fitExtra', 'edge', 'history', 'fit', 'usage']
+type CollapseGroup = 'zoomRange' | 'fitExtra' | 'edge' | 'history' | 'fit' | 'usage' | 'zoomInput' | 'zoomStep'
+const COLLAPSE_ORDER: readonly CollapseGroup[] = ['zoomRange', 'fitExtra', 'edge', 'history', 'fit', 'usage', 'zoomInput', 'zoomStep']
 /** 다시 꺼낼 때 남겨 둘 여유(px). 넣었다 뺐다 떨리지 않게 */
 const RESTORE_SLACK = 8
 
@@ -229,13 +229,13 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
         {onFitHeight !== undefined && shown('fitExtra') ? <button type="button" data-collapse="fitExtra" className="bottombar-btn bottombar-fit bottombar-fit-extra" aria-label={t('높이 맞춤')} title={t('높이 맞춤')} onClick={onFitHeight}><ArrowsVertical size={16} aria-hidden="true" /></button> : null}
         {onActualSize !== undefined && shown('fitExtra') ? <button type="button" data-collapse="fitExtra" className="bottombar-btn bottombar-fit bottombar-fit-extra bottombar-actual" aria-label={t('실제 크기')} title={t('실제 크기 (100%)')} onClick={onActualSize}>1:1</button> : null}
         {shown('fit') || (shown('fitExtra') && (onFitHeight !== undefined || onActualSize !== undefined)) ? <span className="bottombar-divider" /> : null}
-        <button type="button" className="bottombar-btn" aria-label={t('축소')} title={t('축소 (Ctrl+-)')} onClick={onZoomOut}><Minus size={16} aria-hidden="true" /></button>
+        {shown('zoomStep') ? <button type="button" data-collapse="zoomStep" className="bottombar-btn" aria-label={t('축소')} title={t('축소 (Ctrl+-)')} onClick={onZoomOut}><Minus size={16} aria-hidden="true" /></button> : null}
         {shown('zoomRange') ? <input aria-label={t('배율')} data-collapse="zoomRange" className="pdf-bottom-zoom-range" type="range" min={ZOOM_MIN} max={ZOOM_MAX} step="5" value={zoomPercent} style={rangeFillStyle(zoomPercent, ZOOM_MIN, ZOOM_MAX)} onChange={(event) => onZoomChange(Number(event.target.value))} /> : null}
-        <button type="button" className="bottombar-btn" aria-label={t('확대')} title={t('확대 (Ctrl+=)')} onClick={onZoomIn}><Plus size={16} aria-hidden="true" /></button>
-        <label className="pdf-bottom-zoom">
+        {shown('zoomStep') ? <button type="button" data-collapse="zoomStep" className="bottombar-btn" aria-label={t('확대')} title={t('확대 (Ctrl+=)')} onClick={onZoomIn}><Plus size={16} aria-hidden="true" /></button> : null}
+        {shown('zoomInput') ? <label className="pdf-bottom-zoom" data-collapse="zoomInput">
           <input aria-label={t('배율 직접 입력')} type="number" min={ZOOM_MIN} max={ZOOM_MAX} value={zoomInput} onChange={(event) => setZoomInput(event.target.value)} onBlur={commitZoom} onKeyDown={(event) => { if (event.key === 'Enter') commitZoom() }} />
           <span>%</span>
-        </label>
+        </label> : null}
       </div>
       {usageMeter && shown('usage') ? <div className="pdf-usage-slot" data-collapse="usage"><UsageMeter /></div> : null}
       {collapsed.size > 0 ? (
@@ -285,6 +285,12 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
               <>
                 {onFitHeight !== undefined ? <button type="button" role="menuitem" onClick={runMore(onFitHeight)}><ArrowsVertical size={16} aria-hidden="true" />{t('높이 맞춤')}</button> : null}
                 {onActualSize !== undefined ? <button type="button" role="menuitem" onClick={runMore(onActualSize)}><span className="pdf-bottom-more-glyph" aria-hidden="true">1:1</span>{t('실제 크기 (100%)')}</button> : null}
+              </>
+            ) : null}
+            {collapsed.has('zoomStep') ? (
+              <>
+                <button type="button" role="menuitem" onClick={runMore(onZoomOut)}><Minus size={16} aria-hidden="true" />{t('축소')} <kbd>Ctrl+-</kbd></button>
+                <button type="button" role="menuitem" onClick={runMore(onZoomIn)}><Plus size={16} aria-hidden="true" />{t('확대')} <kbd>Ctrl+=</kbd></button>
               </>
             ) : null}
             {collapsed.has('zoomRange') ? (

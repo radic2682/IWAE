@@ -175,10 +175,13 @@ describe('PaneToolbar', () => {
         />,
       )
       expect(screen.queryByRole('button', { name: '첫 페이지' })).toBeNull()
-      // 쪽 번호·배율은 늘 막대에 남는다
+      // 쪽 번호는 늘 막대에 남는다. 배율 입력 · 확대/축소는 320px 칸에서도 잘리지 않게 맨 마지막으로 메뉴에 들어간다
       expect(screen.getByRole('textbox', { name: '페이지' })).toBeTruthy()
-      expect(screen.getByRole('button', { name: '확대' })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: '확대' })).toBeNull()
+      expect(screen.queryByRole('spinbutton', { name: '배율 직접 입력' })).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: '더 보기' }))
+      expect(screen.getByRole('menuitem', { name: /확대/ })).toBeTruthy()
+      expect(screen.getByRole('menuitem', { name: /축소/ })).toBeTruthy()
       fireEvent.click(screen.getByRole('menuitem', { name: /첫 페이지/ }))
       expect(onPageChange).toHaveBeenCalledWith(1)
       expect(screen.queryByRole('menu', { name: '접어 둔 단추' })).toBeNull()
