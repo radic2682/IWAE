@@ -1638,17 +1638,21 @@ describe('App — 떠 있는 칸', () => {
     expect(getTranslatorWindow().open).toBe(false)
   })
 
-  it('번역을 꺼 둔 설정에서는 저장된 열림(open:true)이 있어도, 다른 창이 열어도 번역기 창을 그리지 않고 닫아 둔다', async () => {
+  it('번역을 꺼 둔 설정에서는 저장된 열림(open:true)이 있어도, 다른 창이 열어도 번역기 창을 그리지 않는다 — 그리기만 막고 열림 상태는 지우지 않는다(번역을 켠 다른 창의 번역기가 닫히면 안 된다)', async () => {
     localStorage.setItem('iwae:translation-settings:v1', JSON.stringify({ executionMode: 'auto', enabled: false }))
     localStorage.setItem('iwae:translator-window:v1', JSON.stringify({ open: true, x: null, y: null, w: 340, h: 300 }))
     reloadTranslatorWindow()
     render(<App developmentPreview />)
-    await waitFor(() => expect(getTranslatorWindow().open).toBe(false))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)) })
     expect(document.querySelector('.translator-window')).toBeNull()
+    expect(getTranslatorWindow().open).toBe(true)
+    expect(JSON.parse(localStorage.getItem('iwae:translator-window:v1')!).open).toBe(true)
     // 다른 창의 동기화(storage 이벤트) · 예전 값 옮기기로 다시 열려도 같다
+    act(() => { updateTranslatorWindow({ open: false }) })
     act(() => { updateTranslatorWindow({ open: true }) })
-    await waitFor(() => expect(getTranslatorWindow().open).toBe(false))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
     expect(document.querySelector('.translator-window')).toBeNull()
+    expect(getTranslatorWindow().open).toBe(true)
   })
 
   it('번역기 창은 어느 칸 · 탭에도 속하지 않는다: 칸을 옮기고 닫아도 그대로 떠 있다', async () => {

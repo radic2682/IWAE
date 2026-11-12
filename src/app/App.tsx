@@ -1228,7 +1228,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           : []),
       { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: shortcutText('openSettings'), keywords: 'settings preferences', run: act('openSettings') },
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
-      { id: 'translator', kind: 'action', label: translatorWindow.open ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open) toggleTranslatorWindow(); else openTranslator() } },
+      { id: 'translator', kind: 'action', label: translatorWindow.open && translation.settings.enabled ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open && translationEnabledRef.current) toggleTranslatorWindow(); else openTranslator() } },
       { id: 'keys-help', kind: 'action', label: t('키와 명령 보기'), shortcut: `${prefixHint} ?`, keywords: 'keys help shortcuts commands list-keys 키 명령 도움말', run: () => setKeysHelpOpen(true) },
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
@@ -2663,9 +2663,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
 
   // 번역기 창(앱 창 전체에 떠 있다): 열림은 도구줄 단추 · 접두키 w · display-popup 이 바꾼다
   const translatorWindow = useTranslatorWindow()
-  // 번역을 꺼 두면 번역기 창도 없다: 저장된 열림 · 다른 창의 동기화 · 예전 값 옮기기로 열려 있어도 닫는다(닫는 단추가 있는 상단바 단추도 번역을 꺼 두면 없다)
+  // 번역을 꺼 두면 이 창에는 번역기 창을 그리지 않는다(상단바 단추도 없다). 그리기만 막는다: 열림 상태(창끼리 나눠 갖는다)는 건드리지 않는다 —
+  // 번역 설정은 창끼리 나누지 않으므로 번역을 꺼 둔 창이 `open:false` 를 써 넣으면 번역을 켠 다른 창의 번역기까지 닫힌다
   const translationOn = translation.settings.enabled
-  useEffect(() => { if (!translationOn && translatorWindow.open) updateTranslatorWindow({ open: false }) }, [translationOn, translatorWindow.open])
   // 상단바 도구줄의 주인 칩(색 점 · 칸 번호 · 문서 종류): 도구줄이 있는 종류(PDF · MD · 메모 노트)를 보는 칸이 만지는 칸일 때만
   const ownerTab = activeTab(tabsOf(panes, activePaneId))
   const toolbarOwner = toolbarOwnerOf(ownerTab, channelOf(channels, activePaneId), paneOrder.indexOf(activePaneId) < 0 || floatIds.includes(activePaneId) ? null : leaves(layoutRoot).indexOf(activePaneId))
