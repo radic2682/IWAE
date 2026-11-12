@@ -10,7 +10,7 @@ vi.mock('../bridge/external', () => ({
   },
 }))
 
-import { AboutDialog, IWAE_REPOSITORY_URL } from './AboutDialog'
+import { AboutDialog, AUTHOR_BLOG_URL, IWAE_REPOSITORY_URL } from './AboutDialog'
 
 describe('AboutDialog', () => {
   it('버전과 개발 정보를 보이고, 소스 주소를 바깥 브라우저로 연다', () => {
@@ -23,6 +23,9 @@ describe('AboutDialog', () => {
     expect(dialog.querySelectorAll('.about-logo img')).toHaveLength(3)
     fireEvent.click(screen.getByRole('button', { name: 'github.com/radic2682/IWAE' }))
     expect(opened.urls).toEqual([IWAE_REPOSITORY_URL])
+    // 만든 사람의 블로그도 바깥 브라우저로
+    fireEvent.click(screen.getByRole('button', { name: 'sunhong.dev' }))
+    expect(opened.urls).toEqual([IWAE_REPOSITORY_URL, AUTHOR_BLOG_URL])
   })
 
   it('Escape·닫기 단추·바깥 누르기로 닫힌다', () => {

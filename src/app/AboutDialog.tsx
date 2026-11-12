@@ -6,6 +6,8 @@ import { t } from '../i18n'
 import '../ui/about-dialog.css'
 
 export const IWAE_REPOSITORY_URL = 'https://github.com/radic2682/IWAE'
+/** 만든 사람의 블로그 */
+export const AUTHOR_BLOG_URL = 'https://sunhong.dev'
 
 /**
  * 정보 보기. 로고가 두 조각(파란 판 + 고리, 흰 판)으로 날아와 맞물리고, 끝에 원본 로고로 바뀐다.
@@ -54,6 +56,14 @@ export function AboutDialog({ version, onClose, onShowHistory }: {
         ) : null}
         <dl className="about-facts">
           <div><dt>{t('개발')}</dt><dd>radic2682</dd></div>
+          <div>
+            <dt>{t('블로그')}</dt>
+            <dd>
+              <button type="button" className="about-link" onClick={() => { void openExternalUrl(AUTHOR_BLOG_URL).catch(() => {}) }}>
+                sunhong.dev
+              </button>
+            </dd>
+          </div>
           <div><dt>{t('라이선스')}</dt><dd>MIT</dd></div>
           <div><dt>{t('만든 도구')}</dt><dd>Tauri 2 · React 19 · PDFium</dd></div>
           <div>

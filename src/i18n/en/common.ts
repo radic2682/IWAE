@@ -58,6 +58,7 @@ export const COMMON: Readonly<Record<string, string>> = {
   '라이선스': 'License',
   '만든 도구': 'Built with',
   '소스': 'Source',
+  '블로그': 'Blog',
   '탭을 여기로 끌어 오거나 사이드바에서 문서를 여세요': 'Drag a tab here, or open a document from the sidebar',
   'IWAE 예시': 'IWAE Example',
   'PDF 를 폴더에서 정리하고, 누르면 바로 열어 나란히 읽고, 칠한 곳을 노트로 엮습니다.': 'Keep your PDFs in folders, open them with one click, read them side by side, and weave your highlights into notes.',
