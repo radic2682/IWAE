@@ -244,6 +244,23 @@ export function adoptLegacyTranslatorFloat(float: LegacyTranslatorFloat, session
   return true
 }
 
+/**
+ * 예전 세션의 번역기 칸을 번역기 창으로 옮길 창인가: 그 세션의 소유자가 될 창만 옮긴다.
+ * 번역기 창 상태(`iwae:translator-window:v1`)는 앱의 모든 창이 나눠 갖는데 옮긴 기억(adoptedLegacySessions)은 창마다라서, 먼저 붙은 새 앱 창(`new-client`)이
+ * 또 옮기면 이미 옮겨 두고 움직이거나 닫은 번역기 창이 제자리로 되돌아온다.
+ * - 시작: 메인 창만(새 앱 창은 소유자 확인(250ms) 전이고 메인 창이 이미 옮겼다)
+ * - 세션 갈아타기: 다른 앱 창이 안 붙은 세션이면 이 창이 소유자가 된다
+ * - 다른 창에서 받은 상태를 되살릴 때: 소유자가 아니므로 옮기지 않는다(그 상태에는 예전 번역기 칸도 없다)
+ */
+export function mayAdoptLegacyTranslator(when:
+  | { readonly at: 'start'; readonly role: 'main' | 'extra' | 'detached' }
+  | { readonly at: 'switch'; readonly attachedElsewhere: boolean }
+  | { readonly at: 'remote' }): boolean {
+  if (when.at === 'start') return when.role === 'main'
+  if (when.at === 'switch') return !when.attachedElsewhere
+  return false
+}
+
 /** 시험용: 옮긴 세션 기억을 비운다 */
 export function resetAdoptedLegacySessions(): void {
   adoptedLegacySessions.clear()

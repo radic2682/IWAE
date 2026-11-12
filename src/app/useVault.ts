@@ -66,7 +66,7 @@ import { reconcileLibraryPdfEntries, reconcileMissingVaultPdfs, reconcileVaultIn
 import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
-import { adoptLegacyTranslatorFloat } from './translatorPanelState'
+import { adoptLegacyTranslatorFloat, mayAdoptLegacyTranslator } from './translatorPanelState'
 import { captureSession, dormantTabsOf, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type DormantTabs, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
 import { allScreenPaneIds, screenPaneIds, activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
@@ -307,6 +307,11 @@ interface RestoreContext {
   readonly nextTreeEntries: readonly VaultTreeEntry[]
   readonly groups: readonly NotebookGroup[]
   readonly markdownAsPdf: (handle: VaultHandle, indexId: string, path: string, storage: 'vault' | 'reference', title: string, source: string) => Promise<PdfDocMeta | null>
+  /**
+   * 예전 세션의 번역기 칸을 번역기 창으로 옮겨도 되는가: 이 세션의 소유자가 될 창만(메인 창 · 아무도 안 붙은 세션으로 갈아탄 창).
+   * 먼저 붙은 새 앱 창(`new-client`)은 소유자가 아니라 다시 옮기지 않는다 — 번역기 창 상태는 앱의 모든 창이 나눠 갖는다.
+   */
+  readonly adoptLegacyTranslator: boolean
 }
 
 interface RestoredSession {
@@ -323,7 +328,7 @@ interface RestoredSession {
  * 사라진 파일의 탭은 missing 에 적고 건너뛴다.
  */
 async function restoreSessionState(ctx: RestoreContext, session: SessionState, sessionName: string): Promise<RestoredSession> {
-  const { handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf } = ctx
+  const { handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf, adoptLegacyTranslator } = ctx
   const missing: string[] = []
   const notes = new Map<string, NotebookNote>()
   for (const group of groups) {
@@ -414,7 +419,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     : null
   // 앱 창(메인 창 · 세션에 붙은 새 창)은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창은 한 칸에서 시작한다
   // 번역기 탭을 담은 떠 있는 칸이 저장돼 있던 세션이면 그 자리 · 크기로 번역기 창을 연다(칸 · 탭은 읽을 때 이미 버렸다)
-  if (session.legacyTranslator !== undefined && isAppClient(windowMode)) adoptLegacyTranslatorFloat(session.legacyTranslator, `${handle.root}|${sessionName}`)
+  if (adoptLegacyTranslator && session.legacyTranslator !== undefined && isAppClient(windowMode)) adoptLegacyTranslatorFloat(session.legacyTranslator, `${handle.root}|${sessionName}`)
   const snapshot = isAppClient(windowMode) && SPLIT_PANES_ENABLED
     ? screensFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage), t('읽기'))
     : singleScreenSnapshot(t('읽기'))
@@ -651,7 +656,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const startName = wantedSession !== null && loadedSessions.names.includes(wantedSession) ? wantedSession : loadedSessions.name
       const startRaw = startName === loadedSessions.name ? loadedSessions.raw : await readSessionNamed(handle, startName)
       const session = sessionForWindow(windowMode, parseSession(startRaw))
-      const restoredSession = await restoreSessionState({ handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf }, session, startName)
+      const restoredSession = await restoreSessionState({ handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf, adoptLegacyTranslator: mayAdoptLegacyTranslator({ at: 'start', role: windowMode.role }) }, session, startName)
       const { missing, documents, restoredMarkdownSources } = restoredSession
       dormantTabsRef.current = restoredSession.dormant
       const searchablePdfEntries = reconciledIndex.entries.filter((entry) => (
@@ -957,7 +962,7 @@ export function useVault(options: UseVaultOptions = {}) {
   sessionSnapshotRef.current = { vault, session: sessionSnapshot }
 
   // ───────── 세션에 붙은 앱 창들(docs/design/workspace-tmux.md 7, 동기화 방식은 sessionSync.ts) ─────────
-  const restoreCtxRef = useRef<Omit<RestoreContext, 'markdownAsPdf'>>(null as unknown as Omit<RestoreContext, 'markdownAsPdf'>)
+  const restoreCtxRef = useRef<Omit<RestoreContext, 'markdownAsPdf' | 'adoptLegacyTranslator'>>(null as unknown as Omit<RestoreContext, 'markdownAsPdf' | 'adoptLegacyTranslator'>)
   restoreCtxRef.current = { handle: vault as VaultHandle, windowMode, libraryEntries: entries, reconciledIndex: { version: 1, entries: vaultIndex } as VaultIndexFile, nextTreeEntries: treeEntries, groups: notebooks }
   /** 다른 앱 창이 정한 공유 상태를 이 창에 반영한다. 보는 화면 · 크게 · 포커스는 이 창 것을 지킨다 */
   const applyRemoteSession = useCallback(async (raw: SessionState) => {
@@ -979,7 +984,7 @@ export function useVault(options: UseVaultOptions = {}) {
       remote = screensFromKnownTabs(session, known)
     } else {
       // 이 창에 아직 없는 문서가 있다: 세션을 되살리듯 열어 온다
-      const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session, sessionNameRef.current)
+      const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf, adoptLegacyTranslator: mayAdoptLegacyTranslator({ at: 'remote' }) }, session, sessionNameRef.current)
       setOpenedDocs((current) => [...current, ...restored.documents.filter((document) => !current.some((candidate) => candidate.docId === document.docId))])
       setMarkdownSources((current) => ({ ...restored.restoredMarkdownSources, ...current }))
       remote = restored.screens
@@ -1063,7 +1068,7 @@ export function useVault(options: UseVaultOptions = {}) {
       setSessionReady(false)
       try {
         const session = parseSession(raw)
-        const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session, name)
+        const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf, adoptLegacyTranslator: mayAdoptLegacyTranslator({ at: 'switch', attachedElsewhere: attachedElsewhere(name) }) }, session, name)
         const order = leaves(activeScreenOf(restored.screens).layout)
         paneRouteRef.current = { doc: order[0]!, note: order[1] ?? order[0]! }
         setOpenedDocs(restored.documents)

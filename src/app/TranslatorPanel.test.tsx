@@ -27,6 +27,7 @@ import {
   reloadTranslatorWindow,
   toggleTranslatorWindow,
   adoptLegacyTranslatorFloat,
+  mayAdoptLegacyTranslator,
   resetAdoptedLegacySessions,
   translatorWindowFromFloat,
   translatorWindowFromLegacy,
@@ -454,6 +455,15 @@ describe('예전 값 옮기기', () => {
       expect(adoptLegacyTranslatorFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, 'v|A')).toBe(false)
       expect(getTranslatorWindow().open).toBe(false)
       expect(adoptLegacyTranslatorFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, 'v|B')).toBe(true)
+    })
+
+    it('세션의 소유자가 될 창만 옮긴다: 먼저 붙은 새 앱 창 · 남에게서 받은 상태 · 다른 창이 붙은 세션으로 갈아탄 창은 옮기지 않는다', () => {
+      expect(mayAdoptLegacyTranslator({ at: 'start', role: 'main' })).toBe(true)
+      expect(mayAdoptLegacyTranslator({ at: 'start', role: 'extra' })).toBe(false)
+      expect(mayAdoptLegacyTranslator({ at: 'start', role: 'detached' })).toBe(false)
+      expect(mayAdoptLegacyTranslator({ at: 'switch', attachedElsewhere: false })).toBe(true)
+      expect(mayAdoptLegacyTranslator({ at: 'switch', attachedElsewhere: true })).toBe(false)
+      expect(mayAdoptLegacyTranslator({ at: 'remote' })).toBe(false)
     })
   })
 })
