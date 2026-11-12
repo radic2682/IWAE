@@ -59,6 +59,7 @@ const appState = async (_args: Record<string, unknown>, ctx: OpContext) => {
     panes,
     screens,
     session,
+    clients: app?.clients() ?? [],
     active_doc: view === undefined
       ? null
       : {

@@ -78,6 +78,18 @@ describe('app_state / settings_get / sources', () => {
     expect(state.panes.map((pane) => pane.id)).toEqual(['pC', 'pD'])
   })
 
+  it('app_state 는 세션에 붙은 앱 창들을 clients 로 알린다(id · label · session · screen)', async () => {
+    const env = makeEnv({ app: fakeApp({ clients: () => [
+      { id: 'main', label: 'A', session: '논문 3장', screen: 0 },
+      { id: 'window-1', label: 'B', session: '논문 3장', screen: 1 },
+    ] }) })
+    const state = await env.call('app_state') as { clients: { id: string; label: string; session: string; screen: number }[] }
+    expect(state.clients).toEqual([
+      { id: 'main', label: 'A', session: '논문 3장', screen: 0 },
+      { id: 'window-1', label: 'B', session: '논문 3장', screen: 1 },
+    ])
+  })
+
   it('app_state 는 지금 세션의 이름과 세션 목록을 session 으로 알린다', async () => {
     const app = fakeApp({
       session: async () => ({ name: '논문', sessions: [

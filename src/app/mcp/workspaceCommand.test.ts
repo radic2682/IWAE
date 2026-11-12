@@ -13,8 +13,22 @@ describe('MCP workspace_command', () => {
     const workspaceCommand = vi.fn(async () => ({ ok: true, message: '', state: EMPTY }))
     const env = makeEnv({ app: fakeApp({ workspaceCommand }) })
     const result = await env.call('workspace_command', { command: 'split-window -h ; open 노트 A' })
-    expect(workspaceCommand).toHaveBeenCalledWith('split-window -h ; open 노트 A')
+    expect(workspaceCommand).toHaveBeenCalledWith('split-window -h ; open 노트 A', undefined)
     expect(result).toEqual({ ok: true, message: 'ok', state: EMPTY })
+  })
+
+  it('client 로 다른 앱 창을 정할 수 있다. 빈 값이나 글이 아니면 거절한다', async () => {
+    const workspaceCommand = vi.fn(async () => ({ ok: true, message: '', state: EMPTY }))
+    const env = makeEnv({ app: fakeApp({ workspaceCommand }) })
+    await env.call('workspace_command', { command: 'next-window', client: ' B ' })
+    expect(workspaceCommand).toHaveBeenCalledWith('next-window', 'B')
+    await expect(env.call('workspace_command', { command: 'next-window', client: '' })).rejects.toThrow(/client/u)
+    await expect(env.call('workspace_command', { command: 'next-window', client: 2 })).rejects.toThrow(/client/u)
+  })
+
+  it('없는 앱 창을 정하면 앱이 낸 오류가 그대로 간다', async () => {
+    const env = makeEnv({ app: fakeApp({ workspaceCommand: async () => { throw new Error("unknown client 'Z'") } }) })
+    await expect(env.call('workspace_command', { command: 'next-window', client: 'Z' })).rejects.toThrow(/unknown client/u)
   })
 
   it('명령의 실패는 오류가 아니라 ok:false 와 이유로 돌려준다', async () => {

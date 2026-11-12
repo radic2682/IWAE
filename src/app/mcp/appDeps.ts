@@ -86,6 +86,8 @@ export interface McpAppInput {
   readonly pdfToolBusy: (docId: string) => boolean
   /** 명령줄 한 줄을 실행하고 끝난 뒤의 화면 요약을 돌려준다(App 의 워크스페이스 명령 실행기) */
   readonly workspaceCommand: McpAppDeps['workspaceCommand']
+  /** 세션에 붙은 앱 창들 */
+  readonly clients: McpAppDeps['clients']
   /** 지금 세션의 이름과 있는 세션들 */
   readonly session: McpAppDeps['session']
 }
@@ -256,6 +258,7 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
       }
     },
     workspaceCommand: input.workspaceCommand,
+    clients: input.clients,
     session: input.session,
     closeTab: (tabId) => {
       const found = tabLocation(tabId)

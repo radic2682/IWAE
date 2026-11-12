@@ -140,6 +140,7 @@ export function fakeApp(overrides: Partial<McpAppDeps> = {}): McpAppDeps {
     goto: async (input) => ({ flashed: input.flash }),
     closeTab: () => true,
     workspaceCommand: async () => ({ ok: true, message: '', state: { active_screen: 0, active_pane: 0, screens: [] } }),
+    clients: () => [{ id: 'main', label: 'A', session: '기본', screen: 0 }],
     session: async () => ({ name: '기본', sessions: [{ name: '기본', active: true, screens: 1, last_used_at: null }] }),
     addBookmark: () => 'bm-1',
     updateBookmark: (id) => id,

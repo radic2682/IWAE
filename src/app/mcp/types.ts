@@ -44,6 +44,14 @@ export interface McpSessionInfo {
   readonly last_used_at: number | null
 }
 
+/** 앱 창(client) 하나: 창 id · 이름(A 가 메인 창) · 붙은 세션 · 보는 화면 번호(0부터) */
+export interface McpClientInfo {
+  readonly id: string
+  readonly label: string
+  readonly session: string
+  readonly screen: number
+}
+
 export interface McpSessionState {
   readonly name: string
   readonly sessions: readonly McpSessionInfo[]
@@ -118,7 +126,9 @@ export interface McpAppDeps {
   readonly goto: (input: { readonly docId: string; readonly page: number; readonly quote?: string; readonly flash: boolean; readonly pane?: PaneRef }) => Promise<{ readonly flashed: boolean }>
   readonly closeTab: (tabId: string) => boolean
   /** 명령줄 명령(`split-window -h ; open 노트 A`)을 앱의 `:` 명령줄과 같은 실행기로 돌리고, 끝난 뒤의 화면 · 칸 요약을 돌려준다 */
-  readonly workspaceCommand: (command: string) => Promise<{ readonly ok: boolean; readonly message: string; readonly state: McpWorkspaceState }>
+  readonly workspaceCommand: (command: string, client?: string) => Promise<{ readonly ok: boolean; readonly message: string; readonly state: McpWorkspaceState }>
+  /** 세션에 붙은 앱 창들(app_state.clients). 메인 창은 A */
+  readonly clients: () => readonly McpClientInfo[]
   /** 지금 세션의 이름과 있는 세션들 */
   readonly session: () => Promise<McpSessionState>
 

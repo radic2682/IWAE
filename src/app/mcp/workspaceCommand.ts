@@ -65,14 +65,15 @@ function needApp(ctx: OpContext): McpAppDeps {
 const MAX_COMMAND_CHARS = 2000
 
 /**
- * workspace_command: 앱의 `:` 명령줄과 같은 실행기로 명령을 돌린다. 명령의 실패(모르는 명령 · 칸이 하나뿐 …)는 오류가 아니라
+ * workspace_command: 앱의 `:` 명령줄과 같은 실행기로 명령을 돌린다. 기본은 메인 창(A)이고, client 로 다른 앱 창(B …)을 정할 수 있다. 명령의 실패(모르는 명령 · 칸이 하나뿐 …)는 오류가 아니라
  * `ok:false` 와 이유로 돌려준다 — AI 가 이유를 읽고 고쳐 다시 보내도록.
  */
 const workspaceCommand = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
   if (typeof args.command !== 'string' || args.command.trim() === '') throw new Error('command(명령 줄)가 필요합니다. 예: "split-window -h ; open 노트 A"')
   if (args.command.length > MAX_COMMAND_CHARS) throw new Error(`command 가 너무 깁니다(최대 ${MAX_COMMAND_CHARS}자).`)
-  const result = await app.workspaceCommand(args.command)
+  if (args.client !== undefined && (typeof args.client !== 'string' || args.client.trim() === '')) throw new Error('client 는 앱 창 이름이어야 합니다. 예: "B" (app_state.clients 의 label 이나 id)')
+  const result = await app.workspaceCommand(args.command, typeof args.client === 'string' ? args.client.trim() : undefined)
   ctx.change.target = args.command.trim().slice(0, 80)
   return { ok: result.ok, message: result.message === '' ? (result.ok ? 'ok' : 'failed') : result.message, state: result.state }
 }
