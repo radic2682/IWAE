@@ -1,0 +1,24 @@
+/* 접두키 대기 칩: 상단바 바로 아래 가운데에 떠 있는 작은 알약. 대기 중에만 그려지고(PrefixChip), 움직임도 자리 차지도 없다.
+   위치 = 상단바 높이 + 칸 사이 틈(--pane-gap), 높이 = 아이콘 단추(--icon-btn), 안쪽 여백은 8px 격자 */
+.prefix-chip {
+  position: fixed;
+  z-index: 90;
+  top: calc(var(--bar-h) + var(--pane-gap));
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  height: var(--icon-btn);
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid var(--divider-strong, var(--divider));
+  border-radius: var(--r-sm);
+  background: var(--chrome);
+  color: var(--text-strong);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.prefix-chip[data-phase='confirm'] { border-color: var(--accent); font-family: inherit; }
