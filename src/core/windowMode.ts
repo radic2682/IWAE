@@ -97,8 +97,10 @@ export function sessionForWindow(mode: WindowMode, saved: SessionState): Session
     }
   }
   if (mode.role === 'extra') {
+    // 새 창은 빈 탭에서 시작한다(탭으로 연 메모 노트도 이어받지 않는다)
+    const { memoNoteTabIds: _memoNoteTabIds, ...rest } = saved
     return {
-      ...saved,
+      ...rest,
       pdfTabIds: [],
       noteTabIds: [],
       activePdfTabId: null,

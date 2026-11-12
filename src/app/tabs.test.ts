@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   emptyTabs,
   isDocumentKind,
+  moveMemoNoteTabs,
+  syncMemoNoteTabs,
   normalizeTabKind,
   paneRouteOf,
   openTab,
@@ -213,5 +215,42 @@ describe('탭 종류 이름 정리 (note → canvas, memoNote 추가)', () => {
     expect(paneRouteOf('pdf')).toBe('doc')
     expect(paneRouteOf('memoNote')).toBe('note')
     expect(paneRouteOf('canvas')).toBe('note')
+  })
+})
+
+describe('메모 노트 탭: 옮김·휴지통·이름 따라가기', () => {
+  const memo = (id: string, title = id.replace(/^.*\//u, '').replace('.iwnote', '')) => ({ id, title, kind: 'memoNote' as const })
+  const pdf = (id: string) => ({ id, title: id, kind: 'pdf' as const })
+  const panes = (): PanesState => ({
+    left: { tabs: [pdf('doc-a'), memo('노트/A.iwnote')], activeId: '노트/A.iwnote' },
+    right: { tabs: [memo('노트/B.iwnote')], activeId: '노트/B.iwnote' },
+    third: emptyTabs,
+    fourth: emptyTabs,
+  })
+  const titleOf = (path: string) => path.replace(/^.*\//u, '').replace('.iwnote', '')
+
+  it('이름을 바꾸거나 폴더를 옮기면 그 노트의 탭이 새 경로·새 이름으로 따라가고 활성 탭도 유지된다', () => {
+    const next = moveMemoNoteTabs(panes(), new Map([['노트/A.iwnote', '노트/회의/새 A.iwnote']]), titleOf)
+    expect(next.left.tabs.map((tab) => [tab.id, tab.title])).toEqual([['doc-a', 'doc-a'], ['노트/회의/새 A.iwnote', '새 A']])
+    expect(next.left.activeId).toBe('노트/회의/새 A.iwnote')
+    expect(next.right.tabs[0]!.id).toBe('노트/B.iwnote')
+  })
+  it('옮겨진 노트가 없으면 같은 객체를 돌려준다', () => {
+    const state = panes()
+    expect(moveMemoNoteTabs(state, new Map([['노트/Z.iwnote', '노트/Y.iwnote']]), titleOf)).toBe(state)
+  })
+  it('목록에 없는 노트의 탭은 닫고 활성 탭은 이웃으로 물러난다', () => {
+    const next = syncMemoNoteTabs(panes(), new Map([['노트/B.iwnote', 'B']]))
+    expect(next.left.tabs.map((tab) => tab.id)).toEqual(['doc-a'])
+    expect(next.left.activeId).toBe('doc-a')
+    expect(next.right.tabs.map((tab) => tab.id)).toEqual(['노트/B.iwnote'])
+  })
+  it('이름이 달라진 탭은 새 이름으로 고치고, 문서 탭은 건드리지 않는다. 다 맞으면 같은 객체', () => {
+    const state = panes()
+    const titles = new Map([['노트/A.iwnote', 'A'], ['노트/B.iwnote', '다른 이름']])
+    const next = syncMemoNoteTabs(state, titles)
+    expect(next.right.tabs[0]!.title).toBe('다른 이름')
+    expect(next.left.tabs[0]).toBe(state.left.tabs[0])
+    expect(syncMemoNoteTabs(next, titles)).toBe(next)
   })
 })

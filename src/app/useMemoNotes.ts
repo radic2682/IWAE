@@ -107,6 +107,8 @@ export function useMemoNotes(
   const foldersRef = useRef(folders)
   foldersRef.current = folders
   const [loaded, setLoaded] = useState(false)
+  // 어느 Vault 의 목록을 읽었는가. Vault 를 바꾼 첫 그리기에서 옛 Vault 의 loaded 가 새 Vault 의 것으로 보이지 않게 한다
+  const [loadedRoot, setLoadedRoot] = useState<string | null>(null)
   const [openPath, setOpenPath] = useState<string | null>(null)
   // 사용자가 「노트 닫기」로 닫아 두었는가(저장값 '' 로 다음 실행에도 이어진다)
   const [closed, setClosed] = useState(false)
@@ -147,6 +149,7 @@ export function useMemoNotes(
     applyNotes(() => new Map())
     setFolders([])
     setLoaded(false)
+    setLoadedRoot(null)
     setOpenPath(null)
     setClosed(false)
     heldRef.current.clear()
@@ -171,6 +174,7 @@ export function useMemoNotes(
           setOpenPath(remembered !== null && read.some(([path]) => path === remembered) ? remembered : read[0]?.[0] ?? null)
         }
         setLoaded(true)
+        setLoadedRoot(vault.root)
       } catch (cause) {
         if (alive) onErrorRef.current(t('노트를 읽지 못했습니다: {error}', { error: errorText(cause) }))
       }
@@ -759,7 +763,7 @@ export function useMemoNotes(
     open,
     close,
     closed,
-    loaded,
+    loaded: vault !== null && loadedRoot === vault.root,
     create,
     updateOpen,
     noteAt,

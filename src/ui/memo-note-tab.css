@@ -1,0 +1,20 @@
+/* ---------- 메모 노트 탭: 노트 바(.pdf-memo-bar)와 같은 카드·서식 규칙을 쓰되, 창 한 칸을 가득 채운다 ---------- */
+/* 창 본문(.pane-body)을 가득 채운다 */
+.pane-doc.memo-note-tab { position: absolute; inset: 0; }
+.pane-doc .pdf-memo-bar.memo-note-tab-bar {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 0;
+}
+/* 머리는 흐름 안에 두고(노트 바 머리는 겹쳐 놓는다), 본문이 나머지를 채운다 */
+.pane-doc .memo-note-tab-bar > .pdf-memo-header.memo-note-tab-head { position: relative; flex: 0 0 auto; }
+.pane-doc .memo-note-tab-bar > .markdown-memo-bar-body { flex: 1 1 auto; min-height: 0; }
+.memo-note-tab-spacer { flex: 1 1 auto; }
+.pane-doc .memo-note-tab-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 12px; }

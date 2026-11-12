@@ -30,6 +30,20 @@ describe('MemoNotesSection', () => {
     expect(onTrash).toHaveBeenCalledWith('노트/TODO.iwnote')
   })
 
+  it('우클릭 메뉴의 「탭으로 열기」는 노트 바의 열린 노트와 따로 그 노트를 탭으로 연다. 기능이 없으면 항목도 없다', () => {
+    const onOpen = vi.fn()
+    const onOpenInTab = vi.fn()
+    const { unmount } = render(<MemoNotesSection entries={entries} openPath={null} onOpen={onOpen} onOpenInTab={onOpenInTab} onCreate={vi.fn()} onRename={vi.fn()} onTrash={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByRole('button', { name: /TODO/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '탭으로 열기' }))
+    expect(onOpenInTab).toHaveBeenCalledWith('노트/TODO.iwnote')
+    expect(onOpen).not.toHaveBeenCalled()
+    unmount()
+    render(<MemoNotesSection entries={entries} openPath={null} onOpen={onOpen} onCreate={vi.fn()} onRename={vi.fn()} onTrash={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByRole('button', { name: /TODO/ }))
+    expect(screen.queryByRole('menuitem', { name: '탭으로 열기' })).toBeNull()
+  })
+
   it('노트 아이콘을 누르면 노트를 열지 않고 바로 이모지를 고른다', () => {
     const onOpen = vi.fn()
     const onPickIcon = vi.fn()

@@ -21,6 +21,7 @@ function renderSidebar() {
     docOwner: (docId: string) => docs.some((doc) => doc.docId === docId) ? docId : null,
     openPath: null,
     onOpen: vi.fn(),
+    onOpenInTab: vi.fn(),
     onCreate: vi.fn(),
     onCreateForDoc: vi.fn(),
     onRename: vi.fn().mockResolvedValue(undefined),
@@ -64,6 +65,15 @@ describe('Sidebar — PDF 별 노트', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sleep Paper 펼치기' }))
     fireEvent.click(within(screen.getByRole('group', { name: '이 PDF의 노트' })).getByRole('button', { name: /Sleep 노트/ }))
     expect(memo.onOpen).toHaveBeenCalledWith('노트/Sleep 노트.iwnote')
+  })
+
+  it('PDF 아래 노트 줄의 우클릭 메뉴에도 「탭으로 열기」가 있다', () => {
+    const memo = renderSidebar()
+    fireEvent.click(screen.getByRole('button', { name: 'Sleep Paper 펼치기' }))
+    fireEvent.contextMenu(within(screen.getByRole('group', { name: '이 PDF의 노트' })).getByRole('button', { name: /Sleep 노트/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '탭으로 열기' }))
+    expect(memo.onOpenInTab).toHaveBeenCalledWith('노트/Sleep 노트.iwnote')
+    expect(memo.onOpen).not.toHaveBeenCalled()
   })
 
   it('PDF 줄 우클릭 메뉴에도 「이 PDF에 노트 만들기」가 있다', () => {

@@ -287,6 +287,14 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '{title} — 주석': '{title} — Annotations',
   '주석이 없습니다.': 'No annotations.',
 
+  // MemoNoteTabView, MemoNotesSection, NoteSwitcher (메모 노트를 탭으로)
+  '이 노트에서 검색': 'Search in this note',
+  '메모 노트': 'Memo note',
+  '노트 도구': 'Note tools',
+  '비어 있는 노트입니다. 「＋」로 글 블록을 넣어 쓰세요.': 'This note is empty. Use + to add a text block.',
+  '탭으로 열기': 'Open in tab',
+  '이 노트를 탭으로 열기': 'Open this note in a tab',
+
   // markdownCapture, sampleVaultDesktop
   'Markdown 캡처 크기가 올바르지 않습니다.': 'Invalid Markdown capture size.',
   '예시 파일을 읽지 못했습니다: {file}': 'Could not read sample file: {file}',

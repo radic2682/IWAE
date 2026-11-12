@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { NotePencil, Plus, Trash } from '@phosphor-icons/react'
+import { Browsers, NotePencil, Plus, Trash } from '@phosphor-icons/react'
 import { groupMemoNotesByDoc, type MemoNoteEntry } from '../core/memoNote'
 import { t } from '../i18n'
 import type { MemoNoteApi } from './memoNoteContext'
@@ -112,13 +112,21 @@ export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose, onTrash
         </div>
       ) : null}
       {owner === null && others.length === 0 ? <p className="note-switch-empty">{t('노트가 없습니다')}</p> : null}
-      {onTrashOpen === undefined || api.openPath === null ? null : (
+      {(onTrashOpen === undefined && api.openInTab === undefined) || api.openPath === null ? null : (
         <>
           <hr className="note-switch-sep" />
-          <button type="button" role="menuitem" className="note-switch-item note-switch-danger" onClick={() => { onClose(); onTrashOpen() }}>
-            <Trash size={14} aria-hidden="true" />
-            <span>{t('이 노트 휴지통으로 이동…')}</span>
-          </button>
+          {api.openInTab === undefined ? null : (
+            <button type="button" role="menuitem" className="note-switch-item note-switch-open-tab" onClick={() => { const path = api.openPath; onClose(); if (path !== null) api.openInTab?.(path) }}>
+              <Browsers size={14} aria-hidden="true" />
+              <span>{t('이 노트를 탭으로 열기')}</span>
+            </button>
+          )}
+          {onTrashOpen === undefined ? null : (
+            <button type="button" role="menuitem" className="note-switch-item note-switch-danger" onClick={() => { onClose(); onTrashOpen() }}>
+              <Trash size={14} aria-hidden="true" />
+              <span>{t('이 노트 휴지통으로 이동…')}</span>
+            </button>
+          )}
         </>
       )}
     </div>

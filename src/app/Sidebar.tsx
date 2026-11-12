@@ -506,6 +506,7 @@ export function Sidebar({
             openPath={memoNotes.openPath}
             depth={depth + 1}
             onOpen={memoNotes.onOpen}
+            onOpenInTab={memoNotes.onOpenInTab}
             onRename={memoNotes.onRename}
             onTrash={memoNotes.onTrash}
             icons={itemIcons}

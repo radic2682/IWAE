@@ -61,6 +61,7 @@ import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
 import { captureSession, emptySession, parseSession, type SessionState } from '../core/session'
+import { memoNoteTitleOf } from '../core/memoNote'
 import { currentWindowMode, ownsSession, sessionForWindow } from '../core/windowMode'
 import type { SyncCodec } from '../core/vaultSync'
 import { findStaleDocuments } from '../core/staleDocuments'
@@ -494,7 +495,11 @@ export function useVault(options: UseVaultOptions = {}) {
           migratedActiveMarkdownId ?? session.activePdfTabId,
         ),
         restoredTabs(
-          restoredNotes.map((note) => ({ id: note.path, title: note.title, kind: 'canvas' })),
+          [
+            ...restoredNotes.map((note): Tab => ({ id: note.path, title: note.title, kind: 'canvas' })),
+            // 탭으로 연 메모 노트: 노트 목록은 따로(useMemoNotes) 읽으므로 여기서는 이름만 경로에서 따 두고, 없어진 노트의 탭은 App 이 목록을 읽은 뒤 닫는다
+            ...(session.memoNoteTabIds ?? []).map((path): Tab => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' })),
+          ],
           migratedActiveMarkdownId === null ? session.activeNoteTabId : null,
         ),
         session.panes,

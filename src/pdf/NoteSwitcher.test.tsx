@@ -105,6 +105,23 @@ describe('노트 바꾸기(오른쪽 바 머리)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('열린 노트가 있으면 「이 노트를 탭으로 열기」가 휴지통 항목 위에 있고, 누르면 그 노트를 창의 탭으로 열고 목록을 닫는다', () => {
+    const openInTab = vi.fn()
+    renderHeader(makeApi({ openPath: '노트/S1.iwnote', openInTab, trashNote: vi.fn() }))
+    fireEvent.click(screen.getByRole('button', { name: /노트 바꾸기: S1/ }))
+    const items = within(screen.getByRole('menu', { name: '노트 바꾸기' })).getAllByRole('menuitem')
+    expect(items.slice(-2).map((item) => item.textContent)).toEqual(['이 노트를 탭으로 열기', '이 노트 휴지통으로 이동…'])
+    fireEvent.click(items.at(-2)!)
+    expect(openInTab).toHaveBeenCalledWith('노트/S1.iwnote')
+    expect(screen.queryByRole('menu', { name: '노트 바꾸기' })).toBeNull()
+  })
+
+  it('탭으로 열기 기능이 없거나 열린 노트가 없으면 그 항목을 보이지 않는다', () => {
+    renderHeader(makeApi({ openPath: '노트/S1.iwnote' }))
+    fireEvent.click(screen.getByRole('button', { name: /노트 바꾸기: S1/ }))
+    expect(screen.queryByRole('menuitem', { name: '이 노트를 탭으로 열기' })).toBeNull()
+  })
+
   it('열린 노트가 없거나 지우기 기능이 없으면 항목을 보이지 않는다', () => {
     const { unmount } = render(<NoteBarHeader api={makeApi({ openPath: null, trashNote: vi.fn() })} fallbackTitle="노트 없음" highlights={[]} currentDocId="docS" onPickResult={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /노트 바꾸기/ }))

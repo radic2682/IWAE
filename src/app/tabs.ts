@@ -204,6 +204,43 @@ export function closeTabEverywhere(panes: PanesState, id: string): PanesState {
   return { left: closeTab(panes.left, id), right: closeTab(panes.right, id), third: closeTab(panes.third, id), fourth: closeTab(panes.fourth, id) }
 }
 
+/**
+ * 메모 노트가 옮겨졌다(이름 바꾸기·폴더 이동: 옛 경로 → 새 경로). 그 노트의 탭이 새 경로와 새 이름으로 따라간다.
+ * 활성 탭도 같이 옮긴다. 바뀐 것이 없으면 같은 객체.
+ */
+export function moveMemoNoteTabs(panes: PanesState, moved: ReadonlyMap<string, string>, titleOf: (path: string) => string): PanesState {
+  const touches = (tab: Tab) => tab.kind === 'memoNote' && moved.has(tab.id)
+  if (!allPaneTabs(panes).some(touches)) return panes
+  const next = { ...panes }
+  for (const pane of PANE_IDS) {
+    const state = panes[pane]
+    if (!state.tabs.some(touches)) continue
+    const activeMoved = state.tabs.find((tab) => tab.id === state.activeId && touches(tab))
+    next[pane] = {
+      tabs: state.tabs.map((tab) => touches(tab) ? { ...tab, id: moved.get(tab.id)!, title: titleOf(moved.get(tab.id)!) } : tab),
+      activeId: activeMoved === undefined ? state.activeId : moved.get(activeMoved.id)!,
+    }
+  }
+  return next
+}
+
+/**
+ * 메모 노트 목록(경로 → 이름)에 탭을 맞춘다: 목록에 없는 노트(휴지통·밖에서 지움)의 탭은 닫고, 이름이 바뀐 탭은 새 이름으로.
+ * 바뀐 것이 없으면 같은 객체.
+ */
+export function syncMemoNoteTabs(panes: PanesState, titles: ReadonlyMap<string, string>): PanesState {
+  const stale = (tab: Tab) => tab.kind === 'memoNote' && (!titles.has(tab.id) || titles.get(tab.id) !== tab.title)
+  if (!allPaneTabs(panes).some(stale)) return panes
+  let next = panes
+  for (const tab of allPaneTabs(panes)) {
+    if (!stale(tab)) continue
+    next = titles.has(tab.id)
+      ? mapPaneTabs(next, (candidate) => candidate.id === tab.id && candidate.kind === 'memoNote' ? { ...candidate, title: titles.get(tab.id)! } : candidate)
+      : closeTabEverywhere(next, tab.id)
+  }
+  return next
+}
+
 export function mapPaneTabs(panes: PanesState, map: (tab: Tab) => Tab): PanesState {
   return {
     left: { ...panes.left, tabs: panes.left.tabs.map(map) },

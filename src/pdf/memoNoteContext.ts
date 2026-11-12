@@ -27,6 +27,8 @@ export interface MemoNoteApi {
   readonly noteAt: (path: string) => MemoNote | null
   /** path 노트를 고친다(저장은 알아서; updateOpen 과 같은 길). 목록에 없는 노트는 무시 */
   readonly updateNoteAt: (path: string, change: (note: MemoNote) => MemoNote) => void
+  /** 노트를 창의 탭으로 연다(노트 바와 따로 본다). 없으면 노트 바 메뉴에 「탭으로 열기」를 보이지 않는다 */
+  readonly openInTab?: (path: string) => void
   /** 노트 이름을 바꾼다(새 경로). 없으면 이름 바꾸기를 보이지 않는다 */
   readonly rename?: (path: string, title: string) => Promise<string>
   /** 이 형광펜을 담은 노트들 */

@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import { fitMenuInViewport } from '../ui/fitMenu'
-import { ArrowSquareIn, ArrowSquareOut, ClipboardText, Eraser, PencilSimple, Smiley, Trash } from '@phosphor-icons/react'
+import { ArrowSquareIn, ArrowSquareOut, Browsers, ClipboardText, Eraser, PencilSimple, Smiley, Trash } from '@phosphor-icons/react'
 import type { FolderColor } from '../core/folderColors'
 import type { MemoNoteEntry } from '../core/memoNote'
 import { t } from '../i18n'
@@ -11,11 +11,13 @@ import { NoteGlyph, memoNoteIconKey } from './MemoNotesSection'
  * 왼쪽 바에서 PDF 줄 아래에 펼쳐지는 그 PDF 의 노트들(노트 아이콘 + 제목 한 줄씩).
  * 누르면 오른쪽 바에 열리고, 두 번 누르면 이름 바꾸기, 우클릭 메뉴에 이름 바꾸기·이모지·위치·휴지통이 있다.
  */
-export function DocNoteRows({ entries, openPath, depth, onOpen, onRename, onTrash, icons = {}, colors = {}, onPickIcon, onClearIcon, onReveal, onCopyPath }: {
+export function DocNoteRows({ entries, openPath, depth, onOpen, onOpenInTab, onRename, onTrash, icons = {}, colors = {}, onPickIcon, onClearIcon, onReveal, onCopyPath }: {
   readonly entries: readonly MemoNoteEntry[]
   readonly openPath: string | null
   readonly depth: number
   readonly onOpen: (path: string) => void
+  /** 노트를 창의 탭으로 연다. 없으면 메뉴에 보이지 않는다 */
+  readonly onOpenInTab?: (path: string) => void
   readonly onRename: (path: string, title: string) => Promise<void>
   readonly onTrash: (path: string) => Promise<void>
   readonly icons?: Readonly<Record<string, string>>
@@ -105,6 +107,11 @@ export function DocNoteRows({ entries, openPath, depth, onOpen, onRename, onTras
             <button type="button" role="menuitem" onClick={() => { onOpen(menu.path); setMenu(null) }}>
               <span className="side-context-icon" aria-hidden="true"><ArrowSquareIn size={15} /></span><span className="side-context-label">{t('열기')}</span>
             </button>
+            {onOpenInTab === undefined ? null : (
+              <button type="button" role="menuitem" onClick={() => { onOpenInTab(menu.path); setMenu(null) }}>
+                <span className="side-context-icon" aria-hidden="true"><Browsers size={15} /></span><span className="side-context-label">{t('탭으로 열기')}</span>
+              </button>
+            )}
             <button type="button" role="menuitem" onClick={() => { setRenaming({ path: menu.path, value: menu.title }); setMenu(null) }}>
               <span className="side-context-icon" aria-hidden="true"><PencilSimple size={15} /></span><span className="side-context-label">{t('이름 바꾸기')}</span>
             </button>

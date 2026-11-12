@@ -273,6 +273,26 @@ describe('useVault — 시작 복원', () => {
     expect(vi.mocked(useVaultWatcher).mock.calls.at(-1)?.[0].dirtyIds).not.toContain(canvasId)
   })
 
+  it('탭으로 연 메모 노트는 저장된 패널 자리와 활성 탭 그대로 복원한다(이름은 경로에서 따 둔다)', async () => {
+    vi.mocked(readSession).mockResolvedValue({
+      pdfTabIds: [],
+      noteTabIds: [],
+      memoNoteTabIds: ['노트/전원.iwnote', '노트/회의/점검.iwnote'],
+      activePdfTabId: null,
+      activeNoteTabId: null,
+      sidebarCollapsed: false,
+      sidebarPx: 280,
+      leftFrac: 0.5,
+      panes: { left: ['노트/회의/점검.iwnote'], right: ['노트/전원.iwnote'], activeLeft: '노트/회의/점검.iwnote', activeRight: '노트/전원.iwnote' },
+    })
+
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+
+    expect(result.current.panes.left).toEqual({ tabs: [{ id: '노트/회의/점검.iwnote', title: '점검', kind: 'memoNote' }], activeId: '노트/회의/점검.iwnote' })
+    expect(result.current.panes.right).toEqual({ tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' }], activeId: '노트/전원.iwnote' })
+  })
+
   it('이전 세션의 노트 쪽 Markdown 탭도 문서 탭으로 옮겨 복원한다', async () => {
     vi.mocked(readSession).mockResolvedValue({
       pdfTabIds: [],

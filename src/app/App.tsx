@@ -34,6 +34,8 @@ import type { PageTextIndex } from '../core/textIndex'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { setMemoBarVisible, useMemoBarVisible } from '../pdf/memoStore'
 import { MemoNoteContext, requestTitleEdit, type MemoNoteApi } from '../pdf/memoNoteContext'
+import { MemoNoteTabView } from '../pdf/MemoNoteTabView'
+import { memoNoteTabPane, useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './useMemoNoteTabs'
 import { useMemoNotes } from './useMemoNotes'
 import { useMouseGestures } from './useMouseGestures'
 import { useSmoothWheel } from './useSmoothWheel'
@@ -1400,7 +1402,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [pdfSearchSlot, setPdfSearchSlot] = useState<HTMLElement | null>(null)
   // 메모 노트: 오른쪽 바에 PDF 와 따로 여는 노트(여러 PDF 의 메모 + 글 블록). 처음 한 번 예전 카테고리를 노트로 옮긴다
   const memoNoteDocTitle = useCallback((docId: string) => docTitles[docId] ?? '', [docTitles])
-  const memoNotes = useMemoNotes(vault, pdfHighlights.highlights, memoNoteDocTitle, announceAction)
+  // 노트 경로가 바뀌면(이름 바꾸기·옮기기) 그 노트를 탭으로 연 창의 탭도 따라가고, 지워진 노트의 탭은 닫는다
+  const followMovedMemoNotes = useFollowMovedMemoNotes(setPanes)
+  const memoNotes = useMemoNotes(vault, pdfHighlights.highlights, memoNoteDocTitle, announceAction, followMovedMemoNotes)
+  useSyncMemoNoteTabs(setPanes, memoNotes.loaded, memoNotes.entries)
   // PDF 별 노트: 문서 id → 노트를 가지는 줄(버전 묶음이면 대표 문서). 지워졌거나 찾을 수 없는 PDF 의 노트는 일반 노트로 보인다
   const noteKnownDocIds = useMemo(() => new Set(shownLibrary.filter((doc) => !missingDocIds.includes(doc.docId)).map((doc) => doc.docId)), [missingDocIds, shownLibrary])
   const noteDocOwner = useCallback(
@@ -1421,7 +1426,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }
     return path
   }, [memoNotes, noteDocLabel, noteDocOwner])
-  const memoNoteApi: MemoNoteApi = { ...memoNotes, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc, trashNote: async (path, source) => { await memoNotes.trash(path, source); forgetMemoPaths([path]) } }
+  /**
+   * 메모 노트를 창의 탭으로 연다(이미 탭이면 그 탭으로). 창이 여럿이면 지금 만진 창의 옆 창에, 하나뿐이면 그 창에 연다.
+   * 노트 바의 열린 노트와는 따로다 — 같은 노트를 둘 다에서 봐도 저장소는 하나다
+   */
+  const openMemoNoteTab = (path: string) => {
+    const target = memoNoteTabPane(panes, path, visiblePanes(shownPaneCount), activePaneId)
+    openInPane({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' }, target)
+    setActivePaneId(target)
+    setPaneRoute('note', target)
+  }
+  const memoNoteApi: MemoNoteApi = { ...memoNotes, openInTab: openMemoNoteTab, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc, trashNote: async (path, source) => { await memoNotes.trash(path, source); forgetMemoPaths([path]) } }
   // 들여오기·내보내기: PDF 안의 기존 표시, Zotero, Markdown
   const interop = useInteropActions({
     vault,
@@ -2658,6 +2673,29 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const hint = pane === 'left' ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
       return <PaneShell state={state} emptyHint={hint} placeholder="" />
     }
+    if (tab.kind === 'memoNote') {
+      return (
+        <PaneShell
+          state={state}
+          emptyHint={t(NOTE_EMPTY)}
+          placeholder={t('노트를 불러올 수 없습니다')}
+          renderBody={(memoTab) => (
+            <MemoNoteTabView
+              key={memoTab.id}
+              path={memoTab.id}
+              highlights={pdfHighlights.highlights}
+              docTitles={docTitles}
+              onHighlightUpdated={pdfHighlights.update}
+              onHighlightRemoved={(id) => {
+                pdfHighlights.remove(id)
+                memoNotes.forgetHighlight(id)
+              }}
+              onJump={jumpToAnnotation}
+            />
+          )}
+        />
+      )
+    }
     if (tab.kind === 'canvas') {
       return (
         <PaneShell
@@ -2850,6 +2888,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                 memoNotes.open(path)
                 setMemoBarVisible(true)
               },
+              onOpenInTab: openMemoNoteTab,
               onCreate: () => {
                 void memoNotes.create()
                 setMemoBarVisible(true)

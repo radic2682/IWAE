@@ -1,7 +1,7 @@
 import { t } from '../i18n'
 import { fitMenuInViewport } from '../ui/fitMenu'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { ArrowSquareIn, ArrowSquareOut, ArrowsInLineVertical, ArrowsOutLineVertical, CaretDown, CaretRight, ClipboardText, Eraser, Export, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, PencilSimple, Plus, Smiley, Trash } from '@phosphor-icons/react'
+import { ArrowSquareIn, ArrowSquareOut, ArrowsInLineVertical, Browsers, ArrowsOutLineVertical, CaretDown, CaretRight, ClipboardText, Eraser, Export, FilePlus, Folder, FolderPlus, Notebook, NotePencil, Palette, PencilSimple, Plus, Smiley, Trash } from '@phosphor-icons/react'
 import { memoNotesFolder, isInsideMemoFolder, memoParentOf, type MemoNoteEntry } from '../core/memoNote'
 import { FOLDER_COLORS, folderColorHex, folderColorLabel, type FolderColor } from '../core/folderColors'
 import { ItemEmoji } from './ItemEmoji'
@@ -28,6 +28,8 @@ export interface MemoNotesSectionProps {
   /** 오른쪽 바에 열린 노트 */
   readonly openPath: string | null
   readonly onOpen: (path: string) => void
+  /** 노트를 창의 탭으로 연다(오른쪽 노트 바와 따로). 없으면 메뉴에 보이지 않는다 */
+  readonly onOpenInTab?: (path: string) => void
   readonly onCreate: () => void
   /** 그 폴더에 새 노트(폴더 우클릭·폴더 줄의 +) */
   readonly onCreateIn?: (folder: string) => void
@@ -116,6 +118,7 @@ export function MemoNotesSection({
   entries,
   openPath,
   onOpen,
+  onOpenInTab,
   onCreate,
   onCreateIn,
   onRename,
@@ -630,6 +633,12 @@ export function MemoNotesSection({
                 ) : null}
               </>
             )}
+            {menu.kind === 'note' && onOpenInTab !== undefined ? (
+              <button type="button" role="menuitem" onClick={() => {
+                onOpenInTab(menu.path)
+                setMenu(null)
+              }}><span className="side-context-icon" aria-hidden="true"><Browsers size={15} /></span><span className="side-context-label">{t('탭으로 열기')}</span></button>
+            ) : null}
             {menu.kind === 'note' ? (
               <button type="button" role="menuitem" onClick={() => {
                 window.dispatchEvent(new CustomEvent(APP_COMMAND_EVENT, { detail: { name: 'exportMarkdown', scope: { kind: 'note', path: menu.path } } }))
