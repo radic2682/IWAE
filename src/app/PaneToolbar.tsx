@@ -45,6 +45,9 @@ interface PaneToolbarProps {
   /** 깨끗이 보기(내 표시 모두 감추기) */
   readonly cleanView?: boolean
   readonly onCleanViewChange?: (clean: boolean) => void
+  /** 열린 노트 표시만 보기(PDF). 주면 눈 단추 옆에 깔때기 단추가 나온다 */
+  readonly onlyOpenNotes?: boolean
+  readonly onOnlyOpenNotesChange?: (on: boolean) => void
   /** 화면 나누기 배치. 주면 배치 고르는 단추가 나온다 */
   readonly splitLayout?: PdfSplitLayoutId
   readonly onSplitLayoutChange?: (id: PdfSplitLayoutId) => void
@@ -73,6 +76,8 @@ export function PaneToolbar({
   onPageLayoutChange,
   cleanView,
   onCleanViewChange,
+  onlyOpenNotes,
+  onOnlyOpenNotesChange,
   splitLayout,
   onSplitLayoutChange,
   onEditPages,
@@ -195,7 +200,7 @@ export function PaneToolbar({
   const layoutGroup = (
     <>
       {pageLayout !== undefined && onPageLayoutChange !== undefined ? (
-        <PdfPageLayoutButtons layout={pageLayout} onChange={onPageLayoutChange} buttonClassName="toolbar-tool-btn pdf-compact-tool" clean={cleanView} onCleanChange={onCleanViewChange} />
+        <PdfPageLayoutButtons layout={pageLayout} onChange={onPageLayoutChange} buttonClassName="toolbar-tool-btn pdf-compact-tool" clean={cleanView} onCleanChange={onCleanViewChange} onlyOpenNotes={onlyOpenNotes} onOnlyOpenNotesChange={onOnlyOpenNotesChange} />
       ) : cleanView !== undefined && onCleanViewChange !== undefined ? (
         // 쪽 배치가 없는 문서(Markdown)도 깨끗이 보기는 같다
         <CleanViewButton clean={cleanView} onChange={onCleanViewChange} buttonClassName="toolbar-tool-btn pdf-compact-tool" />

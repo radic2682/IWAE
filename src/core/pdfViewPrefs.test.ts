@@ -5,6 +5,13 @@ import { DEFAULT_PDF_VIEW_PREFS, readPdfViewPrefs, writePdfViewPrefs, nextRotati
 describe('pdfViewPrefs', () => {
   beforeEach(() => localStorage.clear())
 
+  it('persists the only-open-notes toggle and drops it when off', () => {
+    writePdfViewPrefs({ spread: 'single', invert: false, onlyOpenNotes: true })
+    expect(readPdfViewPrefs()).toEqual({ spread: 'single', invert: false, onlyOpenNotes: true })
+    writePdfViewPrefs({ spread: 'single', invert: false, onlyOpenNotes: false })
+    expect(readPdfViewPrefs()).toEqual({ spread: 'single', invert: false })
+  })
+
   it('defaults to single pages without inversion', () => {
     expect(readPdfViewPrefs()).toEqual(DEFAULT_PDF_VIEW_PREFS)
   })

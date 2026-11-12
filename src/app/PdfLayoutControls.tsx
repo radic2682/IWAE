@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { BookOpen, Eye, EyeSlash, File, Rows } from '@phosphor-icons/react'
+import { BookOpen, Eye, EyeSlash, File, Funnel, Rows } from '@phosphor-icons/react'
 import { PDF_SPLIT_LAYOUTS, pdfSplitLayout, type PdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import type { PdfSpread } from '../core/pdfViewPrefs'
 import { t } from '../i18n'
@@ -75,13 +75,16 @@ export function SplitLayoutIcon({ layout, size = 16 }: { readonly layout: PdfSpl
 }
 
 /** PDF 위 줄의 쪽 배치(한 장·두 장·세 장·연속) 단추 */
-export function PdfPageLayoutButtons({ layout, onChange, buttonClassName, clean, onCleanChange }: {
+export function PdfPageLayoutButtons({ layout, onChange, buttonClassName, clean, onCleanChange, onlyOpenNotes, onOnlyOpenNotesChange }: {
   readonly layout: PdfPageLayout
   readonly onChange: (layout: PdfPageLayout) => void
   readonly buttonClassName: string
   /** 깨끗이 보기(내 표시 모두 감추기). 주면 맨 앞에 눈 단추가 나온다 */
   readonly clean?: boolean
   readonly onCleanChange?: (clean: boolean) => void
+  /** 열린 노트 표시만 보기. 주면 눈 단추 바로 옆에 깔때기 단추가 나온다 */
+  readonly onlyOpenNotes?: boolean
+  readonly onOnlyOpenNotesChange?: (on: boolean) => void
 }) {
   const button = (label: string, pressed: boolean, next: PdfPageLayout, icon: ReactNode, title = label) => (
     <button
@@ -100,6 +103,7 @@ export function PdfPageLayoutButtons({ layout, onChange, buttonClassName, clean,
       {onCleanChange === undefined ? null : (
         <>
           <CleanViewButton clean={clean === true} onChange={onCleanChange} buttonClassName={buttonClassName} />
+          {onOnlyOpenNotesChange === undefined ? null : <OnlyOpenNotesButton on={onlyOpenNotes === true} onChange={onOnlyOpenNotesChange} buttonClassName={buttonClassName} />}
           <span className="pane-toolbar-divider" aria-hidden="true" />
         </>
       )}
@@ -210,6 +214,22 @@ export function CleanViewButton({ clean, onChange, buttonClassName }: { readonly
       onClick={() => onChange(!clean)}
     >
       {clean ? <EyeSlash size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
+    </button>
+  )
+}
+
+/** 열린 노트 표시만 보기(깔때기 단추): 열린 노트의 형광펜·메모만 PDF 에 둔다. 보기만 거르며 데이터는 그대로 */
+export function OnlyOpenNotesButton({ on, onChange, buttonClassName }: { readonly on: boolean; readonly onChange: (on: boolean) => void; readonly buttonClassName: string }) {
+  return (
+    <button
+      type="button"
+      className={`${buttonClassName} pdf-only-open-notes${on ? ' toolbar-tool-btn-active' : ''}`}
+      aria-label={t('열린 노트 표시만 보기')}
+      title={t('켜면 지금 열린 노트의 형광펜·메모만 PDF에 보입니다')}
+      aria-pressed={on}
+      onClick={() => onChange(!on)}
+    >
+      <Funnel size={15} weight={on ? 'fill' : 'regular'} aria-hidden="true" />
     </button>
   )
 }

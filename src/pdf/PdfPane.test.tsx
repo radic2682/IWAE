@@ -93,6 +93,7 @@ function mount(
     continuous?: boolean
     rotation?: 0 | 90 | 180 | 270
     invert?: boolean
+    onlyOpenNotes?: boolean
     noteApi?: MemoNoteApi
   } = {},
 ) {
@@ -120,6 +121,7 @@ function mount(
       continuous={options.continuous}
       rotation={options.rotation}
       invert={options.invert}
+      onlyOpenNotes={options.onlyOpenNotes}
     />,
     options.noteApi === undefined ? undefined : {
       wrapper: ({ children }: { children: ReactNode }) => <MemoNoteContext.Provider value={options.noteApi!}>{children}</MemoNoteContext.Provider>,
@@ -717,5 +719,51 @@ describe('PdfPane — 보기 옵션', () => {
     expect(slot.classList.contains('pdf-page-rotated')).toBe(true)
     expect(slot.querySelector<HTMLElement>('.pdf-page-rotator')?.style.transform).toBe('rotate(90deg)')
     await waitFor(() => expect(rotated.queryByRole('link')).toBeNull())
+  })
+})
+
+describe('PdfPane — 열린 노트 표시만 보기', () => {
+  const make = (id: string, x: number) => ({
+    id,
+    color: 'yellow' as const,
+    note: id,
+    anchor: {
+      docId: '0123456789ab', page: 0, coordSpace: 'pdfium-page' as const,
+      rects: [{ x, y: 0, w: 100, h: 100 }], charRange: [x, x + 1] as const, quote: id, prefix: '', suffix: '',
+    },
+  })
+  const open = make('open-note', 0)
+  const closed = make('closed-note', 200)
+  const loose = make('no-note', 400)
+  const owners: Record<string, string[]> = { 'open-note': ['노트/A.iwnote'], 'closed-note': ['노트/Z.iwnote'] }
+  const api = (): MemoNoteApi => ({
+    entries: [{ path: '노트/A.iwnote', title: 'A' }, { path: '노트/Z.iwnote', title: 'Z' }],
+    openPath: '노트/A.iwnote',
+    openPaths: ['노트/A.iwnote'],
+    openTitle: 'A',
+    openNote: { version: 1, blocks: [] },
+    open: vi.fn(),
+    closeTab: vi.fn(),
+    moveTab: vi.fn(),
+    create: vi.fn().mockResolvedValue(null),
+    updateOpen: vi.fn(),
+    notesOf: (id) => owners[id] ?? [],
+  })
+  const drawn = async (container: HTMLElement) => {
+    await waitFor(() => { if (container.querySelector('[data-testid="selection-layer"]') === null) throw new Error('선택 레이어가 아직 없다') })
+    return [...container.querySelectorAll('.selection-persistent-highlight')]
+  }
+
+  it('켜면 열린 노트에 없는 형광펜(다른 노트·노트 없음)은 그려지지 않는다', async () => {
+    resetMemoStore()
+    const { container } = mount({ pageCount: 1, persistentHighlights: [open, closed, loose], noteApi: api(), onlyOpenNotes: true })
+    const marks = await drawn(container)
+    expect(marks.length).toBe(1)
+  })
+
+  it('끄면 모두 그려진다', async () => {
+    resetMemoStore()
+    const { container } = mount({ pageCount: 1, persistentHighlights: [open, closed, loose], noteApi: api(), onlyOpenNotes: false })
+    expect((await drawn(container)).length).toBe(3)
   })
 })

@@ -98,6 +98,8 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   // PdfLayoutControls
   '쪽 배치': 'Page layout',
   '표시 다시 보기': 'Show marks again',
+  '열린 노트 표시만 보기': 'Show only open notes',
+  '켜면 지금 열린 노트의 형광펜·메모만 PDF에 보입니다': 'When on, the PDF shows only highlights and memos of the note that is open now',
   '표시 모두 감추기': 'Hide all marks',
   '표시 모두 감추기 (형광펜·메모·책갈피)': 'Hide all marks (highlights, memos, bookmarks)',
   '한 장 보기': 'Single page',

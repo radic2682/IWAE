@@ -565,6 +565,8 @@ export function DocumentView(props: DocumentViewProps) {
       shortcutsEnabled={props.shortcutTarget}
       cleanView={props.pdfViewPrefs.clean === true}
       onCleanViewChange={(clean) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, clean })}
+      onlyOpenNotes={tab.kind === 'pdf' ? props.pdfViewPrefs.onlyOpenNotes === true : undefined}
+      onOnlyOpenNotesChange={tab.kind === 'pdf' ? (on) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, onlyOpenNotes: on }) : undefined}
       splitLayout={tab.kind === 'pdf' && meta !== null ? split.layout : tab.kind === 'markdown' ? markdownSplit : undefined}
       onSplitLayoutChange={tab.kind === 'markdown' ? setMarkdownSplit : setSplitLayout}
     />
@@ -877,6 +879,7 @@ export function DocumentView(props: DocumentViewProps) {
                     primary={index === focused}
                     inSplit
                     clean={props.pdfViewPrefs.clean === true}
+                    onlyOpenNotes={props.pdfViewPrefs.onlyOpenNotes === true}
                     docId={meta.docId}
                     title={meta.title}
                     pageSizes={meta.pageSizes}

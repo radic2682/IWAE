@@ -51,6 +51,7 @@ import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, 
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
 import { markFreshHighlight } from './freshHighlight'
+import { filterToOpenNotes } from './openNoteFilter'
 import type { PdfSelectionTranslation } from './SelectionActions'
 import { createFrameScheduler } from '../core/frameScheduler'
 import '../ui/pdf-followup.css'
@@ -213,6 +214,8 @@ interface PdfPaneProps {
   inSplit?: boolean
   /** 깨끗이 보기(눈 단추): 내가 단 표시를 모두 감춘다 — 노트 바로 잇는 선도 같이 감춘다 */
   clean?: boolean
+  /** 열린 노트 표시만 보기: 열린 노트에 속한 형광펜·영역 메모만 보인다(보기 필터) */
+  onlyOpenNotes?: boolean
   /** 이 PDF 의 책갈피 핀. 스크롤 막대 옆에 꽂혀 보인다 */
   pins?: readonly PdfBookmark[]
   /** 막대 옆 흐린 핀을 눌러 새 핀을 꽂는다(쪽, 쪽 안의 높이 비율, 기본 이름). 새 핀 id 를 돌려준다 */
@@ -259,7 +262,7 @@ export function pageHeightFitZoom(pageSize: readonly [number, number], viewport:
   return Math.max(10, Math.round((viewport.height / widthFitHeight) * 100))
 }
 
-export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent = 100, zoomScale = 0, onPageChange, onVisibleRegions, pageRequest, onViewportChange, onZoomChange, onAnchorCreated, onPersistentHighlightCreated, onPersistentHighlightRemoved, persistentHighlights = [], highlightAnchor = null, aiPointer = null, onAiPointerDismiss, sourceHighlights = [], searchMatches = [], activeSearchMatchId = null, interactionMode = 'text', highlightColor, onInteractionModeChange, onHighlightColorChange, onSendToCanvas, onCopyWithSource, onSearchDocuments, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink, onPersistentHighlightUpdated, onPersistentHighlightsPatched, flashHighlightId = null, viewKey, onMovePin, overlays = [], onOverlayAdd, onOverlayUpdate, onOverlayRemove, searchJumpNonce = 0, spread = 'single', continuous = true, tone = 'none', rotation = 0, invert = false, onMemoJump, docTitles, primary = true, inSplit = false, clean = false, pins = [], onAddPin, onUpdatePin, onRemovePin }: PdfPaneProps) {
+export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent = 100, zoomScale = 0, onPageChange, onVisibleRegions, pageRequest, onViewportChange, onZoomChange, onAnchorCreated, onPersistentHighlightCreated, onPersistentHighlightRemoved, persistentHighlights = [], highlightAnchor = null, aiPointer = null, onAiPointerDismiss, sourceHighlights = [], searchMatches = [], activeSearchMatchId = null, interactionMode = 'text', highlightColor, onInteractionModeChange, onHighlightColorChange, onSendToCanvas, onCopyWithSource, onSearchDocuments, onTranslateSelection, onSendTranslatedSelection, onLinkNavigate, onExternalLink, onPersistentHighlightUpdated, onPersistentHighlightsPatched, flashHighlightId = null, viewKey, onMovePin, overlays = [], onOverlayAdd, onOverlayUpdate, onOverlayRemove, searchJumpNonce = 0, spread = 'single', continuous = true, tone = 'none', rotation = 0, invert = false, onMemoJump, docTitles, primary = true, inSplit = false, clean = false, onlyOpenNotes = false, pins = [], onAddPin, onUpdatePin, onRemovePin }: PdfPaneProps) {
   useAiPointerDismiss(aiPointer !== null, onAiPointerDismiss)
   useEffect(() => {
     // OCR 엔진(수십 MB)은 스캔 쪽을 열었고 OCR 이 켜져 있을 때만, 화면이 한가할 때 미리 띄운다.
@@ -314,16 +317,6 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const [boxFormatSlot, setBoxFormatSlot] = useState<HTMLDivElement | null>(null)
   const [draftBox, setDraftBox] = useState<PersistentPdfHighlight | null>(null)
   const [editingBoxId, setEditingBoxId] = useState<string | null>(null)
-  const persistentHighlightsByPage = useMemo(() => {
-    const grouped = new Map<number, PersistentPdfHighlight[]>()
-    for (const highlight of [...persistentHighlights, ...(draftMemo === null ? [] : [draftMemo]), ...(draftBox === null ? [] : [draftBox])]) {
-      if (highlight.anchor.docId !== docId) continue
-      const pageHighlights = grouped.get(highlight.anchor.page) ?? []
-      pageHighlights.push(highlight)
-      grouped.set(highlight.anchor.page, pageHighlights)
-    }
-    return grouped
-  }, [docId, draftBox, draftMemo, persistentHighlights])
   const highlightsByPage = useMemo(() => {
     const grouped = new Map<number, { blockId: string; anchor: Anchor }[]>()
     for (const source of sourceHighlights) {
@@ -539,6 +532,37 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     return { mode: otherNotePref, labels, bodies }
   }, [docId, draftMemo, memoColumnVisible, noteApi, otherNotePref, persistentHighlights])
   // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
+  // 열린 노트 표시만 보기: 열린 노트에 속하지 않은 형광펜·영역 메모는 그리지도 누르지도 못하게 거른다(보기만 — 데이터는 그대로).
+  // 만드는 중인 메모·방금 만든 형광펜·깜빡이는 것·고치는 중인 것은 늘 보인다. 노트 기능이 없는 쪽(noteApi 없음)은 거르지 않는다
+  const [createdHere, setCreatedHere] = useState<ReadonlySet<string>>(() => new Set())
+  // 이 칸에서 만든 형광펜은 노트에 담기기 전에도(메모 없는 형광펜은 끝내) 사라지지 않게 기억한다
+  const reportCreated = (highlight: PersistentPdfHighlight) => {
+    setCreatedHere((ids) => (ids.has(highlight.id) ? ids : new Set(ids).add(highlight.id)))
+    onPersistentHighlightCreated?.(highlight)
+  }
+  const shownHighlights = useMemo(() => {
+    if (!onlyOpenNotes || noteApi === null) return persistentHighlights
+    const ownIds = new Set<string>()
+    for (const block of noteApi.openNote?.blocks ?? []) for (const id of memoHighlightIds(block)) ownIds.add(id)
+    return filterToOpenNotes(persistentHighlights, {
+      enabled: true,
+      clean,
+      tabPaths: noteApi.openPath === null ? [] : [noteApi.openPath],
+      notesOf: noteApi.notesOf,
+      ownIds,
+      isExempt: (id) => id === draftMemo?.id || id === draftBox?.id || id === editingMemoId || id === editingBoxId || id === flashHighlightId || createdHere.has(id),
+    })
+  }, [clean, createdHere, draftBox, draftMemo, editingBoxId, editingMemoId, flashHighlightId, noteApi, onlyOpenNotes, persistentHighlights])
+  const persistentHighlightsByPage = useMemo(() => {
+    const grouped = new Map<number, PersistentPdfHighlight[]>()
+    for (const highlight of [...shownHighlights, ...(draftMemo === null ? [] : [draftMemo]), ...(draftBox === null ? [] : [draftBox])]) {
+      if (highlight.anchor.docId !== docId) continue
+      const pageHighlights = grouped.get(highlight.anchor.page) ?? []
+      pageHighlights.push(highlight)
+      grouped.set(highlight.anchor.page, pageHighlights)
+    }
+    return grouped
+  }, [docId, draftBox, draftMemo, shownHighlights])
   useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
   // 창을 여러 칸으로 나눴으면 노트 바는 맨 오른쪽 위 칸에만
   const noteHost = useIsNoteHostPane(scrollerRef)
@@ -840,6 +864,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     setDraftIndex(noteCenterIndex())
     if (draftMemo?.id !== highlight.id) markFreshHighlight(highlight.id)
     // 같은 자리를 다시 받으면(스캔 영역의 OCR 글자가 뒤늦게 온 경우) 원문 글만 바꿔 끼운다
+    setCreatedHere((ids) => (ids.has(highlight.id) ? ids : new Set(ids).add(highlight.id)))
     setDraftMemo((current) => current?.id === highlight.id ? (current.anchor.quote === highlight.anchor.quote ? current : { ...current, anchor: { ...current.anchor, quote: highlight.anchor.quote } }) : highlight)
   }
 
@@ -871,7 +896,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       const draft = draftBox
       setDraftBox(null)
       if (content.text.trim() === '') return
-      onPersistentHighlightCreated?.(updatePersistentPdfHighlight(draft, { note: content.text, noteHtml: content.html }))
+      reportCreated(updatePersistentPdfHighlight(draft, { note: content.text, noteHtml: content.html }))
       return
     }
     onPersistentHighlightUpdated?.(id, { note: content.text, noteHtml: content.html })
@@ -957,7 +982,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       clearPageSelection(draft.anchor.page)
       // 아무것도 안 썼으면 칠한 것도 함께 사라진다. 표·그림은 그 자체가 내용이라 글 없이도 남긴다
       if (content.text.trim() === '' && draft.kind !== 'region') return
-      onPersistentHighlightCreated?.(updatePersistentPdfHighlight(draft, patch))
+      reportCreated(updatePersistentPdfHighlight(draft, patch))
       const at = draftIndex
       updateNote((note) => insertBlock(note, memoBlock(draft.id, ticket), at))
       return
@@ -984,7 +1009,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       source: 'iwae',
     })
     const existing = persistentHighlights.find((item) => item.id === highlight.id)
-    if (existing === undefined) onPersistentHighlightCreated?.(highlight)
+    if (existing === undefined) reportCreated(highlight)
     updateNote((note) => addMemoRef(note, blockKey, existing?.id ?? highlight.id))
     setAttachKey(null)
     clearPageSelection(selection.anchor.page)
@@ -1624,7 +1649,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                   return next
                 })
               }}
-              onPersistentHighlightCreated={onPersistentHighlightCreated}
+              onPersistentHighlightCreated={onPersistentHighlightCreated === undefined ? undefined : reportCreated}
               onPersistentHighlightRemoved={onPersistentHighlightRemoved}
               eraseHighlights={eraseHighlights}
               flashHighlightId={flashHighlightId ?? localFlashId}
@@ -1863,7 +1888,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
         >
           {pages}
           {rotation === 0 ? (() => {
-            const boxMemos = [...persistentHighlights.filter((item) => item.anchor.docId === docId && item.box !== undefined), ...(draftBox === null ? [] : [draftBox])]
+            const boxMemos = [...shownHighlights.filter((item) => item.anchor.docId === docId && item.box !== undefined), ...(draftBox === null ? [] : [draftBox])]
             if (boxMemos.length === 0) return null
             return (
               <MemoFormatSlotContext.Provider value={boxFormatSlot}>
@@ -1917,7 +1942,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               // 지우개는 형광펜(메모)과 박스 메모도 지운다: 지나간 자리가 그 네모 안이면
               onErasePoint={onPersistentHighlightRemoved === undefined ? undefined : (page, point) => {
                 const near = (rect: { x: number; y: number; w: number; h: number }) => point.x >= rect.x - 2 && point.x <= rect.x + rect.w + 2 && point.y >= rect.y - 2 && point.y <= rect.y + rect.h + 2
-                for (const highlight of persistentHighlights) {
+                for (const highlight of shownHighlights) {
                   if (highlight.anchor.page !== page) continue
                   const box = highlight.box
                   const hit = highlight.anchor.rects.some(near) || (box !== undefined && near({ x: box.x, y: box.y, w: box.w, h: box.h ?? 48 }))

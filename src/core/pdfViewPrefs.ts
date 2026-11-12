@@ -17,6 +17,8 @@ export interface PdfViewPrefs {
   readonly tone?: PdfTone
   /** 깨끗이 보기: 형광펜·메모 줄·책갈피 핀 등 내가 단 표시를 PDF 위에서 모두 감춘다 */
   readonly clean?: boolean
+  /** 열린 노트 표시만 보기: 지금 열린 노트의 형광펜·메모만 PDF 에 보인다(보기 필터일 뿐 데이터는 그대로). 모든 PDF 칸에 같이 걸린다 */
+  readonly onlyOpenNotes?: boolean
 }
 
 export type PdfTone = 'none' | 'sepia' | 'green'
@@ -55,6 +57,7 @@ export function readPdfViewPrefs(): PdfViewPrefs {
       ...(continuous === undefined ? {} : { continuous }),
       ...(tone === undefined ? {} : { tone }),
       ...(value.clean === true ? { clean: true } : {}),
+      ...(value.onlyOpenNotes === true ? { onlyOpenNotes: true } : {}),
     }
   } catch {
     return DEFAULT_PDF_VIEW_PREFS

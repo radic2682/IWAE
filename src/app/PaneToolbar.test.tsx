@@ -32,6 +32,16 @@ describe('PaneToolbar', () => {
     expect(onDone).toHaveBeenCalled()
   })
 
+  it('PDF 도구줄에 열린 노트 표시만 보기 단추가 나오고, Markdown 에는 나오지 않는다', () => {
+    const onOnlyOpenNotesChange = vi.fn()
+    const { unmount } = render(<PaneToolbar kind="pdf" mode="text" onModeChange={vi.fn()} pageLayout={{ spread: 'single', continuous: true }} onPageLayoutChange={vi.fn()} cleanView={false} onCleanViewChange={vi.fn()} onlyOpenNotes={false} onOnlyOpenNotesChange={onOnlyOpenNotesChange} />)
+    fireEvent.click(screen.getByRole('button', { name: '열린 노트 표시만 보기' }))
+    expect(onOnlyOpenNotesChange).toHaveBeenCalledWith(true)
+    unmount()
+    render(<PaneToolbar kind="markdown" mode="text" onModeChange={vi.fn()} cleanView={false} onCleanViewChange={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: '열린 노트 표시만 보기' })).toBeNull()
+  })
+
   it('Markdown 도 깨끗이 보기(눈 단추)를 PDF 와 같이 쓴다', () => {
     const onCleanViewChange = vi.fn()
     render(<PaneToolbar kind="markdown" mode="text" onModeChange={vi.fn()} cleanView={false} onCleanViewChange={onCleanViewChange} />)
