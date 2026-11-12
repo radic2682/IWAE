@@ -290,7 +290,10 @@
 @container (max-width: 76px) {
   .pane-head .pane-top-tab-label { display: none; }
   .pane-head .pane-top-tab-title { justify-content: center; padding: 0; }
+  /* 닫기 ×: 아이콘만 남은 안 보이는 탭에서는 평소 `display:none` 이라 눈에도 없고 초점도 못 받는다(Tab 순서에서 빠진다). 올리거나(:hover) 그 탭 안에 초점이 있으면(:focus-within — 제목 단추에 Tab 으로 왔을 때) 나타나 눌린다 */
   .pane-head .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-close { display: none; }
+  .pane-head .pane-top-tab:not(.pane-top-tab-active):hover .pane-top-tab-close,
+  .pane-head .pane-top-tab:not(.pane-top-tab-active):focus-within .pane-top-tab-close { display: grid; }
   .pane-head .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-title { border-radius: var(--r-sm); background: color-mix(in srgb, var(--text-strong) 5%, transparent); }
   .pane-head .pane-top-tab:not(.pane-top-tab-active):hover .pane-top-tab-title { background: color-mix(in srgb, var(--text-strong) 9%, transparent); }
 }

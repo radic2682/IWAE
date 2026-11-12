@@ -26,7 +26,7 @@ function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onF
   // 탭 닫기 ×: 닫는 것 말고는 아무것도 하지 않는다(칸도 만지는 칸이 되지 않는다)
   if (target?.closest('.pane-top-tab-close') != null) return
   // 탭(오른쪽 여백 포함)은 끌기의 시작일 수 있어 놓을 때로 미룬다. 끌기와 같은 문턱(TAB_DRAG_THRESHOLD_PX) 이상 움직이면 끌기라 칸을 바꾸지 않는다
-  if (target?.closest('.pane-top-tab') == null) { onFocusPane(paneId); return }
+  if (target?.closest('.pane-top-tab, [role="tab"]') == null) { onFocusPane(paneId); return }
   const startX = event.clientX
   const startY = event.clientY
   let moved = false

@@ -597,6 +597,21 @@ describe('D2 · 탭 닫기 × 와 좁은 탭', () => {
     expect(pill).toMatch(/min-width:\s*40px/u)
     expect(pill).toMatch(/height:\s*var\(--icon-btn\)/u)
   })
+
+  it('좁은 탭의 닫기 ×: 안 보이는 탭에서만 평소 display:none(눈에도 없고 초점도 못 받는다)이고, 올리거나(:hover) 탭 안에 초점이 있으면(:focus-within) 나타난다. 보는 탭의 ×는 늘 있다', () => {
+    const narrow = allRules.filter((rule) => rule.at === '@container (max-width: 76px)')
+    const closing = narrow.filter((rule) => rule.selectors.some((selector) => selector.endsWith('.pane-top-tab-close')))
+    const hidden = closing.filter((rule) => /display:\s*none/u.test(rule.body))
+    expect(hidden.flatMap((rule) => rule.selectors)).toEqual(['.pane-head .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-close'])
+    const shown = closing.filter((rule) => /display:\s*grid/u.test(rule.body))
+    expect(shown.flatMap((rule) => rule.selectors)).toEqual(['.pane-head .pane-top-tab:not(.pane-top-tab-active):hover .pane-top-tab-close', '.pane-head .pane-top-tab:not(.pane-top-tab-active):focus-within .pane-top-tab-close'])
+    // 렌더된 ×는 tabindex 로 따로 막지 않는다 — 숨김(display:none)이 곧 초점 못 받음이고, 보일 때는 보통 단추다
+    const { container } = render(<div className="pane-head"><PaneTabsMenu state={tabs} label="탭" onActivate={vi.fn()} onClose={vi.fn()} /></div>)
+    for (const close of container.querySelectorAll('.pane-top-tab-close')) {
+      expect(close.tagName).toBe('BUTTON')
+      expect(close.hasAttribute('tabindex')).toBe(false)
+    }
+  })
 })
 
 describe('toolbarOwnerOf — 상단바 도구줄의 주인', () => {
