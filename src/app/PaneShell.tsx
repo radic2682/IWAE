@@ -7,6 +7,8 @@ interface PaneShellProps {
   state: TabsState
   /** 탭이 하나도 없을 때 본문 가운데에 보여줄 문구 */
   emptyHint: string
+  /** 있으면 탭이 없을 때 문구 대신 이것을 보인다(빈 칸의 빠른 단추) */
+  emptyContent?: ReactNode
   /** 내용 영역에 보여줄 문구. 아래 renderBody 가 아무것도 못 그릴 때만 보인다 */
   placeholder: string
   /**
@@ -32,21 +34,19 @@ interface PaneShellProps {
  * 도구줄 + 활성 내용 영역 한 벌. 탭바는 TopBar에 있고(창 제목줄이 두 패널의
  * 탭을 함께 얹는다). 여기 남는 것은 그 패널만의 도구줄과 내용 하나뿐이다.
  */
-export function PaneShell({ state, emptyHint, placeholder, renderBody, toolbar, bottomBar, overlay }: PaneShellProps) {
+export function PaneShell({ state, emptyHint, emptyContent, placeholder, renderBody, toolbar, bottomBar, overlay }: PaneShellProps) {
   const active = activeTab(state)
   const body = active !== null && renderBody !== undefined ? renderBody(active) : null
-  // 탭이 없는 빈 창도 문서 창과 같은 높이의 빈 머리 줄을 둔다 — 왼쪽 바·문서 도구줄·노트 창 도구줄로 이어지는 가로선이 끊기지 않게
-  const emptyHead = toolbar === undefined && active === null
   return (
     <div className={`pane-frame${toolbar === undefined ? '' : ' pane-frame-with-toolbar'}`}>
-      {toolbar === undefined ? (emptyHead ? <div className="pane-empty-head" aria-hidden="true" /> : null) : <div className="pane-toolbar">{toolbar}</div>}
+      {toolbar === undefined ? null : <div className="pane-toolbar">{toolbar}</div>}
       {/* role="tab" 인 실제 탭은 TopBar 에 있다. 여기는 그 탭들의 내용을
           보여줄 뿐이라 tabpanel 만 남긴다. */}
       <div className="pane-body" role="tabpanel">
         {body ?? (
           <div className="pane-placeholder-card">
             <span className="pane-placeholder">
-              {active ? `${active.title} — ${placeholder}` : (
+              {active ? `${active.title} — ${placeholder}` : emptyContent !== undefined ? emptyContent : (
                 <span className="pane-placeholder-empty">
                   <FileDashed size={26} weight="regular" aria-hidden="true" />
                   <span>{emptyHint}</span>

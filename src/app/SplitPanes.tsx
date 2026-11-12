@@ -18,7 +18,7 @@ interface SplitPanesProps {
    *
    * 값이 아니라 함수인 이유: 상단바가 사이드바 폭(sidebarPx)에 맞춰 단추 묶음과 탭 구역의 자리를 잡아야 하는데,
    * 그 값의 주인은 이 컴포넌트의 드래그 상태이므로 렌더 시점에 여기서 건네준다.
-   * 칸이 하나일 때만 그 칸의 탭 줄이 상단바에 있고(leftFrac 1), 둘 이상이면 칸마다 칸 안 맨 위에 있다.
+   * 탭 줄은 상단바에 없다 — 칸이 하나여도 칸마다 자기 머리(renderHead)가 칸 맨 위에 있다.
    */
   topBar: (layout: { sidebarPx: number; leftFrac: number; sidebarVisible: boolean }) => React.ReactNode
   /** 사이드바를 접었는가. 접으면 사이드바와 그 구분선이 함께 사라진다 */
@@ -41,8 +41,10 @@ interface SplitPanesProps {
   onRootChange?: (root: LayoutNode) => void
   /** 칸 하나의 본문. index 는 칸 번호(왼쪽 위부터 0) */
   renderPane: (paneId: string, index: number) => React.ReactNode
-  /** 칸 안 맨 위 탭 줄. 칸이 둘 이상일 때만 부른다(하나일 때는 탭이 상단바에 있다) */
-  renderTabs?: (paneId: string, index: number) => React.ReactNode
+  /** 칸 머리(색 점 · 번호 · 탭 줄 · ⋯ 메뉴). 칸이 하나여도 늘 칸 맨 위에 놓인다 */
+  renderHead?: (paneId: string, index: number) => React.ReactNode
+  /** 앱 틀 맨 아래 상태 줄(칸 아래, 그 아래엔 아무것도 없다). 없으면 그리지 않는다 */
+  statusBar?: React.ReactNode
   /**
    * 경계선에 마우스를 올리면 나오는 「양쪽 바꾸기」 단추. 그 나누기의 두 쪽을 맞바꾼다.
    * 단추를 누른 채 끌면 단추가 아니라 경계선 끌기다(크기 조정을 막지 않는다).
@@ -81,7 +83,8 @@ export function SplitPanes({
   root,
   onRootChange,
   renderPane,
-  renderTabs,
+  renderHead,
+  statusBar,
   onSwapSplit,
 }: SplitPanesProps) {
   const [storedSidebarPx, setSidebarPx] = useState(() => clampSidebar(layout?.sidebarPx ?? SIDEBAR_DEFAULT))
@@ -228,7 +231,11 @@ export function SplitPanes({
       startDrag(
         e,
         (clientX, clientY) => {
-          const box = panesRef.current?.getBoundingClientRect()
+          const element = panesRef.current
+          const outer = element?.getBoundingClientRect()
+          // 칸 영역은 가장자리 테두리(바깥 여백)를 뺀 안쪽 사각형이다 — 칸 사각형 %는 그 안쪽 기준이다
+          const inner = element != null && element.clientWidth > 0 && element.clientHeight > 0
+          const box = element == null || outer === undefined ? undefined : inner ? { left: outer.left + element.clientLeft, top: outer.top + element.clientTop, width: element.clientWidth, height: element.clientHeight } : outer
           const split = layoutRects(applyRatios(rootRef.current, liveRatiosRef.current)).splits.find((item) => item.id === splitId)
           if (box === undefined || split === undefined || box.width <= 0 || box.height <= 0) return
           const horizontal = split.dir === 'h'
@@ -355,8 +362,11 @@ export function SplitPanes({
                 aria-hidden={hidden || undefined}
                 inert={hidden}
               >
-                {multi && renderTabs !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone">{renderTabs(paneId, index)}</div> : null}
-                <div className="pane-grid-body">{renderPane(paneId, index)}</div>
+                {/* 칸 하나 = 둥근 카드 하나(머리 + 본문). 칸 사이 틈은 CSS 가 낸다 */}
+                <div className="pane-card">
+                  {renderHead !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head={paneId}>{renderHead(paneId, index)}</div> : null}
+                  <div className="pane-grid-body">{renderPane(paneId, index)}</div>
+                </div>
               </div>
             )
           })}
@@ -385,6 +395,7 @@ export function SplitPanes({
         {/* 작업 공간 층: 문서 창과 이웃한 메모 노트 창 사이의 연결선을 모든 칸 위에 그린다(포인터는 지나간다) */}
         {libraryExpanded ? null : <WorkspaceLinkLayer />}
       </div>
+      {statusBar}
     </div>
   )
 }

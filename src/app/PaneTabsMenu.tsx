@@ -51,6 +51,8 @@ interface PaneTabsMenuProps {
   onCycleChannel?: () => void
   /** 미리보기 탭을 보통 탭으로 고정한다(탭을 두 번 눌렀을 때) */
   onPinTab?: (id: string) => void
+  /** 칸 번호(왼쪽 위부터 0). 색 점 바로 뒤에 작은 숫자로 보인다 */
+  paneNumber?: number
 }
 
 /**
@@ -70,8 +72,13 @@ function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
 }
 
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab }: PaneTabsMenuProps) {
-  const channelDot = onCycleChannel === undefined ? null : <ChannelDot channel={channel} onCycle={onCycleChannel} />
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber }: PaneTabsMenuProps) {
+  const channelDot = onCycleChannel === undefined ? null : (
+    <>
+      <ChannelDot channel={channel} onCycle={onCycleChannel} />
+      {paneNumber === undefined ? null : <span className="pane-head-number" title={t('칸 {n}', { n: paneNumber })}>{paneNumber}</span>}
+    </>
+  )
   const label = t(rawLabel)
   const [menuOpen, setMenuOpen] = useState(false)
   const overflowRef = useRef<HTMLButtonElement>(null)
@@ -205,7 +212,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
 
   return (
     <div
-      className={`pane-tabs-menu${focused ? ' pane-tabs-focused' : ''}`}
+      className={`pane-tabs-menu${focused ? ' pane-tabs-focused' : ''}${state.tabs.length === 1 ? ' pane-tabs-single' : ''}`}
       role="tablist"
       aria-label={t('열린 {label}', { label })}
       onContextMenu={(event) => {
@@ -276,6 +283,8 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
               >
                 <TabKindIcon kind={tab.kind} />
                 <span className="pane-top-tab-label">{active ? tab.title : shortTabTitle(tab.title)}</span>
+                {/* 상태 점: 미리보기 탭일 때만(고치면 고정되어 사라진다) */}
+                {tab.preview === true ? <span className="pane-top-tab-dot" title={t('미리보기 탭')} aria-hidden="true" /> : null}
               </button>
               <button
                 type="button"

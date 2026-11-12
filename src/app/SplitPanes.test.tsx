@@ -173,27 +173,55 @@ describe('SplitPanes — 세션 레이아웃', () => {
     expect(cell(container, 1).textContent).toContain('오른쪽')
   })
 
-  it('칸이 하나면 탭 줄을 칸 안에 두지 않고(상단바에 있다) 경계선도 없다', () => {
-    const renderTabs = vi.fn(() => <span>탭</span>)
+  it('칸이 하나여도 칸 머리가 칸 맨 위에 있고, 경계선은 없다', () => {
+    const renderHead = vi.fn((pane: string) => <span>머리-{pane}</span>)
     const { container } = render(
-      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={paneNode('L')} renderPane={body} renderTabs={renderTabs} />,
+      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={paneNode('L')} renderPane={body} renderHead={renderHead} />,
     )
-    expect(container.querySelectorAll('.pane-grid-tabs')).toHaveLength(0)
-    expect(renderTabs).not.toHaveBeenCalled()
+    const heads = container.querySelectorAll('.pane-head')
+    expect(heads).toHaveLength(1)
+    expect(heads.item(0).textContent).toBe('머리-L')
+    expect(renderHead).toHaveBeenCalledWith('L', 0)
+    expect(cell(container, 0).querySelector('.pane-card')?.firstElementChild).toBe(heads.item(0))
     expect(screen.queryByRole('separator', { name: '패널 너비 조절' })).toBeNull()
     expect(container.querySelector('.app')?.classList.contains('app-single-pane')).toBe(true)
   })
 
-  it('칸이 둘 이상이면 칸마다 자기 탭 줄이 칸 맨 위에 있다', () => {
+  it('칸이 둘 이상이면 칸마다 자기 머리가 칸 맨 위에 있다', () => {
     const { container } = render(
-      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} renderTabs={(pane) => <span>탭-{pane}</span>} />,
+      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} renderHead={(pane, index) => <span>머리-{pane}-{index}</span>} />,
     )
-    const strips = container.querySelectorAll('.pane-grid-tabs')
-    expect(strips).toHaveLength(2)
-    expect(strips.item(0).textContent).toBe('탭-L')
-    expect(strips.item(1).textContent).toBe('탭-R')
-    // 탭 줄이 본문보다 앞에 있다
-    expect(cell(container, 1).firstElementChild).toBe(strips.item(1))
+    const heads = container.querySelectorAll('.pane-head')
+    expect(heads).toHaveLength(2)
+    expect(heads.item(0).textContent).toBe('머리-L-0')
+    expect(heads.item(1).textContent).toBe('머리-R-1')
+    // 머리가 본문보다 앞에 있다
+    expect(cell(container, 1).querySelector('.pane-card')?.firstElementChild).toBe(heads.item(1))
+  })
+
+  it('칸 하나마다 카드 하나(머리 + 본문)를 두고, 크게 보는 칸도 같은 카드다', () => {
+    const { container } = render(
+      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} renderHead={(pane) => <span>머리-{pane}</span>} focusedPane="zoom" zoomedPane="R" />,
+    )
+    const cards = container.querySelectorAll('.pane-grid-cell > .pane-card')
+    expect(cards).toHaveLength(2)
+    for (const card of cards) {
+      expect(card.children).toHaveLength(2)
+      expect(card.children[0]!.classList.contains('pane-head')).toBe(true)
+      expect(card.children[1]!.classList.contains('pane-grid-body')).toBe(true)
+    }
+    expect(cell(container, 1).style.width).toBe('100%')
+  })
+
+  it('상태 줄은 칸 아래(앱 틀 맨 아래)에 놓이고, 없으면 그리지 않는다', () => {
+    const { container, rerender } = render(
+      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} statusBar={<div data-testid="status">상태</div>} />,
+    )
+    const shell = container.querySelector('.shell') as HTMLElement
+    expect(shell.lastElementChild).toBe(screen.getByTestId('status'))
+    expect(shell.querySelector('.app')?.nextElementSibling).toBe(screen.getByTestId('status'))
+    rerender(<SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} />)
+    expect(screen.queryByTestId('status')).toBeNull()
   })
 
   it('상단바에는 사이드바 폭과 보이는 여부만 건넨다(칸이 하나일 때 탭 줄이 쓰는 몫은 1)', () => {

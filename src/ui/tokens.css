@@ -62,6 +62,9 @@
   --topbar-h: var(--toolbar-height);
   --tabbar-h: 36px;
   --bottom-bar-height: 37px;
+  --status-bar-height: 24px;
+  /* 칸(둥근 카드) 사이 틈 = 칸 영역 바깥 여백. 칸막이는 이 틈 전체를 잡는다 */
+  --pane-gap: 6px;
   --radius: var(--r-sm);
   --radius-lg: var(--r-lg);
   --row-h: 28px;
