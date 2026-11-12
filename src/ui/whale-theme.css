@@ -897,6 +897,44 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-grid-divider-row { height: 8px; margin-top: -4px; cursor: row-resize; }
 .pane-grid-divider:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 
+/* ---------- 칸 나누기 트리: 칸은 평평하게 절대 위치(%)로 놓고, 경계선은 나누기마다 하나 ---------- */
+.panes.panes-tree {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--divider-strong, var(--hairline));
+}
+.panes-tree > .pane-grid-cell {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--paper);
+  transition: none;
+}
+.panes-tree .pane-grid-tabs.topbar-panetab-zone {
+  flex: 0 0 38px;
+  align-items: flex-end;
+  padding: 0;
+  border-bottom: 0;
+  background: var(--tabstrip, var(--chrome));
+}
+.pane-zoom-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+/* 경계선: 누르는 자리는 8px, 보이는 선은 1px */
+.pane-tree-divider::before {
+  content: '';
+  position: absolute;
+  background: var(--divider-strong, var(--hairline));
+  pointer-events: none;
+}
+.pane-tree-divider.pane-grid-divider-col::before { top: 0; bottom: 0; left: calc(50% - 0.5px); width: 1px; }
+.pane-tree-divider.pane-grid-divider-row::before { left: 0; right: 0; top: calc(50% - 0.5px); height: 1px; }
+.pane-tree-divider:hover::before { background: var(--accent); }
+
 /* ---------- Markdown 뷰어: PDF 와 같은 읽기 틀(작업 바탕 위 종이, 같은 스크롤바, 배율) ---------- */
 .pane-doc .markdown-pane-host { background: var(--workspace); }
 .pane-doc .markdown-pane {

@@ -192,3 +192,17 @@ interface Screen { readonly id: string; readonly name: string; readonly root: La
 - **칸 8개 상한.** 노트북 화면에서는 4칸도 좁다. 앱 창 크기에 따라 상한을 낮출지.
 - **떠 있는 칸의 키보드 포커스.** 칸 이동(접두키 + 방향키)에 떠 있는 칸을 넣을지, `f` 로만 오가게 할지.
 - **나중 탭 종류.** 터미널 · git 이력 · MD 편집기는 이 구조에서 탭 종류 하나씩이다. 칸 종류를 플러그인처럼 끼우는 구조(탭 종류 등록)를 1 단계에서 미리 만들지.
+
+## 12. 구현 메모
+
+### 단계 1 (나누기 트리)
+
+- **트리와 칸 상태.** 트리 모델과 도우미는 `src/core/layoutTree.ts`(잎 차례, 부모 찾기, 바꾸기, 빼기, 나누기, 비율, 자리 바꾸기, `relayout`, 칸 수 상한 8 · 최소 크기 240×160, 예전 배치 → 트리, 저장 읽기)에 있다. 칸 id 는 `newPaneId()` 가 이번 실행에서 한 번도 안 쓴 `p<번호>` 를 만든다. 칸 상태는 칸 id → 탭 줄(`PanesState`)과 칸 id → 색 채널(`PaneChannels`) **두 맵**으로 갖고, 트리(`LayoutNode`)와 함께 `useVault` 가 한 상태(`workspace`)로 들고 있다. 설계의 `Pane { tabs, channel }` 한 객체로 합치면 칸 상태를 읽는 모든 순수 함수를 다시 써야 해서 합치지 않았다. 세션에 저장할 때만 `paneState[칸 id] = { tabIds, activeId, channel }` 로 합친다.
+- **그리기.** 칸을 트리 모양대로 중첩하지 않고, 칸 id 를 key 로 한 평평한 목록에 절대 위치(%)로 놓는다(`SplitPanes`). 나누기·닫기로 모양이 바뀌어도 남은 칸의 DOM(PDF 보기)이 다시 만들어지지 않는다. 경계선은 나누기마다 하나(`.pane-tree-divider`)이고, 끄는 동안은 `SplitPanes` 안에서만 비율을 다시 그리다 놓을 때 한 번 `onRootChange` 로 알린다. 두 쪽의 최소 크기(칸마다 240×160, 중첩이면 합)를 지킨다.
+- **상단바 탭 줄.** 칸이 **하나일 때만** 그 칸의 탭 줄이 상단바에 있다(지금과 같은 모양을 지키려고). 칸이 둘 이상이면 모든 칸의 탭 줄이 칸 안 맨 위로 옮겨 간다(`.pane-grid-tabs`, 지금 격자 배치 아랫줄 칸과 같은 껍질). 상단바 구역을 임의의 트리에 맞추는 일(`gridTopZones` 등)은 없앴다. 단계 2 에서 한 칸일 때도 칸 머리로 옮긴다.
+- **「창 나누기」 목록.** 예전 아홉 배치(`PdfSplitLayoutId`)를 같은 모양의 트리로 지금 칸에 적용한다(`applyLegacyLayout`: 칸 차례를 이어 쓰고, 모자라면 빈 칸, 남으면 마지막 칸 뒤에 탭을 합친다). 단추 모양은 트리가 어느 배치와 같은 모양이면 그 배치, 아니면 「직접 나눈 배치」다. 단계 3 의 템플릿이 이 목록을 대신한다.
+- **칸이 너무 작거나 8개일 때.** 탭을 가장자리에 놓기, 옆에 노트 열기, 신호가 여는 새 칸은 `splitRefusal` 로 먼저 본다. 가장자리 놓기·칸 수 바꾸기는 「칸이 너무 작습니다」·「칸은 8개까지입니다」를 알리고, 옆에 노트 열기·신호는 알리지 않고 가장 오른쪽(노트) · 보낸 칸(문서)의 탭으로 간다(예전 「가득이면」 규칙). 칸 크기는 DOM 에서 재서(`paneSizeOf`), 잴 수 없으면(0) 크기는 따지지 않는다.
+- **세션.** 새 필드 `layout`(트리)·`paneState`. 예전 세션은 읽을 때 `workspaceFromSession` 이 배치 id(예전엔 localStorage `iwae:pane-layout:v1`, 없으면 한 칸)와 `panes.left/right/third/fourth`·`paneChannels` 를 같은 모양의 트리로 옮긴다(보이지 않던 칸의 탭은 마지막 칸 뒤에 합친다). 떼어 낸 창·새 창은 늘 한 칸에서 시작한다. 예전 `panes`·`paneChannels` 는 읽기만 하고 다시 쓰지 않는다.
+- **MCP.** `left/right/third/fourth` 는 칸 번호 0–3 으로, `'0'`–`'7'`(숫자도)·`active`·`other`·칸 id 를 받는다. 아직 없는 번호는 칸을 늘려 만든다. `app_state` 는 `panes: [{ index, id, channel, tabs, active_tab }]` 와 `layout: { pane_count, active_pane(번호), active_pane_id, tree }`(트리는 `{pane: 번호}` · `{split: 'h'|'v', ratio, a, b}`)를 낸다. `set_layout` 은 1–8 칸.
+- **단축키.** `Ctrl+1` · `Ctrl+2` 는 칸 번호 0 · 1 로 간다(이름은 그대로).
+- **아직 안 한 것.** `select-layout`·`split-window`·`swap-pane` 같은 명령 이름과 접두키(단계 4), 화면(window)·세션 이름(단계 3·5), 떠 있는 칸, 칸 번호 오버레이(`display-panes`), 칸 ⋯ 메뉴의 「오른쪽으로 나누기 · 아래로 나누기」(`splitPane`·`selectLayout` 은 순수 함수로 있고 UI 는 없다), 저장된 경계선 비율의 옛 localStorage(`iwae:pane-fracs3`, `iwae:pane-grid`)는 읽지 않고 버렸다.

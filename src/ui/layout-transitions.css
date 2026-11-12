@@ -1,6 +1,5 @@
 /* 레이아웃 전환. 시간과 곡선은 사이드바에 원래 있던 230ms 값을 그대로 쓴다.
-   패널 폭은 flex-grow 하나로만 정한다 — 숨김 규칙이 width·flex-basis 를
-   따로 건드리면 전환 도중에 두 값이 싸워서 패널이 한 번에 튄다. */
+   칸 자리(left·top·width·height)는 칸 나누기 트리에서 계산해 SplitPanes 가 인라인으로 넣는다(whale-theme.css 의 .panes-tree). */
 :root {
   --layout-duration: 230ms;
   --layout-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -12,23 +11,6 @@
     opacity var(--layout-duration) var(--layout-ease),
     visibility 0s linear 0s;
 }
-
-/* 숨는 쪽은 줄어들며 흐려지고, visibility 는 전환이 끝난 뒤에 꺼진다.
-   그래야 줄어드는 동안에도 내용이 보이고, 끝나면 포커스가 들어가지 않는다. */
-.app-note-focused .pane-left,
-.app-reader-focused .pane-right {
-  opacity: 0;
-  visibility: hidden;
-  overflow: hidden;
-  pointer-events: none;
-  transition:
-    flex-grow var(--layout-duration) var(--layout-ease),
-    opacity var(--layout-duration) var(--layout-ease),
-    visibility 0s linear var(--layout-duration);
-}
-
-.app-note-focused .pane-divider,
-.app-reader-focused .pane-divider { display: none; }
 
 .shell-reader-focused .sidebar,
 .shell-reader-focused .sidebar-divider { pointer-events: none; }
@@ -46,49 +28,23 @@
    않는다 — 탭 목록 드롭다운이 구역 밖으로 펼쳐져야 하기 때문이다. */
 .topbar-panetab-zone { transition: opacity var(--layout-duration) var(--layout-ease); }
 .shell-library-expanded .topbar-panetab-zone,
-.shell-reader-focused .topbar-panetab-zone-right,
-.shell-note-focused .topbar-panetab-zone:not(.topbar-panetab-zone-right) {
+.shell-reader-focused .topbar-panetab-zone-right {
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pane-divider,
-  .app:not(.app-three-pane) .pane-third,
-  .app-single-pane .pane-right { transition: none; }
   .pane-focus-scope[data-pane-active] > *::after { animation: none; }
   .pane,
   .panes,
-  .topbar-panetab-zone,
-  .app-note-focused .pane-left,
-  .app-reader-focused .pane-right { transition: none; }
+  .topbar-panetab-zone { transition: none; }
 }
 
 /* 패널 구분선을 끄는 동안: 글자 골라짐·커서 깜빡임 없이 */
 body.pane-resizing, body.pane-resizing * { cursor: col-resize !important; user-select: none !important; }
+body.pane-resizing-row, body.pane-resizing-row * { cursor: row-resize !important; }
 
-/* 3단의 세 번째 패널과 그 구분선은 3단일 때만 */
-/* 접힌 패널·구분선: 폭 0 으로 줄며 흐려지고(펼 때는 반대), 끝난 뒤 보이지도 눌리지도 않는다.
-   display:none 으로 바로 지우면 화면 나누기·합치기가 한 프레임에 튄다 */
-.pane-divider { transition: flex-basis var(--layout-duration) var(--layout-ease), opacity var(--layout-duration) var(--layout-ease); }
-.app:not(.app-three-pane) .pane-third,
-.app:not(.app-three-pane) .pane-divider-third,
-.app-single-pane .pane-right,
-.app-single-pane .pane-divider {
-  flex-basis: 0;
-  min-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    flex-grow var(--layout-duration) var(--layout-ease),
-    flex-basis var(--layout-duration) var(--layout-ease),
-    opacity var(--layout-duration) var(--layout-ease),
-    visibility 0s linear var(--layout-duration);
-}
-.app-single-pane .pane-divider .pane-swap-btn { display: none; }
 /* 펼칠 때 새 패널이 처음 그려지는 순간 */
 @keyframes pane-appear { from { opacity: 0; } to { opacity: 1; } }
 
@@ -132,7 +88,7 @@ body.pane-resizing .pane { transition: none !important; }
   visibility: hidden;
   transition: opacity 120ms ease, visibility 0s linear 120ms;
 }
-.pane-divider:hover .pane-swap-btn {
+.pane-tree-divider:hover .pane-swap-btn {
   opacity: 1;
   visibility: visible;
   transition: opacity 120ms ease 250ms, visibility 0s linear 250ms;

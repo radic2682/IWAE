@@ -14,7 +14,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={0.5}
         leftTabs={<span>왼쪽</span>}
-        rightTabs={<span>오른쪽</span>}
       />,
     )
 
@@ -32,7 +31,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={0.5}
         leftTabs={<span>왼쪽</span>}
-        rightTabs={<span>오른쪽</span>}
         onCloseWindow={onCloseWindow}
       />,
     )
@@ -51,7 +49,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={0.5}
         leftTabs={<span>왼쪽</span>}
-        rightTabs={<span>오른쪽</span>}
       />,
     )
 
@@ -69,7 +66,6 @@ describe('TopBar', () => {
         sidebarPx={320}
         leftFrac={0.5}
         leftTabs={<span>왼쪽</span>}
-        rightTabs={<span>오른쪽</span>}
       />,
     )
     expect(container.querySelector('.topbar')?.classList.contains('topbar-sidebar-collapsed')).toBe(true)
@@ -87,7 +83,6 @@ describe('TopBar', () => {
         sidebarPx={320}
         leftFrac={0.5}
         leftTabs={<span>왼쪽</span>}
-        rightTabs={<span>오른쪽</span>}
       />,
     )
 
@@ -107,7 +102,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={0.5}
         leftTabs={<span>왼쪽</span>}
-        rightTabs={<span>오른쪽</span>}
       />,
     )
     expect(screen.queryByRole('radio', { name: '주석' })).toBeNull()
@@ -128,7 +122,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={1}
         leftTabs={<span>탭</span>}
-        rightTabs={null}
         appMenu={[
           [{ id: 'print', label: '인쇄', hint: 'Ctrl+P', onSelect: onPrint }],
           [],
@@ -157,7 +150,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={1}
         leftTabs={<span>탭</span>}
-        rightTabs={null}
         appMenu={[[{ id: 'settings', label: '설정', onSelect: vi.fn() }]]}
       />,
     )
@@ -176,7 +168,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={1}
         leftTabs={<span>탭</span>}
-        rightTabs={null}
         noteBeside={{ shown: true, onToggle }}
       />,
     )
@@ -196,7 +187,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={1}
         leftTabs={<span>탭</span>}
-        rightTabs={null}
         noteBeside={{ shown: false, onToggle: vi.fn() }}
       />,
     )
@@ -216,7 +206,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={1}
         leftTabs={<span>탭</span>}
-        rightTabs={null}
         onPaneLayoutChange={vi.fn()}
         layoutPresets={{ presets, onApply }}
       />,
@@ -239,7 +228,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={1}
         leftTabs={<span>탭</span>}
-        rightTabs={null}
         onPaneLayoutChange={vi.fn()}
       />,
     )
@@ -260,7 +248,6 @@ describe('TopBar', () => {
         sidebarPx={240}
         leftFrac={1}
         leftTabs={<span>탭</span>}
-        rightTabs={null}
         paneLayout="single"
         onPaneLayoutChange={onPaneLayoutChange}
       />,
@@ -272,5 +259,30 @@ describe('TopBar', () => {
     expect(items.map((item) => item.textContent)).toContain('위아래 둘')
     fireEvent.click(items.find((item) => item.textContent === '넷(2×2)')!)
     expect(onPaneLayoutChange).toHaveBeenCalledWith('grid4')
+  })
+
+  const props = { sidebarCollapsed: false, onToggleSidebar: vi.fn(), sidebarMode: 'library' as const, onSidebarModeChange: vi.fn(), sidebarPx: 240, leftFrac: 1 }
+
+  it('칸이 하나일 때만 그 칸의 탭 줄이 상단바 구역에 있고, 탭을 놓는 자리를 찾도록 칸 id 가 붙는다', () => {
+    const { container } = render(<TopBar {...props} leftTabs={<span>탭</span>} leftPaneId="p7" singlePane />)
+    const zone = container.querySelector('.topbar-panetab-zone[data-pane-id="p7"]')
+    expect(zone?.textContent).toBe('탭')
+    expect(container.querySelector('.topbar')?.classList.contains('topbar-single')).toBe(true)
+    // 오른쪽 창 단추 묶음 자리는 비어 있다
+    expect(container.querySelector('.topbar-panetab-zone-right')?.textContent).toBe('')
+  })
+
+  it('칸이 둘 이상이면(leftTabs 가 null) 상단바에는 탭 구역이 없다 — 탭 줄은 칸 안에 있다', () => {
+    const { container } = render(<TopBar {...props} leftTabs={null} />)
+    expect(container.querySelectorAll('.topbar-panetab-zone')).toHaveLength(0)
+    expect(container.querySelector('.topbar-panetabs')).not.toBeNull()
+  })
+
+  it('직접 나눈 배치(paneLayout null)는 어느 배치도 고른 것으로 보이지 않고 이름은 「직접 나눈 배치」다', () => {
+    render(<TopBar {...props} leftTabs={null} paneLayout={null} onPaneLayoutChange={vi.fn()} />)
+    const button = screen.getByRole('button', { name: '창 나누기' })
+    expect(button.getAttribute('title')).toContain('직접 나눈 배치')
+    fireEvent.click(button)
+    expect(screen.getAllByRole('menuitemradio').every((item) => item.getAttribute('aria-checked') === 'false')).toBe(true)
   })
 })

@@ -122,7 +122,6 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
       window.setTimeout(() => { suppressClickRef.current = false }, 400)
     },
   })
-  const otherPane: PaneId | null = paneId === undefined ? null : paneId === 'left' ? 'right' : 'left'
   // 탭 우클릭 메뉴: 어느 탭에서, 화면 어디에 열렸나
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   useEffect(() => {
@@ -145,8 +144,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     for (const id of ids) onClose(id)
     if (ids.length > 0) announceAction(t('탭 {count}개를 닫았습니다', { count: ids.length }))
   }
-  const targets = moveTargets
-    ?? (otherPane === null ? [] : [{ pane: otherPane, label: otherPane === 'right' ? t('오른쪽 패널로 옮기기') : t('왼쪽 패널로 옮기기') }])
+  const targets = moveTargets ?? []
   const firstTarget = targets[0] ?? null
   // 크롬처럼: × 로 탭을 닫으면 남은 탭의 폭을 그대로 묶어 둔다. 그러면 다음 탭의 × 가 마우스 밑으로 와서
   // 같은 자리를 연달아 눌러 여러 개를 닫을 수 있다. 마우스가 탭 줄을 벗어나면 폭을 다시 나눈다.

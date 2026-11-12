@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ImagesSquare, MagnifyingGlass,
   ListBullets,
@@ -26,24 +26,18 @@ interface TopBarProps {
   onSidebarModeChange: (mode: SidebarMode) => void
   sidebarPx: number
   leftFrac: number
+  /** 칸이 하나일 때 그 칸의 탭 줄(둘 이상이면 탭 줄은 칸마다 칸 안에 있어 null) */
   leftTabs: ReactNode
-  rightTabs: ReactNode
+  /** leftTabs 가 놓이는 칸의 id(탭을 끌어 놓는 자리를 찾는 데 쓴다) */
+  leftPaneId?: string
   onCloseWindow?: () => void
   /** 문서 검색 화면인가. 단추가 눌린 모양이 된다 */
   docSearchActive?: boolean
   /** 1단 보기인가(탭 줄 배치용) */
   singlePane?: boolean
-  /** 창 나누기 배치. onPaneLayoutChange 가 있으면 배치 고르는 단추가 나온다 */
-  paneLayout?: PdfSplitLayoutId
+  /** 창 나누기 배치(예전 배치 중 하나와 같은 모양이면 그 id, 직접 나눈 모양이면 null). onPaneLayoutChange 가 있으면 배치 고르는 단추가 나온다 */
+  paneLayout?: PdfSplitLayoutId | null
   onPaneLayoutChange?: (layout: PdfSplitLayoutId) => void
-  /**
-   * 격자 배치(위아래·2×2 …)의 맨 윗줄 칸들. 주면 그 칸들의 탭 줄을 칸 폭에 맞춰 상단바에 얹는다
-   * (아랫줄 칸의 탭은 칸 안에 있다)
-   */
-  gridZones?: readonly { readonly paneId: string; readonly tabs: ReactNode; readonly grow: number }[]
-  /** 3단일 때 세 번째(맨 오른쪽) 패널의 탭 줄과 세 패널의 폭 비율 */
-  thirdTabs?: ReactNode
-  paneGrows?: readonly [number, number, number]
   /** 로고 메뉴의 항목들(인쇄·화면·설정 …). 주면 맨 왼쪽에 로고 메뉴 단추가 나온다 */
   appMenu?: AppMenuGroups
   /** 사이드바 접기·펴기 단추를 숨긴다(왼쪽 바가 없는 떼어 낸 창) */
@@ -63,15 +57,11 @@ export function TopBar({
   onSidebarModeChange,
   leftFrac,
   leftTabs,
-  rightTabs,
+  leftPaneId,
   onCloseWindow = closeWindow,
-  docSearchActive = false,
   singlePane = false,
   paneLayout = 'single',
   onPaneLayoutChange,
-  gridZones,
-  thirdTabs,
-  paneGrows,
   appMenu,
   noteBeside,
   layoutPresets,
@@ -154,32 +144,12 @@ export function TopBar({
       {/* "deep" 이어야 한다. 값 없는 속성은 이 div 자체를 눌렀을 때만 드래그로 치고,
           그 안의 탭 줄·빈 칸을 누르면 바깥 .topbar 의 deep 까지 올라가기 전에 막아 버린다. */}
       <div className="topbar-panetabs" data-tauri-drag-region="deep">
-        {gridZones !== undefined && !docSearchActive ? (
-          gridZones.map((zone, index) => (
-            <Fragment key={zone.paneId}>
-              {index === 0 ? null : <div className="topbar-pane-divider" aria-hidden="true" />}
-              <div
-                className={`topbar-panetab-zone${index === gridZones.length - 1 ? ' topbar-panetab-zone-right' : index > 0 ? ' topbar-panetab-zone-middle' : ''}`}
-                data-pane-id={zone.paneId}
-                style={{ flexGrow: zone.grow }}
-              >
-                {zone.tabs}
-              </div>
-            </Fragment>
-          ))
-        ) : thirdTabs !== undefined && paneGrows !== undefined ? (
+        {leftTabs === null || leftTabs === undefined ? null : (
           <>
-            <div className="topbar-panetab-zone" data-pane-id="left" style={{ flexGrow: paneGrows[0] }}>{leftTabs}</div>
+            <div className="topbar-panetab-zone" data-pane-id={leftPaneId} style={{ flexGrow: leftFrac }}>{leftTabs}</div>
             <div className="topbar-pane-divider" aria-hidden="true" />
-            <div className="topbar-panetab-zone topbar-panetab-zone-middle" data-pane-id="right" style={{ flexGrow: paneGrows[1] }}>{rightTabs}</div>
-            <div className="topbar-pane-divider" aria-hidden="true" />
-            <div className="topbar-panetab-zone topbar-panetab-zone-right" data-pane-id="third" style={{ flexGrow: paneGrows[2] }}>{thirdTabs}</div>
-          </>
-        ) : (
-          <>
-            <div className="topbar-panetab-zone" data-pane-id="left" style={{ flexGrow: leftFrac }}>{leftTabs}</div>
-            <div className="topbar-pane-divider" aria-hidden="true" />
-            <div className="topbar-panetab-zone topbar-panetab-zone-right" data-pane-id="right" style={{ flexGrow: 1 - leftFrac }}>{rightTabs}</div>
+            {/* 오른쪽 창 단추 묶음이 차지하는 자리 */}
+            <div className="topbar-panetab-zone topbar-panetab-zone-right" style={{ flexGrow: 1 - leftFrac }} />
           </>
         )}
       </div>

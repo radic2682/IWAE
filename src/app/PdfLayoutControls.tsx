@@ -122,7 +122,8 @@ export function PdfPageLayoutButtons({ layout, onChange, buttonClassName, clean,
 export function PdfSplitPicker({
   value, onChange, buttonClassName, layouts = PDF_SPLIT_LAYOUTS, label = t('화면 나누기'), head = t('화면 나누기 · 같은 PDF 의 다른 쪽을 함께 봅니다'), align = 'right', activeClassName = 'toolbar-tool-btn-active', shortcut, presets,
 }: {
-  readonly value: PdfSplitLayoutId
+  /** 지금 배치. 예전 배치 중 어느 것과도 모양이 다르면(직접 나눈 칸) null */
+  readonly value: PdfSplitLayoutId | null
   readonly onChange: (id: PdfSplitLayoutId) => void
   readonly buttonClassName: string
   /** 고를 수 있는 배치(앱 창 나누기는 좌우 배치만) */
@@ -156,7 +157,7 @@ export function PdfSplitPicker({
       window.removeEventListener('keydown', escape)
     }
   }, [open])
-  const current = pdfSplitLayout(value)
+  const current = value === null ? null : pdfSplitLayout(value)
   const split = value !== 'single'
   return (
     <div className="pdf-split-picker" ref={rootRef}>
@@ -164,7 +165,7 @@ export function PdfSplitPicker({
         type="button"
         className={`${buttonClassName}${split ? ` ${activeClassName}` : ''}`}
         aria-label={label}
-        title={`${t('{label} (지금: {current})', { label, current: current.label })}${shortcut === undefined ? '' : ` ${shortcut}`}`}
+        title={`${t('{label} (지금: {current})', { label, current: current === null ? t('직접 나눈 배치') : current.label })}${shortcut === undefined ? '' : ` ${shortcut}`}`}
         aria-haspopup="menu"
         aria-expanded={open !== null}
         onClick={(event) => {
@@ -174,7 +175,7 @@ export function PdfSplitPicker({
             : { top: rect.bottom + 6, right: Math.max(window.innerWidth - rect.right, 8) }))
         }}
       >
-        <SplitLayoutIcon layout={split ? current : pdfSplitLayout('cols2')} size={15} />
+        <SplitLayoutIcon layout={split && current !== null ? current : pdfSplitLayout('cols2')} size={15} />
       </button>
       {open !== null ? createPortal(
         <div ref={menuRef} className="pdf-split-menu" role="menu" aria-label={label} style={{ top: open.top, ...(open.right === undefined ? { left: open.left } : { right: open.right }) }}>

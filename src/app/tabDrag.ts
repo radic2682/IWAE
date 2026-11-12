@@ -88,8 +88,7 @@ export function reducedMotion(): boolean {
   return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-const PANE_NAMES: readonly string[] = ['left', 'right', 'third', 'fourth']
-const asPane = (value: string | undefined): PaneId | null => PANE_NAMES.includes(value ?? '') ? value as PaneId : null
+const asPane = (value: string | undefined): PaneId | null => value === undefined || value === '' ? null : value
 
 function paneOfZone(zone: HTMLElement): PaneId | null {
   const own = asPane(zone.dataset.paneId)
