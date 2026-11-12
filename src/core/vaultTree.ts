@@ -350,7 +350,7 @@ export function buildLegacyWorkspaceTree(
       name: group.name,
       path: `Notebooks/${group.name}`,
       children: group.notes.map((note): VaultNoteNode | VaultMarkdownNode => (
-        note.path.toLowerCase().endsWith('.md')
+        isMarkdownPath(note.path)
           ? {
               id: `markdown:${note.path}`,
               kind: 'markdown',

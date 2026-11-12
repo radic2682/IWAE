@@ -792,6 +792,19 @@ describe('vault session and notes', () => {
     await expect(readMarkdown(vault, 'Notes/README.canvas')).rejects.toThrow('Markdown')
   })
 
+  it('.markdown 확장자 문서도 vault 안에서 읽고 외부 참조로 가져올 수 있다', async () => {
+    fsMocks.readTextFile.mockResolvedValue('# Long extension')
+    await expect(readMarkdown(vault, 'Notes/Guide.markdown')).resolves.toBe('# Long extension')
+    expect(fsMocks.readTextFile).toHaveBeenCalledWith('C:/Vault/Notes/Guide.markdown')
+    await expect(readMarkdown(vault, 'Notes/Guide.MARKDOWN')).resolves.toBe('# Long extension')
+    await expect(readMarkdown(vault, 'Notes/Guide.mdx')).rejects.toThrow('Markdown')
+    // 가져오기(참조 등록)
+    fsMocks.readTextFile.mockImplementation(async (path: string) => (
+      path.endsWith('index.json') ? JSON.stringify({ version: 1, entries: [] }) : '# Long extension\n'
+    ))
+    await expect(attachMarkdownReference(vault, 'C:/External/Guide.markdown')).resolves.toMatchObject({ kind: 'markdown', path: 'C:/External/Guide.markdown' })
+  })
+
   it('사용자 블록 프리셋을 Vault의 .iwae 설정으로 읽고 쓴다', async () => {
     const preset = createUserBlockPreset('preset-1', {
       kind: 'rectangle',

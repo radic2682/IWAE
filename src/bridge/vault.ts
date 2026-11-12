@@ -1179,7 +1179,7 @@ function validateMarkdownPath(markdownPath: string): readonly string[] {
     || normalized.startsWith('/')
     || /^[A-Za-z]:/u.test(normalized)
     || parts.some((part) => part === '' || part === '.' || part === '..')
-    || !normalized.toLowerCase().endsWith('.md')
+    || !isMarkdownPath(normalized)
   ) {
     throw new Error(t('올바른 vault Markdown 경로가 아닙니다.'))
   }
