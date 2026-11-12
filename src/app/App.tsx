@@ -212,6 +212,7 @@ import { buildAnchor } from '../core/anchor'
 import { errorText } from '../core/errorText'
 import { UpdateSettings } from './UpdateSettings'
 import { WhatsNewHost } from './WhatsNewDialog'
+import { PrefixKeyHost } from './PrefixKeyDialog'
 import { useUpdater } from './useUpdater'
 import packageMetadata from '../../package.json'
 import developmentMarkdown from '../fixtures/development-note.md?raw'
@@ -1796,17 +1797,21 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const confirmKindRef = useRef<'kill-window' | 'quit'>('kill-window')
   // .iwae/keys.conf: bind-key · unbind-key · set prefix. Vault 를 열 때와 source-file 때 읽는다(파일 감시는 하지 않는다)
   const [keyBindings, setKeyBindings] = useState<Readonly<Record<string, string>>>({})
+  /** keys.conf 를 읽어 본 Vault(null = Vault 없음)와 거기서 접두키를 정했는가. 첫 실행 「접두키 고르기」 창이 이것을 기다린다 */
+  const [keysConfPrefix, setKeysConfPrefix] = useState<{ readonly root: string | null; readonly sets: boolean } | null>(null)
   const loadKeysConf = useCallback(async (): Promise<CommandResult & { readonly found: boolean }> => {
-    if (vault === null) { setKeyBindings({}); return { ok: false, found: false, message: t('Vault 를 연 뒤에 쓸 수 있습니다') } }
+    if (vault === null) { setKeyBindings({}); setKeysConfPrefix({ root: null, sets: false }); return { ok: false, found: false, message: t('Vault 를 연 뒤에 쓸 수 있습니다') } }
     try {
       const { readKeysConf } = await import('../bridge/vault')
       const text = await readKeysConf(vault)
       const conf = parseKeysConf(text ?? '')
       setKeyBindings(conf.bindings)
+      setKeysConfPrefix({ root: vault.root, sets: conf.prefix !== null })
       if (conf.prefix !== null) setAppPref('shortcuts', withBinding(getShortcutOverrides(), PREFIX_KEY_ID, conf.prefix))
       if (conf.errors.length > 0) return { ok: false, found: true, message: t('keys.conf 를 일부 건너뛰었습니다: {line}', { line: conf.errors[0]! }) }
       return { ok: true, found: text !== null, message: text === null ? t('keys.conf 가 없습니다') : t('keys.conf 를 읽었습니다') }
     } catch {
+      setKeysConfPrefix({ root: vault.root, sets: false })
       return { ok: false, found: false, message: t('keys.conf 를 읽지 못했습니다') }
     }
   }, [vault])
@@ -4283,6 +4288,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} onShowHistory={() => { setAboutOpen(false); openUpdateHistory(packageMetadata.version) }} /> : null}
     <WhatsNewHost enabled={isMainWindow && !initializing} version={packageMetadata.version} onShowHistory={openUpdateHistory} />
+    <PrefixKeyHost
+      enabled={isMainWindow && !initializing && keysConfPrefix !== null && keysConfPrefix.root === (vault?.root ?? null) && !keysConfPrefix.sets}
+      onChooseCustom={() => { setSettingsSection('input'); setSettingsOpen(true) }}
+    />
     {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
     {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} prefixText={prefixHint} /> : null}
     {paneNumbersOpen ? <PaneNumbersOverlay panes={paneOrder} activePane={activePaneId} onDone={() => setPaneNumbersOpen(false)} /> : null}

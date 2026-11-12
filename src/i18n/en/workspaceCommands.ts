@@ -17,6 +17,15 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   '접두키 — 다음 키를 누르세요': 'Prefix — press the next key',
   '접두키({keys}): 누르면 다음 키를 기다립니다. 입력기에 막힐 때는 여기를 누르세요': 'Prefix key ({keys}): waits for the next key. Click here if your input method swallows it',
   '기본(tmux)': 'Default (tmux)',
+  // 첫 실행 접두키 고르기
+  '칸 나누기·화면 바꾸기 같은 작업 공간 명령은 접두키를 누른 뒤 한 글자로 합니다 (tmux 방식).': 'Workspace commands such as splitting panes or switching screens are a single letter after the prefix key (the tmux way).',
+  '기본 (tmux와 같음)': 'Default (same as tmux)',
+  '메모를 쓸 때 Ctrl+B 는 굵게입니다. 접두키를 Ctrl+B 로 쓰면 편집기 안에서는 Ctrl+B 를 두 번 눌러야 굵게가 됩니다.': 'In a memo, Ctrl+B is bold. With Ctrl+B as the prefix, press Ctrl+B twice in the editor to get bold.',
+  '서식 단축키와 겹치지 않음. 일부 PC 에서는 입력기 전환과 겹칠 수 있음': 'Does not clash with formatting shortcuts. On some PCs it clashes with the input method switch.',
+  'screen 방식. 편집기에서 전체 선택은 Ctrl+A 두 번': 'The screen way. In the editor, select all is Ctrl+A twice.',
+  '직접 정하기…': 'Choose my own…',
+  '설정 → 단축키에서 언제든 바꿀 수 있습니다': 'You can change it any time in Settings → Shortcuts.',
+  '접두키로 쓸 키': 'Prefix key',
   // 빈 칸
   '빈 칸': 'Empty pane',
   'PDF 열기': 'Open PDF',

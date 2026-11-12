@@ -13,6 +13,14 @@ type Notice =
   | { readonly kind: 'conflict'; readonly id: string; readonly combo: string; readonly other: ShortcutDef }
   | { readonly kind: 'info'; readonly text: string }
 
+/** 다른 곳(첫 실행의 「접두키 고르기」 창의 「직접 정하기…」)이 부탁한 키 녹음: 목록이 그려지면 바로 그 줄의 녹음을 연다 */
+let pendingRecording: string | null = null
+const RECORD_EVENT = 'iwae:record-shortcut'
+export function requestShortcutRecording(id: string): void {
+  pendingRecording = id
+  window.dispatchEvent(new Event(RECORD_EVENT))
+}
+
 /** 접두키로 고를 수 있는 키(Ctrl+B 가 기본, tmux 와 같다). 직접 정하기는 위의 키 칸 */
 export const PREFIX_PRESETS: readonly string[] = ['Ctrl+B', 'Ctrl+Space', 'Ctrl+A']
 export const PREFIX_DEFAULT_PRESET = 'Ctrl+B'
@@ -35,6 +43,12 @@ export function ShortcutSettings() {
   const shortcutsRef = useRef(shortcuts)
   shortcutsRef.current = shortcuts
   const triggers = useRef(new Map<string, HTMLButtonElement>())
+  useEffect(() => {
+    const take = () => { if (pendingRecording === null) return; const id = pendingRecording; pendingRecording = null; setNotice(null); setRecording(id) }
+    take()
+    window.addEventListener(RECORD_EVENT, take)
+    return () => window.removeEventListener(RECORD_EVENT, take)
+  }, [])
 
   const commit = (next: ShortcutOverrides) => setAppPref('shortcuts', next)
   const stopRecording = (id: string) => {

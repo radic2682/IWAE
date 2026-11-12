@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getShortcutOverrides, setShortcutOverrides } from '../core/shortcutRegistry'
 import { getAppPrefs, setAppPref } from './appPrefs'
-import { ShortcutSettings } from './ShortcutSettings'
+import { ShortcutSettings, requestShortcutRecording } from './ShortcutSettings'
 
 const KEY = 'iwae:app-prefs:v1'
 
@@ -99,6 +99,14 @@ describe('ShortcutSettings', () => {
     expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+A' })
     fireEvent.click(screen.getByRole('button', { name: 'Ctrl+B' }))
     expect(getAppPrefs().shortcuts).toEqual({})
+  })
+
+  it('첫 실행 창의 「직접 정하기…」 부탁으로 접두키 녹음이 바로 열리고, 누른 키가 저장된다', () => {
+    requestShortcutRecording('prefixKey')
+    render(<ShortcutSettings />)
+    expect(screen.getByRole('button', { name: /^접두키 .*: 새 키/u })).toBeDefined()
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'j', ctrlKey: true })) })
+    expect(getAppPrefs().shortcuts).toEqual({ prefixKey: 'Mod+J' })
   })
 
   it('접두키를 직접 눌러 정할 수도 있다(Ctrl+J)', () => {

@@ -256,6 +256,8 @@ function renderApp() {
 // 이 테스트들은 로컬(Ollama) 번역을 다룬다. 처음 기본값(Google 번역) 대신 로컬로 시작한다
 beforeEach(() => {
   localStorage.setItem('iwae:translation-settings:v1', JSON.stringify({ executionMode: 'auto' }))
+  // 첫 실행 「접두키 고르기」 창은 따로 시험한다(PrefixKeyDialog.test.tsx). 여기서는 이미 물었다고 둔다
+  setAppPref('prefixKeyAsked', true)
 })
 
 describe('App — 껍데기 배선', () => {
