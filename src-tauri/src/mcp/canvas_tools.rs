@@ -12,7 +12,7 @@ use super::webview_call;
 
 /// 노트 캔버스 기능 스위치(앱의 src/core/features.ts CANVAS_ENABLED 와 같이 맞춘다).
 /// 끄면 MCP 도구 목록·호출·안내에서 canvas_* 가 빠진다.
-pub const ENABLED: bool = true;
+pub const ENABLED: bool = false;
 
 pub const INSTRUCTIONS: &str = "Note canvases (canvas_* tools): call canvas_guide once before building or reorganizing a canvas (layout and excerpt rules). canvas_list finds canvases (pass its `canvas` value back), canvas_read shows blocks \
 with ids, positions (canvas px) and sources. canvas_add_blocks adds text/title/heading/code blocks, PDF excerpts (an image crop of a PDF page that \

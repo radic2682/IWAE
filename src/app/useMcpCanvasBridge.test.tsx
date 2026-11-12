@@ -50,13 +50,16 @@ beforeEach(() => {
 })
 afterEach(() => { tauri.handler = null })
 
-describe('MCP 캔버스 도구(웹뷰 다리) — 캔버스가 켜져 있다', () => {
-  it('기능 스위치가 켜져 있다', () => {
-    expect(CANVAS_ENABLED).toBe(true)
+describe('MCP 캔버스 도구(웹뷰 다리) — 다리를 켠 상태(enabled)', () => {
+  it('앱의 기능 스위치(CANVAS_ENABLED)는 지금 꺼져 있어 앱은 다리를 끈다(코드는 남아 있어 enabled 로 켜면 돈다)', async () => {
+    expect(CANVAS_ENABLED).toBe(false)
+    mount(CANVAS_ENABLED)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(tauri.listen).not.toHaveBeenCalled()
   })
 
   it('canvas_list 는 트리의 캔버스(폴더 안 것 포함)를 열림 여부와 함께 돌려준다', async () => {
-    mount(CANVAS_ENABLED)
+    mount(true)
     const reply = await call('canvas_list')
     expect(reply.ok).toBe(true)
     expect(reply.result).toEqual([
@@ -66,7 +69,7 @@ describe('MCP 캔버스 도구(웹뷰 다리) — 캔버스가 켜져 있다', (
   })
 
   it('닫힌 캔버스에 블록을 더하고 읽는다(파일을 고친다)', async () => {
-    mount(CANVAS_ENABLED)
+    mount(true)
     const added = await call('canvas_add_blocks', { canvas: 'a.canvas', tidy: false, blocks: [{ type: 'text', text: '본문' }] })
     expect(added.ok).toBe(true)
     const read = await call('canvas_read', { canvas: 'a.canvas' })
@@ -75,7 +78,7 @@ describe('MCP 캔버스 도구(웹뷰 다리) — 캔버스가 켜져 있다', (
   })
 
   it('알 수 없는 캔버스·캔버스가 아닌 op 는 오류로 답하거나 받지 않는다', async () => {
-    mount(CANVAS_ENABLED)
+    mount(true)
     const missing = await call('canvas_read', { canvas: '없음.canvas' })
     expect(missing.ok).toBe(false)
     const before = tauri.invoke.mock.calls.length

@@ -287,7 +287,26 @@ describe('useVault — 시작 복원', () => {
     )
   })
 
-  it('캔버스 탭을 세션 파일의 창 배치대로 되살린다(오른쪽 칸의 캔버스가 문서 칸으로 합쳐지지 않는다)', async () => {
+  it.skipIf(CANVAS_ENABLED)('캔버스가 꺼져 있으면 세션의 캔버스 탭은 조용히 건너뛰고 나머지(문서 탭)는 그대로 되살린다', async () => {
+    vi.mocked(readSession).mockResolvedValue({
+      pdfTabIds: [goodEntry.docId],
+      noteTabIds: ['HTTP/OPTIONS.canvas'],
+      activePdfTabId: goodEntry.docId,
+      activeNoteTabId: 'HTTP/OPTIONS.canvas',
+      sidebarCollapsed: false,
+      sidebarPx: 310,
+      leftFrac: 0.5,
+      panes: { left: ['HTTP/OPTIONS.canvas'], right: [goodEntry.docId], activeLeft: 'HTTP/OPTIONS.canvas', activeRight: goodEntry.docId },
+    })
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(result.current.error).toBeNull()
+    const all = [0, 1].flatMap((index) => paneTabs(result, index).tabs.map((tab) => [tab.id, tab.kind]))
+    expect(all).toEqual([[goodEntry.docId, 'pdf']])
+    expect(all.some(([, kind]) => kind === 'canvas')).toBe(false)
+  })
+
+  it.skipIf(!CANVAS_ENABLED)('캔버스 탭을 세션 파일의 창 배치대로 되살린다(오른쪽 칸의 캔버스가 문서 칸으로 합쳐지지 않는다)', async () => {
     vi.mocked(readSession).mockResolvedValue({
       pdfTabIds: [goodEntry.docId],
       noteTabIds: ['HTTP/OPTIONS.canvas'],

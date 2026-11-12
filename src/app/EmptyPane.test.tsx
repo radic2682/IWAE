@@ -7,7 +7,7 @@ import { EmptyPane } from './EmptyPane'
 
 afterEach(cleanup)
 
-const all = () => ({ onPdf: vi.fn(), onMarkdown: vi.fn(), onNote: vi.fn(), onCanvas: vi.fn(), onTranslator: vi.fn(), onClose: vi.fn() })
+const all = () => ({ onPdf: vi.fn(), onMarkdown: vi.fn(), onNote: vi.fn(), onClose: vi.fn() })
 const labels = () => screen.getAllByRole('button').map((button) => button.textContent)
 
 describe('EmptyPane', () => {
@@ -15,23 +15,25 @@ describe('EmptyPane', () => {
     render(<EmptyPane prefixText="Ctrl+B" {...all()} />)
     expect(screen.getByText('빈 칸')).toBeDefined()
     expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
-    expect(labels()).toEqual(['PDF 열기', 'Markdown 열기', '노트 열기', '캔버스 열기', '번역기 띄우기Ctrl+B w', '이 칸 닫기Ctrl+B x'])
-    const translator = screen.getByRole('button', { name: /^번역기 띄우기/u })
-    expect(translator.querySelector('.empty-pane-row-icon svg')).not.toBeNull()
-    expect(translator.querySelector('kbd.empty-pane-row-hint')?.textContent).toBe('Ctrl+B w')
+    // 번역기 · 캔버스 줄은 없다(번역기는 창 전체에 떠 있는 창, 캔버스는 꺼 두었다)
+    expect(labels()).toEqual(['PDF 열기', 'Markdown 열기', '노트 열기', '이 칸 닫기Ctrl+B x'])
+    expect(screen.queryByRole('button', { name: /번역기/u })).toBeNull()
+    expect(screen.queryByRole('button', { name: /캔버스/u })).toBeNull()
+    const close = screen.getByRole('button', { name: /^이 칸 닫기/u })
+    expect(close.querySelector('.empty-pane-row-icon svg')).not.toBeNull()
+    expect(close.querySelector('kbd.empty-pane-row-hint')?.textContent).toBe('Ctrl+B x')
     // 키 힌트가 없는 줄에는 kbd 가 없다
     expect(screen.getByRole('button', { name: 'PDF 열기' }).querySelector('kbd')).toBeNull()
   })
 
   it('키 힌트는 접두키를 따른다(하드코딩이 아니다)', () => {
     render(<EmptyPane prefixText="⌃Space" {...all()} />)
-    expect(screen.getByRole('button', { name: /^번역기 띄우기/u }).textContent).toBe('번역기 띄우기⌃Space w')
     expect(screen.getByRole('button', { name: /^이 칸 닫기/u }).textContent).toBe('이 칸 닫기⌃Space x')
   })
 
-  it('이 칸 닫기는 onClose 가 있을 때(칸이 둘 이상)만 보이고, Vault 가 없으면 노트 · 캔버스 줄이 없다', () => {
-    render(<EmptyPane prefixText="Ctrl+B" onPdf={vi.fn()} onMarkdown={vi.fn()} onTranslator={vi.fn()} />)
-    expect(labels()).toEqual(['PDF 열기', 'Markdown 열기', '번역기 띄우기Ctrl+B w'])
+  it('이 칸 닫기는 onClose 가 있을 때(칸이 둘 이상)만 보이고, Vault 가 없으면 노트 줄이 없다', () => {
+    render(<EmptyPane prefixText="Ctrl+B" onPdf={vi.fn()} onMarkdown={vi.fn()} />)
+    expect(labels()).toEqual(['PDF 열기', 'Markdown 열기'])
   })
 
   it('줄을 누르면 그 동작이 불린다', () => {
@@ -40,8 +42,6 @@ describe('EmptyPane', () => {
     fireEvent.click(screen.getByRole('button', { name: 'PDF 열기' }))
     fireEvent.click(screen.getByRole('button', { name: 'Markdown 열기' }))
     fireEvent.click(screen.getByRole('button', { name: '노트 열기' }))
-    fireEvent.click(screen.getByRole('button', { name: '캔버스 열기' }))
-    fireEvent.click(screen.getByRole('button', { name: /^번역기 띄우기/u }))
     fireEvent.click(screen.getByRole('button', { name: /^이 칸 닫기/u }))
     for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledTimes(1)
   })
@@ -49,19 +49,19 @@ describe('EmptyPane', () => {
   it('↑ ↓ Home End 로 줄을 오가고(끝에서 돌아 나간다), 처음 줄만 Tab 으로 들어온다', () => {
     render(<EmptyPane prefixText="Ctrl+B" {...all()} recents={[{ key: 'a', title: '논문 A', kind: 'pdf', onOpen: vi.fn() }]} />)
     const buttons = screen.getAllByRole('button')
-    expect(buttons.map((button) => button.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1])
+    expect(buttons.map((button) => button.tabIndex)).toEqual([0, -1, -1, -1, -1])
     buttons[0]!.focus()
     fireEvent.keyDown(buttons[0]!, { key: 'ArrowDown' })
     expect(document.activeElement).toBe(buttons[1])
     fireEvent.keyDown(buttons[1]!, { key: 'ArrowUp' })
     expect(document.activeElement).toBe(buttons[0])
     fireEvent.keyDown(buttons[0]!, { key: 'ArrowUp' })
-    expect(document.activeElement).toBe(buttons[6])
-    fireEvent.keyDown(buttons[6]!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(buttons[4])
+    fireEvent.keyDown(buttons[4]!, { key: 'ArrowDown' })
     expect(document.activeElement).toBe(buttons[0])
     fireEvent.keyDown(buttons[0]!, { key: 'End' })
-    expect(document.activeElement).toBe(buttons[6])
-    fireEvent.keyDown(buttons[6]!, { key: 'Home' })
+    expect(document.activeElement).toBe(buttons[4])
+    fireEvent.keyDown(buttons[4]!, { key: 'Home' })
     expect(document.activeElement).toBe(buttons[0])
   })
 
@@ -89,7 +89,26 @@ describe('EmptyPane', () => {
 })
 
 describe('EmptyPane 스타일', () => {
-  const css = readFileSync(join(__dirname, '../ui/empty-pane.css'), 'utf8').split(String.fromCharCode(13)).join('')
+  const read = (name: string) => readFileSync(join(__dirname, '../ui', name), 'utf8').split(String.fromCharCode(13)).join('')
+  const css = read('empty-pane.css')
+
+  it('빈 칸은 자리(slot)다: 바탕 · 실선 · 채널 가장자리 없이 6/5 점선 윤곽 하나(1.5px, 카드와 같은 둥글기), 만지면 강조색 70%', () => {
+    const surface = read('workspace-surface.css')
+    expect(surface).toMatch(/--pane-edge-w: 1\.5px;/u)
+    expect(surface).toMatch(/--pane-edge-empty: var\(--divider-strong\);/u)
+    // 같은 .pane-card 규칙(둥글기 --r-md · 두께 --pane-edge-w)에서 선 모양과 색만 바꾼다
+    expect(surface).toMatch(/\.panes-tree \.pane-card \{[^\}]*border: var\(--pane-edge-w\) solid var\(--pane-c\);[^\}]*border-radius: var\(--r-md\);/u)
+    expect(surface).toContain('.panes-tree .pane-card[data-empty] { border-color: transparent; background: transparent; }')
+    expect(surface).toMatch(/\.pane-slot-outline rect \{[^}]*rx: calc\(var\(--r-md\) - var\(--pane-edge-w\) \/ 2\);[^}]*stroke-width: var\(--pane-edge-w\);[^}]*stroke-dasharray: 6 5;/u)
+    expect(surface).toContain('.panes-tree .pane-card[data-empty].pane-card-active .pane-slot-outline { color: color-mix(in srgb, var(--accent) 70%, transparent); }')
+    expect(surface).toMatch(/body\.pane-tab-dragging[^{]*\.pane-card\[data-reacting\]:not\(\.pane-card-active\) \{ border-color: var\(--pane-c\); \}/u)
+  })
+
+  it('빈 칸 안 내용은 칸 한가운데에 서고(auto 여백), 위아래 치우침이 없다', () => {
+    expect(css).toMatch(/\.empty-pane \{[^\}]*margin: auto;/u)
+    expect(css).toMatch(/\.pane-placeholder:has\(> \.empty-pane\) \{ container-type: size; \}/u)
+  })
+
   it('최대 360px 기둥이고, 움직임이 없으며, 낮은 칸 줄이기는 CSS 400px 기준이 아니라 실제 높이로 한다', () => {
     expect(css).toContain('max-width: 360px')
     expect(css).not.toMatch(/@container/u)

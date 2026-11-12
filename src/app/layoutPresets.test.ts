@@ -24,9 +24,11 @@ describe('배치 목록', () => {
     expect(LAYOUT_PRESETS.map((preset) => preset.label)).toEqual(['읽기', '노트 왼쪽', '비교', '정리'])
   })
 
-  it('캔버스가 켜져 있으면 앱이 쓰는 목록에 「정리」가 보인다', () => {
-    expect(CANVAS_ENABLED).toBe(true)
-    expect(availableLayoutPresets(CANVAS_ENABLED).map((preset) => preset.id)).toContain('organize')
+  it('캔버스가 꺼져 있으면(지금) 앱이 쓰는 목록에 「정리」가 없고, 켜면 보인다', () => {
+    expect(CANVAS_ENABLED).toBe(false)
+    expect(availableLayoutPresets(CANVAS_ENABLED).map((preset) => preset.id)).not.toContain('organize')
+    expect(availableLayoutPresets(CANVAS_ENABLED).map((preset) => preset.label)).toEqual(['읽기', '노트 왼쪽', '비교'])
+    expect(availableLayoutPresets(true).map((preset) => preset.id)).toContain('organize')
   })
 })
 
