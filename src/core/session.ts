@@ -1,6 +1,7 @@
 import { allPaneTabs, tabsOf, type PanesState } from '../app/tabs'
 import { channelOf, parseChannel, type PaneChannel, type PaneChannels } from '../app/workspaceChannels'
-import { layoutForLegacyId, leaves, legacyPaneCount, newPaneId, paneNode, parseLayoutTree, type LayoutNode } from './layoutTree'
+import { layoutForLegacyId, leaves, legacyPaneCount, newPaneId, paneNode, parseLayoutTree, renamePane, reservePaneIds, type LayoutNode } from './layoutTree'
+import { newScreenId, reserveScreenIds, workspaceOf, type ScreensState } from '../app/screens'
 import { isPdfSplitLayoutId, type PdfSplitLayoutId } from './pdfSplit'
 
 /** 칸 하나가 저장하는 것: 탭 id 들(차례대로), 보던 탭, 색 채널 */
@@ -9,6 +10,15 @@ export interface PaneSnapshot {
   readonly activeId: string | null
   /** null 은 「연동 없음」 */
   readonly channel: PaneChannel
+}
+
+/** 화면 하나가 저장하는 것: 이름, 나누기 트리, 칸마다 탭·색, 「크게」로 키운 칸 */
+export interface ScreenSnapshot {
+  readonly id: string
+  readonly name: string
+  readonly layout: LayoutNode
+  readonly paneState: Readonly<Record<string, PaneSnapshot>>
+  readonly zoomed?: string | null
 }
 
 export interface SessionState {
@@ -23,7 +33,12 @@ export interface SessionState {
   sidebarCollapsed: boolean
   sidebarPx: number
   leftFrac: number
-  /** 칸 나누기 트리(비율 포함). 없으면(예전 세션) 예전 배치 id 로 만든다(workspaceFromSession) */
+  /** 화면들(이름 · 순서 · 화면마다 트리와 칸 상태). 없으면(단계 1 이전·단계 1 세션) 아래 layout·paneState 가 「읽기」 화면 하나가 된다 */
+  screens?: readonly ScreenSnapshot[]
+  /** 보던 화면의 id · 바로 앞에 보던 화면의 id */
+  activeScreen?: string
+  lastScreen?: string | null
+  /** 칸 나누기 트리(비율 포함). 화면이 있으면 보던 화면의 것(옛 앱으로 돌아가도 읽히게 같이 쓴다). 없으면(예전 세션) 예전 배치 id 로 만든다(workspaceFromSession) */
   layout?: LayoutNode
   /** 칸 id → 탭 · 보던 탭 · 색 채널. layout 의 칸과 같은 칸들이다 */
   paneState?: Readonly<Record<string, PaneSnapshot>>
@@ -54,22 +69,36 @@ export const emptySession: SessionState = {
   leftFrac: 0.5,
 }
 
-export function captureSession(
-  workspace: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode },
-  layout: { sidebarCollapsed: boolean; sidebarPx: number; leftFrac: number },
-): SessionState {
-  const order = leaves(workspace.layout)
-  const all = allPaneTabs(workspace.panes, order)
-  const docTabs = all.filter((tab) => tab.kind === 'pdf' || tab.kind === 'markdown')
-  const noteTabs = all.filter((tab) => tab.kind === 'canvas')
-  const memoNoteTabs = all.filter((tab) => tab.kind === 'memoNote')
-  const previewIds = all.filter((tab) => tab.preview === true).map((tab) => tab.id)
-  const activeOf = (ids: readonly string[]) => order.map((pane) => tabsOf(workspace.panes, pane).activeId)
-    .find((id) => id !== null && ids.includes(id)) ?? null
-  const paneState = Object.fromEntries(order.map((pane): [string, PaneSnapshot] => {
+type CaptureWorkspace = { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode }
+
+function snapshotPanes(workspace: CaptureWorkspace): Record<string, PaneSnapshot> {
+  return Object.fromEntries(leaves(workspace.layout).map((pane): [string, PaneSnapshot] => {
     const state = tabsOf(workspace.panes, pane)
     return [pane, { tabIds: state.tabs.map((tab) => tab.id), activeId: state.activeId, channel: channelOf(workspace.channels, pane) }]
   }))
+}
+
+/**
+ * 지금 상태를 저장 모양으로. 화면 묶음(ScreensState)이면 모든 화면을 싣고(탭 id 목록은 모든 화면의 탭을 한 번씩),
+ * 한 칸 배치(TreeWorkspace)면 예전처럼 layout·paneState 만 쓴다.
+ */
+export function captureSession(
+  input: CaptureWorkspace | ScreensState,
+  layout: { sidebarCollapsed: boolean; sidebarPx: number; leftFrac: number },
+): SessionState {
+  const screens = 'screens' in input ? input : null
+  const workspaces: readonly CaptureWorkspace[] = screens === null ? [input as CaptureWorkspace] : screens.screens.map(workspaceOf)
+  const active: CaptureWorkspace = screens === null ? (input as CaptureWorkspace) : workspaceOf(screens.screens.find((screen) => screen.id === screens.activeScreen) ?? screens.screens[0]!)
+  const order = leaves(active.layout)
+  const everything = workspaces.flatMap((workspace) => allPaneTabs(workspace.panes, leaves(workspace.layout)))
+  const seen = new Set<string>()
+  const all = everything.filter((tab) => (seen.has(tab.id) ? false : (seen.add(tab.id), true)))
+  const docTabs = all.filter((tab) => tab.kind === 'pdf' || tab.kind === 'markdown')
+  const noteTabs = all.filter((tab) => tab.kind === 'canvas')
+  const memoNoteTabs = all.filter((tab) => tab.kind === 'memoNote')
+  const previewIds = [...new Set(everything.filter((tab) => tab.preview === true).map((tab) => tab.id))]
+  const activeOf = (ids: readonly string[]) => order.map((pane) => tabsOf(active.panes, pane).activeId)
+    .find((id) => id !== null && ids.includes(id)) ?? null
   return {
     pdfTabIds: docTabs.map((tab) => tab.id),
     noteTabIds: noteTabs.map((tab) => tab.id),
@@ -80,8 +109,19 @@ export function captureSession(
     sidebarCollapsed: layout.sidebarCollapsed,
     sidebarPx: layout.sidebarPx,
     leftFrac: layout.leftFrac,
-    layout: workspace.layout,
-    paneState,
+    ...(screens === null ? {} : {
+      screens: screens.screens.map((screen): ScreenSnapshot => ({
+        id: screen.id,
+        name: screen.name,
+        layout: screen.layout,
+        paneState: snapshotPanes(screen),
+        ...(screen.zoomed === null ? {} : { zoomed: screen.zoomed }),
+      })),
+      activeScreen: screens.activeScreen,
+      lastScreen: screens.lastScreen,
+    }),
+    layout: active.layout,
+    paneState: snapshotPanes(active),
   }
 }
 
@@ -144,6 +184,42 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
 }
 
+/**
+ * 저장된 화면들을 읽는다. 하나도 못 읽으면 undefined(옛 모양으로 본다). 화면 id · 칸 id 가 겹치면(손으로 고친 파일) 뒤의 것에 새 id 를 준다 —
+ * 칸 id 는 모든 화면에서 한 번씩만 나와야 칸별 보기 상태가 섞이지 않는다.
+ */
+function parseScreens(raw: unknown): ScreenSnapshot[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const out: ScreenSnapshot[] = []
+  const usedScreens = new Set<string>()
+  const usedPanes = new Set<string>()
+  for (const item of raw) {
+    if (!isRecord(item) || typeof item.id !== 'string' || item.id === '' || typeof item.name !== 'string') continue
+    const tree = parseLayoutTree(item.layout)
+    if (tree === null) continue
+    const state = parsePaneState(item.paneState, tree)
+    if (state === undefined) continue
+    let layout = tree
+    const paneState: Record<string, PaneSnapshot> = {}
+    let zoomed = typeof item.zoomed === 'string' ? item.zoomed : null
+    for (const pane of leaves(tree)) {
+      let id = pane
+      if (usedPanes.has(id)) {
+        id = newPaneId([...usedPanes, ...leaves(tree)])
+        layout = renamePane(layout, pane, id)
+        if (zoomed === pane) zoomed = id
+      }
+      usedPanes.add(id)
+      paneState[id] = state[pane]!
+    }
+    if (zoomed !== null && !leaves(layout).includes(zoomed)) zoomed = null
+    const id = usedScreens.has(item.id) ? newScreenId(usedScreens) : item.id
+    usedScreens.add(id)
+    out.push({ id, name: item.name, layout, paneState, ...(zoomed === null ? {} : { zoomed }) })
+  }
+  return out.length === 0 ? undefined : out
+}
+
 export function parseSession(raw: unknown): SessionState {
   if (
     !isRecord(raw) ||
@@ -173,6 +249,9 @@ export function parseSession(raw: unknown): SessionState {
   const tree = raw.layout === undefined ? null : parseLayoutTree(raw.layout)
   const paneState = tree === null ? undefined : parsePaneState(raw.paneState, tree)
   const workspace = tree !== null && paneState !== undefined ? { layout: tree, paneState } : {}
+  const screens = parseScreens(raw.screens)
+  const activeScreen = screens !== undefined && typeof raw.activeScreen === 'string' && screens.some((screen) => screen.id === raw.activeScreen) ? raw.activeScreen : screens?.[0]?.id
+  const lastScreen = screens !== undefined && typeof raw.lastScreen === 'string' && raw.lastScreen !== activeScreen && screens.some((screen) => screen.id === raw.lastScreen) ? raw.lastScreen : null
   const legacyChannels = raw.paneChannels === undefined ? undefined : parseLegacyChannels(raw.paneChannels)
   return {
     pdfTabIds: raw.pdfTabIds,
@@ -185,6 +264,7 @@ export function parseSession(raw: unknown): SessionState {
     sidebarPx: raw.sidebarPx,
     leftFrac: raw.leftFrac,
     ...workspace,
+    ...(screens === undefined || activeScreen === undefined ? {} : { screens, activeScreen, lastScreen }),
     ...(legacyChannels === undefined ? {} : { paneChannels: legacyChannels }),
     ...(raw.panes === undefined || parsePanes(raw.panes) === undefined ? {} : { panes: parsePanes(raw.panes) }),
   }
@@ -249,4 +329,33 @@ export function workspaceFromSession(session: SessionState, legacyLayout: PdfSpl
 export function singlePaneWorkspace(): WorkspaceSnapshot {
   const id = newPaneId()
   return { layout: paneNode(id), paneState: { [id]: { tabIds: [], activeId: null, channel: 'blue' } } }
+}
+
+export interface ScreensSnapshot {
+  readonly screens: readonly ScreenSnapshot[]
+  readonly activeScreen: string
+  readonly lastScreen: string | null
+}
+
+/**
+ * 세션에서 화면들을 읽는다. 화면이 적혀 있으면 그대로, 단계 1 의 세션(layout·paneState 하나)이나 그 이전의 세션은
+ * 칸 배치 하나를 defaultName(「읽기」) 화면 하나로 옮긴다. 읽은 칸 id · 화면 id 는 이번 실행의 새 id 와 겹치지 않게 비켜 둔다.
+ */
+export function screensFromSession(session: SessionState, legacyLayout: PdfSplitLayoutId | null, defaultName: string): ScreensSnapshot {
+  if (session.screens !== undefined && session.screens.length > 0 && session.activeScreen !== undefined) {
+    reserveScreenIds(session.screens.map((screen) => screen.id))
+    reservePaneIds(session.screens.flatMap((screen) => leaves(screen.layout)))
+    return { screens: session.screens, activeScreen: session.activeScreen, lastScreen: session.lastScreen ?? null }
+  }
+  if (session.layout !== undefined) reservePaneIds(leaves(session.layout))
+  const workspace = workspaceFromSession(session, legacyLayout)
+  const id = newScreenId()
+  return { screens: [{ id, name: defaultName, ...workspace }], activeScreen: id, lastScreen: null }
+}
+
+/** 한 화면짜리 첫 상태(떼어 낸 창·새 창·분할을 끈 때) */
+export function singleScreenSnapshot(name: string): ScreensSnapshot {
+  const workspace = singlePaneWorkspace()
+  const id = newScreenId()
+  return { screens: [{ id, name, ...workspace }], activeScreen: id, lastScreen: null }
 }

@@ -3,7 +3,7 @@ import type { PanesState, TabsState } from '../app/tabs'
 import { channelOf } from '../app/workspaceChannels'
 import { layoutForLegacyId, leaves, paneNode, shapeOf } from './layoutTree'
 import { PDF_SPLIT_LAYOUTS, type PdfSplitLayoutId } from './pdfSplit'
-import { captureSession, emptySession, parseSession, readLegacyLayoutId, singlePaneWorkspace, workspaceFromSession } from './session'
+import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singlePaneWorkspace, workspaceFromSession } from './session'
 
 const pdfTabs: TabsState = {
   tabs: [
@@ -252,5 +252,77 @@ describe('readLegacyLayoutId — 예전에 localStorage 에 따로 적던 배치
 
   it('저장소를 못 읽으면 null', () => {
     expect(readLegacyLayoutId({ getItem: () => { throw new Error('blocked') } })).toBeNull()
+  })
+})
+
+describe('화면(screens) 저장과 읽기', () => {
+  const screensState = () => ({
+    screens: [
+      { id: 'w1', name: '읽기', layout: layoutForLegacyId('cols2', ['a', 'b']), panes: { a: pdfTabs, b: noteTabs } as PanesState, channels: { a: 'blue', b: 'green' } as Record<string, 'blue' | 'green'>, zoomed: 'a' as string | null },
+      { id: 'w2', name: '비교', layout: paneNode('c'), panes: { c: { tabs: [{ id: 'doc-a', title: 'A', kind: 'pdf' as const }], activeId: 'doc-a' } } as PanesState, channels: { c: 'orange' } as Record<string, 'orange'>, zoomed: null },
+    ],
+    activeScreen: 'w2',
+    lastScreen: 'w1',
+  })
+
+  it('이름 · 순서 · 화면마다 트리와 칸 상태 · 보던 화면 · 마지막 화면을 저장하고 그대로 읽는다', () => {
+    const session = parseSession(JSON.parse(JSON.stringify(captureSession(screensState(), windowLayout))))
+    expect(session.screens?.map((screen) => [screen.id, screen.name])).toEqual([['w1', '읽기'], ['w2', '비교']])
+    expect(session.screens?.[0]?.paneState.b).toEqual({ tabIds: ['Specs/Link.canvas'], activeId: 'Specs/Link.canvas', channel: 'green' })
+    expect(session.screens?.[0]?.zoomed).toBe('a')
+    expect(session.screens?.[1]?.zoomed).toBeUndefined()
+    expect(session).toMatchObject({ activeScreen: 'w2', lastScreen: 'w1' })
+    // 탭 id 목록은 모든 화면의 탭을 한 번씩(같은 문서가 두 화면에 있어도 한 번)
+    expect(session.pdfTabIds).toEqual(['doc-a', 'doc-b'])
+    // 옛 앱도 읽도록 보던 화면의 layout 을 같이 쓴다
+    expect(leaves(session.layout!)).toEqual(['c'])
+  })
+
+  it('화면이 적힌 세션은 screensFromSession 이 그대로 돌려준다', () => {
+    const session = parseSession(JSON.parse(JSON.stringify(captureSession(screensState(), windowLayout))))
+    const result = screensFromSession(session, null, '읽기')
+    expect(result.screens).toHaveLength(2)
+    expect(result.activeScreen).toBe('w2')
+    expect(result.lastScreen).toBe('w1')
+  })
+
+  it('단계 1 의 세션(layout 하나)은 「읽기」 화면 하나로 옮긴다', () => {
+    const stepOne = captureSession(two(pdfTabs, noteTabs), windowLayout)
+    expect(stepOne).not.toHaveProperty('screens')
+    const result = screensFromSession(parseSession(JSON.parse(JSON.stringify(stepOne))), null, '읽기')
+    expect(result.screens).toHaveLength(1)
+    expect(result.screens[0]!.name).toBe('읽기')
+    expect(shapeOf(result.screens[0]!.layout)).toBe('h(P,P)')
+    expect(result.screens[0]!.paneState.a!.tabIds).toEqual(['doc-a', 'doc-b'])
+    expect(result.lastScreen).toBeNull()
+  })
+
+  it('단계 1 이전의 세션(칸 이름 left/right)도 같은 길로 「읽기」 화면 하나가 된다', () => {
+    const legacy = { ...valid, panes: { left: ['doc-a', 'doc-b'], right: ['Specs/Link.canvas'], activeLeft: 'doc-b', activeRight: 'Specs/Link.canvas' } }
+    const result = screensFromSession(parseSession(legacy), 'cols2', '읽기')
+    expect(result.screens).toHaveLength(1)
+    expect(result.screens[0]!.name).toBe('읽기')
+    expect(Object.values(result.screens[0]!.paneState).map((pane) => pane.tabIds)).toEqual([['doc-a', 'doc-b'], ['Specs/Link.canvas']])
+  })
+
+  it('칸 id 가 두 화면에 겹치면 뒤 화면의 칸에 새 id 를 주고, 크게 보던 칸도 따라간다', () => {
+    const raw = JSON.parse(JSON.stringify(captureSession(screensState(), windowLayout)))
+    raw.screens[1].layout = JSON.parse(JSON.stringify(layoutForLegacyId('cols2', ['a', 'z'])))
+    raw.screens[1].paneState = { a: raw.screens[0].paneState.a, z: raw.screens[0].paneState.b }
+    raw.screens[1].zoomed = 'a'
+    const parsed = parseSession(raw)
+    const first = leaves(parsed.screens![0]!.layout)
+    const second = leaves(parsed.screens![1]!.layout)
+    expect(second.filter((pane) => first.includes(pane))).toEqual([])
+    expect(parsed.screens![1]!.zoomed).toBe(second[0])
+    expect(Object.keys(parsed.screens![1]!.paneState).sort()).toEqual([...second].sort())
+  })
+
+  it('모양이 틀린 화면은 건너뛰고, 하나도 못 읽으면 옛 모양으로 본다', () => {
+    const raw = JSON.parse(JSON.stringify(captureSession(screensState(), windowLayout)))
+    raw.screens[0].layout = { kind: 'nope' }
+    expect(parseSession(raw).screens?.map((screen) => screen.id)).toEqual(['w2'])
+    raw.screens = [{ id: 'x' }]
+    expect(parseSession(raw)).not.toHaveProperty('screens')
   })
 })

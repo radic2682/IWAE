@@ -131,6 +131,17 @@ export function newPaneId(used: Iterable<string> = []): string {
   return id
 }
 
+/**
+ * 저장에서 되살린 칸 id 들을 이번 실행의 번호 차례에서 비켜 둔다 — 다음에 만드는 칸 id 가 다른 화면의 칸과 겹치지 않게.
+ * `p<번호>` 꼴이면 그 번호 뒤부터 센다.
+ */
+export function reservePaneIds(ids: Iterable<string>): void {
+  for (const id of ids) {
+    const match = /^p(\d+)$/u.exec(id)
+    if (match !== null) paneSequence = Math.max(paneSequence, Number(match[1]))
+  }
+}
+
 export interface SplitOptions {
   /** 새 칸을 앞(왼쪽·위)에 둔다. 기본은 뒤(오른쪽·아래) */
   readonly before?: boolean

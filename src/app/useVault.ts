@@ -60,7 +60,8 @@ import { reconcileLibraryPdfEntries, reconcileMissingVaultPdfs, reconcileVaultIn
 import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
-import { captureSession, emptySession, parseSession, readLegacyLayoutId, singlePaneWorkspace, workspaceFromSession, type SessionState, type WorkspaceSnapshot } from '../core/session'
+import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
+import { activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
 import { currentWindowMode, ownsSession, sessionForWindow } from '../core/windowMode'
@@ -156,35 +157,42 @@ function restoredTabs(
 }
 
 /**
- * 세션의 칸 배치(트리·칸마다 탭·보던 탭·색)를 탭 기록으로 되살린다. 어느 칸에도 적히지 않은 탭은 문서는 첫 칸, 노트는 둘째 칸(없으면 첫 칸)에 둔다.
- * 사라진 파일의 탭은 위에서 이미 걸러졌으므로 여기서는 순서와 활성 탭만 맞춘다.
+ * 세션의 화면들(화면마다 트리·칸의 탭·보던 탭·색)을 탭 기록으로 되살린다. 어느 칸에도 적히지 않은 탭은 첫 화면의 문서는 첫 칸, 노트는 둘째 칸(없으면 첫 칸)에 둔다.
+ * 같은 탭이 두 화면에 적혀 있으면 두 화면 모두에 둔다. 사라진 파일의 탭은 위에서 이미 걸러졌으므로 여기서는 순서와 활성 탭만 맞춘다.
  */
-function restoredWorkspace(
+function restoredScreens(
   docs: TabsState,
   notes: TabsState,
-  snapshot: WorkspaceSnapshot,
-): TreeWorkspace {
-  const order = leaves(snapshot.layout)
+  snapshot: ScreensSnapshot,
+): ScreensState {
   const byId = new Map([...docs.tabs, ...notes.tabs].map((tab) => [tab.id, tab]))
-  const placed = new Set(order.flatMap((pane) => snapshot.paneState[pane]?.tabIds ?? []))
-  const docTarget = order[0]!
-  const noteTarget = order[1] ?? order[0]!
-  const panes: Record<string, TabsState> = {}
-  const channels: Record<string, PaneChannel> = {}
-  for (const pane of order) {
-    const saved = snapshot.paneState[pane]
-    const own = (saved?.tabIds ?? []).flatMap((id) => byId.get(id) ?? [])
-    const extra = [
-      ...(pane === docTarget ? docs.tabs.filter((tab) => !placed.has(tab.id)) : []),
-      ...(pane === noteTarget ? notes.tabs.filter((tab) => !placed.has(tab.id)) : []),
-    ]
-    const tabs = [...own, ...extra]
-    const ownActive = (id: string | null) => id !== null && tabs.some((tab) => tab.id === id) ? id : null
-    const fallbackActive = (pane === docTarget ? ownActive(docs.activeId) : null) ?? (pane === noteTarget ? ownActive(notes.activeId) : null)
-    panes[pane] = restoredTabs(tabs, ownActive(saved?.activeId ?? null) ?? fallbackActive)
-    channels[pane] = saved?.channel === undefined ? 'blue' : saved.channel
-  }
-  return { panes, channels, layout: snapshot.layout }
+  const placed = new Set(snapshot.screens.flatMap((screen) => leaves(screen.layout).flatMap((pane) => screen.paneState[pane]?.tabIds ?? [])))
+  const screens = snapshot.screens.map((screen, screenIndex): Screen => {
+    const order = leaves(screen.layout)
+    const first = screenIndex === 0
+    const docTarget = first ? order[0]! : null
+    const noteTarget = first ? order[1] ?? order[0]! : null
+    const panes: Record<string, TabsState> = {}
+    const channels: Record<string, PaneChannel> = {}
+    for (const pane of order) {
+      const saved = screen.paneState[pane]
+      const own = (saved?.tabIds ?? []).flatMap((id) => byId.get(id) ?? [])
+      const extra = [
+        ...(pane === docTarget ? docs.tabs.filter((tab) => !placed.has(tab.id)) : []),
+        ...(pane === noteTarget ? notes.tabs.filter((tab) => !placed.has(tab.id)) : []),
+      ]
+      const tabs = [...own, ...extra]
+      const ownActive = (id: string | null) => id !== null && tabs.some((tab) => tab.id === id) ? id : null
+      const fallbackActive = (pane === docTarget ? ownActive(docs.activeId) : null) ?? (pane === noteTarget ? ownActive(notes.activeId) : null)
+      panes[pane] = restoredTabs(tabs, ownActive(saved?.activeId ?? null) ?? fallbackActive)
+      channels[pane] = saved?.channel === undefined ? 'blue' : saved.channel
+    }
+    const zoomed = screen.zoomed !== undefined && screen.zoomed !== null && order.includes(screen.zoomed) ? screen.zoomed : null
+    return { id: screen.id, name: screen.name, layout: screen.layout, panes, channels, zoomed }
+  })
+  const activeScreen = screens.some((screen) => screen.id === snapshot.activeScreen) ? snapshot.activeScreen : screens[0]!.id
+  const lastScreen = snapshot.lastScreen !== null && snapshot.lastScreen !== activeScreen && screens.some((screen) => screen.id === snapshot.lastScreen) ? snapshot.lastScreen : null
+  return { screens, activeScreen, lastScreen }
 }
 
 /** 처음 상태: 한 칸(문서). 샘플 작업 공간처럼 노트 탭을 함께 받으면 좌우 둘로 시작한다 */
@@ -197,6 +205,13 @@ function initialWorkspace(options: UseVaultOptions, windowRole: string): TreeWor
     return { panes: { [first]: docs, [second]: notes }, channels: { [first]: 'blue', [second]: 'blue' }, layout: layoutForLegacyId('cols2', [first, second]) }
   }
   return { panes: { [first]: { tabs: [...docs.tabs, ...notes.tabs], activeId: docs.activeId ?? notes.activeId } }, channels: { [first]: 'blue' }, layout: paneNode(first) }
+}
+
+/** 처음 상태: 화면 하나(「읽기」) */
+function initialScreens(options: UseVaultOptions, windowRole: string): ScreensState {
+  const workspace = initialWorkspace(options, windowRole)
+  const id = newScreenId()
+  return { screens: [{ id, name: t('읽기'), ...workspace, zoomed: null }], activeScreen: id, lastScreen: null }
 }
 
 function isPdfDocMeta(value: PdfDocMeta | null): value is PdfDocMeta {
@@ -286,8 +301,22 @@ export function useVault(options: UseVaultOptions = {}) {
   const [openedDocs, setOpenedDocs] = useState<readonly PdfDocMeta[]>(options.openedDocs ?? [])
   // 칸(패널)의 탭·색 채널·나누기 트리를 한 상태에 둔다. 칸이 생기고 없어지는 일(나누기·닫기)이 세 값을 한꺼번에 바꾸고,
   // "이미 다른 칸에 열려 있으면 거기서 활성화"를 한 번의 갱신으로 판단하려면 한 곳에 있어야 한다.
-  const [workspace, setWorkspace] = useState<TreeWorkspace>(() => initialWorkspace(options, windowMode.role))
+  // 화면들(tmux 의 window). 지금 보는 화면의 칸·색·배치가 workspace 이고, 아래 모든 갱신은 보는 화면에만 닿는다.
+  const [screensState, setScreensState] = useState<ScreensState>(() => initialScreens(options, windowMode.role))
+  const activeScreen = activeScreenOf(screensState)
+  const workspace = useMemo<TreeWorkspace>(
+    () => ({ panes: activeScreen.panes, channels: activeScreen.channels, layout: activeScreen.layout }),
+    [activeScreen.panes, activeScreen.channels, activeScreen.layout],
+  )
   const { panes, channels, layout: paneLayout } = workspace
+  const screensStateRef = useRef(screensState)
+  screensStateRef.current = screensState
+  const setWorkspace = useCallback((update: SetStateAction<TreeWorkspace>) => {
+    setScreensState((current) => {
+      const now = workspaceOf(activeScreenOf(current))
+      return withActiveWorkspace(current, typeof update === 'function' ? update(now) : update)
+    })
+  }, [])
   const setPanes = useCallback((update: SetStateAction<PanesState>) => {
     setWorkspace((current) => {
       const next = typeof update === 'function' ? update(current.panes) : update
@@ -326,6 +355,34 @@ export function useVault(options: UseVaultOptions = {}) {
   const moveTab = useCallback((id: string, target: PaneId) => {
     setPanes((current) => (current[target] === undefined ? current : moveTabToPane(current, id, target)))
   }, [setPanes])
+  // 화면을 옮기면 새 탭은 그 화면의 칸으로 간다(예전 화면의 칸 id 로 남지 않게)
+  const activeScreenId = activeScreen.id
+  useEffect(() => {
+    const order = leaves(activeScreenOf(screensStateRef.current).layout)
+    const route = paneRouteRef.current
+    if (!order.includes(route.doc) || !order.includes(route.note)) {
+      paneRouteRef.current = { doc: order.includes(route.doc) ? route.doc : order[0]!, note: order.includes(route.note) ? route.note : order[1] ?? order[0]! }
+    }
+  }, [activeScreenId, paneRouteRef])
+  const screenOps = useMemo(() => ({
+    /** 화면 id 로 옮겨 간다 */
+    switchTo: (id: string) => setScreensState((current) => switchScreen(current, id)),
+    /** 번호(0 부터)로 옮겨 간다 */
+    switchAt: (index: number) => setScreensState((current) => switchScreenAt(current, index)),
+    /** 다음(1) · 이전(-1) 화면 */
+    step: (step: number) => setScreensState((current) => stepScreen(current, step)),
+    /** 바로 앞에 보던 화면 */
+    last: () => setScreensState((current) => lastScreenOf(current)),
+    /** 새 화면을 맨 뒤에 더한다. activate 면 그 화면으로 간다 */
+    add: (screen: Omit<Screen, 'id'>, activate = true) => setScreensState((current) => addScreen(current, screen, activate)),
+    rename: (id: string, name: string) => setScreensState((current) => renameScreen(current, id, name)),
+    reorder: (id: string, toIndex: number) => setScreensState((current) => reorderScreen(current, id, toIndex)),
+    close: (id: string) => setScreensState((current) => closeScreen(current, id) ?? current),
+    /** 칸 하나를 새 화면으로 떼어 그리로 간다(break-pane) */
+    breakPane: (pane: string, name: string) => setScreensState((current) => breakPane(current, pane, name) ?? current),
+    /** 보는 화면의 「크게」 칸(null 이면 푼다) */
+    setZoomed: (pane: string | null) => setScreensState((current) => setZoomed(current, pane)),
+  }), [])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(emptySession.sidebarCollapsed)
   const [layout, setLayout] = useState({
     sidebarPx: emptySession.sidebarPx,
@@ -530,9 +587,9 @@ export function useVault(options: UseVaultOptions = {}) {
       setOpenedDocs(documents)
       // 메인 창은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창·새 창은 한 칸에서 시작한다
       const snapshot = windowMode.role === 'main' && SPLIT_PANES_ENABLED
-        ? workspaceFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage))
-        : singlePaneWorkspace()
-      const restored = restoredWorkspace(
+        ? screensFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage), t('읽기'))
+        : singleScreenSnapshot(t('읽기'))
+      const restored = restoredScreens(
         restoredTabs(
           availableDocumentRecords.map((record) => record.tab),
           migratedActiveMarkdownId ?? session.activePdfTabId,
@@ -547,9 +604,13 @@ export function useVault(options: UseVaultOptions = {}) {
         ),
         snapshot,
       )
-      const restoredOrder = leaves(restored.layout)
+      const restoredActive = activeScreenOf(restored)
+      const restoredOrder = leaves(restoredActive.layout)
       paneRouteRef.current = { doc: restoredOrder[0]!, note: restoredOrder[1] ?? restoredOrder[0]! }
-      setWorkspace({ ...restored, panes: markPreviewTabs(restored.panes, session.previewTabIds ?? []) })
+      setScreensState({
+        ...restored,
+        screens: restored.screens.map((screen) => ({ ...screen, panes: markPreviewTabs(screen.panes, session.previewTabIds ?? []) })),
+      })
       setMarkdownSources(restoredMarkdownSources)
       setMissingDocIds(missing)
       setAbsentDocIds(settled.absentDocIds)
@@ -798,7 +859,7 @@ export function useVault(options: UseVaultOptions = {}) {
   const sessionSnapshotRef = useRef<{ vault: VaultHandle | null; session: SessionState | null }>({ vault: null, session: null })
   sessionSnapshotRef.current = {
     vault,
-    session: vault === null || !sessionReady ? null : captureSession(workspace, {
+    session: vault === null || !sessionReady ? null : captureSession(screensState, {
       sidebarCollapsed,
       sidebarPx: layout.sidebarPx,
       leftFrac: layout.leftFrac,
@@ -814,7 +875,7 @@ export function useVault(options: UseVaultOptions = {}) {
     // 탭·패널 배치(session.json)는 메인 창만 저장한다. 다른 창의 배치가 메인의 것을 덮으면 안 된다
     if (vault === null || !sessionReady || !ownsSession(windowMode)) return
     const timer = window.setTimeout(() => {
-      const session = captureSession(workspace, {
+      const session = captureSession(screensState, {
         sidebarCollapsed,
         sidebarPx: layout.sidebarPx,
         leftFrac: layout.leftFrac,
@@ -822,7 +883,7 @@ export function useVault(options: UseVaultOptions = {}) {
       void writeSession(vault, session).catch((err: unknown) => setError(errorText(err)))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [layout, sessionReady, sidebarCollapsed, vault, windowMode, workspace])
+  }, [layout, sessionReady, sidebarCollapsed, vault, windowMode, screensState])
 
   /** PDF 를 열어 탭에 띄운다. 연 문서의 메타를 돌려주고, 열지 못하면 null */
   /** openTab 이 false 면 PDF 를 열어 두기만 하고 탭은 만들지 않는다(탭 안에서 판을 바꿀 때) */
@@ -1659,10 +1720,10 @@ export function useVault(options: UseVaultOptions = {}) {
     setConflictFileIds([])
     setTree([])
     setOpenedDocs([])
-    const fresh = singlePaneWorkspace()
+    const fresh = blankScreen(t('읽기'))
     const freshId = leaves(fresh.layout)[0]!
     paneRouteRef.current = { doc: freshId, note: freshId }
-    setWorkspace({ panes: { [freshId]: emptyTabs }, channels: { [freshId]: 'blue' }, layout: fresh.layout })
+    setScreensState({ screens: [fresh], activeScreen: fresh.id, lastScreen: null })
     setMarkdownSources({})
     setMissingDocIds([])
     setSessionReady(false)
@@ -1880,6 +1941,12 @@ export function useVault(options: UseVaultOptions = {}) {
     paneLayout,
     setPaneLayout,
     setWorkspace,
+    screens: screensState.screens,
+    activeScreenId: screensState.activeScreen,
+    lastScreenId: screensState.lastScreen,
+    screensState,
+    zoomedPane: activeScreen.zoomed,
+    screenOps,
     openInPane,
     moveTab,
     setPaneRoute,
