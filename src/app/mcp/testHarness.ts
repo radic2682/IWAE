@@ -139,6 +139,7 @@ export function fakeApp(overrides: Partial<McpAppDeps> = {}): McpAppDeps {
     setLayout: (paneCount, focus) => ({ paneCount, activePane: focus ?? 0 }),
     goto: async (input) => ({ flashed: input.flash }),
     closeTab: () => true,
+    workspaceCommand: async () => ({ ok: true, message: '', state: { active_screen: 0, active_pane: 0, screens: [] } }),
     addBookmark: () => 'bm-1',
     updateBookmark: (id) => id,
     removeBookmark: () => undefined,

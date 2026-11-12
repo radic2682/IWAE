@@ -7,6 +7,7 @@ import type { LayoutNode } from '../../core/layoutTree'
 import type { PaneId, TabKind } from '../tabs'
 import type { PaneChannel } from '../workspaceChannels'
 import type { NoteAdapter, NoteStoreDeps } from './noteAdapter'
+import type { McpWorkspaceState } from './workspaceCommand'
 
 /** 도구 한 번의 성격(Rust app_tools.rs 의 Class 와 같다) */
 export type OpClass = 'read' | 'write' | 'destructive' | 'ui'
@@ -102,6 +103,8 @@ export interface McpAppDeps {
   /** 그 쪽으로 가서(문서를 열고) quote 가 있으면 칠해 깜박인다 */
   readonly goto: (input: { readonly docId: string; readonly page: number; readonly quote?: string; readonly flash: boolean; readonly pane?: PaneRef }) => Promise<{ readonly flashed: boolean }>
   readonly closeTab: (tabId: string) => boolean
+  /** 명령줄 명령(`split-window -h ; open 노트 A`)을 앱의 `:` 명령줄과 같은 실행기로 돌리고, 끝난 뒤의 화면 · 칸 요약을 돌려준다 */
+  readonly workspaceCommand: (command: string) => Promise<{ readonly ok: boolean; readonly message: string; readonly state: McpWorkspaceState }>
 
   readonly addBookmark: (docId: string, page: number, title: string, options: { readonly y?: number; readonly emoji?: string }) => string
   readonly updateBookmark: (id: string, patch: McpBookmarkPatch) => string

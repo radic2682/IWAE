@@ -75,6 +75,7 @@ function input(overrides: Partial<McpAppInput> = {}, paneTotal = 1) {
     toolCopy: async (docId, op, suffix) => { calls.push(`tool ${docId} ${op.kind} ${suffix}`); return 'C:/vault/copy.pdf' },
     exportNote: async () => 'C:/vault/out.md',
     pdfToolBusy: () => false,
+    workspaceCommand: async (command) => { calls.push(`command ${command}`); return { ok: true, message: '', state: { active_screen: 0, active_pane: 0, screens: [] } } },
     ...overrides,
   }
   return { base, calls }

@@ -84,6 +84,8 @@ export interface McpAppInput {
   readonly toolCopy: (docId: string, op: PdfToolOp, suffix: string) => Promise<string>
   readonly exportNote: (path: string) => Promise<string>
   readonly pdfToolBusy: (docId: string) => boolean
+  /** 명령줄 한 줄을 실행하고 끝난 뒤의 화면 요약을 돌려준다(App 의 워크스페이스 명령 실행기) */
+  readonly workspaceCommand: McpAppDeps['workspaceCommand']
 }
 
 const POSITION: Record<string, 'bottomCenter' | 'bottomRight' | 'bottomLeft' | 'topCenter' | 'topRight' | 'topLeft'> = {
@@ -251,6 +253,7 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
         return { flashed: false }
       }
     },
+    workspaceCommand: input.workspaceCommand,
     closeTab: (tabId) => {
       const found = tabLocation(tabId)
       if (found === null) return false

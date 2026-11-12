@@ -42,6 +42,7 @@ import { applyLayoutPreset, availableScreenTemplates, buildTemplateScreen, templ
 import { activeScreenOf, allScreenPaneIds, workspaceOf } from './screens'
 import { pickByName, runCommandLine, type CommandHost, type CommandResult, type PaneRect, type WorkspaceModel } from './workspaceCommands'
 import { usePrefixMode } from './usePrefixMode'
+import { summarizeWorkspace } from './mcp/workspaceCommand'
 import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
 import { StatusBar } from './StatusBar'
@@ -2095,6 +2096,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setActivePane: setActivePaneId,
       setPaneRoute,
       activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), tabId) })),
+      workspaceCommand: async (command) => {
+        const result = await runWorkspaceLine(command)
+        await commandHost.settle?.()
+        return { ok: result.ok, message: result.message, state: summarizeWorkspace(commandModelRef.current) }
+      },
       closeTab: (tab) => {
         if (tab.kind === 'canvas') closeNoteTabSafely(tab.id)
         else setPanes((current) => closeTabEverywhere(current, tab.id))

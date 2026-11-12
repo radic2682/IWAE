@@ -10,6 +10,7 @@ import { noteOps } from './noteTools'
 import { pdfToolOps } from './pdfTools'
 import { sourceOps } from './sourceTools'
 import { translateOps } from './translate'
+import { workspaceCommandOps } from './workspaceCommand'
 import type { ChangeNote, McpDeps, OpContext, OpDef } from './types'
 
 /**
@@ -22,6 +23,7 @@ export const OPS: Readonly<Record<string, OpDef>> = {
   ...sourceOps,
   ...stateOps,
   ...navigationOps,
+  ...workspaceCommandOps,
   ...bookmarkOps,
   ...libraryOps,
   ...translateOps,
