@@ -105,7 +105,13 @@ export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine
             aria-expanded="true"
             aria-controls="command-palette-list"
             aria-activedescendant={shown[active] === undefined ? undefined : `command-${shown[active]!.id}`}
-            onChange={(event) => { setQuery(event.target.value); setCandidates([]) }}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setCandidates([])
+              // 글을 고치면 기록을 넘기던 자리를 끝으로 돌리고 고친 글을 새 줄(draft)로 삼는다: 불러온 줄을 고친 뒤 ↓ 로 그 줄을 잃지 않는다
+              cursor.current = history.current.length
+              draft.current = event.target.value.startsWith(':') ? event.target.value.slice(1) : ''
+            }}
             onKeyDown={(event) => {
               if (event.nativeEvent.isComposing) return
               const lineMode = query.startsWith(':') && onRunLine !== undefined
@@ -114,6 +120,8 @@ export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine
                 const result = completeCommandLine(query.slice(1).replace(/^ /u, ''), completion ?? { screenNames: [], templateNames: [] })
                 setQuery(`:${result.text}`)
                 setCandidates(result.candidates.length > 1 ? result.candidates : [])
+                cursor.current = history.current.length
+                draft.current = result.text
                 return
               }
               if (lineMode && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
