@@ -6,7 +6,11 @@ import { join } from 'node:path'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { ScreenTabs } from './ScreenTabs'
 import { fitEmptyPane } from './EmptyPane'
-import { hasHiddenTabs } from './tabStripOverflow'
+import { hasHiddenTabs, subFitsInTitle } from './tabStripOverflow'
+import { floatBoxOnScreen, floatOutgrowsAnchor } from './floatingPanes'
+import { relayoutMessage } from './workspaceCommands'
+import { fitFormatClusters } from '../pdf/MemoColumn'
+import { KeysHelpSheet } from './KeysHelpSheet'
 
 afterEach(cleanup)
 
@@ -149,5 +153,79 @@ describe('CSS 규칙', () => {
     const rules = css('translator-panel.css')
     expect(rules).toContain('.pane-body:has(> .translator-panel) { display: flex; flex-direction: column; }')
     expect(rules).toContain('.translator-panel-result { min-height: 48px; }')
+  })
+})
+
+describe('라운드 2', () => {
+  it('키 도움말: 상태는 줄바꿈 없는 짧은 칩이고 × 는 머리 오른쪽 끝이다', () => {
+    render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
+    const chips = [...document.querySelectorAll('.keys-help-state')].map((chip) => chip.textContent)
+    expect(new Set(chips)).toEqual(new Set(['됨']))
+    const rules = css('status-bar.css')
+    expect(rules).toContain('white-space: nowrap; opacity: 0.85; }')
+    expect(rules).toContain('.keys-help .sko-close { margin-left: auto; }')
+    expect(rules).toContain('.keys-help-table th:nth-child(4) { width: 86px; }')
+  })
+
+  it('떠 있는 칸은 붙은 칸보다 크면(가로든 세로든) 화면 사각형에 가둔다', () => {
+    const float = { x: 0.55, y: 0.05, w: 340, h: 300, collapsed: false }
+    expect(floatOutgrowsAnchor(float, { width: 652, height: 430 })).toBe(false)
+    expect(floatOutgrowsAnchor(float, { width: 652, height: 230 })).toBe(true)
+    expect(floatOutgrowsAnchor(float, { width: 250, height: 800 })).toBe(true)
+    expect(floatOutgrowsAnchor({ ...float, collapsed: true }, { width: 652, height: 100 })).toBe(false)
+    // 아래 230px 칸에 붙은 번역기: 칸 위로 올라오되 화면 안에 있다
+    const anchor = { left: 0, top: 600, width: 652, height: 230 }
+    const box = floatBoxOnScreen(float, anchor, { width: 1300, height: 860 })
+    expect(box.h).toBe(300)
+    expect(box.y + box.h).toBeLessThanOrEqual(860)
+    expect(box.x + box.w).toBeLessThanOrEqual(1300)
+    // 250px 폭 칸: 폭을 줄이지 않고(340) 화면 오른쪽 가장자리 안에 둔다
+    const narrow = floatBoxOnScreen({ ...float, x: 0.9 }, { left: 1100, top: 0, width: 250, height: 800 }, { width: 1300, height: 860 })
+    expect(narrow.w).toBe(340)
+    expect(narrow.x + narrow.w).toBe(1300)
+  })
+
+  it('배치 상태 줄 글은 사람 말이다', () => {
+    expect(relayoutMessage('even-horizontal')).toBe('배치: 나란히')
+    expect(relayoutMessage('even-vertical')).toBe('배치: 위아래로')
+    expect(relayoutMessage('main-vertical')).toBe('배치: 큰 칸 + 세로')
+    expect(relayoutMessage('main-horizontal')).toBe('배치: 큰 칸 + 가로')
+    expect(relayoutMessage('tiled')).toBe('배치: 바둑판')
+  })
+
+  it('서식 줄: 들어가는 만큼만 줄에 두고 나머지는 ⋯ 로, 첫 묶음은 늘 남는다', () => {
+    const widths = [76, 170, 80, 170]
+    expect(fitFormatClusters(widths, 600, 34)).toBe(4)
+    expect(fitFormatClusters(widths, 400, 34)).toBe(3)
+    expect(fitFormatClusters(widths, 300, 34)).toBe(2)
+    expect(fitFormatClusters(widths, 130, 34)).toBe(1)
+    expect(fitFormatClusters(widths, 10, 34)).toBe(1)
+  })
+
+  it('보조 글은 제목과 함께 통째로 들어갈 때만 보인다', () => {
+    const make = (clientWidth: number, label: number, sub: number) => {
+      const title = document.createElement('div')
+      Object.defineProperty(title, 'clientWidth', { value: clientWidth })
+      const part = (className: string, scroll: number, width: number) => {
+        const element = document.createElement('span')
+        element.className = className
+        Object.defineProperty(element, 'scrollWidth', { value: scroll })
+        element.getBoundingClientRect = () => ({ width }) as DOMRect
+        title.append(element)
+      }
+      part('pane-top-tab-kind', 14, 14)
+      part('pane-top-tab-label', label, label)
+      part('pane-top-tab-sep', 4, 4)
+      part('pane-top-tab-sub', sub, sub)
+      return title
+    }
+    expect(subFitsInTitle(make(300, 94, 16))).toBe(true)
+    expect(subFitsInTitle(make(120, 94, 16))).toBe(false)
+    expect(subFitsInTitle(make(0, 94, 16))).toBe(true)
+  })
+
+  it('PDF 아래 막대는 좁으면 쪽 넘기기까지 ⋯ 로 접는다(쪽 입력 · ⋯ 만 남는다)', () => {
+    const source = readFileSync(join(__dirname, 'PdfBottomBar.tsx'), 'utf8')
+    expect(source).toContain("'zoomInput', 'zoomStep', 'pageStep']")
   })
 })
