@@ -12,11 +12,13 @@ const open = (props: Partial<Parameters<typeof PaneHead>[0]> = {}) => {
 }
 
 describe('PaneHead ⋯ 메뉴의 말과 힌트', () => {
-  it('「이 칸만 크게」 · 켜 있으면 「되돌리기」', () => {
+  it('「이 칸만 크게」 · 켜 있으면 「원래 크기로」(「되돌리기」 는 실행 취소의 말이다)', () => {
     const menu = open()
     expect(within(menu).getByRole('menuitem', { name: /이 칸만 크게/u })).toBeDefined()
     cleanup()
-    expect(within(open({ zoomed: true })).getByRole('menuitem', { name: /^되돌리기/u })).toBeDefined()
+    const zoomed = open({ zoomed: true })
+    expect(within(zoomed).getByRole('menuitem', { name: /^원래 크기로/u })).toBeDefined()
+    expect(within(zoomed).queryByRole('menuitem', { name: /되돌리기/u })).toBeNull()
   })
 
   it('단축키는 키캡(kbd)이고, 키가 없는 「띄우기」에는 힌트가 없다(float-pane 같은 명령 이름을 힌트로 달지 않는다)', () => {

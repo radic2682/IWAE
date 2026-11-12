@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { Fragment, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Keyboard, X } from '@phosphor-icons/react'
 import { t } from '../i18n'
@@ -7,35 +7,37 @@ import { commandUsages } from './workspaceCommands'
 import '../ui/shortcuts.css'
 import '../ui/keys-help.css'
 
-/** 접두키 다음 키 한 줄. status: on 지금 된다 · partial 일부만 된다 · soon 다음 단계에서 된다 */
+/** 접두키 다음 키 한 줄. 지금 접두키는 모두 된다(예전의 「상태」 칸은 모든 줄이 「됨」 이라 없앴다) */
 export interface PrefixKeyRow {
   readonly keys: string
   readonly action: string
-  readonly command: string
-  readonly status: 'on' | 'partial' | 'soon'
+  /** 명령 이름들. 하나하나가 한 덩어리라 줄이 꺾여도 명령 안에서는 꺾이지 않고 「 · 」 자리에서만 꺾인다 */
+  readonly commands: readonly string[]
+  /** 명령이 아닌 풀이: 있으면 명령 칸에 이것이 나온다(`:` 는 명령이 아니라 팔레트를 연다) */
+  readonly note?: string
 }
 
 /** 접두키 다음 키(설계 8.2) */
 export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
-  { keys: '% / "', action: '좌우 / 위아래로 나누기', command: 'split-window -h / -v', status: 'on' },
-  { keys: '← ↑ → ↓ · o', action: '칸 이동 · 다음 칸', command: 'select-pane -L/-U/-R/-D', status: 'on' },
-  { keys: 'z', action: '이 칸만 크게 / 되돌리기', command: 'resize-pane -Z', status: 'on' },
-  { keys: 'x', action: '칸 닫기', command: 'kill-pane', status: 'on' },
-  { keys: '!', action: '칸을 새 화면으로', command: 'break-pane', status: 'on' },
-  { keys: '{ }', action: '칸 자리 바꾸기', command: 'swap-pane -U/-D', status: 'on' },
-  { keys: 'Space', action: '배치 돌리기', command: 'select-layout', status: 'on' },
-  { keys: 'q', action: '칸 번호 보이기, 숫자로 이동', command: 'display-panes', status: 'on' },
-  { keys: 'c · , · &', action: '새 화면 · 화면 이름 · 화면 닫기', command: 'new-window · rename-window · kill-window', status: 'on' },
-  { keys: 'n p l · 0–9', action: '다음 · 이전 · 마지막 화면 · 번호로', command: 'next-window … select-window -t N', status: 'on' },
-  { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 떠 있는 번역기', command: 'toggle-floating · display-popup', status: 'on' },
-  { keys: 's', action: '세션 목록', command: 'choose-session', status: 'on' },
-  { keys: 'd', action: '이 앱 창 떼기', command: 'detach', status: 'on' },
-  { keys: ':', action: '명령줄', command: '(명령 팔레트가 「:」 로 열립니다)', status: 'on' },
-  { keys: '?', action: '키 목록', command: 'list-keys', status: 'on' },
+  { keys: '% / "', action: '좌우 / 위아래로 나누기', commands: ['split-window -h / -v'] },
+  { keys: '← ↑ → ↓ · o', action: '칸 이동 · 다음 칸', commands: ['select-pane -L/-U/-R/-D'] },
+  { keys: 'z', action: '이 칸만 크게 / 원래 크기로', commands: ['resize-pane -Z'] },
+  { keys: 'x', action: '칸 닫기', commands: ['kill-pane'] },
+  { keys: '!', action: '칸을 새 화면으로', commands: ['break-pane'] },
+  { keys: '{ }', action: '칸 자리 바꾸기', commands: ['swap-pane -U/-D'] },
+  { keys: 'Space', action: '배치 돌리기', commands: ['select-layout'] },
+  { keys: 'q', action: '칸 번호 보이기, 숫자로 이동', commands: ['display-panes'] },
+  { keys: 'c · , · &', action: '새 화면 · 화면 이름 · 화면 닫기', commands: ['new-window', 'rename-window', 'kill-window'] },
+  { keys: 'n p l · 0–9', action: '다음 · 이전 · 마지막 화면 · 번호로', commands: ['next-window', 'previous-window', 'last-window', 'select-window -t N'] },
+  { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 떠 있는 번역기', commands: ['toggle-floating', 'display-popup'] },
+  { keys: 's', action: '세션 목록', commands: ['choose-session'] },
+  { keys: 'd', action: '이 앱 창 떼기', commands: ['detach'] },
+  { keys: ':', action: '명령줄', commands: [], note: '명령 팔레트를 「:」 로 엽니다' },
+  { keys: '?', action: '키 목록', commands: ['list-keys'] },
 ]
 
 /**
- * 키와 명령 목록(접두키 ? · 명령 팔레트의 「키와 명령 보기」). 접두키 다음 키마다 지금 되는지(됨 · 일부 · 다음 단계)를 표시한다.
+ * 키와 명령 목록(접두키 ? · 명령 팔레트의 「키와 명령 보기」). 접두키 다음 키마다 동작과 명령을 보인다.
  * 접두키 없이 되는 키는 위쪽에 따로 둔다.
  */
 export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
@@ -82,18 +84,22 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
             <p className="keys-help-note">{t('접두키({keys})를 누르고 손을 뗀 뒤 아래 키를 누릅니다. 2초 안에 누르지 않거나 Esc 를 누르면 그만둡니다. 입력기에 막히면 명령 팔레트(Ctrl+K)에 「:」 로 시작해 같은 명령을 치세요.', { keys: prefixText })}</p>
             <table className="keys-help-table">
               <thead>
-                <tr><th scope="col">{t('키')}</th><th scope="col">{t('동작')}</th><th scope="col">{t('명령')}</th><th scope="col">{t('상태')}</th></tr>
+                <tr><th scope="col">{t('키')}</th><th scope="col">{t('동작')}</th><th scope="col">{t('명령')}</th></tr>
               </thead>
               <tbody>
                 {PREFIX_KEY_ROWS.map((row) => (
                   <tr key={row.keys}>
                     <td><kbd className="keycap">{row.keys}</kbd></td>
                     <td>{t(row.action)}</td>
-                    {/* 낱말 안(select-pane -L 의 하이픈 뒤 등)에서는 줄을 꺾지 않고, 띄어쓰기에서만 꺾는다 */}
-                    <td className="keys-help-command"><code>{row.command.split(' ').map((word, index) => (
-                      <span key={index}>{index > 0 ? ' ' : ''}<span className="keys-help-token">{word}</span></span>
-                    ))}</code></td>
-                    <td><span className="keys-help-state" data-state={row.status}>{row.status === 'on' ? t('됨') : row.status === 'partial' ? t('일부') : t('다음 단계')}</span></td>
+                    {/* 명령은 하나하나 줄이 꺾이지 않는 덩어리다. 꺾이는 곳은 「 · 」 뒤뿐 */}
+                    <td className="keys-help-command">
+                      {row.commands.length === 0 ? <span className="keys-help-command-note">{t(row.note ?? '')}</span> : row.commands.map((command, index) => (
+                        <Fragment key={command}>
+                          {index > 0 ? ' ' : ''}
+                          <span className="keys-help-item"><code className="keys-help-cmd">{command}</code>{index < row.commands.length - 1 ? <span className="keys-help-sep" aria-hidden="true"> ·</span> : null}</span>
+                        </Fragment>
+                      ))}
+                    </td>
                   </tr>
                 ))}
               </tbody>

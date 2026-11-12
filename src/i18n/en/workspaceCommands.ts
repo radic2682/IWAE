@@ -34,9 +34,6 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   // 키 목록
   '접두키 없이 되는 키': 'Keys that work without the prefix',
   '접두키({keys})를 누르고 손을 뗀 뒤 아래 키를 누릅니다. 2초 안에 누르지 않거나 Esc 를 누르면 그만둡니다. 입력기에 막히면 명령 팔레트(Ctrl+K)에 「:」 로 시작해 같은 명령을 치세요.': 'Press the prefix ({keys}), release, then press a key below. Nothing within 2 seconds, or Esc, cancels. If your input method swallows it, open the command palette (Ctrl+K) and type the same command after “:”.',
-  '상태': 'Status',
-  '됨': 'On',
-  '일부': 'Partial',
   '명령줄 명령': 'Command-line commands',
   '「:」 를 누르면 명령 팔레트가 명령 목록과 함께 열립니다(↑ ↓ 로 고르고 Tab 으로 완성, Enter 로 실행, Alt+↑ ↓ 로 기록). 「;」 로 여러 명령을 잇습니다. 예: split-window -h ; open 노트 A': 'Press “:” and the command palette opens with the command list (↑ ↓ choose, Tab completes, Enter runs, Alt+↑ ↓ steps through history). Chain commands with “;”. Example: split-window -h ; open Note A',
   '세션 목록': 'Session list',

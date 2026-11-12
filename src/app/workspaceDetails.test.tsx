@@ -152,14 +152,13 @@ describe('CSS 규칙', () => {
 })
 
 describe('라운드 2', () => {
-  it('키 도움말: 상태는 줄바꿈 없는 짧은 칩이고 × 는 머리 오른쪽 끝이다', () => {
+  it('키 도움말: 상태 칸이 없고(표는 3열) × 는 머리 오른쪽 끝이다', () => {
     render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
-    const chips = [...document.querySelectorAll('.keys-help-state')].map((chip) => chip.textContent)
-    expect(new Set(chips)).toEqual(new Set(['됨']))
+    expect(document.querySelectorAll('.keys-help-state')).toHaveLength(0)
+    expect([...document.querySelectorAll('.keys-help-table th')].map((cell) => cell.textContent)).toEqual(['키', '동작', '명령'])
     const rules = css('keys-help.css')
-    expect(rules).toContain('white-space: nowrap; opacity: 0.85; }')
     expect(rules).toContain('.keys-help .sko-close { margin-left: auto; }')
-    expect(rules).toContain('.keys-help-table th:nth-child(4) { width: 86px; }')
+    expect(rules).not.toContain('nth-child(4)')
   })
 
   it('떠 있는 칸은 붙은 칸보다 크면(가로든 세로든) 화면 사각형에 가둔다', () => {

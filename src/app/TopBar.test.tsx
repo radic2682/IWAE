@@ -8,8 +8,8 @@ import { getTranslatorWindow, reloadTranslatorWindow } from './translatorPanelSt
 const props = { sidebarCollapsed: false, onToggleSidebar: vi.fn(), sidebarMode: 'library' as const, onSidebarModeChange: vi.fn(), sidebarPx: 240 }
 
 const templates = [
-  { id: 'read', label: '읽기', hint: '문서 | 노트' },
-  { id: 'compare', label: '비교', hint: '문서 둘 | 노트 둘' },
+  { id: 'read', label: '읽기', hint: '문서 · 노트' },
+  { id: 'compare', label: '비교', hint: '문서 둘 · 노트 둘' },
   { id: 'blank', label: '빈 화면', hint: '빈 칸 하나' },
 ]
 
@@ -275,7 +275,15 @@ describe('TopBar', () => {
       render(<TopBar {...props} screens={screens} />)
       fireEvent.click(screen.getByRole('button', { name: '새 화면' }))
       const menu = screen.getByRole('menu', { name: '새 화면' })
-      expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['읽기문서 | 노트', '비교문서 둘 | 노트 둘', '빈 화면빈 칸 하나'])
+      expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['읽기문서 · 노트', '비교문서 둘 · 노트 둘', '빈 화면빈 칸 하나'])
+      // 머리 글은 「새 화면」 하나(「새 화면 ▸ 템플릿」 이 아니다)
+      expect(menu.querySelector('.popup-menu-head')?.textContent).toBe('새 화면')
+      // 모든 항목에 아이콘 자리(배치 그림)가 있어 다른 메뉴처럼 글이 한 줄로 맞는다. 값에 세로줄(|)이 없다
+      for (const item of within(menu).getAllByRole('menuitem')) {
+        expect(item.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+        expect(item.firstElementChild?.getAttribute('aria-hidden')).toBe('true')
+        expect(item.textContent).not.toContain('|')
+      }
       fireEvent.click(within(menu).getByRole('menuitem', { name: /빈 화면/u }))
       expect(screens.onNew).toHaveBeenCalledWith('blank')
     })

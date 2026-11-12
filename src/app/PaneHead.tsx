@@ -94,7 +94,7 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
             <Rows size={15} aria-hidden="true" /><span>{t('아래로 나누기')}</span><kbd>{hint('"')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi && !zoomed} onClick={run(onToggleZoom)}>
-            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('되돌리기') : t('이 칸만 크게')}</span><kbd>{hint('z')}</kbd>
+            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('원래 크기로') : t('이 칸만 크게')}</span><kbd>{hint('z')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi || !splitEnabled} onClick={run(onBreak)}>
             <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('새 화면으로 떼기')}</span><kbd>{hint('!')}</kbd>

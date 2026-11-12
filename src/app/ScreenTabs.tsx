@@ -4,6 +4,7 @@ import { t } from '../i18n'
 import { imeKey } from '../ui/ime'
 import { insertionIndexAt } from './tabDock'
 import { PopupMenu } from './PopupMenu'
+import { TemplateGlyph } from './TemplateGlyph'
 import '../ui/screens.css'
 
 export interface ScreenTabItem {
@@ -178,7 +179,7 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
         aria-label={t('새 화면')}
         aria-haspopup="menu"
         aria-expanded={menu?.kind === 'new'}
-        title={t('새 화면 ▸ 템플릿')}
+        title={t('새 화면')}
         data-tauri-drag-region="false"
         onClick={() => {
           if (menu?.kind === 'new') { setMenu(null); return }
@@ -190,10 +191,10 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
       </button>
       {menu?.kind === 'new' ? (
         <PopupMenu label={t('새 화면')} left={menu.left} top={menu.top} anchorRef={plusRef} onClose={(restore) => { setMenu(null); if (restore) plusRef.current?.focus() }}>
-          <div className="popup-menu-head" aria-hidden="true">{t('새 화면 ▸ 템플릿')}</div>
+          <div className="popup-menu-head" aria-hidden="true">{t('새 화면')}</div>
           {templates.map((template) => (
             <button key={template.id} type="button" role="menuitem" onClick={() => { setMenu(null); onNew(template.id) }}>
-              <span>{template.label}</span><span className="menu-value">{template.hint}</span>
+              <TemplateGlyph id={template.id} /><span>{template.label}</span><span className="menu-value">{template.hint}</span>
             </button>
           ))}
         </PopupMenu>

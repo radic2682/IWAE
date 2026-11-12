@@ -22,10 +22,10 @@ export interface LayoutPresetDef {
 }
 
 export const LAYOUT_PRESETS: readonly LayoutPresetDef[] = [
-  { id: 'read', get label() { return t('읽기') }, get hint() { return t('문서 | 노트') } },
-  { id: 'noteLeft', get label() { return t('노트 왼쪽') }, get hint() { return t('노트 | 문서') } },
-  { id: 'compare', get label() { return t('비교') }, get hint() { return t('문서 둘 | 노트 둘') } },
-  { id: 'organize', get label() { return t('정리') }, get hint() { return t('노트 | 캔버스') }, needsCanvas: true },
+  { id: 'read', get label() { return t('읽기') }, get hint() { return t('문서 · 노트') } },
+  { id: 'noteLeft', get label() { return t('노트 왼쪽') }, get hint() { return t('노트 · 문서') } },
+  { id: 'compare', get label() { return t('비교') }, get hint() { return t('문서 둘 · 노트 둘') } },
+  { id: 'organize', get label() { return t('정리') }, get hint() { return t('노트 · 캔버스') }, needsCanvas: true },
 ]
 
 export function availableLayoutPresets(canvasEnabled: boolean): readonly LayoutPresetDef[] {
