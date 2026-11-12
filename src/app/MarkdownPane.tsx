@@ -615,6 +615,13 @@ export function MarkdownPane({
   const reportMemoHover = useMemoHoverReporter()
   const memoHoverFrame = useRef<number | null>(null)
   const memoHoverId = useRef<string | null>(null)
+  /** 기다리는 프레임이 있으면 거둔다(마우스가 떠났거나 창이 사라졌는데 뒤늦게 윤곽이 켜지지 않게) */
+  const cancelMemoHoverFrame = useCallback(() => {
+    if (memoHoverFrame.current === null) return
+    cancelAnimationFrame(memoHoverFrame.current)
+    memoHoverFrame.current = null
+  }, [])
+  useEffect(() => cancelMemoHoverFrame, [cancelMemoHoverFrame])
   /** 새 메모의 초안이 가는 노트(만드는 동안): 같은 색 창의 노트 탭이거나 옆에 막 연 노트 */
   const [draftNotePath, setDraftNotePath] = useState<string | null>(null)
   /** 만든 초안을 노트로 보낸다: 같은 색 창에 보이는 노트(없으면 노트를 옆에 열어서) */
@@ -1230,6 +1237,7 @@ export function MarkdownPane({
         })
       }}
       onPointerLeave={() => {
+        cancelMemoHoverFrame()
         if (memoHoverId.current === null) return
         memoHoverId.current = null
         reportMemoHover(null)

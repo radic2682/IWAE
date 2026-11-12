@@ -132,3 +132,38 @@ describe('MarkdownPane — 새 메모는 노트 탭으로 간다(노트 바는 �
     expect(workspace.openNoteBeside).not.toHaveBeenCalled()
   })
 })
+
+describe('MarkdownPane — 메모 위 마우스 올림 보고는 떠나거나 사라지면 기다리던 프레임을 거둔다', () => {
+  const stubFrames = () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let next = 1
+    const request = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { const id = next++; callbacks.set(id, callback); return id })
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => { callbacks.delete(id) })
+    return { callbacks, request, cancel }
+  }
+  afterEach(() => vi.restoreAllMocks())
+
+  it('포인터가 칸을 떠나면 기다리던 프레임을 취소한다', () => {
+    const frames = stubFrames()
+    mount(noteApi(), link())
+    const article = screen.getByRole('article', { name: 'Guide' })
+    const before = new Set(frames.callbacks.keys())
+    fireEvent.pointerMove(article, { clientX: 5, clientY: 5 })
+    const pending = [...frames.callbacks.keys()].filter((id) => !before.has(id))
+    expect(pending).toHaveLength(1)
+    fireEvent.pointerLeave(article)
+    expect(frames.cancel).toHaveBeenCalledWith(pending[0])
+    expect(frames.callbacks.has(pending[0]!)).toBe(false)
+  })
+
+  it('칸이 사라지면 기다리던 프레임을 취소한다', () => {
+    const frames = stubFrames()
+    const view = mount(noteApi(), link())
+    const before = new Set(frames.callbacks.keys())
+    fireEvent.pointerMove(screen.getByRole('article', { name: 'Guide' }), { clientX: 5, clientY: 5 })
+    const pending = [...frames.callbacks.keys()].filter((id) => !before.has(id))
+    expect(pending).toHaveLength(1)
+    view.unmount()
+    expect(frames.cancel).toHaveBeenCalledWith(pending[0])
+  })
+})
