@@ -40,7 +40,7 @@ function setup(notes: Record<string, MemoNote>, openPath: string): TestApi {
   const map = new Map(Object.entries(notes))
   return {
     entries: [], openPath, openTitle: openPath, openNote: map.get(openPath)!, open: vi.fn(), create: vi.fn(), notesOf: () => [],
-    updateOpen: vi.fn(), tickets: buildTicketIndex(map), highlightOf: (id: string) => HIGHLIGHTS.get(id), setTicket: vi.fn(),
+    updateOpen: vi.fn(), noteAt: () => null, updateNoteAt: vi.fn(), tickets: buildTicketIndex(map), highlightOf: (id: string) => HIGHLIGHTS.get(id), setTicket: vi.fn(),
   } as unknown as TestApi
 }
 

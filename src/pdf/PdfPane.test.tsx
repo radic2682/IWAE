@@ -619,6 +619,8 @@ describe('PdfPane — 손 도구·노트 닫기', () => {
     closed: false,
     create: vi.fn().mockResolvedValue('노트/새 노트.iwnote'),
     updateOpen: vi.fn(),
+    noteAt: () => null,
+    updateNoteAt: vi.fn(),
     notesOf: () => [],
     ...overrides,
   })
@@ -744,6 +746,8 @@ describe('PdfPane — 열린 노트 표시만 보기', () => {
     open: vi.fn(),
     create: vi.fn().mockResolvedValue(null),
     updateOpen: vi.fn(),
+    noteAt: () => null,
+    updateNoteAt: vi.fn(),
     notesOf: (id) => owners[id] ?? [],
   })
   const drawn = async (container: HTMLElement) => {

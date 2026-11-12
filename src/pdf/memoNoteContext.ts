@@ -23,6 +23,10 @@ export interface MemoNoteApi {
   readonly create: (title?: string) => Promise<string | null>
   /** 열린 노트를 고친다(저장은 알아서) */
   readonly updateOpen: (change: (note: MemoNote) => MemoNote) => void
+  /** path 노트의 지금 내용. 목록에 없으면 null. 탭으로 연 노트가 이것으로 그린다 */
+  readonly noteAt: (path: string) => MemoNote | null
+  /** path 노트를 고친다(저장은 알아서; updateOpen 과 같은 길). 목록에 없는 노트는 무시 */
+  readonly updateNoteAt: (path: string, change: (note: MemoNote) => MemoNote) => void
   /** 노트 이름을 바꾼다(새 경로). 없으면 이름 바꾸기를 보이지 않는다 */
   readonly rename?: (path: string, title: string) => Promise<string>
   /** 이 형광펜을 담은 노트들 */
@@ -41,10 +45,10 @@ export interface MemoNoteApi {
   /** 모든 노트의 티켓(ID 가 붙은 메모 블록)을 ID 별로 모은 것: 같은 ID 가 놓인 곳들과 충돌 */
   readonly tickets?: TicketIndex
   /**
-   * 열린 노트의 블록 하나의 ID·제목을 바꾼다. 같은 ID·같은 형광펜을 가진 다른 블록(다른 노트 포함)도 같은 값으로 맞추고,
+   * 열린 노트(path 가 있으면 그 노트)의 블록 하나의 ID·제목을 바꾼다. 같은 ID·같은 형광펜을 가진 다른 블록(다른 노트 포함)도 같은 값으로 맞추고,
    * 되돌리기는 한 번에 모두 되돌린다. null 이면 ID·제목을 지운다
    */
-  readonly setTicket?: (blockId: string, ticket: MemoTicket | null) => void
+  readonly setTicket?: (blockId: string, ticket: MemoTicket | null, path?: string) => void
   /** 형광펜 id → 형광펜(티켓 고르기의 원문 글) */
   readonly highlightOf?: (highlightId: string) => PersistentPdfHighlight | undefined
 }

@@ -23,6 +23,8 @@ function makeApi(overrides: Partial<MemoNoteApi> = {}): MemoNoteApi {
     open: vi.fn(),
     create: vi.fn(),
     updateOpen: vi.fn(),
+    noteAt: () => null,
+    updateNoteAt: vi.fn(),
     notesOf: () => [],
     docOwner: (docId) => (docId === 'docS' || docId === 'docT' ? docId : null),
     docLabel: (docId) => (docId === 'docS' ? 'Sleep Paper' : docId),

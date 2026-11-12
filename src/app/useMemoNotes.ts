@@ -68,9 +68,13 @@ export function useMemoNotes(
   highlights: readonly PersistentPdfHighlight[],
   docTitle: (docId: string) => string,
   onError: (message: string) => void,
+  /** 노트 경로가 바뀌었다(이름 바꾸기·옮기기·폴더 바꾸기: 옛 → 새). 탭처럼 경로를 기억하는 곳이 따라가게 한다 */
+  onMoved?: (moved: ReadonlyMap<string, string>) => void,
 ): MemoNoteApi & {
   readonly close: () => void
   readonly closed: boolean
+  /** 처음 목록을 다 읽었는가(그 전에는 없는 노트와 아직 못 읽은 노트를 가릴 수 없다) */
+  readonly loaded: boolean
   readonly rename: (path: string, title: string) => Promise<string>
   readonly trash: (path: string, source?: TrashSource) => Promise<void>
   /** 「노트」 아래 하위 폴더들(Vault 상대 경로, 예: 노트/회의) */
@@ -135,6 +139,8 @@ export function useMemoNotes(
   const persistRef = useRef<(path: string, note: MemoNote) => void>(() => undefined)
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
+  const onMovedRef = useRef(onMoved)
+  onMovedRef.current = onMoved
 
   // Vault 를 열면 노트를 모두 읽는다
   useEffect(() => {
@@ -548,6 +554,7 @@ export function useMemoNotes(
       }
       return next
     })
+    onMovedRef.current?.(moved)
   }, [vault])
 
   const move = useCallback(async (path: string, folder: string) => {
@@ -630,6 +637,7 @@ export function useMemoNotes(
     })
     setOpenPath((current) => (current === path ? next : current))
     if (openPath === path) open(next)
+    onMovedRef.current?.(new Map([[path, next]]))
     return next
   }, [flushPending, open, openPath, vault])
 
@@ -652,12 +660,22 @@ export function useMemoNotes(
     if (openPath === path) open(rest[0] ?? null)
   }, [open, openPath, publishConflicts, vault])
 
+  /**
+   * path 노트를 고친다(열린 노트든 탭으로 연 노트든 같은 길: 되돌리기 기록·저장 대기·충돌 확인이 그대로 지켜진다).
+   * 목록에 없는 노트는 만들지 않고 무시한다 — 지워진 노트의 탭이 파일을 되살리지 않게
+   */
+  const updateNoteAt = useCallback((path: string, change: (note: MemoNote) => MemoNote) => {
+    const current = notesRef.current.get(path)
+    if (current === undefined) return
+    const next = change(current)
+    if (next !== current) putNote(path, next)
+  }, [putNote])
+  /** path 노트의 지금 내용(그리기용: 노트가 바뀌면 이 함수도 새로 만들어져 다시 그린다). 목록에 없으면 null */
+  const noteAt = useCallback((path: string): MemoNote | null => notes.get(path) ?? null, [notes])
   const updateOpen = useCallback((change: (note: MemoNote) => MemoNote) => {
     if (openPath === null) return
-    const current = notesRef.current.get(openPath) ?? EMPTY_MEMO_NOTE
-    const next = change(current)
-    if (next !== current) putNote(openPath, next)
-  }, [openPath, putNote])
+    updateNoteAt(openPath, change)
+  }, [openPath, updateNoteAt])
 
   const forgetHighlight = useCallback((highlightId: string) => {
     for (const [path, note] of notesRef.current) {
@@ -706,8 +724,8 @@ export function useMemoNotes(
    * 모든 노트는 notesRef(저장 전 최신)에서 읽고 putNote 로 쓰므로 노트마다 저장 대기·충돌 확인이 그대로 지켜지고,
    * 한 번의 동작으로 남겨 Ctrl+Z 한 번에 모든 노트가 돌아온다
    */
-  const setTicket = useCallback((blockId: string, ticket: MemoTicket | null) => {
-    const path = openPathRef.current
+  const setTicket = useCallback((blockId: string, ticket: MemoTicket | null, at?: string) => {
+    const path = at ?? openPathRef.current
     if (path === null) return
     const changed = syncTicketEdit(notesRef.current, path, blockId, ticket)
     if (changed.size === 0) return
@@ -741,8 +759,11 @@ export function useMemoNotes(
     open,
     close,
     closed,
+    loaded,
     create,
     updateOpen,
+    noteAt,
+    updateNoteAt,
     notesOf,
     rename,
     trash,
