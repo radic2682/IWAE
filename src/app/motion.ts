@@ -49,11 +49,10 @@ export function slideFrom(element: HTMLElement, axis: 'x' | 'y', delta: number, 
 }
 
 /**
- * 새로 생긴 것이 아래에서 떠오르며 앉는다. 투명도는 곡선 없이 빠르게, 움직임만 스프링
- * (스프링의 출렁임이 투명도에 섞이면 잠깐 다시 흐려진다).
+ * 새로 생긴 것(탭 · 노트 카드)이 제자리에서 흐려지며 나타난다: 120ms 투명도뿐, 크기 · 위치는 움직이지 않고 넘침도 없다.
+ * 「동작 줄이기」면 아무것도 하지 않는다.
  */
-export function popIn(element: HTMLElement, from = 'translateY(10px) scale(0.97)'): void {
+export function fadeIn(element: HTMLElement): void {
   if (!canAnimate()) return
   element.animate([{ opacity: 0 }, { opacity: 1 }], { duration: MOTION_FAST_MS, easing: 'ease-out' })
-  element.animate([{ transform: from }, { transform: 'none' }], { duration: SPRING_SOFT_MS, easing: EASE_SPRING_SOFT })
 }

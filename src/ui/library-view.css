@@ -42,8 +42,8 @@
   animation: library-swap-in 180ms ease-out both;
 }
 @keyframes library-swap-in {
-  from { opacity: 0; transform: translateX(-6px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* 표 영역. 첫 줄(도구 줄)은 왼쪽 바 머리 줄(37px, 밑선 --divider)과 한 줄로 이어지고 배율을 받지 않는다. */
@@ -316,8 +316,8 @@
   animation: library-host-in 180ms ease-out both;
 }
 @keyframes library-host-in {
-  from { opacity: 0; transform: translateX(8px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

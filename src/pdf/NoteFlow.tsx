@@ -3,11 +3,12 @@ import { fitMenuInViewport } from '../ui/fitMenu'
 import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
+import { isMarkdownPath } from '../core/markdownPath'
 import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
 import { cachedTranslation, translateWithCache, useTranslationCache } from '../app/translationCacheStore'
 import { t } from '../i18n'
-import { popIn, reducedMotion, slideFrom } from '../app/motion'
+import { fadeIn, reducedMotion, slideFrom } from '../app/motion'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { insertBlock, memoBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
 import { ticketGroupOf, type TicketChoice, type TicketGroup, type TicketIndex, type TicketPlace } from '../core/memoTickets'
@@ -175,7 +176,7 @@ function NoteFlowImpl({
     const added = [...tops.keys()].filter((key) => !previous.has(key))
     // 쓰던 새 메모(draft)가 저장되어 진짜 블록으로 바뀐 것은 새로 생긴 게 아니다
     const draftSaved = previous.has('draft') && !tops.has('draft')
-    if (!draftSaved && added.length > 0 && added.length <= 2) for (const key of added) { const element = cardRefs.current.get(key); if (element !== undefined) popIn(element) }
+    if (!draftSaved && added.length > 0 && added.length <= 2) for (const key of added) { const element = cardRefs.current.get(key); if (element !== undefined) fadeIn(element) }
   })
   const reportLayout = () => {
     const layout = new Map<string, { top: number; height: number }>()
@@ -1431,6 +1432,6 @@ function TicketIdInput({ initial, suggestions, taken, onDone, onCancel }: {
 
 /** Markdown 문서의 원문인가(쪽 번호가 없다) */
 function isMarkdownSource(source: PersistentPdfHighlight): boolean {
-  return /\.(md|markdown|mdx)$/iu.test(source.anchor.docId)
+  return isMarkdownPath(source.anchor.docId)
 }
 

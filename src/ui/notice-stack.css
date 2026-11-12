@@ -17,12 +17,11 @@
 }
 .notice-stack > * { pointer-events: auto; }
 
-/* 들어올 때: 투명도는 빠르게, 움직임만 스프링(motion.css 와 같은 값) */
-@keyframes notice-in-move { from { transform: translateY(14px) scale(0.96); } to { transform: none; } }
+/* 들어올 때: 제자리에서 120ms 페이드만(튀어 오르지 않는다) */
 .notice-card,
 .notice-toast,
 .ai-pill-wrap {
-  animation: motion-fade-in var(--motion-fast) ease-out backwards, notice-in-move var(--spring-bouncy-dur) var(--ease-spring-bouncy) backwards;
+  animation: motion-fade-in var(--motion-fast) ease-out backwards;
   transform-origin: bottom right;
 }
 

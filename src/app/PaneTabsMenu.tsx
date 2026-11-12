@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { ChannelDot } from './ChannelDot'
@@ -10,7 +10,7 @@ import { platformShortcut } from '../core/platform'
 import { hasHiddenTabs, subFitsInTitle, tabsWithHiddenTitle } from './tabStripOverflow'
 import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
 import type { DockEdge } from './tabDock'
-import { popIn, slideFrom } from './motion'
+import { fadeIn, slideFrom } from './motion'
 import { onTitleEditRequest, takeTitleEdit } from '../pdf/memoNoteContext'
 import '../ui/tab-menu.css'
 import '../ui/tab-drag.css'
@@ -136,17 +136,19 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   // 탭 폭은 줄 폭이 그대로여도 바뀐다(탭 닫기로 폭을 묶어 둔 동안 · 보조 글이 켜지고 꺼질 때 · 이름 바꾸는 중): 그런 값이 바뀔 때도 다시 잰다.
   const [overflowing, setOverflowing] = useState(false)
   const [subFits, setSubFits] = useState(true)
-  const [hiddenTitles, setHiddenTitles] = useState('')
+  // 이름이 잘렸거나 아이콘만 남아 말풍선이 필요한 탭 id 들(JSON 글로 들고 있어, 같은 값이면 다시 그리지 않는다)
+  const [hiddenTitlesJson, setHiddenTitlesJson] = useState('[]')
+  const hiddenTitles = useMemo(() => new Set<string>(JSON.parse(hiddenTitlesJson) as string[]), [hiddenTitlesJson])
   const subKey = secondary ?? ''
   const activeTitle = state.tabs.find((tab) => tab.id === state.activeId)?.title ?? ''
-  const titlesKey = state.tabs.map((tab) => `${tab.id}${tab.title}`).join('')
+  const titlesKey = JSON.stringify(state.tabs.map((tab) => [tab.id, tab.title]))
   useLayoutEffect(() => {
     const strip = stripRef.current
     if (strip === null) return undefined
     const measure = () => {
       setOverflowing(hasHiddenTabs(strip))
       if (subKey !== '') setSubFits(subFitsInTitle(strip.querySelector<HTMLElement>('.pane-top-tab-active .pane-top-tab-title')))
-      setHiddenTitles(tabsWithHiddenTitle(strip).join(''))
+      setHiddenTitlesJson(JSON.stringify(tabsWithHiddenTitle(strip)))
     }
     measure()
     if (typeof ResizeObserver === 'undefined') return undefined
@@ -239,7 +241,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
       const before = previous.get(id)
       if (before === undefined) {
         if (mountedRef.current && !quiet) {
-          popIn(element, 'translateY(7px) scale(0.92)')
+          fadeIn(element)
         }
         continue
       }
@@ -343,7 +345,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 role="tab"
                 aria-selected={active}
                 tabIndex={active || (state.activeId === null && tab === state.tabs[0]) ? 0 : -1}
-                title={hiddenTitles.split('').includes(tab.id) ? (canRenameTab?.(tab) === true ? t('{title} · 두 번 눌러 이름 바꾸기', { title: tab.title }) : tab.title) : undefined}
+                title={hiddenTitles.has(tab.id) ? (canRenameTab?.(tab) === true ? t('{title} · 두 번 눌러 이름 바꾸기', { title: tab.title }) : tab.title) : undefined}
                 onDoubleClick={onRenameTab !== undefined && canRenameTab?.(tab) === true ? () => setRenaming(tab.id) : undefined}
                 onKeyDown={(event) => {
                   // 탭 줄 방향키: ←→ 이웃 탭(자동으로 보이게), Home·End 처음·끝

@@ -1,7 +1,8 @@
 /* 움직임 토큰과 공용 동작. theme.css 맨 끝에서 불러와, 같은 선택자의 앞선 규칙(각 파일의 옛 전환)을 덮는다.
    - 시간은 세 단계: fast 120 / base 180 / slow 260. 스프링은 제자리에 앉는 시간이 필요해 --spring-*-dur 를 따로 쓴다.
-   - 스프링 곡선은 CSS linear() 로 감쇠 진동을 옮긴 것(순수 CSS, 스크립트 없음). 넘침은 이동 거리에 대한 비율이라
-     거리가 짧으면 눈에 덜 띈다 — 큰 면(대화상자·카드)은 soft, 단추·스위치는 snap. 메뉴·팝오버와 칸 · 탭 끌기는 넘치지 않는다(120ms 페이드 · ease-out; 2026-11-13).
+   - 스프링 곡선은 CSS linear() 로 감쇠 진동을 옮긴 것(순수 CSS, 스크립트 없음). 일상 화면(메뉴 · 팝오버 · 대화상자 · 알림 · 말풍선 · 탭 · 카드 · 칩 · 칸)은
+     튀어 오르지 않는다: 120ms 투명도 페이드뿐이고 크기 · 위치는 움직이지 않는다(2026-11-13 4차). 스프링은 끌기(들린 탭 따라오기 · 틈 열기 · 쪽 끌기)와
+     About 대화상자의 로고 움직임에만 남는다. 곡선 토큰은 그 쪽이 쓴다.
        --ease-spring-soft    넘침 약 5%   --ease-spring-snap    약 9%
        --ease-spring-bouncy  넘침 약 16%  --ease-spring-firm    약 0.6%(큰 면이 출렁이지 않게)
    - 움직이는 속성은 transform·opacity(+SVG 선 그리기) 위주. 높이는 grid-template-rows 0fr↔1fr.
@@ -26,22 +27,9 @@
 }
 
 /* ================= 공용 키프레임 ================= */
-/* 메뉴·팝오버는 120ms 페이드만(튀어 오르지 않는다). 대화상자는 투명도는 빠르게, 움직임만 부드러운 스프링.
-   backwards 라 첫 프레임부터 투명하고 끝나면 원래 값으로 돌아간다 */
-@keyframes motion-dialog-move {
-  from { transform: translateY(14px) scale(0.95); }
-  to { transform: none; }
-}
+/* 메뉴·팝오버·대화상자·알림은 페이드만(튀어 오르지 않는다). backwards 라 첫 프레임부터 투명하고 끝나면 원래 값으로 돌아간다 */
 @keyframes motion-scrim-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes motion-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes motion-slide-x-move {
-  from { transform: translateX(var(--slide-dx, 14px)); }
-  to { transform: none; }
-}
-@keyframes motion-block-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.97); }
-  to { opacity: 1; transform: none; }
-}
 @keyframes motion-chevron-from-right { from { transform: rotate(-90deg); } to { transform: none; } }
 @keyframes motion-chevron-from-down { from { transform: rotate(90deg); } to { transform: none; } }
 @keyframes motion-highlight-new {
@@ -50,14 +38,14 @@
 }
 
 /* ================= 눌림 =================
-   누르는 순간 빠르게(70ms) 눌리고, 뗄 때 bouncy 스프링으로 살짝 넘쳤다 돌아온다(1.01 안팎). 개별 속성 scale 을 쓰므로 transform 을 쓰는 단추와
+   누르는 순간 빠르게(70ms) 눌리고, 뗄 때 넘침 없이 ease-out 으로 돌아온다. 개별 속성 scale 을 쓰므로 transform 을 쓰는 단추와
    겹치지 않고, 색 전환은 기존 값(120ms)을 그대로 이어 간다. */
 :is(.motion-press, .topbar-navbtn, .topbar-app-menu, .sidebar-toggle, .side-top-action, .side-vault-btn, .side-settings-btn, .toolbar-tool-btn,
   .bottombar-btn, .pane-top-tab-close, .pdf-memo-header-button, .pdf-memo-format-button, .note-section-toggle, .note-tab-btn, .note-gap-add,
   .side-doc-target-btn, .side-search-scope-option, .pdf-tools-item, .app-select, .vault-menu-item, .library-view-switch > *) {
   transition-property: scale, background-color, color, border-color, box-shadow, opacity;
-  transition-duration: var(--spring-bouncy-dur), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast);
-  transition-timing-function: var(--ease-spring-bouncy), ease, ease, ease, ease, ease;
+  transition-duration: var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast);
+  transition-timing-function: var(--ease-out), ease, ease, ease, ease, ease;
 }
 :is(.motion-press, .topbar-navbtn, .topbar-app-menu, .sidebar-toggle, .side-top-action, .side-vault-btn, .side-settings-btn, .toolbar-tool-btn,
   .bottombar-btn, .pane-top-tab-close, .pdf-memo-header-button, .pdf-memo-format-button, .note-section-toggle, .note-tab-btn, .note-gap-add,
@@ -82,23 +70,19 @@
 :is(.vault-menu, .pdf-bottom-more-menu) { transform-origin: bottom center; }
 .excerpt-highlight-menu { transform-origin: left bottom; }
 .side-context-menu, .vault-menu { animation: motion-fade-in var(--motion-fast) ease-out backwards; }
-.app-select-caret { transition: transform var(--spring-snap-dur) var(--ease-spring-snap); }
+.app-select-caret { transition: transform var(--motion-fast) var(--ease-out); }
 
-/* 말풍선: 바로 떠야 하므로 짧게, 아래서 살짝 튀어 오른다 */
-.iwae-tooltip {
-  transform: translateY(4px) scale(0.96);
-  transition: opacity 90ms ease, transform var(--spring-snap-dur) var(--ease-spring-snap);
-}
-.iwae-tooltip-shown { transform: none; }
+/* 말풍선: 바로 떠야 하므로 짧게, 제자리에서 흐려지며 나타난다(움직임 없음) */
+.iwae-tooltip { transition: opacity 90ms ease; }
 
 /* ================= 대화상자 =================
-   스크림은 빠르게 흐려지고, 상자는 아래에서 올라오며 부드럽게 앉는다(넘침 약 5%). 닫을 때는 곧바로 사라진다 */
+   스크림과 상자 모두 제자리에서 흐려지며 나타난다(움직임 없음). 닫을 때는 곧바로 사라진다 */
 :is(.side-dialog-backdrop, .confirm-dialog-backdrop, .external-link-backdrop, .bib-dialog-backdrop, .settings-modal-backdrop,
   .command-palette-backdrop, .pdf-print-backdrop) {
   animation: motion-scrim-in var(--motion-base) ease backwards;
 }
 :is(.side-dialog, .confirm-dialog, .external-link-dialog, .bib-dialog, .settings-modal, .command-palette, .pdf-print-dialog) {
-  animation: motion-fade-in var(--motion-base) ease-out backwards, motion-dialog-move var(--spring-soft-dur) var(--ease-spring-soft) backwards;
+  animation: motion-fade-in var(--motion-base) ease-out backwards;
   transform-origin: center 40%;
 }
 
@@ -108,18 +92,17 @@
 .sidebar-inner > .side-scroll:not(.thumb-panel) {
   animation: motion-fade-in var(--motion-base) ease-out backwards;
 }
-/* 펼친 라이브러리는 오른쪽에서 스프링으로 들어온다 */
-.library-host { --slide-dx: 10px; animation: motion-fade-in var(--motion-fast) ease-out backwards, motion-slide-x-move var(--spring-soft-dur) var(--ease-spring-soft) backwards; }
+/* 펼친 라이브러리 · 바뀐 왼쪽 바 구역은 제자리에서 흐려지며 나타난다 */
+.library-host,
 .side-scroll-swapping > .side-section > :not(.side-head-row),
 .side-scroll-swapping > .side-section:not(.side-documents-section) {
-  --slide-dx: -8px;
-  animation: motion-fade-in var(--motion-fast) ease-out backwards, motion-slide-x-move var(--spring-soft-dur) var(--ease-spring-soft) backwards;
+  animation: motion-fade-in var(--motion-fast) ease-out backwards;
 }
-/* 트리 폴더를 펼치면 자식 줄이 위에서 내려앉는다. 화살표는 펼칠 때 오른쪽→아래, 접을 때 아래→오른쪽으로 돈다
+/* 트리 폴더를 펼치면 자식 줄이 제자리에서 흐려지며 나타난다. 화살표는 펼칠 때 오른쪽→아래, 접을 때 아래→오른쪽으로 돈다
    (모양이 바뀔 때 새 svg 가 붙으므로 시작 각도만 주면 된다. 방금 누른 줄(:focus)에서만 돌아 처음 그릴 때는 가만히 있다) */
-.side-tree-children { animation: motion-block-in var(--motion-slow) var(--ease-out) backwards; transform-origin: top left; }
-li[role='treeitem'][aria-expanded='true'] > .side-item:focus .side-tree-chevron > svg { animation: motion-chevron-from-right var(--spring-snap-dur) var(--ease-spring-snap) backwards; }
-li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron > svg { animation: motion-chevron-from-down var(--spring-snap-dur) var(--ease-spring-snap) backwards; }
+.side-tree-children { animation: motion-fade-in var(--motion-fast) ease-out backwards; }
+li[role='treeitem'][aria-expanded='true'] > .side-item:focus .side-tree-chevron > svg { animation: motion-chevron-from-right var(--motion-fast) var(--ease-out) backwards; }
+li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron > svg { animation: motion-chevron-from-down var(--motion-fast) var(--ease-out) backwards; }
 
 /* 접힘 상자(Collapse 컴포넌트): 높이는 0fr↔1fr 전환. 열 때는 빠르게 올라와 앉고, 닫을 때는 ease-in. 안쪽은 잘라 낸다 */
 .motion-collapse {
@@ -140,12 +123,10 @@ li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron
 /* 쪽 미리보기의 「보고 있는 곳」 네모는 손을 따라 부드럽게 미끄러진다(작은 요소라 위치 값으로 둔다) */
 .sidebar .thumb-viewport { transition: left 110ms var(--ease-out), top 110ms var(--ease-out), width 110ms var(--ease-out), height 110ms var(--ease-out); }
 
-/* 메모 카드 호버 탭: 아래에서 4px 올라오며 나타난다 */
+/* 메모 카드 호버 탭: 제자리에서 흐려지며 나타난다(움직임 없음) */
 .note-block-tabs {
-  transform: translateY(4px);
-  transition: opacity var(--motion-fast) ease, transform var(--spring-snap-dur) var(--ease-spring-snap), content-visibility var(--spring-snap-dur) allow-discrete;
+  transition: opacity var(--motion-fast) ease, content-visibility var(--motion-fast) allow-discrete;
 }
-.note-block:is(:hover, :focus-within):not(.pdf-memo-card-dragging) > .note-block-tabs { transform: none; }
 /* 노트 블록: 고르면 120ms 페이드만(튀지 않는다. 새 블록·순서 바뀜은 NoteFlow 의 FLIP) */
 .note-block.note-block-selected { animation: motion-fade-in var(--motion-fast) ease-out backwards; }
 /* 메모 카드 ↔ 형광펜 연결선은 다시 그려지지 않는다: 가리킬 때(호버·선택·새 메모)도 선은 그대로 나타나 있고 굵기만 바뀐다(pdf-memo.css) */
@@ -153,9 +134,10 @@ li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron
 .selection-persistent-highlight.selection-highlight-new { animation: motion-highlight-new 520ms var(--ease-out) backwards; }
 
 /* ================= 스위치·선택 칸 ================= */
-.settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']::before { transition: transform var(--spring-snap-dur) var(--ease-spring-snap), width var(--motion-fast) ease; }
-.ai-settings-switch > span { transition: transform var(--spring-snap-dur) var(--ease-spring-snap), width var(--motion-fast) ease; }
-/* 누르는 동안 손잡이가 늘어난다(쫀득) */
+/* 손잡이는 넘침 없이 ease-out 으로 옮겨 간다 */
+.settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']::before { transition: transform var(--motion-fast) var(--ease-out), width var(--motion-fast) ease; }
+.ai-settings-switch > span { transition: transform var(--motion-fast) var(--ease-out), width var(--motion-fast) ease; }
+/* 누르는 동안 손잡이가 늘어난다 */
 .ai-settings-switch:active:not(:disabled) > span,
 .settings-modal .settings-modal-body .settings-toggle-row input[type='checkbox']:active::before { width: 18px; }
 .ai-settings-switch[aria-checked='true']:active:not(:disabled) > span,

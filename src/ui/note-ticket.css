@@ -139,23 +139,23 @@ body.note-block-dragging .note-block-tabs { display: none; }
 }
 .note-block .note-source-dot > span {
   display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--hlc-dot);
-  transition: transform var(--spring-snap-dur) var(--ease-spring-snap), box-shadow var(--motion-fast) ease;
+  transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) ease;
 }
 .note-block .note-source-dot:hover { background: color-mix(in srgb, var(--hlc-dot) 26%, transparent); }
 .note-block .note-source-dot:hover > span { transform: scale(1.22); }
 .note-block .note-source-dot:active > span { transform: scale(.92); }
 .note-block .note-source-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .note-block .note-source-dot[aria-expanded='true'] > span { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--hlc-dot); }
-/* 펼칠 때: 한 줄 높이에서 제 높이로 스프링으로 늘어난다(접을 때는 칩이 부드럽게 들어온다) */
-.note-block .pdf-memo-card-quote.note-source { interpolate-size: allow-keywords; animation: note-source-open var(--spring-soft-dur) var(--ease-spring-soft) both; }
-.note-block .note-source-chip { animation: note-source-close var(--motion-base) var(--ease-out) both; }
+/* 펼칠 때: 한 줄 높이에서 제 높이로 넘침 없이 늘어난다(접을 때는 칩이 흐려지며 들어온다) */
+.note-block .pdf-memo-card-quote.note-source { interpolate-size: allow-keywords; animation: note-source-open var(--motion-base) var(--ease-out) both; }
+.note-block .note-source-chip { animation: note-source-close var(--motion-fast) var(--ease-out) both; }
 @keyframes note-source-open {
   0% { height: 24px; opacity: .55; overflow: hidden; }
   99% { overflow: hidden; }
   100% { height: auto; opacity: 1; overflow: visible; }
 }
 @keyframes note-source-close {
-  from { opacity: 0; transform: translateY(-3px); }
+  from { opacity: 0; }
 }
 .note-block .note-source-chip .note-source-page,
 .note-block .pdf-memo-card-quote .note-source-page {
