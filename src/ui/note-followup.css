@@ -409,5 +409,5 @@
 .note-canvas > .note-toolbar input.note-font-size:focus { border-color: var(--divider); background: var(--paper); outline: 0; }
 .note-canvas > .note-toolbar input.note-font-size:disabled { color: var(--text-dim); opacity: .55; }
 /* 캔버스 하단바도 공통 높이 */
-.note-bottom-bar { flex: 0 0 var(--bottom-bar-height); height: var(--bottom-bar-height); box-sizing: border-box; }
+.note-bottom-bar { flex: 0 0 var(--bar-h); height: var(--bar-h); box-sizing: border-box; }
 .note-bottom-bar .note-bottom-bar-surface { height: 100%; }

@@ -524,12 +524,6 @@
 
 /* 크롬처럼 활성 탭 = PDF 도구줄 = 메모 바 머리: 같은 색, 같은 높이(--doc-card-h), 같은 밑선 */
 .pane-doc .pane-frame-with-toolbar::before { background: var(--paper); border-bottom: 1px solid var(--divider); }
-.pane-top-tab.pane-top-tab-active,
-.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active {
-  background:
-    linear-gradient(var(--paper), var(--paper)) padding-box,
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, transparent) 0%, color-mix(in srgb, var(--accent) 22%, transparent) 55%, transparent 100%) border-box;
-}
 .pane-doc .pdf-memo-header {
   box-sizing: border-box;
   height: var(--doc-card-h, 36px);

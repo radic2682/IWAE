@@ -174,7 +174,8 @@ describe('TopBar', () => {
       const row = container.querySelector('.topbar-session-row') as HTMLElement
       const host = row.querySelector('.topbar-toolbar-host') as HTMLElement
       expect(host).not.toBeNull()
-      expect(host.classList.contains('pane-doc')).toBe(true)
+      // 칸 안 도구줄 규칙(.pane-doc)을 빌려 오지 않는 전용 요소다
+      expect(host.classList.contains('pane-doc')).toBe(false)
       expect(row.lastElementChild).toBe(host)
       // 화면 탭 다음, 창 단추(.wincontrols) 앞
       expect(row.querySelector('.screen-tabs')?.compareDocumentPosition(host)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)

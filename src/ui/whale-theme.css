@@ -5,11 +5,6 @@
 .topbar,
 .topbar .topbar-leftcluster,
 .topbar .wincontrols { background: var(--tabstrip); }
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active) { color: var(--text-dim); }
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover {
-  background: color-mix(in srgb, var(--paper) 45%, var(--tabstrip));
-  color: var(--text);
-}
 
 /* ── 주소창 모양 검색 칸 ── */
 :root .pdf-memo-search,
@@ -789,7 +784,6 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 
 /* 2단에서 탭 줄이 좁아지면(사이드바를 접어 왼쪽 단추 묶음이 탭 자리를 차지할 때) 보고 있는 탭은 이름이 보이게 폭을 지킨다.
    나머지 탭이 먼저 줄어든다 */
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active { min-width: 128px; flex-shrink: 0; }
 
 /* 3단의 가운데 탭 줄은 양옆을 보통 여백만 둔다(창 단추 자리는 맨 오른쪽 줄이 비워 둔다) */
 .topbar-panetab-zone-middle .pane-tabs-menu { padding-right: var(--grid); }

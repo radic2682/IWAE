@@ -71,25 +71,19 @@ body.pane-tab-dragging :is(.sidebar, .topbar) * { pointer-events: none !importan
 }
 
 /* 원래 탭: 자리만 남은 구멍. 이웃 탭이 비켜 간 자리에 들린 탭이 내려앉는다 */
-/* !important 인 까닭: 탭 모양 규칙(× 의 opacity: 1, 고른 탭의 바탕 · 아래 곡선 장식)이 더 센 선택자라 구멍이 빈 알약 + × 로 보였다 */
+/* 구멍의 점선 칸(::before)은 여기 한 곳에서만 정한다(탭 모양 규칙에는 두지 않는다). 바탕 · 그림자는 고른 탭 규칙보다 앞서야 해서 !important */
 .pane-top-tab[data-dragging] { background: transparent !important; box-shadow: none !important; }
 .pane-top-tab[data-dragging] > * { opacity: 0 !important; }
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab[data-dragging]::before,
 .pane-top-tab[data-dragging]::before {
   content: '';
-  display: block !important;
-  position: absolute !important;
-  inset: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  z-index: 0 !important;
-  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent) !important;
-  border-radius: var(--r-sm) !important;
-  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
-  opacity: 1 !important;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   pointer-events: none;
 }
-.pane-top-tab[data-dragging]::after { display: none !important; }
 /* 다른 패널로 옮겨 가는 중이면 원래 줄에서는 구멍이 접힌다 */
 .pane-top-tab[data-collapsed] {
   flex: 0 0 0 !important;

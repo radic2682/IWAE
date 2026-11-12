@@ -48,14 +48,15 @@
 .wincontrols .winbtn svg { width: 14px; height: 14px; }
 
 /* ── 상단바의 도구줄 자리: 지금 만지는 칸의 도구줄(MD · PDF · 노트)이 포털로 들어온다 ──
-   바깥은 .pane-doc 별칭(칸 안에서 쓰던 도구 단추 규칙이 그대로 맞게 한다), 안쪽이 포털 목적지다 */
-.topbar-toolbar-host.pane-doc {
+   바깥(.topbar-toolbar-host)이 남는 폭을 쓰고, 안쪽(.topbar-toolbar-slot)이 포털 목적지다. 칸 안 도구줄 규칙(.pane-doc …)을 빌려 오지 않고 필요한 것만 여기에 둔다 */
+.topbar-toolbar-host {
   --doc-chip: var(--icon-btn);
   --doc-chip-gap: var(--space-1);
   --control-size-floating: var(--icon-btn);
   position: relative;
   flex: 1 1 0;
   min-width: 0;
+  min-height: 0;
   align-self: stretch;
   display: flex;
   flex-direction: row;
@@ -63,6 +64,13 @@
   container-type: normal;
   background: transparent;
 }
+/* 도구줄 안 묶음 · 단추: 칸 안 도구줄(.pane-doc)에서 쓰던 규칙 가운데 상단바에서 효력이 있던 것만 */
+.topbar-toolbar-host .pane-toolbar-left,
+.topbar-toolbar-host .pane-toolbar-right { display: flex; flex: 0 0 auto; }
+.topbar-toolbar-host .pdf-inline-tools { border-radius: var(--r-md); }
+.topbar-toolbar-host .pdf-compact-tool { max-width: var(--control-size-floating); gap: 0; }
+.topbar-toolbar-host .pdf-compact-tool svg { flex: 0 0 auto; }
+.topbar-toolbar-host .pane-draw-split .pane-draw-caret { margin-left: -2px; }
 .topbar-toolbar-host > .topbar-toolbar-slot.pane-toolbar {
   position: static;
   inset: auto;
@@ -132,25 +140,37 @@
 .topbar-toolbar-host .topbar-toolbar-slot .reader-toolbar,
 .topbar-toolbar-host .topbar-toolbar-slot .pdf-inline-tools,
 .topbar-toolbar-host .topbar-toolbar-slot .pdf-mode-toggle-row { gap: var(--space-1); min-height: 0; align-items: center; }
-/* 노트 서식 줄: 칸 안 맨 위 줄이 아니라 상단바 한 줄. 줄 안의 띠(위 접착 · 아래 선 · 바탕 · 높이)는 없앤다 */
-.topbar-toolbar-host .topbar-toolbar-slot .note-format-dock {
-  position: static;
-  z-index: auto;
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
+/* 노트 서식 줄: 칸 안 맨 위 줄이 아니라 상단바 한 줄. 칸 안 규칙(.pane-doc .note-format-dock …)을 빌려 오지 않고 여기서 모두 정한다.
+   줄 안의 띠(위 접착 · 아래 선 · 바탕 · 높이)는 없다 */
+.topbar-toolbar-host .note-format-dock { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; min-height: 0; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+.topbar-toolbar-host .note-format-slot { display: contents; }
+.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 1 1 auto; min-width: 0; }
+.topbar-toolbar-host .note-format-dock > .note-format-slot:empty { flex: 0 0 0; }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-bar {
+  position: relative;
+  flex-wrap: wrap;
   align-items: center;
-  margin: 0;
+  row-gap: 2px;
+  column-gap: 0;
+  margin-left: -11px;
   padding: 0;
   border: 0;
   background: transparent;
+  clip-path: inset(-1000px -1000px -1000px 11px);
 }
-.topbar-toolbar-host .topbar-toolbar-slot .note-format-dock .pdf-memo-format-bar { align-items: center; }
-.topbar-toolbar-host .topbar-toolbar-slot .note-format-dock .pdf-memo-format-button { width: var(--icon-btn); height: var(--icon-btn); }
-.topbar-toolbar-host .topbar-toolbar-slot .note-format-dock .pdf-memo-format-button.pdf-memo-format-block { width: auto; }
-.topbar-toolbar-host .topbar-toolbar-slot .memo-note-tab-actions { height: 100%; align-items: center; gap: var(--space-1); }
-.topbar-toolbar-host .topbar-toolbar-slot .memo-note-tab-actions .pdf-memo-header-button { width: var(--icon-btn); min-width: var(--icon-btn); height: var(--icon-btn); }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-bar > .pdf-memo-format-cluster { flex: 0 0 auto; }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-cluster { margin-left: 0; padding-left: 11px; }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-cluster::before { content: ''; position: absolute; top: 7px; bottom: 7px; left: 5px; width: 1px; background: var(--divider); }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-button { width: var(--icon-btn); height: var(--icon-btn); border-radius: var(--r-sm); }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-button.pdf-memo-format-block { width: auto; gap: 4px; padding: 0 6px 0 8px; font-size: 13px; font-weight: 600; }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-bar-idle .pdf-memo-format-button:disabled { opacity: 0.35; cursor: default; }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-more { flex: 0 0 auto; margin-left: 6px; }
+.topbar-toolbar-host .note-format-dock .pdf-memo-format-more[aria-expanded='true'] { background: var(--chrome-hover); }
+/* 검색 · 글 블록 넣기 · 펼치기 */
+.topbar-toolbar-host .memo-note-tab-actions { flex: 0 0 auto; display: flex; align-items: center; gap: var(--space-1); height: 100%; margin-left: auto; }
+.topbar-toolbar-host .memo-note-tab-actions .pdf-memo-header-button { min-width: var(--icon-btn); width: var(--icon-btn); height: var(--icon-btn); padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); }
+.topbar-toolbar-host .memo-note-tab-actions .pdf-memo-header-button:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--text-strong); outline: none; }
+.topbar-toolbar-host .memo-note-tab-actions .pdf-memo-header-button[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
 
 /* ── 칸 = 한 면 ────────────────────────────────────────────────────────────
    카드 하나에 머리 · 본문이 같은 바탕, 안에 테두리 선 · 어두운 띠 없음. 테두리 두께는 모든 칸이 같다(만지는 칸만 색이 다르다) */
@@ -223,50 +243,49 @@
 .pane-head .pane-channel-dot + .pane-tabs-strip { margin-left: 2px; }
 .pane-head > .pane-tabs-empty-row { gap: 0; padding-left: 0; }
 
-/* 탭: 28px 알약 한 모양(곡선 · 위 둥근 모서리 · 구분선 · 그라데이션 테두리 없음). 고른 탭만 옅은 바탕 */
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab,
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active),
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab.pane-top-tab-active,
-.panes-tree .pane-head.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active,
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab.pane-top-tab-active.pane-top-tab-note,
-.panes-tree .pane-head.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
+/* 탭: 28px 알약 한 모양(곡선 · 위 둥근 모서리 · 구분선 · 그라데이션 테두리 없음). 고른 탭만 옅은 바탕.
+   예전 크롬 탭 규칙(theme-layout · whale-theme · pdf-memo)은 걷어 냈으므로 보통 선택자로 충분하다 */
+.pane-head .pane-top-tab {
+  position: relative;
+  display: flex;
+  flex: 0 1 240px;
   align-items: center;
+  width: 240px;
+  min-width: 40px;
+  max-width: 240px;
   height: var(--icon-btn);
   margin: 0;
+  isolation: isolate;
+  container-type: inline-size;
   border: 0;
   border-radius: var(--r-sm);
   box-shadow: none;
   background: transparent;
   color: var(--text-muted);
 }
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); color: var(--text-strong); }
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab.pane-top-tab-active,
-.panes-tree .pane-head.pane-head .pane-tabs-menu .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
-  background: color-mix(in srgb, var(--text-strong) 16%, transparent);
-  color: var(--text-strong);
-}
+.pane-head .pane-top-tab:hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); color: var(--text-strong); }
+/* 보는 탭은 이름이 보이도록 줄지 않는다(128px 까지, 줄 폭보다 넓어지지는 않는다) */
+.pane-head .pane-top-tab-active { z-index: 2; flex-shrink: 0; min-width: 128px; background: color-mix(in srgb, var(--text-strong) 16%, transparent); color: var(--text-strong); }
 /* 만지지 않는 칸의 고른 탭은 바탕도 글자도 한 단계 흐리게(단축키가 어느 칸에 듣는지) */
-.panes-tree .pane-head.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active,
-.panes-tree .pane-head.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
-  background: color-mix(in srgb, var(--text-strong) 9%, transparent);
-  color: var(--text-muted);
-}
-.panes-tree .pane-head .pane-top-tab:not([data-dragging])::before,
-.panes-tree .pane-head .pane-top-tab:not([data-dragging])::after { content: none; display: none; }
-.pane-top-tab[data-dragging]::before { inset: 0; border-radius: var(--r-sm); border-bottom: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent); }
+.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab-active { background: color-mix(in srgb, var(--text-strong) 9%, transparent); color: var(--text-muted); }
+.pane-head .pane-top-tab:not([data-dragging])::before,
+.pane-head .pane-top-tab:not([data-dragging])::after { content: none; }
+/* 닫기 ×: 모든 탭 오른쪽 같은 자리 */
+.pane-head .pane-top-tab-close { display: grid; place-items: center; width: 20px; height: 20px; margin: 0 var(--space-1) 0 0; border-radius: 50%; opacity: 1; }
+.pane-head .pane-top-tab-close:hover { background: var(--chrome-hover); color: var(--text-strong); }
+.pane-head .pane-top-tab-close svg { width: 12px; height: 12px; }
 /* 탭 안: 아이콘 · 제목 · 보조 글이 한 줄에 같은 글꼴 크기 · 줄 높이 1 로 서서 기준선이 맞는다. 안쪽 여백 8px(왼) · 닫기 ×는 오른쪽 4px */
-.panes-tree .pane-head .pane-top-tab-title { align-items: center; gap: 6px; padding: 0 var(--space-1) 0 var(--space-2); font-size: 12.5px; line-height: 1; }
-.panes-tree .pane-head .pane-top-tab-label,
-.panes-tree .pane-head .pane-top-tab-sep,
-.panes-tree .pane-head .pane-top-tab-sub { font-size: 12.5px; line-height: 1; }
-.panes-tree .pane-head .pane-top-tab-kind { width: 14px; height: 14px; }
-.panes-tree .pane-head .pane-top-tab .pane-top-tab-title { font-weight: 450; }
-.panes-tree .pane-head .pane-top-tab-active .pane-top-tab-title { font-weight: 650; }
+.pane-head .pane-top-tab-title { align-items: center; gap: 6px; padding: 0 var(--space-1) 0 var(--space-2); font-size: 12.5px; font-weight: 450; line-height: 1; }
+.pane-head .pane-top-tab-active .pane-top-tab-title { font-weight: 650; }
+.pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab-active .pane-top-tab-title { font-weight: 500; }
+.pane-head .pane-top-tab-label,
+.pane-head .pane-top-tab-sep,
+.pane-head .pane-top-tab-sub { font-size: 12.5px; line-height: 1; }
+.pane-head .pane-top-tab-kind { width: 14px; height: 14px; }
 /* 끌어 든 탭(들린 그림자)도 같은 알약: 높이 28 · 둥글기 --r-sm */
 .tab-drag-ghost .pane-top-tab,
 .tab-drag-ghost .pane-top-tab:not(.pane-top-tab-active),
 .tab-drag-ghost .pane-top-tab.pane-top-tab-active { height: var(--icon-btn) !important; border-radius: var(--r-sm) !important; align-items: center; }
-.panes-tree .pane-head .pane-tabs-menu .pane-top-tab .pane-top-tab-close { width: 20px; height: 20px; margin: 0 var(--space-1) 0 0; }
 .pane-head .pane-tabs-overflow { align-self: center; flex: 0 0 auto; width: auto; min-width: var(--icon-btn); height: var(--icon-btn); margin: 0; }
 /* 오른쪽 끝: 칸 상태 자리 · 「크게」 표시 · ⋯ 메뉴. 모두 세로 가운데, ⋯ 는 28px 누르는 자리 · 16px 아이콘 */
 .pane-head .pane-head-status { align-self: center; margin-left: 0; }
@@ -283,17 +302,29 @@
 .pane-doc .pdf-pane { padding-top: var(--space-2); }
 
 /* ── 아래 막대(PDF · MD): 상단바와 같은 높이, 본문과 같은 면(띠 · 윗선 · 그림자 없음) ── */
-.pane-bottom-bar,
-.pane-doc .pane-bottom-bar {
+/* 이 한 규칙이 아래 막대의 자리 · 높이 · 안쪽 여백의 전부다(예전에 theme-layout · pdf-followup 에 흩어져 불러오는 순서로 뒤집히던 것을 모았다) */
+.pane-bottom-bar {
+  position: relative;
+  z-index: 16;
   box-sizing: border-box;
+  display: flex;
   flex: 0 0 var(--bar-h);
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
   height: var(--bar-h);
+  margin: 0;
   padding: 0 var(--space-3);
   border: 0;
   border-radius: 0;
   background: var(--pane-body);
   box-shadow: none;
   backdrop-filter: none;
+  transform: none;
 }
 .pane-doc .pdf-bottom-bar-surface { height: 100%; padding: 0; gap: var(--space-2); }
 .pane-bottom-bar :is(.bottombar-btn, .pdf-bottom-more, .pdf-bottom-layout .bottombar-btn) { width: var(--icon-btn); height: var(--icon-btn); }

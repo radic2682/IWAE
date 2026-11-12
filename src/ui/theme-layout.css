@@ -27,7 +27,7 @@
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: var(--tabbar-h);
+  height: var(--bar-h);
   flex: 0 0 auto;
   padding: 4px 4px 0;
   background: var(--paper);
@@ -355,7 +355,7 @@
   z-index: 80;
   display: flex;
   align-items: center;
-  height: var(--topbar-h);
+  height: var(--bar-h);
   flex: 0 0 auto;
   padding: 0;
   background: var(--chrome);
@@ -460,24 +460,7 @@
 
 .pane-tabs-strip::-webkit-scrollbar { display: none; }
 
-.pane-top-tab {
-  flex: 0 0 clamp(132px, 19vw, 210px);
-  min-width: 0;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  margin-right: 3px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-sm);
-  background: var(--chrome-hover);
-  color: var(--text-dim);
-}
 
-.pane-top-tab-active {
-  border-color: var(--divider);
-  background: var(--paper);
-  color: var(--ink);
-}
 
 .pane-top-tab-title {
   flex: 1 1 auto;
@@ -690,27 +673,7 @@
 .pdf-search-state { padding: 14px 8px; color: var(--text-dim); text-align: center; }
 .pdf-search-state-error { color: var(--danger); }
 
-.pane-bottom-bar {
-  position: relative;
-  z-index: 4;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  flex: 0 0 var(--bottom-bar-height);
-  min-width: 0;
-  height: var(--bottom-bar-height);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 5px 10px;
-  background: color-mix(in srgb, var(--paper) 78%, transparent);
-  border: 0;
-  border-top: 1px solid var(--divider);
-  border-radius: 0;
-  box-shadow: 0 -2px 8px var(--shadow-soft);
-  backdrop-filter: blur(10px);
-}
+/* .pane-bottom-bar 는 workspace-surface.css 한 곳에서 정한다 */
 
 .pdf-bottom-page,
 .pdf-bottom-view {
@@ -909,8 +872,8 @@
 
 .note-bottom-bar {
   position: relative;
-  flex: 0 0 var(--bottom-bar-height);
-  height: var(--bottom-bar-height);
+  flex: 0 0 var(--bar-h);
+  height: var(--bar-h);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1811,8 +1774,8 @@
    항상 사이드바 맨 아래에 붙는다. */
 .side-footer {
   position: relative;
-  flex: 0 0 var(--bottom-bar-height);
-  height: var(--bottom-bar-height);
+  flex: 0 0 var(--bar-h);
+  height: var(--bar-h);
   display: flex;
   align-items: stretch;
   gap: 2px;
@@ -2228,8 +2191,8 @@
 .startup-titlebar {
   position: relative;
   z-index: 80;
-  flex: 0 0 var(--topbar-h);
-  height: var(--topbar-h);
+  flex: 0 0 var(--bar-h);
+  height: var(--bar-h);
   display: flex;
   align-items: center;
   padding: 0 138px 0 12px;
@@ -2880,12 +2843,9 @@
 .topbar .topbar-navbtn-active,
 .topbar .topbar-navbtn[aria-checked="true"] { background: var(--chrome-hover); color: var(--text-strong); }
 
-.pane-top-tab { flex: 0 1 clamp(120px, 16vw, 200px); min-width: 116px; }
 .pane-tabs-strip { flex: 0 1 auto; }
 .pane-tabs-overflow { margin: 0 44px 0 2px; }
 /* 지금 보는 탭만 이름을 넓게, 나머지는 짧은 이름으로 줄인다 */
-.pane-top-tab:not(.pane-top-tab-active) { flex: 0 1 auto; min-width: 104px; max-width: 150px; }
-.pane-top-tab.pane-top-tab-active { flex: 0 1 auto; min-width: 120px; max-width: 240px; }
 /* 오른쪽 칸 끝은 창 단추 앞이라 빈 칸을 조금만 남긴다 */
 .topbar-panetab-zone-right .pane-tabs-overflow { margin-right: 20px; }
 .pane-tabs-overflow {
@@ -2943,45 +2903,8 @@
 .topbar-panetab-zone .pane-tabs-empty-row { align-self: stretch; align-items: center; }
 .pane-tabs-strip { align-self: stretch; align-items: flex-end; }
 
-.pane-top-tab {
-  position: relative;
-  height: 32px;
-  margin: 0 0 -1px;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: var(--r-md) var(--r-md) 0 0;
-  background: transparent;
-  color: var(--text-muted);
-}
 /* 비활성 탭 사이 구분선. 활성 탭이나 마우스를 올린 탭 옆에서는 지운다 */
-.pane-top-tab::after {
-  position: absolute;
-  top: 9px;
-  right: 0;
-  bottom: 9px;
-  width: 1px;
-  background: var(--divider);
-  content: '';
-}
-.pane-top-tab:last-child::after,
-.pane-top-tab-active::after,
-.pane-top-tab:hover::after,
-.pane-top-tab:has(+ .pane-top-tab-active)::after,
-.pane-top-tab:has(+ .pane-top-tab:hover)::after { display: none; }
-.pane-top-tab:not(.pane-top-tab-active):hover {
-  background: var(--chrome-hover);
-  color: var(--text);
-}
-.pane-top-tab.pane-top-tab-active {
-  z-index: 2;
-  border-color: var(--divider);
-  background: var(--workspace);
-  color: var(--text-strong);
-  box-shadow: inset 0 2px 0 var(--accent);
-}
 /* 캔버스는 흰 종이 위라 활성 탭도 종이색으로 잇는다 */
-.pane-top-tab.pane-top-tab-active.pane-top-tab-note { background: var(--paper); }
-.pane-top-tab-active .pane-top-tab-title { font-weight: 600; }
 /* 닫기 단추는 활성 탭과 마우스를 올린 탭에서만 */
 .pane-top-tab:not(.pane-top-tab-active):not(:hover) .pane-top-tab-close { opacity: 0; }
 .pane-top-tab-close { border-radius: var(--r-sm); }
@@ -3033,7 +2956,6 @@
   box-shadow: 0 1px 2px var(--shadow-soft);
 }
 /* 만지지 않는 패널의 활성 탭은 파란 선 대신 회색 선 — 단축키가 어느 패널에 듣는지 보인다 */
-.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active { box-shadow: inset 0 2px 0 var(--divider-strong); }
 
 /* 설정 › 화면 크기 */
 .ui-scale-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
@@ -3064,34 +2986,9 @@
    (탭 줄이 가로 스크롤 상자라 탭의 음수 여백은 잘린다 — 그래서 줄 자체를 내린다) */
 .topbar-panetab-zone .pane-tabs-menu { position: relative; z-index: 1; margin-bottom: -1px; }
 .pane-tabs-strip { padding-bottom: 0; }
-.pane-top-tab { margin-bottom: 0; height: 33px; }
 
 /* 활성 탭: 위 파란 선 대신, 위·왼·오른쪽 테두리가 위에서 아래로 은은하게 사라지는 그라데이션 */
-.pane-top-tab.pane-top-tab-active,
-.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active {
-  border: 1px solid transparent;
-  border-bottom: 0;
-  box-shadow: none;
-  background:
-    linear-gradient(var(--workspace), var(--workspace)) padding-box,
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, transparent) 0%, color-mix(in srgb, var(--accent) 22%, transparent) 55%, transparent 100%) border-box;
-}
-.pane-top-tab.pane-top-tab-active.pane-top-tab-note {
-  background:
-    linear-gradient(var(--paper), var(--paper)) padding-box,
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, transparent) 0%, color-mix(in srgb, var(--accent) 22%, transparent) 55%, transparent 100%) border-box;
-}
 /* 만지지 않는 패널의 활성 탭은 같은 모양을 회색으로 */
-.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active {
-  background:
-    linear-gradient(var(--workspace), var(--workspace)) padding-box,
-    linear-gradient(180deg, var(--divider-strong) 0%, color-mix(in srgb, var(--divider-strong) 35%, transparent) 55%, transparent 100%) border-box;
-}
-.pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
-  background:
-    linear-gradient(var(--paper), var(--paper)) padding-box,
-    linear-gradient(180deg, var(--divider-strong) 0%, color-mix(in srgb, var(--divider-strong) 35%, transparent) 55%, transparent 100%) border-box;
-}
 
 /* 탭 우클릭 메뉴 */
 .pane-tab-context {
@@ -3501,99 +3398,3 @@
   box-shadow: 0 1px 0 var(--hairline);
 }
 
-/* ── 상단 탭: 크롬 브라우저 모양 ─────────────────────────────────────
-   탭 줄(상단바)은 아래 도구줄보다 조금 진하고, 고른 탭만 도구줄과 같은 종이색으로 아래에 이어진다.
-   고른 탭 아래 양옆은 오목한 곡선(::before·::after)으로 도구줄과 붙는다. 다른 탭은 바탕 없이 글자만,
-   마우스를 올리면 둥근 옅은 바탕(::before). 탭은 모두 같은 폭으로 함께 줄어든다(최대 240px). */
-/* 탭 줄은 넘치면 가로로 밀리는 칸(overflow:auto)이라 그 밖은 잘린다. 고른 탭 양옆 곡선(10px)이 들어가도록 양쪽 다 10px 비운다
-   (오른쪽이 4px 이면 마지막 탭의 오른쪽 아래 곡선이 4px 에서 잘려 각져 보였다) */
-.topbar-panetab-zone .pane-tabs-strip { padding-inline: 10px; }
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab,
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active),
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active {
-  flex: 0 1 240px;
-  width: 240px;
-  min-width: 40px;
-  max-width: 240px;
-  height: 33px;
-  isolation: isolate;
-  container-type: inline-size;
-  border: 0;
-  border-radius: var(--r-md) var(--r-md) 0 0;
-  box-shadow: none;
-}
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active) {
-  background: transparent;
-  color: var(--text-muted);
-}
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover { background: transparent; color: var(--text); }
-/* 마우스를 올린 탭: 위아래가 조금 떨어진 둥근 바탕 */
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active)::before {
-  position: absolute;
-  inset: 4px 2px 3px;
-  z-index: -1;
-  border-radius: var(--r-sm);
-  background: var(--chrome-hover);
-  opacity: 0;
-  transition: opacity 120ms ease;
-  content: '';
-}
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active):hover::before { opacity: 1; }
-/* 고른 탭: 아래 도구줄과 같은 종이색 */
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active,
-.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active,
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active.pane-top-tab-note,
-.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active.pane-top-tab-note {
-  z-index: 2;
-  background: var(--paper);
-  color: var(--text-strong);
-}
-/* 만지지 않는 패널의 고른 탭은 글자만 흐리게(단축키가 어느 패널에 듣는지) */
-.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab.pane-top-tab-active { color: var(--text-muted); }
-.topbar-panetab-zone .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab-active .pane-top-tab-title { font-weight: 500; }
-/* 고른 탭 아래 양옆의 오목한 곡선 */
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::before,
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::after {
-  display: block;
-  position: absolute;
-  top: auto;
-  bottom: 0;
-  width: 10px;
-  height: 10px;
-  pointer-events: none;
-  content: '';
-}
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::before {
-  left: -10px;
-  right: auto;
-  background: radial-gradient(circle at 0 0, transparent 9.5px, var(--paper) 10px);
-}
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active::after {
-  right: -10px;
-  left: auto;
-  background: radial-gradient(circle at 100% 0, transparent 9.5px, var(--paper) 10px);
-}
-/* 닫기 ×: 모든 탭 오른쪽 같은 자리, 둥근 바탕 */
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-close {
-  width: 20px;
-  height: 20px;
-  margin-right: 7px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 50%;
-  opacity: 1;
-}
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-close:hover { background: var(--chrome-hover); color: var(--text-strong); }
-.topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-close svg { width: 12px; height: 12px; }
-/* 사이드바를 접으면 왼쪽 위 단추 묶음(사이드바·문서 검색·1단/2단·보기 단추들)이 탭 줄 위에 떠 있다.
-   예전 146px 은 단추가 늘기 전 값이라 앞쪽 탭이 단추 밑에 숨었다. 지금 묶음 폭(≈256px)만큼 민다(단추 수가 바뀌면 같이 고친다). */
-.topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: 262px; }
-/* 탭이 아주 좁아지면(크롬처럼) 다른 탭은 아이콘만, 고른 탭은 아이콘 대신 × 만 남긴다 */
-@container (max-width: 76px) {
-  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-label { display: none; }
-  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab .pane-top-tab-title { justify-content: center; padding: 0; }
-  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-close { display: none; }
-  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active .pane-top-tab-kind { display: none; }
-  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active .pane-top-tab-title { flex: 0 0 4px; }
-  .topbar-panetab-zone .pane-tabs-menu .pane-top-tab.pane-top-tab-active .pane-top-tab-close { margin-inline: auto; }
-}

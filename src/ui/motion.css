@@ -189,3 +189,6 @@ li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron
     scroll-behavior: auto !important;
   }
 }
+
+/* 상단바 도구줄의 도구 단추: 색 · 바탕만 120ms 로 바뀐다(움직임 없음) */
+.topbar-toolbar-host .pdf-compact-tool { transition: color 0.12s ease, background-color 0.12s ease; }

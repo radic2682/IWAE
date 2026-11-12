@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CANVAS_ENABLED } from '../core/features'
@@ -205,7 +205,7 @@ describe('만지는 칸 · 채널 가장자리 · 빈 칸 (PaneCard)', () => {
     expect(rule(css('screens.css'), '.panes-tree .pane-card')).toContain('overflow: hidden;')
     expect(rule(surface, '.panes-tree .pane-grid-tabs.topbar-panetab-zone.pane-head')).toContain('background: var(--pane-surface);')
     expect(rule(surface, '.panes-tree .pane-grid-tabs.topbar-panetab-zone.pane-head')).toContain('border-bottom: 0;')
-    expect(surface).toMatch(/\.pane-bottom-bar,\n\.pane-doc \.pane-bottom-bar \{[^}]*border: 0;[^}]*background: var\(--pane-body\);[^}]*box-shadow: none;/u)
+    expect(surface).toMatch(/\.pane-bottom-bar \{[^}]*border: 0;[^}]*background: var\(--pane-body\);[^}]*box-shadow: none;/u)
   })
 })
 
@@ -215,10 +215,8 @@ describe('한 높이 표준 --bar-h', () => {
     expect(tokens).toContain('--bar-h: 36px;')
     expect(tokens).toContain('--icon-btn: 28px;')
     expect(tokens).toContain('--icon-size: 16px;')
-    expect(tokens).toContain('--topbar-h: var(--toolbar-height);')
-    expect(tokens).toContain('--toolbar-height: var(--bar-h);')
-    expect(tokens).toContain('--tabbar-h: var(--bar-h);')
-    expect(tokens).toContain('--bottom-bar-height: var(--bar-h);')
+    // 별칭 토큰(--topbar-h · --toolbar-height · --tabbar-h · --bottom-bar-height)은 없다: 모두 --bar-h 를 바로 쓴다
+    for (const alias of ['--topbar-h', '--toolbar-height', '--tabbar-h', '--bottom-bar-height']) expect(tokens).not.toContain(`${alias}:`)
     expect(tokens).toContain('--pane-gap: 6px;')
   })
 
@@ -226,10 +224,11 @@ describe('한 높이 표준 --bar-h', () => {
     const surface = css('workspace-surface.css')
     expect(rule(surface, '.topbar')).toContain('height: var(--bar-h);')
     expect(rule(surface, '.panes-tree .pane-grid-tabs.topbar-panetab-zone.pane-head')).toMatch(/flex: 0 0 var\(--bar-h\);[^}]*height: var\(--bar-h\);/u)
-    expect(surface).toMatch(/\.pane-bottom-bar,\n\.pane-doc \.pane-bottom-bar \{[^}]*flex: 0 0 var\(--bar-h\);[^}]*height: var\(--bar-h\);/u)
-    // 옛 규칙이 되살려 쓰는 높이 변수도 같은 값을 가리킨다
-    expect(css('tokens.css')).toMatch(/--topbar-h: var\(--toolbar-height\);/u)
-    expect(css('pdf-followup.css')).toContain('.pane-doc .pane-bottom-bar { flex: 0 0 var(--bottom-bar-height); height: var(--bottom-bar-height); box-sizing: border-box; }')
+    expect(surface).toMatch(/\.pane-bottom-bar \{[^}]*flex: 0 0 var\(--bar-h\);[^}]*height: var\(--bar-h\);/u)
+    // 아래 막대의 자리 · 높이 · 여백은 workspace-surface.css 의 이 한 규칙뿐이다(다른 파일에 같은 선택자가 없어 불러오는 순서로 뒤집히지 않는다)
+    for (const name of readdirSync(join(process.cwd(), 'src/ui')).filter((file) => file.endsWith('.css') && file !== 'workspace-surface.css')) {
+      expect(css(name), name).not.toMatch(/(^|[\s,}])\.pane-bottom-bar\s*[,{]|\.pane-doc\s+\.pane-bottom-bar\s*[,{]/u)
+    }
   })
 
   it('사이드바 보기 탭은 탭 모양(whale-theme)을 그대로 두고 이 파일은 건드리지 않는다. 막대 안 아이콘 단추는 28px · 16px 이다', () => {
@@ -335,9 +334,12 @@ describe('상단바 도구줄 자리 — 만지는 칸의 도구줄만', () => {
     expect(slot).toContain('position: static;')
     expect(slot).toContain('overflow: hidden;')
     expect(slot).toContain('min-width: 0;')
-    expect(rule(surface, '.topbar-toolbar-host.pane-doc')).toContain('flex: 1 1 0;')
-    const dock = rule(surface, '.topbar-toolbar-slot .note-format-dock')
-    expect(dock).toContain('position: static;')
+    // 도구줄 자리는 칸 안 도구줄의 .pane-doc 별칭을 빌려 오지 않고 자기 규칙을 가진다
+    expect(rule(surface, '.topbar-toolbar-host')).toContain('flex: 1 1 0;')
+    expect(surface).not.toContain('.topbar-toolbar-host.pane-doc')
+    const dock = rule(surface, '.topbar-toolbar-host .note-format-dock')
+    // 노트 서식 줄은 상단바 한 줄: 접착(sticky) · 아래 선 · 바탕 · 높이 띠가 없다
+    expect(dock).not.toContain('sticky')
     expect(dock).toContain('border: 0;')
     expect(dock).toContain('background: transparent;')
   })
@@ -514,5 +516,22 @@ describe('애니메이션 정리', () => {
 
   it('동작 줄이기(prefers-reduced-motion)는 전체에 걸려 있다', () => {
     expect(motion()).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\n  \*, \*::before, \*::after \{\n    animation-duration: 0\.01ms !important;/u)
+  })
+})
+
+describe('CSS 정리: 옛 크롬 탭 규칙을 이기려던 선택자 사슬 · 별칭이 없다', () => {
+  const all = readdirSync(join(process.cwd(), 'src/ui')).filter((name) => name.endsWith('.css')).map((name) => [name, css(name)] as const)
+
+  it('칸 머리 알약 탭 규칙은 보통 선택자다(.pane-head.pane-head 사슬 없음) · 옛 「상단 탭: 크롬 브라우저 모양」 규칙은 걷어 냈다', () => {
+    for (const [name, text] of all) {
+      expect(text, name).not.toMatch(/\.pane-head\.pane-head/u)
+      expect(text, name).not.toContain('상단 탭: 크롬 브라우저 모양')
+      expect(text, name).not.toMatch(/\.topbar-panetab-zone\s+\.pane-tabs-menu\s+\.pane-top-tab/u)
+    }
+    expect(css('workspace-surface.css')).toContain('.pane-head .pane-top-tab {')
+  })
+
+  it('색 · 높이 토큰의 옛 별칭을 쓰는 곳이 없다', () => {
+    for (const [name, text] of all) expect(text, name).not.toMatch(/var\(--(?:topbar-h|toolbar-height|tabbar-h|bottom-bar-height)\)/u)
   })
 })

@@ -103,7 +103,7 @@
   gap: 8px;
   width: min(360px, calc(100vw - 44px));
   /* 알약 위로 자라되 창 위(상단바) 밑까지만 */
-  max-height: min(420px, calc(100vh - var(--topbar-h) - var(--bottom-bar-height) - 96px));
+  max-height: min(420px, calc(100vh - var(--bar-h) - var(--bar-h) - 96px));
   box-sizing: border-box;
   padding: 10px 12px;
   border: 1px solid var(--divider);

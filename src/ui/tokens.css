@@ -64,13 +64,9 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --toolbar-height: var(--bar-h);
   --radius-control: var(--r-sm);
   --shadow-page: 0 1px 3px rgb(18 24 33 / 18%);
 
-  --topbar-h: var(--toolbar-height);
-  --tabbar-h: var(--bar-h);
-  --bottom-bar-height: var(--bar-h);
   /* 칸(둥근 카드) 사이 틈 = 칸 영역 바깥 여백. 칸막이는 이 틈 전체를 잡는다 */
   --pane-gap: 6px;
   --radius: var(--r-sm);

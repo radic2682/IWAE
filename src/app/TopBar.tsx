@@ -220,7 +220,7 @@ export function TopBar({
         )}
         {/* 지금 만지는 칸의 도구줄(MD · PDF 도구 · 노트 서식 줄). 남는 폭을 다 쓰고, 모자라면 도구줄이 스스로 「⋯」 로 접는다.
             바깥은 .pane-doc 별칭이다: 칸 안에서 쓰던 도구 단추 규칙(.pane-doc …)이 그대로 맞는다 */}
-        <div className="pane-doc topbar-toolbar-host" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
+        <div className="topbar-toolbar-host" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
           {toolbarOwner === null ? null : (
             <span className="topbar-owner-chip" data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 지금 만지는 칸의 것입니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />

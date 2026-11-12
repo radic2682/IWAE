@@ -366,24 +366,6 @@
   z-index: 2;
 }
 
-.pane-doc .pane-bottom-bar {
-  position: absolute;
-  z-index: 16;
-  right: auto;
-  bottom: 10px;
-  left: 50%;
-  width: max-content;
-  max-width: calc(100% - 20px);
-  height: auto;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  transform: translateX(-50%);
-}
 
 .pane-doc .pdf-bottom-bar-surface {
   display: flex;
@@ -919,18 +901,6 @@
 body.internal-dragging, body.internal-dragging * { cursor: copy !important; user-select: none !important; }
 [data-internal-drop].internal-drop-over { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent); }
 
-/* 하단바를 떠 있는 알약 대신 패널 아래에 붙인다(폭 전체, 위 경계선 하나) */
-.pane-doc .pane-bottom-bar {
-  position: relative;
-  bottom: auto;
-  left: auto;
-  flex: 0 0 auto;
-  width: auto;
-  max-width: none;
-  transform: none;
-  border-top: 1px solid var(--divider);
-  background: var(--chrome, var(--paper));
-}
 .pane-doc .pdf-bottom-bar-surface {
   justify-content: center;
   height: 38px;
@@ -989,8 +959,7 @@ body.internal-dragging, body.internal-dragging * { cursor: copy !important; user
     0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent),
     0 2px 10px var(--shadow-soft);
 }
-/* 하단바 높이를 왼쪽 바·캔버스 하단바와 같은 공통 값으로 */
-.pane-doc .pane-bottom-bar { flex: 0 0 var(--bottom-bar-height); height: var(--bottom-bar-height); box-sizing: border-box; }
+/* 하단바(.pane-bottom-bar)의 자리 · 높이 · 안쪽 여백은 workspace-surface.css 한 곳에서 정한다 */
 .pane-doc .pdf-bottom-bar-surface { height: 100%; }
 
 /* 키보드로 들어오면 어디에 있는지 보이게: 쪽 번호·배율 입력칸 */

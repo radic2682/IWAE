@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const css = readFileSync('src/ui/tab-drag.css', 'utf8')
@@ -8,7 +8,10 @@ describe('탭 끌기 CSS', () => {
   it('원래 탭(구멍)은 ×·고른 탭 바탕이 !important 로 사라지고 점선 칸이 칸 전체를 채운다', () => {
     expect(css).toMatch(/\.pane-top-tab\[data-dragging\]\s*\{[^}]*background:\s*transparent\s*!important/su)
     expect(css).toMatch(/\.pane-top-tab\[data-dragging\]\s*>\s*\*\s*\{[^}]*opacity:\s*0\s*!important/su)
-    expect(css).toMatch(/\.pane-top-tab\[data-dragging\]::before\s*\{[^}]*inset:\s*0\s*!important[^}]*width:\s*auto\s*!important[^}]*border:\s*1px dashed[^}]*!important/su)
+    expect(css).toMatch(/\.pane-top-tab\[data-dragging\]::before\s*\{[^}]*inset:\s*0;[^}]*border:\s*1px dashed/su)
+    // 구멍 점선 칸(::before)은 탭 모양 규칙과 따로 이 파일 한 곳에서만 정한다
+    const owners = readdirSync('src/ui').filter((name) => name.endsWith('.css') && /pane-top-tab\[data-dragging\]::before/u.test(readFileSync(`src/ui/${name}`, 'utf8')))
+    expect(owners).toEqual(['tab-drag.css'])
   })
 
   it('들린 껍질은 머리 바탕 · 선 · 여백을 갖지 않는다(탭 하나만 들린다)', () => {

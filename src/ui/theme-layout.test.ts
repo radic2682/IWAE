@@ -87,15 +87,13 @@ describe('공통 스타일 토큰 경계', () => {
       '--border-subtle',
       '--accent',
       '--source-edge',
-      '--toolbar-height',
-      '--bottom-bar-height',
       '--radius-control',
       '--shadow-page',
     ]) expect(tokens).toContain(`${token}:`)
     // 한 높이 표준: 상단바 · 칸 탭 줄 · 아래 막대 모두 --bar-h(36px)
     expect(tokens).toContain('--bar-h: 36px')
-    expect(tokens).toContain('--toolbar-height: var(--bar-h)')
-    expect(tokens).toContain('--bottom-bar-height: var(--bar-h)')
+    // 별칭 토큰은 없다(모두 --bar-h 를 바로 쓴다)
+    for (const alias of ['--toolbar-height', '--bottom-bar-height', '--topbar-h', '--tabbar-h']) expect(tokens).not.toContain(alias + ':')
   })
 
   it('반복되는 떠 있는 컨트롤 색상과 크기를 tokens.css 밖에 직접 쓰지 않는다', () => {
@@ -163,7 +161,7 @@ describe('설정 및 업데이트 surface', () => {
     const css = readFileSync('src/ui/notice-stack.css', 'utf8')
     expect(css).toMatch(/\.notice-stack\s*\{[^}]*position:\s*fixed/su)
     expect(css).toMatch(/\.notice-stack\s*\{[^}]*right:\s*22px/su)
-    expect(css).toMatch(/\.notice-stack\s*\{[^}]*bottom:\s*calc\(var\(--bottom-bar-height\)/su)
+    expect(css).toMatch(/\.notice-stack\s*\{[^}]*bottom:\s*calc\(var\(--bar-h\)/su)
     expect(css).toMatch(/\.notice-card\s*\{[^}]*background:\s*var\(--paper\)/su)
   })
 })
