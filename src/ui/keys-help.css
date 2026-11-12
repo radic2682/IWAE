@@ -10,13 +10,15 @@
 .keys-help-table code { font-size: 11.5px; }
 /* 열 폭: 키 · 동작 · 명령(남는 폭 전부). 명령은 고정폭 글꼴 한 덩어리씩이라 명령 안에서는 줄이 꺾이지 않고(.keys-help-item 이 nowrap), 여러 명령은 「 · 」 뒤에서만 꺾인다 */
 .keys-help-table { table-layout: fixed; }
-.keys-help-table th:nth-child(1) { width: 116px; }
-.keys-help-table th:nth-child(2) { width: 34%; }
+.keys-help-table th:nth-child(1) { width: 100px; }
+.keys-help-table th:nth-child(2) { width: 32%; }
+/* 동작 글은 낱말(띄어쓰기) 자리에서만 꺾는다: 「화면 닫/기」 처럼 낱말 가운데서 꺾이지 않게 */
+.keys-help-table td:nth-child(2) { word-break: keep-all; }
 .keys-help-item { white-space: nowrap; }
 .keys-help-sep { color: var(--text-dim); }
 .keys-help-command-note { color: var(--text-dim); }
 /* 본문: 왼쪽 좁은 칸(접두키 없이 되는 키) + 오른쪽 접두키 표, 명령줄 명령은 아래 전체 폭 */
-.keys-help .sko-body { grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); }
+.keys-help .sko-body { grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); }
 .keys-help .keys-help-commands { grid-column: 1 / -1; }
 /* 닫기 ×: 다른 대화상자처럼 머리 오른쪽 끝 */
 .keys-help .sko-close { margin-left: auto; }
