@@ -1452,7 +1452,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await runLine('next')
     after({ key: ':', code: 'Semicolon', shiftKey: true })
     fireEvent.keyDown(commandInput(), { key: 'ArrowUp' })
-    expect(commandInput().value).toBe(':next')
+    expect(commandInput().value).toBe(':next-window')
     fireEvent.keyDown(commandInput(), { key: 'Escape' })
     expect(screen.queryByRole('combobox', { name: '명령 찾기' })).toBeNull()
   })
