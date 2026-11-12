@@ -59,7 +59,7 @@ interface SplitPanesProps {
   /** 떠 있는 칸의 머리(탭 줄 + ▁ ⇲ × 단추). 없으면 칸 머리(renderHead)를 쓴다 */
   renderFloatHead?: (paneId: string) => React.ReactNode
   /** 떠 있는 칸의 자리 · 크기를 끌어 바꿨다 */
-  onFloatChange?: (paneId: string, patch: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h'>) => void
+  onFloatChange?: (paneId: string, patch: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h'> & { readonly anchor?: FloatAnchor }) => void
   /** 떠 있는 칸을 눌렀다: 맨 위로 올린다 */
   onFloatRaise?: (paneId: string) => void
 }
@@ -431,6 +431,7 @@ export function SplitPanes({
             <FloatLayer
               floats={floats}
               anchorRect={anchorRect}
+              screenRect={{ left: 0, top: 0, width: panesSize.width, height: panesSize.height }}
               epoch={epoch}
               renderHead={(paneId) => (renderFloatHead ?? ((id) => renderHead?.(id, -1)))(paneId)}
               renderBody={(paneId) => renderPane(paneId, -1)}

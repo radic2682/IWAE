@@ -55,6 +55,30 @@ export function floatBoxIn(float: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h' | 'co
   }
 }
 
+/**
+ * 붙은 칸이 떠 있는 칸보다 작은가(가로든 세로든). 그러면 칸 사각형에 가두지 않는다 — 가두면 아래 · 오른쪽이 잘린다.
+ * 접힌 칸은 머리 높이만 본다.
+ */
+export function floatOutgrowsAnchor(float: Pick<FloatingPane, 'w' | 'h' | 'collapsed'>, anchor: FloatSize): boolean {
+  return anchor.width < float.w || anchor.height < (float.collapsed ? FLOAT_HEAD_H : float.h)
+}
+
+/**
+ * 붙은 칸에 못 들어가는 떠 있는 칸의 상자: 화면(칸 영역 전체, screen) 안에 가둔다. 자리는 붙은 칸 안의 비율 자리를 화면 좌표로 옮긴 곳에서 시작해
+ * (칸을 따라다닌다) 화면 가장자리를 넘지 않게 민다. 상자는 화면 원점 기준이다.
+ */
+export function floatBoxOnScreen(float: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h' | 'collapsed'>, anchor: { readonly left: number; readonly top: number; readonly width: number; readonly height: number }, screen: FloatSize): FloatBox {
+  const w = clamp(float.w, Math.min(FLOAT_MIN_W, screen.width), screen.width)
+  const full = clamp(float.h, Math.min(FLOAT_MIN_H, screen.height), screen.height)
+  const h = float.collapsed ? Math.min(FLOAT_HEAD_H, screen.height) : full
+  return {
+    x: clamp(anchor.left + float.x * anchor.width, 0, screen.width - w),
+    y: clamp(anchor.top + float.y * anchor.height, 0, screen.height - h),
+    w,
+    h,
+  }
+}
+
 /** 끌어 옮기기: dx · dy 만큼 옮기되 붙은 곳 안에 가둔다 */
 export function moveFloatBox(box: FloatBox, dx: number, dy: number, anchor: FloatSize): FloatBox {
   return {

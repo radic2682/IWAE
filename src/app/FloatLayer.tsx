@@ -1,6 +1,6 @@
 import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { isDragExempt } from '../ui/dragExempt'
-import { FLOAT_HEAD_H, floatBoxIn, floatFromBox, moveFloatBox, resizeFloatBox, type FloatBox, type FloatSize } from './floatingPanes'
+import { FLOAT_HEAD_H, floatBoxIn, floatBoxOnScreen, floatFromBox, floatOutgrowsAnchor, moveFloatBox, resizeFloatBox, type FloatBox, type FloatSize } from './floatingPanes'
 import type { FloatAnchor, FloatingPane } from './screens'
 import { t } from '../i18n'
 import '../ui/floating-panes.css'
@@ -18,12 +18,14 @@ export interface FloatLayerProps {
   readonly floats: readonly FloatingPane[]
   /** 붙은 곳의 사각형. 없으면(그 칸이 숨었다) 그 떠 있는 칸은 그리지 않는다 */
   readonly anchorRect: (anchor: FloatAnchor) => AnchorRect | null
+  /** 칸 영역 전체(화면)의 사각형. 붙은 칸이 떠 있는 칸보다 작으면 여기에 가둔다 */
+  readonly screenRect?: AnchorRect
   /** 세션을 바꿀 때마다 오르는 번호(칸 보기를 새로 마운트하는 열쇠) */
   readonly epoch: number
   readonly renderHead: (paneId: string) => ReactNode
   readonly renderBody: (paneId: string) => ReactNode
   /** 끌기 · 크기 바꾸기가 끝났다(저장 모양의 자리 · 크기) */
-  readonly onChange: (paneId: string, patch: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h'>) => void
+  readonly onChange: (paneId: string, patch: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h'> & { readonly anchor?: FloatAnchor }) => void
   /** 눌렀다: 맨 위로 올린다 */
   readonly onRaise: (paneId: string) => void
 }
@@ -40,7 +42,7 @@ interface Gesture {
  * 오른쪽 아래 모서리로 크기를 바꾼다. 끄는 동안은 이 안에서만 다시 그리고 놓을 때 한 번 알린다.
  * 카드는 보통 칸과 같은 껍질(.pane-grid-cell · .pane-grid-tabs · .pane-grid-body)이라 탭 끌어 놓기 · 연결선이 그대로 알아본다.
  */
-export function FloatLayer({ floats, anchorRect, epoch, renderHead, renderBody, onChange, onRaise }: FloatLayerProps) {
+export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, renderBody, onChange, onRaise }: FloatLayerProps) {
   return (
     <>
       {floats.map((float) => {
@@ -51,6 +53,7 @@ export function FloatLayer({ floats, anchorRect, epoch, renderHead, renderBody, 
             key={`${epoch}:${float.paneId}`}
             float={float}
             anchor={anchor}
+            screen={screenRect ?? anchor}
             renderHead={renderHead}
             renderBody={renderBody}
             onChange={onChange}
@@ -62,18 +65,22 @@ export function FloatLayer({ floats, anchorRect, epoch, renderHead, renderBody, 
   )
 }
 
-function FloatCard({ float, anchor, renderHead, renderBody, onChange, onRaise }: {
+function FloatCard({ float, anchor, screen, renderHead, renderBody, onChange, onRaise }: {
   readonly float: FloatingPane
   readonly anchor: AnchorRect
+  readonly screen: AnchorRect
   readonly renderHead: (paneId: string) => ReactNode
   readonly renderBody: (paneId: string) => ReactNode
   readonly onChange: FloatLayerProps['onChange']
   readonly onRaise: FloatLayerProps['onRaise']
 }) {
-  const size: FloatSize = { width: anchor.width, height: anchor.height }
+  // 붙은 칸이 떠 있는 칸보다 작으면(가로든 세로든) 칸이 아니라 화면 전체에 가둔다: 칸에 가두면 아래 · 오른쪽이 잘리거나 옆 칸 위로 삐져나간다
+  const onScreen = float.anchor.kind === 'pane' && screen.width > 0 && screen.height > 0 && floatOutgrowsAnchor(float, anchor)
+  const frame = onScreen ? { left: screen.left, top: screen.top } : { left: anchor.left, top: anchor.top }
+  const size: FloatSize = onScreen ? { width: screen.width, height: screen.height } : { width: anchor.width, height: anchor.height }
   // 붙은 곳 크기를 아직 못 쟀으면(0) 저장된 크기 그대로 왼쪽 위에 둔다
   const measured = size.width > 0 && size.height > 0
-  const stored: FloatBox = measured ? floatBoxIn(float, size) : { x: 0, y: 0, w: float.w, h: float.collapsed ? FLOAT_HEAD_H : float.h }
+  const stored: FloatBox = !measured ? { x: 0, y: 0, w: float.w, h: float.collapsed ? FLOAT_HEAD_H : float.h } : onScreen ? floatBoxOnScreen(float, anchor, size) : floatBoxIn(float, size)
   const [live, setLive] = useState<FloatBox | null>(null)
   const liveRef = useRef<FloatBox | null>(null)
   const gesture = useRef<Gesture | null>(null)
@@ -105,10 +112,11 @@ function FloatCard({ float, anchor, renderHead, renderBody, onChange, onRaise }:
     setLive(null)
     if (done === null) return
     const saved = floatFromBox(float, done, size)
-    onChange(float.paneId, { x: saved.x, y: saved.y, w: saved.w, h: saved.h })
+    // 화면에 가두는 중에 옮겼으면 이제 화면에 붙인다(자리 비율이 화면 기준이 되었으니 칸을 따라다니지 않는다)
+    onChange(float.paneId, { x: saved.x, y: saved.y, w: saved.w, h: saved.h, ...(onScreen ? { anchor: { kind: 'screen' as const } } : {}) })
   }
 
-  const style: CSSProperties = { left: anchor.left + box.x, top: anchor.top + box.y, width: box.w, height: box.h }
+  const style: CSSProperties = { left: frame.left + box.x, top: frame.top + box.y, width: box.w, height: box.h }
   return (
     <div
       className="pane pane-grid-cell pane-float"
