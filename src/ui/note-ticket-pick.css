@@ -9,9 +9,9 @@
 
 .note-menu.note-gap-menu { width: 164px; }
 
-/* 떠오르는 모양: 다른 메뉴·팝오버와 같은 스프링(motion.css) */
+/* 떠오르는 모양: 다른 메뉴·팝오버와 같은 120ms 페이드(motion.css) */
 :is(.note-gap-menu, .note-ticket-picker, .note-ticket-places) {
-  animation: motion-fade-in var(--motion-fast) ease-out backwards, motion-pop-move var(--spring-bouncy-dur) var(--ease-spring-bouncy) backwards;
+  animation: motion-fade-in var(--motion-fast) ease-out backwards;
   transform-origin: top center;
 }
 

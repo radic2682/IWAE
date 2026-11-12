@@ -35,7 +35,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pane-focus-scope[data-pane-active] > *::after { animation: none; }
   .pane,
   .panes,
   .topbar-panetab-zone { transition: none; }
@@ -44,9 +43,6 @@
 /* 패널 구분선을 끄는 동안: 글자 골라짐·커서 깜빡임 없이 */
 body.pane-resizing, body.pane-resizing * { cursor: col-resize !important; user-select: none !important; }
 body.pane-resizing-row, body.pane-resizing-row * { cursor: row-resize !important; }
-
-/* 펼칠 때 새 패널이 처음 그려지는 순간 */
-@keyframes pane-appear { from { opacity: 0; } to { opacity: 1; } }
 
 /* 지금 만진 칸의 강조는 칸 카드의 테두리가 한다(screens.css .pane-card) */
 

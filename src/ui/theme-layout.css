@@ -1094,11 +1094,11 @@
 }
 
 
-/* 메모 카드에서 눌러 찾아간 형광펜: 잠깐 진해졌다가 돌아온다 */
-.selection-persistent-highlight.selection-highlight-flash { animation: selection-highlight-flash 1.2s ease-out 1; }
+/* 메모 카드에서 눌러 찾아간 형광펜: 도톰한 선(5px)이 한 번 400ms 동안 가라앉는다(조용한 한 번. 오래 깜빡이지 않는다) */
+.selection-persistent-highlight.selection-highlight-flash { animation: selection-highlight-flash 400ms ease-out 1; }
 @keyframes selection-highlight-flash {
-  0%, 35% { stroke-width: 6px; }
-  100% { stroke-width: 1.5px; }
+  from { stroke-width: 5px; }
+  to { stroke-width: 1.5px; }
 }
 
 .note-save-status {

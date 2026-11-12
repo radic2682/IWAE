@@ -113,16 +113,10 @@ body.pane-tab-dragging * { cursor: grabbing !important; user-select: none !impor
 }
 .tab-dock-preview.tab-dock-preview-on { opacity: 1; scale: 1; }
 
-/* 나눠서 새로 생긴 패널은 자라듯 나타난다 */
-@keyframes pane-grow-in {
-  from { opacity: 0; scale: 0.975; }
-  to { opacity: 1; scale: 1; }
-}
-.pane-focus-scope[data-pane-fresh] > * { animation: pane-grow-in 230ms var(--tab-drag-ease) both; }
+/* 나눠서 새로 생긴 패널은 바로 나타난다(자라는 애니메이션 pane-grow-in 은 없앴다) */
 
 @media (prefers-reduced-motion: reduce) {
   .tab-drag-ghost .pane-top-tab,
   .tab-dock-preview,
   .tab-gap-hint { transition: none; }
-  .pane-focus-scope[data-pane-fresh] > * { animation: none; }
 }

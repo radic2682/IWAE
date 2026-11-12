@@ -186,7 +186,6 @@
 .page-edit-card-pending {
   border: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent);
   background: color-mix(in srgb, var(--accent) 7%, transparent);
-  animation: motion-select-pop var(--spring-snap-dur) var(--ease-spring-snap) backwards;
 }
 .page-edit-card-pending.page-edit-card-selected { border-style: solid; border-color: var(--accent); }
 .page-edit-pending-chip {
