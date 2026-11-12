@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import { PaneShell } from './PaneShell'
 import { PaneToolbar, type PdfToolMode } from './PaneToolbar'
 import { PdfSearchPanel } from './PdfSearchPanel'
+import { TranslatorPanel } from './TranslatorPanel'
+import { TranslatorContext } from './translatorContext'
+import { updateTranslatorPanel, useTranslatorPanelState } from './translatorPanelState'
 import { clampZoom, stepZoom } from '../core/pdfZoom'
 import { peekInitialZoom } from './pendingViewState'
 import { usePdfSearch } from './usePdfSearch'
@@ -541,6 +544,10 @@ export function DocumentView(props: DocumentViewProps) {
   }, [canPrint, props.shortcutTarget])
 
   const isPdf = tab.kind === 'pdf'
+  // 떠 있는 번역기(번역을 켜 둔 때만): 열림·자리는 문서 종류마다 기억한다
+  const translatorService = useContext(TranslatorContext)
+  const translatorKind = tab.kind === 'markdown' ? 'markdown' : 'pdf'
+  const translatorState = useTranslatorPanelState(translatorKind)
   // 이 문서의 책갈피 핀(칸마다 같은 핀이 막대 옆에 꽂힌다)
   const docPins = useMemo(() => (docId === null ? [] : props.pins.filter((pin) => pin.docId === docId)), [docId, props.pins])
   const { onAddPin } = props
@@ -563,6 +570,8 @@ export function DocumentView(props: DocumentViewProps) {
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
       shortcutsEnabled={props.shortcutTarget}
+      translatorOpen={translatorState.open}
+      onToggleTranslator={translatorService === null ? undefined : () => updateTranslatorPanel(translatorKind, { open: !translatorState.open })}
       cleanView={props.pdfViewPrefs.clean === true}
       onCleanViewChange={(clean) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, clean })}
       onlyOpenNotes={tab.kind === 'pdf' ? props.pdfViewPrefs.onlyOpenNotes === true : undefined}
@@ -704,6 +713,7 @@ export function DocumentView(props: DocumentViewProps) {
         placeholder={props.placeholder}
         toolbar={toolbar}
         bottomBar={bottomBar ?? markdownBottomBar}
+        overlay={translatorService !== null && translatorState.open ? <TranslatorPanel kind={translatorKind} /> : undefined}
         renderBody={() => {
           const renderMarkdownCell = (index: number) => props.markdownSource === undefined ? null : (
               <MarkdownPane

@@ -25,10 +25,11 @@
   padding: 8px 10px;
 }
 
-.translation-card-header { border-bottom: 1px solid var(--divider); }
+/* 머리 줄을 잡고 끌어 옮긴다(단추·목록은 그대로 눌린다) */
+.translation-card-header { border-bottom: 1px solid var(--divider); cursor: grab; touch-action: none; user-select: none; }
+.translation-card-header:active { cursor: grabbing; }
 .translation-card-footer { border-top: 1px solid var(--divider); flex-wrap: wrap; }
 .translation-card-spacer { flex: 1 1 auto; }
-.translation-card-pair { position: relative; }
 
 .translation-card-chip,
 .translation-card-button,
@@ -130,41 +131,6 @@
 .translation-card-button.translation-card-primary:is(:hover, :focus-visible):not(:disabled) {
   background: color-mix(in srgb, var(--accent) 86%, var(--text-strong));
 }
-
-.translation-card-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 6;
-  display: grid;
-  gap: 1px;
-  min-width: 150px;
-  padding: 5px;
-  border: 1px solid var(--divider);
-  border-radius: var(--r-md);
-  background: var(--paper);
-  box-shadow: 0 12px 32px rgb(var(--rgb-black) / .32);
-}
-
-.translation-card-menu > button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-strong);
-  font: inherit;
-  font-size: 12.5px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.translation-card-menu > button:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
-.translation-card-menu > button.translation-card-menu-current { color: var(--accent); }
-.translation-card-menu-check { display: grid; place-items: center; flex: 0 0 14px; }
 
 /* 쪽 위의 상자·그림 겹침(z-index 4)보다 위에 둔다 */
 .selection-actions-anchor:has(.translation-card) { z-index: 6; }

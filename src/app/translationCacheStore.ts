@@ -14,7 +14,7 @@ function readEnabled(): boolean {
   try { return window.localStorage.getItem(ENABLED_KEY) !== 'off' } catch { return true }
 }
 
-type TranslateFn = (text: string, targetLanguage?: string) => Promise<{ readonly text: string } | null>
+type TranslateFn = (text: string, targetLanguage?: string, sourceLanguage?: string) => Promise<{ readonly text: string } | null>
 
 let entries: readonly TranslationCacheEntry[] = []
 let enabled = readEnabled()
@@ -53,13 +53,13 @@ export async function translateWithCache(text: string, meta: { readonly docId?: 
 }
 
 /** 번역기를 직접 넘겨 쓰는 판(App 은 자기 번역기를 쓴다) */
-export async function translateWithCacheUsing(fn: TranslateFn | null, text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false, targetOverride?: string): Promise<string | null> {
+export async function translateWithCacheUsing(fn: TranslateFn | null, text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false, targetOverride?: string, sourceOverride?: string): Promise<string | null> {
   if (!force) {
     const hit = cachedTranslation(text, targetOverride)
     if (hit !== undefined) return hit
   }
   if (fn === null) return null
-  const result = await fn(text, targetOverride)
+  const result = await fn(text, targetOverride, sourceOverride)
   if (result === null) return null
   if (enabled && provider !== '') {
     entries = upsertTranslation(entries, { source: text, translated: result.text, target: targetOverride ?? target, provider, at: new Date().toISOString(), ...meta })

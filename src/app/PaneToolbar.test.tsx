@@ -221,4 +221,20 @@ describe('PaneToolbar — GitHub 와 이어진 Markdown', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '최신으로 받기 (3)' }))
     expect(onAction).toHaveBeenCalledWith('pull')
   })
+
+  it('번역기 단추는 번역을 켠 때(onToggleTranslator 를 줄 때)만 PDF·Markdown 도구줄에 나온다', () => {
+    for (const kind of ['pdf', 'markdown'] as const) {
+      const onToggle = vi.fn()
+      const { rerender, unmount } = render(<PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} />)
+      expect(screen.queryByRole('button', { name: '번역기' })).toBeNull()
+      rerender(<PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} onToggleTranslator={onToggle} translatorOpen={false} />)
+      const button = screen.getByRole('button', { name: '번역기' })
+      expect(button.getAttribute('aria-pressed')).toBe('false')
+      fireEvent.click(button)
+      expect(onToggle).toHaveBeenCalledTimes(1)
+      rerender(<PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} onToggleTranslator={onToggle} translatorOpen />)
+      expect(screen.getByRole('button', { name: '번역기' }).getAttribute('aria-pressed')).toBe('true')
+      unmount()
+    }
+  })
 })

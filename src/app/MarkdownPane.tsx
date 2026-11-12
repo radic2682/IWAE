@@ -7,6 +7,7 @@ import { startInternalDrag } from '../core/internalDrag'
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useReducer,
@@ -66,6 +67,7 @@ import type { ReaderPaneToolMode } from './PaneToolbar'
 import '../ui/sidebar-followup.css'
 import { ContextMenu } from '../ui/ContextMenu'
 import { TranslationCard, useEffectiveTargetLanguage } from '../ui/TranslationCard'
+import { publishReaderSelection } from './readerSelectionStore'
 import { documentContextEntries } from '../ui/documentContextMenu'
 
 interface MarkdownPaneProps {
@@ -79,7 +81,7 @@ interface MarkdownPaneProps {
   theme?: MarkdownThemeId
   interactionMode?: ReaderPaneToolMode
   searchQuery?: string
-  onTranslateSelection?: (text: string, options?: { readonly force?: boolean; readonly targetLanguage?: string }) => Promise<MarkdownSelectionTranslation | null>
+  onTranslateSelection?: (text: string, options?: { readonly force?: boolean; readonly targetLanguage?: string; readonly sourceLanguage?: string }) => Promise<MarkdownSelectionTranslation | null>
   onSendTranslatedSelection?: (
     payload: MarkdownExcerptDragPayload,
     translation: MarkdownSelectionTranslation,
@@ -924,8 +926,16 @@ export function MarkdownPane({
     setTranslationState({ status: 'idle' })
   }, [memoBarVisible, onBoxHighlightCreated, path, sourceFileId, sourceHash, title, zoom])
 
+  // 떠 있는 번역기의 「선택한 글 넣기」가 읽을 수 있게 고른 글을 알린다
+  const readerSelectionId = useId()
+  const selectedQuote = action?.payload.selection.quote ?? ''
+  useEffect(() => {
+    publishReaderSelection(readerSelectionId, selectedQuote)
+    return () => publishReaderSelection(readerSelectionId, '')
+  }, [readerSelectionId, selectedQuote])
+
   const translationRequest = useRef(0)
-  const { override } = useEffectiveTargetLanguage(action?.payload.selection.quote ?? '')
+  const { override, sourceOverride } = useEffectiveTargetLanguage(action?.payload.selection.quote ?? '')
   const translateSelection = useCallback(async (force = false, supersede = false) => {
     if (action === null || onTranslateSelection === undefined || (translationState.status === 'pending' && !supersede)) return
     const current = translationRequest.current + 1
@@ -933,7 +943,7 @@ export function MarkdownPane({
     setTranslationState({ status: 'pending' })
     try {
       const quote = action.payload.selection.quote
-      const options = { ...(force ? { force: true } : {}), ...(override === undefined ? {} : { targetLanguage: override }) }
+      const options = { ...(force ? { force: true } : {}), ...(override === undefined ? {} : { targetLanguage: override }), ...(sourceOverride === undefined ? {} : { sourceLanguage: sourceOverride }) }
       const translation = await (Object.keys(options).length > 0 ? onTranslateSelection(quote, options) : onTranslateSelection(quote))
       if (translationRequest.current !== current) return
       setTranslationState(translation === null
@@ -946,7 +956,7 @@ export function MarkdownPane({
         message: error instanceof Error ? error.message : String(error),
       })
     }
-  }, [action, onTranslateSelection, translationState.status, override])
+  }, [action, onTranslateSelection, translationState.status, override, sourceOverride])
   const closeTranslationCard = useCallback(() => {
     translationRequest.current += 1
     setTranslationState({ status: 'idle' })

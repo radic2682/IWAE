@@ -24,13 +24,15 @@ interface PaneShellProps {
   toolbar?: ReactNode
   /** PDF 위 아래에 떠 있는 페이지·배율 조작줄. */
   bottomBar?: ReactNode
+  /** 내용 영역(.pane-body) 위에 떠 있는 창(번역기). 도구줄·아래 막대는 가리지 않는다 */
+  overlay?: ReactNode
 }
 
 /**
  * 도구줄 + 활성 내용 영역 한 벌. 탭바는 TopBar에 있고(창 제목줄이 두 패널의
  * 탭을 함께 얹는다). 여기 남는 것은 그 패널만의 도구줄과 내용 하나뿐이다.
  */
-export function PaneShell({ state, emptyHint, placeholder, renderBody, toolbar, bottomBar }: PaneShellProps) {
+export function PaneShell({ state, emptyHint, placeholder, renderBody, toolbar, bottomBar, overlay }: PaneShellProps) {
   const active = activeTab(state)
   const body = active !== null && renderBody !== undefined ? renderBody(active) : null
   // 탭이 없는 빈 창도 문서 창과 같은 높이의 빈 머리 줄을 둔다 — 왼쪽 바·문서 도구줄·노트 바 머리로 이어지는 가로선이 끊기지 않게
@@ -53,6 +55,7 @@ export function PaneShell({ state, emptyHint, placeholder, renderBody, toolbar, 
             </span>
           </div>
         )}
+        {overlay}
       </div>
       {bottomBar === undefined ? null : <div className="pane-bottom-bar">{bottomBar}</div>}
     </div>
