@@ -926,8 +926,10 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 /* ---------- Markdown 뷰어: PDF 와 같은 읽기 틀(작업 바탕 위 종이, 같은 스크롤바, 배율) ---------- */
 .pane-doc .markdown-pane-host { background: var(--workspace); }
 .pane-doc .markdown-pane {
-  --md-paper-w: calc(820px * var(--md-zoom, 1));
-  padding: 18px 0 40px;
+  /* 종이 폭은 배율 × 820 이되 칸보다 넓어지지 않는다(좁은 칸에서 종이가 칸 폭에 맞는다) */
+  --md-paper-w: min(calc(820px * var(--md-zoom, 1)), 100%);
+  /* 양옆 24px 는 어느 폭에서도 남긴다 — 글이 종이 가장자리에 붙거나 잘리지 않는다(넓은 칸은 글 칸이 가운데라 그대로) */
+  padding: 18px 24px 40px;
   --md-center: 50%;
   scrollbar-width: none;
   /* 종이: 가운데 흰 기둥(내용과 함께 스크롤된다) */
