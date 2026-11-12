@@ -3,6 +3,7 @@ import { channelOf, parseChannel, type PaneChannel, type PaneChannels } from '..
 import { layoutForLegacyId, leaves, legacyPaneCount, newPaneId, paneNode, parseLayoutTree, renamePane, reservePaneIds, type LayoutNode } from './layoutTree'
 import { newScreenId, reserveScreenIds, screenPaneIds, type FloatAnchor, type FloatingPane, type ScreensState } from '../app/screens'
 import { isPdfSplitLayoutId, type PdfSplitLayoutId } from './pdfSplit'
+import { isLegacyTranslatorTabId, type LegacyTranslatorFloat } from '../app/translatorPanelState'
 
 /** 칸 하나가 저장하는 것: 탭 id 들(차례대로), 보던 탭, 색 채널 */
 export interface PaneSnapshot {
@@ -39,6 +40,8 @@ export interface SessionState {
   leftFrac: number
   /** 화면들(이름 · 순서 · 화면마다 트리와 칸 상태). 없으면(단계 1 이전·단계 1 세션) 아래 layout·paneState 가 「읽기」 화면 하나가 된다 */
   screens?: readonly ScreenSnapshot[]
+  /** 번역기 탭을 담은 떠 있는 칸이 저장돼 있던 세션(2026-11-12): 그 칸의 자리 · 크기. 번역기는 이제 창 하나라서 칸 · 탭은 읽을 때 버리고 이 값으로 창을 연다. 읽기 전용 — 새로 저장하지 않는다 */
+  legacyTranslator?: LegacyTranslatorFloat
   /** 보던 화면의 id · 바로 앞에 보던 화면의 id */
   activeScreen?: string
   lastScreen?: string | null
@@ -201,6 +204,34 @@ function parseFloats(raw: unknown, treeIds: ReadonlySet<string>): FloatingPane[]
   return out
 }
 
+/**
+ * 번역기는 한때 떠 있는 칸의 탭이었다(탭 id `translator:칸 id`). 지금은 창 하나라서 그 탭은 버리고,
+ * 번역기 탭만 담았던 떠 있는 칸은 칸 · 상태째 없앤다. 처음 만난 번역기 칸의 자리 · 크기는 found 에 남겨 창으로 옮기게 한다(순수: 입력은 바꾸지 않는다).
+ */
+export function withoutTranslatorFloats(
+  floats: readonly FloatingPane[],
+  state: Readonly<Record<string, PaneSnapshot>>,
+  found: { translator?: LegacyTranslatorFloat } = {},
+): { floats: FloatingPane[]; state: Record<string, PaneSnapshot> } {
+  const kept: FloatingPane[] = []
+  const next: Record<string, PaneSnapshot> = { ...state }
+  for (const float of floats) {
+    const saved = state[float.paneId]
+    const ids = saved?.tabIds ?? []
+    if (ids.length > 0 && ids.every(isLegacyTranslatorTabId)) {
+      found.translator ??= { x: float.x, y: float.y, w: float.w, h: float.h }
+      delete next[float.paneId]
+      continue
+    }
+    kept.push(float)
+    if (saved !== undefined && ids.some(isLegacyTranslatorTabId)) {
+      const tabIds = ids.filter((id) => !isLegacyTranslatorTabId(id))
+      next[float.paneId] = { ...saved, tabIds, activeId: saved.activeId !== null && tabIds.includes(saved.activeId) ? saved.activeId : null }
+    }
+  }
+  return { floats: kept, state: next }
+}
+
 /** 저장된 채널 하나: 모르는 값·없는 값은 기본(파랑), 저장된 null(연동 없음)은 그대로 */
 function channelOrBlue(value: unknown): PaneChannel {
   const parsed = parseChannel(value)
@@ -223,7 +254,7 @@ function isNullableString(value: unknown): value is string | null {
  * 저장된 화면들을 읽는다. 하나도 못 읽으면 undefined(옛 모양으로 본다). 화면 id · 칸 id 가 겹치면(손으로 고친 파일) 뒤의 것에 새 id 를 준다 —
  * 칸 id 는 모든 화면에서 한 번씩만 나와야 칸별 보기 상태가 섞이지 않는다.
  */
-function parseScreens(raw: unknown): ScreenSnapshot[] | undefined {
+function parseScreens(raw: unknown, found: { translator?: LegacyTranslatorFloat } = {}): ScreenSnapshot[] | undefined {
   if (!Array.isArray(raw)) return undefined
   const out: ScreenSnapshot[] = []
   const usedScreens = new Set<string>()
@@ -232,9 +263,10 @@ function parseScreens(raw: unknown): ScreenSnapshot[] | undefined {
     if (!isRecord(item) || typeof item.id !== 'string' || item.id === '' || typeof item.name !== 'string') continue
     const tree = parseLayoutTree(item.layout)
     if (tree === null) continue
-    const floats = parseFloats(item.floats, new Set(leaves(tree)))
-    const state = parsePaneState(item.paneState, tree, floats.map((float) => float.paneId))
-    if (state === undefined) continue
+    const allFloats = parseFloats(item.floats, new Set(leaves(tree)))
+    const parsedState = parsePaneState(item.paneState, tree, allFloats.map((float) => float.paneId))
+    if (parsedState === undefined) continue
+    const { floats, state } = withoutTranslatorFloats(allFloats, parsedState, found)
     let layout = tree
     const paneState: Record<string, PaneSnapshot> = {}
     let zoomed = typeof item.zoomed === 'string' ? item.zoomed : null
@@ -294,7 +326,8 @@ export function parseSession(raw: unknown): SessionState {
   const tree = raw.layout === undefined ? null : parseLayoutTree(raw.layout)
   const paneState = tree === null ? undefined : parsePaneState(raw.paneState, tree)
   const workspace = tree !== null && paneState !== undefined ? { layout: tree, paneState } : {}
-  const screens = parseScreens(raw.screens)
+  const legacyTranslator: { translator?: LegacyTranslatorFloat } = {}
+  const screens = parseScreens(raw.screens, legacyTranslator)
   const activeScreen = screens !== undefined && typeof raw.activeScreen === 'string' && screens.some((screen) => screen.id === raw.activeScreen) ? raw.activeScreen : screens?.[0]?.id
   const lastScreen = screens !== undefined && typeof raw.lastScreen === 'string' && raw.lastScreen !== activeScreen && screens.some((screen) => screen.id === raw.lastScreen) ? raw.lastScreen : null
   const legacyChannels = raw.paneChannels === undefined ? undefined : parseLegacyChannels(raw.paneChannels)
@@ -310,6 +343,7 @@ export function parseSession(raw: unknown): SessionState {
     leftFrac: raw.leftFrac,
     ...workspace,
     ...(screens === undefined || activeScreen === undefined ? {} : { screens, activeScreen, lastScreen }),
+    ...(legacyTranslator.translator === undefined ? {} : { legacyTranslator: legacyTranslator.translator }),
     ...(legacyChannels === undefined ? {} : { paneChannels: legacyChannels }),
     ...(raw.panes === undefined || parsePanes(raw.panes) === undefined ? {} : { panes: parsePanes(raw.panes) }),
   }

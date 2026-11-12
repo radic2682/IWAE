@@ -65,8 +65,8 @@ import { reconcileLibraryPdfEntries, reconcileMissingVaultPdfs, reconcileVaultIn
 import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
+import { adoptLegacyTranslatorFloat } from './translatorPanelState'
 import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
-import { isTranslatorTabId } from './floatingPanes'
 import { allScreenPaneIds, screenPaneIds, activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
@@ -179,8 +179,7 @@ function restoredScreens(
 ): ScreensState {
   const byId = new Map([...docs.tabs, ...notes.tabs].map((tab) => [tab.id, tab]))
   const placed = new Set(snapshot.screens.flatMap((screen) => [...leaves(screen.layout), ...(screen.floats ?? []).map((float) => float.paneId)].flatMap((pane) => screen.paneState[pane]?.tabIds ?? [])))
-  /** 번역기 탭은 파일이 없어서 id 만으로 만든다 */
-  const tabOf = (id: string): Tab[] => { const tab = byId.get(id); return tab !== undefined ? [tab] : isTranslatorTabId(id) ? [{ id, title: t('번역기'), kind: 'translator' }] : [] }
+  const tabOf = (id: string): Tab[] => { const tab = byId.get(id); return tab !== undefined ? [tab] : [] }
   const screens = snapshot.screens.map((screen, screenIndex): Screen => {
     const order = leaves(screen.layout)
     const first = screenIndex === 0
@@ -410,6 +409,8 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState): 
     ? session.activeNoteTabId
     : null
   // 앱 창(메인 창 · 세션에 붙은 새 창)은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창은 한 칸에서 시작한다
+  // 번역기 탭을 담은 떠 있는 칸이 저장돼 있던 세션이면 그 자리 · 크기로 번역기 창을 연다(칸 · 탭은 읽을 때 이미 버렸다)
+  if (session.legacyTranslator !== undefined && isAppClient(windowMode)) adoptLegacyTranslatorFloat(session.legacyTranslator)
   const snapshot = isAppClient(windowMode) && SPLIT_PANES_ENABLED
     ? screensFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage), t('읽기'))
     : singleScreenSnapshot(t('읽기'))

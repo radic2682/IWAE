@@ -2,21 +2,29 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { TranslationCardSettingsContext } from '../ui/TranslationCard'
 import { setTranslationSource } from '../ui/translationPair'
 import { publishReaderSelection } from './readerSelectionStore'
 import { TranslatorPanel } from './TranslatorPanel'
-import { paneNode, splitLeaf } from '../core/layoutTree'
-import { activeScreenOf, blankScreen, type Screen } from './screens'
-import { tabsOf } from './tabs'
-import type { FloatModel } from './floatingPanes'
+import { normalizeTabKind } from './tabs'
 import {
+  PANEL_MARGIN,
   TRANSLATOR_MIGRATED_KEY,
   TRANSLATOR_PANEL_STORAGE_KEY,
+  TRANSLATOR_WINDOW_H,
+  TRANSLATOR_WINDOW_STORAGE_KEY,
+  TRANSLATOR_WINDOW_W,
   finishLegacyTranslatorMigration,
-  migrateLegacyTranslators,
+  getTranslatorWindow,
+  isLegacyTranslatorTabId,
   placePanel,
   readLegacyTranslatorPanels,
+  reloadTranslatorWindow,
+  toggleTranslatorWindow,
+  translatorWindowFromFloat,
+  translatorWindowFromLegacy,
+  updateTranslatorWindow,
 } from './translatorPanelState'
 import { TranslatorContext, type TranslatorService } from './translatorContext'
 
@@ -31,12 +39,10 @@ function Harness({ service, target = 'ko' }: { readonly service: TranslatorServi
   )
 }
 
-/** 떠 있는 칸의 본문(번역기 탭의 내용)으로 그린다 */
-function renderInPane(service: TranslatorService) {
-  const host = document.createElement('div')
-  document.body.append(host)
-  const view = render(<Harness service={service} />, { container: host })
-  return { ...view, host }
+/** 번역기 창을 열어 그린다(창 전체에 떠 있는 창이라 칸 · 탭이 없다) */
+function renderOpen(service: TranslatorService) {
+  act(() => { updateTranslatorWindow({ open: true }) })
+  return render(<Harness service={service} />)
 }
 
 function makeService(): TranslatorService & { translate: ReturnType<typeof vi.fn> } {
@@ -47,9 +53,11 @@ function makeService(): TranslatorService & { translate: ReturnType<typeof vi.fn
 }
 
 const input = () => screen.getByLabelText('번역할 글') as HTMLTextAreaElement
+const windowEl = () => document.querySelector<HTMLElement>('.translator-window')!
 
 beforeEach(() => {
   window.localStorage.clear()
+  reloadTranslatorWindow()
   setTranslationSource('auto')
   act(() => { publishReaderSelection('test', '') })
 })
@@ -58,10 +66,10 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('번역기 탭의 내용', () => {
+describe('번역기 창의 내용', () => {
   it('Ctrl+Enter 로 번역하고 결과를 보인다', async () => {
     const service = makeService()
-    renderInPane(service)
+    renderOpen(service)
     fireEvent.change(input(), { target: { value: 'hello world, this is a test' } })
     fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true })
     await screen.findByLabelText('번역 결과')
@@ -71,7 +79,7 @@ describe('번역기 탭의 내용', () => {
 
   it('그냥 Enter 는 번역하지 않는다(줄바꿈)', () => {
     const service = makeService()
-    renderInPane(service)
+    renderOpen(service)
     fireEvent.change(input(), { target: { value: 'hello' } })
     fireEvent.keyDown(input(), { key: 'Enter' })
     expect(service.translate).not.toHaveBeenCalled()
@@ -81,7 +89,7 @@ describe('번역기 탭의 내용', () => {
     const service = makeService()
     let reject!: (error: Error) => void
     service.translate.mockReturnValue(new Promise((_resolve, rejectPromise) => { reject = rejectPromise }))
-    renderInPane(service)
+    renderOpen(service)
     fireEvent.change(input(), { target: { value: 'hello world' } })
     fireEvent.click(screen.getByRole('button', { name: '번역' }))
     expect((await screen.findByRole('status')).textContent).toBe('번역 중…')
@@ -92,7 +100,7 @@ describe('번역기 탭의 내용', () => {
   it('복사 단추는 결과를 클립보드에 넣는다', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    renderInPane(makeService())
+    renderOpen(makeService())
     fireEvent.change(input(), { target: { value: 'hello world' } })
     fireEvent.click(screen.getByRole('button', { name: '번역' }))
     await screen.findByLabelText('번역 결과')
@@ -102,7 +110,7 @@ describe('번역기 탭의 내용', () => {
 
   it('언어를 바꾸면 지금 글을 새 쌍으로 다시 번역한다', async () => {
     const service = makeService()
-    renderInPane(service)
+    renderOpen(service)
     fireEvent.change(input(), { target: { value: 'hello world, this is a test' } })
     fireEvent.click(screen.getByRole('button', { name: '번역' }))
     await screen.findByLabelText('번역 결과')
@@ -116,7 +124,7 @@ describe('번역기 탭의 내용', () => {
 
   it('⇄ 는 번역 결과를 입력으로 옮기고 거꾸로 번역한다', async () => {
     const service = makeService()
-    renderInPane(service)
+    renderOpen(service)
     fireEvent.change(input(), { target: { value: 'hello world, this is a test' } })
     fireEvent.click(screen.getByRole('button', { name: '번역' }))
     await screen.findByLabelText('번역 결과')
@@ -128,7 +136,7 @@ describe('번역기 탭의 내용', () => {
 
   it('「선택한 글 넣기」는 문서에서 고른 글이 있을 때만 나오고, 넣기만 한다(번역은 하지 않는다)', () => {
     const service = makeService()
-    renderInPane(service)
+    renderOpen(service)
     expect(screen.queryByRole('button', { name: '선택한 글 넣기' })).toBeNull()
     act(() => { publishReaderSelection('test', 'selected\ntext from the page') })
     fireEvent.click(screen.getByRole('button', { name: '선택한 글 넣기' }))
@@ -138,27 +146,19 @@ describe('번역기 탭의 내용', () => {
     expect(screen.queryByRole('button', { name: '선택한 글 넣기' })).toBeNull()
   })
 
-  it('Esc 는 칸을 닫지 않고 글쓰기 칸의 포커스만 뺀다', () => {
-    renderInPane(makeService())
+  it('Esc 는 창을 닫지 않고 글쓰기 칸의 포커스만 뺀다', () => {
+    renderOpen(makeService())
     input().focus()
     expect(document.activeElement).toBe(input())
     fireEvent.keyDown(input(), { key: 'Escape' })
     expect(document.activeElement).not.toBe(input())
     expect(screen.getByRole('region', { name: '번역기' })).toBeDefined()
-  })
-
-  it('스스로 떠 있지 않다: 머리 줄 · 닫기 · 크기 손잡이는 떠 있는 칸이 가진다', () => {
-    const { host } = renderInPane(makeService())
-    expect(host.querySelector('.translator-panel-header')).toBeNull()
-    expect(screen.queryByRole('button', { name: '번역기 닫기' })).toBeNull()
-    expect(screen.queryByRole('separator', { name: '번역기 크기 바꾸기' })).toBeNull()
-    const root = screen.getByRole('region', { name: '번역기' }) as HTMLElement
-    expect(root.style.left).toBe('')
-    expect(root.style.top).toBe('')
+    expect(getTranslatorWindow().open).toBe(true)
   })
 
   it('번역기를 설정하지 않았으면(서비스 없음) 입력 전에 안내한다', () => {
-    const view = render(
+    act(() => { updateTranslatorWindow({ open: true }) })
+    render(
       <TranslatorContext.Provider value={null}>
         <TranslationCardSettingsContext.Provider value={{ targetLanguage: 'ko', providerLabel: '', onChangeTargetLanguage: () => undefined }}>
           <TranslatorPanel />
@@ -166,30 +166,116 @@ describe('번역기 탭의 내용', () => {
       </TranslatorContext.Provider>,
     )
     expect(screen.getByRole('alert').textContent).toContain('번역기를 아직 설정하지 않았습니다')
-    view.unmount()
   })
 })
 
-describe('예전 떠 있는 번역기 값 옮기기', () => {
+describe('번역기는 탭이 아니라 앱 창 전체에 떠 있는 창이다', () => {
+  it('닫혀 있으면 아무것도 그리지 않고, 열면 body 에 고정된 창으로 그린다(칸 안이 아니다)', () => {
+    const { container } = render(<Harness service={makeService()} />)
+    expect(windowEl()).toBeNull()
+    act(() => { toggleTranslatorWindow() })
+    expect(windowEl()).not.toBeNull()
+    expect(windowEl().parentElement).toBe(document.body)
+    expect(container.querySelector('.translator-window')).toBeNull()
+    expect(screen.getByRole('dialog', { name: '번역기' })).toBeDefined()
+    act(() => { toggleTranslatorWindow() })
+    expect(windowEl()).toBeNull()
+  })
+
+  it('처음 크기는 작은 340×300 이고 기본 자리는 상단바 아래 오른쪽 위다(창 가장자리 6px 안쪽)', () => {
+    expect(TRANSLATOR_WINDOW_W).toBe(340)
+    expect(TRANSLATOR_WINDOW_H).toBe(300)
+    renderOpen(makeService())
+    const el = windowEl()
+    expect(el.style.width).toBe('340px')
+    expect(el.style.height).toBe('300px')
+    expect(Number.parseFloat(el.style.top)).toBe(36 + PANEL_MARGIN)
+    expect(Number.parseFloat(el.style.left) + 340).toBe(window.innerWidth - PANEL_MARGIN)
+  })
+
+  it('머리 줄에 번역기 제목 · 번역기 이름 · 닫기 단추가 있고, 닫기는 창을 닫는다', () => {
+    renderOpen(makeService())
+    const head = windowEl().querySelector('.translator-window-head')!
+    expect(head.textContent).toContain('번역기')
+    expect(head.textContent).toContain('Azure')
+    fireEvent.click(screen.getByRole('button', { name: '번역기 닫기' }))
+    expect(getTranslatorWindow().open).toBe(false)
+    expect(windowEl()).toBeNull()
+  })
+
+  it('머리 줄을 잡고 끌면 앱 창 안 어디로든 옮겨지고(상단바 아래 · 가장자리 안쪽), 놓은 자리를 기억한다', () => {
+    renderOpen(makeService())
+    const head = windowEl().querySelector<HTMLElement>('.translator-window-head')!
+    const startX = Number.parseFloat(windowEl().style.left)
+    const startY = Number.parseFloat(windowEl().style.top)
+    fireEvent.pointerDown(head, { button: 0, clientX: 500, clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(head, { clientX: 300, clientY: 220, pointerId: 1 })
+    fireEvent.pointerUp(head, { pointerId: 1 })
+    expect(Number.parseFloat(windowEl().style.left)).toBe(startX - 200)
+    expect(Number.parseFloat(windowEl().style.top)).toBe(startY + 120)
+    expect(getTranslatorWindow()).toMatchObject({ x: startX - 200, y: startY + 120 })
+    // 상단바 위로는 못 올라가고, 창 밖으로 나가지 않는다
+    fireEvent.pointerDown(head, { button: 0, clientX: 300, clientY: 220, pointerId: 1 })
+    fireEvent.pointerMove(head, { clientX: -9000, clientY: -9000, pointerId: 1 })
+    fireEvent.pointerUp(head, { pointerId: 1 })
+    expect(Number.parseFloat(windowEl().style.left)).toBe(PANEL_MARGIN)
+    expect(Number.parseFloat(windowEl().style.top)).toBe(36 + PANEL_MARGIN)
+  })
+
+  it('오른쪽 아래 모서리로 크기를 바꾸되 최소 크기 밑으로는 줄지 않는다', () => {
+    renderOpen(makeService())
+    const handle = screen.getByRole('separator', { name: '번역기 크기 바꾸기' })
+    fireEvent.pointerDown(handle, { button: 0, clientX: 800, clientY: 400, pointerId: 1 })
+    fireEvent.pointerMove(handle, { clientX: 700, clientY: 380, pointerId: 1 })
+    fireEvent.pointerUp(handle, { pointerId: 1 })
+    expect(windowEl().style.width).toBe('280px')
+    expect(windowEl().style.height).toBe('280px')
+    expect(getTranslatorWindow()).toMatchObject({ w: 280, h: 280 })
+  })
+
+  it('열림 · 자리 · 크기는 localStorage 에 하나만 적히고 다시 읽는다', () => {
+    updateTranslatorWindow({ open: true, x: 120, y: 90, w: 360, h: 320 })
+    expect(JSON.parse(window.localStorage.getItem(TRANSLATOR_WINDOW_STORAGE_KEY)!)).toEqual({ open: true, x: 120, y: 90, w: 360, h: 320 })
+    updateTranslatorWindow({ open: false })
+    reloadTranslatorWindow()
+    expect(getTranslatorWindow()).toEqual({ open: false, x: 120, y: 90, w: 360, h: 320 })
+  })
+
+  it('translator 는 탭 종류가 아니다: 저장된 탭 종류를 읽을 때 모르는 값이고, 예전 탭 id 만 알아본다', () => {
+    expect(normalizeTabKind('translator')).toBeNull()
+    expect(isLegacyTranslatorTabId('translator')).toBe(true)
+    expect(isLegacyTranslatorTabId('translator:p7')).toBe(true)
+    expect(isLegacyTranslatorTabId('translators/notes.md')).toBe(false)
+  })
+
+  it('번역기를 탭으로 만드는 코드가 없다(translator 탭 종류 · 번역기 떠 있는 칸 함수)', () => {
+    const tabs = readFileSync('src/app/tabs.ts', 'utf8')
+    const floats = readFileSync('src/app/floatingPanes.ts', 'utf8')
+    expect(tabs).not.toMatch(/'translator'/u)
+    expect(floats).not.toMatch(/translator/iu)
+  })
+})
+
+describe('예전 값 옮기기', () => {
   const legacyAt = (state: object) => ({ getItem: (key: string) => (key === TRANSLATOR_PANEL_STORAGE_KEY ? JSON.stringify(state) : null), setItem: vi.fn(), removeItem: vi.fn() })
 
-  it('칸이 작아지면 번역기도 칸 안으로 들어온다', () => {
-    const box = placePanel({ x: 700, y: 500, w: 340, h: 380 }, { width: 500, height: 400 })
-    expect(box.x + box.w).toBeLessThanOrEqual(500 - 8)
-    expect(box.y + box.h).toBeLessThanOrEqual(400 - 8)
-    expect(box.x).toBeGreaterThanOrEqual(8)
+  it('창이 줄면 번역기도 창 안으로 들어온다', () => {
+    const box = placePanel({ x: 700, y: 500, w: 340, h: 380 }, { width: 500, height: 400, top: 36 })
+    expect(box.x + box.w).toBeLessThanOrEqual(500 - PANEL_MARGIN)
+    expect(box.y + box.h).toBeLessThanOrEqual(400 - PANEL_MARGIN)
+    expect(box.x).toBeGreaterThanOrEqual(PANEL_MARGIN)
   })
 
-  it('칸 위에 떠 있는 도구줄(top) 아래에만 놓인다', () => {
-    const box = placePanel({ x: 100, y: 0, w: 340, h: 380 }, { width: 900, height: 900, top: 37 })
-    expect(box.y).toBeGreaterThanOrEqual(37 + 8)
-    const fresh = placePanel({ x: null, y: null, w: 340, h: 380 }, { width: 900, height: 900, top: 37 })
-    expect(fresh.y).toBeGreaterThanOrEqual(37 + 8)
-    const tall = placePanel({ x: 100, y: 0, w: 340, h: 2000 }, { width: 900, height: 600, top: 37 })
-    expect(tall.y + tall.h).toBeLessThanOrEqual(600 - 8)
+  it('상단바(top) 아래에만 놓인다', () => {
+    const box = placePanel({ x: 100, y: 0, w: 340, h: 380 }, { width: 900, height: 900, top: 36 })
+    expect(box.y).toBeGreaterThanOrEqual(36 + PANEL_MARGIN)
+    const fresh = placePanel({ x: null, y: null, w: 340, h: 300 }, { width: 900, height: 900, top: 36 })
+    expect(fresh).toMatchObject({ x: 900 - 340 - PANEL_MARGIN, y: 36 + PANEL_MARGIN })
+    const tall = placePanel({ x: 100, y: 0, w: 340, h: 2000 }, { width: 900, height: 600, top: 36 })
+    expect(tall.y + tall.h).toBeLessThanOrEqual(600 - PANEL_MARGIN)
   })
 
-  it('저장된 값을 문서 종류마다 읽고, 깨진 값 · 값이 없음 · 이미 옮김은 null', () => {
+  it('문서 종류별로 저장하던 값을 읽고, 깨진 값 · 값이 없음 · 이미 옮김은 null', () => {
     const read = readLegacyTranslatorPanels(legacyAt({ pdf: { open: true, x: 120, y: 40, w: 360, h: 300 }, markdown: { open: false } }))
     expect(read?.pdf).toEqual({ open: true, x: 120, y: 40, w: 360, h: 300 })
     expect(read?.markdown.open).toBe(false)
@@ -207,50 +293,15 @@ describe('예전 떠 있는 번역기 값 옮기기', () => {
     expect(storage.removeItem).toHaveBeenCalledWith(TRANSLATOR_PANEL_STORAGE_KEY)
   })
 
-  const modelWithDocPane = (): FloatModel => {
-    const screen: Screen = { ...blankScreen('읽기'), layout: paneNode('a'), panes: { a: { tabs: [{ id: 'd1', title: 'D', kind: 'pdf' }], activeId: 'd1' } }, channels: { a: 'blue' } }
-    return { screens: { screens: [screen], activeScreen: screen.id, lastScreen: null }, activePane: 'a' }
-  }
-  const legacyState = (pdf: object, markdown: object = { open: false }) => readLegacyTranslatorPanels(legacyAt({ pdf, markdown }))!
-
-  it('열어 두었던 번역기는 같은 종류의 문서를 보는 칸에 붙은 번역기 떠 있는 칸이 되고, 자리는 칸 크기에 대한 비율이다', () => {
-    const next = migrateLegacyTranslators(modelWithDocPane(), legacyState({ open: true, x: 100, y: 50, w: 360, h: 300 }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])
-    const floats = activeScreenOf(next.screens).floats
-    expect(floats).toHaveLength(1)
-    expect(floats[0]).toMatchObject({ anchor: { kind: 'pane', paneId: 'a' }, x: 100 / 800, y: 50 / 600, w: 360, h: 300, collapsed: false })
-    expect(tabsOf(activeScreenOf(next.screens).panes, floats[0]!.paneId).tabs[0]).toMatchObject({ kind: 'translator' })
-    // 사람이 만지던 칸은 그대로다
-    expect(next.activePane).toBe('a')
+  it('하나라도 열어 두었으면 창이 열린 채로 크기만 옮긴다(PDF 쪽 값 먼저, 자리는 기본). 둘 다 닫혀 있었으면 바꿀 것이 없다', () => {
+    const open = (pdf: object, markdown: object = { open: false }) => readLegacyTranslatorPanels(legacyAt({ pdf, markdown }))!
+    expect(translatorWindowFromLegacy(open({ open: true, x: 100, y: 50, w: 360, h: 300 }))).toEqual({ open: true, x: null, y: null, w: 360, h: 300 })
+    expect(translatorWindowFromLegacy(open({ open: false }, { open: true, w: 400, h: 350 }))).toEqual({ open: true, x: null, y: null, w: 400, h: 350 })
+    expect(translatorWindowFromLegacy(open({ open: false }))).toBeNull()
   })
 
-  it('칸이 작으면 칸 안으로 들어오게 옮기고, 칸 크기를 모르면 800×600 칸으로 본다', () => {
-    const small = migrateLegacyTranslators(modelWithDocPane(), legacyState({ open: true, x: 700, y: 500, w: 340, h: 380 }), [{ pane: 'a', kind: 'pdf', width: 500, height: 400 }])
-    const float = activeScreenOf(small.screens).floats[0]!
-    expect(float.x * 500 + float.w).toBeLessThanOrEqual(500 - 8 + 0.001)
-    const unknown = migrateLegacyTranslators(modelWithDocPane(), legacyState({ open: true, x: 100, y: 50, w: 360, h: 300 }), [{ pane: 'a', kind: 'pdf', width: 0, height: 0 }])
-    expect(activeScreenOf(unknown.screens).floats[0]).toMatchObject({ x: 100 / 800, y: 50 / 600 })
-  })
-
-  it('닫혀 있던 번역기 · 그 종류의 문서를 보는 칸이 없음 · 이미 그 칸에 번역기가 있음은 옮기지 않는다', () => {
-    const model = modelWithDocPane()
-    expect(migrateLegacyTranslators(model, legacyState({ open: false }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])).toBe(model)
-    expect(migrateLegacyTranslators(model, legacyState({ open: true }), [{ pane: 'a', kind: 'markdown', width: 800, height: 600 }])).toBe(model)
-    const once = migrateLegacyTranslators(model, legacyState({ open: true }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])
-    const twice = migrateLegacyTranslators(once, legacyState({ open: true }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])
-    expect(activeScreenOf(twice.screens).floats).toHaveLength(1)
-  })
-
-  it('PDF 와 Markdown 이 모두 열려 있었으면 각 종류의 칸에 하나씩 만든다', () => {
-    const screen: Screen = {
-      ...blankScreen('읽기'),
-      layout: splitLeaf(paneNode('a'), 'a', 'h', 'b'),
-      panes: { a: { tabs: [{ id: 'd1', title: 'D', kind: 'pdf' }], activeId: 'd1' }, b: { tabs: [{ id: 'm.md', title: 'M', kind: 'markdown' }], activeId: 'm.md' } },
-      channels: { a: 'blue', b: 'blue' },
-    }
-    const model: FloatModel = { screens: { screens: [screen], activeScreen: screen.id, lastScreen: null }, activePane: 'a' }
-    const next = migrateLegacyTranslators(model, legacyState({ open: true }, { open: true }), [
-      { pane: 'a', kind: 'pdf', width: 400, height: 600 }, { pane: 'b', kind: 'markdown', width: 400, height: 600 },
-    ])
-    expect(activeScreenOf(next.screens).floats.map((float) => float.anchor)).toEqual([{ kind: 'pane', paneId: 'a' }, { kind: 'pane', paneId: 'b' }])
+  it('번역기 떠 있는 칸은 앱 창 전체에 대한 비율 자리 · 크기로 창에 옮긴다(상단바 아래, 최소 크기 이상)', () => {
+    expect(translatorWindowFromFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, { width: 1600, height: 1000, top: 36 })).toEqual({ open: true, x: 800, y: 36 + 96, w: 340, h: 300 })
+    expect(translatorWindowFromFloat({ x: 0, y: 0, w: 120, h: 80 }, { width: 1600, height: 1000 })).toMatchObject({ x: 0, y: 0, w: 280, h: 240 })
   })
 })

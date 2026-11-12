@@ -17,9 +17,6 @@ export const FLOAT_MIN_H = 160
 export const FLOAT_HEAD_H = 34
 export const FLOAT_DEFAULT_W = 380
 export const FLOAT_DEFAULT_H = 300
-/** 번역기를 담은 떠 있는 칸의 처음 크기: 내용(언어 줄 · 입력 3줄 · 번역 단추 · 결과 3줄 · 복사)에 맞춰 작게. 이미 저장된 칸은 저장된 크기를 그대로 쓴다 */
-export const TRANSLATOR_FLOAT_W = 340
-export const TRANSLATOR_FLOAT_H = 300
 export const MAX_FLOATS = 4
 
 export interface FloatSize {
@@ -181,10 +178,10 @@ export function floatPane(model: FloatModel, pane: string = model.activePane): F
   return { model: put(model, next, pane) }
 }
 
-/** 떠 있는 칸의 탭을 tree 칸(target)에 합친다: 번역기 탭은 버리고 나머지는 뒤에 붙인다 */
+/** 떠 있는 칸의 탭을 tree 칸(target)에 합친다: 탭은 모두 뒤에 붙인다(잃지 않는다) */
 function mergeFloatTabs(panes: PanesState, float: string, target: string): PanesState {
   const { [float]: closed, ...rest } = panes
-  const keep = (closed?.tabs ?? []).filter((tab) => tab.kind !== 'translator')
+  const keep = closed?.tabs ?? []
   if (keep.length === 0 || rest[target] === undefined) return rest
   const have = new Set(rest[target]!.tabs.map((tab) => tab.id))
   const extra = keep.filter((tab) => !have.has(tab.id))
@@ -225,7 +222,7 @@ export function toggleFloating(model: FloatModel): FloatOutcome {
 }
 
 /**
- * 떠 있는 칸을 닫는다(× · kill-pane): 번역기 탭은 버리고, 다른 탭은 돌아갈 칸의 뒤에 합친다(탭은 잃지 않는다).
+ * 떠 있는 칸을 닫는다(× · kill-pane): 탭은 돌아갈 칸의 뒤에 합친다(탭은 잃지 않는다).
  * 이 칸에 붙어 있던 다른 떠 있는 칸은 없어질 일이 없다(떠 있는 칸에는 붙지 않는다).
  */
 export function closeFloat(model: FloatModel, paneId: string): FloatOutcome {
@@ -272,44 +269,4 @@ export function addFloat(model: FloatModel, input: FloatInput = {}): { readonly 
     floatsHidden: false,
   }
   return { model: put(model, next, paneId), paneId }
-}
-
-/** 번역기 탭(떠 있는 칸마다 하나, 탭 id 에 칸 id 가 들어 있다) */
-export const translatorTabId = (paneId: string): string => `translator:${paneId}`
-
-export const isTranslatorTabId = (id: string): boolean => id === 'translator' || id.startsWith('translator:')
-
-export function translatorTab(paneId: string): Tab {
-  return { id: translatorTabId(paneId), title: t('번역기'), kind: 'translator' }
-}
-
-/** 이 칸에 붙은(anchorPane 가 없으면 화면에 붙은) 번역기 떠 있는 칸 */
-export function translatorFloatFor(screen: Screen, anchorPane: string | undefined): FloatingPane | undefined {
-  return screen.floats.find((float) => {
-    const sameAnchor = anchorPane === undefined ? float.anchor.kind === 'screen' : float.anchor.kind === 'pane' && float.anchor.paneId === anchorPane
-    return sameAnchor && tabsOf(screen.panes, float.paneId).tabs.some((tab) => tab.kind === 'translator')
-  })
-}
-
-/**
- * display-popup: 번역기 탭을 담은 떠 있는 칸을 띄운다. 같은 곳에 붙은 번역기가 이미 있으면 새로 만들지 않고
- * 그 칸을 보이고(숨겨져 있었다면 숨김을 풀고, 접혀 있었다면 펼치고) 만진다.
- */
-export function openTranslatorFloat(model: FloatModel, anchorPane?: string): FloatOutcome {
-  const active = activeScreenOf(model.screens)
-  const existing = translatorFloatFor(active, anchorPane)
-  if (existing !== undefined) {
-    const shown: Screen = { ...active, floatsHidden: false, floats: active.floats.map((float) => (float.paneId === existing.paneId ? { ...float, collapsed: false } : float)) }
-    return { model: put(model, shown, existing.paneId) }
-  }
-  const paneId = newPaneId(allScreenPaneIds(model.screens))
-  const created = addFloat(model, { paneId, tab: translatorTab(paneId), ...(anchorPane === undefined ? {} : { anchorPane }), size: { w: TRANSLATOR_FLOAT_W, h: TRANSLATOR_FLOAT_H }, at: anchorPane === undefined ? { x: 0.6, y: 0.08 } : { x: 0.55, y: 0.05 } })
-  if ('error' in created) return created
-  return { model: created.model }
-}
-
-/** 번역기 단추: 이 칸의 번역기가 있으면 닫고, 없으면 연다 */
-export function toggleTranslatorFloat(model: FloatModel, anchorPane: string): FloatOutcome {
-  const existing = translatorFloatFor(activeScreenOf(model.screens), anchorPane)
-  return existing === undefined ? openTranslatorFloat(model, anchorPane) : closeFloat(model, existing.paneId)
 }

@@ -3,7 +3,7 @@ import type { PanesState, TabsState } from '../app/tabs'
 import { channelOf } from '../app/workspaceChannels'
 import { layoutForLegacyId, leaves, paneNode, shapeOf } from './layoutTree'
 import { PDF_SPLIT_LAYOUTS, type PdfSplitLayoutId } from './pdfSplit'
-import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singlePaneWorkspace, workspaceFromSession } from './session'
+import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singlePaneWorkspace, withoutTranslatorFloats, workspaceFromSession } from './session'
 
 const pdfTabs: TabsState = {
   tabs: [
@@ -337,7 +337,7 @@ describe('떠 있는 칸 저장과 읽기', () => {
       panes: {
         a: { tabs: [{ id: 'doc-a', title: 'A', kind: 'pdf' as const }], activeId: 'doc-a' },
         b: { tabs: [], activeId: null },
-        f1: { tabs: [{ id: 'translator:f1', title: '번역기', kind: 'translator' as const }], activeId: 'translator:f1' },
+        f1: { tabs: [{ id: 'note/m.iwnote', title: 'M', kind: 'memoNote' as const }], activeId: 'note/m.iwnote' },
         f2: { tabs: [{ id: 'doc-b', title: 'B', kind: 'pdf' as const }], activeId: 'doc-b' },
       } as PanesState,
       channels: { a: 'blue', b: 'green', f1: 'orange', f2: null } as Record<string, 'blue' | 'green' | 'orange' | null>,
@@ -358,13 +358,13 @@ describe('떠 있는 칸 저장과 읽기', () => {
     const screen = session.screens![0]!
     expect(screen.floats).toEqual(floating().screens[0]!.floats)
     expect(screen.floatsHidden).toBe(true)
-    expect(screen.paneState.f1).toEqual({ tabIds: ['translator:f1'], activeId: 'translator:f1', channel: 'orange' })
+    expect(screen.paneState.f1).toEqual({ tabIds: ['note/m.iwnote'], activeId: 'note/m.iwnote', channel: 'orange' })
     expect(screen.paneState.f2).toEqual({ tabIds: ['doc-b'], activeId: 'doc-b', channel: null })
     // 트리 칸은 그대로다
     expect(leaves(screen.layout)).toEqual(['a', 'b'])
   })
 
-  it('떠 있는 칸의 문서 탭도 탭 id 목록에 든다(번역기 탭은 파일이 없어 든 목록이 없다)', () => {
+  it('떠 있는 칸의 문서 탭도 탭 id 목록에 든다', () => {
     const session = roundTrip(floating())
     expect(session.pdfTabIds).toEqual(['doc-a', 'doc-b'])
   })
@@ -413,3 +413,84 @@ describe('떠 있는 칸 저장과 읽기', () => {
     expect(Number(fresh.slice(1))).toBeGreaterThan(77)
   })
 })
+
+describe('번역기 탭을 담았던 떠 있는 칸(2026-11-12 세션)은 번역기 창으로 옮긴다', () => {
+  const windowLayout = { sidebarCollapsed: false, sidebarPx: 280, leftFrac: 0.5 }
+  /** 예전 앱이 저장한 모양: 칸 id f1 이 번역기 탭 하나를 담은 떠 있는 칸 */
+  const legacyRaw = () => {
+    const state = {
+      screens: [{
+        id: 'w1',
+        name: '읽기',
+        layout: layoutForLegacyId('cols2', ['a', 'b']),
+        panes: {
+          a: { tabs: [{ id: 'doc-a', title: 'A', kind: 'pdf' as const }], activeId: 'doc-a' },
+          b: { tabs: [], activeId: null },
+          f1: { tabs: [{ id: 'doc-b', title: 'B', kind: 'pdf' as const }], activeId: 'doc-b' },
+        } as PanesState,
+        channels: { a: 'blue', b: 'green', f1: 'orange' } as Record<string, 'blue' | 'green' | 'orange' | null>,
+        zoomed: null,
+        floats: [{ paneId: 'f1', anchor: { kind: 'pane' as const, paneId: 'a' }, x: 0.55, y: 0.05, w: 340, h: 300, collapsed: false }],
+      }],
+      activeScreen: 'w1',
+      lastScreen: null,
+    }
+    const raw = JSON.parse(JSON.stringify(captureSession(state, windowLayout)))
+    raw.screens[0].paneState.f1 = { tabIds: ['translator:f1'], activeId: 'translator:f1', channel: 'orange' }
+    return raw
+  }
+
+  it('번역기 탭만 있던 떠 있는 칸은 칸 · 상태째 없애고, 그 자리 · 크기를 legacyTranslator 로 남긴다', () => {
+    const session = parseSession(legacyRaw())
+    const screen = session.screens![0]!
+    expect(screen.floats).toBeUndefined()
+    expect(screen.paneState.f1).toBeUndefined()
+    expect(leaves(screen.layout)).toEqual(['a', 'b'])
+    expect(session.legacyTranslator).toEqual({ x: 0.55, y: 0.05, w: 340, h: 300 })
+  })
+
+  it('다른 탭도 담은 떠 있는 칸은 번역기 탭만 버린다(탭 · 보던 탭 · 칸은 남는다)', () => {
+    const raw = legacyRaw()
+    raw.screens[0].paneState.f1 = { tabIds: ['translator:f1', 'doc-b'], activeId: 'translator:f1', channel: 'orange' }
+    const session = parseSession(raw)
+    const screen = session.screens![0]!
+    expect(screen.floats).toHaveLength(1)
+    expect(screen.paneState.f1).toEqual({ tabIds: ['doc-b'], activeId: null, channel: 'orange' })
+    // 비워 있던 칸이 아니라 번역기 칸만 옮기므로 legacyTranslator 는 없다
+    expect(session.legacyTranslator).toBeUndefined()
+  })
+
+  it('번역기 칸이 없으면 legacyTranslator 도 없고, 새로 저장하는 세션에는 번역기가 적히지 않는다', () => {
+    const saved = JSON.parse(JSON.stringify(captureSession(floatsFree(), windowLayout)))
+    expect(JSON.stringify(saved)).not.toContain('translator')
+    expect(parseSession(saved).legacyTranslator).toBeUndefined()
+  })
+
+  it('withoutTranslatorFloats 는 순수하다: 입력을 바꾸지 않고, 처음 만난 번역기 칸의 자리 · 크기만 알려 준다', () => {
+    const floats = [
+      { paneId: 't1', anchor: { kind: 'screen' as const }, x: 0.1, y: 0.2, w: 340, h: 300, collapsed: false },
+      { paneId: 't2', anchor: { kind: 'screen' as const }, x: 0.9, y: 0.9, w: 400, h: 400, collapsed: false },
+      { paneId: 'f', anchor: { kind: 'screen' as const }, x: 0, y: 0, w: 300, h: 300, collapsed: false },
+    ]
+    const state = {
+      t1: { tabIds: ['translator'], activeId: 'translator', channel: 'blue' as const },
+      t2: { tabIds: ['translator:t2'], activeId: null, channel: 'blue' as const },
+      f: { tabIds: ['doc'], activeId: 'doc', channel: 'blue' as const },
+    }
+    const found: { translator?: { x: number; y: number; w: number; h: number } } = {}
+    const result = withoutTranslatorFloats(floats, state, found)
+    expect(result.floats.map((float) => float.paneId)).toEqual(['f'])
+    expect(Object.keys(result.state)).toEqual(['f'])
+    expect(found.translator).toEqual({ x: 0.1, y: 0.2, w: 340, h: 300 })
+    expect(Object.keys(state)).toEqual(['t1', 't2', 'f'])
+    expect(floats).toHaveLength(3)
+  })
+})
+
+function floatsFree() {
+  return {
+    screens: [{ id: 'w1', name: '읽기', layout: paneNode('a'), panes: { a: { tabs: [], activeId: null } } as PanesState, channels: { a: 'blue' as const }, zoomed: null, floats: [] }],
+    activeScreen: 'w1',
+    lastScreen: null,
+  }
+}

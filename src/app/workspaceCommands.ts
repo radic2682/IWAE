@@ -6,7 +6,7 @@ import { t } from '../i18n'
 import { blankScreen, normalizeFloats, activeScreenOf, addScreen, breakPane, closeScreen, lastScreenOf, renameScreen, setZoomed, stepScreen, switchScreen, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { closePaneTree, type PaneSizer } from './tabDock'
 import { selectLayout, splitPane } from './paneLayoutOps'
-import { addFloat, closeFloat, embedPane, floatOf, floatPane, isFloatPane, openTranslatorFloat, selectableOrder, toggleFloating, type FloatOutcome } from './floatingPanes'
+import { addFloat, closeFloat, embedPane, floatOf, floatPane, isFloatPane, selectableOrder, toggleFloating, type FloatOutcome } from './floatingPanes'
 import { activeTab, isDocumentKind, tabsOf } from './tabs'
 import { channelOf, pruneChannels, withChannel, type PaneChannel } from './workspaceChannels'
 import type { LayoutPresetId, ScreenTemplateId } from './layoutPresets'
@@ -64,9 +64,11 @@ export interface CommandHost {
   noteBeside?: (pane: string) => Promise<void>
   displayPanes?: () => void
   listKeys?: () => void
-  /** 상태 줄을 명령줄로 연다(미리 채울 글) */
+  /** `:` 명령줄을 연다(명령 팔레트가 `:` 와 미리 채울 글로 열린다) */
   promptCommand?: (prefill: string) => void
-  /** 「화면을 닫을까요? y/n」 */
+  /** 번역기 창을 연다(display-popup 이름 없이 · 접두키 w). 이미 열려 있으면 그대로 */
+  openTranslator?: () => void
+  /** 「화면을 닫을까요?」 확인(접두키 &) */
   confirmKillWindow?: () => void
   showSessionMenu?: () => void
   /** 세션 이름들(없으면 세션 명령은 「지금은 안 됩니다」) */
@@ -668,10 +670,14 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     case 'toggle-floating':
       return apply(floatResult(toggleFloating(raw)))
     case 'display-popup': {
-      // 떠 있는 번역기(기본) 또는 열 문서 · 노트를 담은 떠 있는 칸. 문서를 보는 칸에서 부르면 그 칸에 붙는다
+      // 이름이 없으면 번역기 창(앱 창 전체에 떠 있다)을 연다. 이름이 있으면 열 문서 · 노트를 담은 떠 있는 칸. 문서를 보는 칸에서 부르면 그 칸에 붙는다
       const anchor = isDocumentKind(activeTab(tabsOf(activeScreenOf(model.screens).panes, model.activePane))?.kind ?? 'memoNote') ? model.activePane : undefined
       const query = restText(command)
-      if (query === '') return apply(floatResult(openTranslatorFloat(raw, anchor)))
+      if (query === '') {
+        if (host.openTranslator === undefined) return fail(t('지금은 안 됩니다'))
+        host.openTranslator()
+        return ok()
+      }
       if (host.open === undefined) return fail(t('지금은 안 됩니다'))
       const created = addFloat(raw, anchor === undefined ? {} : { anchorPane: anchor })
       if ('error' in created) return fail(created.error)

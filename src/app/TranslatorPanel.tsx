@@ -1,5 +1,6 @@
-import { useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type SyntheticEvent } from 'react'
-import { ArrowClockwise, Copy, TextAa, Translate } from '@phosphor-icons/react'
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type SyntheticEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { ArrowClockwise, Copy, TextAa, Translate, X } from '@phosphor-icons/react'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
 import { explainTranslationError, isTranslationNotConfigured } from '../core/translationErrors'
@@ -7,8 +8,10 @@ import { guessLanguage, normalizeSelectionText } from '../core/translationText'
 import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCardSettingsContext, useEffectiveTargetLanguage } from '../ui/TranslationCard'
 import { TranslationLanguageBar } from '../ui/TranslationLanguageBar'
 import { pickSource, pickTarget, setTranslationSource, sourceForNewText, swapPair, type LanguagePair } from '../ui/translationPair'
+import { isDragExempt } from '../ui/dragExempt'
 import { TranslatorContext } from './translatorContext'
 import { useReaderSelection } from './readerSelectionStore'
+import { PANEL_MIN_HEIGHT, PANEL_MIN_WIDTH, placePanel, updateTranslatorWindow, useTranslatorWindow, type PanelBox } from './translatorPanelState'
 import '../ui/translator-panel.css'
 
 type ResultState =
@@ -25,14 +28,42 @@ function friendlyError(message: string): string {
   return explained.kind === 'key' || explained.kind === 'quota' || explained.kind === 'region' ? explained.text : message
 }
 
+/** 상단바 높이(--bar-h): 번역기는 이 아래에만 놓인다 */
+const TOPBAR_H = 36
+
+interface Gesture {
+  readonly mode: 'move' | 'resize'
+  readonly startX: number
+  readonly startY: number
+  readonly box: PanelBox
+}
+
 /**
- * 번역기 탭의 내용(설계 5): 떠 있는 칸의 탭 하나다. 옮기기 · 크기 · 접기 · 닫기는 떠 있는 칸(머리와 모서리)이 하고,
- * 여기는 언어 줄 · 입력 · 번역 · 결과만 그린다. 예전에는 문서 칸 위에 스스로 떠 있는 창이었다.
+ * 번역기: 앱 창 전체에 떠 있는 창이다. 칸이나 탭에 붙지 않아서 창 안 어디로든 옮길 수 있고(상단바 아래 · 창 가장자리 안쪽),
+ * 머리 줄을 잡고 끌어 옮기고 오른쪽 아래 모서리로 크기를 바꾼다. 열림 · 자리 · 크기는 창 하나에 하나만 기억한다.
+ * 도구줄의 번역기 단추(와 접두키 w · display-popup)가 열고 닫는다. 닫혀 있으면 아무것도 그리지 않는다.
  */
 export function TranslatorPanel() {
+  const stored = useTranslatorWindow()
+  if (!stored.open) return null
+  return createPortal(<TranslatorWindow stored={stored} />, document.body)
+}
+
+function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTranslatorWindow> }) {
   const service = useContext(TranslatorContext)
   const settings = useContext(TranslationCardSettingsContext)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
+  // 앱 창 크기(창을 줄여도 번역기는 창 안에 머문다)
+  const [bounds, setBounds] = useState<{ readonly width: number; readonly height: number }>(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  useLayoutEffect(() => {
+    const measure = () => setBounds((current) => (current.width === window.innerWidth && current.height === window.innerHeight ? current : { width: window.innerWidth, height: window.innerHeight }))
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+  const [draft, setDraft] = useState<PanelBox | null>(null)
+  const gesture = useRef<Gesture | null>(null)
+  const placed = placePanel(draft ?? stored, { ...bounds, top: TOPBAR_H })
   const [input, setInput] = useState('')
   const [result, setResult] = useState<ResultState>({ status: 'idle' })
   const requestId = useRef(0)
@@ -126,15 +157,65 @@ export function TranslatorPanel() {
 
   const notConfigured = (result.status === 'error' && isTranslationNotConfigured(result.message)) || service === null
 
+  // 머리 줄 끌기 · 오른쪽 아래 모서리 크기 바꾸기. 창 밖으로는 나가지 않는다
+  const begin = (mode: Gesture['mode']) => (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || (mode === 'move' && isDragExempt(event.target))) return
+    event.preventDefault()
+    gesture.current = { mode, startX: event.clientX, startY: event.clientY, box: placed }
+    try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* 포인터를 잡지 못해도 끌기는 된다 */ }
+  }
+  const drag = (event: ReactPointerEvent<HTMLElement>) => {
+    const g = gesture.current
+    if (g === null) return
+    const dx = event.clientX - g.startX
+    const dy = event.clientY - g.startY
+    const area = { ...bounds, top: TOPBAR_H }
+    if (g.mode === 'move') {
+      setDraft(placePanel({ x: g.box.x + dx, y: g.box.y + dy, w: g.box.w, h: g.box.h }, area))
+    } else {
+      const w = Math.min(Math.max(g.box.w + dx, PANEL_MIN_WIDTH), bounds.width - g.box.x - 6)
+      const h = Math.min(Math.max(g.box.h + dy, PANEL_MIN_HEIGHT), bounds.height - g.box.y - 6)
+      setDraft(placePanel({ x: g.box.x, y: g.box.y, w, h }, area))
+    }
+  }
+  const end = (event: ReactPointerEvent<HTMLElement>) => {
+    if (gesture.current === null) return
+    gesture.current = null
+    try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { /* 이미 놓였다 */ }
+    if (draft !== null) updateTranslatorWindow({ x: draft.x, y: draft.y, w: draft.w, h: draft.h })
+    setDraft(null)
+  }
+
   return (
+    <div
+      className="translator-window"
+      role="dialog"
+      aria-modal="false"
+      aria-label={t('번역기')}
+      style={{ left: placed.x, top: placed.y, width: placed.w, height: placed.h }}
+      onKeyDown={onPanelKey}
+    >
+      <div
+        className="translator-window-head"
+        onPointerDown={begin('move')}
+        onPointerMove={drag}
+        onPointerUp={end}
+        onPointerCancel={end}
+      >
+        <Translate size={16} aria-hidden="true" />
+        <span className="translator-window-title">{t('번역기')}</span>
+        <span className="translator-panel-spacer" />
+        {service === null || service.providerLabel === '' ? null : <span className="translator-panel-provider">{service.providerLabel}</span>}
+        <button type="button" className="translator-window-close" aria-label={t('번역기 닫기')} title={t('닫기')} onClick={() => updateTranslatorWindow({ open: false })}>
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
     <div
       className="translator-panel"
       role="region"
       aria-label={t('번역기')}
-      onKeyDown={onPanelKey}
     >
       <div className="translator-panel-langs">
-        {service === null || service.providerLabel === '' ? null : <span className="translator-panel-provider">{service.providerLabel}</span>}
         <TranslationLanguageBar
           source={sourceChoice}
           target={target}
@@ -217,6 +298,16 @@ export function TranslatorPanel() {
           {t('복사')}
         </button>
       </div>
+    </div>
+      <div
+        className="translator-window-resize"
+        role="separator"
+        aria-label={t('번역기 크기 바꾸기')}
+        onPointerDown={begin('resize')}
+        onPointerMove={drag}
+        onPointerUp={end}
+        onPointerCancel={end}
+      />
     </div>
   )
 }

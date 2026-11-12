@@ -7,6 +7,7 @@ import { setWindowModeForTest } from '../core/windowMode'
 import type { SessionsMeta } from '../core/sessionNames'
 import type { SessionState } from '../core/session'
 import { parseSession } from '../core/session'
+import { getTranslatorWindow, reloadTranslatorWindow } from './translatorPanelState'
 
 vi.mock('../bridge/pdf', () => ({ invalidateDocument: vi.fn(), openPdf: vi.fn(), pageTextIndex: vi.fn(), pickPdfFile: vi.fn() }))
 vi.mock('../bridge/vault', () => ({
@@ -67,6 +68,7 @@ const sessionWithScreens = (names: readonly string[], prefix: string): SessionSt
 
 beforeEach(() => {
   localStorage.clear()
+  reloadTranslatorWindow()
   setWindowModeForTest(null)
   disk = new Map([['기본', sessionWithScreens(['읽기'], 'a')], ['논문', sessionWithScreens(['읽기', '비교'], 'b')]])
   meta = { last: '기본', used: { 기본: 100, 논문: 50 } }
@@ -230,10 +232,11 @@ describe('useVault — 이름 붙은 세션', () => {
 
 describe('useVault — 떠 있는 칸 복원과 열기', () => {
   const withFloat = (): SessionState => baseSession({
+    memoNoteTabIds: ['notes/f.iwnote'],
     screens: [{
       id: 's-읽기', name: '읽기',
       layout: { kind: 'split' as const, id: 'sp', dir: 'h' as const, ratio: 0.5, a: { kind: 'pane' as const, paneId: 'pa' }, b: { kind: 'pane' as const, paneId: 'pb' } },
-      paneState: { pa: { tabIds: [], activeId: null, channel: 'blue' as const }, pb: { tabIds: [], activeId: null, channel: 'green' as const }, pf: { tabIds: ['translator:pf'], activeId: 'translator:pf', channel: 'orange' as const } },
+      paneState: { pa: { tabIds: [], activeId: null, channel: 'blue' as const }, pb: { tabIds: [], activeId: null, channel: 'green' as const }, pf: { tabIds: ['notes/f.iwnote'], activeId: 'notes/f.iwnote', channel: 'orange' as const } },
       floats: [{ paneId: 'pf', anchor: { kind: 'pane' as const, paneId: 'pb' }, x: 0.5, y: 0.1, w: 340, h: 380, collapsed: true }],
       floatsHidden: true,
     }],
@@ -241,13 +244,13 @@ describe('useVault — 떠 있는 칸 복원과 열기', () => {
     lastScreen: null,
   })
 
-  it('저장된 떠 있는 칸을 칸 상태(번역기 탭 · 색)와 함께 되살린다', async () => {
+  it('저장된 떠 있는 칸을 칸 상태(탭 · 색)와 함께 되살린다', async () => {
     disk.set('기본', withFloat())
     const { result } = await open()
     const screen = result.current.screensState.screens[0]!
     expect(screen.floats).toEqual([{ paneId: 'pf', anchor: { kind: 'pane', paneId: 'pb' }, x: 0.5, y: 0.1, w: 340, h: 380, collapsed: true }])
     expect(screen.floatsHidden).toBe(true)
-    expect(screen.panes.pf!.tabs).toEqual([{ id: 'translator:pf', title: '번역기', kind: 'translator' }])
+    expect(screen.panes.pf!.tabs.map((tab) => [tab.id, tab.kind])).toEqual([['notes/f.iwnote', 'memoNote']])
     expect(screen.channels.pf).toBe('orange')
   })
 
@@ -255,7 +258,7 @@ describe('useVault — 떠 있는 칸 복원과 열기', () => {
     disk.set('기본', withFloat())
     const { result } = await open()
     act(() => result.current.openInPane({ id: 'n1', title: '노트', kind: 'memoNote' }, 'pf'))
-    expect(result.current.screensState.screens[0]!.panes.pf!.tabs.map((tab) => tab.id)).toEqual(['translator:pf', 'n1'])
+    expect(result.current.screensState.screens[0]!.panes.pf!.tabs.map((tab) => tab.id)).toEqual(['notes/f.iwnote', 'n1'])
   })
 
   it('다시 저장해도 떠 있는 칸이 그대로 나간다', async () => {
@@ -265,6 +268,42 @@ describe('useVault — 떠 있는 칸 복원과 열기', () => {
     await act(async () => { await result.current.sessionOps.saveNow() })
     const saved = vi.mocked(writeSessionNamed).mock.calls.at(-1)![2]
     expect(saved.screens?.[0]?.floats?.[0]).toMatchObject({ paneId: 'pf', collapsed: true })
-    expect(saved.screens?.[0]?.paneState.pf).toEqual({ tabIds: ['translator:pf'], activeId: 'translator:pf', channel: 'orange' })
+    expect(saved.screens?.[0]?.paneState.pf).toEqual({ tabIds: ['notes/f.iwnote'], activeId: 'notes/f.iwnote', channel: 'orange' })
+  })
+
+  describe('번역기 탭을 담았던 떠 있는 칸(2026-11-12 세션)', () => {
+    const withTranslatorFloat = (): SessionState => baseSession({
+      screens: [{
+        id: 's-읽기', name: '읽기',
+        layout: { kind: 'split' as const, id: 'sp', dir: 'h' as const, ratio: 0.5, a: { kind: 'pane' as const, paneId: 'pa' }, b: { kind: 'pane' as const, paneId: 'pb' } },
+        paneState: { pa: { tabIds: [], activeId: null, channel: 'blue' as const }, pb: { tabIds: [], activeId: null, channel: 'green' as const }, pf: { tabIds: ['translator:pf'], activeId: 'translator:pf', channel: 'orange' as const } },
+        floats: [{ paneId: 'pf', anchor: { kind: 'screen' as const }, x: 0.5, y: 0.1, w: 360, h: 320, collapsed: false }],
+      }],
+      activeScreen: 's-읽기',
+      lastScreen: null,
+    })
+
+    it('칸 · 번역기 탭은 되살리지 않고, 그 자리 · 크기로 번역기 창을 연다', async () => {
+      disk.set('기본', withTranslatorFloat())
+      expect(getTranslatorWindow().open).toBe(false)
+      const { result } = await open()
+      const screen = result.current.screensState.screens[0]!
+      expect(screen.floats).toEqual([])
+      expect(screen.panes.pf).toBeUndefined()
+      expect(Object.values(screen.panes).flatMap((state) => state.tabs)).toEqual([])
+      expect(getTranslatorWindow()).toMatchObject({ open: true, w: 360, h: 320 })
+      // 자리: 앱 창(상단바 36px 아래)에 대한 비율
+      expect(getTranslatorWindow().x).toBe(Math.round(0.5 * window.innerWidth))
+    })
+
+    it('다시 저장하면 번역기 칸 · 탭이 적히지 않는다', async () => {
+      disk.set('기본', withTranslatorFloat())
+      const { result } = await open()
+      vi.mocked(writeSessionNamed).mockClear()
+      await act(async () => { await result.current.sessionOps.saveNow() })
+      const saved = vi.mocked(writeSessionNamed).mock.calls.at(-1)![2]
+      expect(JSON.stringify(saved)).not.toContain('translator')
+      expect(saved.screens?.[0]?.floats).toBeUndefined()
+    })
   })
 })

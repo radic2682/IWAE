@@ -1,16 +1,13 @@
-import { addFloat, translatorFloatFor, translatorTab, type FloatModel } from './floatingPanes'
-import { activeScreenOf, allScreenPaneIds } from './screens'
-import { newPaneId } from '../core/layoutTree'
+import { useSyncExternalStore } from 'react'
 
 /**
- * 예전 떠 있는 번역기(문서 칸 위의 고정 창)의 열림·자리·크기. 문서 종류(PDF · Markdown)마다 하나씩
- * localStorage `iwae:translator-panel:v1` 에 `{ pdf: {...}, markdown: {...} }` 로 있었다.
- * 지금 번역기는 번역기 탭을 담은 떠 있는 칸이라(설계 5) 이 모듈은 예전 값을 한 번 옮겨 담는 일만 한다.
- * x·y 가 null 이면 기본 자리(문서 칸 오른쪽 위)였다.
+ * 번역기: 앱 창 전체에 떠 있는 창(칸에 붙지 않는다). 열림 · 자리 · 크기는 창 하나에 하나만 있고
+ * localStorage `iwae:translator-window:v1` 에 둔다. x·y 가 null 이면 기본 자리(창 오른쪽 위).
+ *
+ * 한때(2026-11-12) 번역기는 떠 있는 칸의 탭이었다. 그 세션 · 그보다 앞선 문서 종류별 저장값(`iwae:translator-panel:v1`)은
+ * 여기서 한 번 이 창의 열림 · 자리 · 크기로 옮긴다(아래 migrate 함수들).
  */
-export type TranslatorPanelKind = 'pdf' | 'markdown'
-
-export interface TranslatorPanelState {
+export interface TranslatorWindowState {
   readonly open: boolean
   readonly x: number | null
   readonly y: number | null
@@ -18,20 +15,26 @@ export interface TranslatorPanelState {
   readonly h: number
 }
 
+/** 처음 크기: 내용(언어 줄 · 입력 3줄 · 번역 단추 · 결과 3줄 · 복사)에 맞춰 작게 */
+export const TRANSLATOR_WINDOW_W = 340
+export const TRANSLATOR_WINDOW_H = 300
 export const PANEL_MIN_WIDTH = 280
 export const PANEL_MIN_HEIGHT = 240
-export const PANEL_MARGIN = 8
+/** 창 가장자리에서 띄우는 여백(= 칸 사이 틈과 같은 6px 격자의 한 칸) */
+export const PANEL_MARGIN = 6
+export const TRANSLATOR_WINDOW_STORAGE_KEY = 'iwae:translator-window:v1'
+/** 문서 종류별로 저장하던 예전 값 */
 export const TRANSLATOR_PANEL_STORAGE_KEY = 'iwae:translator-panel:v1'
 /** 옮기고 나면 적어 두는 표시: 같은 값을 두 번 옮기지 않는다 */
 export const TRANSLATOR_MIGRATED_KEY = 'iwae:translator-panel:migrated:v1'
 
-const DEFAULT_STATE: TranslatorPanelState = { open: false, x: null, y: null, w: 340, h: 380 }
+const DEFAULT_STATE: TranslatorWindowState = { open: false, x: null, y: null, w: TRANSLATOR_WINDOW_W, h: TRANSLATOR_WINDOW_H }
 
 function finite(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function parseOne(raw: unknown): TranslatorPanelState {
+function parseState(raw: unknown): TranslatorWindowState {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_STATE
   const record = raw as Record<string, unknown>
   return {
@@ -49,15 +52,86 @@ function safeStorage(): StorageLike | null {
   try { return globalThis.localStorage ?? null } catch { return null }
 }
 
+function load(): TranslatorWindowState {
+  try {
+    const text = safeStorage()?.getItem(TRANSLATOR_WINDOW_STORAGE_KEY)
+    return text === null || text === undefined ? DEFAULT_STATE : parseState(JSON.parse(text))
+  } catch {
+    return DEFAULT_STATE
+  }
+}
+
+let state = load()
+const listeners = new Set<() => void>()
+
+export function getTranslatorWindow(): TranslatorWindowState {
+  return state
+}
+
+export function updateTranslatorWindow(patch: Partial<TranslatorWindowState>): void {
+  state = { ...state, ...patch }
+  try { safeStorage()?.setItem(TRANSLATOR_WINDOW_STORAGE_KEY, JSON.stringify(state)) } catch { /* 이번 실행에만 */ }
+  for (const listener of listeners) listener()
+}
+
+/** 번역기 단추: 열려 있으면 닫고 닫혀 있으면 연다 */
+export function toggleTranslatorWindow(): void {
+  updateTranslatorWindow({ open: !state.open })
+}
+
+/** 저장된 값을 다시 읽는다(시험용: 앱을 다시 켠 것처럼) */
+export function reloadTranslatorWindow(): void {
+  state = load()
+  for (const listener of listeners) listener()
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
+export function useTranslatorWindow(): TranslatorWindowState {
+  return useSyncExternalStore(subscribe, getTranslatorWindow, getTranslatorWindow)
+}
+
+export interface PanelBox { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
+
+/**
+ * 앱 창(bounds) 안에 들어오게: 크기는 창보다 커지지 않고, 자리는 가장자리 여백 안쪽. x·y 가 없으면 오른쪽 위.
+ * bounds.top: 맨 윗줄(상단바)의 높이. 번역기는 그 아래에만 놓인다.
+ */
+export function placePanel(value: Pick<TranslatorWindowState, 'x' | 'y' | 'w' | 'h'>, bounds: { readonly width: number; readonly height: number; readonly top?: number }): PanelBox {
+  const top = Math.max(0, bounds.top ?? 0)
+  // 아직 창 크기를 못 쟀으면(첫 그림) 저장된 값 그대로
+  if (bounds.width <= 0 || bounds.height <= 0) return { x: value.x ?? PANEL_MARGIN, y: Math.max(value.y ?? 0, top + PANEL_MARGIN), w: value.w, h: value.h }
+  const w = Math.max(Math.min(value.w, bounds.width - PANEL_MARGIN * 2), Math.min(PANEL_MIN_WIDTH, bounds.width - PANEL_MARGIN * 2))
+  const room = bounds.height - top - PANEL_MARGIN * 2
+  const h = Math.max(Math.min(value.h, room), Math.min(PANEL_MIN_HEIGHT, room))
+  const maxX = Math.max(bounds.width - w - PANEL_MARGIN, PANEL_MARGIN)
+  const minY = top + PANEL_MARGIN
+  const maxY = Math.max(bounds.height - h - PANEL_MARGIN, minY)
+  const x = Math.min(Math.max(value.x ?? maxX, PANEL_MARGIN), maxX)
+  const y = Math.min(Math.max(value.y ?? minY, minY), maxY)
+  return { x, y, w: Math.max(w, 0), h: Math.max(h, 0) }
+}
+
+// ── 예전 값 옮기기 ────────────────────────────────────────────────────────────
+
+/** 번역기 탭(떠 있는 칸의 탭)이었던 예전 탭 id: `translator` · `translator:<칸 id>` */
+export const isLegacyTranslatorTabId = (id: string): boolean => id === 'translator' || id.startsWith('translator:')
+
+/** 문서 종류(PDF · Markdown)마다 하나씩 저장하던 예전 값 */
+export type LegacyTranslatorKind = 'pdf' | 'markdown'
+
 /** 옮길 예전 값. 이미 옮겼거나 저장된 값이 없거나 깨졌으면 null */
-export function readLegacyTranslatorPanels(storage: StorageLike | null = safeStorage()): Record<TranslatorPanelKind, TranslatorPanelState> | null {
+export function readLegacyTranslatorPanels(storage: StorageLike | null = safeStorage()): Record<LegacyTranslatorKind, TranslatorWindowState> | null {
   try {
     if (storage === null || storage.getItem(TRANSLATOR_MIGRATED_KEY) !== null) return null
     const text = storage.getItem(TRANSLATOR_PANEL_STORAGE_KEY)
     if (text === null) return null
     const raw: unknown = JSON.parse(text)
     const record = typeof raw === 'object' && raw !== null ? raw as Record<string, unknown> : {}
-    return { pdf: parseOne(record.pdf), markdown: parseOne(record.markdown) }
+    return { pdf: parseState(record.pdf), markdown: parseState(record.markdown) }
   } catch {
     return null
   }
@@ -71,58 +145,40 @@ export function finishLegacyTranslatorMigration(storage: StorageLike | null = sa
   } catch { /* 이번 실행에서만 */ }
 }
 
-export interface PanelBox { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
-
-/** 문서 칸(bounds) 안에 들어오게: 크기는 칸보다 커지지 않고, 자리는 칸 가장자리 여백 안쪽. x·y 가 없으면 오른쪽 위 */
-/** bounds.top: 칸 위쪽을 덮는 문서 도구줄의 높이(PDF 도구줄은 칸 위에 떠 있다). 번역기는 그 아래에만 놓인다 */
-export function placePanel(state: Pick<TranslatorPanelState, 'x' | 'y' | 'w' | 'h'>, bounds: { readonly width: number; readonly height: number; readonly top?: number }): PanelBox {
-  const top = Math.max(0, bounds.top ?? 0)
-  // 아직 칸 크기를 못 쟀으면(첫 그림) 저장된 값 그대로
-  if (bounds.width <= 0 || bounds.height <= 0) return { x: state.x ?? PANEL_MARGIN, y: Math.max(state.y ?? 0, top + PANEL_MARGIN), w: state.w, h: state.h }
-  const w = Math.max(Math.min(state.w, bounds.width - PANEL_MARGIN * 2), Math.min(PANEL_MIN_WIDTH, bounds.width - PANEL_MARGIN * 2))
-  const room = bounds.height - top - PANEL_MARGIN * 2
-  const h = Math.max(Math.min(state.h, room), Math.min(PANEL_MIN_HEIGHT, room))
-  const maxX = Math.max(bounds.width - w - PANEL_MARGIN, PANEL_MARGIN)
-  const minY = top + PANEL_MARGIN
-  const maxY = Math.max(bounds.height - h - PANEL_MARGIN, minY)
-  const x = Math.min(Math.max(state.x ?? maxX - 8, PANEL_MARGIN), maxX)
-  const y = Math.min(Math.max(state.y ?? minY + 4, minY), maxY)
-  return { x, y, w: Math.max(w, 0), h: Math.max(h, 0) }
+/**
+ * 문서 종류별 예전 값 → 창 하나의 값. 하나라도 열어 두었으면 열린 채로(PDF 쪽 값을 먼저 본다) 크기를 옮기고,
+ * 자리는 문서 칸 안의 값이었으므로 옮기지 않는다(기본 자리). 둘 다 닫혀 있었으면 null(바꿀 것이 없다).
+ */
+export function translatorWindowFromLegacy(legacy: Record<LegacyTranslatorKind, TranslatorWindowState>): Partial<TranslatorWindowState> | null {
+  const source = legacy.pdf.open ? legacy.pdf : legacy.markdown.open ? legacy.markdown : null
+  return source === null ? null : { open: true, x: null, y: null, w: source.w, h: source.h }
 }
 
-/** 옮길 때 알아야 할 문서 칸: 보는 탭의 종류와 칸 크기(px) */
-export interface LegacyDocPane {
-  readonly pane: string
-  readonly kind: TranslatorPanelKind
-  readonly width: number
-  readonly height: number
+/** 번역기 탭을 담았던 떠 있는 칸의 저장 모양(자리는 붙은 곳 사각형에 대한 비율, 크기는 px) */
+export interface LegacyTranslatorFloat {
+  readonly x: number
+  readonly y: number
+  readonly w: number
+  readonly h: number
 }
 
 /**
- * 예전에 열어 둔 번역기(open)마다, 같은 종류의 문서를 보는 첫 칸에 그 칸에 붙은 번역기 떠 있는 칸을 만든다.
- * 예전 자리(px)는 그 칸 크기에 대한 비율로, 크기는 그대로 옮긴다. 칸 크기를 모르면(0) 저장된 px 를 800×600 칸으로 보고 옮긴다.
- * 그 종류의 문서를 보는 칸이 없거나 이미 그 칸에 번역기가 있으면 옮기지 않는다.
+ * 번역기 떠 있는 칸 → 창 하나의 값(열림 · 자리 · 크기). 자리는 앱 창(viewport, px; top 은 상단바 높이) 전체에 대한 비율로 옮긴다 —
+ * 칸 사각형은 이제 모르므로 어림이고, 화면 밖으로 나가지 않게 그릴 때 placePanel 이 한 번 더 가둔다.
  */
-export function migrateLegacyTranslators(model: FloatModel, legacy: Record<TranslatorPanelKind, TranslatorPanelState>, panes: readonly LegacyDocPane[]): FloatModel {
-  let current = model
-  for (const kind of ['pdf', 'markdown'] as const) {
-    const state = legacy[kind]
-    if (!state.open) continue
-    const host = panes.find((pane) => pane.kind === kind)
-    if (host === undefined || translatorFloatFor(activeScreenOf(current.screens), host.pane) !== undefined) continue
-    const bounds = host.width > 0 && host.height > 0 ? { width: host.width, height: host.height } : { width: 800, height: 600 }
-    const box = placePanel(state, bounds)
-    const paneId = newPaneId(allScreenPaneIds(current.screens))
-    const created = addFloat(current, {
-      paneId,
-      tab: translatorTab(paneId),
-      anchorPane: host.pane,
-      size: { w: box.w, h: box.h },
-      at: { x: box.x / bounds.width, y: box.y / bounds.height },
-    })
-    if ('error' in created) break
-    // 옮기기는 사람이 만지던 칸을 바꾸지 않는다
-    current = { screens: created.model.screens, activePane: model.activePane }
+export function translatorWindowFromFloat(float: LegacyTranslatorFloat, viewport: { readonly width: number; readonly height: number; readonly top?: number }): TranslatorWindowState {
+  const top = Math.max(0, viewport.top ?? 0)
+  return {
+    open: true,
+    x: Math.round(float.x * viewport.width),
+    y: Math.round(top + float.y * Math.max(viewport.height - top, 0)),
+    w: Math.max(float.w, PANEL_MIN_WIDTH),
+    h: Math.max(float.h, PANEL_MIN_HEIGHT),
   }
-  return current
+}
+
+/** 세션에서 읽은 번역기 떠 있는 칸을 창 상태로 옮긴다(상단바 높이 36px 를 비켜서 앉힌다) */
+export function adoptLegacyTranslatorFloat(float: LegacyTranslatorFloat): void {
+  if (typeof window === 'undefined') return
+  updateTranslatorWindow(translatorWindowFromFloat(float, { width: window.innerWidth, height: window.innerHeight, top: 36 }))
 }

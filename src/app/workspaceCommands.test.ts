@@ -682,16 +682,14 @@ describe('명령 실행: 앱이 하는 일', () => {
       expect(floatsOf(h)).toHaveLength(1)
     })
 
-    it('display-popup: 이름이 없으면 번역기 떠 있는 칸을(같은 곳에 이미 있으면 새로 만들지 않고 보이게)', async () => {
-      const h = harness()
+    it('display-popup: 이름이 없으면 번역기 창을 연다(떠 있는 칸을 만들지 않는다). 번역기를 열 수 없는 곳이면 알린다', async () => {
+      const openTranslator = vi.fn()
+      const h = harness(oneScreen(), { openTranslator })
       expect((await h.run('display-popup')).ok).toBe(true)
-      expect(floatsOf(h)).toHaveLength(1)
-      const popup = floatsOf(h)[0]!
-      expect(h.screen().panes[popup.paneId]!.tabs[0]).toMatchObject({ kind: 'translator' })
-      await h.run('toggle-floating')
       expect((await h.run('popup')).ok).toBe(true)
-      expect(floatsOf(h)).toHaveLength(1)
-      expect(h.screen().floatsHidden).toBe(false)
+      expect(openTranslator).toHaveBeenCalledTimes(2)
+      expect(floatsOf(h)).toHaveLength(0)
+      expect(await harness().run('display-popup')).toEqual({ ok: false, message: '지금은 안 됩니다' })
     })
 
     it('display-popup 이름: 만든 떠 있는 칸에 그 이름을 열고, 열지 못하면 빈 칸을 남기지 않는다', async () => {
@@ -720,14 +718,16 @@ describe('명령 실행: 앱이 하는 일', () => {
       expect(await noOpen.run('display-popup 노트')).toEqual({ ok: false, message: '지금은 안 됩니다' })
     })
 
-    it('display-popup 은 문서를 보는 칸에서 부르면 그 칸에 붙인다', async () => {
+    it('display-popup 이름은 문서를 보는 칸에서 부르면 그 칸에 붙인다', async () => {
       const base = oneScreen()
       const pane = base.activePane
       const screen = activeScreenOf(base.screens)
       const withDoc: WorkspaceModel = { ...base, screens: { ...base.screens, screens: [{ ...screen, panes: { [pane]: { tabs: [{ id: 'd1', title: 'D', kind: 'pdf' as const }], activeId: 'd1' } } }] } }
-      const h = harness(withDoc)
-      await h.run('display-popup')
-      expect(h.screen().floats[0]!.anchor).toEqual({ kind: 'pane', paneId: pane })
+      // 떠 있는 칸은 열기 직전에 만들어진다: 그때의 붙은 곳을 본다
+      let anchor: unknown
+      const h = harness(withDoc, { open: async () => { anchor = h.screen().floats[0]?.anchor; return { ok: true, message: '' } } })
+      await h.run('display-popup 노트 A')
+      expect(anchor).toEqual({ kind: 'pane', paneId: pane })
     })
 
     it('set-channel 은 떠 있는 칸에도 된다', async () => {

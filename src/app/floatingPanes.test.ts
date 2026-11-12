@@ -1,15 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { leaves, paneNode, splitLeaf } from '../core/layoutTree'
 import {
-  FLOAT_DEFAULT_H, FLOAT_DEFAULT_W, FLOAT_HEAD_H, FLOAT_MIN_H, FLOAT_MIN_W, MAX_FLOATS, TRANSLATOR_FLOAT_H, TRANSLATOR_FLOAT_W,
-  addFloat, closeFloat, embedPane, floatBoxIn, floatFromBox, floatPane, isFloatPane, moveFloatBox, openTranslatorFloat, patchFloat, raiseFloat, resizeFloatBox,
-  selectableOrder, toggleFloating, toggleTranslatorFloat, translatorFloatFor, visibleFloats, type FloatModel,
+  FLOAT_DEFAULT_H, FLOAT_DEFAULT_W, FLOAT_HEAD_H, FLOAT_MIN_H, FLOAT_MIN_W, MAX_FLOATS,
+  addFloat, closeFloat, embedPane, floatBoxIn, floatFromBox, floatPane, isFloatPane, moveFloatBox, patchFloat, raiseFloat, resizeFloatBox,
+  selectableOrder, toggleFloating, visibleFloats, type FloatModel,
 } from './floatingPanes'
 import { activeScreenOf, blankScreen, normalizeFloats, screenPaneIds, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { closePaneTree, dockTab, moveTabToPaneAt } from './tabDock'
 import { tabsOf, type Tab } from './tabs'
 
 const doc = (id: string): Tab => ({ id, title: id, kind: 'pdf' })
+
+/** 문서 하나를 담은 떠 있는 칸을 anchor 칸에 붙여 연다(번역기는 이제 창이라 떠 있는 칸은 늘 진짜 탭을 담는다) */
+function popup(model: FloatModel, anchor?: string): FloatModel {
+  const created = addFloat(model, { tab: doc(`popup-${anchor ?? 'screen'}`), ...(anchor === undefined ? {} : { anchorPane: anchor }), size: { w: 340, h: 300 }, at: anchor === undefined ? { x: 0.6, y: 0.08 } : { x: 0.55, y: 0.05 } })
+  if ('error' in created) throw new Error(created.error)
+  return created.model
+}
 
 /** [a | b | c] 세 칸, a 에 문서 d1, b 에 문서 d2, 만지는 칸은 a */
 function threePanes(): FloatModel {
@@ -168,60 +175,20 @@ describe('toggle-floating: 모두 숨기고 보이기', () => {
   })
 })
 
-describe('display-popup · 번역기', () => {
-  it('번역기 탭을 담은 떠 있는 칸을 새로 만들고 만지는 칸으로 삼는다', () => {
-    const model = ok(openTranslatorFloat(threePanes()))
-    const screen = screenOf(model)
-    const float = screen.floats[0]!
-    expect(float).toMatchObject({ anchor: { kind: 'screen' }, w: TRANSLATOR_FLOAT_W, h: TRANSLATOR_FLOAT_H })
-    expect(tabsOf(screen.panes, float.paneId).tabs).toEqual([{ id: `translator:${float.paneId}`, title: '번역기', kind: 'translator' }])
-    expect(model.activePane).toBe(float.paneId)
-    expect(leaves(screen.layout)).toHaveLength(3)
-  })
-
-  it('번역기 칸은 내용에 맞게 작게 열린다(300px 안팎 높이 · 340px 폭)', () => {
-    expect(TRANSLATOR_FLOAT_W).toBe(340)
-    expect(TRANSLATOR_FLOAT_H).toBeGreaterThanOrEqual(280)
-    expect(TRANSLATOR_FLOAT_H).toBeLessThanOrEqual(300)
-  })
-
-  it('같은 곳에 붙은 번역기가 이미 있으면 새로 만들지 않고 보여 준다(숨김 · 접힘도 푼다)', () => {
-    const first = ok(openTranslatorFloat(threePanes(), 'b'))
-    const paneId = screenOf(first).floats[0]!.paneId
-    const collapsed = patchFloat(first.screens, paneId, { collapsed: true })
-    const hidden = ok(toggleFloating({ screens: collapsed, activePane: 'b' }))
-    const again = ok(openTranslatorFloat(hidden, 'b'))
-    expect(screenOf(again).floats).toHaveLength(1)
-    expect(screenOf(again).floatsHidden).toBe(false)
-    expect(screenOf(again).floats[0]!.collapsed).toBe(false)
-    expect(again.activePane).toBe(paneId)
-  })
-
-  it('번역기 단추: 이 칸의 번역기가 있으면 닫고 없으면 연다. 다른 칸의 번역기는 건드리지 않는다', () => {
-    const opened = ok(toggleTranslatorFloat(threePanes(), 'a'))
-    expect(translatorFloatFor(screenOf(opened), 'a')).toBeDefined()
-    expect(translatorFloatFor(screenOf(opened), 'b')).toBeUndefined()
-    const other = ok(toggleTranslatorFloat(opened, 'b'))
-    expect(screenOf(other).floats).toHaveLength(2)
-    const closed = ok(toggleTranslatorFloat(other, 'a'))
-    expect(translatorFloatFor(screenOf(closed), 'a')).toBeUndefined()
-    expect(translatorFloatFor(screenOf(closed), 'b')).toBeDefined()
-  })
-
+describe('떠 있는 칸 한도', () => {
   it('상한(4개)이면 알린다', () => {
-    // 같은 칸의 번역기는 재사용되므로 화면에 붙은 빈 칸으로 채운다
     let crowded = threePanes()
     for (let index = 0; index < MAX_FLOATS; index += 1) {
       const added = addFloat(crowded)
       if ('error' in added) throw new Error(added.error)
       crowded = added.model
     }
-    expect(openTranslatorFloat(crowded)).toEqual({ error: '떠 있는 칸은 4개까지입니다' })
+    expect(addFloat(crowded)).toEqual({ error: '떠 있는 칸은 4개까지입니다' })
   })
 })
 
 describe('닫기와 붙은 칸 따라가기', () => {
-  it('닫으면 번역기 탭은 버리고 다른 탭은 돌아갈 칸에 합친다', () => {
+  it('닫으면 탭은 돌아갈 칸에 합친다(탭은 잃지 않는다)', () => {
     const floated = ok(floatPane(threePanes(), 'b'))
     const closed = ok(closeFloat(floated, 'b'))
     const screen = screenOf(closed)
@@ -232,16 +199,17 @@ describe('닫기와 붙은 칸 따라가기', () => {
     expect(tabsOf(screen.panes, floated.activePane === 'b' ? leaves(screen.layout)[0]! : floated.activePane).tabs.map((tab) => tab.id)).toContain('d2')
   })
 
-  it('번역기 떠 있는 칸을 닫으면 아무 탭도 트리로 새지 않는다', () => {
-    const opened = ok(openTranslatorFloat(threePanes(), 'a'))
+  it('떠 있는 칸을 닫으면 그 칸의 문서 탭이 붙은 칸(없으면 만지던 칸)으로 돌아간다', () => {
+    const opened = popup(threePanes(), 'a')
     const closed = ok(closeFloat(opened, screenOf(opened).floats[0]!.paneId))
     const screen = screenOf(closed)
-    expect(Object.values(screen.panes).flatMap((state) => state.tabs).some((tab) => tab.kind === 'translator')).toBe(false)
+    expect(tabsOf(screen.panes, 'a').tabs.map((tab) => tab.id)).toEqual(['d1', 'popup-a'])
+    expect(screen.floats).toHaveLength(0)
     expect(closed.activePane).toBe('a')
   })
 
   it('붙은 칸이 닫히면 화면에 붙고, 있던 자리를 화면 비율로 옮겨 적는다', () => {
-    const opened = ok(openTranslatorFloat(threePanes(), 'c'))
+    const opened = popup(threePanes(), 'c')
     const float = screenOf(opened).floats[0]!
     expect(float.anchor).toEqual({ kind: 'pane', paneId: 'c' })
     const screen = screenOf(opened)
@@ -251,14 +219,14 @@ describe('닫기와 붙은 칸 따라가기', () => {
     expect(moved.anchor).toEqual({ kind: 'screen' })
     // 칸 c 는 맨 오른쪽 사분의 일(x 0.75, 너비 0.25)이었다: 칸 안 55% → 화면 비율
     expect(moved.x).toBeCloseTo(0.75 + 0.25 * 0.55, 5)
-    expect(moved.w).toBe(TRANSLATOR_FLOAT_W)
+    expect(moved.w).toBe(340)
     // 떠 있는 칸의 탭 · 색은 칸 닫기가 지우지 않는다
     expect(activeScreenOf(next).panes[float.paneId]).toBeDefined()
     expect(activeScreenOf(next).channels[float.paneId]).toBeDefined()
   })
 
   it('칸이 닫혀도 다른 칸에 붙은 떠 있는 칸은 그대로다', () => {
-    const opened = ok(openTranslatorFloat(threePanes(), 'a'))
+    const opened = popup(threePanes(), 'a')
     const screen = screenOf(opened)
     const closed = closePaneTree(workspaceOf(screen), 'c')!
     const next = withActiveWorkspace(opened.screens, { panes: closed.panes, channels: closed.channels, layout: closed.layout })
