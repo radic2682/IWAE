@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import { PaneShell } from './PaneShell'
-import { PaneToolbar, type PdfToolMode } from './PaneToolbar'
+import { PaneToolbar, useOverlayToolShortcuts, type PdfToolMode } from './PaneToolbar'
+import { TopBarToolbar, useHasTopBarSlot } from './topBarToolbar'
 import { PdfSearchPanel } from './PdfSearchPanel'
 import { clampZoom, stepZoom } from '../core/pdfZoom'
 import { peekInitialZoom } from './pendingViewState'
@@ -114,9 +115,9 @@ export interface DocumentViewProps {
   controllersRef: MutableRefObject<Partial<Record<PaneId, DocumentViewController>>>
   /** 이 패널이 마지막으로 만진 문서 패널인가. Ctrl+F 같은 단축키를 받는다 */
   shortcutTarget: boolean
-  /** 이 칸에 붙은 번역기(떠 있는 칸)가 열려 있는가. 도구줄의 번역기 단추가 눌린 모양을 보인다 */
+  /** 번역기 창이 열려 있는가. 도구줄의 번역기 단추가 눌린 모양을 보인다 */
   translatorOpen?: boolean
-  /** 번역기 단추: 이 칸의 번역기를 열고 닫는다. 없으면 단추가 없다 */
+  /** 번역기 단추: 번역기 창을 열고 닫는다. 없으면 단추가 없다 */
   onToggleTranslator?: () => void
   /** 왼쪽 바의 PDF 검색 칸(「PDF 검색」 보기일 때). 검색 칸과 결과를 여기에 그린다 */
   searchSlot?: HTMLElement | null
@@ -547,6 +548,9 @@ export function DocumentView(props: DocumentViewProps) {
   const docPins = useMemo(() => (docId === null ? [] : props.pins.filter((pin) => pin.docId === docId)), [docId, props.pins])
   const { onAddPin } = props
   const addPin = useCallback((page: number, y: number, title: string) => (docId === null ? '' : onAddPin(docId, page, y, title)), [docId, onAddPin])
+  // 도구줄은 지금 만지는 칸 것만 상단바에 그린다. 상단바 자리가 없는 곳(시험 · 단독)에서는 칸 안에 그대로 둔다
+  const hasTopBarSlot = useHasTopBarSlot()
+  useOverlayToolShortcuts(props.shortcutTarget, setToolMode)
   const toolbar = (
     <PaneToolbar
       kind={tab.kind === 'markdown' ? 'markdown' : 'pdf'}
@@ -564,7 +568,6 @@ export function DocumentView(props: DocumentViewProps) {
       github={tab.kind === 'markdown' ? props.github : undefined}
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
-      shortcutsEnabled={props.shortcutTarget}
       translatorOpen={props.translatorOpen === true}
       onToggleTranslator={props.onToggleTranslator}
       cleanView={props.pdfViewPrefs.clean === true}
@@ -702,11 +705,12 @@ export function DocumentView(props: DocumentViewProps) {
           }}
         />
       ) : null}
+      {hasTopBarSlot ? <TopBarToolbar>{toolbar}</TopBarToolbar> : null}
       <PaneShell
         state={props.state}
         emptyHint=""
         placeholder={props.placeholder}
-        toolbar={toolbar}
+        toolbar={hasTopBarSlot ? undefined : toolbar}
         bottomBar={bottomBar ?? markdownBottomBar}
         renderBody={() => {
           const renderMarkdownCell = (index: number) => props.markdownSource === undefined ? null : (

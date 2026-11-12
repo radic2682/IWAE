@@ -3,6 +3,8 @@ import { SIDEBAR_DEFAULT, clampLeftFrac, clampSidebar } from './splitLayout'
 import { applyRatios, clampRatioForSize, layoutRects, leaves, paneCount, type LayoutNode, type UnitRect } from '../core/layoutTree'
 import { WorkspaceLinkLayer } from './WorkspaceLinkLayer'
 import { FloatLayer, type AnchorRect } from './FloatLayer'
+import { PaneCard } from './PaneCard'
+import type { PaneChannel } from './workspaceChannels'
 import type { FloatAnchor, FloatingPane } from './screens'
 import '../ui/layout-transitions.css'
 import { t } from '../i18n'
@@ -47,8 +49,12 @@ interface SplitPanesProps {
   renderPane: (paneId: string, index: number) => React.ReactNode
   /** 칸 머리(색 점 · 번호 · 탭 줄 · ⋯ 메뉴). 칸이 하나여도 늘 칸 맨 위에 놓인다 */
   renderHead?: (paneId: string, index: number) => React.ReactNode
-  /** 앱 틀 맨 아래 상태 줄(칸 아래, 그 아래엔 아무것도 없다). 없으면 그리지 않는다 */
-  statusBar?: React.ReactNode
+  /** 칸의 색 채널(카드 맨 위 2px 가장자리의 색). 없으면 가장자리가 없다 */
+  paneChannel?: (paneId: string) => PaneChannel
+  /** 탭이 하나도 없는 빈 칸인가(카드가 점선 테두리가 된다) */
+  paneEmpty?: (paneId: string) => boolean
+  /** 지금 만지는 칸(떠 있는 칸 포함). 칸이 여럿이거나 떠 있는 칸이 있을 때 그 카드가 강조색 테두리로 또렷해진다 */
+  activePane?: string
   /**
    * 경계선에 마우스를 올리면 나오는 「양쪽 바꾸기」 단추. 그 나누기의 두 쪽을 맞바꾼다.
    * 단추를 누른 채 끌면 단추가 아니라 경계선 끌기다(크기 조정을 막지 않는다).
@@ -65,6 +71,18 @@ interface SplitPanesProps {
 }
 
 const FULL: UnitRect = { x: 0, y: 0, w: 1, h: 1 }
+
+/**
+ * 칸 사각형(0–1 비율)을 칸 영역(px)의 정수 픽셀 자리로 맞춘다. 비율 % 를 그대로 쓰면 카드가 267.98px 처럼 소수 픽셀에 걸려
+ * 테두리 · 모서리가 거칠어 보인다. 왼쪽 · 오른쪽(위 · 아래) 가장자리를 각각 반올림하므로 이웃한 두 칸은 같은 경계를 나눠 쓴다(틈 · 겹침 없음).
+ * 영역 크기를 모르면(0) null — 그때는 비율(%)로 둔다.
+ */
+export function snapRect(unit: UnitRect, size: { readonly width: number; readonly height: number }): { readonly left: number; readonly top: number; readonly width: number; readonly height: number } | null {
+  if (size.width <= 0 || size.height <= 0) return null
+  const left = Math.round(unit.x * size.width)
+  const top = Math.round(unit.y * size.height)
+  return { left, top, width: Math.round((unit.x + unit.w) * size.width) - left, height: Math.round((unit.y + unit.h) * size.height) - top }
+}
 
 /**
  * 사이드바 | 칸 나누기 트리. 경계선을 드래그해 크기를 바꾼다.
@@ -97,7 +115,9 @@ export function SplitPanes({
   onRootChange,
   renderPane,
   renderHead,
-  statusBar,
+  paneChannel,
+  paneEmpty,
+  activePane,
   onSwapSplit,
   floats = [],
   renderFloatHead,
@@ -299,6 +319,8 @@ export function SplitPanes({
   const sidebarHidden = sidebarCollapsed || focusedPane !== 'split'
   const order = leaves(shownRoot)
   const multi = order.length > 1
+  // 만지는 칸을 또렷이 하는 것은 구별할 칸이 있을 때만(칸 하나 · 떠 있는 칸 없음이면 늘 그 칸이라 강조하지 않는다)
+  const cardActive = (paneId: string) => activePane === paneId && (multi || floats.length > 0)
   const rects = useMemo(() => layoutRects(shownRoot), [shownRoot])
 
   // 칸 영역의 안쪽 크기(px): 떠 있는 칸의 자리는 붙은 곳(화면 · 칸)의 사각형에 대한 비율이라 px 로 바꾸려면 필요하다
@@ -389,7 +411,7 @@ export function SplitPanes({
             const hidden = rect === null
             const style: CSSProperties = hidden
               ? { left: 0, top: 0, width: 0, height: 0 }
-              : { left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }
+              : snapRect(rect, panesSize) ?? { left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }
             return (
               <div
                 key={`${epoch}:${paneId}`}
@@ -400,18 +422,23 @@ export function SplitPanes({
                 inert={hidden}
               >
                 {/* 칸 하나 = 둥근 카드 하나(머리 + 본문). 칸 사이 틈은 CSS 가 낸다 */}
-                <div className="pane-card">
+                <PaneCard paneId={paneId} channel={paneChannel?.(paneId) ?? null} active={cardActive(paneId)} empty={paneEmpty?.(paneId) ?? false}>
                   {renderHead !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head={paneId}>{renderHead(paneId, index)}</div> : null}
                   <div className="pane-grid-body">{renderPane(paneId, index)}</div>
-                </div>
+                </PaneCard>
               </div>
             )
           })}
           {zoomed ? null : rects.splits.map((split) => {
             const horizontal = split.dir === 'h'
+            const edge = snapRect({ x: split.x, y: split.y, w: split.w, h: split.h }, panesSize)
             const style: CSSProperties = horizontal
-              ? { left: `${(split.x + split.w * split.ratio) * 100}%`, top: `${split.y * 100}%`, height: `${split.h * 100}%` }
-              : { top: `${(split.y + split.h * split.ratio) * 100}%`, left: `${split.x * 100}%`, width: `${split.w * 100}%` }
+              ? edge === null
+                ? { left: `${(split.x + split.w * split.ratio) * 100}%`, top: `${split.y * 100}%`, height: `${split.h * 100}%` }
+                : { left: Math.round((split.x + split.w * split.ratio) * panesSize.width), top: edge.top, height: edge.height }
+              : edge === null
+                ? { top: `${(split.y + split.h * split.ratio) * 100}%`, left: `${split.x * 100}%`, width: `${split.w * 100}%` }
+                : { top: Math.round((split.y + split.h * split.ratio) * panesSize.height), left: edge.left, width: edge.width }
             return (
               <div
                 key={split.id}
@@ -435,6 +462,9 @@ export function SplitPanes({
               epoch={epoch}
               renderHead={(paneId) => (renderFloatHead ?? ((id) => renderHead?.(id, -1)))(paneId)}
               renderBody={(paneId) => renderPane(paneId, -1)}
+              paneChannel={paneChannel}
+              paneEmpty={paneEmpty}
+              isActive={cardActive}
               onChange={(paneId, patch) => onFloatChange?.(paneId, patch)}
               onRaise={(paneId) => onFloatRaise?.(paneId)}
             />
@@ -444,7 +474,6 @@ export function SplitPanes({
         {/* 작업 공간 층: 문서 창과 이웃한 메모 노트 창 사이의 연결선을 모든 칸 위에 그린다(포인터는 지나간다) */}
         {libraryExpanded ? null : <WorkspaceLinkLayer />}
       </div>
-      {statusBar}
     </div>
   )
 }

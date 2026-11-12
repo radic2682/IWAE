@@ -8,16 +8,9 @@
   background: transparent;
 }
 
-/* 카드: 트리 칸 카드와 같은 껍질에 더 센 그림자 */
+/* 카드: 트리 칸 카드와 같은 면 · 테두리(workspace-surface.css)에 더 센 그림자 */
 .panes-tree .pane-float .pane-card.pane-float-card {
-  position: relative;
-  border: 1px solid var(--divider-strong, var(--divider));
-  border-radius: var(--r-md);
-  background: var(--paper);
   box-shadow: 0 18px 44px rgb(var(--rgb-black) / .34), 0 2px 8px rgb(var(--rgb-black) / .18);
-}
-.panes-tree .pane-float .pane-card.pane-float-card:has(.pane-focus-scope[data-pane-active]) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--divider)));
 }
 
 /* 머리: 잡고 끄는 자리. 단추 · 탭은 자기 일을 한다 */
@@ -31,8 +24,8 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: var(--icon-btn);
+  height: var(--icon-btn);
   padding: 0;
   border: 0;
   border-radius: var(--r-sm);

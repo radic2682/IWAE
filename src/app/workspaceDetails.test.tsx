@@ -23,7 +23,7 @@ describe('맨 위 화면 탭', () => {
     <ScreenTabs screens={screens} activeId="a" lastId="b" templates={[]} onSelect={noop} onRename={noop} onReorder={noop} onClose={noop} onNew={noop} />,
   )
 
-  it('바로 앞 화면에 「-」 표시를 달지 않는다(상태 줄에만 있다)', () => {
+  it('바로 앞 화면에 「-」 표시를 달지 않는다(아래 상태 줄은 없앴고, 표시는 어디에도 없다)', () => {
     const { container } = renderTabs()
     expect(container.textContent).not.toContain('-')
     expect(container.querySelector('.screen-tab-mark')).toBeNull()
@@ -59,11 +59,11 @@ describe('칸 머리', () => {
     expect(container.querySelector('.pane-tabs-overflow')?.classList.contains('pane-tabs-overflow-idle')).toBe(true)
   })
 
-  it('색 점 · 번호는 탭 줄 바닥에 붙여 탭 제목과 세로 가운데를 맞추고, 간격은 6px 이다', () => {
-    const rules = css('screens.css')
-    expect(rules).toContain('.pane-head .pane-tabs-menu > .pane-channel-dot { align-self: flex-end; width: 14px; height: 25px; margin: 0 3px 4px 0; }')
-    expect(rules).toContain('.pane-head .pane-tabs-menu > .pane-head-number { align-self: flex-end;')
-    expect(rules).toContain('margin: 0 -4px 4px 0')
+  it('색 점 · 번호는 머리 높이(--bar-h)의 세로 가운데에 서고, 점은 28px 높이의 누르는 자리에 8px 점이다', () => {
+    const rules = css('workspace-surface.css')
+    expect(rules).toMatch(/\.pane-head \.pane-tabs-menu > \.pane-channel-dot,[^{]*\{[^}]*align-self: center;[^}]*width: 20px; height: var\(--icon-btn\); margin: 0 0 0 -6px;/u)
+    expect(rules).toMatch(/\.pane-head \.pane-tabs-menu > \.pane-head-number,[^{]*\{[^}]*align-self: center; display: inline-flex; align-items: center; height: var\(--icon-btn\); margin: 0 var\(--space-2\) 0 0; font-family: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums;/u)
+    expect(css('screens.css')).toContain('.pane-head .pane-channel-dot-mark { width: 8px; height: 8px; }')
   })
 })
 
@@ -111,13 +111,6 @@ describe('빈 칸 높이 맞춤(fitEmptyPane)', () => {
 })
 
 describe('CSS 규칙', () => {
-  it('상태 줄 접두키 칩은 다른 글자와 같은 11px 이고, 「·」 뒤 공백을 따로 두지 않는다', () => {
-    const rules = css('screens.css')
-    expect(rules).toMatch(/\.status-bar-prefix \{[^}]*font: inherit; font-size: 11px; line-height: 1;/u)
-    expect(rules).toContain(".status-bar-panes::before { content: '·'; margin-right: 12px; }")
-    expect(rules).not.toContain("content: '· '")
-  })
-
   it('노트 도구줄 오른쪽 단추(검색 · ＋ · 접기)는 테두리가 없다', () => {
     const rule = /\.pane-doc \.memo-note-tab-actions \.pdf-memo-header-button \{([^}]*)\}/u.exec(css('memo-note-tab.css'))?.[1] ?? ''
     expect(rule).toContain('border: 0')
@@ -149,9 +142,10 @@ describe('CSS 규칙', () => {
     expect(css('memo-note-tab.css')).toContain('margin: -3px 0 0 -6px;')
   })
 
-  it('번역기 탭은 본문이 칸을 채우고 결과 칸은 최소 2줄이다', () => {
+  it('번역기 창은 앱 창 위에 고정되고 머리 줄은 --bar-h, 결과 칸은 최소 2줄이다', () => {
     const rules = css('translator-panel.css')
-    expect(rules).toContain('.pane-body:has(> .translator-panel) { display: flex; flex-direction: column; }')
+    expect(rules).toMatch(/\.translator-window \{[^}]*position: fixed;/u)
+    expect(rules).toMatch(/\.translator-window-head \{[^}]*flex: 0 0 var\(--bar-h\);/u)
     expect(rules).toContain('.translator-panel-result { min-height: 48px; }')
   })
 })
@@ -161,7 +155,7 @@ describe('라운드 2', () => {
     render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
     const chips = [...document.querySelectorAll('.keys-help-state')].map((chip) => chip.textContent)
     expect(new Set(chips)).toEqual(new Set(['됨']))
-    const rules = css('status-bar.css')
+    const rules = css('keys-help.css')
     expect(rules).toContain('white-space: nowrap; opacity: 0.85; }')
     expect(rules).toContain('.keys-help .sko-close { margin-left: auto; }')
     expect(rules).toContain('.keys-help-table th:nth-child(4) { width: 86px; }')

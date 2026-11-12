@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
-  CaretDown, Command,
+  CaretDown,
   ImagesSquare, MagnifyingGlass,
   ListBullets,
   SidebarSimple,
@@ -13,6 +13,8 @@ import { AppMenu, type AppMenuGroups } from './AppMenu'
 import { SessionMenu, type SessionMenuActions } from './SessionMenu'
 import { ScreenTabs, type ScreenTabItem, type ScreenTemplateItem } from './ScreenTabs'
 import { isMacPlatform } from '../core/platform'
+import { FilePdf, FileText, NotePencil } from '@phosphor-icons/react'
+import type { PaneChannel } from './workspaceChannels'
 import '../ui/screens.css'
 import { t } from '../i18n'
 
@@ -48,14 +50,15 @@ interface TopBarProps {
     readonly onClose: (id: string) => void
     readonly onNew: (templateId: string) => void
   }
-  /** 「⌘ 명령」 단추: 명령 팔레트를 연다. shortcut 은 단추 말풍선에 보일 키 */
-  onOpenPalette?: () => void
-  paletteShortcut?: string
+  /** 도구줄 자리(화면 탭과 창 단추 사이)의 요소를 App 에 알린다. 지금 만지는 칸의 도구줄이 포털로 여기에 그려진다(topBarToolbar.tsx) */
+  toolbarSlotRef?: (element: HTMLElement | null) => void
+  /** 도구줄을 가진 칸이 만지는 칸일 때 그 주인: 색 점 · 칸 번호 · 문서 종류 아이콘 칩이 도구줄 앞에 붙는다(어느 칸의 도구인지 보이게). 없으면(빈 칸 · 캔버스) 칩도 구분선도 없다 */
+  toolbarOwner?: { readonly channel: PaneChannel; readonly number: number | null; readonly kind: 'pdf' | 'markdown' | 'memoNote' } | null
 }
 
 /**
- * 프레임리스 제목줄(설계 3): 앱 메뉴 · 왼쪽 바 · 세션 이름 ▾ · 화면 탭 · ⌘ 명령 · 창 단추.
- * 문서 탭은 여기 없다 — 칸마다 자기 머리(PaneHead)에 있다. 「창 나누기」 · 「옆에 노트」 단추도 없다(칸 ⋯ 메뉴와 명령 팔레트로 옮겼다).
+ * 프레임리스 제목줄(설계 3): 앱 메뉴 · 왼쪽 바 · 세션 이름 ▾ · 화면 탭 · 창 단추.
+ * 문서 탭은 여기 없다 — 칸마다 자기 머리(PaneHead)에 있다. 「창 나누기」 · 「옆에 노트」 · 「⌘ 명령」 단추도 없다(칸 ⋯ 메뉴와 명령 팔레트 Ctrl+K · Ctrl+Shift+P 로 옮겼다).
  */
 export function TopBar({
   sidebarCollapsed,
@@ -70,8 +73,8 @@ export function TopBar({
   sessionActions,
   clientLabel,
   screens,
-  onOpenPalette,
-  paletteShortcut,
+  toolbarSlotRef,
+  toolbarOwner = null,
 }: TopBarProps) {
   const [sessionMenu, setSessionMenu] = useState<{ left: number; top: number } | null>(null)
   const sessionRef = useRef<HTMLButtonElement | null>(null)
@@ -205,26 +208,21 @@ export function TopBar({
             onNew={screens.onNew}
           />
         )}
+        {/* 지금 만지는 칸의 도구줄(MD · PDF 도구 · 노트 서식 줄). 남는 폭을 다 쓰고, 모자라면 도구줄이 스스로 「⋯」 로 접는다.
+            바깥은 .pane-doc 별칭이다: 칸 안에서 쓰던 도구 단추 규칙(.pane-doc …)이 그대로 맞는다 */}
+        <div className="pane-doc topbar-toolbar-host" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
+          {toolbarOwner === null ? null : (
+            <span className="topbar-owner-chip" data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 지금 만지는 칸의 것입니다')}>
+              <span className="topbar-owner-dot" aria-hidden="true" />
+              {toolbarOwner.number === null ? null : <span className="topbar-owner-number">{toolbarOwner.number}</span>}
+              {toolbarOwner.kind === 'markdown' ? <FileText size={16} aria-hidden="true" /> : toolbarOwner.kind === 'memoNote' ? <NotePencil size={16} aria-hidden="true" /> : <FilePdf size={16} aria-hidden="true" />}
+            </span>
+          )}
+          <div className="pane-toolbar topbar-toolbar-slot" ref={toolbarSlotRef} />
+        </div>
       </div>
 
-      <WindowControls
-        onCloseWindow={onCloseWindow}
-        leading={onOpenPalette === undefined ? undefined : (
-          // 앱 전체에 관한 단추(명령)는 창 단추 곁에 둔다
-          <div className="topbar-window-tools">
-            <button
-              type="button"
-              className="topbar-command"
-              aria-label={t('명령 팔레트')}
-              title={paletteShortcut === undefined ? t('명령 팔레트') : t('명령 팔레트 ({shortcut})', { shortcut: paletteShortcut })}
-              onClick={onOpenPalette}
-            >
-              <Command size={13} aria-hidden="true" />
-              <span>{paletteShortcut === undefined ? t('명령') : t('명령 ({shortcut})', { shortcut: paletteShortcut })}</span>
-            </button>
-          </div>
-        )}
-      />
+      <WindowControls onCloseWindow={onCloseWindow} />
     </div>
   )
 }

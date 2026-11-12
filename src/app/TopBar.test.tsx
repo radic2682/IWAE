@@ -106,7 +106,7 @@ describe('TopBar', () => {
 
   describe('칸 탭 구역은 없다 — 화면 탭이 대신한다', () => {
     it('상단바에 문서 탭 구역(.topbar-panetab-zone)이 없고, 창 나누기·옆에 노트 단추도 없다', () => {
-      const { container } = render(<TopBar {...props} screens={screensProp()} onOpenPalette={vi.fn()} />)
+      const { container } = render(<TopBar {...props} screens={screensProp()} />)
       expect(container.querySelectorAll('.topbar-panetab-zone')).toHaveLength(0)
       expect(container.querySelector('.topbar-panetabs')).toBeNull()
       expect(screen.queryByRole('button', { name: '창 나누기' })).toBeNull()
@@ -123,14 +123,42 @@ describe('TopBar', () => {
       expect(button.disabled).toBe(true)
     })
 
-    it('「⌘ 명령」 단추가 창 단추 곁에 있고 명령 팔레트를 연다', () => {
-      const onOpenPalette = vi.fn()
-      const { container } = render(<TopBar {...props} onOpenPalette={onOpenPalette} paletteShortcut="Ctrl+K" />)
-      const tools = container.querySelector('.wincontrols .topbar-window-tools') as HTMLElement
-      const button = within(tools).getByRole('button', { name: '명령 팔레트' })
-      expect(button.textContent).toContain('명령 (Ctrl+K)')
-      fireEvent.click(button)
-      expect(onOpenPalette).toHaveBeenCalledOnce()
+    it('「⌘ 명령」 단추는 없다(팔레트는 Ctrl+K · Ctrl+Shift+P 로 연다). 창 단추 곁에는 창 단추 셋뿐이다', () => {
+      const { container } = render(<TopBar {...props} />)
+      expect(screen.queryByRole('button', { name: /명령 팔레트/u })).toBeNull()
+      expect(container.querySelector('.topbar-command')).toBeNull()
+      expect(container.querySelector('.topbar-window-tools')).toBeNull()
+      expect(container.textContent).not.toContain('명령')
+    })
+
+    it('도구줄 주인 칩: 만지는 칸이 도구줄을 가진 종류일 때만 색 점 · 칸 번호 · 문서 종류 아이콘이 도구줄 앞에 붙는다', () => {
+      const { container, rerender } = render(<TopBar {...props} toolbarOwner={{ channel: 'green', number: 2, kind: 'markdown' }} />)
+      const chip = container.querySelector('.topbar-owner-chip') as HTMLElement
+      expect(chip.dataset.channel).toBe('green')
+      expect(chip.querySelector('.topbar-owner-number')?.textContent).toBe('2')
+      expect(chip.querySelector('svg')).not.toBeNull()
+      expect(container.querySelector('.topbar-toolbar-host')?.getAttribute('data-owner')).toBe('markdown')
+      expect(chip.nextElementSibling?.classList.contains('topbar-toolbar-slot')).toBe(true)
+      rerender(<TopBar {...props} toolbarOwner={{ channel: null, number: null, kind: 'pdf' }} />)
+      expect((container.querySelector('.topbar-owner-chip') as HTMLElement).dataset.channel).toBe('none')
+      expect(container.querySelector('.topbar-owner-number')).toBeNull()
+      rerender(<TopBar {...props} toolbarOwner={null} />)
+      expect(container.querySelector('.topbar-owner-chip')).toBeNull()
+      expect(container.querySelector('.topbar-toolbar-host')?.hasAttribute('data-owner')).toBe(false)
+    })
+
+    it('화면 탭과 창 단추 사이에 도구줄 자리가 있고, 그 요소를 App 에 알린다', () => {
+      const slot = vi.fn()
+      const { container } = render(<TopBar {...props} screens={screensProp()} toolbarSlotRef={slot} />)
+      const row = container.querySelector('.topbar-session-row') as HTMLElement
+      const host = row.querySelector('.topbar-toolbar-host') as HTMLElement
+      expect(host).not.toBeNull()
+      expect(host.classList.contains('pane-doc')).toBe(true)
+      expect(row.lastElementChild).toBe(host)
+      // 화면 탭 다음, 창 단추(.wincontrols) 앞
+      expect(row.querySelector('.screen-tabs')?.compareDocumentPosition(host)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(row.compareDocumentPosition(container.querySelector('.wincontrols') as HTMLElement)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(slot).toHaveBeenCalledWith(host.querySelector('.topbar-toolbar-slot'))
     })
   })
 

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut, Translate } from '@phosphor-icons/react'
 import { OVERLAY_TOOLS, overlayToolInfo } from '../pdf/PdfOverlayPalette'
-import { DRAW_TOOLS, isDrawTool, setLastDrawTool, useLastDrawTool, useOverlayTool } from '../pdf/overlayToolStore'
+import { DRAW_TOOLS, isDrawTool, setLastDrawTool, setOverlayTool, useLastDrawTool, useOverlayTool } from '../pdf/overlayToolStore'
 import type { OverlayTool } from '../pdf/PdfOverlayLayer'
 import { ContextMenu } from '../ui/ContextMenu'
 import { getAppPrefs } from './appPrefs'
@@ -53,11 +53,35 @@ interface PaneToolbarProps {
   readonly onSplitLayoutChange?: (id: PdfSplitLayoutId) => void
   /** 쪽 편집(쪽 미리보기로 순서 바꾸기·끼워 넣기·빼기). 주면 쪽 편집 단추가 나온다 */
   readonly onEditPages?: () => void
-  /** 한 글자 단축키(T·P·L·A·R·O·E)를 이 도구줄이 받는가(마지막으로 만진 문서 칸) */
-  readonly shortcutsEnabled?: boolean
-  /** 떠 있는 번역기 열기·닫기. 주면(번역을 켜 둔 때만) 번역기 단추가 나온다 */
+  /** 번역기 창 열기·닫기. 주면(번역을 켜 둔 때만) 번역기 단추가 나온다 */
   readonly translatorOpen?: boolean
   readonly onToggleTranslator?: () => void
+}
+
+/**
+ * 한 글자 단축키(T·P·L·A·R·O·E): 이 문서 칸이 마지막으로 만진 문서 칸일 때(enabled), 글 쓰는 칸 밖에서 편집 도구를 고른다.
+ * 도구줄은 지금 만지는 칸 것만 상단바에 그려지므로, 단축키는 도구줄이 아니라 문서 칸(DocumentView)이 늘 받는다.
+ */
+export function useOverlayToolShortcuts(enabled: boolean, onModeChange: (mode: ReaderPaneToolMode) => void): void {
+  const modeRef = useRef(onModeChange)
+  modeRef.current = onModeChange
+  useEffect(() => {
+    if (!enabled) return undefined
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      if (!getAppPrefs().singleKeyShortcuts) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(input|textarea|select)$/iu.test(target.tagName))) return
+      const info = OVERLAY_TOOLS.find((item) => item.shortcut.toLowerCase() === event.key.toLowerCase())
+      if (info === undefined) return
+      event.preventDefault()
+      if (isDrawTool(info.id)) setLastDrawTool(info.id)
+      setOverlayTool(info.id)
+      modeRef.current('edit')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [enabled])
 }
 
 export function PaneToolbar({
@@ -84,7 +108,6 @@ export function PaneToolbar({
   splitLayout,
   onSplitLayoutChange,
   onEditPages,
-  shortcutsEnabled = false,
   translatorOpen = false,
   onToggleTranslator,
 }: PaneToolbarProps) {
@@ -123,22 +146,6 @@ export function PaneToolbar({
       </button>
     )
   }
-  // 한 글자 단축키(T·P·L·A·R·O·E): 이 문서 칸이 마지막으로 만진 칸일 때, 글 쓰는 칸 밖에서
-  useEffect(() => {
-    if (!shortcutsEnabled) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
-      if (!getAppPrefs().singleKeyShortcuts) return
-      const target = event.target
-      if (target instanceof HTMLElement && (target.isContentEditable || /^(input|textarea|select)$/iu.test(target.tagName))) return
-      const info = OVERLAY_TOOLS.find((item) => item.shortcut.toLowerCase() === event.key.toLowerCase())
-      if (info === undefined) return
-      event.preventDefault()
-      pickTool(info.id)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
   const [toolbarState, updateToolbarState] = useReducer(readerToolReducer, INITIAL_READER_TOOL_STATE)
   const state: ReaderToolState = {
     ...toolbarState,

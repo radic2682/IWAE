@@ -213,15 +213,11 @@ describe('SplitPanes — 세션 레이아웃', () => {
     expect(cell(container, 1).style.width).toBe('100%')
   })
 
-  it('상태 줄은 칸 아래(앱 틀 맨 아래)에 놓이고, 없으면 그리지 않는다', () => {
-    const { container, rerender } = render(
-      <SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} statusBar={<div data-testid="status">상태</div>} />,
-    )
+  it('아래 상태 줄은 없다: 앱 틀의 맨 아래는 칸 영역(.app)이다', () => {
+    const { container } = render(<SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} />)
     const shell = container.querySelector('.shell') as HTMLElement
-    expect(shell.lastElementChild).toBe(screen.getByTestId('status'))
-    expect(shell.querySelector('.app')?.nextElementSibling).toBe(screen.getByTestId('status'))
-    rerender(<SplitPanes sidebar={null} topBar={() => null} sidebarCollapsed={false} root={cols2()} renderPane={body} />)
-    expect(screen.queryByTestId('status')).toBeNull()
+    expect(shell.lastElementChild).toBe(shell.querySelector('.app'))
+    expect(container.querySelector('.status-bar')).toBeNull()
   })
 
   it('상단바에는 사이드바 폭과 보이는 여부만 건넨다(칸이 하나일 때 탭 줄이 쓰는 몫은 1)', () => {

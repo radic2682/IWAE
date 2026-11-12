@@ -179,23 +179,6 @@
 .screen-tab-new:is(:hover, :focus-visible),
 .screen-tab-new[aria-expanded='true'] { background: var(--chrome-hover); outline: none; }
 
-/* 「⌘ 명령」 */
-.topbar .topbar-command {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 9px;
-  border: 1px solid var(--divider);
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-strong);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.topbar .topbar-command:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
-
 /* ── 칸 = 둥근 카드(타일). 칸 사이 틈 --pane-gap, 칸 영역 바깥에도 같은 여백 ──
    칸 사각형(%)은 칸 영역의 안쪽(테두리 안) 기준이라, 바깥 여백은 투명 테두리 반쪽 + 칸의 안쪽 여백 반쪽으로 낸다.
    칸 사이 틈은 이웃 두 칸의 안쪽 여백 반쪽씩이다 — 겹침도 1px 이음새도 없다. */
@@ -219,13 +202,6 @@
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
-  border: 1px solid var(--divider-strong, var(--hairline));
-  border-radius: var(--r-md);
-  background: var(--paper);
-}
-/* 지금 만진 칸: 테두리에 강조색을 45% 섞는다(굵은 윤곽 없음) */
-.panes-tree .pane-card:has(.pane-focus-scope[data-pane-active]) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--hairline)));
 }
 /* 칸막이: 틈 전체가 잡는 자리. 평소엔 보이지 않고, 올리면 틈 가운데에 가는 강조선 */
 .panes-tree .pane-tree-divider.pane-grid-divider-col { width: var(--pane-gap); margin-left: calc(var(--pane-gap) / -2); }
@@ -244,27 +220,11 @@
 }
 :root[data-theme='dark'] .panes-tree > .pane-grid-cell:not(.pane-float) { background: transparent; }
 
-/* ── 칸 카드: 색은 모두 토큰에서(--workspace · --paper · --divider · --accent …). 움직임 없음 ──
-   칸 머리의 탭 줄은 예전 상단바 탭 줄(.topbar-panetab-zone, 크롬 식 탭)과 같은 모양이다 —
-   탭 모양(고른 탭 = 종이색 + 아래 양옆 곡선, 닫기 × 늘 보임)은 theme-layout.css 의 것을 그대로 쓴다. */
+/* ── 칸 카드: 색은 모두 토큰에서. 움직임 없음. 면 · 테두리 · 채널 가장자리 · 머리 높이는 workspace-surface.css 가 정한다 ──
+   칸 머리의 탭은 28px 알약 한 모양이다(workspace-surface.css; 예전 크롬 식 곡선 탭은 없앴다). */
 .panes.panes-tree { background: var(--workspace); }
-.panes-tree .pane-card {
-  border-color: var(--divider);
-  background: var(--paper);
-}
-/* 만진 칸: 테두리만 조금 밝게(강조색은 20% 만 섞는다) */
-.panes-tree .pane-card:has(.pane-focus-scope[data-pane-active]) {
-  border-color: color-mix(in srgb, var(--accent) 20%, var(--divider-strong, var(--divider)));
-}
-/* 색 점은 8px, 칸 번호는 작고 흐리게. 둘 다 탭 줄 바닥에 붙여(탭 높이 33px 의 가운데 = 바닥에서 16.5px) 탭 제목과 세로 가운데가 같다.
-   간격: 머리 왼쪽 6px · 점(8px, 누르는 자리 14px) → 번호 6px · 번호 → 탭 몸통 6px(탭 왼쪽 곡선 10px 중 4px 겹침) */
-.pane-head .pane-tabs-menu > .pane-channel-dot { align-self: flex-end; width: 14px; height: 25px; margin: 0 3px 4px 0; }
+/* 색 점은 8px */
 .pane-head .pane-channel-dot-mark { width: 8px; height: 8px; }
-.pane-head .pane-tabs-menu > .pane-head-number { align-self: flex-end; display: inline-flex; align-items: center; height: 25px; margin: 0 -4px 4px 0; font-size: 10px; opacity: 0.55; }
-/* 빈 칸 머리: 점 · 번호 · ⋯ 뿐(안내 글자 없음). 간격은 탭이 있는 머리와 같다 */
-.pane-head > .pane-tabs-empty-row { gap: 0; padding-left: 6px; }
-.pane-head .pane-tabs-empty-row > .pane-channel-dot { width: 14px; height: 24px; margin: 0 3px 0 0; }
-.pane-head .pane-tabs-empty-row > .pane-head-number { margin: 0; font-size: 10px; opacity: 0.55; }
 .pane-head .pane-top-tab-dot { flex: 0 0 auto; width: 5px; height: 5px; margin-left: 2px; border-radius: 50%; background: var(--accent); }
 /* 좁은 칸: 보는 탭은 이름이 보이도록 줄지 않지만(128px 까지) 줄 폭보다 넓어져 넘치지는 않는다 — 탭이 하나뿐이면 넘침 표시(⌄ n)가 필요 없다 */
 .pane-grid-tabs.pane-head .pane-tabs-menu .pane-tabs-strip .pane-top-tab-active { max-width: min(240px, 100%); }
@@ -320,18 +280,6 @@
 .screen-tab-active .screen-tab-button { background: color-mix(in srgb, var(--text-strong) 9%, transparent); color: var(--text-strong); font-weight: 500; }
 .screen-tab-button:is(:hover, :focus-visible) { background: color-mix(in srgb, var(--text-strong) 6%, transparent); }
 .screen-tab-active .screen-tab-button:is(:hover, :focus-visible) { background: color-mix(in srgb, var(--text-strong) 11%, transparent); }
-
-/* ── 아래 상태 줄: 흐린 한 줄 ── */
-.status-bar { gap: 10px; font-size: 11px; color: var(--text-muted, var(--text-strong)); }
-.status-bar-session, .status-bar-screen { font-weight: 500; }
-.status-bar-screen { color: inherit; opacity: 0.8; }
-.status-bar-screen-active { color: var(--text-strong); opacity: 1; font-weight: 600; }
-/* 간격 고르게: 항목 사이는 모두 눈에 보이는 12px(왼쪽 묶음 간격 7px + 화면 단추 안쪽 여백 5px). 「·」 뒤도 12px — 글 안의 공백으로 두 배가 되지 않게 한다 */
-.status-bar-left { gap: 7px; }
-.status-bar-panes::before { content: '·'; margin-right: 12px; }
-.status-bar-hint { opacity: 0.8; }
-/* 접두키 칩: 다른 상태 줄 글자와 같은 11px · 세로 가운데(단추 기본 글꼴 · 줄 높이를 상속으로 맞춘다) */
-.status-bar-prefix { border-color: var(--divider); font: inherit; font-size: 11px; line-height: 1; color: inherit; }
 
 /* ── 팝업 메뉴(세션 메뉴 · 칸 ⋯ 메뉴 · 화면 탭 메뉴 공통): 폭과 오른쪽 힌트 ──
    폭은 내용에 맞추되 300px 밑으로 줄지 않아 「다른 이름으로 저장」 같은 글이 잘리지 않는다(좁은 창에서만 ... 로 줄어든다).

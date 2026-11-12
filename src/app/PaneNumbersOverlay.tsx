@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import '../ui/status-bar.css'
+import '../ui/keys-help.css'
 
 /** 칸 번호가 떠 있는 시간(ms) */
 export const PANE_NUMBERS_MS = 1500

@@ -3,8 +3,9 @@ import type { MemoTicket } from '../core/memoNote'
 import type { MemoContent } from '../pdf/MemoColumn'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import type { PaneId } from './tabs'
-import { DEFAULT_CHANNELS, channelOf, type PaneChannel, type PaneChannels } from './workspaceChannels'
-import { emitPointSignal, paneReceives, pendingPointSignal, subscribePointSignal, type DeliveredSignal, type PointSignal } from './workspaceSignal'
+import { DEFAULT_CHANNELS, channelOf, type Channel, type PaneChannel, type PaneChannels } from './workspaceChannels'
+import { flashReaction, setHoverReaction } from './paneReaction'
+import { emitPointSignal, paneReceives, pendingPointSignal, subscribePointSignal, type DeliveredSignal, type PointSignal, type PointTarget } from './workspaceSignal'
 
 /**
  * 작업 공간을 창 안쪽 화면(PDF·Markdown·메모 노트)에 알리는 손잡이.
@@ -30,6 +31,8 @@ export interface WorkspaceLink {
   readonly revealMemo: (pane: PaneId | null, memoId: string) => void
   /** pane 과 같은 색 창에 보이는 캔버스에 그 메모에 이어진 블록이 있는가(있으면 노트를 따로 열지 않고 캔버스가 그 블록을 보인다) */
   readonly canvasShowsMemo?: (pane: PaneId | null, memoId: string) => boolean
+  /** pane 에서 target 을 가리키면(누르면) 움직일 같은 색 창들과 그 채널 색(마우스를 올린 동안의 윤곽용). 없으면 윤곽이 없다 */
+  readonly reactionPanesFor?: (pane: PaneId, target: PointTarget) => ReadonlyMap<PaneId, Channel>
 }
 
 const NO_PATHS: readonly string[] = []
@@ -70,13 +73,33 @@ export function usePointSignalReceiver(handler: (signal: DeliveredSignal) => boo
     if (pane === null) return undefined
     const accept = (signal: DeliveredSignal) => {
       if (signal.seq <= handledRef.current || !paneReceives(signal, pane, channel)) return
-      if (handlerRef.current(signal)) handledRef.current = signal.seq
+      if (handlerRef.current(signal)) {
+        handledRef.current = signal.seq
+        // 신호가 이 창을 실제로 움직였다: 채널 색 윤곽을 잠깐(0.6초) 켰다가 끈다
+        flashReaction(pane, channel)
+      }
     }
     const unsubscribe = subscribePointSignal(accept)
     const pending = pendingPointSignal(handledRef.current)
     if (pending !== null) accept(pending)
     return unsubscribe
   }, [pane, channel, key])
+}
+
+/**
+ * 메모(형광펜) 위에 마우스를 올렸다 / 떠났다(null)를 알린다: 누르면 신호를 받아 움직일 같은 색의 다른 창에 채널 색 안쪽 윤곽이 생긴다(paneReaction).
+ * 창 틀 밖이거나 채널이 없으면 아무것도 하지 않는다. 쓰던 화면이 사라질 때 윤곽도 거둔다.
+ */
+export function useMemoHoverReporter(): (memoId: string | null) => void {
+  const { pane } = usePaneChannel()
+  const workspace = useWorkspaceLink()
+  const workspaceRef = useRef(workspace)
+  workspaceRef.current = workspace
+  useEffect(() => () => setHoverReaction(null), [])
+  return useCallback((memoId) => {
+    if (pane === null || memoId === null) { setHoverReaction(null); return }
+    setHoverReaction(workspaceRef.current.reactionPanesFor?.(pane, { kind: 'memo', memoId }) ?? null)
+  }, [pane])
 }
 
 /** 이 창이 보내는 신호: 메모(형광펜 id)를 가리킨다. 창 틀 밖이면 아무것도 하지 않는다 */

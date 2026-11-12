@@ -2,6 +2,8 @@ import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointer
 import { isDragExempt } from '../ui/dragExempt'
 import { FLOAT_HEAD_H, floatBoxIn, floatBoxOnScreen, floatFromBox, floatOutgrowsAnchor, moveFloatBox, resizeFloatBox, type FloatBox, type FloatSize } from './floatingPanes'
 import type { FloatAnchor, FloatingPane } from './screens'
+import { PaneCard } from './PaneCard'
+import type { PaneChannel } from './workspaceChannels'
 import { t } from '../i18n'
 import '../ui/floating-panes.css'
 
@@ -24,6 +26,12 @@ export interface FloatLayerProps {
   readonly epoch: number
   readonly renderHead: (paneId: string) => ReactNode
   readonly renderBody: (paneId: string) => ReactNode
+  /** 칸의 색 채널(카드 맨 위 2px 가장자리) */
+  readonly paneChannel?: (paneId: string) => PaneChannel
+  /** 지금 만지는 칸인가(강조색 테두리) */
+  readonly isActive?: (paneId: string) => boolean
+  /** 탭이 하나도 없는 빈 칸인가(점선 테두리) */
+  readonly paneEmpty?: (paneId: string) => boolean
   /** 끌기 · 크기 바꾸기가 끝났다(저장 모양의 자리 · 크기) */
   readonly onChange: (paneId: string, patch: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h'> & { readonly anchor?: FloatAnchor }) => void
   /** 눌렀다: 맨 위로 올린다 */
@@ -42,7 +50,7 @@ interface Gesture {
  * 오른쪽 아래 모서리로 크기를 바꾼다. 끄는 동안은 이 안에서만 다시 그리고 놓을 때 한 번 알린다.
  * 카드는 보통 칸과 같은 껍질(.pane-grid-cell · .pane-grid-tabs · .pane-grid-body)이라 탭 끌어 놓기 · 연결선이 그대로 알아본다.
  */
-export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, renderBody, onChange, onRaise }: FloatLayerProps) {
+export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, renderBody, paneChannel, paneEmpty, isActive, onChange, onRaise }: FloatLayerProps) {
   return (
     <>
       {floats.map((float) => {
@@ -56,6 +64,9 @@ export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, 
             screen={screenRect ?? anchor}
             renderHead={renderHead}
             renderBody={renderBody}
+            channel={paneChannel?.(float.paneId) ?? null}
+            active={isActive?.(float.paneId) ?? false}
+            empty={paneEmpty?.(float.paneId) ?? false}
             onChange={onChange}
             onRaise={onRaise}
           />
@@ -65,12 +76,15 @@ export function FloatLayer({ floats, anchorRect, screenRect, epoch, renderHead, 
   )
 }
 
-function FloatCard({ float, anchor, screen, renderHead, renderBody, onChange, onRaise }: {
+function FloatCard({ float, anchor, screen, renderHead, renderBody, channel, active, empty, onChange, onRaise }: {
   readonly float: FloatingPane
   readonly anchor: AnchorRect
   readonly screen: AnchorRect
   readonly renderHead: (paneId: string) => ReactNode
   readonly renderBody: (paneId: string) => ReactNode
+  readonly channel: PaneChannel
+  readonly active: boolean
+  readonly empty: boolean
   readonly onChange: FloatLayerProps['onChange']
   readonly onRaise: FloatLayerProps['onRaise']
 }) {
@@ -125,7 +139,7 @@ function FloatCard({ float, anchor, screen, renderHead, renderBody, onChange, on
       style={style}
       onPointerDownCapture={() => onRaise(float.paneId)}
     >
-      <div className="pane-card pane-float-card">
+      <PaneCard paneId={float.paneId} channel={channel} active={active} empty={empty} className="pane-float-card">
         <div
           className="pane-grid-tabs topbar-panetab-zone pane-head pane-float-head"
           data-pane-head={float.paneId}
@@ -148,7 +162,7 @@ function FloatCard({ float, anchor, screen, renderHead, renderBody, onChange, on
             onPointerCancel={end}
           />
         )}
-      </div>
+      </PaneCard>
     </div>
   )
 }

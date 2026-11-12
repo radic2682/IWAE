@@ -10,6 +10,8 @@
 @import './canvas-paper.css';
 @import './pdf-memo.css';
 @import './whale-theme.css';
+/* 한 면 · 한 높이(--bar-h) · 8px 격자: 앞선 파일들의 옛 머리 띠 · 도구줄 띠 · 크롬 탭 규칙을 덮는다 */
+@import './workspace-surface.css';
 /* 움직임(토큰·스프링·눌림·메뉴/대화상자 등장·동작 줄이기)은 맨 끝: 앞선 파일의 옛 전환을 같은 선택자로 덮는다 */
 @import './motion.css';
 

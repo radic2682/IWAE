@@ -92,8 +92,10 @@ describe('공통 스타일 토큰 경계', () => {
       '--radius-control',
       '--shadow-page',
     ]) expect(tokens).toContain(`${token}:`)
-    expect(tokens).toContain('--toolbar-height: 38px')
-    expect(tokens).toContain('--bottom-bar-height: 37px')
+    // 한 높이 표준: 상단바 · 칸 탭 줄 · 아래 막대 모두 --bar-h(36px)
+    expect(tokens).toContain('--bar-h: 36px')
+    expect(tokens).toContain('--toolbar-height: var(--bar-h)')
+    expect(tokens).toContain('--bottom-bar-height: var(--bar-h)')
   })
 
   it('반복되는 떠 있는 컨트롤 색상과 크기를 tokens.css 밖에 직접 쓰지 않는다', () => {

@@ -46,11 +46,13 @@ import { summarizeWorkspace, type McpWorkspaceState } from './mcp/workspaceComma
 import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
 import { EmptyPane, type EmptyPaneRecent } from './EmptyPane'
-import { StatusBar } from './StatusBar'
+import { PrefixChip } from './PrefixChip'
+import { TopBarToolbarContext } from './topBarToolbar'
+import { reactingPanes } from './paneReaction'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { TranslatorPanel } from './TranslatorPanel'
-import { finishLegacyTranslatorMigration, migrateLegacyTranslators, readLegacyTranslatorPanels, type LegacyDocPane } from './translatorPanelState'
-import { closeFloat, embedPane, floatIdsOf, floatOf, floatPane, openTranslatorFloat, patchFloat, raiseFloat, toggleTranslatorFloat, translatorFloatFor, visibleFloats, type FloatOutcome } from './floatingPanes'
+import { finishLegacyTranslatorMigration, readLegacyTranslatorPanels, toggleTranslatorWindow, translatorWindowFromLegacy, updateTranslatorWindow, useTranslatorWindow } from './translatorPanelState'
+import { closeFloat, embedPane, floatIdsOf, floatOf, floatPane, patchFloat, raiseFloat, visibleFloats, type FloatOutcome } from './floatingPanes'
 import { setFloatingLinkPanes } from './workspaceLinks'
 import { barMigrationKey, legacyBarWasOpen, migrateNoteBar } from './noteBarMigration'
 import { useMemoNotes } from './useMemoNotes'
@@ -126,10 +128,10 @@ import { NoteHeadMenu } from './NoteHeadMenu'
 import { closePaneTree, collapseEmptyPane, dockTab, moveTabToPaneAt, type DockEdge } from './tabDock'
 import { moveTabToNewPane, setPaneCountTree, splitPane, swapSplitSides } from './paneLayoutOps'
 import { MAX_PANES, leaves, swapLeaves, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
-import { channelOf, cyclePaneChannel, type PaneChannel, type PaneChannels } from './workspaceChannels'
+import { channelOf, cyclePaneChannel, type Channel, type PaneChannel, type PaneChannels } from './workspaceChannels'
 import { setAppPref, useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
-import { emitPointSignal, subscribePointSignal, type DeliveredSignal } from './workspaceSignal'
+import { emitPointSignal, subscribePointSignal, type DeliveredSignal, type PointTarget } from './workspaceSignal'
 import { activeKindOf, isNoteSurface, memoNoteTargetFor, needForMemo, needForPlace, resolvePointSignal, visibleNotePathsIn } from './workspaceRouting'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePanel, ThumbnailPanel } from './SidePanels'
@@ -686,8 +688,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('library')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  // 아래 상태 줄(설정 「아래 상태 줄」): 켜면 짧은 알림도 거기에 뜬다
-  const statusBarOn = useAppPrefs().statusBar
+  // 상단바의 도구줄 자리: 지금 만지는 칸의 도구줄이 포털로 여기에 그려진다
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null)
   const [keysHelpOpen, setKeysHelpOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -1206,6 +1208,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           : []),
       { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: shortcutText('openSettings'), keywords: 'settings preferences', run: act('openSettings') },
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
+      { id: 'translator', kind: 'action', label: translatorWindow.open ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: toggleTranslatorWindow },
+      { id: 'keys-help', kind: 'action', label: t('키와 명령 보기'), shortcut: `${prefixHint} ?`, keywords: 'keys help shortcuts commands list-keys 키 명령 도움말', run: () => setKeysHelpOpen(true) },
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
       { id: 'goto', kind: 'action', label: t('쪽으로 가기'), shortcut: shortcutText('goTo'), keywords: 'go to page', run: act('goTo') },
@@ -1758,7 +1762,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     screenOps.breakPane(pane, t('화면 {n}', { n: screens.length }))
     setActivePaneId(pane)
   }
-  /** 빈 칸의 빠른 단추(PDF · MD · 노트 · 캔버스 · 번역기). 누른 칸이 다음에 여는 것을 받는다 */
+  /** 빈 칸의 빠른 단추(PDF · MD · 노트. 캔버스는 꺼 두어 단추가 없다). 누른 칸이 다음에 여는 것을 받는다 */
   const emptyPaneActions = {
     pdf: (pane: PaneId) => { setPaneRoute('doc', pane); setActivePaneId(pane); void addDocument() },
     markdown: (pane: PaneId) => { setPaneRoute('doc', pane); setActivePaneId(pane); toggleLibrary() },
@@ -1780,20 +1784,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (note === undefined) { announceAction(t('열 수 있는 노트가 없습니다')); return }
       openInPane({ id: note.path, title: note.title, kind: 'canvas' }, pane)
     },
-    // 번역기는 이 칸에 붙은 떠 있는 칸(번역기 탭)이다. 이미 있으면 닫고, 없으면 연다
-    translator: (pane: PaneId) => toggleTranslator(pane),
   }
   // ───────── 접두키 · `:` 명령줄 · 워크스페이스 명령(설계 8) ─────────
-  const [commandLine, setCommandLine] = useState<{ readonly prefill: string } | null>(null)
   const [paneNumbersOpen, setPaneNumbersOpen] = useState(false)
   /** 지우기 확인을 기다리는 세션(kill-session · 세션 메뉴의 「삭제」) */
   const [sessionToKill, setSessionToKill] = useState<string | null>(null)
-  /** 명령 팔레트를 열 때 미리 채울 글(「:」 명령줄이 상태 줄이 꺼져 있을 때 팔레트로 온다) */
+  /** 명령 팔레트를 열 때 미리 채울 글(`:` 명령줄이 팔레트로 온다) */
   const [paletteInitial, setPaletteInitial] = useState('')
   const commandModelRef = useRef<WorkspaceModel>({ screens: screensState, activePane: activePaneId })
   commandModelRef.current = { screens: screensState, activePane: activePaneId }
   const prefixApiRef = useRef<{ readonly startConfirm: () => void }>({ startConfirm: () => undefined })
-  /** 상태 줄의 y/n 이 무엇을 묻는가: 화면 닫기(&) · 앱 닫기(마지막 앱 창의 detach) */
+  /** 접두키 칩의 y/n 이 무엇을 묻는가: 화면 닫기(&) · 앱 닫기(마지막 앱 창의 detach) */
   const confirmKindRef = useRef<'kill-window' | 'quit'>('kill-window')
   // .iwae/keys.conf: bind-key · unbind-key · set prefix. Vault 를 열 때와 source-file 때 읽는다(파일 감시는 하지 않는다)
   const [keyBindings, setKeyBindings] = useState<Readonly<Record<string, string>>>({})
@@ -1882,10 +1883,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     },
     displayPanes: () => setPaneNumbersOpen(true),
     listKeys: () => setKeysHelpOpen(true),
-    promptCommand: (prefill) => {
-      if (statusBarOn) setCommandLine({ prefill })
-      else { setPaletteInitial(`:${prefill}`); setPaletteOpen(true) }
-    },
+    // `:` 명령줄은 명령 팔레트가 `:` 와 미리 채울 글로 열린 것이다(아래 상태 줄은 없앴다)
+    promptCommand: (prefill) => { setPaletteInitial(`:${prefill}`); setPaletteOpen(true) },
+    openTranslator: () => updateTranslatorWindow({ open: true }),
     confirmKillWindow: () => { confirmKindRef.current = 'kill-window'; prefixApiRef.current.startConfirm() },
     newClient: (wanted) => openNewClient(wanted),
     detach: () => detachThisClient(),
@@ -1912,8 +1912,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     commandHost.setModel(outcome.model)
     if (outcome.message !== undefined) announceAction(outcome.message)
   }
-  /** 이 칸에 붙은 번역기(번역기 탭을 담은 떠 있는 칸)를 열고 닫는다(도구줄 · 빈 칸의 「번역기」 단추) */
-  const toggleTranslator = (pane: PaneId) => applyFloatOutcome(toggleTranslatorFloat(commandModelRef.current, pane))
   const closeFloatPane = (pane: PaneId) => applyFloatOutcome(closeFloat(commandModelRef.current, pane))
   const embedFloatPane = (pane: PaneId) => applyFloatOutcome(embedPane(commandModelRef.current, paneSizeOf, pane))
   const floatPaneFromHead = (pane: PaneId) => applyFloatOutcome(floatPane(commandModelRef.current, pane))
@@ -1937,23 +1935,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [activeScreenNow])
   // 문서 칸과 겹치는 떠 있는 칸은 연결선을 잇지 않는다(카드 강조만): 연결선 층에 떠 있는 칸을 알린다
   useEffect(() => { setFloatingLinkPanes(floatIds) }, [floatIds])
-  // 예전 떠 있는 번역기(문서 칸 위 고정 창)의 열림 · 자리 · 크기를 한 번 번역기 떠 있는 칸으로 옮긴다
+  // 문서 종류별로 저장하던 예전 번역기 값(iwae:translator-panel:v1)을 한 번 창 하나의 열림 · 크기로 옮긴다(떠 있는 칸 탭이던 세션 값은 세션을 읽을 때 옮긴다)
   const legacyTranslatorChecked = useRef(false)
   useEffect(() => {
     if (initializing || legacyTranslatorChecked.current) return
     legacyTranslatorChecked.current = true
     const legacy = readLegacyTranslatorPanels()
     if (legacy === null) return
-    const model = commandModelRef.current
-    const active = activeScreenOf(model.screens)
-    const hosts = leaves(active.layout).flatMap((pane): LegacyDocPane[] => {
-      const tab = activeTab(tabsOf(active.panes, pane))
-      if (tab === null || (tab.kind !== 'pdf' && tab.kind !== 'markdown')) return []
-      const size = paneSizeOf(pane)
-      return [{ pane, kind: tab.kind === 'markdown' ? 'markdown' : 'pdf', width: size?.width ?? 0, height: size?.height ?? 0 }]
-    })
-    const next = migrateLegacyTranslators(model, legacy, hosts)
-    if (next !== model) commandHost.setModel(next)
+    const moved = translatorWindowFromLegacy(legacy)
+    if (moved !== null) updateTranslatorWindow(moved)
     finishLegacyTranslatorMigration()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 시작할 때 한 번
   }, [initializing])
@@ -2033,10 +2023,36 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   openNoteBesideRef.current = openNoteBeside
   const revealMemoBesideRef = useRef(revealMemoBeside)
   revealMemoBesideRef.current = revealMemoBeside
+  // 마우스를 올린 메모 · 형광펜이 가리킬 창들(paneReaction.reactingPanes). 최신 상태를 ref 로 읽어 문맥 값(workspaceLink)이 형광펜 수정마다 바뀌지 않게 한다
+  const reactionRef = useRef<(pane: PaneId, target: PointTarget) => ReadonlyMap<PaneId, Channel>>(() => new Map())
+  reactionRef.current = (pane, target) => {
+    const now = workspaceLatest.current
+    const channel = channelOf(now.channels, pane)
+    const found = new Map<PaneId, Channel>()
+    if (channel === null) return found
+    const memo = target.kind === 'memo' ? pdfHighlights.highlights.find((highlight) => highlight.id === target.memoId) : undefined
+    const panesNow = reactingPanes({
+      from: pane,
+      target,
+      visible: paneOrder,
+      panes: now.panes,
+      channels: now.channels,
+      notesOf: memoNotes.notesOf,
+      docIdOfMemo: () => memo?.anchor.docId ?? null,
+      canvasShowsMemo: CANVAS_ENABLED ? (candidate, memoId) => {
+        const noteId = activeTab(tabsOf(now.panes, candidate))?.id
+        const document = noteId === undefined ? undefined : liveCanvas(noteId)?.get()
+        return document !== undefined && blocksForTarget(document.nodes, { kind: 'memo', memoId }, canvasHighlights).length > 0
+      } : undefined,
+    })
+    for (const candidate of panesNow) found.set(candidate, channel)
+    return found
+  }
   const workspaceLink = useMemo<WorkspaceLink>(() => {
     const visible = paneOrder
     return {
       channels,
+      reactionPanesFor: (pane, target) => reactionRef.current(pane, target),
       memoNoteTargetFor: (pane) => (pane === null ? null : memoNoteTargetFor(panes, channels, visible, pane)),
       visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channelOf(channels, pane))),
       pinTab: pinPaneTab,
@@ -2626,7 +2642,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     onChangeTargetLanguage: (code) => updateTranslationSettings({ targetLanguage: code }),
   }), [cardTargetLanguage, cardExecutionMode, cardExternalProvider, cardSelectedModel, updateTranslationSettings])
 
-  // 도구줄의 떠 있는 번역기: 번역을 켜 둘 때만 있다
+  // 번역기 창(앱 창 전체에 떠 있다): 열림은 도구줄 단추 · 접두키 w · display-popup 이 바꾼다
+  const translatorWindow = useTranslatorWindow()
+  // 상단바 도구줄의 주인 칩(색 점 · 칸 번호 · 문서 종류): 도구줄이 있는 종류(PDF · MD · 메모 노트)를 보는 칸이 만지는 칸일 때만
+  const ownerTab = activeTab(tabsOf(panes, activePaneId))
+  const toolbarOwner = ownerTab !== null && (ownerTab.kind === 'pdf' || ownerTab.kind === 'markdown' || ownerTab.kind === 'memoNote')
+    ? { channel: channelOf(channels, activePaneId), number: paneOrder.indexOf(activePaneId) < 0 || floatIds.includes(activePaneId) ? null : leaves(layoutRoot).indexOf(activePaneId), kind: ownerTab.kind }
+    : null
+  const toolbarSlotValue = useMemo(() => ({ element: toolbarSlot, activePane: activePaneId }), [toolbarSlot, activePaneId])
+  // 도구줄의 번역기 단추: 번역을 켜 둘 때만 있다
   const translatorService = useMemo<TranslatorService | null>(() => (translation.settings.enabled
     ? {
         providerLabel: translationCardSettings.providerLabel,
@@ -3481,7 +3505,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const main = formal !== undefined && formal.length >= 8 ? formal : shown
     return { main, sub: fileName === undefined || fileName === main ? undefined : fileName }
   }
-  /** 빈 칸: 조용한 명령 목록(PDF · Markdown · 노트 · 캔버스 · 번역기 · 이 칸 닫기)과 최근 문서(EmptyPane) */
+  /** 빈 칸: 조용한 명령 목록(PDF · Markdown · 노트 · 이 칸 닫기)과 최근 문서(EmptyPane) */
   const renderEmptyPane = (pane: PaneId) => {
     const open = (run: () => void) => () => { setPaneRoute('doc', pane); setActivePaneId(pane); run() }
     const recents: EmptyPaneRecent[] = isDetachedWindow ? [] : [
@@ -3496,8 +3520,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onPdf={isDetachedWindow ? undefined : () => emptyPaneActions.pdf(pane)}
         onMarkdown={isDetachedWindow ? undefined : () => emptyPaneActions.markdown(pane)}
         onNote={isDetachedWindow || vault === null ? undefined : () => void emptyPaneActions.note(pane)}
-        onCanvas={isDetachedWindow || vault === null || !CANVAS_ENABLED ? undefined : () => void emptyPaneActions.canvas(pane)}
-        onTranslator={isDetachedWindow ? undefined : () => emptyPaneActions.translator(pane)}
         onClose={paneCount > 1 ? () => closePane(pane) : undefined}
         recents={recents}
       />
@@ -3508,9 +3530,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const tab = activeTab(state)
     if (tab === null) {
       return <PaneShell state={state} emptyHint="" placeholder="" emptyContent={renderEmptyPane(pane)} />
-    }
-    if (tab.kind === 'translator') {
-      return <PaneShell state={state} emptyHint="" placeholder="" renderBody={() => <TranslatorPanel />} />
     }
     if (tab.kind === 'memoNote') {
       return (
@@ -3572,8 +3591,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       <DocumentView
         key={`${sessionEpoch}:${pane}`}
         paneId={pane}
-        translatorOpen={translatorFloatFor(activeScreenNow, pane) !== undefined}
-        onToggleTranslator={translatorService === null ? undefined : () => toggleTranslator(pane)}
+        translatorOpen={translatorWindow.open}
+        onToggleTranslator={translatorService === null ? undefined : toggleTranslatorWindow}
         state={state}
         tab={tab}
         meta={meta}
@@ -3719,6 +3738,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     <WorkspaceContext.Provider value={workspaceLink}>
     <TranslationCardSettingsContext.Provider value={translationCardSettings}>
     <TranslatorContext.Provider value={translatorService}>
+    <TopBarToolbarContext.Provider value={toolbarSlotValue}>
     <SplitPanes
       sidebar={
         sidebarMode === 'library' || libraryExpanded ? (
@@ -3970,34 +3990,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       renderPane={(pane) => renderPane(pane)}
       // 모든 칸이(하나여도) 자기 머리를 칸 맨 위에 둔다
       renderHead={(pane, index) => renderPaneHead(pane, index)}
+      paneChannel={(pane) => channelOf(channels, pane)}
+      paneEmpty={(pane) => tabsOf(panes, pane).tabs.length === 0}
+      activePane={activePaneId}
       floats={shownFloats}
       renderFloatHead={renderFloatHead}
       onFloatChange={(pane, patch) => screenOps.replace(patchFloat(commandModelRef.current.screens, pane, patch))}
       onFloatRaise={(pane) => { const raised = raiseFloat(commandModelRef.current.screens, pane); if (raised !== commandModelRef.current.screens) screenOps.replace(raised) }}
       onSwapSplit={swapPanes}
-      statusBar={statusBarOn ? (
-        <StatusBar
-          sessionName={sessionName}
-          sessionNames={sessionNames}
-          screens={screens}
-          activeId={activeScreenId}
-          lastId={lastScreenId}
-          onSelectScreen={switchToScreen}
-          onOpenHelp={() => setKeysHelpOpen(true)}
-          prefixPhase={prefix.phase}
-          onPrefixChip={() => (prefix.phase === 'idle' ? prefix.enter() : prefix.cancel())}
-          confirmText={confirmKindRef.current === 'quit' ? t('앱을 닫을까요? y/n') : t('화면을 닫을까요? y/n')}
-          attached={clients.attached}
-          commandLine={commandLine}
-          onRunCommand={(line) => { void runWorkspaceLine(line) }}
-          onCloseCommandLine={() => setCommandLine(null)}
-          screenNames={screens.map((screen) => screen.name)}
-          templateNames={availableScreenTemplates(CANVAS_ENABLED).map((template) => template.label)}
-          paneCount={paneCount}
-          paletteShortcut={paletteHint}
-          prefixText={prefixHint}
-        />
-      ) : undefined}
       topBar={({ sidebarPx, leftFrac, sidebarVisible }) => (
         <TopBar
           sidebarCollapsed={sidebarCollapsed}
@@ -4047,6 +4047,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                 onNewClient: () => { void openNewClient().then((result) => { if (!result.ok) announceAction(result.message) }) },
               }
             : undefined}
+          toolbarSlotRef={setToolbarSlot}
+          toolbarOwner={toolbarOwner}
           screens={SPLIT_PANES_ENABLED && !isDetachedWindow ? {
             items: screens,
             activeId: activeScreenId,
@@ -4058,8 +4060,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             onClose: screenOps.close,
             onNew: (id) => { void newScreenFromTemplate(id as ScreenTemplateId) },
           } : undefined}
-          onOpenPalette={() => { setPaletteInitial(''); setPaletteOpen(true) }}
-          paletteShortcut={paletteHint}
           onCloseWindow={closeWindowSafely}
           // 떼어 낸 창은 왼쪽 바 없이 시작한다(찾기 등으로 열렸을 때만 접을 수 있게 단추가 나온다)
           hideSidebarToggle={isDetachedWindow && sidebarCollapsed}
@@ -4073,7 +4073,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       />
     ) : null}
     {/* 앱의 모든 알림은 오른쪽 아래 한 줄기로: 위 토스트, 아래로 오류 · AI 위치 · 가져오기 권유 · 업데이트 · AI 알약 */}
-    <NoticeStack toasts={!statusBarOn}>
+    <NoticeStack>
       {error !== null && <ErrorNotice message={error} onDismiss={dismissError} />}
       <AiLocationInbox
         items={aiLocations}
@@ -4294,8 +4294,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     />
     {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
     {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} prefixText={prefixHint} /> : null}
+    <TranslatorPanel />
+    <PrefixChip phase={prefix.phase} prefixText={prefixHint} confirmText={confirmKindRef.current === 'quit' ? t('앱을 닫을까요? y/n') : t('화면을 닫을까요? y/n')} />
     {paneNumbersOpen ? <PaneNumbersOverlay panes={paneOrder} activePane={activePaneId} onDone={() => setPaneNumbersOpen(false)} /> : null}
-    {paletteOpen ? <CommandPalette commands={paletteCommands()} initialQuery={paletteInitial} onRunLine={(line) => { void runWorkspaceLine(line) }} onClose={() => { setPaletteOpen(false); setPaletteInitial('') }} /> : null}
+    {paletteOpen ? <CommandPalette commands={paletteCommands()} completion={{ screenNames: screens.map((screen) => screen.name), sessionNames, templateNames: availableScreenTemplates(CANVAS_ENABLED).map((template) => template.label) }} initialQuery={paletteInitial} onRunLine={(line) => { void runWorkspaceLine(line) }} onClose={() => { setPaletteOpen(false); setPaletteInitial('') }} /> : null}
     {shortcutsOpen ? <ShortcutOverlay onClose={() => setShortcutsOpen(false)} onOpenSettings={() => { setSettingsSection('input'); setSettingsOpen(true) }} /> : null}
     <ThemeIntakeHost resolvedTheme={theme.resolvedTheme} />
     <SettingsModal
@@ -4407,6 +4409,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         },
       ]}
     />
+    </TopBarToolbarContext.Provider>
     </TranslatorContext.Provider>
     </TranslationCardSettingsContext.Provider>
     </WorkspaceContext.Provider>

@@ -5,7 +5,7 @@ import { t } from '../i18n'
 import { useFocusTrap } from '../ui/useFocusTrap'
 import { commandUsages } from './workspaceCommands'
 import '../ui/shortcuts.css'
-import '../ui/status-bar.css'
+import '../ui/keys-help.css'
 
 /** 접두키 다음 키 한 줄. status: on 지금 된다 · partial 일부만 된다 · soon 다음 단계에서 된다 */
 export interface PrefixKeyRow {
@@ -30,12 +30,12 @@ export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
   { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 떠 있는 번역기', command: 'toggle-floating · display-popup', status: 'on' },
   { keys: 's', action: '세션 목록', command: 'choose-session', status: 'on' },
   { keys: 'd', action: '이 앱 창 떼기', command: 'detach', status: 'on' },
-  { keys: ':', action: '명령줄', command: '(상태 줄이 입력칸이 됩니다)', status: 'on' },
+  { keys: ':', action: '명령줄', command: '(명령 팔레트가 「:」 로 열립니다)', status: 'on' },
   { keys: '?', action: '키 목록', command: 'list-keys', status: 'on' },
 ]
 
 /**
- * 아래 상태 줄의 「?」: 키와 명령 목록. 접두키 다음 키마다 지금 되는지(됨 · 일부 · 다음 단계)를 표시한다.
+ * 키와 명령 목록(접두키 ? · 명령 팔레트의 「키와 명령 보기」). 접두키 다음 키마다 지금 되는지(됨 · 일부 · 다음 단계)를 표시한다.
  * 접두키 없이 되는 키는 위쪽에 따로 둔다.
  */
 export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
@@ -79,7 +79,7 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
           </section>
           <section className="sko-group keys-help-prefix" aria-label={t('접두키 다음 키')}>
             <h3>{t('접두키 다음 키')}</h3>
-            <p className="keys-help-note">{t('접두키({keys})를 누르고 손을 뗀 뒤 아래 키를 누릅니다. 2초 안에 누르지 않거나 Esc 를 누르면 그만둡니다. 입력기에 막히면 상태 줄의 「접두키」를 누르세요.', { keys: prefixText })}</p>
+            <p className="keys-help-note">{t('접두키({keys})를 누르고 손을 뗀 뒤 아래 키를 누릅니다. 2초 안에 누르지 않거나 Esc 를 누르면 그만둡니다. 입력기에 막히면 명령 팔레트(Ctrl+K)에 「:」 로 시작해 같은 명령을 치세요.', { keys: prefixText })}</p>
             <table className="keys-help-table">
               <thead>
                 <tr><th scope="col">{t('키')}</th><th scope="col">{t('동작')}</th><th scope="col">{t('명령')}</th><th scope="col">{t('상태')}</th></tr>
@@ -101,7 +101,7 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
           </section>
           <section className="sko-group keys-help-commands" aria-label={t('명령줄 명령')}>
             <h3>{t('명령줄 명령')}</h3>
-            <p className="keys-help-note">{t('「:」 로 상태 줄에서 치거나 명령 팔레트에 「:」 로 시작해서 칩니다. 「;」 로 여러 명령을 잇습니다. 예: split-window -h ; open 노트 A')}</p>
+            <p className="keys-help-note">{t('「:」 를 누르면 명령 팔레트가 「:」 가 채워진 채 열립니다(Tab 으로 완성, ↑ ↓ 로 기록). 「;」 로 여러 명령을 잇습니다. 예: split-window -h ; open 노트 A')}</p>
             <ul className="keys-help-commandlist">
               {commandUsages().map((usage) => <li key={usage}><code>{usage}</code></li>)}
             </ul>

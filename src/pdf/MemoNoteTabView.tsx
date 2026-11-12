@@ -3,9 +3,10 @@ import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus } fr
 import { t } from '../i18n'
 import { memoHighlightIds, memoNoteTitleOf, updateSection, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { announceAction } from '../app/actionFeedback'
-import { setAttachRequest, useAttachRequest, useMemoPointSender, usePaneChannel, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
+import { setAttachRequest, useAttachRequest, useMemoHoverReporter, useMemoPointSender, usePaneChannel, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
 import { useEvent } from '../ui/useEvent'
 import { useBarZoom, useBarZoomWheel } from '../app/useBarZoom'
+import { TopBarToolbar, useHasTopBarSlot } from '../app/topBarToolbar'
 import { CategoryTag } from './CategoryTag'
 import { LINK_CARD_DEPTH, registerPaneLinks, requestPaneLinks, useLinkedDocIds, visibleSlice, type LinkItem, type PaneLinkSnapshot } from '../app/workspaceLinks'
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from './MemoColumn'
@@ -90,6 +91,8 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   const draft = useRoutedMemoDraft(path)
   const [draftIndex, setDraftIndex] = useState(0)
   const sendPoint = useMemoPointSender()
+  // 카드 위에 마우스를 올리면: 누를 때 움직일 같은 색 창(그 메모의 문서 · 같은 메모가 든 다른 노트)에 윤곽
+  const reportMemoHover = useMemoHoverReporter()
   const draftId = draft?.highlight.id ?? null
   const flow = useNoteFlowController({
     api,
@@ -288,6 +291,44 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   const queryRef = useRef(query)
   queryRef.current = query
 
+  // 서식 줄 + 검색 · 글 블록 · 펼치기 단추. 상단바 도구줄 자리가 있으면 지금 만지는 칸 것만 거기에 그리고, 없으면(시험 · 단독) 노트 맨 위에 둔다
+  const hasTopBarSlot = useHasTopBarSlot()
+  const dock = (
+    <div className="note-format-dock memo-note-tab-dock">
+      <div className="note-format-slot" ref={flow.setFormatSlot} />
+      {editingKey === null && draft === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
+      {/* 검색 · 글 블록 넣기 · 펼치기: 서식 줄 오른쪽 끝(제목 줄은 칸 머리와 겹쳐서 없앴다) */}
+      <div className="memo-note-tab-actions" role="toolbar" aria-label={t('노트 도구')}>
+      <button
+        type="button"
+        className="pdf-memo-header-button"
+        aria-label={searchOpen ? t('검색 닫기') : t('노트 검색')}
+        title={t('모든 메모에서 찾기')}
+        aria-pressed={searchOpen}
+        onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+      >
+        <MagnifyingGlass size={15} aria-hidden="true" />
+      </button>
+      {flow.note === null ? null : (
+        <button type="button" className="pdf-memo-header-button" aria-label={t('글 블록 넣기')} title={t('글 블록 넣기')} onClick={flow.appendText}>
+          <Plus size={15} weight="bold" aria-hidden="true" />
+        </button>
+      )}
+      {noteMemos.length === 0 ? null : (
+        <button
+          type="button"
+          className="pdf-memo-header-button"
+          aria-label={anyQuoteOpen ? t('메모 모두 접기') : t('메모 모두 펼치기')}
+          title={anyQuoteOpen ? t('모두 접기') : t('모두 펼치기')}
+          onClick={flow.toggleQuotes}
+        >
+          {anyQuoteOpen ? <ArrowsInLineVertical size={15} aria-hidden="true" /> : <ArrowsOutLineVertical size={15} aria-hidden="true" />}
+        </button>
+      )}
+      </div>
+    </div>
+  )
+
   return (
     <div ref={rootRef} className={`pane-doc memo-note-tab${wide ? ' memo-note-tab-wide' : ''}`} data-memo-note-tab={path} data-layout={wide ? 'wide' : 'narrow'}>
       <section ref={setBarEl} className="pdf-memo-bar memo-note-tab-bar" aria-label={t('메모 노트')} style={{ '--bar-zoom': wide ? 1 : barZoom } as CSSProperties}>
@@ -344,42 +385,16 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
           </div>
         ) : (
           <div className={`markdown-memo-bar-body${wide ? ' note-wide' : ''}`}>
-            <div className="note-format-dock memo-note-tab-dock">
-              <div className="note-format-slot" ref={flow.setFormatSlot} />
-              {editingKey === null && draft === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
-              {/* 검색 · 글 블록 넣기 · 펼치기: 서식 줄 오른쪽 끝(제목 줄은 칸 머리와 겹쳐서 없앴다) */}
-              <div className="memo-note-tab-actions" role="toolbar" aria-label={t('노트 도구')}>
-              <button
-                type="button"
-                className="pdf-memo-header-button"
-                aria-label={searchOpen ? t('검색 닫기') : t('노트 검색')}
-                title={t('모든 메모에서 찾기')}
-                aria-pressed={searchOpen}
-                onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
-              >
-                <MagnifyingGlass size={15} aria-hidden="true" />
-              </button>
-              {flow.note === null ? null : (
-                <button type="button" className="pdf-memo-header-button" aria-label={t('글 블록 넣기')} title={t('글 블록 넣기')} onClick={flow.appendText}>
-                  <Plus size={15} weight="bold" aria-hidden="true" />
-                </button>
-              )}
-              {noteMemos.length === 0 ? null : (
-                <button
-                  type="button"
-                  className="pdf-memo-header-button"
-                  aria-label={anyQuoteOpen ? t('메모 모두 접기') : t('메모 모두 펼치기')}
-                  title={anyQuoteOpen ? t('모두 접기') : t('모두 펼치기')}
-                  onClick={flow.toggleQuotes}
-                >
-                  {anyQuoteOpen ? <ArrowsInLineVertical size={15} aria-hidden="true" /> : <ArrowsOutLineVertical size={15} aria-hidden="true" />}
-                </button>
-              )}
-              </div>
-            </div>
+            {hasTopBarSlot ? <TopBarToolbar>{dock}</TopBarToolbar> : dock}
             <div
               ref={scrollRef}
               className="pdf-memo-bar-scroll"
+              onPointerOver={(event) => {
+                if (!(event.target instanceof Element)) return
+                const card = event.target.closest<HTMLElement>('[data-memo-id]')
+                reportMemoHover(card === null || card.dataset.noteBlock === 'draft' ? null : card.dataset.memoId ?? null)
+              }}
+              onPointerLeave={() => reportMemoHover(null)}
               onClick={(event) => {
                 // 카드를 누르면 같은 색 창이 그 형광펜으로 간다(글 쓰는 칸·단추·원문 칩은 제외: 원문 칩은 onJump 가 보낸다)
                 if (!(event.target instanceof Element)) return

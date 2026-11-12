@@ -26,7 +26,7 @@ import { addMemoRef, insertBlock, memoBlock, type MemoNote, type MemoTicket } fr
 import type { MemoContent } from '../pdf/MemoColumn'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from './workspaceLinks'
 import { sourceTargetItems } from './sourceLinkItems'
-import { getAttachRequest, setAttachRequest, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink } from './workspaceContext'
+import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink } from './workspaceContext'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../pdf/persistentHighlight'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import type { OverlayPatch, PdfOverlay } from '../core/pdfOverlays'
@@ -611,6 +611,10 @@ export function MarkdownPane({
   const { pane: paneId, channel: paneChannel } = usePaneChannel()
   /** 형광펜의 카드를 노트에서 보인다: 같은 색 창에 노트가 보이면 신호로, 아니면 그 메모의 노트를 옆에 열고 */
   const revealMemo = useRevealMemo()
+  // 메모가 달린 자리 위에 마우스를 올리면: 누를 때 움직일 같은 색 창에 윤곽(프레임마다 한 번만 맞춰 본다)
+  const reportMemoHover = useMemoHoverReporter()
+  const memoHoverFrame = useRef<number | null>(null)
+  const memoHoverId = useRef<string | null>(null)
   /** 새 메모의 초안이 가는 노트(만드는 동안): 같은 색 창의 노트 탭이거나 옆에 막 연 노트 */
   const [draftNotePath, setDraftNotePath] = useState<string | null>(null)
   /** 만든 초안을 노트로 보낸다: 같은 색 창에 보이는 노트(없으면 노트를 옆에 열어서) */
@@ -1212,6 +1216,23 @@ export function MarkdownPane({
         window.getSelection()?.removeAllRanges()
         lassoStartRef.current = { x: event.clientX, y: event.clientY }
         setLassoRect({ left: event.clientX, top: event.clientY, width: 0, height: 0 })
+      }}
+      onPointerMove={(event) => {
+        if (memoHoverFrame.current !== null || (event.buttons & 1) !== 0) return
+        const { clientX, clientY } = event
+        memoHoverFrame.current = requestAnimationFrame(() => {
+          memoHoverFrame.current = null
+          const hit = memoAtPoint(clientX, clientY)
+          const id = hit !== null && noteApi !== null && noteApi.notesOf(hit.id).length > 0 ? hit.id : null
+          if (id === memoHoverId.current) return
+          memoHoverId.current = id
+          reportMemoHover(id)
+        })
+      }}
+      onPointerLeave={() => {
+        if (memoHoverId.current === null) return
+        memoHoverId.current = null
+        reportMemoHover(null)
       }}
       onContextMenu={(event) => {
         // 마우스 제스처를 그렸으면 제스처가 이 메뉴 이벤트를 먼저 막는다. 여기 오는 것은 그냥 우클릭

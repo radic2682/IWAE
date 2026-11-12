@@ -39,7 +39,7 @@ import { BOX_DEFAULT_WIDTH, placeBoxMemo } from '../core/boxMemo'
 import { useMemoNoteApi } from './memoNoteContext'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from '../app/workspaceLinks'
 import { sourceTargetItems } from '../app/sourceLinkItems'
-import { getAttachRequest, setAttachRequest, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, type AttachRequest } from '../app/workspaceContext'
+import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, type AttachRequest } from '../app/workspaceContext'
 import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, type MemoNote, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
@@ -418,6 +418,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const { pane: paneId, channel: paneChannel } = usePaneChannel()
   /** 형광펜의 카드를 노트에서 보인다: 같은 색 창에 노트가 보이면 신호로, 아니면 그 메모의 노트를 옆에 열고 */
   const revealMemo = useRevealMemo()
+  // 형광펜(노트에 든 메모)에 마우스를 올리면: 누를 때 움직일 같은 색 창에 윤곽
+  const reportMemoHover = useMemoHoverReporter()
   const channelNotePaths = workspace.visibleNotePathsFor(paneId)
   const channelNotesKey = channelNotePaths.join('\n')
   /** 새 메모의 초안이 가는 노트(만드는 동안). 같은 색 창의 노트 탭이거나 옆에 막 연 노트다 */
@@ -1345,6 +1347,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                     if (draftMemo !== null && draftMemo.id === id) setDraftMemo(updatePersistentPdfHighlight(draftMemo, { anchor: nextAnchor }))
                     else onPersistentHighlightUpdated(id, { anchor: nextAnchor })
                   }}
+              onPersistentHighlightHover={noteApi === null ? undefined : (id) => reportMemoHover(id !== null && noteApi.notesOf(id).length > 0 ? id : null)}
               onPersistentHighlightActivate={onPersistentHighlightUpdated === undefined
                 ? undefined
                 : (id, point) => {

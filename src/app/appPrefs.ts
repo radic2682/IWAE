@@ -20,8 +20,6 @@ export interface AppFlagPrefs {
   readonly ocr: boolean
   /** 가리키기 신호(다른 노트·문서 보여 주기)가 새 탭을 미리보기 탭으로 연다. 끄면 보통 탭 */
   readonly previewTabs: boolean
-  /** 앱 틀 맨 아래 상태 줄(화면 목록 · 짧은 알림 · 키 목록). 끄면 짧은 알림이 오른쪽 아래 알림 줄기에 뜬다 */
-  readonly statusBar: boolean
   /** 첫 실행의 「접두키 고르기」 창을 이미 보였다(확인 · 나중에 모두). 한 번만 묻는다 */
   readonly prefixKeyAsked: boolean
 }
@@ -43,7 +41,7 @@ export interface AppPrefs extends AppFlagPrefs {
   readonly shortcuts: Readonly<Record<string, string>>
 }
 
-const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true, previewTabs: true, statusBar: true, prefixKeyAsked: false }
+const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true, previewTabs: true, prefixKeyAsked: false }
 export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT, libraryZoom: BAR_ZOOM_DEFAULT, libraryView: 'list', highlightColors: DEFAULT_HIGHLIGHT_COLORS, otherNoteHighlights: 'dim', shortcuts: {} }
 const KEY = 'iwae:app-prefs:v1'
 

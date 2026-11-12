@@ -118,6 +118,8 @@ interface SelectionLayerProps {
   flashHighlightId?: string | null
   /** 텍스트 모드에서 형광펜을 클릭했다(끌지 않고). 화면 좌표를 함께 넘긴다 */
   onPersistentHighlightActivate?: (highlightId: string, point: { x: number; y: number }) => void
+  /** 형광펜 위에 마우스를 올렸다(그 id) / 형광펜을 벗어났다(null). 올린 것이 바뀔 때만 부른다 */
+  onPersistentHighlightHover?: (highlightId: string | null) => void
   /** 텍스트·영역 캡처 도구에서 표·그림 네모의 변·모서리를 끌어 크기를 바꿨다(새 자리) */
   onRegionHighlightResize?: (highlightId: string, anchor: Anchor) => void
   onSelectionChange?: (selection: PdfExcerptSelection | null) => void
@@ -259,6 +261,7 @@ export function SelectionLayer({
   onPersistentHighlightRemoved,
   eraseHighlights = false,
   onPersistentHighlightActivate,
+  onPersistentHighlightHover,
   onRegionHighlightResize,
   resetKey = 0,
   flashHighlightId = null,
@@ -410,6 +413,7 @@ export function SelectionLayer({
   // 손 도구로 빈 곳을 누른 자리(떼었을 때 움직이지 않았으면 그냥 누르기)
   const handClickRef = useRef<{ x: number; y: number } | null>(null)
   const [hoverHighlight, setHoverHighlight] = useState(false)
+  const hoveredIdRef = useRef<string | null>(null)
 
   // ---------- 표·그림 네모 크기 바꾸기(텍스트·영역 캡처 도구) ----------
   const resizeEnabled = onRegionHighlightResize !== undefined && (mode === 'text' || mode === 'lasso') && !eraseHighlights
@@ -518,6 +522,10 @@ export function SelectionLayer({
       const hit = textLike && !eraseHighlights && onPersistentHighlightActivate !== undefined ? persistentHighlightAt(point) : undefined
       const over = hit !== undefined
       if (over !== hoverHighlight) setHoverHighlight(over)
+      if ((hit?.id ?? null) !== hoveredIdRef.current) {
+        hoveredIdRef.current = hit?.id ?? null
+        onPersistentHighlightHover?.(hoveredIdRef.current)
+      }
       // 노트에 없는 형광펜이면 어느 노트의 것인지 작은 말풍선으로
       const tipLabel = hit !== undefined && isOther(hit.id) ? otherNote?.labels.get(hit.id) : undefined
       const tipBody = hit !== undefined && tipLabel !== undefined ? otherNote?.bodies?.get(hit.id) ?? '' : ''
@@ -806,6 +814,10 @@ export function SelectionLayer({
           setHoverHighlight(false)
           setHoverText(false)
           setOtherTip(null)
+          if (hoveredIdRef.current !== null) {
+            hoveredIdRef.current = null
+            onPersistentHighlightHover?.(null)
+          }
         }}
       />
       {otherTip === null ? null : <OtherNoteTip x={otherTip.cx} y={otherTip.cy} label={otherTip.label} body={otherTip.body} within={interactionLayerRef.current} />}

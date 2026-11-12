@@ -55,14 +55,22 @@
   --highlight-green: rgb(111 220 146 / 42%);
   --highlight-blue: rgb(93 177 255 / 40%);
   --highlight-pink: rgb(255 126 181 / 40%);
-  --toolbar-height: 38px;
+  /* 한 높이 표준: 상단바 · 칸 탭 줄 · PDF/MD 아래 막대가 모두 이 높이다(2026-11-13). 아이콘 단추는 28px 누르는 자리 + 16px 아이콘, 가운데 맞춤 */
+  --bar-h: 36px;
+  --icon-btn: 28px;
+  --icon-size: 16px;
+  /* 간격은 8px 격자(4 · 8 · 12 · 16). 칸 사이 틈 · 바깥 여백은 6px 한 값(--pane-gap) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --toolbar-height: var(--bar-h);
   --radius-control: var(--r-sm);
   --shadow-page: 0 1px 3px rgb(18 24 33 / 18%);
 
   --topbar-h: var(--toolbar-height);
-  --tabbar-h: 36px;
-  --bottom-bar-height: 37px;
-  --status-bar-height: 24px;
+  --tabbar-h: var(--bar-h);
+  --bottom-bar-height: var(--bar-h);
   /* 칸(둥근 카드) 사이 틈 = 칸 영역 바깥 여백. 칸막이는 이 틈 전체를 잡는다 */
   --pane-gap: 6px;
   --radius: var(--r-sm);

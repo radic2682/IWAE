@@ -10,7 +10,8 @@ import { PDF_EXCERPT_DRAG_MIME, serializePdfExcerptDrag, type PdfExcerptSelectio
 import { SAMPLE_DOC_ID, SAMPLE_TITLE } from '../pdf/samplePage'
 import { SelectionActions } from '../pdf/SelectionActions'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
-import { setAppPref } from './appPrefs'
+import { getAppPrefs, setAppPref } from './appPrefs'
+import { reloadTranslatorWindow, updateTranslatorWindow } from './translatorPanelState'
 import { announceAction } from './actionFeedback'
 import * as windowBridge from '../bridge/window'
 import { setWindowModeForTest } from '../core/windowMode'
@@ -284,10 +285,10 @@ describe('App — 껍데기 배선', () => {
   it('처음에는 한 칸이 비어 있다', () => {
     const { container } = renderApp()
     expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
-    // 빈 칸에는 조용한 명령 목록이 있다(한 칸뿐이라 「이 칸 닫기」 는 없고, 키 힌트는 지금 접두키를 따른다)
+    // 빈 칸에는 조용한 명령 목록이 있다(한 칸뿐이라 「이 칸 닫기」 는 없다. 번역기 · 캔버스 줄도 없다)
     expect(screen.getByText('빈 칸')).toBeDefined()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
-    expect(within(quick).getAllByRole('button').map((button) => button.textContent)).toEqual(['PDF 열기', 'Markdown 열기', '번역기 띄우기Ctrl+B w'])
+    expect(within(quick).getAllByRole('button').map((button) => button.textContent)).toEqual(['PDF 열기', 'Markdown 열기'])
     expect(container.querySelectorAll('.pane-grid-cell')).toHaveLength(1)
   })
 
@@ -1096,26 +1097,19 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     expect(screen.getByRole('tab', { name: SAMPLE_TITLE })).toBeDefined()
   })
 
-  it('빈 칸의 빠른 단추: PDF 는 파일 선택을, MD 는 라이브러리를, 번역기는 떠 있는 번역기를 연다', async () => {
+  it('빈 칸의 빠른 단추: PDF 는 파일 선택을, MD 는 라이브러리를 연다. 번역기 · 캔버스 단추는 없다', async () => {
     vi.mocked(pickPdfFile).mockResolvedValue(null)
     const { container } = renderApp()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
+    expect(within(quick).queryByRole('button', { name: /번역기|캔버스/u })).toBeNull()
     fireEvent.click(within(quick).getByRole('button', { name: /^PDF 열기/u }))
     await waitFor(() => expect(pickPdfFile).toHaveBeenCalled())
-    // 번역기는 이 칸에 붙은 떠 있는 칸(번역기 탭)을 연다. 한 번 더 누르면 닫는다
-    fireEvent.click(within(quick).getByRole('button', { name: /^번역기 띄우기/u }))
-    const floats = () => container.querySelectorAll('.pane-float')
-    await waitFor(() => expect(floats()).toHaveLength(1))
-    expect(within(floats()[0] as HTMLElement).getByRole('region', { name: '번역기' })).toBeDefined()
-    expect(within(floats()[0] as HTMLElement).getByRole('tab', { name: '번역기' })).toBeDefined()
-    fireEvent.click(within(quick).getByRole('button', { name: /^번역기 띄우기/u }))
-    await waitFor(() => expect(floats()).toHaveLength(0))
     fireEvent.click(within(quick).getByRole('button', { name: /^Markdown 열기/u }))
     expect(container.querySelector('.shell-library-expanded')).not.toBeNull()
   })
 })
 
-describe('App — 화면 · 상태 줄', () => {
+describe('App — 화면 탭 · 알림(아래 상태 줄은 없다)', () => {
   const cells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell')
   const screenTabs = () => screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)
   const newScreen = async (name: RegExp) => {
@@ -1174,40 +1168,38 @@ describe('App — 화면 · 상태 줄', () => {
     expect(screenTabs()).toEqual(['0메모', '1읽기'])
   })
 
-  it('아래 상태 줄: [기본] 0:읽기* 1:비교- 처럼 화면 목록을 보이고, 「?」가 키와 명령 목록을 연다', async () => {
+  it('아래 상태 줄은 없다: 화면은 맨 위 줄 화면 탭으로만 보이고, 키와 명령 목록은 명령 팔레트로 연다', async () => {
+    Element.prototype.scrollIntoView = vi.fn()
     render(<App developmentPreview />)
-    const bar = document.querySelector('.status-bar') as HTMLElement
-    expect(bar.querySelector('.status-bar-session')?.textContent).toBe('[기본]')
-    expect(bar.querySelector('.status-bar-screens')?.textContent).toBe('0:읽기*')
+    expect(document.querySelector('.status-bar')).toBeNull()
+    expect(screen.queryByRole('contentinfo')).toBeNull()
+    expect(screenTabs()).toEqual(['0읽기'])
     await newScreen(/빈 화면/u)
-    expect([...bar.querySelectorAll('.status-bar-screen')].map((button) => button.textContent).join(' ')).toBe('0:읽기- 1:화면 1*')
-    // 접두키 칩은 접두키를 기다리는 동안만 켜진다
-    expect(bar.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('false')
-    fireEvent.click(within(bar).getByRole('button', { name: '키와 명령 보기' }))
-    const sheet = screen.getByRole('dialog', { name: '키와 명령' })
+    expect(screenTabs()).toEqual(['0읽기', '1화면 1'])
+    // 「?」 단추가 없어졌으므로 키 목록은 명령 팔레트(「키와 명령 보기」)와 접두키 ? 로 연다
+    expect(screen.queryByRole('button', { name: '키와 명령 보기' })).toBeNull()
+    act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'k', code: 'KeyK', ctrlKey: true })) })
+    const palette = screen.getByRole('dialog', { name: '명령 팔레트' })
+    fireEvent.change(within(palette).getByRole('combobox', { name: '명령 찾기' }), { target: { value: '키와 명령' } })
+    fireEvent.click(within(palette).getByRole('option', { name: /키와 명령 보기/u }))
+    const sheet = await screen.findByRole('dialog', { name: '키와 명령' })
     // 접두키가 모두 되므로 「다음 단계」 표시는 없다
     expect(within(sheet).queryAllByText('다음 단계')).toHaveLength(0)
     // 명령은 띄어쓰기에서만 꺾이게 낱말마다 나뉘어 있다 — 칸 전체 글로 찾는다
     expect([...sheet.querySelectorAll('.keys-help-command')].some((cell) => cell.textContent === 'split-window -h / -v')).toBe(true)
   })
 
-  it('짧은 알림은 상태 줄이 켜져 있으면 상태 줄 가운데에 뜨고 오른쪽 아래 토스트는 없다', () => {
+  it('짧은 알림은 오른쪽 아래 알림 줄기의 토스트로 뜬다(아래 상태 줄이 받지 않는다)', () => {
     render(<App developmentPreview />)
     act(() => announceAction('저장했습니다'))
-    expect(document.querySelector('.status-bar-message')?.textContent).toBe('저장했습니다')
-    expect(document.querySelector('.notice-toast')).toBeNull()
+    expect(document.querySelector('.notice-toast')?.textContent).toContain('저장했습니다')
+    expect(document.querySelector('.notice-stack')?.contains(document.querySelector('.notice-toast'))).toBe(true)
+    expect(document.querySelector('.notice-stack-raised')).toBeNull()
   })
 
-  it('설정 「아래 상태 줄」을 끄면 상태 줄이 없고 알림은 예전처럼 토스트로 뜬다', () => {
-    setAppPref('statusBar', false)
-    try {
-      render(<App developmentPreview />)
-      expect(document.querySelector('.status-bar')).toBeNull()
-      act(() => announceAction('저장했습니다'))
-      expect(document.querySelector('.notice-toast')?.textContent).toContain('저장했습니다')
-    } finally {
-      setAppPref('statusBar', true)
-    }
+  it('설정의 「아래 상태 줄」 토글은 없어졌다', () => {
+    setAppPref('prefixKeyAsked', true)
+    expect(Object.keys(getAppPrefs())).not.toContain('statusBar')
   })
 })
 
@@ -1218,27 +1210,34 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
   const press = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
   const prefix = () => press({ key: 'b', code: 'KeyB', ctrlKey: true })
   const after = (init: KeyboardEventInit) => { prefix(); press(init) }
-  const statusMessage = () => document.querySelector('.status-bar-message')?.textContent
-  const commandInput = () => screen.getByRole('textbox', { name: '명령줄' }) as HTMLInputElement
+  /** 접두키 대기 칩의 글(없으면 undefined) */
+  const chipText = () => document.querySelector('.prefix-chip')?.textContent ?? undefined
+  /** 가장 최근의 짧은 알림(토스트) */
+  const statusMessage = () => { const texts = [...document.querySelectorAll('.notice-toast')].map((toast) => toast.textContent); return texts.length === 0 ? undefined : texts.join(' | ') }
+  // 「:」 명령줄은 명령 팔레트가 「:」 로 채워져 열린 것이다(아래 상태 줄은 없다)
+  const commandInput = () => screen.getByRole('combobox', { name: '명령 찾기' }) as HTMLInputElement
   const runLine = async (line: string) => {
     after({ key: ':', code: 'Semicolon', shiftKey: true })
-    fireEvent.change(commandInput(), { target: { value: line } })
+    fireEvent.change(commandInput(), { target: { value: `:${line}` } })
     fireEvent.keyDown(commandInput(), { key: 'Enter' })
   }
 
-  it('Ctrl+B(기본 접두키)로 칩이 켜지고 「접두키 — 다음 키를 누르세요」 가 뜬다. Esc 로 그만둔다', () => {
+  it('Ctrl+B(기본 접두키)로 작은 칩 「Ctrl+B …」 이 켜지고 Esc 로 그만두면 사라진다(대기 중에만 있다)', () => {
     render(<App developmentPreview />)
+    expect(chipText()).toBeUndefined()
     prefix()
-    expect(statusMessage()).toBe('접두키 — 다음 키를 누르세요')
-    expect(document.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('true')
+    expect(chipText()).toBe('Ctrl+B …')
     press({ key: 'Escape', code: 'Escape' })
-    expect(document.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('false')
+    expect(chipText()).toBeUndefined()
   })
 
-  it('칩을 눌러도 접두키 모드에 들어간다(입력기가 접두키를 먹을 때)', () => {
+  it('칩은 눌리는 단추가 아니다: 입력기가 접두키를 먹으면 명령 팔레트에 「:」 로 시작해 같은 명령을 친다', () => {
     render(<App developmentPreview />)
-    fireEvent.click(screen.getByRole('button', { name: '접두키' }))
-    expect(statusMessage()).toBe('접두키 — 다음 키를 누르세요')
+    prefix()
+    const chip = document.querySelector('.prefix-chip') as HTMLElement
+    expect(chip.tagName).toBe('DIV')
+    expect(screen.queryByRole('button', { name: '접두키' })).toBeNull()
+    press({ key: 'Escape', code: 'Escape' })
   })
 
   it('% 와 " 는 좌우 · 위아래로 나누고, 한글 입력 상태(code)에서도 같다', async () => {
@@ -1267,10 +1266,10 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     render(<App developmentPreview />)
     after({ key: 'c', code: 'KeyC' })
     await waitFor(() => expect(screenTabs()).toEqual(['0읽기', '1화면 1']))
-    // , 는 이름 바꾸기 명령을 미리 채워 명령줄을 연다
+    // , 는 이름 바꾸기 명령을 미리 채워 명령 팔레트를 연다(「:」 가 앞에 붙는다)
     after({ key: ',', code: 'Comma' })
-    expect(commandInput().value).toBe('rename-window 화면 1')
-    fireEvent.change(commandInput(), { target: { value: 'rename-window 메모' } })
+    expect(commandInput().value).toBe(':rename-window 화면 1')
+    fireEvent.change(commandInput(), { target: { value: ':rename-window 메모' } })
     fireEvent.keyDown(commandInput(), { key: 'Enter' })
     await waitFor(() => expect(screenTabs()).toEqual(['0읽기', '1메모']))
     after({ key: '0', code: 'Digit0' })
@@ -1283,9 +1282,9 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(screenTabs()).toEqual(['0읽기', '1메모']))
     // & : 확인 줄 → n 은 그만둔다, y 는 닫는다
     after({ key: '&', code: 'Digit7', shiftKey: true })
-    expect(statusMessage()).toBe('화면을 닫을까요? y/n')
+    expect(chipText()).toBe('화면을 닫을까요? y/n')
     press({ key: 'n', code: 'KeyN' })
-    expect(statusMessage()).not.toBe('화면을 닫을까요? y/n')
+    expect(chipText()).toBeUndefined()
     expect(screenTabs()).toEqual(['0읽기', '1메모'])
     after({ key: '&', code: 'Digit7', shiftKey: true })
     press({ key: 'y', code: 'KeyY' })
@@ -1299,7 +1298,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     after({ key: '{', code: 'BracketLeft', shiftKey: true })
     after({ key: '}', code: 'BracketRight', shiftKey: true })
     after({ key: ' ', code: 'Space' })
-    await waitFor(() => expect(statusMessage()).toBe('배치: 나란히'))
+    await waitFor(() => expect(statusMessage()).toContain('배치: 나란히'))
     after({ key: '!', code: 'Digit1', shiftKey: true })
     await waitFor(() => expect(screenTabs()).toHaveLength(2))
     expect(cells(container).length).toBeGreaterThan(0)
@@ -1320,12 +1319,12 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
   it('f 는 떠 있는 칸이 없으면 알리고, d 는 마지막 앱 창이라 「앱을 닫을까요?」를 묻고, s 는 세션 메뉴, ? 는 키 목록, 모르는 키는 안내', async () => {
     render(<App developmentPreview />)
     after({ key: 'f', code: 'KeyF' })
-    await waitFor(() => expect(statusMessage()).toBe('떠 있는 칸이 없습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('떠 있는 칸이 없습니다'))
     after({ key: 'd', code: 'KeyD' })
-    await waitFor(() => expect(statusMessage()).toBe('앱을 닫을까요? y/n'))
+    await waitFor(() => expect(chipText()).toBe('앱을 닫을까요? y/n'))
     // n(또는 y 가 아닌 키)이면 그만둔다
     press({ key: 'n', code: 'KeyN' })
-    await waitFor(() => expect(statusMessage()).not.toBe('앱을 닫을까요? y/n'))
+    await waitFor(() => expect(chipText()).toBeUndefined())
     after({ key: 's', code: 'KeyS' })
     await waitFor(() => expect(screen.getByRole('menu', { name: '세션' })).toBeDefined())
     press({ key: 'Escape', code: 'Escape' })
@@ -1333,19 +1332,19 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(screen.getByRole('dialog', { name: '키와 명령' })).toBeDefined())
     fireEvent.keyDown(screen.getByRole('dialog', { name: '키와 명령' }), { key: 'Escape' })
     after({ key: 'j', code: 'KeyJ' })
-    expect(statusMessage()).toBe('모르는 키: j — ? 로 목록')
+    expect(statusMessage()).toContain('모르는 키: j — ? 로 목록')
   })
 
-  it('세션 명령: Vault 가 없으면 알리고(바꾸기 · 만들기), 하나뿐인 세션은 지우지 않으며, 세션 이름이 상태 줄에 보인다', async () => {
+  it('세션 명령: Vault 가 없으면 알리고(바꾸기 · 만들기), 하나뿐인 세션은 지우지 않으며, 세션 이름은 맨 위 줄에 보인다', async () => {
     render(<App developmentPreview />)
-    expect(document.querySelector('.status-bar-session')?.textContent).toBe('[기본]')
+    expect(screen.getByRole('button', { name: '기본' })).toBeDefined()
     await runLine('switch-client -t 없는세션')
-    await waitFor(() => expect(statusMessage()).toBe('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('Vault 를 연 뒤에 쓸 수 있습니다'))
     await runLine('kill-session')
-    await waitFor(() => expect(statusMessage()).toBe('마지막 세션은 지울 수 없습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('마지막 세션은 지울 수 없습니다'))
     expect(screen.queryByRole('alertdialog')).toBeNull()
     await runLine('new-session 둘째')
-    await waitFor(() => expect(statusMessage()).toBe('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('Vault 를 연 뒤에 쓸 수 있습니다'))
     await runLine('list-sessions')
     await waitFor(() => expect(screen.getByRole('menu', { name: '세션' })).toBeDefined())
   })
@@ -1358,12 +1357,12 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     expect((within(menu).getByRole('menuitem', { name: /앱 창으로 띄우기/u }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('앱 창 명령: Vault 가 없으면 new-client 는 알리고, detach 는 마지막 앱 창이라 앱을 닫을지 상태 줄에서 묻는다', async () => {
+  it('앱 창 명령: Vault 가 없으면 new-client 는 알리고, detach 는 마지막 앱 창이라 앱을 닫을지 칩으로 묻는다', async () => {
     render(<App developmentPreview />)
     await runLine('new-client')
-    await waitFor(() => expect(statusMessage()).toBe('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('Vault 를 연 뒤에 쓸 수 있습니다'))
     await runLine('detach')
-    await waitFor(() => expect(statusMessage()).toBe('앱을 닫을까요? y/n'))
+    await waitFor(() => expect(chipText()).toBe('앱을 닫을까요? y/n'))
     press({ key: 'Escape', code: 'Escape' })
   })
 
@@ -1371,7 +1370,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     const close = vi.spyOn(windowBridge, 'closeWindow').mockImplementation(() => undefined)
     render(<App developmentPreview />)
     await runLine('detach')
-    await waitFor(() => expect(statusMessage()).toBe('앱을 닫을까요? y/n'))
+    await waitFor(() => expect(chipText()).toBe('앱을 닫을까요? y/n'))
     expect(close).not.toHaveBeenCalled()
     press({ key: 'y', code: 'KeyY' })
     await waitFor(() => expect(close).toHaveBeenCalledOnce())
@@ -1389,13 +1388,13 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     }
   })
 
-  it('메인 창에는 「앱 창 B」 라벨이 없고, 상태 줄은 붙은 앱 창이 하나면 [세션] 만 보인다', async () => {
+  it('메인 창에는 「앱 창 B」 라벨이 없다', async () => {
     render(<App developmentPreview />)
     expect(document.querySelector('.topbar-client-label')).toBeNull()
-    expect(document.querySelector('.status-bar-session')?.textContent).toBe('[기본]')
+    expect(document.querySelector('.status-bar')).toBeNull()
   })
 
-  it('명령줄: Enter 로 실행하고 `;` 로 잇고, 오류는 상태 줄에 보이며, 기록(↑)이 남는다', async () => {
+  it('명령줄(팔레트): Enter 로 실행하고 `;` 로 잇고, 오류는 토스트로 보이며, 기록(↑)이 남는다', async () => {
     const { container } = render(<App developmentPreview />)
     const before = cells(container).length
     await runLine('split-window -h ; new-window -n 둘 ; rename-window 셋')
@@ -1403,13 +1402,13 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
     await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
     await runLine('모르는명령')
-    await waitFor(() => expect(statusMessage()).toBe('모르는 명령: 모르는명령 — ? 로 목록'))
+    await waitFor(() => expect(statusMessage()).toContain('모르는 명령: 모르는명령 — ? 로 목록'))
     await runLine('next')
     after({ key: ':', code: 'Semicolon', shiftKey: true })
     fireEvent.keyDown(commandInput(), { key: 'ArrowUp' })
-    expect(commandInput().value).toBe('next')
+    expect(commandInput().value).toBe(':next')
     fireEvent.keyDown(commandInput(), { key: 'Escape' })
-    expect(screen.queryByRole('textbox', { name: '명령줄' })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: '명령 찾기' })).toBeNull()
   })
 
   it('명령줄 select-pane · swap-pane · select-layout · break-pane · join-pane', async () => {
@@ -1423,12 +1422,19 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(screenTabs()).toHaveLength(1))
   })
 
-  it('Ctrl+K 가 명령 팔레트를 열고, 상단바 단추에 「명령 (Ctrl+K)」 가 보인다', () => {
+  it('Ctrl+K · Ctrl+Shift+P 가 명령 팔레트를 연다. 맨 위 줄의 「⌘ 명령」 단추는 없다', () => {
     render(<App developmentPreview />)
-    expect(screen.getByRole('button', { name: /명령 팔레트/u }).textContent).toContain('명령 (Ctrl+K)')
+    expect(screen.queryByRole('button', { name: /명령 팔레트/u })).toBeNull()
+    expect(document.querySelector('.topbar')?.textContent).not.toContain('명령')
     press({ key: 'k', code: 'KeyK', ctrlKey: true })
     expect(screen.getByRole('dialog', { name: '명령 팔레트' })).toBeDefined()
+    press({ key: 'Escape', code: 'Escape' })
+    cleanupPalette()
+    press({ key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true })
+    expect(screen.getByRole('dialog', { name: '명령 팔레트' })).toBeDefined()
   })
+
+  const cleanupPalette = () => { const field = screen.queryByRole('combobox', { name: '명령 찾기' }); if (field !== null) fireEvent.keyDown(field, { key: 'Escape' }) }
 
   it('명령 팔레트에 「:」 로 시작해 쓰면 같은 실행기로 간다', async () => {
     const { container } = render(<App developmentPreview />)
@@ -1440,16 +1446,12 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
   })
 
-  it('상태 줄을 끄면 `:` 는 명령 팔레트를 「:」 로 채워서 연다', async () => {
-    setAppPref('statusBar', false)
-    try {
-      render(<App developmentPreview />)
-      after({ key: ':', code: 'Semicolon', shiftKey: true })
-      const input = await screen.findByRole('combobox', { name: '명령 찾기' })
-      expect((input as HTMLInputElement).value).toBe(':')
-    } finally {
-      setAppPref('statusBar', true)
-    }
+  it('`:` 는 명령 팔레트를 「:」 로 채워서 연다(명령줄은 이 길 하나뿐이다)', async () => {
+    render(<App developmentPreview />)
+    after({ key: ':', code: 'Semicolon', shiftKey: true })
+    const input = await screen.findByRole('combobox', { name: '명령 찾기' })
+    expect((input as HTMLInputElement).value).toBe(':')
+    expect(document.querySelector('.status-bar-command')).toBeNull()
   })
 
   it('글 쓰는 칸(입력칸) 안에서도 접두키가 먹고, 다음 키는 입력칸에 들어가지 않는다', async () => {
@@ -1470,19 +1472,21 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
 })
 
 describe('App — 떠 있는 칸', () => {
-  beforeEach(() => { Element.prototype.scrollIntoView = vi.fn(); localStorage.removeItem('iwae:translator-panel:migrated:v1'); localStorage.removeItem('iwae:translator-panel:v1') })
+  beforeEach(() => { Element.prototype.scrollIntoView = vi.fn(); localStorage.removeItem('iwae:translator-panel:migrated:v1'); localStorage.removeItem('iwae:translator-panel:v1'); localStorage.removeItem('iwae:translator-window:v1'); reloadTranslatorWindow() })
   const floats = (container: HTMLElement) => container.querySelectorAll<HTMLElement>('.pane-float')
   const treeCells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell:not(.pane-float)')
   const openMenu = (index: number) => fireEvent.click(screen.getAllByRole('button', { name: '칸 메뉴' })[index]!)
   const pick = (name: RegExp) => fireEvent.click(screen.getByRole('menuitem', { name }))
   const press = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
   const after = (init: KeyboardEventInit) => { press({ key: 'b', code: 'KeyB', ctrlKey: true }); press(init) }
-  const statusMessage = () => document.querySelector('.status-bar-message')?.textContent
-  const runLine = (line: string) => {
+  const statusMessage = () => { const texts = [...document.querySelectorAll('.notice-toast')].map((toast) => toast.textContent); return texts.length === 0 ? undefined : texts.join(' | ') }
+  const runLine = async (line: string) => {
     after({ key: ':', code: 'Semicolon', shiftKey: true })
-    const input = screen.getByRole('textbox', { name: '명령줄' }) as HTMLInputElement
-    fireEvent.change(input, { target: { value: line } })
+    const input = screen.getByRole('combobox', { name: '명령 찾기' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: `:${line}` } })
     fireEvent.keyDown(input, { key: 'Enter' })
+    // 팔레트는 닫힌 뒤(setTimeout 0)에 명령을 실행한다: 다음 명령 전에 끝나게 잠깐 기다린다
+    await act(async () => { await new Promise((resolve) => { window.setTimeout(resolve, 25) }) })
   }
   const NOTE_TAB = 'Evidence Map — Sample Research Note'
 
@@ -1544,41 +1548,58 @@ describe('App — 떠 있는 칸', () => {
     await waitFor(() => expect(floats(container)).toHaveLength(1))
     after({ key: 'f', code: 'KeyF' })
     await waitFor(() => expect(floats(container)).toHaveLength(0))
-    expect(statusMessage()).toBe('떠 있는 칸을 숨겼습니다')
+    expect(statusMessage()).toContain('떠 있는 칸을 숨겼습니다')
     after({ key: 'f', code: 'KeyF' })
     await waitFor(() => expect(floats(container)).toHaveLength(1))
   })
 
-  it('떠 있는 칸의 마지막 탭을 닫으면 그 칸도 닫힌다(탭을 끌어 내도 같다). 막 만든 빈 칸은 그대로 둔다', async () => {
+  it('떠 있는 칸의 마지막 탭을 닫으면 그 칸도 닫힌다(탭을 끌어 내도 같다)', async () => {
     const { container } = render(<App developmentPreview />)
-    after({ key: 'w', code: 'KeyW' })
+    openMenu(1)
+    pick(/띄우기/u)
     await waitFor(() => expect(floats(container)).toHaveLength(1))
-    // 탭이 들어 있는 동안 지켜본 뒤 탭을 닫는다(가운데 클릭 = 탭 닫기)
-    const tab = within(floats(container)[0]!).getByRole('tab', { name: '번역기' })
+    // 가운데 클릭 = 탭 닫기
+    const tab = within(floats(container)[0]!).getByRole('tab', { name: NOTE_TAB })
     fireEvent(tab, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }))
-    fireEvent.mouseDown(tab, { button: 1 })
-    fireEvent.mouseUp(tab, { button: 1 })
     await waitFor(() => expect(floats(container)).toHaveLength(0))
   })
 
-  it('접두키 w: 번역기 탭을 담은 떠 있는 칸을 띄우고, 한 번 더 누르면 새로 만들지 않는다', async () => {
+  it('접두키 w 는 번역기 창을 연다(떠 있는 칸이 아니다). 한 번 더 눌러도 새로 만들지 않고 창은 하나다', async () => {
     const { container } = render(<App developmentPreview />)
+    expect(document.querySelector('.translator-window')).toBeNull()
     after({ key: 'w', code: 'KeyW' })
-    await waitFor(() => expect(floats(container)).toHaveLength(1))
-    expect(within(floats(container)[0]!).getByRole('region', { name: '번역기' })).toBeDefined()
+    await waitFor(() => expect(document.querySelector('.translator-window')).not.toBeNull())
+    expect(floats(container)).toHaveLength(0)
+    expect(treeCells(container)).toHaveLength(2)
+    expect(within(document.querySelector('.translator-window') as HTMLElement).getByRole('region', { name: '번역기' })).toBeDefined()
     after({ key: 'w', code: 'KeyW' })
     await new Promise((resolve) => { window.setTimeout(resolve, 60) })
-    expect(floats(container)).toHaveLength(1)
+    expect(document.querySelectorAll('.translator-window')).toHaveLength(1)
+  })
+
+  it('번역기 창은 어느 칸 · 탭에도 속하지 않는다: 칸을 옮기고 닫아도 그대로 떠 있다', async () => {
+    const { container } = render(<App developmentPreview />)
+    act(() => { updateTranslatorWindow({ open: true }) })
+    const windowEl = () => document.querySelector('.translator-window') as HTMLElement
+    expect(windowEl().parentElement).toBe(document.body)
+    expect(container.querySelector('.pane-grid-cell .translator-window')).toBeNull()
+    expect(screen.queryByRole('tab', { name: '번역기' })).toBeNull()
+    openMenu(1)
+    pick(/띄우기/u)
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    expect(windowEl()).not.toBeNull()
+    fireEvent.click(within(windowEl()).getByRole('button', { name: '번역기 닫기' }))
+    expect(document.querySelector('.translator-window')).toBeNull()
   })
 
   it('display-popup 이름: 열 곳을 찾아 열고, 못 찾았거나 이미 열려 있으면 빈 떠 있는 칸을 남기지 않는다', async () => {
     const { container } = render(<App developmentPreview />)
     // 이미 열려 있는 노트는 그 자리에서 활성화되고(탭은 한 곳에만), 빈 떠 있는 칸은 남지 않는다
-    runLine('display-popup Evidence Map')
+    await runLine('display-popup Evidence-Linked')
     await waitFor(() => expect(statusMessage()).toContain('열었습니다'))
     await new Promise((resolve) => { window.setTimeout(resolve, 80) })
     expect(floats(container)).toHaveLength(0)
-    runLine('display-popup 없는이름없는이름')
+    await runLine('display-popup 없는이름없는이름')
     await waitFor(() => expect(statusMessage()).toContain('찾을 수 없습니다'))
     await new Promise((resolve) => { window.setTimeout(resolve, 80) })
     expect(floats(container)).toHaveLength(0)
@@ -1587,30 +1608,30 @@ describe('App — 떠 있는 칸', () => {
 
   it('명령: float-pane · embed-pane · toggle-floating 이 되고, 칸이 하나뿐이면 float-pane 은 막는다', async () => {
     const { container } = render(<App developmentPreview />)
-    runLine('float-pane')
+    await runLine('float-pane')
     await waitFor(() => expect(floats(container)).toHaveLength(1))
-    runLine('float-pane')
-    await waitFor(() => expect(statusMessage()).toBe('이미 떠 있는 칸입니다'))
-    runLine('toggle-floating ; toggle-floating')
+    await runLine('float-pane')
+    await waitFor(() => expect(statusMessage()).toContain('이미 떠 있는 칸입니다'))
+    await runLine('toggle-floating ; toggle-floating')
     await waitFor(() => expect(floats(container)).toHaveLength(1))
-    runLine('embed-pane')
+    await runLine('embed-pane')
     await waitFor(() => expect(floats(container)).toHaveLength(0))
     expect(treeCells(container)).toHaveLength(2)
-    runLine('select-pane -t 0 ; kill-pane')
+    await runLine('select-pane -t 0 ; kill-pane')
     await waitFor(() => expect(treeCells(container)).toHaveLength(1))
-    runLine('float-pane')
-    await waitFor(() => expect(statusMessage()).toBe('칸이 하나뿐이라 띄울 수 없습니다'))
+    await runLine('float-pane')
+    await waitFor(() => expect(statusMessage()).toContain('칸이 하나뿐이라 띄울 수 없습니다'))
   })
 
   it('select-pane -n 이 보이는 떠 있는 칸까지 돌고, 칸 번호(q)에는 떠 있는 칸이 없다', async () => {
     const { container } = render(<App developmentPreview />)
-    runLine('float-pane')
+    await runLine('float-pane')
     await waitFor(() => expect(floats(container)).toHaveLength(1))
     const floatActive = () => container.querySelector('.pane-float .pane-focus-scope[data-pane-active]') !== null
     await waitFor(() => expect(floatActive()).toBe(true))
-    runLine('select-pane -n')
+    await runLine('select-pane -n')
     await waitFor(() => expect(floatActive()).toBe(false))
-    runLine('select-pane -n')
+    await runLine('select-pane -n')
     await waitFor(() => expect(floatActive()).toBe(true))
     // 칸 번호 겹침은 나누기 트리의 칸만 센다(떠 있는 칸은 번호가 없다)
     after({ key: 'q', code: 'KeyQ' })
@@ -1619,11 +1640,12 @@ describe('App — 떠 있는 칸', () => {
     press({ key: 'Escape', code: 'Escape' })
   })
 
-  it('예전 떠 있는 번역기(열림 · 자리 · 크기)는 한 번 문서 칸에 붙은 번역기 떠 있는 칸으로 옮긴다', async () => {
+  it('문서 종류별로 저장하던 예전 번역기 값은 한 번 번역기 창(열림 · 크기)으로 옮긴다', async () => {
     localStorage.setItem('iwae:translator-panel:v1', JSON.stringify({ pdf: { open: true, x: 100, y: 50, w: 360, h: 300 }, markdown: { open: false } }))
     const { container } = render(<App developmentPreview />)
-    await waitFor(() => expect(floats(container)).toHaveLength(1))
-    expect(within(floats(container)[0]!).getByRole('region', { name: '번역기' })).toBeDefined()
+    await waitFor(() => expect(document.querySelector('.translator-window')).not.toBeNull())
+    expect(floats(container)).toHaveLength(0)
+    expect((document.querySelector('.translator-window') as HTMLElement).style.width).toBe('360px')
     expect(localStorage.getItem('iwae:translator-panel:v1')).toBeNull()
     expect(localStorage.getItem('iwae:translator-panel:migrated:v1')).toBe('1')
   })
@@ -1634,5 +1656,6 @@ describe('App — 떠 있는 칸', () => {
     const { container } = render(<App developmentPreview />)
     await new Promise((resolve) => { window.setTimeout(resolve, 60) })
     expect(floats(container)).toHaveLength(0)
+    expect(document.querySelector('.translator-window')).toBeNull()
   })
 })
