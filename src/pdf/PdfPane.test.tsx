@@ -739,12 +739,9 @@ describe('PdfPane — 열린 노트 표시만 보기', () => {
   const api = (): MemoNoteApi => ({
     entries: [{ path: '노트/A.iwnote', title: 'A' }, { path: '노트/Z.iwnote', title: 'Z' }],
     openPath: '노트/A.iwnote',
-    openPaths: ['노트/A.iwnote'],
     openTitle: 'A',
     openNote: { version: 1, blocks: [] },
     open: vi.fn(),
-    closeTab: vi.fn(),
-    moveTab: vi.fn(),
     create: vi.fn().mockResolvedValue(null),
     updateOpen: vi.fn(),
     notesOf: (id) => owners[id] ?? [],
