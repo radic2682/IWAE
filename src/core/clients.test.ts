@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  attachedCounts, clientCountText, closePlan, detachPlan, findClient, newClientPlan, nextClientLetter, ownerOf, removeClient, statusSessionText, upsertClient, visibleClients,
+  attachedCounts, clientCountText, closePlan, detachPlan, findClient, newClientPlan, nextClientLetter, ownerOf, removeClient, upsertClient, visibleClients,
   type ClientInfo, type ClientRegistry,
 } from './clients'
 
@@ -47,12 +47,10 @@ describe('앱 창 목록', () => {
     expect(findClient(all, '')).toBeNull()
   })
 
-  it('세션별 붙은 앱 창 수와 상태 줄 글', () => {
+  it('세션별 붙은 앱 창 수와 「앱 창 N개」 글', () => {
     const all = registry(client('main', 'A', '논문 3장'), client('window-2', 'B', '논문 3장'), client('window-3', 'C', '발표'))
     expect([...attachedCounts(all)]).toEqual([['논문 3장', 2], ['발표', 1]])
     expect(clientCountText(2)).toBe('앱 창 2개')
-    expect(statusSessionText('논문 3장', 2)).toBe('[논문 3장 · 앱 창 2개]')
-    expect(statusSessionText('논문 3장', 1)).toBe('[논문 3장]')
     expect(visibleClients([client('main', 'A', 'S', { hidden: true }), client('window-2', 'B', 'S')]).map((item) => item.id)).toEqual(['window-2'])
   })
 })

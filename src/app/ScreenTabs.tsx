@@ -21,7 +21,7 @@ export interface ScreenTemplateItem {
 interface ScreenTabsProps {
   readonly screens: readonly ScreenTabItem[]
   readonly activeId: string
-  /** 바로 앞에 보던 화면(상태 줄에만 `-` 로 표시) */
+  /** 바로 앞에 보던 화면(탭에 `screen-tab-last` 클래스만 단다. 표시 글자는 없다) */
   readonly lastId: string | null
   /** 「＋」가 펼칠 새 화면 템플릿 */
   readonly templates: readonly ScreenTemplateItem[]

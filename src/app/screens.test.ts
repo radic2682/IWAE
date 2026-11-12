@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { leaves, paneNode, splitLeaf, type LayoutNode } from '../core/layoutTree'
 import {
   activeScreenOf, addScreen, allScreenPaneIds, blankScreen, breakPane, closeScreen, lastScreenOf, renameScreen, reorderScreen,
-  setZoomed, statusScreens, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState,
+  setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState,
 } from './screens'
 import type { TabsState } from './tabs'
 
@@ -94,9 +94,5 @@ describe('화면 묶음', () => {
     expect(created.panes.c!.tabs.map((tab) => tab.id)).toEqual(['d3'])
     expect(next).toMatchObject({ activeScreen: created.id, lastScreen: 'w2' })
     expect(breakPane(three(), 'a', 'x')).toBeNull()
-  })
-
-  it('상태 줄 글: 보는 화면은 *, 바로 앞 화면은 -', () => {
-    expect(statusScreens(switchScreen(three(), 'w2'))).toBe('0:읽기- 1:비교* 2:정리')
   })
 })

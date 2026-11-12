@@ -1966,7 +1966,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     finishLegacyTranslatorMigration()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 시작할 때 한 번
   }, [initializing])
-  /** 접두키 · 명령줄 · 명령 팔레트(:) · MCP 가 같이 쓰는 실행기. 실패·알릴 말은 상태 줄(꺼져 있으면 알림)에 보인다 */
+  /** 접두키 · 명령줄 · 명령 팔레트(:) · MCP 가 같이 쓰는 실행기. 실패·알릴 말은 오른쪽 아래 알림 줄기의 토스트로 보인다 */
   const runWorkspaceLine = useCallback(async (line: string): Promise<CommandResult> => {
     const result = await runCommandLine(line, commandHost)
     if (result.message !== '') announceAction(result.message)
@@ -3000,7 +3000,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return { ok: false, message: t('창을 열지 못했습니다: {error}', { error: errorText(cause) }) }
     }
   }
-  /** 이 앱 창을 뗀다(detach). 세션은 남는다. 마지막 앱 창이면 앱을 닫을지 상태 줄에서 묻는다 */
+  /** 이 앱 창을 뗀다(detach). 세션은 남는다. 마지막 앱 창이면 앱을 닫을지 접두키 칩(「앱을 닫을까요? y/n」)으로 묻는다 */
   const detachThisClient = async (): Promise<CommandResult> => {
     if (isDetachedWindow) return { ok: false, message: t('떼어 낸 PDF 창은 「다시 붙이기」로 닫습니다') }
     if (detachPlan(clients.registry, clients.selfId) === 'confirm-quit') {

@@ -240,11 +240,3 @@ export function screenLabel(screen: Screen, index: number): string {
   return screen.name.trim() === '' ? String(index) : screen.name
 }
 
-/**
- * 상태 줄 왼쪽의 화면 목록: `0:읽기* 1:비교-` (* 보는 화면, - 바로 앞에 보던 화면).
- */
-export function statusScreens(state: ScreensState): string {
-  return state.screens
-    .map((screen, index) => `${index}:${screen.name}${screen.id === state.activeScreen ? '*' : screen.id === state.lastScreen ? '-' : ''}`)
-    .join(' ')
-}

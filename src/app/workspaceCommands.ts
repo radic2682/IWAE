@@ -552,7 +552,7 @@ export function resetLayoutCycle(): void {
   layoutCycle.clear()
 }
 
-/** 배치 이름 → 상태 줄에 보일 사람 말(명령 이름은 도움말에만 둔다) */
+/** 배치 이름 → 알림(토스트)에 보일 사람 말(명령 이름은 도움말에만 둔다) */
 export function relayoutMessage(kind: RelayoutKind): string {
   switch (kind) {
     case 'even-horizontal': return t('배치: 나란히')

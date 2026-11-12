@@ -76,14 +76,9 @@ export function findClient(registry: ClientRegistry, ref: string): ClientInfo | 
     ?? null
 }
 
-/** 상태 줄 · 세션 메뉴에 보일 「앱 창 2개」 */
+/** 세션 메뉴에 보일 「앱 창 2개」 */
 export function clientCountText(count: number): string {
   return t('앱 창 {n}개', { n: count })
-}
-
-/** 상태 줄의 세션 이름 줄: 앱 창이 둘 이상이면 `[논문 3장 · 앱 창 2개]` */
-export function statusSessionText(session: string, attached: number): string {
-  return attached > 1 ? `[${session} · ${clientCountText(attached)}]` : `[${session}]`
 }
 
 /** 세션별 붙은 앱 창 수 */

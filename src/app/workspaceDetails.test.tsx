@@ -179,7 +179,7 @@ describe('라운드 2', () => {
     expect(narrow.x + narrow.w).toBe(1300)
   })
 
-  it('배치 상태 줄 글은 사람 말이다', () => {
+  it('배치 알림 글은 사람 말이다', () => {
     expect(relayoutMessage('even-horizontal')).toBe('배치: 나란히')
     expect(relayoutMessage('even-vertical')).toBe('배치: 위아래로')
     expect(relayoutMessage('main-vertical')).toBe('배치: 큰 칸 + 세로')

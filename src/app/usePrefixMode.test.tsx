@@ -123,7 +123,7 @@ describe('접두키 받기', () => {
     expect(phase(container)).toBe('prefix')
   })
 
-  it('상태 줄 칩(enter)으로도 접두키 모드에 들어가고, 한 번 더 누르면(cancel) 나온다', () => {
+  it('접두키 api(enter)로도 접두키 모드에 들어가고, 한 번 더 누르면(cancel) 나온다', () => {
     const { container } = render(<Harness />)
     act(() => spies.api.enter())
     expect(phase(container)).toBe('prefix')
