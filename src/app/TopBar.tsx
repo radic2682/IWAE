@@ -18,7 +18,7 @@ import { Translate } from '@phosphor-icons/react'
 import { TranslatorContext } from './translatorContext'
 import { toggleTranslatorWindow, useTranslatorWindow } from './translatorPanelState'
 import { FilePdf, FileText, NotePencil } from '@phosphor-icons/react'
-import type { PaneChannel } from './workspaceChannels'
+import type { ToolbarOwner } from './topBarToolbar'
 import '../ui/screens.css'
 import { t } from '../i18n'
 
@@ -59,7 +59,7 @@ interface TopBarProps {
   /** 도구줄을 가진 칸이 만지는 칸일 때 그 주인: 색 점 · 칸 번호 · 문서 종류 아이콘 칩이 도구줄 앞에 붙는다(어느 칸의 도구인지 보이게). 없으면(빈 칸 · 캔버스) 칩도 구분선도 없다 */
   /** 맨 위 줄 안의 짧은 상태 칩 자리(접두키 대기). 도구줄 묶음 뒤 남는 자리에 놓여 아무것도 밀지 않는다 */
   statusChip?: React.ReactNode
-  toolbarOwner?: { readonly channel: PaneChannel; readonly number: number | null; readonly kind: 'pdf' | 'markdown' | 'memoNote' } | null
+  toolbarOwner?: ToolbarOwner | null
 }
 
 /**

@@ -47,7 +47,7 @@ import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
 import { EmptyPane, type EmptyPaneRecent } from './EmptyPane'
 import { PrefixChip } from './PrefixChip'
-import { TopBarToolbarContext } from './topBarToolbar'
+import { TopBarToolbarContext, toolbarOwnerOf } from './topBarToolbar'
 import { reactingPanes } from './paneReaction'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { TranslatorPanel } from './TranslatorPanel'
@@ -2661,9 +2661,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const translatorWindow = useTranslatorWindow()
   // 상단바 도구줄의 주인 칩(색 점 · 칸 번호 · 문서 종류): 도구줄이 있는 종류(PDF · MD · 메모 노트)를 보는 칸이 만지는 칸일 때만
   const ownerTab = activeTab(tabsOf(panes, activePaneId))
-  const toolbarOwner = ownerTab !== null && (ownerTab.kind === 'pdf' || ownerTab.kind === 'markdown' || ownerTab.kind === 'memoNote')
-    ? { channel: channelOf(channels, activePaneId), number: paneOrder.indexOf(activePaneId) < 0 || floatIds.includes(activePaneId) ? null : leaves(layoutRoot).indexOf(activePaneId), kind: ownerTab.kind }
-    : null
+  const toolbarOwner = toolbarOwnerOf(ownerTab, channelOf(channels, activePaneId), paneOrder.indexOf(activePaneId) < 0 || floatIds.includes(activePaneId) ? null : leaves(layoutRoot).indexOf(activePaneId))
   const toolbarSlotValue = useMemo(() => ({ element: toolbarSlot, activePane: activePaneId }), [toolbarSlot, activePaneId])
   // 도구줄의 번역기 단추: 번역을 켜 둘 때만 있다
   const translatorService = useMemo<TranslatorService | null>(() => (translation.settings.enabled

@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import type { PaneId } from './tabs'
+import type { PaneId, Tab } from './tabs'
+import type { PaneChannel } from './workspaceChannels'
 import { PaneIdContext } from './workspaceContext'
 
 /**
@@ -20,6 +21,20 @@ export const TopBarToolbarContext = createContext<TopBarToolbarSlot | null>(null
 /** 이 칸의 도구줄이 상단바에 그려져야 하는가: 만지는 칸 자신일 때만 */
 export function ownsTopBarToolbar(activePane: PaneId | null, pane: PaneId | null): boolean {
   return pane !== null && activePane === pane
+}
+
+/** 상단바 도구줄의 주인 칩(색 점 · 칸 번호 · 문서 종류) */
+export interface ToolbarOwner {
+  readonly channel: PaneChannel
+  /** 칸 번호(트리의 칸). 떠 있는 칸 · 번호를 모르면 null */
+  readonly number: number | null
+  readonly kind: 'pdf' | 'markdown' | 'memoNote'
+}
+
+/** 만지는 칸이 보는 탭에 도구줄이 있는 종류(PDF · MD · 메모 노트)일 때만 주인이 있다. 빈 칸 · 캔버스는 null(자리가 빈다) */
+export function toolbarOwnerOf(tab: Tab | null, channel: PaneChannel, number: number | null): ToolbarOwner | null {
+  if (tab === null || (tab.kind !== 'pdf' && tab.kind !== 'markdown' && tab.kind !== 'memoNote')) return null
+  return { channel, number, kind: tab.kind }
 }
 
 /** 상단바 자리가 있는가(없으면 호출한 곳이 칸 안에 그린다) */

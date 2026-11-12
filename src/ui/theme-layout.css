@@ -416,8 +416,6 @@
 }
 
 .topbar-panetab-zone .pane-tabs-menu { padding-inline: var(--grid); }
-.topbar-panetab-zone-right .pane-tabs-menu { padding-right: 146px; }
-.topbar-panetab-zone-right { flex-basis: 0px; }
 .topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: 146px; }
 
 .topbar-pane-divider {
@@ -2846,8 +2844,6 @@
 .pane-tabs-strip { flex: 0 1 auto; }
 .pane-tabs-overflow { margin: 0 44px 0 2px; }
 /* 지금 보는 탭만 이름을 넓게, 나머지는 짧은 이름으로 줄인다 */
-/* 오른쪽 칸 끝은 창 단추 앞이라 빈 칸을 조금만 남긴다 */
-.topbar-panetab-zone-right .pane-tabs-overflow { margin-right: 20px; }
 .pane-tabs-overflow {
   flex: 0 0 auto;
   width: auto;
@@ -2976,11 +2972,6 @@
 .ui-scale-preset:hover { background: var(--chrome-hover); }
 .ui-scale-preset-active { border-color: var(--accent); color: var(--accent); font-weight: 650; }
 
-/* 1단 보기: 오른쪽 패널·구분선을 접고, 상단바 오른쪽 칸은 창 단추 자리만 남긴다 */
-/* (오른쪽 패널·구분선은 display 로 지우지 않고 폭을 0 으로 접는다 — layout-transitions.css, 그래야 접고 펼 때 움직인다) */
-.topbar-single .topbar-pane-divider { display: none; }
-.topbar-single .topbar-panetab-zone-right { flex: 0 0 146px !important; }
-.topbar-single .topbar-panetab-zone-right > * { display: none; }
 
 /* 활성 탭이 아래 도구줄과 끊김 없이 붙게: 상단바 밑선 위로 탭 줄을 1px 내린다.
    (탭 줄이 가로 스크롤 상자라 탭의 음수 여백은 잘린다 — 그래서 줄 자체를 내린다) */
@@ -3049,9 +3040,6 @@
 .winbtn:active { background: color-mix(in srgb, var(--chrome-hover) 70%, var(--text-strong) 8%); }
 .winbtn-close:hover { background: var(--winclose); color: var(--on-solid); }
 .winbtn-close:active { background: var(--winclose-active); color: var(--on-solid); }
-/* 오른쪽 탭이 창 단추 밑으로 들어가지 않게 그만큼 비운다 */
-.topbar-panetab-zone-right .pane-tabs-menu { padding-right: 128px; }
-.topbar-single .topbar-panetab-zone-right { flex: 0 0 128px !important; }
 
 /* ── 목차(최종): 접히는 나무, 지금 자리 칠하기 ──────────────────── */
 .outline-section-head {

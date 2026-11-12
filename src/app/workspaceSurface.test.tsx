@@ -13,10 +13,10 @@ import { PrefixChip } from './PrefixChip'
 import { SplitPanes, snapRect } from './SplitPanes'
 import { useOverlayToolShortcuts } from './PaneToolbar'
 import { getOverlayTool, setOverlayTool } from '../pdf/overlayToolStore'
-import { TopBarToolbar, TopBarToolbarContext, ownsTopBarToolbar } from './topBarToolbar'
+import { TopBarToolbar, TopBarToolbarContext, ownsTopBarToolbar, toolbarOwnerOf } from './topBarToolbar'
 import { PaneIdContext } from './workspaceContext'
 import {
-  REACTION_FLASH_MS, flashReaction, paneReactionOf, reactingPanes, resetPaneReaction, setHoverReaction, usePaneReaction, visiblePanesOf,
+  REACTION_FLASH_MS, flashReaction, paneReactionOf, reactingPanes, resetPaneReaction, setHoverReaction, usePaneReaction,
   type ReactionInput,
 } from './paneReaction'
 import type { PanesState } from './tabs'
@@ -437,10 +437,6 @@ describe('칸 반응 표시 — 어느 창이 반응하는가', () => {
     expect(reactingPanes({ ...input, canvasShowsMemo: (pane) => pane === 'canvas' })).toEqual(['canvas'])
   })
 
-  it('보이는 칸은 트리의 칸 차례 뒤에 떠 있는 칸', () => {
-    expect(visiblePanesOf(splitLeaf(paneNode('a'), 'a', 'h', 'b'), ['f'])).toEqual(['a', 'b', 'f'])
-  })
-
   it('마우스 올림(hover): 켜고 끄기만 한다. 같은 값이면 다시 알리지 않는다', () => {
     const Probe = ({ pane }: { readonly pane: string }) => <i data-testid={pane} data-r={usePaneReaction(pane) ?? ''} />
     render(<><Probe pane="a" /><Probe pane="b" /></>)
@@ -567,5 +563,16 @@ describe('D2 · 좁은 탭도 알약으로 읽힌다', () => {
     expect(block).toMatch(/:not\(\.pane-top-tab-active\):hover \.pane-top-tab-title \{[^}]*9%/u)
     expect(rule(surface, '.pane-head .pane-top-tab')).toMatch(/min-width: 40px;/u)
     expect(rule(surface, '.pane-head .pane-top-tab')).toMatch(/height: var\(--icon-btn\);/u)
+  })
+})
+
+describe('toolbarOwnerOf — 상단바 도구줄의 주인', () => {
+  it('PDF · Markdown · 메모 노트 탭만 주인이 있고, 빈 칸 · 캔버스는 null(자리가 빈다)', () => {
+    const tab = (kind: 'pdf' | 'markdown' | 'memoNote' | 'canvas') => ({ id: 't', title: 't', kind })
+    expect(toolbarOwnerOf(tab('pdf'), 'blue', 0)).toEqual({ channel: 'blue', number: 0, kind: 'pdf' })
+    expect(toolbarOwnerOf(tab('markdown'), null, null)).toEqual({ channel: null, number: null, kind: 'markdown' })
+    expect(toolbarOwnerOf(tab('memoNote'), 'green', 2)?.kind).toBe('memoNote')
+    expect(toolbarOwnerOf(tab('canvas'), 'blue', 0)).toBeNull()
+    expect(toolbarOwnerOf(null, 'blue', 0)).toBeNull()
   })
 })

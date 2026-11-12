@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react'
-import { leaves, type LayoutNode } from '../core/layoutTree'
 import { activeTab, tabDocId, tabsOf, type PaneId, type PanesState } from './tabs'
 import type { Channel, PaneChannel, PaneChannels } from './workspaceChannels'
 import { channelOf } from './workspaceChannels'
@@ -58,9 +57,6 @@ export function reactingPanes(input: ReactionInput): PaneId[] {
     return false
   })
 }
-
-/** 지금 보이는 창들(트리의 칸 차례대로) — 위 계산의 visible */
-export const visiblePanesOf = (layout: LayoutNode, floats: readonly PaneId[]): PaneId[] => [...leaves(layout), ...floats]
 
 // ── 저장소 ────────────────────────────────────────────────────────────────────
 

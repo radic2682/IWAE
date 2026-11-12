@@ -1,17 +1,15 @@
 import { t } from '../i18n'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { closeWindow, minimizeWindow, toggleMaximizeWindow, watchMaximized } from '../bridge/window'
 import { isMacPlatform } from '../core/platform'
 
 interface WindowControlsProps {
   onCloseWindow?: () => void
-  /** 창 단추 왼쪽에 붙일 앱 단추(예: 옆에 노트 열기·닫기) */
-  leading?: ReactNode
 }
 
 /* 창 단추는 앱의 다른 단추처럼 둥근 칩으로 그린다. 아이콘은 1px 선으로 직접 그려
    글꼴 아이콘보다 가늘고 또렷하게 — Windows 창 단추의 모양(─ □ ⧉ ✕)을 따른다. */
-export function WindowControls({ onCloseWindow = closeWindow, leading }: WindowControlsProps) {
+export function WindowControls({ onCloseWindow = closeWindow }: WindowControlsProps) {
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
@@ -38,12 +36,11 @@ export function WindowControls({ onCloseWindow = closeWindow, leading }: WindowC
 
   // 맥은 왼쪽 위의 시스템 신호등 단추(닫기·최소화·확대)를 쓴다. 오른쪽에는 앱 단추만 남긴다
   if (isMacPlatform()) {
-    return <div className="wincontrols wincontrols-mac">{leading}</div>
+    return <div className="wincontrols wincontrols-mac" />
   }
 
   return (
     <div className="wincontrols">
-      {leading}
       <button type="button" className="winbtn" aria-label={t('최소화')} onClick={minimizeWindow}>
         <svg viewBox="0 0 10 10" aria-hidden="true">
           <path d="M1 5.5h8" />
