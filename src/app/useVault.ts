@@ -138,6 +138,8 @@ interface UseVaultOptions {
   pdfTabs?: TabsState
   noteTabs?: TabsState
   markdownSources?: Readonly<Record<string, string>>
+  /** 새로 만든 캔버스를 어디에 열지(문서 창 옆 등). 없으면 캔버스 쪽 패널에 탭으로 연다 */
+  openCanvas?: (note: { readonly path: string; readonly title: string }) => void
 }
 
 function restoredTabs(
@@ -891,15 +893,23 @@ export function useVault(options: UseVaultOptions = {}) {
 
   // addNote 가 아래에서 정의되는 refreshVaultFiles 를 쓰도록 ref 로 잇는다
   const refreshVaultFilesRef = useRef<(handle: VaultHandle) => Promise<void>>(async () => undefined)
-  const addNote = useCallback(async (notebookName: string, noteName: string) => {
-    if (vault === null) return
+  const openCanvasRef = useRef(options.openCanvas)
+  openCanvasRef.current = options.openCanvas
+  /** 캔버스 파일을 만든다(열지는 않는다). 만든 캔버스, Vault 가 없으면 undefined */
+  const createCanvasNote = useCallback(async (notebookName: string, noteName: string): Promise<{ path: string; title: string } | undefined> => {
+    if (vault === null) return undefined
     const path = await createNote(vault, notebookName, noteName)
-    // 새 노트도 바로 Vault 목록(index)에 올린다 — 안 그러면 다시 열기 전까지 이름 바꾸기·휴지통이
+    // 새 캔버스도 바로 Vault 목록(index)에 올린다 — 안 그러면 다시 열기 전까지 이름 바꾸기·휴지통이
     // "Vault 파일을 찾지 못했습니다" 로 실패한다
     await refreshVaultFilesRef.current(vault)
-    const title = path.split('/').at(-1)?.replace(/\.canvas$/iu, '') ?? noteName
-    openInPane({ id: path, title, kind: 'canvas' })
+    return { path, title: path.split('/').at(-1)?.replace(/\.canvas$/iu, '') ?? noteName }
   }, [vault])
+  const addNote = useCallback(async (notebookName: string, noteName: string) => {
+    const note = await createCanvasNote(notebookName, noteName)
+    if (note === undefined) return
+    if (openCanvasRef.current !== undefined) openCanvasRef.current(note)
+    else openInPane({ id: note.path, title: note.title, kind: 'canvas' })
+  }, [createCanvasNote])
 
   const reorderTreeNode = useCallback(async (request: VaultTreeReorderRequest) => {
     const next = reorderVaultTreeNode(tree, request)
@@ -1883,6 +1893,7 @@ export function useVault(options: UseVaultOptions = {}) {
     importPdfsAt,
     refreshVault,
     addNote,
+    createCanvasNote,
     createFolder,
     saveMarkdownFile,
     moveEntry,

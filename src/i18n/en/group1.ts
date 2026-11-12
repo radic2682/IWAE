@@ -249,6 +249,13 @@ export const GROUP_1: Readonly<Record<string, string>> = {
   '원본 쪽을 불러오지 못했습니다': 'Couldn’t load the source page',
   'IWAE에서 내보냄': 'Exported from IWAE',
   '캔버스': 'Canvas',
+  '캔버스 {n}': 'Canvas {n}',
+  '캔버스 트리': 'Canvas tree',
+  '새 캔버스': 'New canvas',
+  '새 캔버스 이름': 'New canvas name',
+  '제목 없는 캔버스': 'Untitled canvas',
+  '{name}에 새 캔버스': 'New canvas in {name}',
+  '캔버스가 없습니다': 'No canvases',
   '근거': 'Evidence',
   '근거 그림은 원문 쪽을 그대로 옮긴 것이고, 노란 표시가 인용한 부분입니다.': 'Evidence images are copied as-is from the source pages; yellow marks show the quoted parts.',
 

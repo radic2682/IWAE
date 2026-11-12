@@ -28,6 +28,8 @@ export interface WorkspaceLink {
   readonly openNoteBeside: (pane: PaneId | null, notePath?: string) => Promise<string | null>
   /** 색이 없는 문서 창에서 누른 형광펜: 그 메모의 노트(없으면 마지막으로 만진 노트)를 옆에 열고 그 카드를 보인다 */
   readonly revealMemo: (pane: PaneId | null, memoId: string) => void
+  /** pane 과 같은 색 창에 보이는 캔버스에 그 메모에 이어진 블록이 있는가(있으면 노트를 따로 열지 않고 캔버스가 그 블록을 보인다) */
+  readonly canvasShowsMemo?: (pane: PaneId | null, memoId: string) => boolean
 }
 
 const NO_PATHS: readonly string[] = []
@@ -97,7 +99,7 @@ export function useRevealMemo(): (memoId: string) => void {
   const send = useMemoPointSender()
   return useCallback((memoId) => {
     if (pane === null) return
-    if (channel !== null && workspace.visibleNotePathsFor(pane).length > 0) send(memoId, 'document')
+    if (channel !== null && (workspace.visibleNotePathsFor(pane).length > 0 || workspace.canvasShowsMemo?.(pane, memoId) === true)) send(memoId, 'document')
     else workspace.revealMemo(pane, memoId)
   }, [channel, pane, send, workspace])
 }

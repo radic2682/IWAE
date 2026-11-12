@@ -140,7 +140,7 @@ describe('Sidebar', () => {
   it('PDF 문서와 노트를 이름 있는 별도 구역으로 보여준다', async () => {
     await renderSidebar()
     expect(screen.getByRole('region', { name: '문서' })).toBeDefined()
-    expect(screen.getByRole('region', { name: '노트' })).toBeDefined()
+    expect(screen.getByRole('region', { name: '캔버스' })).toBeDefined()
   })
 
   it('문서 목록을 그린다', async () => {
@@ -295,7 +295,7 @@ describe('Sidebar — 열림 표시', () => {
   })
 })
 
-describe('Sidebar — 새 노트', () => {
+describe('Sidebar — 새 캔버스', () => {
   it('폴더 줄의 + 는 그 폴더 안에 새 폴더를 만든다', async () => {
     const onCreateFolder = vi.fn().mockResolvedValue(undefined)
     const tree: readonly VaultTreeNode[] = [
@@ -348,27 +348,27 @@ describe('Sidebar — 새 노트', () => {
     fireEvent.keyDown(screen.getByRole('textbox', { name: '새 폴더 이름' }), { key: 'Escape' })
     expect(screen.queryByRole('textbox', { name: '새 폴더 이름' })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: '새 노트' }))
-    fireEvent.blur(screen.getByRole('textbox', { name: '새 노트 이름' }))
-    await waitFor(() => expect(screen.queryByRole('textbox', { name: '새 노트 이름' })).toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: '새 캔버스' }))
+    fireEvent.blur(screen.getByRole('textbox', { name: '새 캔버스 이름' }))
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: '새 캔버스 이름' })).toBeNull())
     expect(onCreateFolder).not.toHaveBeenCalled()
     expect(onCreateNote).not.toHaveBeenCalled()
   })
 
-  it('새 노트는 노트 구역 맨 위에 새 줄로 생기고, 폴더의 + 단추로는 그 폴더 안에 만든다', async () => {
+  it('새 캔버스는 캔버스 구역 맨 위에 새 줄로 생기고, 폴더의 + 단추로는 그 폴더 안에 만든다', async () => {
     const onCreateNote = vi.fn().mockResolvedValue(undefined)
     await renderSidebar({ onCreateNote })
 
-    fireEvent.click(screen.getByRole('button', { name: '새 노트' }))
-    const input = screen.getByRole('textbox', { name: '새 노트 이름' })
+    fireEvent.click(screen.getByRole('button', { name: '새 캔버스' }))
+    const input = screen.getByRole('textbox', { name: '새 캔버스 이름' })
     fireEvent.change(input, { target: { value: 'Hot Join' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(onCreateNote).toHaveBeenCalledWith('', 'Hot Join'))
 
-    const plus = screen.getAllByRole('button', { name: /에 새 노트$/u })[0]!
-    const folder = (plus.getAttribute('aria-label') ?? '').replace(/에 새 노트$/u, '')
+    const plus = screen.getAllByRole('button', { name: /에 새 캔버스$/u })[0]!
+    const folder = (plus.getAttribute('aria-label') ?? '').replace(/에 새 캔버스$/u, '')
     fireEvent.click(plus)
-    const nested = screen.getByRole('textbox', { name: '새 노트 이름' })
+    const nested = screen.getByRole('textbox', { name: '새 캔버스 이름' })
     fireEvent.change(nested, { target: { value: 'Timing' } })
     fireEvent.keyDown(nested, { key: 'Enter' })
     await waitFor(() => expect(onCreateNote).toHaveBeenLastCalledWith(expect.stringContaining(folder), 'Timing'))
@@ -496,7 +496,7 @@ describe('Sidebar — 폴더 우선 트리', () => {
   it('중첩 폴더를 접근 가능한 버튼으로 접고 펼친다', async () => {
     await renderSidebar({ tree })
 
-    const notes = screen.getByRole('region', { name: '노트' })
+    const notes = screen.getByRole('region', { name: '캔버스' })
     const folder = within(notes).getByRole('button', { name: 'Bus 접기' })
     expect(folder.getAttribute('aria-expanded')).toBe('true')
     expect(within(notes).getByRole('button', { name: 'HEADERS' })).toBeDefined()
@@ -511,7 +511,7 @@ describe('Sidebar — 폴더 우선 트리', () => {
     await renderSidebar({ tree })
 
     const documents = screen.getByRole('region', { name: '문서' })
-    const notes = screen.getByRole('region', { name: '노트' })
+    const notes = screen.getByRole('region', { name: '캔버스' })
     expect(within(documents).getByRole('button', { name: /HTTP Basics/ })).toBeDefined()
     expect(within(documents).getByRole('button', { name: 'README, Markdown' })).toBeDefined()
     expect(within(documents).queryByRole('button', { name: 'HEADERS' })).toBeNull()
@@ -608,7 +608,7 @@ describe('Sidebar — 폴더 우선 트리', () => {
   it('파일을 폴더 위에 놓으면 실제 폴더 이동을 요청한다', async () => {
     const onMoveEntry = vi.fn().mockResolvedValue(undefined)
     await renderSidebar({ tree, onReorderNode: vi.fn(), onMoveEntry })
-    const notes = screen.getByRole('region', { name: '노트' })
+    const notes = screen.getByRole('region', { name: '캔버스' })
     const source = within(notes).getByRole('button', { name: 'HEADERS' }).closest('[data-internal-drop="tree-node"]') as HTMLElement
     const target = within(notes).getByRole('button', { name: 'Specs 접기' }).closest('[data-internal-drop="tree-node"]') as HTMLElement
 
@@ -620,7 +620,7 @@ describe('Sidebar — 폴더 우선 트리', () => {
   it('폴더로 옮기지 못하면 이유를 보여준다', async () => {
     const onMoveEntry = vi.fn().mockRejectedValue(new Error('대상 폴더에 같은 이름이 있습니다.'))
     await renderSidebar({ tree, onReorderNode: vi.fn(), onMoveEntry })
-    const notes = screen.getByRole('region', { name: '노트' })
+    const notes = screen.getByRole('region', { name: '캔버스' })
     const source = within(notes).getByRole('button', { name: 'HEADERS' }).closest('[data-internal-drop="tree-node"]') as HTMLElement
     const target = within(notes).getByRole('button', { name: 'Specs 접기' }).closest('[data-internal-drop="tree-node"]') as HTMLElement
 

@@ -1097,7 +1097,7 @@ export function Sidebar({
     <ul
       className={depth === 0 ? 'side-tree' : 'side-tree-children'}
       role={depth === 0 ? 'tree' : 'group'}
-      aria-label={depth === 0 ? (section === 'documents' ? t('PDF 문서 트리') : t('노트 트리')) : undefined}
+      aria-label={depth === 0 ? (section === 'documents' ? t('PDF 문서 트리') : t('캔버스 트리')) : undefined}
     >
       {draft !== null && draft.section === section && draft.parentPath === parentPath ? (
         <li className="side-tree-node side-tree-draft" role="treeitem" aria-selected={false}>
@@ -1108,8 +1108,8 @@ export function Sidebar({
                 : <NotePencil className="side-file-icon" size={14} aria-hidden="true" />}
               <input
                 className="side-inline-rename"
-                aria-label={draft.kind === 'folder' ? t('새 폴더 이름') : t('새 노트 이름')}
-                placeholder={draft.kind === 'folder' ? t('새 폴더') : t('제목 없는 노트')}
+                aria-label={draft.kind === 'folder' ? t('새 폴더 이름') : t('새 캔버스 이름')}
+                placeholder={draft.kind === 'folder' ? t('새 폴더') : t('제목 없는 캔버스')}
                 value={draftName}
                 autoFocus
                 spellCheck={false}
@@ -1527,8 +1527,8 @@ export function Sidebar({
                 <button
                   type="button"
                   className="side-tree-add"
-                  aria-label={section === 'notes' ? t('{name}에 새 노트', { name: node.name }) : t('{name}에 새 하위 폴더', { name: node.name })}
-                  title={section === 'notes' ? t('새 노트') : t('새 하위 폴더')}
+                  aria-label={section === 'notes' ? t('{name}에 새 캔버스', { name: node.name }) : t('{name}에 새 하위 폴더', { name: node.name })}
+                  title={section === 'notes' ? t('새 캔버스') : t('새 하위 폴더')}
                   onClick={(event) => {
                     event.stopPropagation()
                     startDraft(section === 'notes' ? 'note' : 'folder', section, node.path)
@@ -1751,14 +1751,14 @@ export function Sidebar({
         {showNotes && !libraryExpanded ? (
         <section className={`side-section side-notes-section${sectionDropClass('notes')}`} aria-labelledby="side-notes-heading" {...sectionDropProps('notes')}>
           <div className="side-head-row side-notebook-head">
-            <h2 id="side-notes-heading" className="side-head"><Notebook className="side-section-icon" size={15} aria-hidden="true" />{t('노트')}</h2>
+            <h2 id="side-notes-heading" className="side-head"><Notebook className="side-section-icon" size={15} aria-hidden="true" />{t('캔버스')}</h2>
             <button type="button" className="side-add" onClick={() => startDraft('note', 'notes', '')}>
-              {t('새 노트')}
+              {t('새 캔버스')}
             </button>
           </div>
           {projectedTree.notes.length > 0 || draft?.section === 'notes'
             ? renderTree(projectedTree.notes, '', 0, 'notes')
-            : <p className="side-section-empty">{t('노트가 없습니다')}</p>}
+            : <p className="side-section-empty">{t('캔버스가 없습니다')}</p>}
         </section>
         ) : null}
         </>

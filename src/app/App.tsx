@@ -14,7 +14,7 @@ import { updatePersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { SplitPanes, type FocusedPane } from './SplitPanes'
 import { NoticeStack, ErrorNotice } from './NoticeStack'
 import { AiActivityPill } from './AiActivityPill'
-import { registerLiveCanvas } from './liveCanvasRegistry'
+import { liveCanvas, registerLiveCanvas } from './liveCanvasRegistry'
 import { useMcpCanvasBridge } from './useMcpCanvasBridge'
 import { announceAction } from './actionFeedback'
 import { exportPdfImages, isPasswordProtectedDoc, pageTextIndex, pdfBlankPages, pdfOutline, setPdfPasswordPrompt, type SearchablePdfPage } from '../bridge/pdf'
@@ -35,7 +35,8 @@ import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { MemoNoteContext, requestTitleEdit, type MemoNoteApi } from '../pdf/memoNoteContext'
 import { MemoNoteTabView } from '../pdf/MemoNoteTabView'
 import { useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './useMemoNoteTabs'
-import { createNoteBesideOpener, pickNotePath, type NoteBesideOpener, type NoteBesideHost } from './noteBeside'
+import { blocksForTarget, pickCanvasPane, visibleCanvasPanes, type PointableHighlight } from './canvasWorkspace'
+import { createNoteBesideOpener, pickNotePath, placeNoteTab, type NoteBesideOpener, type NoteBesideHost } from './noteBeside'
 import { applyLayoutPreset, availableLayoutPresets, type LayoutPresetId } from './layoutPresets'
 import { barMigrationKey, legacyBarWasOpen, migrateNoteBar } from './noteBarMigration'
 import { useMemoNotes } from './useMemoNotes'
@@ -108,7 +109,7 @@ import {
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { collapseEmptyPane, dockTab, dockableEdges, moveTabToPaneAt, type DockEdge } from './tabDock'
-import { cyclePaneChannel, remapChannelsByKeep, swapPaneChannels, type PaneChannels } from './workspaceChannels'
+import { cyclePaneChannel, remapChannelsByKeep, swapPaneChannels, type PaneChannel, type PaneChannels } from './workspaceChannels'
 import { useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
 import { emitPointSignal, subscribePointSignal, type DeliveredSignal } from './workspaceSignal'
@@ -299,6 +300,7 @@ function AutosavedNoteCanvas({
   userPresets,
   onSaveUserPreset,
   onDirtyChange,
+  highlights,
   fallbackDocument: suppliedFallbackDocument,
 }: {
   noteId: string
@@ -313,6 +315,7 @@ function AutosavedNoteCanvas({
   userPresets: readonly UserBlockPreset[]
   onSaveUserPreset: (block: CanvasBlockData) => void
   onDirtyChange?: (dirty: boolean) => void
+  highlights?: readonly PointableHighlight[]
   fallbackDocument?: CanvasDocumentV2
 }) {
   const fallbackDocument = useMemo(
@@ -361,6 +364,7 @@ function AutosavedNoteCanvas({
         onTranslateText={onTranslateText}
         userPresets={userPresets}
         onSaveUserPreset={onSaveUserPreset}
+        highlights={highlights}
       />
     </Suspense>
   )
@@ -389,8 +393,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const effectiveNotebooks = previewEnabled ? DEVELOPMENT_NOTEBOOKS : notebooks
   // 밖에서 가져온 PDF 의 원래 경로를 원본 출처로 적는다(docSources 는 vault 가 정해진 뒤 아래에서 만든다)
   const recordImportedSourceRef = useRef<(docId: string, path: string) => void>(() => undefined)
+  // 캔버스 탭 열기(사이드바·검색·서재·새 캔버스). 창 배치를 아는 아래에서 채운다
+  const openCanvasTabRef = useRef<(note: { readonly path: string; readonly title: string }) => void>(() => undefined)
   const vaultState = useVault({
     onImportedFrom: (docId, path) => recordImportedSourceRef.current(docId, path),
+    openCanvas: (note) => openCanvasTabRef.current(note),
     library: effectiveLibrary,
     notebooks: effectiveNotebooks,
     openedDocs: previewEnabled ? [DEVELOPMENT_PDF] : undefined,
@@ -453,6 +460,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     importExternalPdf,
     forgetRecentPdf,
     addNote,
+    createCanvasNote,
     createFolder,
     saveMarkdownFile,
     moveEntry,
@@ -692,7 +700,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (count === '3') return 'cols3'
       if (count === null && window.localStorage.getItem('iwae:single-pane:v2') === '0') return 'cols2'
     } catch { /* 기본값 */ }
-    return 'single'
+    // 샘플 작업 공간은 PDF 와 캔버스가 나란히 보여야 한다(한 화면이면 캔버스 탭이 PDF 창에 합쳐져 숨는다)
+    return previewEnabled && CANVAS_ENABLED && SPLIT_PANES_ENABLED ? 'cols2' : 'single'
   })
   const paneCount = pdfSplitLayout(paneLayoutId).cells.length as PaneCount
   const singlePane = paneCount === 1
@@ -1014,16 +1023,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }
     if (record.kind === 'canvas' && CANVAS_ENABLED) {
       const note = shownNotebooks.flatMap((group) => group.notes).find((entry) => entry.path === record.path)
-      if (note !== undefined) openInPane({ id: note.path, title: note.title, kind: 'canvas' })
+      if (note !== undefined) openCanvasTabRef.current(note)
     }
-  }, [openDocument, openInPane, openMarkdown, shownLibrary, shownNotebooks])
+  }, [openDocument, openMarkdown, shownLibrary, shownNotebooks])
   /** 라이브러리에서 연 항목은 해당 패널에 탭으로 열고, 그 패널이 보이도록 라이브러리를 접는다 */
   const openLibraryItem = useCallback((target: LibraryOpenTarget) => {
     if (target.kind === 'pdf') void openDocument(target.doc)
     else if (target.kind === 'markdown') void openMarkdown(target.node)
-    else if (CANVAS_ENABLED) openInPane({ id: target.note.path, title: target.note.title, kind: 'canvas' })
+    else if (CANVAS_ENABLED) openCanvasTabRef.current(target.note)
     setLibraryExpanded(false)
-  }, [openDocument, openInPane, openMarkdown])
+  }, [openDocument, openMarkdown])
   /** Ctrl+Shift+F: 왼쪽 바 검색 보기를 모든 문서 범위로 연다 */
   const toggleDocSearchMode = useCallback(() => {
     setLibraryExpanded(false)
@@ -1230,6 +1239,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     [vault],
   )
   const markdownHighlights = useMarkdownHighlights(markdownHighlightStorage)
+  // 캔버스 블록이 어느 메모에 이어졌는지 알아내는 데 쓰는 형광펜(메모)들. Markdown 메모도 같은 저장소에 있다(anchor.docId 가 파일 경로)
+  const canvasHighlights: readonly PointableHighlight[] = pdfHighlights.highlights
   const pdfBookmarkStorage = useMemo(
     () => vault === null
       ? createBrowserPdfBookmarkStorage()
@@ -1260,9 +1271,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ? activePaneId
     : isDocTab(activeTab(panes[otherPane(activePaneId)])) ? otherPane(activePaneId) : null
   // 발췌를 받을 캔버스: 만진 패널이 캔버스면 그쪽, 아니면 반대편 캔버스.
-  const notePaneId: PaneId | null = activeTab(panes[activePaneId])?.kind === 'canvas'
-    ? activePaneId
-    : activeTab(panes[otherPane(activePaneId)])?.kind === 'canvas' ? otherPane(activePaneId) : null
+  // 창이 둘 넘게 있어도 보이는 캔버스를 찾는다(만진 창 → 같은 색 → 아무 캔버스)
+  const notePaneId: PaneId | null = pickCanvasPane({ panes, channels, visible: visiblePanes(paneCount), active: activePaneId })
   const activeDocumentTab = docPaneId === null ? null : activeTab(panes[docPaneId])
   // Markdown 탭마다 지금 절(왼쪽 바 「목차」에 지금 자리로 보인다)
   const [markdownSectionState, setMarkdownSectionState] = useState<Readonly<Record<string, number>>>({})
@@ -1513,6 +1523,28 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPaneRoute('note', outcome.pane)
     return outcome.pane
   }
+  /**
+   * 캔버스 탭 열기(사이드바·검색·서재·새 캔버스·「정리」): 이미 탭이면 그 탭으로, 같은 색 창에 캔버스가 보이면 거기에 탭으로,
+   * 아니면 문서 창 옆에 새 창(메모 노트와 같은 규칙). 비어 있는 창이거나 나눌 수 없으면 그 창에 바로 연다. 놓은 창
+   */
+  const openCanvasTab = (note: { readonly path: string; readonly title: string }): PaneId => {
+    const now = workspaceLatest.current
+    const tab: Tab = { id: note.path, title: note.title, kind: 'canvas' }
+    const active = now.activePaneId
+    const anchor = activeTab(now.panes[active])?.kind === 'canvas' ? active : anchorDocPane() ?? active
+    if (!SPLIT_PANES_ENABLED || isDetachedWindow || now.panes[anchor].tabs.length === 0) {
+      openInPane(tab, anchor)
+      setActivePaneId(anchor)
+      setPaneRoute('note', anchor)
+      return anchor
+    }
+    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, visible: visiblePanes(now.shownPaneCount), layoutId: now.shownLayoutId, anchor, tab })
+    applyWorkspace({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
+    setActivePaneId(outcome.pane)
+    setPaneRoute('note', outcome.pane)
+    return outcome.pane
+  }
+  openCanvasTabRef.current = openCanvasTab
   /** 「옆에 노트 열기 / 닫기」: 같은 색 창에 노트가 보이면 그 노트 창을 닫고, 아니면 연다 */
   const toggleNoteBeside = () => {
     const anchor = anchorDocPane()
@@ -1531,19 +1563,39 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   /** 노트를 보이는 같은 색 창이 있는가(상단바 단추의 눌림 표시) */
   const noteBesideShown = docPaneId !== null && visibleNotePathsIn(panes, channels, visiblePanes(shownPaneCount), channels[docPaneId]).length > 0
   /** 이름 붙은 배치: 지금 탭들을 그 모양으로 다시 놓는다(탭은 닫지 않는다) */
+  // 마지막으로 만진 캔버스: 캔버스 탭이 보이는 창에 포커스가 가면 그 캔버스(「정리」가 고른다)
+  const lastCanvasRef = useRef<string | null>(null)
+  const focusedCanvasTab = activeTab(panes[activePaneId])
+  if (focusedCanvasTab?.kind === 'canvas') lastCanvasRef.current = focusedCanvasTab.id
+  /** 「정리」에 놓을 새 캔버스(같은 이름이 있으면 번호를 붙인다). 못 만들면 undefined */
+  const createCanvasForPreset = async (): Promise<{ path: string; title: string } | undefined> => {
+    for (let attempt = 1; attempt <= 20; attempt += 1) {
+      try {
+        return await createCanvasNote('', attempt === 1 ? t('캔버스') : t('캔버스 {n}', { n: attempt }))
+      } catch { /* 같은 이름이 이미 있다: 다음 이름으로 */ }
+    }
+    return undefined
+  }
   const applyPreset = async (id: LayoutPresetId) => {
     const now = workspaceLatest.current
     const anchor = anchorDocPane()
     const docTab = anchor === null ? null : activeTab(now.panes[anchor])
     const docId = docTab !== null && isDocumentKind(docTab.kind) ? tabDocId(docTab) : null
     const hasNote = allPaneTabs(now.panes).some((tab) => tab.kind === 'memoNote')
+    // 「정리」: 열린 캔버스가 없으면 마지막으로 만진 캔버스 → 목록의 첫 캔버스 → 새 캔버스(노트를 만드는 것과 같은 길)
+    let fallbackCanvas: Tab | null = null
+    if (id === 'organize' && CANVAS_ENABLED && !allPaneTabs(now.panes).some((tab) => tab.kind === 'canvas')) {
+      const known = shownNotebooks.flatMap((group) => group.notes).filter((note) => !/.(?:md|markdown)$/iu.test(note.path))
+      const note = known.find((entry) => entry.path === lastCanvasRef.current) ?? known[0] ?? await createCanvasForPreset()
+      if (note !== undefined) fallbackCanvas = { id: note.path, title: note.title, kind: 'canvas' }
+    }
     let fallbackPath: string | null = null
     if (!hasNote && id !== 'organize') {
       fallbackPath = pickNotePath({ lastTouched: memoNotesRef.current.openPath, docId, entries: memoNotesRef.current.entries, docOwner: noteDocOwner })
       if (fallbackPath === null && docId !== null) fallbackPath = await createNoteForDoc(docId)
     }
     const latest = workspaceLatest.current
-    const result = applyLayoutPreset({ id, panes: latest.panes, channels: latest.channels, anchor, lastTouched: memoNotesRef.current.openPath, fallbackNote: fallbackPath === null ? null : noteTabOf(fallbackPath) })
+    const result = applyLayoutPreset({ id, panes: latest.panes, channels: latest.channels, anchor, lastTouched: memoNotesRef.current.openPath, fallbackNote: fallbackPath === null ? null : noteTabOf(fallbackPath), lastCanvas: lastCanvasRef.current, fallbackCanvas })
     applyWorkspace({ panes: result.panes, channels: result.channels, layout: result.layout })
     setActivePaneId(result.focus)
     const focusTab = activeTab(result.panes[result.focus])
@@ -1603,6 +1655,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       pinTab: pinPaneTab,
       openNoteBeside: (pane, notePath) => openNoteBesideRef.current(pane, notePath),
       revealMemo: (pane, memoId) => revealMemoBesideRef.current(pane, memoId),
+      canvasShowsMemo: (pane, memoId) => pane !== null && canvasShowsMemoRef.current(channels[pane], memoId, pane),
     }
   }, [channels, panes, pinPaneTab, shownPaneCount])
   /** 신호가 보여 줄 문서 탭: 이미 어느 창에 열린 문서·열린 PDF·라이브러리 PDF·Markdown. 알 수 없으면 null */
@@ -1616,6 +1669,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (markdownSources[docId] !== undefined) return { id: docId, title: docId.split(/[\\/]/u).at(-1)?.replace(/\.(?:md|markdown)$/iu, '') ?? docId, kind: 'markdown' }
     return null
   }
+  /** channel 의 보이는 캔버스(except 창 제외) 중에 그 메모에 이어진 블록이 있는 것이 있는가 */
+  const canvasShowsMemoRef = useRef<(channel: PaneChannel, memoId: string, except: PaneId | null) => boolean>(() => false)
+  canvasShowsMemoRef.current = (channel, memoId, except) => {
+    if (!CANVAS_ENABLED || channel === null) return false
+    const now = workspaceLatest.current
+    return visibleCanvasPanes(now.panes, visiblePanes(now.shownPaneCount)).some((pane) => {
+      if (pane === except || now.channels[pane] !== channel) return false
+      const noteId = activeTab(now.panes[pane])?.id
+      const document = noteId === undefined ? undefined : liveCanvas(noteId)?.get()
+      return document !== undefined && blocksForTarget(document.nodes, { kind: 'memo', memoId }, canvasHighlights).length > 0
+    })
+  }
   const routePointSignalRef = useRef<(signal: DeliveredSignal) => Promise<void>>(async () => undefined)
   routePointSignalRef.current = async (signal) => {
     if (signal.channel === null || isDetachedWindow) return
@@ -1623,6 +1688,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const senderKind = signal.origin === 'note' ? 'memoNote' : signal.origin === 'document' ? 'pdf' : activeKindOf(workspaceLatest.current.panes, signal.from)
     const fromNote = isNoteSurface(senderKind)
     const memo = target.kind === 'memo' ? pdfHighlights.highlights.find((highlight) => highlight.id === target.memoId) : undefined
+    // 문서의 형광펜을 눌렀는데 같은 색 창에 보이는 캔버스가 그 메모의 블록을 갖고 있고 보이는 노트는 없다: 노트를 새로 열지 않는다(캔버스가 그 블록을 보인다)
+    if (target.kind === 'memo' && !fromNote && target.notePath === undefined
+      && visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, visiblePanes(workspaceLatest.current.shownPaneCount), signal.channel).length === 0
+      && canvasShowsMemoRef.current(signal.channel, target.memoId, signal.from)) return
     const need = target.kind === 'memo'
       ? needForMemo({
         memoId: target.memoId,
@@ -1638,8 +1707,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     // 노트 화면에서 누른 메모의 문서를 못 찾으면 예전처럼 문서를 연다
     const fallback = () => { if (memo !== undefined && fromNote) jumpToAnnotation(memo) }
     if (need === null) { fallback(); return }
-    // 위치 신호(AI·검색)로 아직 열지 않은 문서를 여는 일은 예전 길(navigation.jump)이 한다
-    if (target.kind === 'place' && need.kind === 'doc' && need.tab.kind === 'pdf' && !openedDocs.some((doc) => doc.docId === need.tab.id)) return
+    // 위치 신호(AI·검색)로 아직 열지 않은 문서를 여는 일은 예전 길(navigation.jump)이 한다. 눌러서 보낸 신호(캔버스 블록)는 아래에서 연다
+    if (target.kind === 'place' && signal.reason !== 'click' && need.kind === 'doc' && need.tab.kind === 'pdf' && !openedDocs.some((doc) => doc.docId === need.tab.id)) return
     // 아직 열지 않은 라이브러리 PDF 는 탭 없이 먼저 연다(탭은 아래에서 정한 창에 연다)
     if (need.kind === 'doc' && need.tab.kind === 'pdf' && !openedDocs.some((doc) => doc.docId === need.tab.id)) {
       const entry = shownLibrary.find((doc) => doc.docId === need.tab.id)
@@ -1661,7 +1730,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     // 칸이 가득이면 가장 오른쪽 창에 탭으로 들어가고(rightmost) 색이 바뀔 수 있다. 새 창은 자라듯 나타난다
     applyWorkspace({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' && outcome.pane !== null ? outcome.pane : undefined)
     // 위치 신호: 그 문서의 그 쪽으로 간다(이미 보이면 바로, 아니면 문서가 열리면 그 창이 꺼내 쓴다)
-    if (target.kind === 'place' && outcome.pane !== null) {
+    if (target.kind === 'place' && outcome.pane !== null && need.tab.kind === 'markdown') {
+      // Markdown 은 쪽이 없다: 글자 범위가 있으면 그 자리로 간다
+      if (target.range !== undefined) setMarkdownJumpRequest({ kind: 'markdown', path: target.docId, startOffset: target.range[0], endOffset: target.range[1], quote: '' })
+    } else if (target.kind === 'place' && outcome.pane !== null) {
       const controller = docControllersRef.current[outcome.pane]
       if (controller?.docId === target.docId) controller.requestPage(target.page)
       else pendingDocPageRef.current = { docId: target.docId, page: target.page }
@@ -2024,15 +2096,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [markdownSources, openInPane, openMarkdown, openPdfSource, panes, tree])
 
   // 발췌는 어느 패널의 PDF 에서든 온다. 제목은 그 발췌의 문서에서 찾는다.
-  const sendPdfSelectionToCanvas = useCallback((selection: PdfExcerptSelection) => {
-    if (activeNoteId === null) return
+  // 받을 캔버스(targetNoteId)는 보내는 문서 창이 정한다: 같은 색 창에 보이는 캔버스 → 만진 캔버스 → 보이는 아무 캔버스
+  const sendPdfSelectionToCanvas = useCallback((targetNoteId: string, selection: PdfExcerptSelection) => {
     const sourceTitle = docTitles[selection.anchor.docId] ?? activePdfDoc?.title ?? ''
     setExcerptInsertRequest((current) => ({
       id: (current?.id ?? 0) + 1,
-      targetNoteId: activeNoteId,
+      targetNoteId,
       payload: { selection, sourceTitle },
     }))
-  }, [activeNoteId, activePdfDoc, docTitles])
+  }, [activePdfDoc, docTitles])
 
   /**
    * 고른 글에 출처를 붙여 복사한다: "인용" — [문서, §절, p.쪽].
@@ -2090,18 +2162,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [translation, translateForCache])
 
   const sendTranslatedPdfSelectionToCanvas = useCallback((
+    targetNoteId: string,
     selection: PdfExcerptSelection,
     translated: PdfSelectionTranslation,
   ) => {
-    if (activeNoteId === null) return
     const sourceTitle = docTitles[selection.anchor.docId] ?? activePdfDoc?.title ?? ''
     setExcerptInsertRequest((current) => ({
       id: (current?.id ?? 0) + 1,
-      targetNoteId: activeNoteId,
+      targetNoteId,
       payload: { selection, sourceTitle },
       translation: translated,
     }))
-  }, [activeNoteId, activePdfDoc, docTitles])
+  }, [activePdfDoc, docTitles])
 
   const translateMarkdownSelection = useCallback(async (text: string, options?: { readonly force?: boolean; readonly targetLanguage?: string; readonly sourceLanguage?: string }) => {
     const source = normalizeSelectionText(text)
@@ -2112,17 +2184,23 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }, [translation, translateForCache, activeMarkdownPath])
 
   const sendTranslatedMarkdownSelectionToCanvas = useCallback((
+    targetNoteId: string,
     payload: MarkdownExcerptDragPayload,
     translated: MarkdownSelectionTranslation,
   ) => {
-    if (activeNoteId === null) return
     setExcerptInsertRequest((current) => ({
       id: (current?.id ?? 0) + 1,
-      targetNoteId: activeNoteId,
+      targetNoteId,
       payload,
       translation: translated,
     }))
-  }, [activeNoteId])
+  }, [])
+  /** 문서 창 pane 에서 보낸 발췌를 받을 캔버스 탭(없으면 null: 보내기 단추를 감춘다) */
+  const canvasTargetFor = (pane: PaneId): string | null => {
+    if (!CANVAS_ENABLED) return null
+    const target = pickCanvasPane({ panes, channels, visible: visiblePanes(shownPaneCount), active: activePaneId, from: pane })
+    return target === null ? null : activeTab(panes[target])?.id ?? null
+  }
 
   // 번역 카드의 언어·번역기 칩
   const { targetLanguage: cardTargetLanguage, executionMode: cardExecutionMode, externalProvider: cardExternalProvider } = translation.settings
@@ -2974,6 +3052,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               onExportWithEvidence={(document) => exportWithEvidence(noteTab.title, document)}
               insertRequest={excerptInsertRequest}
               onTranslateText={translation.selectedModel === null ? undefined : translateCanvasText}
+              highlights={canvasHighlights}
               userPresets={blockPresets.presets}
               onSaveUserPreset={blockPresets.add}
               onDirtyChange={(dirty) => setFileDirty(noteTab.id, dirty)}
@@ -2986,6 +3065,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       )
     }
     const meta = tab.kind === 'pdf' ? openedDocs.find((doc) => doc.docId === tabDocId(tab)) ?? null : null
+    const canvasTarget = canvasTargetFor(pane)
     return (
       <DocumentView
         key={pane}
@@ -3041,11 +3121,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           })
         }}
         flashHighlightId={flashHighlightId}
-        onSendToCanvas={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendPdfSelectionToCanvas}
+        onSendToCanvas={canvasTarget === null ? undefined : (selection) => sendPdfSelectionToCanvas(canvasTarget, selection)}
         onCopyWithSource={(selection) => void copyPdfSelectionWithSource(selection)}
         onSearchDocuments={searchDocumentsFromSelection}
         onTranslateSelection={translation.settings.enabled ? translatePdfSelection : undefined}
-        onSendTranslatedSelection={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendTranslatedPdfSelectionToCanvas}
+        onSendTranslatedSelection={canvasTarget === null ? undefined : (selection, translated) => sendTranslatedPdfSelectionToCanvas(canvasTarget, selection, translated)}
         onExternalLink={openPdfLink}
         onNavigateBack={navigation.back}
         onNavigateForward={navigation.forward}
@@ -3056,7 +3136,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         markdownTheme={markdownTheme}
         onTranslateMarkdownSelection={!translation.settings.enabled || translation.selectedModel === null ? undefined : translateMarkdownSelection}
         onSearchDocumentsText={searchDocumentsFromText}
-        onSendTranslatedMarkdownSelection={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendTranslatedMarkdownSelectionToCanvas}
+        onSendTranslatedMarkdownSelection={canvasTarget === null ? undefined : (payload, translated) => sendTranslatedMarkdownSelectionToCanvas(canvasTarget, payload, translated)}
         markdownHighlights={markdownHighlights.highlights}
         onMarkdownHighlightCreated={markdownHighlights.add}
         onMarkdownHighlightRemoved={markdownHighlights.remove}
@@ -3196,7 +3276,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                   .catch((cause: unknown) => announceAction(errorText(cause)))
               },
             }}
-            onOpenNote={(note) => openInPane({ id: note.path, title: note.title, kind: 'canvas' })}
+            onOpenNote={(note) => openCanvasTab(note)}
             onOpenMarkdown={(markdown) => void openMarkdown(markdown)}
             onAddDoc={(policy) => void addDocument(policy)}
             onCreateNote={addNote}

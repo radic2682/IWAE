@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { App } from './App'
 import type { LibraryDoc, NotebookGroup } from '../bridge/fake'
@@ -292,13 +292,12 @@ describe('App — 껍데기 배선', () => {
     expect(screen.getByRole('tab', { name: 'HTTP Semantics Guide v1.1' })).toBeDefined()
   })
 
-  it.skipIf(!CANVAS_ENABLED)('노트는 오른쪽 패널에 열린다 — 패널 역할은 고정이다', () => {
+  it.skipIf(!CANVAS_ENABLED)('캔버스는 문서 창 옆에 탭으로 열린다 — 문서가 없으면 그 창에 바로 연다', () => {
     renderApp()
+    // 문서도 노트도 없는 처음: 빈 창에 캔버스 탭으로 열린다(안내 문구는 사라진다)
     fireEvent.click(screen.getByRole('button', { name: 'OPTIONS' }))
-    const noteTitle = screen.getByRole('tab', { name: 'OPTIONS' })
-    // 왼쪽 패널은 여전히 비어 있어야 한다
-    expect(screen.getByText('사이드바에서 PDF 문서를 여세요')).toBeDefined()
-    expect(noteTitle).toBeDefined()
+    expect(screen.getByRole('tab', { name: 'OPTIONS' })).toBeDefined()
+    expect(screen.queryByText('사이드바에서 PDF 문서를 여세요')).toBeNull()
   })
 
   it('같은 문서를 두 번 눌러도 탭은 하나다', () => {
@@ -346,7 +345,7 @@ describe('App — bridge 로부터의 읽기', () => {
   it.skipIf(!CANVAS_ENABLED)('개발 Markdown은 문서 목록에서 열리고 왼쪽 읽기 패널에 표시된다', () => {
     const view = render(<App developmentPreview />)
     const documents = screen.getByRole('region', { name: '문서' })
-    const notes = screen.getByRole('region', { name: '노트' })
+    const notes = screen.getByRole('region', { name: '캔버스' })
     const markdown = within(documents).getByRole('button', { name: 'Markdown 테스트, Markdown' })
 
     expect(within(notes).queryByRole('button', { name: 'Markdown 테스트, Markdown' })).toBeNull()
@@ -368,6 +367,10 @@ describe('App — bridge 로부터의 읽기', () => {
   })
 
   it.skipIf(!CANVAS_ENABLED)('Markdown 선택 번역문을 확인한 뒤 원문 캡처와 번역 블록을 만든다', async () => {
+    // jsdom 의 Range 에는 줄 사각형이 없다
+    const original = Range.prototype.getClientRects
+    Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+    onTestFinished(() => { Range.prototype.getClientRects = original })
     const view = render(<App developmentPreview />)
     const documents = screen.getByRole('region', { name: '문서' })
     fireEvent.click(within(documents).getByRole('button', { name: 'Markdown 테스트, Markdown' }))
@@ -545,6 +548,7 @@ describe('App — bridge 로부터의 읽기', () => {
     const dataTransfer = {
       getData: (type: string) => type === PDF_EXCERPT_DRAG_MIME ? serialized : '',
       dropEffect: 'none',
+      types: [PDF_EXCERPT_DRAG_MIME],
     }
     await waitFor(() => expect(view.container.querySelector('.react-flow')).not.toBeNull())
     const canvas = view.container.querySelector('.react-flow')
@@ -555,13 +559,15 @@ describe('App — bridge 로부터의 읽기', () => {
     expect(sourceButton).not.toBeNull()
     const excerptNode = view.container.querySelector('.pdf-excerpt-node')
     expect(excerptNode).not.toBeNull()
+    // 출처가 있는 블록을 누르면 같은 색 창에 가리키기 신호(place)가 가서 그 문서가 그 쪽으로 간다
     fireEvent.click(excerptNode as Element)
     expect(view.container.querySelector('[data-source-trace]')).toBeNull()
-    expect(screen.getByLabelText('페이지 이동 요청 nonce').textContent).toBe('0')
+    await waitFor(() => expect(Number(screen.getByLabelText('페이지 이동 요청 nonce').textContent)).toBeGreaterThan(0))
+    const afterPoint = Number(screen.getByLabelText('페이지 이동 요청 nonce').textContent)
     fireEvent.click(sourceButton as Element)
 
     expect(screen.getByLabelText('강조 앵커 페이지').textContent).toBe('1')
-    expect(screen.getByLabelText('페이지 이동 요청 nonce').textContent).toBe('1')
+    expect(Number(screen.getByLabelText('페이지 이동 요청 nonce').textContent)).toBeGreaterThan(afterPoint)
   })
 })
 

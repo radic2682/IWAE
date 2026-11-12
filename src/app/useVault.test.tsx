@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { openPdf, pageTextIndex, pickPdfFile } from '../bridge/pdf'
 import {
   createMarkdownFile,
+  createNote,
   listVaultTree,
   openVault,
   readLibrary,
@@ -257,6 +258,49 @@ describe('useVault — 시작 복원', () => {
         ]),
       }),
     )
+  })
+
+  it('캔버스 탭을 세션 파일의 창 배치대로 되살린다(오른쪽 칸의 캔버스가 문서 칸으로 합쳐지지 않는다)', async () => {
+    vi.mocked(readSession).mockResolvedValue({
+      pdfTabIds: [goodEntry.docId],
+      noteTabIds: ['HTTP/OPTIONS.canvas'],
+      activePdfTabId: goodEntry.docId,
+      activeNoteTabId: 'HTTP/OPTIONS.canvas',
+      sidebarCollapsed: false,
+      sidebarPx: 310,
+      leftFrac: 0.5,
+      panes: { left: ['HTTP/OPTIONS.canvas'], right: [goodEntry.docId], activeLeft: 'HTTP/OPTIONS.canvas', activeRight: goodEntry.docId },
+    })
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(result.current.panes.left.tabs.map((tab) => [tab.id, tab.kind])).toEqual([['HTTP/OPTIONS.canvas', 'canvas']])
+    expect(result.current.panes.right.tabs.map((tab) => [tab.id, tab.kind])).toEqual([[goodEntry.docId, 'pdf']])
+  })
+
+  it('새 캔버스: createCanvasNote 는 만들기만 하고, addNote 는 openCanvas 가 있으면 그 길로(없으면 캔버스 패널에) 연다', async () => {
+    vi.mocked(createNote).mockResolvedValue('HTTP/새 캔버스.canvas')
+    const openCanvas = vi.fn()
+    const { result } = renderHook(() => useVault({ openCanvas }))
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    const before = result.current.noteTabs.tabs.map((tab) => tab.id)
+
+    let created: { path: string; title: string } | undefined
+    await act(async () => { created = await result.current.createCanvasNote('HTTP', '새 캔버스') })
+    expect(created).toEqual({ path: 'HTTP/새 캔버스.canvas', title: '새 캔버스' })
+    expect(openCanvas).not.toHaveBeenCalled()
+    expect(result.current.noteTabs.tabs.map((tab) => tab.id)).toEqual(before)
+
+    await act(async () => { await result.current.addNote('HTTP', '새 캔버스') })
+    expect(openCanvas).toHaveBeenCalledWith({ path: 'HTTP/새 캔버스.canvas', title: '새 캔버스' })
+    expect(result.current.noteTabs.tabs.map((tab) => tab.id)).toEqual(before)
+  })
+
+  it('새 캔버스: openCanvas 가 없으면 예전처럼 캔버스 패널에 탭으로 연다', async () => {
+    vi.mocked(createNote).mockResolvedValue('HTTP/둘.canvas')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    await act(async () => { await result.current.addNote('HTTP', '둘') })
+    expect(result.current.noteTabs.tabs.map((tab) => tab.id)).toContain('HTTP/둘.canvas')
   })
 
   it('캔버스 편집 상태를 안정 ID의 watcher dirty 집합에 연결한다', async () => {
