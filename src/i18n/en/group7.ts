@@ -305,7 +305,7 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '화면 {n}': 'Screen {n}',
   '문서를 열면 번역기가 보입니다': 'The translator shows up once a document is open',
   '이 칸에 열기': 'Open in this pane',
-  '왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요': 'Open from the left bar or drag a tab here from another pane',
+  '문서를 열거나, 다른 칸의 탭을 끌어 오세요': 'Open a document, or drag a tab here from another pane',
   '화면 구성': 'Layout',
   '아래 상태 줄': 'Bottom status bar',
   '창 맨 아래에 세션과 화면 목록(0:읽기*), 짧은 알림, 키 목록(?)을 보입니다. 끄면 짧은 알림이 오른쪽 아래에 뜹니다.': 'Shows the session and screen list (0:Reading*), short messages and the key list (?) at the bottom of the window. When off, short messages appear at the bottom right.',

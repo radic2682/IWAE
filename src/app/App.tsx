@@ -45,6 +45,7 @@ import { usePrefixMode } from './usePrefixMode'
 import { summarizeWorkspace, type McpWorkspaceState } from './mcp/workspaceCommand'
 import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
+import { EmptyPane, type EmptyPaneRecent } from './EmptyPane'
 import { StatusBar } from './StatusBar'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { TranslatorPanel } from './TranslatorPanel'
@@ -3475,23 +3476,28 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const main = formal !== undefined && formal.length >= 8 ? formal : shown
     return { main, sub: fileName === undefined || fileName === main ? undefined : fileName }
   }
-  /** 빈 칸: 「PDF · MD · 노트 · 캔버스 · 번역기」 빠른 단추와 안내 */
-  const renderEmptyPane = (pane: PaneId) => (
-    <span className="pane-empty-quick">
-      <span className="pane-empty-quick-buttons" role="group" aria-label={t('이 칸에 열기')}>
-        {isDetachedWindow ? null : (
-          <>
-            <button type="button" className="pane-empty-quick-button" onClick={() => emptyPaneActions.pdf(pane)}>{t('PDF')}</button>
-            <button type="button" className="pane-empty-quick-button" onClick={() => emptyPaneActions.markdown(pane)}>{t('MD')}</button>
-            {vault === null ? null : <button type="button" className="pane-empty-quick-button" onClick={() => void emptyPaneActions.note(pane)}>{t('노트')}</button>}
-            {vault === null || !CANVAS_ENABLED ? null : <button type="button" className="pane-empty-quick-button" onClick={() => void emptyPaneActions.canvas(pane)}>{t('캔버스')}</button>}
-            <button type="button" className="pane-empty-quick-button" onClick={() => emptyPaneActions.translator(pane)}>{t('번역기')}</button>
-          </>
-        )}
-      </span>
-      <span className="pane-empty-quick-hint">{t('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')}</span>
-    </span>
-  )
+  /** 빈 칸: 조용한 명령 목록(PDF · Markdown · 노트 · 캔버스 · 번역기 · 이 칸 닫기)과 최근 문서(EmptyPane) */
+  const renderEmptyPane = (pane: PaneId) => {
+    const open = (run: () => void) => () => { setPaneRoute('doc', pane); setActivePaneId(pane); run() }
+    const recents: EmptyPaneRecent[] = isDetachedWindow ? [] : [
+      ...searchRecords
+        .filter((record) => (record.kind === 'pdf' || record.kind === 'markdown') && record.lastOpenedAt !== null && !record.missing)
+        .map((record) => ({ key: `doc:${record.id}`, at: record.lastOpenedAt ?? '', title: record.displayName || record.filename, kind: record.kind === 'markdown' ? 'markdown' as const : 'pdf' as const, onOpen: open(() => openVaultSearchResult({ record, page: null, snippet: '', query: '' })) })),
+      ...recentPdfs.map((recent) => ({ key: `ext:${recent.path}`, at: recent.openedAt, title: recent.title, kind: 'pdf' as const, onOpen: open(() => { void openExternalPdf(recent.path) }) })),
+    ].sort((left, right) => right.at.localeCompare(left.at)).slice(0, 4)
+    return (
+      <EmptyPane
+        prefixText={prefixHint}
+        onPdf={isDetachedWindow ? undefined : () => emptyPaneActions.pdf(pane)}
+        onMarkdown={isDetachedWindow ? undefined : () => emptyPaneActions.markdown(pane)}
+        onNote={isDetachedWindow || vault === null ? undefined : () => void emptyPaneActions.note(pane)}
+        onCanvas={isDetachedWindow || vault === null || !CANVAS_ENABLED ? undefined : () => void emptyPaneActions.canvas(pane)}
+        onTranslator={isDetachedWindow ? undefined : () => emptyPaneActions.translator(pane)}
+        onClose={paneCount > 1 ? () => closePane(pane) : undefined}
+        recents={recents}
+      />
+    )
+  }
   const renderPaneBody = (pane: PaneId) => {
     const state = tabsOf(panes, pane)
     const tab = activeTab(state)

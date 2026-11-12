@@ -17,6 +17,13 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   '접두키 — 다음 키를 누르세요': 'Prefix — press the next key',
   '접두키({keys}): 누르면 다음 키를 기다립니다. 입력기에 막힐 때는 여기를 누르세요': 'Prefix key ({keys}): waits for the next key. Click here if your input method swallows it',
   '기본(tmux)': 'Default (tmux)',
+  // 빈 칸
+  '빈 칸': 'Empty pane',
+  'PDF 열기': 'Open PDF',
+  'Markdown 열기': 'Open Markdown',
+  '캔버스 열기': 'Open canvas',
+  '번역기 띄우기': 'Float translator',
+  '이 칸 닫기': 'Close this pane',
   '화면을 닫을까요? y/n': 'Close this screen? y/n',
   '모르는 키: {key} — ? 로 목록': 'Unknown key: {key} — ? for the list',
   '명령줄': 'Command line',

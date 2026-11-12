@@ -281,10 +281,11 @@ describe('App — 껍데기 배선', () => {
 
   it('처음에는 한 칸이 비어 있다', () => {
     const { container } = renderApp()
-    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
-    // 빈 칸에는 빠른 단추가 있다
+    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    // 빈 칸에는 조용한 명령 목록이 있다(한 칸뿐이라 「이 칸 닫기」 는 없고, 키 힌트는 지금 접두키를 따른다)
+    expect(screen.getByText('빈 칸')).toBeDefined()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
-    expect(within(quick).getAllByRole('button').map((button) => button.textContent)).toEqual(['PDF', 'MD', '번역기'])
+    expect(within(quick).getAllByRole('button').map((button) => button.textContent)).toEqual(['PDF 열기', 'Markdown 열기', '번역기 띄우기Ctrl+B w'])
     expect(container.querySelectorAll('.pane-grid-cell')).toHaveLength(1)
   })
 
@@ -304,7 +305,7 @@ describe('App — 껍데기 배선', () => {
     // 문서도 노트도 없는 처음: 빈 창에 캔버스 탭으로 열린다(안내 문구는 사라진다)
     fireEvent.click(screen.getByRole('button', { name: 'OPTIONS' }))
     expect(screen.getByRole('tab', { name: 'OPTIONS' })).toBeDefined()
-    expect(screen.queryByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeNull()
+    expect(screen.queryByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeNull()
   })
 
   it('같은 문서를 두 번 눌러도 탭은 하나다', () => {
@@ -322,7 +323,7 @@ describe('App — 껍데기 배선', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /탭 목록/ })[0]!)
     fireEvent.click(screen.getByRole('button', { name: 'Team Onboarding Guide (Rev C) 목록에서 닫기' }))
     expect(screen.getAllByText('열린 탭 없음')[0]).toBeDefined()
-    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
   })
 })
 
@@ -683,7 +684,7 @@ describe('App — 문서 추가', () => {
     expect(openPdf).not.toHaveBeenCalled()
     expect(screen.getAllByText('열린 탭 없음')[0]).toBeDefined()
     expect(screen.getAllByRole('button')).toHaveLength(before)
-    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
   })
 
   it('같은 문서를 두 번 추가해도 목록과 탭은 하나다', async () => {
@@ -714,7 +715,7 @@ describe('App — 문서 추가', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('PDF 가 아닙니다')
 
     expect(screen.getAllByText('열린 탭 없음')[0]).toBeDefined()
-    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
   })
 })
 
@@ -1097,17 +1098,17 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     vi.mocked(pickPdfFile).mockResolvedValue(null)
     const { container } = renderApp()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
-    fireEvent.click(within(quick).getByRole('button', { name: 'PDF' }))
+    fireEvent.click(within(quick).getByRole('button', { name: /^PDF 열기/u }))
     await waitFor(() => expect(pickPdfFile).toHaveBeenCalled())
     // 번역기는 이 칸에 붙은 떠 있는 칸(번역기 탭)을 연다. 한 번 더 누르면 닫는다
-    fireEvent.click(within(quick).getByRole('button', { name: '번역기' }))
+    fireEvent.click(within(quick).getByRole('button', { name: /^번역기 띄우기/u }))
     const floats = () => container.querySelectorAll('.pane-float')
     await waitFor(() => expect(floats()).toHaveLength(1))
     expect(within(floats()[0] as HTMLElement).getByRole('region', { name: '번역기' })).toBeDefined()
     expect(within(floats()[0] as HTMLElement).getByRole('tab', { name: '번역기' })).toBeDefined()
-    fireEvent.click(within(quick).getByRole('button', { name: '번역기' }))
+    fireEvent.click(within(quick).getByRole('button', { name: /^번역기 띄우기/u }))
     await waitFor(() => expect(floats()).toHaveLength(0))
-    fireEvent.click(within(quick).getByRole('button', { name: 'MD' }))
+    fireEvent.click(within(quick).getByRole('button', { name: /^Markdown 열기/u }))
     expect(container.querySelector('.shell-library-expanded')).not.toBeNull()
   })
 })
