@@ -160,6 +160,9 @@ export interface LegacyTranslatorFloat {
   readonly y: number
   readonly w: number
   readonly h: number
+  /** 접어 두었던 칸 · 떠 있는 칸을 모두 숨겨 둔 화면이었으면 창을 열지 않는다 */
+  readonly collapsed?: boolean
+  readonly hidden?: boolean
 }
 
 /**
@@ -169,7 +172,7 @@ export interface LegacyTranslatorFloat {
 export function translatorWindowFromFloat(float: LegacyTranslatorFloat, viewport: { readonly width: number; readonly height: number; readonly top?: number }): TranslatorWindowState {
   const top = Math.max(0, viewport.top ?? 0)
   return {
-    open: true,
+    open: float.collapsed !== true && float.hidden !== true,
     x: Math.round(float.x * viewport.width),
     y: Math.round(top + float.y * Math.max(viewport.height - top, 0)),
     w: Math.max(float.w, PANEL_MIN_WIDTH),

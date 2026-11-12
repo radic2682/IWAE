@@ -1,6 +1,6 @@
 import { allPaneTabs, tabsOf, type PanesState } from '../app/tabs'
 import { channelOf, parseChannel, type PaneChannel, type PaneChannels } from '../app/workspaceChannels'
-import { layoutForLegacyId, leaves, legacyPaneCount, newPaneId, paneNode, parseLayoutTree, renamePane, reservePaneIds, type LayoutNode } from './layoutTree'
+import { layoutForLegacyId, leaves, legacyPaneCount, newPaneId, paneNode, parseLayoutTree, removeLeaf, renamePane, reservePaneIds, type LayoutNode } from './layoutTree'
 import { newScreenId, reserveScreenIds, screenPaneIds, type FloatAnchor, type FloatingPane, type ScreensState } from '../app/screens'
 import { isPdfSplitLayoutId, type PdfSplitLayoutId } from './pdfSplit'
 import { isLegacyTranslatorTabId, type LegacyTranslatorFloat } from '../app/translatorPanelState'
@@ -78,11 +78,34 @@ export const emptySession: SessionState = {
 
 type CaptureWorkspace = { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode }
 
-/** 칸마다의 저장 모양. ids 는 저장할 칸들(트리의 칸 + 떠 있는 칸) */
-function snapshotPanes(workspace: CaptureWorkspace, ids: readonly string[] = leaves(workspace.layout)): Record<string, PaneSnapshot> {
+/**
+ * 이번 실행에서 되살리지 않은 탭(지금은 꺼 둔 캔버스): 칸 id → 그 칸에 저장돼 있던 탭 id 들.
+ * 화면에는 없지만 저장할 때 그대로 되돌려 써서, 기능을 다시 켜면 탭이 돌아오게 한다(통과).
+ */
+export type DormantTabs = Readonly<Record<string, readonly string[]>>
+
+/** 읽어 온 세션에서 dormantIds 에 드는 탭이 어느 칸에 있었는지 모은다 */
+export function dormantTabsOf(session: SessionState, dormantIds: ReadonlySet<string>): DormantTabs {
+  if (dormantIds.size === 0) return {}
+  const out: Record<string, string[]> = {}
+  const collect = (paneState: Readonly<Record<string, PaneSnapshot>>) => {
+    for (const [pane, saved] of Object.entries(paneState)) {
+      const ids = saved.tabIds.filter((id) => dormantIds.has(id))
+      if (ids.length > 0) out[pane] = [...new Set([...(out[pane] ?? []), ...ids])]
+    }
+  }
+  if (session.screens !== undefined) for (const screen of session.screens) collect(screen.paneState)
+  else if (session.paneState !== undefined) collect(session.paneState)
+  return out
+}
+
+/** 칸마다의 저장 모양. ids 는 저장할 칸들(트리의 칸 + 떠 있는 칸). dormant 의 탭 id 는 그 칸 뒤에 그대로 붙인다 */
+function snapshotPanes(workspace: CaptureWorkspace, ids: readonly string[] = leaves(workspace.layout), dormant: DormantTabs = {}): Record<string, PaneSnapshot> {
   return Object.fromEntries(ids.map((pane): [string, PaneSnapshot] => {
     const state = tabsOf(workspace.panes, pane)
-    return [pane, { tabIds: state.tabs.map((tab) => tab.id), activeId: state.activeId, channel: channelOf(workspace.channels, pane) }]
+    const own = state.tabs.map((tab) => tab.id)
+    const kept = (dormant[pane] ?? []).filter((id) => !own.includes(id))
+    return [pane, { tabIds: [...own, ...kept], activeId: state.activeId, channel: channelOf(workspace.channels, pane) }]
   }))
 }
 
@@ -93,6 +116,7 @@ function snapshotPanes(workspace: CaptureWorkspace, ids: readonly string[] = lea
 export function captureSession(
   input: CaptureWorkspace | ScreensState,
   layout: { sidebarCollapsed: boolean; sidebarPx: number; leftFrac: number },
+  dormant: DormantTabs = {},
 ): SessionState {
   const screens = 'screens' in input ? input : null
   const active: CaptureWorkspace = screens === null ? (input as CaptureWorkspace) : (screens.screens.find((screen) => screen.id === screens.activeScreen) ?? screens.screens[0]!)
@@ -106,12 +130,17 @@ export function captureSession(
   const docTabs = all.filter((tab) => tab.kind === 'pdf' || tab.kind === 'markdown')
   const noteTabs = all.filter((tab) => tab.kind === 'canvas')
   const memoNoteTabs = all.filter((tab) => tab.kind === 'memoNote')
+  const snapshots = screens === null ? [] : screens.screens.map((screen) => snapshotPanes(screen, screenPaneIds(screen), dormant))
+  const activeSnapshot = snapshotPanes(active, leaves(active.layout), dormant)
+  // 칸에 아직 남아 있는 꺼 둔 탭 id 는 노트 탭 목록에도 그대로 적는다(칸이 닫혔으면 같이 사라진다)
+  const dormantIds = new Set(Object.values(dormant).flat())
+  const dormantKept = [...new Set([...snapshots, activeSnapshot].flatMap((paneState) => Object.values(paneState).flatMap((saved) => saved.tabIds)).filter((id) => dormantIds.has(id)))]
   const previewIds = [...new Set(everything.filter((tab) => tab.preview === true).map((tab) => tab.id))]
   const activeOf = (ids: readonly string[]) => order.map((pane) => tabsOf(active.panes, pane).activeId)
     .find((id) => id !== null && ids.includes(id)) ?? null
   return {
     pdfTabIds: docTabs.map((tab) => tab.id),
-    noteTabIds: noteTabs.map((tab) => tab.id),
+    noteTabIds: [...noteTabs.map((tab) => tab.id), ...dormantKept.filter((id) => !noteTabs.some((tab) => tab.id === id))],
     ...(memoNoteTabs.length === 0 ? {} : { memoNoteTabIds: memoNoteTabs.map((tab) => tab.id) }),
     ...(previewIds.length === 0 ? {} : { previewTabIds: previewIds }),
     activePdfTabId: activeOf(docTabs.map((tab) => tab.id)),
@@ -120,11 +149,11 @@ export function captureSession(
     sidebarPx: layout.sidebarPx,
     leftFrac: layout.leftFrac,
     ...(screens === null ? {} : {
-      screens: screens.screens.map((screen): ScreenSnapshot => ({
+      screens: screens.screens.map((screen, index): ScreenSnapshot => ({
         id: screen.id,
         name: screen.name,
         layout: screen.layout,
-        paneState: snapshotPanes(screen, screenPaneIds(screen)),
+        paneState: snapshots[index]!,
         ...(screen.zoomed === null ? {} : { zoomed: screen.zoomed }),
         ...(screen.floats.length === 0 ? {} : { floats: screen.floats, ...(screen.floatsHidden === true ? { floatsHidden: true } : {}) }),
       })),
@@ -132,7 +161,7 @@ export function captureSession(
       lastScreen: screens.lastScreen,
     }),
     layout: active.layout,
-    paneState: snapshotPanes(active),
+    paneState: activeSnapshot,
   }
 }
 
@@ -219,7 +248,7 @@ export function withoutTranslatorFloats(
     const saved = state[float.paneId]
     const ids = saved?.tabIds ?? []
     if (ids.length > 0 && ids.every(isLegacyTranslatorTabId)) {
-      found.translator ??= { x: float.x, y: float.y, w: float.w, h: float.h }
+      found.translator ??= { x: float.x, y: float.y, w: float.w, h: float.h, ...(float.collapsed ? { collapsed: true } : {}) }
       delete next[float.paneId]
       continue
     }
@@ -230,6 +259,39 @@ export function withoutTranslatorFloats(
     }
   }
   return { floats: kept, state: next }
+}
+
+/** 나누기 트리 칸에 저장돼 있던 번역기 탭의 창 자리를 알 수 없을 때 쓰는 기본(칸 모양이 아니라 앱 창 비율) */
+const LEGACY_TREE_TRANSLATOR: LegacyTranslatorFloat = { x: 0.6, y: 0.1, w: 340, h: 300 }
+
+/**
+ * 나누기 트리 칸에 저장된 번역기 탭(`translator:pN`)도 버린다(떠 있는 칸만이 아니다). 번역기 탭만 있던 칸은 칸 · 상태째 트리에서 빼고
+ * (하나뿐인 칸이면 빈 칸으로 남긴다), 하나라도 버렸으면 found 에 창 기본 자리를 남겨 번역기 창을 열게 한다(순수: 입력은 바꾸지 않는다).
+ */
+export function withoutTranslatorTreeTabs(
+  layout: LayoutNode,
+  state: Readonly<Record<string, PaneSnapshot>>,
+  found: { translator?: LegacyTranslatorFloat } = {},
+): { layout: LayoutNode; state: Record<string, PaneSnapshot>; removed: string[] } {
+  let tree = layout
+  const next: Record<string, PaneSnapshot> = { ...state }
+  const removed: string[] = []
+  for (const pane of leaves(layout)) {
+    const saved = state[pane]
+    const ids = saved?.tabIds ?? []
+    if (saved === undefined || !ids.some(isLegacyTranslatorTabId)) continue
+    found.translator ??= LEGACY_TREE_TRANSLATOR
+    const tabIds = ids.filter((id) => !isLegacyTranslatorTabId(id))
+    const smaller = tabIds.length === 0 ? removeLeaf(tree, pane) : null
+    if (smaller !== null) {
+      tree = smaller
+      delete next[pane]
+      removed.push(pane)
+      continue
+    }
+    next[pane] = { ...saved, tabIds, activeId: saved.activeId !== null && tabIds.includes(saved.activeId) ? saved.activeId : null }
+  }
+  return { layout: tree, state: next, removed }
 }
 
 /** 저장된 채널 하나: 모르는 값·없는 값은 기본(파랑), 저장된 null(연동 없음)은 그대로 */
@@ -266,12 +328,19 @@ function parseScreens(raw: unknown, found: { translator?: LegacyTranslatorFloat 
     const allFloats = parseFloats(item.floats, new Set(leaves(tree)))
     const parsedState = parsePaneState(item.paneState, tree, allFloats.map((float) => float.paneId))
     if (parsedState === undefined) continue
-    const { floats, state } = withoutTranslatorFloats(allFloats, parsedState, found)
-    let layout = tree
+    const foundBefore = found.translator
+    const withoutFloats = withoutTranslatorFloats(allFloats, parsedState, found)
+    // 모두 숨겨 둔 화면의 번역기 칸이었으면 창도 열지 않는다
+    if (found.translator !== undefined && found.translator !== foundBefore && item.floatsHidden === true) found.translator = { ...found.translator, hidden: true }
+    const trimmed = withoutTranslatorTreeTabs(tree, withoutFloats.state, found)
+    const state = trimmed.state
+    // 트리에서 빠진 번역기 칸에 붙어 있던 떠 있는 칸은 화면에 붙는다
+    const floats = withoutFloats.floats.map((float): FloatingPane => (float.anchor.kind === 'pane' && trimmed.removed.includes(float.anchor.paneId) ? { ...float, anchor: { kind: 'screen' } } : float))
+    let layout = trimmed.layout
     const paneState: Record<string, PaneSnapshot> = {}
     let zoomed = typeof item.zoomed === 'string' ? item.zoomed : null
     const renamed = new Map<string, string>()
-    const screenIds = [...leaves(tree), ...floats.map((float) => float.paneId)]
+    const screenIds = [...leaves(layout), ...floats.map((float) => float.paneId)]
     for (const pane of screenIds) {
       let id = pane
       if (usedPanes.has(id)) {
@@ -325,8 +394,9 @@ export function parseSession(raw: unknown): SessionState {
 
   const tree = raw.layout === undefined ? null : parseLayoutTree(raw.layout)
   const paneState = tree === null ? undefined : parsePaneState(raw.paneState, tree)
-  const workspace = tree !== null && paneState !== undefined ? { layout: tree, paneState } : {}
   const legacyTranslator: { translator?: LegacyTranslatorFloat } = {}
+  const trimmedTop = tree !== null && paneState !== undefined ? withoutTranslatorTreeTabs(tree, paneState, legacyTranslator) : null
+  const workspace = trimmedTop !== null ? { layout: trimmedTop.layout, paneState: trimmedTop.state } : {}
   const screens = parseScreens(raw.screens, legacyTranslator)
   const activeScreen = screens !== undefined && typeof raw.activeScreen === 'string' && screens.some((screen) => screen.id === raw.activeScreen) ? raw.activeScreen : screens?.[0]?.id
   const lastScreen = screens !== undefined && typeof raw.lastScreen === 'string' && raw.lastScreen !== activeScreen && screens.some((screen) => screen.id === raw.lastScreen) ? raw.lastScreen : null

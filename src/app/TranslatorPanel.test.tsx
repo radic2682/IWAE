@@ -303,6 +303,8 @@ describe('예전 값 옮기기', () => {
 
   it('번역기 떠 있는 칸은 앱 창 전체에 대한 비율 자리 · 크기로 창에 옮긴다(상단바 아래, 최소 크기 이상)', () => {
     expect(translatorWindowFromFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, { width: 1600, height: 1000, top: 36 })).toEqual({ open: true, x: 800, y: 36 + 96, w: 340, h: 300 })
+    expect(translatorWindowFromFloat({ x: 0.5, y: 0.1, w: 340, h: 300, collapsed: true }, { width: 1600, height: 1000, top: 36 }).open).toBe(false)
+    expect(translatorWindowFromFloat({ x: 0.5, y: 0.1, w: 340, h: 300, hidden: true }, { width: 1600, height: 1000, top: 36 }).open).toBe(false)
     expect(translatorWindowFromFloat({ x: 0, y: 0, w: 120, h: 80 }, { width: 1600, height: 1000 })).toMatchObject({ x: 0, y: 0, w: 280, h: 240 })
   })
 })

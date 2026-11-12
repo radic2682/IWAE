@@ -66,7 +66,7 @@ import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
 import { adoptLegacyTranslatorFloat } from './translatorPanelState'
-import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
+import { captureSession, dormantTabsOf, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type DormantTabs, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
 import { allScreenPaneIds, screenPaneIds, activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
@@ -238,6 +238,11 @@ function isPdfDocMeta(value: PdfDocMeta | null): value is PdfDocMeta {
   return value !== null
 }
 
+/** 캔버스를 꺼 둔 동안 세션에서 되살리지 않는 탭 id(노트 탭 목록의 캔버스 경로). 켜져 있으면 없다 */
+function dormantCanvasIds(session: SessionState): ReadonlySet<string> {
+  return CANVAS_ENABLED ? new Set() : new Set(session.noteTabIds.filter((id) => !isMarkdownPath(id)))
+}
+
 function isMarkdownPath(path: string): boolean {
   return /\.(?:md|markdown)$/iu.test(path)
 }
@@ -312,6 +317,8 @@ interface RestoredSession {
   readonly documents: PdfDocMeta[]
   readonly restoredMarkdownSources: Record<string, string>
   readonly screens: ScreensState
+  /** 되살리지 않은 탭(꺼 둔 캔버스)이 있던 칸: 저장할 때 그대로 되돌려 쓴다 */
+  readonly dormant: DormantTabs
 }
 
 /**
@@ -430,7 +437,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState): 
     snapshot,
   )
   const screens = { ...restored, screens: restored.screens.map((screen) => ({ ...screen, panes: markPreviewTabs(screen.panes, session.previewTabIds ?? []) })) }
-  return { missing, documents, restoredMarkdownSources, screens }
+  return { missing, documents, restoredMarkdownSources, screens, dormant: dormantTabsOf(session, dormantCanvasIds(session)) }
 }
 
 /**
@@ -473,6 +480,8 @@ export function useVault(options: UseVaultOptions = {}) {
   // "이미 다른 칸에 열려 있으면 거기서 활성화"를 한 번의 갱신으로 판단하려면 한 곳에 있어야 한다.
   // 화면들(tmux 의 window). 지금 보는 화면의 칸·색·배치가 workspace 이고, 아래 모든 갱신은 보는 화면에만 닿는다.
   const [screensState, setScreensState] = useState<ScreensState>(() => initialScreens(options, windowMode.role))
+  // 캔버스를 꺼 둔 동안 세션에 있던 캔버스 탭(화면에는 없다): 저장할 때 그대로 되돌려 써서 다시 켜면 돌아온다
+  const dormantTabsRef = useRef<DormantTabs>({})
   const activeScreen = activeScreenOf(screensState)
   const workspace = useMemo<TreeWorkspace>(
     () => ({ panes: activeScreen.panes, channels: activeScreen.channels, layout: activeScreen.layout }),
@@ -647,6 +656,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const session = sessionForWindow(windowMode, parseSession(startRaw))
       const restoredSession = await restoreSessionState({ handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf }, session)
       const { missing, documents, restoredMarkdownSources } = restoredSession
+      dormantTabsRef.current = restoredSession.dormant
       const searchablePdfEntries = reconciledIndex.entries.filter((entry) => (
         entry.kind === 'pdf' && !entry.missing
       ))
@@ -945,7 +955,7 @@ export function useVault(options: UseVaultOptions = {}) {
     sidebarCollapsed,
     sidebarPx: layout.sidebarPx,
     leftFrac: layout.leftFrac,
-  })), [vault, sessionReady, screensState, sidebarCollapsed, layout.sidebarPx, layout.leftFrac])
+  }, dormantTabsRef.current)), [vault, sessionReady, screensState, sidebarCollapsed, layout.sidebarPx, layout.leftFrac])
   const sessionSnapshotRef = useRef<{ vault: VaultHandle | null; session: SessionState | null }>({ vault: null, session: null })
   sessionSnapshotRef.current = { vault, session: sessionSnapshot }
 
@@ -964,7 +974,9 @@ export function useVault(options: UseVaultOptions = {}) {
         known.set(tab.id, plain)
       }
     }
-    const wanted = [...session.pdfTabIds, ...session.noteTabIds, ...(session.memoNoteTabIds ?? [])]
+    // 꺼 둔 캔버스 탭은 열 수 없으니 기다리지 않는다
+    const dormantIds = dormantCanvasIds(session)
+    const wanted = [...session.pdfTabIds, ...session.noteTabIds.filter((id) => !dormantIds.has(id)), ...(session.memoNoteTabIds ?? [])]
     let remote: ScreensState
     if (wanted.every((id) => known.has(id))) {
       remote = screensFromKnownTabs(session, known)
@@ -975,6 +987,7 @@ export function useVault(options: UseVaultOptions = {}) {
       setMarkdownSources((current) => ({ ...restored.restoredMarkdownSources, ...current }))
       remote = restored.screens
     }
+    dormantTabsRef.current = { ...dormantTabsRef.current, ...dormantTabsOf(session, dormantIds) }
     setScreensState((current) => mergeRemoteScreens(current, remote))
     // 상태가 화면에 닿을 때까지(엔진이 그 사이의 변화를 「우리가 만든 것」으로 세지 않게)
     await new Promise<void>((resolve) => { window.setTimeout(resolve, 60) })
@@ -1059,6 +1072,7 @@ export function useVault(options: UseVaultOptions = {}) {
         setOpenedDocs(restored.documents)
         setMarkdownSources(restored.restoredMarkdownSources)
         setMissingDocIds(restored.missing)
+        dormantTabsRef.current = restored.dormant
         setScreensState(restored.screens)
         setSessionName(name)
         sessionNameRef.current = name

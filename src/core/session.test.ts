@@ -3,7 +3,7 @@ import type { PanesState, TabsState } from '../app/tabs'
 import { channelOf } from '../app/workspaceChannels'
 import { layoutForLegacyId, leaves, paneNode, shapeOf } from './layoutTree'
 import { PDF_SPLIT_LAYOUTS, type PdfSplitLayoutId } from './pdfSplit'
-import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singlePaneWorkspace, withoutTranslatorFloats, workspaceFromSession } from './session'
+import { captureSession, dormantTabsOf, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singlePaneWorkspace, withoutTranslatorFloats, withoutTranslatorTreeTabs, workspaceFromSession } from './session'
 
 const pdfTabs: TabsState = {
   tabs: [
@@ -84,6 +84,39 @@ describe('captureSession', () => {
     expect(restored.paneState?.p0?.channel).toBe('green')
     expect(restored.paneState?.p1?.channel).toBeNull()
     expect(restored.paneState?.p2?.channel).toBe('blue')
+  })
+})
+
+describe('꺼 둔 캔버스 탭은 저장할 때 그대로 지나간다(통과)', () => {
+  const canvasId = 'Specs/Link.canvas'
+  const saved = () => captureSession({ screens: [{ id: 'w1', name: '읽기', ...two(pdfTabs, noteTabs), zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }, windowLayout)
+
+  it('되살리지 않은 캔버스 탭 id 를 같은 칸 뒤에 다시 적고 노트 탭 목록에도 남긴다', () => {
+    const dormant = dormantTabsOf(saved(), new Set([canvasId]))
+    expect(dormant).toEqual({ b: [canvasId] })
+    // 캔버스를 끈 실행: 칸 b 는 빈 칸으로 보인다
+    const shown = { screens: [{ id: 'w1', name: '읽기', ...two(pdfTabs, { tabs: [], activeId: null }), zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }
+    const without = captureSession(shown, windowLayout)
+    expect(without.noteTabIds).toEqual([])
+    const kept = captureSession(shown, windowLayout, dormant)
+    expect(kept.noteTabIds).toEqual([canvasId])
+    expect(kept.screens![0]!.paneState.b!.tabIds).toEqual([canvasId])
+    expect(kept.paneState!.b!.tabIds).toEqual([canvasId])
+    // 다시 읽으면 캔버스를 켠 앱이 그대로 되살릴 수 있다
+    expect(parseSession(JSON.parse(JSON.stringify(kept))).screens![0]!.paneState.b!.tabIds).toEqual([canvasId])
+  })
+
+  it('칸이 닫히면 같이 사라지고, 칸에 다른 탭이 새로 생겨도 캔버스 id 는 그 뒤에 남는다', () => {
+    const dormant = dormantTabsOf(saved(), new Set([canvasId]))
+    const closed = captureSession({ screens: [{ id: 'w1', name: '읽기', layout: paneNode('a'), panes: { a: pdfTabs } as PanesState, channels: { a: 'blue' as const }, zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }, windowLayout, dormant)
+    expect(closed.noteTabIds).toEqual([])
+    const added = captureSession({ screens: [{ id: 'w1', name: '읽기', ...two(pdfTabs, { tabs: [{ id: 'doc-c', title: 'C', kind: 'pdf' }], activeId: 'doc-c' }), zoomed: null, floats: [] }], activeScreen: 'w1', lastScreen: null }, windowLayout, dormant)
+    expect(added.screens![0]!.paneState.b!.tabIds).toEqual(['doc-c', canvasId])
+  })
+
+  it('통과할 탭이 없으면 저장 모양은 그대로다', () => {
+    expect(dormantTabsOf(saved(), new Set())).toEqual({})
+    expect(captureSession(two(pdfTabs, noteTabs), windowLayout, {})).toEqual(captureSession(two(pdfTabs, noteTabs), windowLayout))
   })
 })
 
@@ -458,6 +491,37 @@ describe('번역기 탭을 담았던 떠 있는 칸(2026-11-12 세션)은 번역
     expect(screen.paneState.f1).toEqual({ tabIds: ['doc-b'], activeId: null, channel: 'orange' })
     // 비워 있던 칸이 아니라 번역기 칸만 옮기므로 legacyTranslator 는 없다
     expect(session.legacyTranslator).toBeUndefined()
+  })
+
+  it('나누기 트리 칸에 저장된 번역기 탭도 버린다: 번역기 탭만 있던 칸은 트리에서 접고, 창 자리를 legacyTranslator 로 남긴다', () => {
+    const raw = legacyRaw()
+    raw.screens[0].paneState.b = { tabIds: ['translator:b'], activeId: 'translator:b', channel: 'green' }
+    const session = parseSession(raw)
+    const screen = session.screens![0]!
+    expect(leaves(screen.layout)).toEqual(['a'])
+    expect(screen.paneState.b).toBeUndefined()
+    expect(JSON.stringify(session.screens)).not.toContain('translator:')
+    expect(session.legacyTranslator).toBeDefined()
+  })
+
+  it('다른 탭도 있는 트리 칸은 번역기 탭만 버리고 칸은 남는다 · 하나뿐인 칸은 빈 칸으로 남는다', () => {
+    const raw = legacyRaw()
+    raw.screens[0].paneState.a = { tabIds: ['translator:a', 'doc-a'], activeId: 'translator:a', channel: 'blue' }
+    const session = parseSession(raw)
+    expect(session.screens![0]!.paneState.a).toEqual({ tabIds: ['doc-a'], activeId: null, channel: 'blue' })
+    expect(leaves(session.screens![0]!.layout)).toEqual(['a', 'b'])
+    const lone = withoutTranslatorTreeTabs(paneNode('x'), { x: { tabIds: ['translator'], activeId: 'translator', channel: 'blue' } })
+    expect(leaves(lone.layout)).toEqual(['x'])
+    expect(lone.state.x!.tabIds).toEqual([])
+  })
+
+  it('접어 두었거나 모두 숨긴 번역기 칸은 창을 열지 않도록 표시를 남긴다', () => {
+    const collapsed = legacyRaw()
+    collapsed.screens[0].floats[0].collapsed = true
+    expect(parseSession(collapsed).legacyTranslator).toMatchObject({ collapsed: true })
+    const hidden = legacyRaw()
+    hidden.screens[0].floatsHidden = true
+    expect(parseSession(hidden).legacyTranslator).toMatchObject({ hidden: true })
   })
 
   it('번역기 칸이 없으면 legacyTranslator 도 없고, 새로 저장하는 세션에는 번역기가 적히지 않는다', () => {
