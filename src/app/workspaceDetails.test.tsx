@@ -146,7 +146,8 @@ describe('CSS 규칙', () => {
     const rules = css('translator-panel.css')
     expect(rules).toMatch(/\.translator-window \{[^}]*position: fixed;/u)
     expect(rules).toMatch(/\.translator-window-head \{[^}]*flex: 0 0 var\(--bar-h\);/u)
-    expect(rules).toContain('.translator-panel-result { min-height: 48px; }')
+    expect(rules).toContain('.translator-panel-result:not(:empty) { min-height: 48px; }')
+    expect(rules).toContain('.translator-panel-result:empty { height: 0; min-height: 0; padding: 0; overflow: hidden; }')
   })
 })
 

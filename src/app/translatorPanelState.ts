@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 
 /**
  * 번역기: 앱 창 전체에 떠 있는 창(칸에 붙지 않는다). 열림 · 자리 · 크기는 창 하나에 하나만 있고
- * localStorage `iwae:translator-window:v1` 에 둔다. x·y 가 null 이면 기본 자리(창 오른쪽 위).
+ * localStorage `iwae:translator-window:v1` 에 둔다. x·y 가 null 이면 기본 자리(창 오른쪽 아래, 가장자리 12px).
  *
  * 한때(2026-11-12) 번역기는 떠 있는 칸의 탭이었다. 그 세션 · 그보다 앞선 문서 종류별 저장값(`iwae:translator-panel:v1`)은
  * 여기서 한 번 이 창의 열림 · 자리 · 크기로 옮긴다(아래 migrate 함수들).
@@ -20,8 +20,8 @@ export const TRANSLATOR_WINDOW_W = 340
 export const TRANSLATOR_WINDOW_H = 300
 export const PANEL_MIN_WIDTH = 280
 export const PANEL_MIN_HEIGHT = 240
-/** 창 가장자리에서 띄우는 여백(= 칸 사이 틈과 같은 6px 격자의 한 칸) */
-export const PANEL_MARGIN = 6
+/** 창 가장자리에서 띄우는 여백 */
+export const PANEL_MARGIN = 12
 export const TRANSLATOR_WINDOW_STORAGE_KEY = 'iwae:translator-window:v1'
 /** 문서 종류별로 저장하던 예전 값 */
 export const TRANSLATOR_PANEL_STORAGE_KEY = 'iwae:translator-panel:v1'
@@ -111,7 +111,7 @@ export function placePanel(value: Pick<TranslatorWindowState, 'x' | 'y' | 'w' | 
   const minY = top + PANEL_MARGIN
   const maxY = Math.max(bounds.height - h - PANEL_MARGIN, minY)
   const x = Math.min(Math.max(value.x ?? maxX, PANEL_MARGIN), maxX)
-  const y = Math.min(Math.max(value.y ?? minY, minY), maxY)
+  const y = Math.min(Math.max(value.y ?? maxY, minY), maxY)
   return { x, y, w: Math.max(w, 0), h: Math.max(h, 0) }
 }
 

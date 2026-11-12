@@ -57,6 +57,8 @@ interface TopBarProps {
   /** 도구줄 자리(화면 탭과 창 단추 사이)의 요소를 App 에 알린다. 지금 만지는 칸의 도구줄이 포털로 여기에 그려진다(topBarToolbar.tsx) */
   toolbarSlotRef?: (element: HTMLElement | null) => void
   /** 도구줄을 가진 칸이 만지는 칸일 때 그 주인: 색 점 · 칸 번호 · 문서 종류 아이콘 칩이 도구줄 앞에 붙는다(어느 칸의 도구인지 보이게). 없으면(빈 칸 · 캔버스) 칩도 구분선도 없다 */
+  /** 맨 위 줄 안의 짧은 상태 칩 자리(접두키 대기). 도구줄 묶음 뒤 남는 자리에 놓여 아무것도 밀지 않는다 */
+  statusChip?: React.ReactNode
   toolbarOwner?: { readonly channel: PaneChannel; readonly number: number | null; readonly kind: 'pdf' | 'markdown' | 'memoNote' } | null
 }
 
@@ -79,6 +81,7 @@ export function TopBar({
   screens,
   toolbarSlotRef,
   toolbarOwner = null,
+  statusChip = null,
 }: TopBarProps) {
   // 앱 묶음(창 단추 앞): 번역기 단추는 어느 칸을 만지든 늘 있다(번역을 켜 둔 때만)
   const translatorService = useContext(TranslatorContext)
@@ -227,6 +230,7 @@ export function TopBar({
           )}
           <div className="pane-toolbar topbar-toolbar-slot" ref={toolbarSlotRef} />
         </div>
+        {statusChip}
         {translatorService === null ? null : (
           <div className="topbar-app-group" role="group" aria-label={t('앱')}>
             <button

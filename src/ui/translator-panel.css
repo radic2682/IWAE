@@ -81,7 +81,7 @@
 .translator-panel-spacer { flex: 1 1 auto; }
 .translator-panel-langs { flex-wrap: wrap; padding-bottom: 4px; }
 .translator-panel-actions { padding-top: 6px; padding-bottom: 6px; }
-.translator-panel-footer { border-top: 1px solid var(--divider); flex-wrap: wrap; }
+.translator-panel-footer { border-top: 1px solid var(--divider); flex-wrap: wrap; padding-right: 24px; }
 .translator-panel-hint { color: var(--text-dim); font-size: 11px; }
 
 .translator-panel-provider {
@@ -134,9 +134,8 @@
 .translator-panel-button:disabled { cursor: default; opacity: .45; }
 
 .translator-panel-input {
-  flex: 0 0 auto;
   box-sizing: border-box;
-  height: 30%;
+  flex: 1 1 auto;
   min-height: 64px;
   margin: 0 10px;
   padding: 8px 10px;
@@ -164,4 +163,7 @@
 .translator-panel-status { font-size: 13px; font-weight: 600; }
 .translator-panel-error { color: var(--danger); font-size: 12px; font-weight: 600; line-height: 1.45; }
 /* 결과가 없을 때도 최소 2줄 높이(15px × 1.6 × 2 = 48px)를 지킨다 */
-.translator-panel-result { min-height: 48px; }
+/* 결과가 있을 때만 최소 2줄(48px). 결과가 없으면 칸 자체가 접혀 입력칸이 남는 높이를 가져간다(빈 띠 없음) */
+.translator-panel-result { flex: 0 0 auto; max-height: 45%; }
+.translator-panel-result:not(:empty) { min-height: 48px; }
+.translator-panel-result:empty { height: 0; min-height: 0; padding: 0; overflow: hidden; }

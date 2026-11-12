@@ -1,4 +1,4 @@
-/* 빈 칸: 가운데 한 줄 기둥(최대 360px). 색은 토큰만, 움직임 없음 */
+/* 빈 칸: 가운데 한 줄 기둥(최대 280px — 키 힌트가 이름 가까이 붙는다). 색은 토큰만, 움직임 없음 */
 .pane-placeholder:has(> .empty-pane) { container-type: size; }
 
 .empty-pane {
@@ -7,7 +7,7 @@
   align-items: stretch;
   box-sizing: border-box;
   width: 100%;
-  max-width: 360px;
+  max-width: 280px;
   margin: auto;
   color: var(--text-strong);
   text-align: left;

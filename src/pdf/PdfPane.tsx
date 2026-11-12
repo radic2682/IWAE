@@ -60,8 +60,11 @@ import { t } from '../i18n'
  * 1,000쪽 문서의 끝에서는 그 오차가 페이지 수만큼 쌓여 마지막 장에 닿지
  * 못한다. 그래서 상수를 하나만 두고 둘 다 여기서 받아 간다.
  */
-const PAGE_GAP = 12
-const PAGE_GUTTER = 12
+/** 쪽 사이 · 위아래 틈(칸 사이 틈 --pane-gap 과 같은 6px) */
+const PAGE_GAP = 6
+const PAGE_GUTTER = 6
+/** 폭 맞춤일 때 쪽 좌우 틈: 0 — 쪽이 본문 폭을 꽉 채운다(스크롤 막대는 위에 떠 있다) */
+const PAGE_SIDE_GUTTER = 0
 
 /**
  * 보이는 범위 앞뒤로 더 그릴 페이지 수.
@@ -485,7 +488,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (inset !== paneInsetTop) setPaneInsetTop(inset)
   }, [measured.width, measured.height, paneInsetTop])
   // 100% 는 작업영역에 맞춘 폭이다. 양쪽 12px 는 페이지 그림자와 회색 작업영역이 실제로 보이는 최소 여백이고, 확대하면 자연스럽게 사라진다.
-  const fittedWidth = Math.max(measured.width - PAGE_GUTTER * 2, 0)
+  const fittedWidth = Math.max(measured.width - PAGE_SIDE_GUTTER * 2, 0)
   const contentWidth = Math.max((fittedWidth * zoomPercent) / 100, 0)
   // 페이지를 가운데에 놓았을 때 페이지 왼쪽 끝
   const contentLeft = Math.max((measured.width - contentWidth) / 2, 0)

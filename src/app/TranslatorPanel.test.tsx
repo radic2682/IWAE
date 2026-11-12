@@ -182,14 +182,15 @@ describe('번역기는 탭이 아니라 앱 창 전체에 떠 있는 창이다',
     expect(windowEl()).toBeNull()
   })
 
-  it('처음 크기는 작은 340×300 이고 기본 자리는 상단바 아래 오른쪽 위다(창 가장자리 6px 안쪽)', () => {
+  it('처음 크기는 작은 340×300 이고 기본 자리는 창 오른쪽 아래다(가장자리 12px 안쪽, 상단바 · 칸 머리를 덮지 않는다)', () => {
     expect(TRANSLATOR_WINDOW_W).toBe(340)
     expect(TRANSLATOR_WINDOW_H).toBe(300)
     renderOpen(makeService())
     const el = windowEl()
     expect(el.style.width).toBe('340px')
     expect(el.style.height).toBe('300px')
-    expect(Number.parseFloat(el.style.top)).toBe(36 + PANEL_MARGIN)
+    expect(PANEL_MARGIN).toBe(12)
+    expect(Number.parseFloat(el.style.top) + 300).toBe(window.innerHeight - PANEL_MARGIN)
     expect(Number.parseFloat(el.style.left) + 340).toBe(window.innerWidth - PANEL_MARGIN)
   })
 
@@ -209,11 +210,11 @@ describe('번역기는 탭이 아니라 앱 창 전체에 떠 있는 창이다',
     const startX = Number.parseFloat(windowEl().style.left)
     const startY = Number.parseFloat(windowEl().style.top)
     fireEvent.pointerDown(head, { button: 0, clientX: 500, clientY: 100, pointerId: 1 })
-    fireEvent.pointerMove(head, { clientX: 300, clientY: 220, pointerId: 1 })
+    fireEvent.pointerMove(head, { clientX: 300, clientY: 40, pointerId: 1 })
     fireEvent.pointerUp(head, { pointerId: 1 })
     expect(Number.parseFloat(windowEl().style.left)).toBe(startX - 200)
-    expect(Number.parseFloat(windowEl().style.top)).toBe(startY + 120)
-    expect(getTranslatorWindow()).toMatchObject({ x: startX - 200, y: startY + 120 })
+    expect(Number.parseFloat(windowEl().style.top)).toBe(startY - 60)
+    expect(getTranslatorWindow()).toMatchObject({ x: startX - 200, y: startY - 60 })
     // 상단바 위로는 못 올라가고, 창 밖으로 나가지 않는다
     fireEvent.pointerDown(head, { button: 0, clientX: 300, clientY: 220, pointerId: 1 })
     fireEvent.pointerMove(head, { clientX: -9000, clientY: -9000, pointerId: 1 })
@@ -270,7 +271,7 @@ describe('예전 값 옮기기', () => {
     const box = placePanel({ x: 100, y: 0, w: 340, h: 380 }, { width: 900, height: 900, top: 36 })
     expect(box.y).toBeGreaterThanOrEqual(36 + PANEL_MARGIN)
     const fresh = placePanel({ x: null, y: null, w: 340, h: 300 }, { width: 900, height: 900, top: 36 })
-    expect(fresh).toMatchObject({ x: 900 - 340 - PANEL_MARGIN, y: 36 + PANEL_MARGIN })
+    expect(fresh).toMatchObject({ x: 900 - 340 - PANEL_MARGIN, y: 900 - 300 - PANEL_MARGIN })
     const tall = placePanel({ x: 100, y: 0, w: 340, h: 2000 }, { width: 900, height: 600, top: 36 })
     expect(tall.y + tall.h).toBeLessThanOrEqual(600 - PANEL_MARGIN)
   })

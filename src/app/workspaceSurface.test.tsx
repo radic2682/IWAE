@@ -42,13 +42,16 @@ describe('아래 상태 줄 · 「⌘ 명령」 단추 · 접두키 칩', () => 
     expect(container.firstChild).toBeNull()
   })
 
-  it('칩은 자리를 차지하지 않는다: 상단바 아래 가운데에 고정 · 눌리지 않음 · 움직임 없음(즉시 켜고 끔)', () => {
+  it('칩은 맨 위 줄 안에서 흐름 밖(절대 위치)이라 나타나도 도구줄이 줄지 않고, 칸 위를 덮지 않는다. UI 글꼴 키캡 · 높이 24 · 줄 가운데 · 눌리지 않음 · 움직임 없음', () => {
     const chip = css('prefix-chip.css')
     const body = rule(chip, '.prefix-chip')
-    expect(body).toContain('position: fixed;')
-    expect(body).toContain('top: calc(var(--bar-h) + var(--pane-gap));')
-    expect(body).toContain('left: 50%;')
+    expect(body).toContain('position: absolute;')
+    expect(body).toContain('top: 50%;')
+    expect(body).toContain('height: 24px;')
+    expect(body).toContain('font-family: inherit;')
+    expect(body).not.toMatch(/monospace|fixed/u)
     expect(body).toContain('pointer-events: none;')
+    expect(chip).toContain('.topbar-session-row { position: relative; }')
     expect(chip).not.toMatch(/transition|animation|@keyframes/u)
   })
 

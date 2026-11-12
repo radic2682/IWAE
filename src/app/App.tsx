@@ -4095,6 +4095,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             : undefined}
           toolbarSlotRef={setToolbarSlot}
           toolbarOwner={toolbarOwner}
+          statusChip={<PrefixChip phase={prefix.phase} prefixText={prefixHint} confirmText={confirmKindRef.current === 'quit' ? t('앱을 닫을까요? y/n') : t('화면을 닫을까요? y/n')} />}
           screens={SPLIT_PANES_ENABLED && !isDetachedWindow ? {
             items: screens,
             activeId: activeScreenId,
@@ -4341,7 +4342,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
     {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} prefixText={prefixHint} /> : null}
     <TranslatorPanel />
-    <PrefixChip phase={prefix.phase} prefixText={prefixHint} confirmText={confirmKindRef.current === 'quit' ? t('앱을 닫을까요? y/n') : t('화면을 닫을까요? y/n')} />
     {paneNumbersOpen ? <PaneNumbersOverlay panes={paneOrder} activePane={activePaneId} onDone={() => setPaneNumbersOpen(false)} /> : null}
     {paletteOpen ? <CommandPalette commands={paletteCommands()} completion={{ screenNames: screens.map((screen) => screen.name), sessionNames, templateNames: availableScreenTemplates(CANVAS_ENABLED).map((template) => template.label) }} initialQuery={paletteInitial} onRunLine={(line) => { void runWorkspaceLine(line) }} onClose={() => { setPaletteOpen(false); setPaletteInitial('') }} /> : null}
     {shortcutsOpen ? <ShortcutOverlay onClose={() => setShortcutsOpen(false)} onOpenSettings={() => { setSettingsSection('input'); setSettingsOpen(true) }} /> : null}

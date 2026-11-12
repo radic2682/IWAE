@@ -257,8 +257,8 @@ describe('PdfPane — 요청 URL', () => {
 
   it('본 그림은 기기 픽셀 폭 그대로다 — 브라우저가 늘리거나 줄이지 않아 가장 또렷하다', () => {
     const { container } = mount()
-    // 내용 폭 800 - 24 = 776, jsdom 의 devicePixelRatio 는 1 → 776px 그대로 요청한다.
-    expect(container.querySelector('img.pdf-page-full')?.getAttribute('src')).toContain('?w=776')
+    // 폭 맞춤은 좌우 틈이 0 이라 내용 폭 800 그대로, jsdom 의 devicePixelRatio 는 1 → 800px 그대로 요청한다.
+    expect(container.querySelector('img.pdf-page-full')?.getAttribute('src')).toContain('?w=800')
   })
 
   it('같은 화면 안의 페이지들은 모두 같은 폭을 쓴다', () => {
@@ -451,9 +451,9 @@ describe('PdfPane — 텍스트 선택 배선', () => {
 })
 
 describe('PdfPane — 보기 맞춤', () => {
-  it('첫 페이지는 작업영역 위쪽에서 12px 띄운다', () => {
+  it('첫 페이지는 작업영역 위쪽에서 6px(칸 사이 틈과 같다) 띄운다', () => {
     const { container } = mount({ pageCount: 12 })
-    expect(container.querySelector('.pdf-page-slot')?.getAttribute('style')).toContain('top: 12px')
+    expect(container.querySelector('.pdf-page-slot')?.getAttribute('style')).toContain('top: 6px')
   })
 
   it('첫 페이지로 이동해도 위쪽 여백을 스크롤로 먹지 않는다', () => {

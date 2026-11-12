@@ -1,24 +1,28 @@
-/* 접두키 대기 칩: 상단바 바로 아래 가운데에 떠 있는 작은 알약. 대기 중에만 그려지고(PrefixChip), 움직임도 자리 차지도 없다.
-   위치 = 상단바 높이 + 칸 사이 틈(--pane-gap), 높이 = 아이콘 단추(--icon-btn), 안쪽 여백은 8px 격자 */
+/* 접두키 대기 칩: 맨 위 줄 안(도구줄 묶음 뒤 남는 자리)에 놓이는 작은 키캡. 대기 중에만 그려지고(PrefixChip) 움직임도 자리 차지도 없다 —
+   도구줄 자리(.topbar-toolbar-host)가 남는 폭을 쓰므로 칩이 나타나도 아무것도 밀리지 않고, 칸 위 어느 것도 덮지 않는다.
+   모양은 앱의 키캡(kbd)과 같다: UI 글꼴, 1px 테두리, --r-xs, 높이 24px, 줄 가운데 */
+.topbar-session-row { position: relative; }
 .prefix-chip {
-  position: fixed;
-  z-index: 90;
-  top: calc(var(--bar-h) + var(--pane-gap));
-  left: 50%;
+  /* 흐름 밖(절대 위치): 앱 묶음 바로 왼쪽, 도구줄 자리 위에 겹쳐 앉아 나타나도 도구줄 폭이 줄지 않는다 */
+  position: absolute;
+  top: 50%;
+  right: calc(var(--topbar-wincontrols-w, 108px) + 48px);
+  z-index: 5;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  height: var(--icon-btn);
+  height: 24px;
   box-sizing: border-box;
-  padding: 0 12px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--divider-strong, var(--divider));
-  border-radius: var(--r-sm);
-  background: var(--chrome);
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--text-strong) 9%, transparent);
   color: var(--text-strong);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-family: inherit;
   font-size: 12px;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  transform: translateX(-50%);
   pointer-events: none;
 }
-.prefix-chip[data-phase='confirm'] { border-color: var(--accent); font-family: inherit; }
+.prefix-chip[data-phase='confirm'] { border-color: var(--accent); }

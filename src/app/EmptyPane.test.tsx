@@ -109,8 +109,8 @@ describe('EmptyPane 스타일', () => {
     expect(css).toMatch(/\.pane-placeholder:has\(> \.empty-pane\) \{ container-type: size; \}/u)
   })
 
-  it('최대 360px 기둥이고, 움직임이 없으며, 낮은 칸 줄이기는 CSS 400px 기준이 아니라 실제 높이로 한다', () => {
-    expect(css).toContain('max-width: 360px')
+  it('최대 280px 기둥이고, 움직임이 없으며, 낮은 칸 줄이기는 CSS 400px 기준이 아니라 실제 높이로 한다', () => {
+    expect(css).toContain('max-width: 280px')
     expect(css).not.toMatch(/@container/u)
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
   })
