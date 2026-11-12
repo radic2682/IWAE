@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { ArrowClockwise, Copy, TextAa, Translate, X } from '@phosphor-icons/react'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
+import { imeKey } from '../ui/ime'
 import { explainTranslationError, isTranslationNotConfigured } from '../core/translationErrors'
 import { guessLanguage, normalizeSelectionText } from '../core/translationText'
 import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCardSettingsContext, useEffectiveTargetLanguage } from '../ui/TranslationCard'
@@ -135,6 +136,7 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
   }
 
   const onInputKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (imeKey(event)) return
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault()
       if (!pending) void translateNow(input, true)
@@ -142,7 +144,7 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
   }
   // 고정된 창이라 Esc 는 닫지 않고 글쓰기 칸에서 포커스를 뺀다: 열 때 포커스가 있던 곳이 남아 있으면 그곳으로, 없으면 그냥 뺀다
   const onPanelKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Escape') return
+    if (event.key !== 'Escape' || imeKey(event)) return
     event.stopPropagation()
     if (!restoreFocus() && document.activeElement instanceof HTMLElement) document.activeElement.blur()
   }

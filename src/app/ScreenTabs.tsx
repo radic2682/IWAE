@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Plus } from '@phosphor-icons/react'
 import { t } from '../i18n'
+import { imeKey } from '../ui/ime'
 import { insertionIndexAt } from './tabDock'
 import { PopupMenu } from './PopupMenu'
 import '../ui/screens.css'
@@ -134,6 +135,7 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
                   onBlur={(event) => commitRename(screen.id, event.currentTarget.value)}
                   onKeyDown={(event) => {
                     event.stopPropagation()
+                    if (imeKey(event)) return
                     if (event.key === 'Enter') { event.preventDefault(); commitRename(screen.id, event.currentTarget.value) }
                     else if (event.key === 'Escape') { event.preventDefault(); setEditing(null) }
                   }}

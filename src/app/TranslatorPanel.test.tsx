@@ -142,6 +142,15 @@ describe('번역기 창의 내용', () => {
     expect(screen.getByLabelText('번역 결과').textContent).toBe('안녕하세요 번역')
   })
 
+  it('입력기 조합 중의 Ctrl+Enter(isComposing · keyCode 229)는 번역하지 않는다', () => {
+    const service = makeService()
+    renderOpen(service)
+    fireEvent.change(input(), { target: { value: 'hello' } })
+    fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true, keyCode: 229 })
+    fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true, isComposing: true })
+    expect(service.translate).not.toHaveBeenCalled()
+  })
+
   it('그냥 Enter 는 번역하지 않는다(줄바꿈)', () => {
     const service = makeService()
     renderOpen(service)

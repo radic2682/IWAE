@@ -5,6 +5,7 @@ import { ChannelDot } from './ChannelDot'
 import type { PaneChannel } from './workspaceChannels'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
+import { imeKey } from '../ui/ime'
 import { platformShortcut } from '../core/platform'
 import { hasHiddenTabs, subFitsInTitle, tabsWithHiddenTitle } from './tabStripOverflow'
 import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
@@ -342,6 +343,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                     onPointerDown={(event) => event.stopPropagation()}
                     onBlur={(event) => finishRename(tab, event.currentTarget.value)}
                     onKeyDown={(event) => {
+                      if (imeKey(event)) return
                       if (event.key === 'Enter') event.currentTarget.blur()
                       else if (event.key === 'Escape') { event.stopPropagation(); setRenaming(null) }
                     }}

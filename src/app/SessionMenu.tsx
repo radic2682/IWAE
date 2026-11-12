@@ -4,6 +4,7 @@ import { PopupMenu } from './PopupMenu'
 import { relativeTimeText, validateSessionName, type SessionSummary } from '../core/sessionNames'
 import { clientCountText } from '../core/clients'
 import { t } from '../i18n'
+import { imeKey } from '../ui/ime'
 
 /** 세션 메뉴가 부르는 것들(App 이 useVault 의 sessionOps 에 잇는다). 결과의 ok 가 false 면 message 를 입력칸 아래에 보인다 */
 export interface SessionMenuActions {
@@ -89,7 +90,7 @@ export function SessionMenu({ current, left, top, anchorRef, actions, onClose }:
             placeholder={t('세션 이름')}
             onChange={(event) => { setValue(event.target.value); setProblem('') }}
             onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) return
+              if (imeKey(event)) return
               if (event.key === 'Enter') { event.preventDefault(); void submit() }
               if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setMode({ kind: 'list' }) }
               // 메뉴의 화살표 이동이 입력칸 안의 커서 이동을 가로채지 않게

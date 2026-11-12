@@ -10,6 +10,7 @@ import {
   insideCodeBlock, looksLikeMarkdown, memoPlainText, setBlockKind, toggleCheckItem, toggleChecklist, toggleInlineCode, type MemoBlockKind,
 } from './memoEditing'
 import { t } from '../i18n'
+import { imeKey } from '../ui/ime'
 
 /** 메모 내용: 글(검색·MCP 용)과 서식 HTML(꾸밈이 없으면 빈 문자열) */
 export interface MemoContent {
@@ -510,7 +511,7 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
             event.preventDefault()
             finish(true)
             onNext?.()
-          } else if (event.nativeEvent.isComposing) {
+          } else if (imeKey(event)) {
             // 한글을 조합하는 중에는 단축을 쓰지 않는다
           } else if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'e') {
             event.preventDefault()

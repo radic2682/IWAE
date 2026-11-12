@@ -71,6 +71,19 @@ describe('SessionMenu', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledWith(true))
   })
 
+  it('이름을 치는 중 입력기 조합 Enter(isComposing · keyCode 229)는 확정하지 않는다', async () => {
+    const { actions } = setup()
+    await waitFor(() => screen.getByRole('menuitem', { name: /논문/u }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /새 세션/u }))
+    const input = screen.getByRole('textbox', { name: '세션 이름' })
+    fireEvent.change(input, { target: { value: '발표' } })
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 }) })
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter', isComposing: true }) })
+    expect(actions.onNew).not.toHaveBeenCalled()
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+    expect(actions.onNew).toHaveBeenCalledWith('발표')
+  })
+
   it('동작이 실패하면 메뉴를 닫지 않고 이유를 보인다', async () => {
     const { onClose } = setup({ onNew: async () => ({ ok: false, message: '디스크가 가득 찼습니다' }) })
     await waitFor(() => screen.getByRole('menuitem', { name: /논문/u }))

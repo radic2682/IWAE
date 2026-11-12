@@ -118,12 +118,52 @@ describe('CommandPalette: 「:」 만 치면 명령 목록', () => {
     expect(screen.getByRole('option').textContent).toContain('명령 실행')
   })
 
-  it('친 낱말이 이미 명령 이름(줄임말 포함)이면 Enter 는 고른 줄이 아니라 친 줄을 그대로 실행한다', () => {
+  it('Enter 는 늘 밝은(고른) 줄을 실행한다: 줄임말을 쳐도 밝은 줄과 다른 명령이 실행되지 않는다(:new · :rename · :ls)', () => {
     vi.useFakeTimers()
-    const { onRunLine } = open(':splitw')
+    // 줄임말 new 는 new-session 의 것이지만 맨 윗줄은 new-window 다 — 밝은 줄이 실행된다
+    for (const [typed, shown] of [[':new', 'new-window'], [':rename', 'rename-window'], [':ls', 'list-keys']] as const) {
+      const { onRunLine, view } = open(typed)
+      expect(selected()?.startsWith(shown)).toBe(true)
+      key('Enter')
+      act(() => { vi.runAllTimers() })
+      expect(onRunLine).toHaveBeenCalledExactlyOnceWith(shown)
+      view.unmount()
+    }
+  })
+
+  it('↓ 로 다른 줄을 고르면 줄임말을 쳤어도 그 줄이 실행된다', () => {
+    vi.useFakeTimers()
+    const { onRunLine } = open(':new')
+    key('ArrowDown')
+    const picked = selected()!
+    expect(picked.startsWith('new-session')).toBe(true)
     key('Enter')
     act(() => { vi.runAllTimers() })
-    expect(onRunLine).toHaveBeenCalledWith('splitw')
+    expect(onRunLine).toHaveBeenCalledExactlyOnceWith('new-session')
+  })
+
+  it('친 낱말이 명령의 정식 이름 그대로이면 그 이름의 줄이 처음부터 밝고 Enter 가 그것을 실행한다', () => {
+    vi.useFakeTimers()
+    const { onRunLine } = open(':new-session')
+    expect(selected()?.startsWith('new-session')).toBe(true)
+    key('Enter')
+    act(() => { vi.runAllTimers() })
+    expect(onRunLine).toHaveBeenCalledExactlyOnceWith('new-session')
+  })
+
+  it('입력기 조합 중의 Enter · 방향키(isComposing, 그리고 WebKit 의 조합 끝 Enter 인 keyCode 229)는 받지 않는다', () => {
+    vi.useFakeTimers()
+    const { onRunLine } = open(':new')
+    const before = selected()
+    fireEvent.keyDown(lineInput(), { key: 'Enter', keyCode: 229 })
+    fireEvent.keyDown(lineInput(), { key: 'ArrowDown', keyCode: 229 })
+    fireEvent.keyDown(lineInput(), { key: 'Enter', isComposing: true })
+    act(() => { vi.runAllTimers() })
+    expect(onRunLine).not.toHaveBeenCalled()
+    expect(selected()).toBe(before)
+    key('Enter')
+    act(() => { vi.runAllTimers() })
+    expect(onRunLine).toHaveBeenCalledTimes(1)
   })
 
   it('이름이 아닌 글(풀이로 찾은 것)에서 Enter 는 고른(맨 윗) 명령을 실행한다', () => {

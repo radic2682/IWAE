@@ -224,6 +224,20 @@ describe('TopBar', () => {
       expect(screen.queryByRole('textbox')).toBeNull()
     })
 
+    it('이름 바꾸기 중 입력기 조합 Enter(isComposing · keyCode 229)는 확정하지 않는다', () => {
+      const screens = screensProp()
+      render(<TopBar {...props} screens={screens} />)
+      fireEvent.doubleClick(screen.getByRole('tab', { name: /비교/u }))
+      const input = screen.getByRole('textbox', { name: '화면 이름' })
+      fireEvent.change(input, { target: { value: '대조' } })
+      fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+      fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+      expect(screens.onRename).not.toHaveBeenCalled()
+      expect(screen.getByRole('textbox', { name: '화면 이름' })).toBe(input)
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(screens.onRename).toHaveBeenCalledWith('w2', '대조')
+    })
+
     it('끌어서 순서를 바꾼다: 이웃 탭의 가운데를 넘으면 그 뒤로 간다', () => {
       const screens = screensProp()
       const { container } = render(<TopBar {...props} screens={screens} />)

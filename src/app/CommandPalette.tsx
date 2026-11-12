@@ -5,6 +5,7 @@ import { t } from '../i18n'
 import { canonicalCommandName, commandCatalog, type CommandCatalogEntry } from './workspaceCommands'
 import { completeCommandLine, loadCommandHistory, pushCommandHistory, saveCommandHistory, stepCommandHistory, type CompletionContext } from './commandLine'
 import { useFocusTrap } from '../ui/useFocusTrap'
+import { imeKey } from '../ui/ime'
 import '../ui/command-palette.css'
 
 export interface PaletteCommand {
@@ -41,7 +42,8 @@ export function matchCommand(command: PaletteCommand, query: string): number | n
  * 명령줄의 첫 낱말(명령 이름)을 치는 동안(빈칸이 아직 없다)은 명령 목록이 뜬다: 「:」 만 치면 모든 명령(이름 · 사용법 · 한 줄 풀이)이,
  * 치는 대로 이름 · 줄임말 · 풀이에서 걸러진다. 맞는 것이 없으면 친 줄을 그대로 실행하는 한 줄(「명령 실행: …」)이다.
  *  - Tab: 고른 줄의 명령 이름을 완성한다(`select-window `). 첫 낱말이 끝나면(빈칸 뒤) 인자를 완성한다(화면 · 템플릿 이름 · select-layout 인자; 후보가 여럿이면 공통 앞부분까지 채우고 후보를 보인다).
- *  - Enter: 고른 명령을 실행한다(「:」 만 쳤을 때는 ↓ 로 고르기 전에는 아무것도 고른 것이 없어 실행하지 않는다). 친 낱말이 이미 명령 이름(줄임말 포함)이면 친 줄을 그대로 실행한다.
+ *  - Enter: 밝은(고른) 줄을 실행한다 — 늘 그 줄이다(「:」 만 쳤을 때는 ↓ 로 고르기 전에는 고른 줄이 없어 실행하지 않는다). 처음 밝은 줄은 맨 윗줄이고,
+ *    친 낱말이 명령의 정식 이름 그대로이면 그 이름의 줄이다(줄임말 `:new` 는 맨 윗줄 — 줄임말이 밝은 줄과 다른 명령을 실행하지 않는다).
  *  - ↑/↓ 우선순위: 명령 목록이 보이는 동안은 고르기가 먼저다. 기록(최근 50줄)을 넘기는 것은 ① Alt+↑/↓ ② 목록이 안 보일 때(빈칸 뒤 · 맞는 명령 없음)
  *    ③ 목록 맨 윗줄(또는 고른 줄이 없을 때)에서 ↑ ④ 기록에서 불러온 줄이 떠 있는 동안이다. ④ 는 불러온 줄에서 ↑/↓ 가 계속 기록을 거닐게 하려는 것이고, 글을 고치면 끝난다.
  * 아래 상태 줄을 없애면서 `:` 명령줄은 이 팔레트 하나로 합쳤다(접두키 `:` 도 여기로 온다).
@@ -119,7 +121,15 @@ export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine
     return scored.slice(0, 60).map(({ command }) => command)
   }, [commands, query, onRunLine, candidates, typingName, catalog])
 
-  useEffect(() => setActive(query === ':' ? -1 : 0), [query])
+  // 처음 고른 줄: 「:」 만이면 없음. 친 낱말이 명령의 정식 이름 그대로(줄임말이 아니다)이면 그 이름의 줄, 아니면 맨 윗줄.
+  // Enter 는 늘 고른(밝은) 줄을 실행한다 — 줄임말(`:new`)이 밝은 줄(new-window)과 다른 명령(new-session)을 실행하는 일이 없다
+  useEffect(() => {
+    if (query === ':') { setActive(-1); return }
+    const word = typingName ? query.slice(1).trim() : ''
+    const exact = word !== '' && canonicalCommandName(word) === word ? shown.findIndex((command) => command.line === word && command.id !== 'command-line') : -1
+    setActive(exact >= 0 ? exact : 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 글이 바뀔 때만 다시 고른다(shown 은 같은 글에서 파생)
+  }, [query])
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
   }, [active])
@@ -160,7 +170,7 @@ export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine
               draft.current = event.target.value.startsWith(':') ? event.target.value.slice(1) : ''
             }}
             onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) return
+              if (imeKey(event)) return
               if (lineMode && event.key === 'Tab') {
                 event.preventDefault()
                 // 명령 이름을 치는 중이고 목록이 있으면 고른 줄의 이름을 완성한다
@@ -196,12 +206,7 @@ export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine
               else if (event.key === 'ArrowUp') { event.preventDefault(); setActive((index) => Math.max(index - 1, 0)) }
               else if (event.key === 'Enter') {
                 event.preventDefault()
-                // 친 낱말이 이미 명령 이름(줄임말 포함)이면 고른 줄이 아니라 친 줄을 그대로 실행한다
-                const typed = query.slice(1).trim()
-                const word = typed.split(/\s/u)[0] ?? ''
-                if (typingName && word !== '' && canonicalCommandName(word) !== null && onRunLine !== undefined) {
-                  run({ id: 'command-line', kind: 'action', label: typed, line: typed, run: () => onRunLine(typed) })
-                } else run(shown[active])
+                run(shown[active])
               }
             }}
           />
