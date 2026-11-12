@@ -35,7 +35,7 @@ export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
 ]
 
 /**
- * 아래 상태 줄의 「?」: 키와 명령 목록. 접두키 다음 키마다 지금 되는지(됩니다 · 일부만 · 다음 단계)를 표시한다.
+ * 아래 상태 줄의 「?」: 키와 명령 목록. 접두키 다음 키마다 지금 되는지(됨 · 일부 · 다음 단계)를 표시한다.
  * 접두키 없이 되는 키는 위쪽에 따로 둔다.
  */
 export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
@@ -89,8 +89,8 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
                   <tr key={row.keys}>
                     <td><kbd className="keycap">{row.keys}</kbd></td>
                     <td>{t(row.action)}</td>
-                    <td><code>{row.command}</code></td>
-                    <td><span className="keys-help-state" data-state={row.status}>{row.status === 'on' ? t('됩니다') : row.status === 'partial' ? t('일부만') : t('다음 단계')}</span></td>
+                    <td className="keys-help-command"><code>{row.command}</code></td>
+                    <td><span className="keys-help-state" data-state={row.status}>{row.status === 'on' ? t('됨') : row.status === 'partial' ? t('일부') : t('다음 단계')}</span></td>
                   </tr>
                 ))}
               </tbody>

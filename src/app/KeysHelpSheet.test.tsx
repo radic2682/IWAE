@@ -8,16 +8,16 @@ import { KeysHelpSheet, PREFIX_KEY_ROWS } from './KeysHelpSheet'
 afterEach(cleanup)
 
 describe('KeysHelpSheet', () => {
-  it('접두키 다음 키마다 되는지(됩니다 · 일부만 · 다음 단계)를 보인다', () => {
+  it('접두키 다음 키마다 되는지(됨 · 일부 · 다음 단계)를 보인다', () => {
     render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[{ label: '명령 팔레트', keys: 'Ctrl+K' }]} prefixText="Ctrl+B" />)
     const table = screen.getByRole('table')
     const rows = within(table).getAllByRole('row').slice(1)
     const state = (keys: string) => within(rows.find((row) => within(row).getAllByRole('cell')[0]!.textContent === keys)!).getAllByRole('cell')[3]!.textContent
-    expect(state('% / "')).toBe('됩니다')
-    expect(state('q')).toBe('됩니다')
-    expect(state('f · w')).toBe('됩니다')
-    expect(state('d')).toBe('됩니다')
-    expect(state('s')).toBe('됩니다')
+    expect(state('% / "')).toBe('됨')
+    expect(state('q')).toBe('됨')
+    expect(state('f · w')).toBe('됨')
+    expect(state('d')).toBe('됨')
+    expect(state('s')).toBe('됨')
     expect(screen.getByText(/접두키\(Ctrl\+B\)를 누르고/u)).toBeDefined()
     expect(screen.getByText('Ctrl+K')).toBeDefined()
   })
