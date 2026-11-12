@@ -3,10 +3,11 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { describe, expect, it, vi } from 'vitest'
 import { createRef } from 'react'
 import { SessionMenu, type SessionMenuActions } from './SessionMenu'
+import type { SessionSummary } from '../core/sessionNames'
 
 const ok = async () => ({ ok: true, message: '' })
 
-function setup(overrides: Partial<SessionMenuActions> = {}, rows = [
+function setup(overrides: Partial<SessionMenuActions> = {}, rows: SessionSummary[] = [
   { name: '기본', screenCount: 1, lastUsedAt: null as number | null },
   { name: '논문', screenCount: 3, lastUsedAt: Date.now() - 5 * 60_000 },
 ]) {
@@ -17,6 +18,7 @@ function setup(overrides: Partial<SessionMenuActions> = {}, rows = [
     onSaveAs: vi.fn(ok),
     onRename: vi.fn(ok),
     onDelete: vi.fn(),
+    onNewClient: vi.fn(),
     ...overrides,
   }
   const onClose = vi.fn()
@@ -106,12 +108,41 @@ describe('SessionMenu', () => {
     expect(onClose).toHaveBeenCalledWith(false)
   })
 
-  it('세션이 하나뿐이면 삭제가 꺼져 있고, 앱 창으로 띄우기는 「다음 단계」로 꺼져 있다', async () => {
+  it('세션이 하나뿐이면 삭제가 꺼져 있다', async () => {
     setup({}, [{ name: '기본', screenCount: 1, lastUsedAt: null }])
     await waitFor(() => screen.getByRole('menuitem', { name: /기본/u }))
     expect((screen.getByRole('menuitem', { name: /삭제/u }) as HTMLButtonElement).disabled).toBe(true)
-    const detach = screen.getByRole('menuitem', { name: /앱 창으로 띄우기/u }) as HTMLButtonElement
-    expect(detach.disabled).toBe(true)
-    expect(detach.textContent).toContain('다음 단계')
+  })
+
+  it('앱 창으로 띄우기: 지금 세션에 붙는 새 앱 창을 열고 메뉴를 닫는다', async () => {
+    const { actions, onClose } = setup()
+    await waitFor(() => screen.getByRole('menuitem', { name: /논문/u }))
+    const open = screen.getByRole('menuitem', { name: /앱 창으로 띄우기/u }) as HTMLButtonElement
+    expect(open.disabled).toBe(false)
+    expect(open.textContent).toContain('new-client')
+    fireEvent.click(open)
+    expect(actions.onNewClient).toHaveBeenCalledOnce()
+    expect(onClose).toHaveBeenCalledWith(false)
+  })
+
+  it('세션 줄에 화면 수와 붙은 앱 창 수를 보이고, 지금 세션에도 화면 수가 붙는다', async () => {
+    setup({}, [
+      { name: '기본', screenCount: 2, lastUsedAt: null, attached: 2 },
+      { name: '논문', screenCount: 3, lastUsedAt: Date.now() - 5 * 60_000, attached: 0 },
+      { name: '발표', screenCount: 1, lastUsedAt: Date.now() - 60 * 60_000, attached: 1 },
+    ])
+    await waitFor(() => screen.getByRole('menuitem', { name: /발표/u }))
+    const hint = (name: RegExp) => screen.getByRole('menuitem', { name }).querySelector('kbd')?.textContent
+    expect(hint(/기본/u)).toBe('화면 2개 · 앱 창 2개 · 지금')
+    expect(hint(/논문/u)).toBe('화면 3개 · 5분 전')
+    expect(hint(/발표/u)).toContain('앱 창 1개')
+  })
+
+  it('힌트는 한 줄로 두는 전용 클래스를 쓴다(session-menu-hint)', async () => {
+    setup()
+    await waitFor(() => screen.getByRole('menuitem', { name: /논문/u }))
+    const hints = [...menu().querySelectorAll('kbd')]
+    expect(hints.length).toBeGreaterThan(4)
+    for (const kbd of hints) expect(kbd.classList.contains('session-menu-hint')).toBe(true)
   })
 })

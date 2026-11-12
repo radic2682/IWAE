@@ -91,6 +91,8 @@ export interface SessionSummary {
   readonly screenCount: number
   /** 마지막으로 쓴 시각(ms). 모르면 null */
   readonly lastUsedAt: number | null
+  /** 이 세션에 붙은 앱 창 수(없으면 0) */
+  readonly attached?: number
 }
 
 /** 「3분 전」 같은 짧은 말(목록용). now 를 받아 시험하기 쉽게 */

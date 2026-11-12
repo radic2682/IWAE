@@ -12,6 +12,8 @@ import { SelectionActions } from '../pdf/SelectionActions'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { setAppPref } from './appPrefs'
 import { announceAction } from './actionFeedback'
+import * as windowBridge from '../bridge/window'
+import { setWindowModeForTest } from '../core/windowMode'
 
 const fileDropMocks = vi.hoisted(() => ({
   listen: vi.fn(),
@@ -1180,7 +1182,8 @@ describe('App — 화면 · 상태 줄', () => {
     expect(bar.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('false')
     fireEvent.click(within(bar).getByRole('button', { name: '키와 명령 보기' }))
     const sheet = screen.getByRole('dialog', { name: '키와 명령' })
-    expect(within(sheet).getAllByText('다음 단계').length).toBeGreaterThan(0)
+    // 접두키가 모두 되므로 「다음 단계」 표시는 없다
+    expect(within(sheet).queryAllByText('다음 단계')).toHaveLength(0)
     expect(within(sheet).getByText('split-window -h / -v')).toBeDefined()
   })
 
@@ -1310,12 +1313,15 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(container.querySelector('.pane-focus-scope[data-pane-active]')?.getAttribute('data-pane-id')).toBe(first))
   })
 
-  it('f 는 떠 있는 칸이 없으면 알리고, d 는 「다음 단계에서 됩니다」, s 는 세션 메뉴, ? 는 키 목록, 모르는 키는 안내', async () => {
+  it('f 는 떠 있는 칸이 없으면 알리고, d 는 마지막 앱 창이라 「앱을 닫을까요?」를 묻고, s 는 세션 메뉴, ? 는 키 목록, 모르는 키는 안내', async () => {
     render(<App developmentPreview />)
     after({ key: 'f', code: 'KeyF' })
     await waitFor(() => expect(statusMessage()).toBe('떠 있는 칸이 없습니다'))
     after({ key: 'd', code: 'KeyD' })
-    await waitFor(() => expect(statusMessage()).toBe('다음 단계에서 됩니다'))
+    await waitFor(() => expect(statusMessage()).toBe('앱을 닫을까요? y/n'))
+    // n(또는 y 가 아닌 키)이면 그만둔다
+    press({ key: 'n', code: 'KeyN' })
+    await waitFor(() => expect(statusMessage()).not.toBe('앱을 닫을까요? y/n'))
     after({ key: 's', code: 'KeyS' })
     await waitFor(() => expect(screen.getByRole('menu', { name: '세션' })).toBeDefined())
     press({ key: 'Escape', code: 'Escape' })
@@ -1340,12 +1346,49 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(screen.getByRole('menu', { name: '세션' })).toBeDefined())
   })
 
-  it('세션 메뉴는 이름을 받는 동작과 「앱 창으로 띄우기(다음 단계)」를 보인다', async () => {
+  it('세션 메뉴는 이름을 받는 동작과 켜진 「앱 창으로 띄우기」를 보인다', async () => {
     render(<App developmentPreview />)
     fireEvent.click(screen.getByRole('button', { name: '기본' }))
     const menu = await screen.findByRole('menu', { name: '세션' })
     expect(within(menu).getByRole('menuitem', { name: /새 세션/u })).toBeDefined()
-    expect((within(menu).getByRole('menuitem', { name: /앱 창으로 띄우기/u }) as HTMLButtonElement).disabled).toBe(true)
+    expect((within(menu).getByRole('menuitem', { name: /앱 창으로 띄우기/u }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('앱 창 명령: Vault 가 없으면 new-client 는 알리고, detach 는 마지막 앱 창이라 앱을 닫을지 상태 줄에서 묻는다', async () => {
+    render(<App developmentPreview />)
+    await runLine('new-client')
+    await waitFor(() => expect(statusMessage()).toBe('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await runLine('detach')
+    await waitFor(() => expect(statusMessage()).toBe('앱을 닫을까요? y/n'))
+    press({ key: 'Escape', code: 'Escape' })
+  })
+
+  it('마지막 앱 창의 detach 확인에 y 를 누르면 앱을 닫는 길(창 닫기)로 간다', async () => {
+    const close = vi.spyOn(windowBridge, 'closeWindow').mockImplementation(() => undefined)
+    render(<App developmentPreview />)
+    await runLine('detach')
+    await waitFor(() => expect(statusMessage()).toBe('앱을 닫을까요? y/n'))
+    expect(close).not.toHaveBeenCalled()
+    press({ key: 'y', code: 'KeyY' })
+    await waitFor(() => expect(close).toHaveBeenCalledOnce())
+    close.mockRestore()
+  })
+
+  it('세션에 붙은 새 앱 창에는 맨 위 줄에 「앱 창 B」 라벨이 있고, 세션 메뉴가 열린다', async () => {
+    setWindowModeForTest({ role: 'extra', docId: null, page: null, zoom: null, vaultRoot: null, session: '기본', screen: null, client: 'B' })
+    try {
+      render(<App developmentPreview />)
+      expect(document.querySelector('.topbar-client-label')?.textContent).toBe('앱 창 B')
+      expect((screen.getByRole('button', { name: '기본' }) as HTMLButtonElement).disabled).toBe(false)
+    } finally {
+      setWindowModeForTest(null)
+    }
+  })
+
+  it('메인 창에는 「앱 창 B」 라벨이 없고, 상태 줄은 붙은 앱 창이 하나면 [세션] 만 보인다', async () => {
+    render(<App developmentPreview />)
+    expect(document.querySelector('.topbar-client-label')).toBeNull()
+    expect(document.querySelector('.status-bar-session')?.textContent).toBe('[기본]')
   })
 
   it('명령줄: Enter 로 실행하고 `;` 로 잇고, 오류는 상태 줄에 보이며, 기록(↑)이 남는다', async () => {

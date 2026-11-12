@@ -12,7 +12,6 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   '{n}시간 전': '{n} h ago',
   '{n}일 전': '{n} d ago',
   // 동작 결과
-  '세션은 메인 창에서만 바꿀 수 있습니다': 'Sessions can only be changed in the main window',
   '세션을 찾을 수 없습니다: {name}': 'Session not found: {name}',
   '세션: {name}': 'Session: {name}',
   '새 세션: {name}': 'New session: {name}',
@@ -54,4 +53,16 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   '떠 있는 칸이 없습니다': 'There are no floating panes',
   '떠 있는 칸을 숨겼습니다': 'Floating panes hidden',
   '떠 있는 칸을 보입니다': 'Floating panes shown',
+  // 세션에 붙는 앱 창(설계 7)
+  '앱 창 {n}개': '{n} app windows',
+  '앱 창 {name}': 'App window {name}',
+  '같은 세션에 붙은 다른 앱 창입니다': 'Another app window attached to the same session',
+  '앱 창을 열었습니다: {name}': 'Opened an app window: {name}',
+  '창을 열 수 없는 환경입니다': 'Windows cannot be opened here',
+  '떼어 낸 PDF 창은 「다시 붙이기」로 닫습니다': 'Close a detached PDF window with "Reattach"',
+  '앱을 닫을까요? y/n': 'Quit the app? y/n',
+  '세션은 앱 창에서만 바꿀 수 있습니다': 'Sessions can only be changed in an app window',
+  '다른 앱 창이 붙어 있어 바꿀 수 없습니다: {name}': 'Other app windows are attached, so it cannot be renamed: {name}',
+  '다른 앱 창이 붙어 있어 지울 수 없습니다: {name}': 'Other app windows are attached, so it cannot be deleted: {name}',
+  '이 세션은 다른 앱 창이 저장합니다': 'Another app window saves this session',
 }

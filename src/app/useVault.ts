@@ -67,11 +67,16 @@ import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
 import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
 import { isTranslatorTabId } from './floatingPanes'
-import { allScreenPaneIds, activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
+import { allScreenPaneIds, screenPaneIds, activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
 import { findSessionName, removeFromMeta, renameInMeta, emptySessionsMeta, touchSessionMeta, uniqueSessionName, validateSessionName, type SessionSummary, type SessionsMeta } from '../core/sessionNames'
-import { currentWindowMode, ownsSession, sessionForWindow, type WindowMode } from '../core/windowMode'
+import { allPaneTabs } from './tabs'
+import { currentWindowMode, isAppClient, sessionForWindow, type WindowMode } from '../core/windowMode'
+import { useSessionClients } from './useSessionClients'
+import { mergeRemoteScreens } from './sessionSync'
+import type { RunResult } from './sessionSync'
+import { MAIN_CLIENT_LETTER } from '../core/clients'
 import type { SyncCodec } from '../core/vaultSync'
 import { findStaleDocuments } from '../core/staleDocuments'
 import {
@@ -404,8 +409,8 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState): 
   const migratedActiveMarkdownId = session.activeNoteTabId !== null && isMarkdownPath(session.activeNoteTabId)
     ? session.activeNoteTabId
     : null
-  // 메인 창은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창·새 창은 한 칸에서 시작한다
-  const snapshot = windowMode.role === 'main' && SPLIT_PANES_ENABLED
+  // 앱 창(메인 창 · 세션에 붙은 새 창)은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창은 한 칸에서 시작한다
+  const snapshot = isAppClient(windowMode) && SPLIT_PANES_ENABLED
     ? screensFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage), t('읽기'))
     : singleScreenSnapshot(t('읽기'))
   const restored = restoredScreens(
@@ -425,6 +430,20 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState): 
   )
   const screens = { ...restored, screens: restored.screens.map((screen) => ({ ...screen, panes: markPreviewTabs(screen.panes, session.previewTabIds ?? []) })) }
   return { missing, documents, restoredMarkdownSources, screens }
+}
+
+/**
+ * 이미 열린 탭들만으로 세션의 화면들을 되살린다. 다른 앱 창이 보낸 상태에 새로 열 문서가 없을 때 쓰는 가벼운 길이다
+ * (탭 하나를 바꿀 때마다 문서를 다시 열지 않으려고).
+ */
+function screensFromKnownTabs(session: SessionState, known: ReadonlyMap<string, Tab>): ScreensState {
+  const pick = (ids: readonly string[]) => ids.flatMap((id) => { const tab = known.get(id); return tab === undefined ? [] : [tab] })
+  const restored = restoredScreens(
+    restoredTabs(pick(session.pdfTabIds), session.activePdfTabId),
+    restoredTabs(pick([...session.noteTabIds, ...(session.memoNoteTabIds ?? [])]), session.activeNoteTabId),
+    screensFromSession(session, null, t('읽기')),
+  )
+  return { ...restored, screens: restored.screens.map((screen) => ({ ...screen, panes: markPreviewTabs(screen.panes, session.previewTabIds ?? []) })) }
 }
 
 export function useVault(options: UseVaultOptions = {}) {
@@ -620,8 +639,11 @@ export function useVault(options: UseVaultOptions = {}) {
       if (JSON.stringify(reconciledIndex) !== JSON.stringify(savedIndex)) {
         await writeVaultIndex(handle, reconciledIndex)
       }
-      // 메인은 저장된 세션, 떼어 낸 창은 그 문서 하나, 새 창은 빈 탭에서 시작한다
-      const session = sessionForWindow(windowMode, parseSession(loadedSessions.raw))
+      // 메인은 마지막 세션, 떼어 낸 창은 그 문서 하나, 새 앱 창은 붙기로 한 세션(없으면 빈 탭)에서 시작한다
+      const wantedSession = windowMode.role === 'extra' ? windowMode.session ?? null : null
+      const startName = wantedSession !== null && loadedSessions.names.includes(wantedSession) ? wantedSession : loadedSessions.name
+      const startRaw = startName === loadedSessions.name ? loadedSessions.raw : await readSessionNamed(handle, startName)
+      const session = sessionForWindow(windowMode, parseSession(startRaw))
       const restoredSession = await restoreSessionState({ handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf }, session)
       const { missing, documents, restoredMarkdownSources } = restoredSession
       const searchablePdfEntries = reconciledIndex.entries.filter((entry) => (
@@ -662,17 +684,21 @@ export function useVault(options: UseVaultOptions = {}) {
         reconciledIndex.entries,
       ))
       setOpenedDocs(documents)
-      const restoredOrder = leaves(activeScreenOf(restoredSession.screens).layout)
+      // 새 앱 창은 연 창이 정해 준 화면에서 시작한다
+      const startScreens = windowMode.role === 'extra' && windowMode.screen !== undefined && windowMode.screen !== null
+        ? switchScreenAt(restoredSession.screens, windowMode.screen)
+        : restoredSession.screens
+      const restoredOrder = leaves(activeScreenOf(startScreens).layout)
       paneRouteRef.current = { doc: restoredOrder[0]!, note: restoredOrder[1] ?? restoredOrder[0]! }
-      setScreensState(restoredSession.screens)
+      setScreensState(startScreens)
       setMarkdownSources(restoredMarkdownSources)
       setMissingDocIds(missing)
       setAbsentDocIds(settled.absentDocIds)
       setSidebarCollapsed(session.sidebarCollapsed)
       setLayout({ sidebarPx: session.sidebarPx, leftFrac: session.leftFrac })
-      setSessionName(loadedSessions.name)
-      sessionNameRef.current = loadedSessions.name
-      setSessionNames(loadedSessions.names.includes(loadedSessions.name) ? loadedSessions.names : [...loadedSessions.names, loadedSessions.name])
+      setSessionName(startName)
+      sessionNameRef.current = startName
+      setSessionNames(loadedSessions.names.includes(startName) ? loadedSessions.names : [...loadedSessions.names, startName])
       sessionMetaRef.current = loadedSessions.meta
       setSessionReady(true)
       const markdownEntries = reconciledIndex.entries.filter((entry) => (
@@ -913,41 +939,87 @@ export function useVault(options: UseVaultOptions = {}) {
     }
   }, [injected, loadVault])
 
-  // 지금 탭·배치를 바로 session.json 에 쓴다(메인 창이 닫히면서 돌려받은 탭을 싣는 데 쓴다). 메인이 아니면 아무것도 안 한다
+  // 지금 상태(세션 모양). 앱 창들이 이것을 주고받고, 소유자 창은 이것을 세션 파일에 쓴다
+  const sessionSnapshot = useMemo(() => (vault === null || !sessionReady ? null : captureSession(screensState, {
+    sidebarCollapsed,
+    sidebarPx: layout.sidebarPx,
+    leftFrac: layout.leftFrac,
+  })), [vault, sessionReady, screensState, sidebarCollapsed, layout.sidebarPx, layout.leftFrac])
   const sessionSnapshotRef = useRef<{ vault: VaultHandle | null; session: SessionState | null }>({ vault: null, session: null })
-  sessionSnapshotRef.current = {
-    vault,
-    session: vault === null || !sessionReady ? null : captureSession(screensState, {
-      sidebarCollapsed,
-      sidebarPx: layout.sidebarPx,
-      leftFrac: layout.leftFrac,
-    }),
-  }
+  sessionSnapshotRef.current = { vault, session: sessionSnapshot }
+
+  // ───────── 세션에 붙은 앱 창들(docs/design/workspace-tmux.md 7, 동기화 방식은 sessionSync.ts) ─────────
+  const restoreCtxRef = useRef<Omit<RestoreContext, 'markdownAsPdf'>>(null as unknown as Omit<RestoreContext, 'markdownAsPdf'>)
+  restoreCtxRef.current = { handle: vault as VaultHandle, windowMode, libraryEntries: entries, reconciledIndex: { version: 1, entries: vaultIndex } as VaultIndexFile, nextTreeEntries: treeEntries, groups: notebooks }
+  /** 다른 앱 창이 정한 공유 상태를 이 창에 반영한다. 보는 화면 · 크게 · 포커스는 이 창 것을 지킨다 */
+  const applyRemoteSession = useCallback(async (raw: SessionState) => {
+    const handle = sessionSnapshotRef.current.vault
+    if (handle === null) return
+    const session = parseSession(raw)
+    const known = new Map<string, Tab>()
+    for (const screen of screensStateRef.current.screens) {
+      for (const tab of allPaneTabs(screen.panes, screenPaneIds(screen))) {
+        const { preview: _preview, ...plain } = tab
+        known.set(tab.id, plain)
+      }
+    }
+    const wanted = [...session.pdfTabIds, ...session.noteTabIds, ...(session.memoNoteTabIds ?? [])]
+    let remote: ScreensState
+    if (wanted.every((id) => known.has(id))) {
+      remote = screensFromKnownTabs(session, known)
+    } else {
+      // 이 창에 아직 없는 문서가 있다: 세션을 되살리듯 열어 온다
+      const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session)
+      setOpenedDocs((current) => [...current, ...restored.documents.filter((document) => !current.some((candidate) => candidate.docId === document.docId))])
+      setMarkdownSources((current) => ({ ...restored.restoredMarkdownSources, ...current }))
+      remote = restored.screens
+    }
+    setScreensState((current) => mergeRemoteScreens(current, remote))
+    // 상태가 화면에 닿을 때까지(엔진이 그 사이의 변화를 「우리가 만든 것」으로 세지 않게)
+    await new Promise<void>((resolve) => { window.setTimeout(resolve, 60) })
+  }, [])
+  const clientHooksRef = useRef<{ runCommand: (line: string) => Promise<RunResult>; quit: () => void }>({
+    runCommand: async () => ({ ok: false, message: 'not ready' }),
+    quit: () => undefined,
+  })
+  /** 메인 창을 떼면 숨긴 채 남는다(MCP · 백업을 맡는다). 숨긴 창은 앱 창 목록에 숨김으로 표시된다 */
+  const [windowHidden, setWindowHidden] = useState(false)
+  const clients = useSessionClients({
+    windowMode,
+    ready: sessionReady && vault !== null,
+    session: sessionName,
+    screen: Math.max(screensState.screens.findIndex((screen) => screen.id === screensState.activeScreen), 0),
+    hidden: windowHidden,
+    snapshot: sessionSnapshot,
+    apply: applyRemoteSession,
+    runCommand: (line) => clientHooksRef.current.runCommand(line),
+    quit: () => clientHooksRef.current.quit(),
+  })
+  const selfClientId = clients.selfId
+  const sessionOwnerRef = useRef(clients.isOwner)
+  sessionOwnerRef.current = clients.isOwner
+  const clientRegistryRef = useRef(clients.registry)
+  clientRegistryRef.current = clients.registry
+
+  // 지금 탭·배치를 바로 세션 파일에 쓴다(창이 닫히기 전에 마지막 변화를 싣는 데 쓴다). 소유자 창이 아니면 아무것도 안 한다 — 파일은 소유자만 쓴다
   const flushSession = useCallback(async () => {
     const { vault: handle, session } = sessionSnapshotRef.current
-    if (handle === null || session === null || !ownsSession(windowMode)) return
+    if (handle === null || session === null || !sessionOwnerRef.current) return
     await writeSessionNamed(handle, sessionNameRef.current, session)
-  }, [windowMode])
+  }, [])
 
   useEffect(() => {
-    // 탭·패널 배치(session.json)는 메인 창만 저장한다. 다른 창의 배치가 메인의 것을 덮으면 안 된다
-    if (vault === null || !sessionReady || !ownsSession(windowMode)) return
+    // 세션 파일은 세션마다 소유자 창 하나만 쓴다. 다른 창의 상태가 소유자의 것을 덮으면 안 된다(소유자가 바뀌면 새 소유자가 이어서 쓴다)
+    if (vault === null || !sessionReady || !clients.isOwner || sessionSnapshot === null) return
     const timer = window.setTimeout(() => {
-      const session = captureSession(screensState, {
-        sidebarCollapsed,
-        sidebarPx: layout.sidebarPx,
-        leftFrac: layout.leftFrac,
-      })
-      void writeSessionNamed(vault, sessionName, session).catch((err: unknown) => setError(errorText(err)))
+      void writeSessionNamed(vault, sessionName, sessionSnapshot).catch((err: unknown) => setError(errorText(err)))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [layout, sessionReady, sidebarCollapsed, vault, windowMode, screensState, sessionName])
+  }, [sessionReady, vault, sessionSnapshot, sessionName, clients.isOwner])
 
 
   // ───────── 이름 붙은 세션 동작(만들기 · 바꾸기 · 갈래 · 이름 바꾸기 · 지우기) ─────────
   // 동작은 하나씩 차례로 한다(바꾸는 사이에 다른 동작이 끼면 저장할 상태가 어긋난다)
-  const restoreCtxRef = useRef<Omit<RestoreContext, 'markdownAsPdf'>>(null as unknown as Omit<RestoreContext, 'markdownAsPdf'>)
-  restoreCtxRef.current = { handle: vault as VaultHandle, windowMode, libraryEntries: entries, reconciledIndex: { version: 1, entries: vaultIndex } as VaultIndexFile, nextTreeEntries: treeEntries, groups: notebooks }
   const sessionOps = useMemo(() => {
     type Outcome = { readonly ok: boolean; readonly message: string }
     const okResult = (message = ''): Outcome => ({ ok: true, message })
@@ -960,7 +1032,7 @@ export function useVault(options: UseVaultOptions = {}) {
     const guard = (): { readonly handle: VaultHandle } | Outcome => {
       const handle = sessionSnapshotRef.current.vault
       if (handle === null) return failResult(t('Vault 를 연 뒤에 쓸 수 있습니다'))
-      if (!ownsSession(windowMode)) return failResult(t('세션은 메인 창에서만 바꿀 수 있습니다'))
+      if (!isAppClient(windowMode)) return failResult(t('세션은 앱 창에서만 바꿀 수 있습니다'))
       return { handle }
     }
     const names = () => sessionNamesRef.current
@@ -968,11 +1040,13 @@ export function useVault(options: UseVaultOptions = {}) {
       sessionMetaRef.current = meta
       await writeSessionsMeta(handle, meta)
     }
-    /** 지금 상태를 지금 세션 파일에 쓴다 */
+    /** 지금 상태를 지금 세션 파일에 쓴다(소유자 창만 쓴다) */
     const flush = async (handle: VaultHandle) => {
       const session = sessionSnapshotRef.current.session
-      if (session !== null) await writeSessionNamed(handle, sessionNameRef.current, session)
+      if (session !== null && sessionOwnerRef.current) await writeSessionNamed(handle, sessionNameRef.current, session)
     }
+    /** 이 이름의 세션에 이 창 말고 다른 앱 창이 붙어 있는가(이름 바꾸기 · 지우기는 그 창들의 세션을 건드리므로 막는다) */
+    const attachedElsewhere = (name: string) => clientRegistryRef.current.some((client) => client.session === name && client.id !== selfClientId)
     /** 이 이름의 세션으로 갈아탄다: 저장된 화면 · 탭을 다시 열고, 칸 보기를 새로 마운트한다 */
     const applySession = async (handle: VaultHandle, name: string, raw: unknown) => {
       setSessionReady(false)
@@ -1043,6 +1117,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const valid = validateSessionName(wanted, names(), source)
       if (!valid.ok) return failResult(valid.reason)
       if (valid.name === source) return okResult()
+      if (attachedElsewhere(source)) return failResult(t('다른 앱 창이 붙어 있어 바꿀 수 없습니다: {name}', { name: source }))
       const active = source === sessionNameRef.current
       if (active) await flush(checked.handle)
       const raw = active ? sessionSnapshotRef.current.session : await readSessionNamed(checked.handle, source)
@@ -1060,6 +1135,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const name = findSessionName(names(), query)
       if (name === null) return failResult(t('세션을 찾을 수 없습니다: {name}', { name: query }))
       if (names().length <= 1) return failResult(t('마지막 세션은 지울 수 없습니다'))
+      if (attachedElsewhere(name)) return failResult(t('다른 앱 창이 붙어 있어 지울 수 없습니다: {name}', { name }))
       if (name === sessionNameRef.current) {
         // 지우는 세션이 지금 세션이면, 가장 최근에 쓴 다른 세션으로 먼저 옮겨 간다
         const used = sessionMetaRef.current.used
@@ -1074,20 +1150,22 @@ export function useVault(options: UseVaultOptions = {}) {
     /** 목록(화면 수 · 마지막으로 쓴 때). 파일을 읽어 센다 — 지금 세션은 지금 상태로 */
     const list = async (): Promise<SessionSummary[]> => {
       const handle = sessionSnapshotRef.current.vault
-      if (handle === null) return [{ name: sessionNameRef.current, screenCount: screensStateRef.current.screens.length, lastUsedAt: null }]
+      const attachedTo = (name: string) => clientRegistryRef.current.filter((client) => client.session === name).length
+      if (handle === null) return [{ name: sessionNameRef.current, screenCount: screensStateRef.current.screens.length, lastUsedAt: null, attached: attachedTo(sessionNameRef.current) }]
       const onDisk = await listSessionNames(handle)
       const all = [...new Set([...onDisk, ...sessionNamesRef.current])]
       const used = sessionMetaRef.current.used
       const rows = await Promise.all(all.map(async (name): Promise<SessionSummary> => {
         const active = name === sessionNameRef.current
         const count = active ? screensStateRef.current.screens.length : parseSession(await readSessionNamed(handle, name)).screens?.length ?? 1
-        return { name, screenCount: count, lastUsedAt: used[name] ?? null }
+        return { name, screenCount: count, lastUsedAt: used[name] ?? null, attached: attachedTo(name) }
       }))
       return rows.sort((a, b) => (a.name === sessionNameRef.current ? -1 : b.name === sessionNameRef.current ? 1 : (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0) || a.name.localeCompare(b.name)))
     }
     const saveNow = (): Promise<Outcome> => exclusive(async () => {
       const checked = guard()
       if (!('handle' in checked)) return checked
+      if (!sessionOwnerRef.current) return okResult(t('이 세션은 다른 앱 창이 저장합니다'))
       await flush(checked.handle)
       return okResult(t('세션을 저장했습니다: {name}', { name: sessionNameRef.current }))
     })
@@ -2195,6 +2273,10 @@ export function useVault(options: UseVaultOptions = {}) {
     sessionNames: sessionNames.length === 0 ? [sessionName] : sessionNames,
     sessionEpoch,
     sessionOps,
+    /** 세션에 붙은 앱 창들(동기화 · 소유자 · 목록) */
+    clients,
+    clientHooksRef,
+    setWindowHidden,
     loadVault,
     openVaultPath,
     closeVault,

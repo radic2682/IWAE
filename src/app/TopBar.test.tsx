@@ -27,6 +27,13 @@ function screensProp(overrides: Partial<NonNullable<React.ComponentProps<typeof 
 }
 
 describe('TopBar', () => {
+  it('메인 창이 아닌 앱 창은 세션 이름 곁에 「앱 창 B」 라벨을 보인다', () => {
+    const { container, rerender } = render(<TopBar {...props} />)
+    expect(container.querySelector('.topbar-client-label')).toBeNull()
+    rerender(<TopBar {...props} clientLabel="B" />)
+    expect(container.querySelector('.topbar-client-label')?.textContent).toBe('앱 창 B')
+  })
+
   it('버튼이 아닌 상단 영역을 잡아 프레임리스 창을 이동할 수 있다', () => {
     const { container } = render(<TopBar {...props} />)
     expect(container.querySelector('.topbar')?.getAttribute('data-tauri-drag-region')).toBe('deep')

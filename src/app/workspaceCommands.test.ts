@@ -84,13 +84,13 @@ describe('파서', () => {
     expect(parseCommandLine('split-window -h ; nope').ok).toBe(false)
   })
 
-  it('다음 단계 명령은 읽히고 soon 표시가 붙는다', () => {
-    for (const name of ['new-client', 'detach']) {
-      const parsed = parseCommandLine(`${name} -t x`)
-      expect(parsed.ok && parsed.commands[0]?.soon, name).toBe(true)
-    }
-    expect(commandNames()).not.toContain('detach')
-    expect(commandNames({ includeSoon: true })).toContain('detach')
+  it('new-client · detach 는 읽히고(-t 세션, 줄임말 newc) 완성 목록에 나온다. 안쪽 명령은 나오지 않는다', () => {
+    const parsed = parseCommandLine('new-client -t 논문 ; detach')
+    expect(parsed.ok && parsed.commands.map((command) => [command.name, command.flags.t, command.soon])).toEqual([['new-client', '논문', false], ['detach', undefined, false]])
+    expect(canonicalCommandName('newc')).toBe('new-client')
+    expect(canonicalCommandName('detach-client')).toBe('detach')
+    expect(commandNames()).toContain('detach')
+    expect(commandNames()).toContain('new-client')
     expect(commandNames()).not.toContain('command-prompt')
   })
 })
@@ -493,12 +493,25 @@ describe('명령 실행: 앱이 하는 일', () => {
     expect((await harness().run('source-file')).ok).toBe(false)
   })
 
-  it('다음 단계 명령은 「다음 단계에서 됩니다」', async () => {
-    const h = harness()
-    for (const name of ['new-client', 'detach']) {
-      const result = await h.run(name)
-      expect(result, name).toEqual({ ok: false, message: '다음 단계에서 됩니다' })
-    }
+  describe('앱 창 명령', () => {
+    it('new-client 는 지금 세션(이름이 없을 때) 또는 -t 로 고른 세션에 붙는 앱 창을 연다', async () => {
+      const newClient = vi.fn(async (name: string | undefined) => ({ ok: true, message: `열었습니다 ${name ?? '지금'}` }))
+      const h = harness(oneScreen(), { newClient })
+      expect(await h.run('new-client')).toEqual({ ok: true, message: '열었습니다 지금' })
+      expect(newClient).toHaveBeenLastCalledWith(undefined)
+      await h.run('new-client -t 논문 3장')
+      expect(newClient).toHaveBeenLastCalledWith('논문')
+      await h.run('newc 발표')
+      expect(newClient).toHaveBeenLastCalledWith('발표')
+    })
+
+    it('detach 는 앱이 하는 일(이 앱 창 닫기)에 맡기고, 없으면 지금은 안 된다', async () => {
+      const detach = vi.fn(async () => ({ ok: true, message: '' }))
+      expect(await harness(oneScreen(), { detach }).run('detach')).toEqual({ ok: true, message: '' })
+      expect(detach).toHaveBeenCalledOnce()
+      expect((await harness().run('detach-client')).ok).toBe(false)
+      expect((await harness().run('new-client')).ok).toBe(false)
+    })
   })
 
   describe('세션 명령', () => {

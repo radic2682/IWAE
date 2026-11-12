@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { ArrowSquareOut, Check, FloppyDisk, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { PopupMenu } from './PopupMenu'
 import { relativeTimeText, validateSessionName, type SessionSummary } from '../core/sessionNames'
+import { clientCountText } from '../core/clients'
 import { t } from '../i18n'
 
 /** 세션 메뉴가 부르는 것들(App 이 useVault 의 sessionOps 에 잇는다). 결과의 ok 가 false 면 message 를 입력칸 아래에 보인다 */
@@ -13,13 +14,24 @@ export interface SessionMenuActions {
   readonly onRename: (name: string) => Promise<{ readonly ok: boolean; readonly message: string }>
   /** 지금 세션을 지운다(확인 창은 바깥에서 띄운다) */
   readonly onDelete: () => void
+  /** 지금 세션에 붙는 새 앱 창을 연다(new-client) */
+  readonly onNewClient: () => void
+}
+
+/** 세션 줄 오른쪽 글: 「화면 2개 · 앱 창 2개 · 지금」 또는 「화면 3개 · 5분 전」 */
+export function rowHint(row: SessionSummary, isCurrent: boolean, now: number): string {
+  const parts = [t('화면 {n}개', { n: row.screenCount })]
+  if ((row.attached ?? 0) > 0) parts.push(clientCountText(row.attached ?? 0))
+  if (isCurrent) parts.push(t('지금'))
+  else if (row.lastUsedAt !== null) parts.push(relativeTimeText(row.lastUsedAt, now))
+  return parts.join(' · ')
 }
 
 type Mode = { readonly kind: 'list' } | { readonly kind: 'name'; readonly action: 'new' | 'saveAs' | 'rename' }
 
 /**
  * 맨 위 줄 「<이름> ▾」 와 접두키 `s` 가 여는 세션 메뉴(설계 6): 세션 목록(화면 수 · 마지막으로 쓴 때) · 새 세션 · 다른 이름으로 저장 ·
- * 이름 바꾸기 · 삭제 · 앱 창으로 띄우기(다음 단계). 이름을 받는 동작은 메뉴 안의 입력칸으로 한다.
+ * 이름 바꾸기 · 삭제 · 앱 창으로 띄우기. 이름을 받는 동작은 메뉴 안의 입력칸으로 한다.
  */
 export function SessionMenu({ current, left, top, anchorRef, actions, onClose }: {
   readonly current: string
@@ -100,20 +112,20 @@ export function SessionMenu({ current, left, top, anchorRef, actions, onClose }:
             }}>
               {row.name === current ? <Check size={15} aria-hidden="true" /> : <span aria-hidden="true" style={{ flex: '0 0 15px' }} />}
               <span>{row.name}</span>
-              <kbd>{row.name === current ? t('지금') : `${t('화면 {n}개', { n: row.screenCount })}${row.lastUsedAt === null ? '' : ` · ${relativeTimeText(row.lastUsedAt, now)}`}`}</kbd>
+              <kbd className="session-menu-hint">{rowHint(row, row.name === current, now)}</kbd>
             </button>
           ))}
           {problem === '' ? null : <div className="session-menu-problem" role="alert">{problem}</div>}
           <div className="pane-tab-context-sep" role="separator" />
           <button type="button" role="menuitem" onClick={() => begin('new')}><Plus size={15} aria-hidden="true" /><span>{t('새 세션')}</span></button>
-          <button type="button" role="menuitem" onClick={() => begin('saveAs')}><FloppyDisk size={15} aria-hidden="true" /><span>{t('다른 이름으로 저장')}</span><kbd>save-session</kbd></button>
-          <button type="button" role="menuitem" onClick={() => begin('rename')}><PencilSimple size={15} aria-hidden="true" /><span>{t('이름 바꾸기')}</span><kbd>rename-session</kbd></button>
+          <button type="button" role="menuitem" onClick={() => begin('saveAs')}><FloppyDisk size={15} aria-hidden="true" /><span>{t('다른 이름으로 저장')}</span><kbd className="session-menu-hint">save-session</kbd></button>
+          <button type="button" role="menuitem" onClick={() => begin('rename')}><PencilSimple size={15} aria-hidden="true" /><span>{t('이름 바꾸기')}</span><kbd className="session-menu-hint">rename-session</kbd></button>
           <button type="button" role="menuitem" disabled={!canDelete} title={canDelete ? undefined : t('마지막 세션은 지울 수 없습니다')} onClick={() => { onClose(false); actions.onDelete() }}>
-            <Trash size={15} aria-hidden="true" /><span>{t('삭제')}</span><kbd>kill-session</kbd>
+            <Trash size={15} aria-hidden="true" /><span>{t('삭제')}</span><kbd className="session-menu-hint">kill-session</kbd>
           </button>
           <div className="pane-tab-context-sep" role="separator" />
-          <button type="button" role="menuitem" disabled title={t('다음 단계')}>
-            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('앱 창으로 띄우기')}</span><kbd>{t('다음 단계')}</kbd>
+          <button type="button" role="menuitem" onClick={() => { onClose(false); actions.onNewClient() }}>
+            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('앱 창으로 띄우기')}</span><kbd className="session-menu-hint">new-client</kbd>
           </button>
         </>
       )}

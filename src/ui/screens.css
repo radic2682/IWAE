@@ -403,3 +403,38 @@
 .status-bar-panes::before { content: '· '; }
 .status-bar-hint { opacity: 0.8; }
 .status-bar-prefix { border-color: var(--divider); }
+
+/* ── 팝업 메뉴(세션 메뉴 · 칸 ⋯ 메뉴 · 화면 탭 메뉴 공통): 폭과 오른쪽 힌트 ──
+   폭은 내용에 맞추되 300px 밑으로 줄지 않아 「다른 이름으로 저장」 같은 글이 잘리지 않는다(좁은 창에서만 ... 로 줄어든다).
+   힌트(명령 이름 · 키 · 화면 수)는 한 줄로 두고, 작은 고정폭 글꼴 · 흐리게 · 오른쪽 맞춤 */
+.pane-tab-context.pane-tab-context.popup-menu {
+  width: max-content;
+  min-width: 300px;
+  max-width: calc(100vw - 16px);
+}
+.pane-tab-context.pane-tab-context.popup-menu kbd {
+  flex: 0 0 auto;
+  margin-left: 16px;
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 10.5px;
+  color: var(--text-strong);
+  opacity: 0.6;
+}
+
+/* ── 맨 위 줄: 메인 창이 아닌 앱 창의 이름 ── */
+.topbar-client-label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-xs);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: default;
+}

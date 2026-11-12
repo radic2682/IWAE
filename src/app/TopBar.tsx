@@ -34,6 +34,8 @@ interface TopBarProps {
   sessionName?: string
   /** 세션 메뉴의 동작들. 없으면(떼어 낸 창 · 새 창) 메뉴는 이름만 보이고 열리지 않는다 */
   sessionActions?: SessionMenuActions
+  /** 메인 창이 아닌 앱 창의 이름(B · C …). 있으면 세션 이름 곁에 「앱 창 B」 로 보인다 */
+  clientLabel?: string
   /** 화면 탭(0 읽기 · 1 비교 …). 없으면(떼어 낸 창) 화면 줄을 그리지 않는다 */
   screens?: {
     readonly items: readonly ScreenTabItem[]
@@ -66,6 +68,7 @@ export function TopBar({
   hideSidebarToggle = false,
   sessionName = t('기본'),
   sessionActions,
+  clientLabel,
   screens,
   onOpenPalette,
   paletteShortcut,
@@ -176,6 +179,9 @@ export function TopBar({
           <span className="topbar-session-name">{sessionName}</span>
           <CaretDown size={11} weight="bold" aria-hidden="true" />
         </button>
+        {clientLabel === undefined ? null : (
+          <span className="topbar-client-label" title={t('같은 세션에 붙은 다른 앱 창입니다')}>{t('앱 창 {name}', { name: clientLabel })}</span>
+        )}
         {sessionMenu !== null && sessionActions !== undefined ? (
           <SessionMenu
             current={sessionName}

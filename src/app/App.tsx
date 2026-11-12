@@ -42,7 +42,7 @@ import { applyLayoutPreset, availableScreenTemplates, buildTemplateScreen, templ
 import { activeScreenOf, allScreenPaneIds, workspaceOf } from './screens'
 import { pickByName, runCommandLine, type CommandHost, type CommandResult, type PaneRect, type WorkspaceModel } from './workspaceCommands'
 import { usePrefixMode } from './usePrefixMode'
-import { summarizeWorkspace } from './mcp/workspaceCommand'
+import { summarizeWorkspace, type McpWorkspaceState } from './mcp/workspaceCommand'
 import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
 import { StatusBar } from './StatusBar'
@@ -221,6 +221,8 @@ import { closeWindow, currentWindowLabel, interceptWindowClose, isDesktop } from
 import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, sendReattach, sendTabDrop, type ReattachRequest } from '../bridge/windows'
 import { clearExternalTabHover, holdTabFlip, insertionIndexInPane, showExternalTabHover, tabZoneRects, type TearOffInfo } from './tabDrag'
 import { currentWindowMode, ownsSession, windowQuery } from '../core/windowMode'
+import { closePlan, detachPlan, findClient, newClientPlan } from '../core/clients'
+import { hideThisWindow, openClientWindow, showAppWindow } from '../bridge/clients'
 import { findSessionName } from '../core/sessionNames'
 import { queueInitialZoom } from './pendingViewState'
 import { hasPendingVaultRecovery } from '../bridge/vaultRecovery'
@@ -440,6 +442,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     sessionNames,
     sessionEpoch,
     sessionOps,
+    clients,
+    clientHooksRef,
+    setWindowHidden,
     zoomedPane,
     screenOps,
     openInPane,
@@ -984,25 +989,50 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 메인 창이 닫히면서 돌려받은 탭을 세션에 싣는다(최신 함수를 ref 로 부른다)
   const flushSessionRef = useRef(flushSession)
   flushSessionRef.current = flushSession
+  // 앱 창(client) 닫기 · 떼기 · 끝내기(docs/design/workspace-tmux.md 7). 닫는 길(onCloseRequested)은 마운트할 때 한 번만 걸리므로 최신 판단은 ref 로 부른다
+  const quittingRef = useRef(false)
+  const clientsNowRef = useRef(clients)
+  clientsNowRef.current = clients
+  const beforeCloseRef = useRef<() => Promise<void | 'keep'>>(async () => undefined)
+  beforeCloseRef.current = async () => {
+    // 노트·메모 저장을 끝낸다. 이 창이 쓴 것은 파일에 있으니 다른 창이 이어서 쓴다
+    await flushCanvasSaves()
+    const { registry, selfId, engine } = clientsNowRef.current
+    const action = isMainWindow || !isDetachedWindow ? closePlan(registry, selfId, isMainWindow, quittingRef.current) : 'close'
+    if (isMainWindow) {
+      // 다른 앱 창이 보이고 있으면 메인 창은 닫지 않고 숨긴다: MCP · 백업 · 색인을 맡는 창이라 앱이 살아 있는 동안 남아야 한다. 마지막 앱 창을 닫으면 앱이 끝난다
+      if (action === 'hide') {
+        await flushSessionRef.current()
+        await hideThisWindow()
+        setWindowHidden(true)
+        return 'keep'
+      }
+      // 마지막 변화를 세션 파일에 쓰고, 떼어 낸 창 · 새 창도 저장하고 함께 닫는다.
+      // 떼어 낸 창은 닫히면서 탭을 메인으로 돌려보낸다 — 그 탭이 다음 실행에 되살아나게 잠시 뒤 세션을 다시 저장한다
+      await flushSessionRef.current()
+      if (await closeSecondaryWindows() > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 400))
+        await flushSessionRef.current()
+      }
+    } else if (isDetachedWindow) {
+      await sendTabsBackRef.current()
+    } else {
+      // 세션에 붙은 앱 창: 이 창이 세션 소유자였다면 마지막 변화를 쓴다(다음 창이 이어받는다). 숨긴 메인 창만 남게 되면 앱 전체를 끝낸다
+      await flushSessionRef.current()
+      if (action === 'quit-via-main') {
+        engine.requestQuit()
+        return 'keep'
+      }
+      engine.leave()
+    }
+    // 번역용 로컬 모델(Ollama)도 메모리에서 내린다
+    await releaseTranslationModelRef.current()
+    return undefined
+  }
   useEffect(() => {
     let unlisten: (() => void) | undefined
     void interceptWindowClose(
-      async () => {
-        // 노트·메모 저장을 끝낸다. 이 창이 쓴 것은 파일에 있으니 다른 창이 이어서 쓴다
-        await flushCanvasSaves()
-        if (isMainWindow) {
-          // 메인이 닫히면 떼어 낸 창·새 창도 저장하고 함께 닫는다(세션은 메인만 저장하므로 메인이 끝까지 남는다).
-          // 떼어 낸 창은 닫히면서 탭을 메인으로 돌려보낸다 — 그 탭이 다음 실행에 되살아나게 잠시 뒤 세션을 다시 저장한다
-          if (await closeSecondaryWindows() > 0) {
-            await new Promise((resolve) => window.setTimeout(resolve, 400))
-            await flushSessionRef.current()
-          }
-        } else if (isDetachedWindow) {
-          await sendTabsBackRef.current()
-        }
-        // 번역용 로컬 모델(Ollama)도 메모리에서 내린다
-        await releaseTranslationModelRef.current()
-      },
+      () => beforeCloseRef.current(),
       (cause) => window.alert(t('노트를 저장하지 못해 앱을 종료하지 않았습니다: {error}', { error: cause instanceof Error ? cause.message : String(cause) })),
     ).then((stop) => { unlisten = stop })
     return () => unlisten?.()
@@ -1011,7 +1041,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (isMainWindow) return undefined
     let disposed = false
     let stop: (() => void) | undefined
-    void onCloseNow(() => closeWindow()).then((unlisten) => {
+    void onCloseNow(() => { quittingRef.current = true; closeWindow() }).then((unlisten) => {
       if (disposed) unlisten()
       else stop = unlisten
     })
@@ -1757,6 +1787,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const commandModelRef = useRef<WorkspaceModel>({ screens: screensState, activePane: activePaneId })
   commandModelRef.current = { screens: screensState, activePane: activePaneId }
   const prefixApiRef = useRef<{ readonly startConfirm: () => void }>({ startConfirm: () => undefined })
+  /** 상태 줄의 y/n 이 무엇을 묻는가: 화면 닫기(&) · 앱 닫기(마지막 앱 창의 detach) */
+  const confirmKindRef = useRef<'kill-window' | 'quit'>('kill-window')
   // .iwae/keys.conf: bind-key · unbind-key · set prefix. Vault 를 열 때와 source-file 때 읽는다(파일 감시는 하지 않는다)
   const [keyBindings, setKeyBindings] = useState<Readonly<Record<string, string>>>({})
   const loadKeysConf = useCallback(async (): Promise<CommandResult & { readonly found: boolean }> => {
@@ -1844,7 +1876,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (statusBarOn) setCommandLine({ prefill })
       else { setPaletteInitial(`:${prefill}`); setPaletteOpen(true) }
     },
-    confirmKillWindow: () => prefixApiRef.current.startConfirm(),
+    confirmKillWindow: () => { confirmKindRef.current = 'kill-window'; prefixApiRef.current.startConfirm() },
+    newClient: (wanted) => openNewClient(wanted),
+    detach: () => detachThisClient(),
     showSessionMenu: () => window.dispatchEvent(new CustomEvent('iwae:open-session-menu')),
     sessionNames: () => sessionNames,
     newSession: (name) => sessionOps.create(name),
@@ -1922,13 +1956,29 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const prefix = usePrefixMode({
     run: (line) => { void runWorkspaceLine(line) },
     announce: announceAction,
-    onConfirm: () => { void runWorkspaceLine('kill-window') },
+    onConfirm: () => { if (confirmKindRef.current === 'quit') quitApp(); else void runWorkspaceLine('kill-window') },
     numbersOpen: paneNumbersOpen,
     onNumber: (index) => { setPaneNumbersOpen(false); void runWorkspaceLine(`select-pane -t ${index}`) },
     onCloseNumbers: () => setPaneNumbersOpen(false),
     bindings: keyBindings,
   })
   prefixApiRef.current = prefix
+  // 다른 앱 창이 시킨 명령(MCP 의 client 지정)과 앱 끝내기를 동기화 엔진에 잇는다
+  clientHooksRef.current = {
+    runCommand: async (line) => {
+      const result = await runWorkspaceLine(line)
+      await commandHost.settle?.()
+      return { ok: result.ok, message: result.message, state: summarizeWorkspace(commandModelRef.current) }
+    },
+    quit: () => quitApp(),
+  }
+  // 숨겨 둔 메인 창이 다시 앞으로 나왔다(두 번째 실행 · 작업 표시줄)
+  useEffect(() => {
+    if (!isMainWindow) return undefined
+    const shown = () => setWindowHidden(false)
+    window.addEventListener('focus', shown)
+    return () => window.removeEventListener('focus', shown)
+  }, [isMainWindow, setWindowHidden])
   /** 문서 창에서 누른 형광펜을 보여 줄 노트가 같은 색 창에 안 보일 때: 그 메모의 노트를 옆에 열고(미리보기 설정이면 미리보기 탭) 그 카드를 보인다 */
   const revealMemoBeside = (pane: PaneId | null, memoId: string) => {
     const anchor = pane ?? anchorDocPane()
@@ -2010,7 +2060,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   const routePointSignalRef = useRef<(signal: DeliveredSignal) => Promise<void>>(async () => undefined)
   routePointSignalRef.current = async (signal) => {
-    if (signal.channel === null || isDetachedWindow) return
+    // 다른 앱 창에서 온 신호는 이미 보이는 칸이 스스로 반응한다. 문서 · 노트를 새로 여는 결정은 보낸 창만 한다
+    if (signal.channel === null || isDetachedWindow || signal.remote === true) return
     const { target } = signal
     const senderKind = signal.origin === 'note' ? 'memoNote' : signal.origin === 'document' ? 'pdf' : activeKindOf(workspaceLatest.current.panes, signal.from)
     const fromNote = isNoteSurface(senderKind)
@@ -2176,11 +2227,21 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setPaneCount,
       setActivePane: setActivePaneId,
       setPaneRoute,
-      workspaceCommand: async (command) => {
+      workspaceCommand: async (command, client) => {
+        if (client !== undefined) {
+          // 다른 앱 창에서 돌린다(없는 창이면 AI 가 고치도록 오류)
+          const target = findClient(clients.registry, client)
+          if (target === null) throw new Error(`unknown client '${client}' (app_state.clients 의 label 이나 id 를 쓰세요: ${clients.registry.map((candidate) => candidate.letter).join(', ')})`)
+          if (target.id !== clients.selfId) {
+            const remote = await clients.engine.runOn(target.id, command)
+            return { ok: remote.ok, message: remote.message, state: remote.state as McpWorkspaceState }
+          }
+        }
         const result = await runWorkspaceLine(command)
         await commandHost.settle?.()
         return { ok: result.ok, message: result.message, state: summarizeWorkspace(commandModelRef.current) }
       },
+      clients: () => clients.registry.map((client) => ({ id: client.id, label: client.letter, session: client.session, screen: client.screen })),
       session: async () => {
         const rows = await sessionOps.list()
         return { name: sessionName, sessions: rows.map((row) => ({ name: row.name, active: row.name === sessionName, screens: row.screenCount, last_used_at: row.lastUsedAt })) }
@@ -2865,15 +2926,46 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
     }
   }
-  const openNewWindow = async () => {
+  /** 세션에 붙는 새 앱 창(new-client). 같은 세션이면 다음 화면(없으면 같은 화면)을, 다른 세션이면 그 세션이 보던 화면을 보인다 */
+  const openNewClient = async (wanted?: string): Promise<CommandResult> => {
+    if (vault === null) return { ok: false, message: t('Vault 를 연 뒤에 쓸 수 있습니다') }
+    const plan = newClientPlan({
+      wanted,
+      current: sessionName,
+      resolve: (name) => findSessionName(sessionNames, name),
+      screenCount: screens.length,
+      activeIndex: screens.findIndex((screen) => screen.id === activeScreenId),
+      registry: clients.registry,
+    })
+    if (plan === null) return { ok: false, message: t('세션을 찾을 수 없습니다: {name}', { name: wanted ?? '' }) }
     try {
-      await openAppWindow('extra', windowQuery({ role: 'extra', docId: null, page: null, vaultRoot: vault?.root ?? null }))
+      const opened = await openClientWindow({ ...plan, vaultRoot: vault.root })
+      if (opened === null) return { ok: false, message: t('창을 열 수 없는 환경입니다') }
+      return { ok: true, message: t('앱 창을 열었습니다: {name}', { name: plan.session }) }
     } catch (cause) {
-      announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
+      return { ok: false, message: t('창을 열지 못했습니다: {error}', { error: errorText(cause) }) }
     }
   }
+  /** 이 앱 창을 뗀다(detach). 세션은 남는다. 마지막 앱 창이면 앱을 닫을지 상태 줄에서 묻는다 */
+  const detachThisClient = async (): Promise<CommandResult> => {
+    if (isDetachedWindow) return { ok: false, message: t('떼어 낸 PDF 창은 「다시 붙이기」로 닫습니다') }
+    if (detachPlan(clients.registry, clients.selfId) === 'confirm-quit') {
+      confirmKindRef.current = 'quit'
+      prefixApiRef.current.startConfirm()
+      return { ok: true, message: '' }
+    }
+    closeWindowSafely()
+    return { ok: true, message: '' }
+  }
+  /** 앱 전체를 끝낸다. 메인 창이 모든 창을 정리하고 닫는다(숨겨 둔 메인 창이면 먼저 보인다) */
+  const quitApp = () => {
+    quittingRef.current = true
+    if (!isMainWindow) { clientsNowRef.current.engine.requestQuit(); return }
+    setWindowHidden(false)
+    void showAppWindow(currentWindowLabel()).catch(() => undefined).then(() => closeWindowSafely())
+  }
   windowActionsRef.current = {
-    newWindow: () => { void openNewWindow() },
+    newWindow: () => { void openNewClient().then((result) => { if (!result.ok) announceAction(result.message) }) },
     detachActive: () => { if (activeDocumentTab?.kind === 'pdf') void detachPaneTab(activeDocumentTab.id) },
     // 닫는 길(onCloseRequested)이 탭을 메인으로 돌려보낸다
     reattach: () => closeWindowSafely(),
@@ -3878,7 +3970,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           onOpenHelp={() => setKeysHelpOpen(true)}
           prefixPhase={prefix.phase}
           onPrefixChip={() => (prefix.phase === 'idle' ? prefix.enter() : prefix.cancel())}
-          confirmText={t('화면을 닫을까요? y/n')}
+          confirmText={confirmKindRef.current === 'quit' ? t('앱을 닫을까요? y/n') : t('화면을 닫을까요? y/n')}
+          attached={clients.attached}
           commandLine={commandLine}
           onRunCommand={(line) => { void runWorkspaceLine(line) }}
           onCloseCommandLine={() => setCommandLine(null)}
@@ -3925,6 +4018,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           ]}
           sidebarPx={sidebarPx}
           sessionName={sessionName}
+          clientLabel={isMainWindow || isDetachedWindow ? undefined : clients.selfLetter}
           sessionActions={ownsSession(windowMode)
             ? {
                 list: sessionOps.list,
@@ -3933,6 +4027,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                 onSaveAs: sessionOps.fork,
                 onRename: (name) => sessionOps.rename(sessionName, name),
                 onDelete: () => setSessionToKill(sessionName),
+                onNewClient: () => { void openNewClient().then((result) => { if (!result.ok) announceAction(result.message) }) },
               }
             : undefined}
           screens={SPLIT_PANES_ENABLED && !isDetachedWindow ? {

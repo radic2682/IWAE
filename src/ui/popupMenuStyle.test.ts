@@ -1,0 +1,33 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+const css = readFileSync(new URL('./screens.css', import.meta.url), 'utf8')
+const rule = (selector: string) => {
+  const start = css.indexOf(selector)
+  if (start < 0) return ''
+  return css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start))
+}
+
+describe('팝업 메뉴 스타일(세션 메뉴 · 칸 ⋯ 메뉴 · 화면 탭 메뉴)', () => {
+  const menu = rule('.pane-tab-context.pane-tab-context.popup-menu {')
+  const hint = rule('.pane-tab-context.pane-tab-context.popup-menu kbd {')
+
+  it('메뉴는 내용 폭에 맞추되 300px 밑으로 줄지 않는다(「다른 이름으로 저장」 이 잘리지 않게)', () => {
+    expect(menu).toContain('width: max-content')
+    expect(menu).toContain('min-width: 300px')
+    expect(menu).toMatch(/max-width: calc\(100vw - \d+px\)/u)
+  })
+
+  it('오른쪽 힌트는 한 줄(nowrap) · 줄지 않음 · 오른쪽 맞춤 · 작고 흐린 고정폭 글꼴이다', () => {
+    expect(hint).toContain('white-space: nowrap')
+    expect(hint).toContain('flex: 0 0 auto')
+    expect(hint).toContain('text-align: right')
+    expect(hint).toContain('var(--font-mono')
+    expect(hint).toMatch(/font-size: 1[01](\.\d)?px/u)
+    expect(hint).toMatch(/opacity: 0\.[4-7]/u)
+  })
+
+  it('색은 토큰만 쓴다(원색 값 없음)', () => {
+    expect(menu + hint).not.toMatch(/#[0-9a-f]{3,8}\b|rgb\(|rgba\(|hsl\(/iu)
+  })
+})

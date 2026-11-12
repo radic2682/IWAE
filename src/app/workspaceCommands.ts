@@ -80,6 +80,10 @@ export interface CommandHost {
   killSession?: (name: string | undefined) => Promise<CommandResult>
   /** `.iwae/keys.conf` 를 다시 읽는다(source-file) */
   reloadKeys?: () => Promise<CommandResult>
+  /** 세션에 붙는 새 앱 창을 연다(이름이 없으면 지금 세션). 새 창은 다음 화면(없으면 같은 화면)을 보인다 */
+  newClient?: (session: string | undefined) => Promise<CommandResult>
+  /** 이 앱 창을 닫는다(세션은 남는다). 마지막 앱 창이면 「앱을 닫을까요?」를 묻는다 */
+  detach?: () => Promise<CommandResult>
 }
 
 // ── 명령 표 ───────────────────────────────────────────────────────────────────
@@ -136,8 +140,8 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { name: 'embed-pane', usage: 'embed-pane' },
   { name: 'toggle-floating', usage: 'toggle-floating' },
   { name: 'display-popup', aliases: ['popup'], usage: 'display-popup [열 이름]' },
-  { name: 'new-client', soon: true, usage: 'new-client' },
-  { name: 'detach', aliases: ['detach-client'], soon: true, usage: 'detach' },
+  { name: 'new-client', aliases: ['newc'], valueFlags: ['t'], usage: 'new-client [-t 세션이름]' },
+  { name: 'detach', aliases: ['detach-client'], usage: 'detach' },
 ]
 
 const INTERNAL_COMMANDS: ReadonlySet<string> = new Set(['command-prompt', 'rename-prompt', 'confirm-kill-window', 'choose-session'])
@@ -728,6 +732,14 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       const name = (flags.t === undefined ? restText(command) : String(flags.t)).trim()
       return host.killSession(name === '' ? undefined : name)
     }
+    case 'new-client': {
+      if (host.newClient === undefined) return fail(t('지금은 안 됩니다'))
+      const name = (flags.t === undefined ? restText(command) : String(flags.t)).trim()
+      return host.newClient(name === '' ? undefined : name)
+    }
+    case 'detach':
+      if (host.detach === undefined) return fail(t('지금은 안 됩니다'))
+      return host.detach()
     case 'list-sessions':
     case 'choose-session':
       if (host.showSessionMenu === undefined) return fail(t('지금은 안 됩니다'))

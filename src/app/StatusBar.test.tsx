@@ -17,6 +17,20 @@ function renderBar(props: Partial<Parameters<typeof StatusBar>[0]> = {}) {
 beforeEach(() => { window.localStorage.clear() })
 afterEach(cleanup)
 
+describe('상태 줄: 앱 창', () => {
+  it('붙은 앱 창이 하나면 [세션], 둘 이상이면 [세션 · 앱 창 N개]', () => {
+    const { rerender, container } = render(<StatusBar sessionName="논문 3장" screens={SCREENS} activeId="w1" lastId={null} onSelectScreen={vi.fn()} onOpenHelp={vi.fn()} />)
+    expect(container.querySelector('.status-bar-session')?.textContent).toBe('[논문 3장]')
+    rerender(<StatusBar sessionName="논문 3장" attached={2} screens={SCREENS} activeId="w1" lastId={null} onSelectScreen={vi.fn()} onOpenHelp={vi.fn()} />)
+    expect(container.querySelector('.status-bar-session')?.textContent).toBe('[논문 3장 · 앱 창 2개]')
+  })
+
+  it('앱 닫기 확인 줄', () => {
+    renderBar({ prefixPhase: 'confirm', confirmText: '앱을 닫을까요? y/n' })
+    expect(screen.getByRole('status').textContent).toBe('앱을 닫을까요? y/n')
+  })
+})
+
 describe('상태 줄: 접두키', () => {
   it('접두키 칩은 눌러서 접두키 모드로 들어간다', () => {
     const { onPrefixChip } = renderBar()

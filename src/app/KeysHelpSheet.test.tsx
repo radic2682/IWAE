@@ -16,7 +16,7 @@ describe('KeysHelpSheet', () => {
     expect(state('% / "')).toBe('됩니다')
     expect(state('q')).toBe('됩니다')
     expect(state('f · w')).toBe('됩니다')
-    expect(state('d')).toBe('다음 단계')
+    expect(state('d')).toBe('됩니다')
     expect(state('s')).toBe('됩니다')
     expect(screen.getByText(/접두키\(Ctrl\+B\)를 누르고/u)).toBeDefined()
     expect(screen.getByText('Ctrl+K')).toBeDefined()
@@ -29,18 +29,19 @@ describe('KeysHelpSheet', () => {
       const name = line.split(' ')[0]!
       expect(known.has(name) || internal.includes(name), name).toBe(true)
     }
-    const soon = PREFIX_KEY_ROWS.filter((row) => row.status === 'soon').map((row) => row.keys)
-    expect(soon).toEqual(['d'])
+    // 모든 접두키가 이제 된다
+    expect(PREFIX_KEY_ROWS.filter((row) => row.status === 'soon').map((row) => row.keys)).toEqual([])
   })
 
   it('명령줄 명령 목록이 있다(다음 단계 명령은 뺀다)', () => {
     render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
     expect(screen.getByText('split-window [-h|-v]')).toBeDefined()
     expect(screen.getByText('apply-template 이름')).toBeDefined()
-    // 떠 있는 칸 · 세션 명령은 이제 된다. 아직 안 되는 것(new-client)만 뺀다
+    // 떠 있는 칸 · 세션 · 앱 창 명령은 이제 모두 된다
     expect(screen.getByText('float-pane')).toBeDefined()
     expect(screen.getByText('embed-pane')).toBeDefined()
     expect(screen.getByText('kill-session [-t 이름]')).toBeDefined()
-    expect(screen.queryByText('new-client')).toBeNull()
+    expect(screen.getByText('new-client [-t 세션이름]')).toBeDefined()
+    expect(screen.getAllByText('detach').length).toBeGreaterThan(0)
   })
 })

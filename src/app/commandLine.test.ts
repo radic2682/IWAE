@@ -66,8 +66,9 @@ describe('탭 완성', () => {
     expect(completeCommandLine('sp', CONTEXT).text).toBe('split-window ')
   })
 
-  it('다음 단계 명령과 안쪽 명령은 완성에 나오지 않는다', () => {
-    expect(completeCommandLine('det', CONTEXT).candidates).toEqual([])
+  it('앱 창 명령은 완성에 나오고, 안쪽 명령은 나오지 않는다', () => {
+    expect(completeCommandLine('det', CONTEXT).candidates).toEqual(['detach'])
+    expect(completeCommandLine('new-c', CONTEXT).text).toBe('new-client ')
     expect(completeCommandLine('command-', CONTEXT).candidates).toEqual([])
   })
 

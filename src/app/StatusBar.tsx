@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Question } from '@phosphor-icons/react'
 import { t } from '../i18n'
+import { statusSessionText } from '../core/clients'
 import { TOAST_SHOW_MS } from './ActionToast'
 import { completeCommandLine, loadCommandHistory, pushCommandHistory, saveCommandHistory, stepCommandHistory } from './commandLine'
 import type { PrefixPhase } from './usePrefixMode'
@@ -34,6 +35,8 @@ interface StatusBarProps {
   readonly screenNames?: readonly string[]
   /** 세션 이름들(Tab 완성: switch-client · kill-session) */
   readonly sessionNames?: readonly string[]
+  /** 이 세션에 붙은 앱 창 수. 둘 이상이면 `[논문 3장 · 앱 창 2개]` */
+  readonly attached?: number
   readonly templateNames?: readonly string[]
   /** 이 화면의 칸 수(왼쪽 「칸 n개」) */
   readonly paneCount?: number
@@ -48,7 +51,7 @@ interface StatusBarProps {
  */
 export function StatusBar({
   sessionName, screens, activeId, lastId, onSelectScreen, onOpenHelp, prefixPhase = 'idle', onPrefixChip, confirmText,
-  commandLine = null, onRunCommand, onCloseCommandLine, screenNames = [], sessionNames = [], templateNames = [], paneCount, paletteShortcut,
+  commandLine = null, onRunCommand, onCloseCommandLine, screenNames = [], sessionNames = [], attached = 1, templateNames = [], paneCount, paletteShortcut,
 }: StatusBarProps) {
   const [message, setMessage] = useState('')
   const timer = useRef<number | null>(null)
@@ -83,7 +86,7 @@ export function StatusBar({
   return (
     <div className="status-bar" role="contentinfo" aria-label={t('상태 줄')}>
       <div className="status-bar-left">
-        <span className="status-bar-session" title={t('세션')}>[{sessionName}]</span>
+        <span className="status-bar-session" title={t('세션')}>{statusSessionText(sessionName, attached)}</span>
         <span className="status-bar-screens" role="group" aria-label={t('화면')}>
           {screens.map((screen, index) => {
             const mark = screen.id === activeId ? '*' : screen.id === lastId ? '-' : ''
