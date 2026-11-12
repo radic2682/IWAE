@@ -10,6 +10,7 @@ import { closeWindow } from '../bridge/window'
 import { WindowControls } from './WindowControls'
 import { PdfSplitPicker } from './PdfLayoutControls'
 import type { PdfSplitLayoutId } from '../core/pdfSplit'
+import type { LayoutPresetDef, LayoutPresetId } from './layoutPresets'
 import { AppMenu, type AppMenuGroups } from './AppMenu'
 import { MemoPanelIcon } from '../pdf/MemoPanelIcon'
 import { isMacPlatform } from '../core/platform'
@@ -47,8 +48,10 @@ interface TopBarProps {
   appMenu?: AppMenuGroups
   /** 사이드바 접기·펴기 단추를 숨긴다(왼쪽 바가 없는 떼어 낸 창) */
   hideSidebarToggle?: boolean
-  /** 오른쪽 메모 바 열기·닫기. 모든 칸의 메모 바가 함께 열리므로 상단바에 하나만 둔다. PDF·Markdown 을 볼 때만 준다 */
-  memoBar?: { readonly visible: boolean; readonly onToggle: () => void }
+  /** 「옆에 노트 열기 / 닫기」: 보는 문서 옆에 메모 노트 창을 열고 닫는다. shown 은 같은 색 창에 노트가 보이는가. 문서를 볼 때만 준다 */
+  noteBeside?: { readonly shown: boolean; readonly onToggle: () => void }
+  /** 이름 붙은 배치(읽기·노트 왼쪽·비교·정리). 주면 창 나누기 목록 아래에 「배치」가 나온다 */
+  layoutPresets?: { readonly presets: readonly LayoutPresetDef[]; readonly onApply: (id: LayoutPresetId) => void }
 }
 
 /** 창 조작과 열린 문서 탭을 한 줄에 놓는 프레임리스 제목줄이다. */
@@ -70,7 +73,8 @@ export function TopBar({
   thirdTabs,
   paneGrows,
   appMenu,
-  memoBar,
+  noteBeside,
+  layoutPresets,
   hideSidebarToggle = false,
 }: TopBarProps) {
   // 왼쪽 위 단추 묶음의 실제 폭. 사이드바가 이보다 좁으면 묶음이 첫 탭(왼쪽 모서리·곡선)을 덮었다 — 그만큼 탭을 민다
@@ -86,7 +90,7 @@ export function TopBar({
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  // 오른쪽 창 단추 묶음(창 나누기·메모 바·창 단추)의 폭. 맨 오른쪽 탭 줄이 그만큼 비워 둔다
+  // 오른쪽 창 단추 묶음(창 나누기·옆에 노트·창 단추)의 폭. 맨 오른쪽 탭 줄이 그만큼 비워 둔다
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [windowToolsWidth, setWindowToolsWidth] = useState<number | null>(null)
   useEffect(() => {
@@ -183,7 +187,7 @@ export function TopBar({
       <WindowControls
         onCloseWindow={onCloseWindow}
         leading={(
-          // 창 전체에 관한 단추(창 나누기·메모 바)는 창 단추 곁에 둔다
+          // 창 전체에 관한 단추(창 나누기·옆에 노트)는 창 단추 곁에 둔다
           <div className="topbar-window-tools">
             {onPaneLayoutChange === undefined ? null : (
               <PdfSplitPicker
@@ -195,16 +199,17 @@ export function TopBar({
                 buttonClassName="topbar-navbtn topbar-panecount-cycle"
                 activeClassName="topbar-navbtn-active"
                 shortcut={t('(Ctrl+\\ 로 차례로)')}
+                presets={layoutPresets}
               />
             )}
-            {memoBar === undefined ? null : (
+            {noteBeside === undefined ? null : (
               <button
                 type="button"
-                className={`topbar-navbtn topbar-memo-toggle${memoBar.visible ? ' topbar-navbtn-active' : ''}`}
-                aria-label={memoBar.visible ? t('메모 바 닫기') : t('메모 바 열기')}
-                aria-pressed={memoBar.visible}
-                title={memoBar.visible ? t('메모 바 닫기') : t('메모 바 열기')}
-                onClick={memoBar.onToggle}
+                className={`topbar-navbtn topbar-memo-toggle${noteBeside.shown ? ' topbar-navbtn-active' : ''}`}
+                aria-label={noteBeside.shown ? t('옆에 노트 닫기') : t('옆에 노트 열기')}
+                aria-pressed={noteBeside.shown}
+                title={noteBeside.shown ? t('옆에 노트 닫기') : t('옆에 노트 열기')}
+                onClick={noteBeside.onToggle}
               >
                 <MemoPanelIcon />
               </button>

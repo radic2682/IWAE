@@ -35,7 +35,7 @@ interface PaneShellProps {
 export function PaneShell({ state, emptyHint, placeholder, renderBody, toolbar, bottomBar, overlay }: PaneShellProps) {
   const active = activeTab(state)
   const body = active !== null && renderBody !== undefined ? renderBody(active) : null
-  // 탭이 없는 빈 창도 문서 창과 같은 높이의 빈 머리 줄을 둔다 — 왼쪽 바·문서 도구줄·노트 바 머리로 이어지는 가로선이 끊기지 않게
+  // 탭이 없는 빈 창도 문서 창과 같은 높이의 빈 머리 줄을 둔다 — 왼쪽 바·문서 도구줄·노트 창 도구줄로 이어지는 가로선이 끊기지 않게
   const emptyHead = toolbar === undefined && active === null
   return (
     <div className={`pane-frame${toolbar === undefined ? '' : ' pane-frame-with-toolbar'}`}>

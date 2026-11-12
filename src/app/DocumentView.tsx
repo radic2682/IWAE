@@ -146,8 +146,6 @@ export interface DocumentViewProps {
   onPersistentHighlightRemoved: PdfPaneProps['onPersistentHighlightRemoved']
   onPersistentHighlightUpdated: PdfPaneProps['onPersistentHighlightUpdated']
   onPersistentHighlightsPatched?: PdfPaneProps['onPersistentHighlightsPatched']
-  onMemoJump?: PdfPaneProps['onMemoJump']
-  docTitles?: PdfPaneProps['docTitles']
   flashHighlightId: string | null
   onSendToCanvas?: (selection: PdfExcerptSelection) => void
   onCopyWithSource?: (selection: PdfExcerptSelection) => void
@@ -737,8 +735,6 @@ export function DocumentView(props: DocumentViewProps) {
                 onOverlayAdd={props.onOverlayAdd === undefined ? undefined : (overlay) => props.onOverlayAdd?.(tab.id, overlay)}
                 onOverlayUpdate={props.onOverlayUpdate === undefined ? undefined : (id, patch) => props.onOverlayUpdate?.(tab.id, id, patch)}
                 onOverlayRemove={props.onOverlayRemove === undefined ? undefined : (id) => props.onOverlayRemove?.(tab.id, id)}
-                onMemoJump={props.onMemoJump}
-                docTitles={props.docTitles}
                 onSearchHits={onMarkdownSearchHits}
                 searchJump={markdownSearchJump}
                 pins={props.pins.filter((pin) => pin.docId === tab.id)}
@@ -887,7 +883,6 @@ export function DocumentView(props: DocumentViewProps) {
                     // 쪽 편집으로 내용이 바뀌면(해시가 바뀜) 새로 그린다 — 글자 위치 캐시가 예전 쪽 것이다
                     key={`${meta.docId}:${meta.sha256}:${index}`}
                     primary={index === focused}
-                    inSplit
                     clean={props.pdfViewPrefs.clean === true}
                     onlyOpenNotes={props.pdfViewPrefs.onlyOpenNotes === true}
                     docId={meta.docId}
@@ -918,8 +913,6 @@ export function DocumentView(props: DocumentViewProps) {
                     onPersistentHighlightRemoved={props.onPersistentHighlightRemoved}
                     onPersistentHighlightUpdated={props.onPersistentHighlightUpdated}
                     onPersistentHighlightsPatched={props.onPersistentHighlightsPatched}
-                    onMemoJump={props.onMemoJump}
-                    docTitles={props.docTitles}
                     spread={props.pdfViewPrefs.spread}
                     continuous={props.pdfViewPrefs.continuous !== false}
                     tone={props.pdfViewPrefs.tone ?? 'none'}

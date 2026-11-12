@@ -51,7 +51,8 @@ interface InteropDeps {
   readonly activePdfDocId: string | null
   /** 그 문서의 쪽 수. 큰 PDF 는 열 때 자동으로 훑지 않는다(PDF 스레드를 오래 잡는다) */
   readonly activePdfPages: number
-  readonly setMemoBarVisible: (visible: boolean) => void
+  /** 노트를 문서 창 옆에 탭으로 보인다(들여온 메모가 어디 들어갔는지 보이게) */
+  readonly showNote: (path: string) => void
 }
 
 /**
@@ -69,7 +70,7 @@ export function useInteropActions(deps: InteropDeps) {
     const owner = docOwner(docId) ?? docId
     const existing = memoNotes.entries.find((entry) => entry.docId === owner)
     const title = existing?.title ?? docNoteTitle(docLabel(owner), memoNotes.listNotes().map((note) => note.title))
-    memoNotes.editNoteTitled(title, (note) => {
+    const path = memoNotes.editNoteTitled(title, (note) => {
       const have = new Set(note.blocks.flatMap((block) => (block.kind === 'memo' ? memoHighlightIds(block) : [])))
       const haveText = new Set(note.blocks.flatMap((block) => (block.kind === 'text' ? [block.text.trim()] : [])))
       let next: MemoNote = note.docId === undefined ? { ...note, docId: owner } : note
@@ -83,7 +84,7 @@ export function useInteropActions(deps: InteropDeps) {
       }
       return next
     }, true)
-    ref.current.setMemoBarVisible(true)
+    ref.current.showNote(path)
   }, [])
 
   /** 열린 PDF 안의 형광펜·밑줄·붙임 쪽지를 내 형광펜(메모)으로 가져온다 */

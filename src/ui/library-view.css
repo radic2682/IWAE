@@ -347,4 +347,3 @@
 }
 
 /* 펼친 동안 오른쪽 노트 바 칸(다른 곳에서 그려 넣는다)도 가린다 */
-.shell-library-expanded [data-note-dock] { visibility: hidden; }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useMemo, useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, renderHook } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { MemoNoteContext, type MemoNoteApi } from './memoNoteContext'
 import { MemoNoteTabView } from './MemoNoteTabView'
 import type { MemoNote } from '../core/memoNote'
@@ -15,7 +15,6 @@ import {
   getLinkLayerState,
   registerPaneLinks,
   resetPaneLinks,
-  usePaneLinkedToNote,
   type LinkItem,
   type PaneLinkSnapshot,
 } from '../app/workspaceLinks'
@@ -37,7 +36,7 @@ function Harness({ children, count, channel = 'blue' }: { readonly children: Rea
     updateNoteAt: (path, change) => { if (path === PATH) setNote((current) => change(current)) },
     notesOf: () => [],
   }), [note])
-  const link: WorkspaceLink = { channels: { ...DEFAULT_CHANNELS, right: channel }, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab: vi.fn() }
+  const link: WorkspaceLink = { channels: { ...DEFAULT_CHANNELS, right: channel }, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab: vi.fn(), openNoteBeside: vi.fn().mockResolvedValue(null), revealMemo: vi.fn() }
   return (
     <MemoNoteContext.Provider value={api}>
       <WorkspaceContext.Provider value={link}>
@@ -151,47 +150,3 @@ describe('MemoNoteTabView — 연결선 재료 내놓기', () => {
   }, 30000)
 })
 
-describe('legacy 노트 바 선 끄기 규칙 — usePaneLinkedToNote', () => {
-  const noteSnapshot = (): PaneLinkSnapshot => ({ frame: box(404, 0, 800, 600), body: box(404, 0, 800, 600), items: [], activeIds: [] })
-  const docFrame = () => docSnapshot([])
-
-  it('이웃한 같은 색 메모 노트 창이 보이면 그 문서 창은 이어진 것(옛 선을 그리지 않는다)', () => {
-    const { result } = renderHook(() => usePaneLinkedToNote('left'))
-    expect(result.current).toBe(false)
-    act(() => {
-      registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'a' }, docFrame)
-      registerPaneLinks({ pane: 'right', role: 'note', channel: 'blue' }, noteSnapshot)
-    })
-    expect(result.current).toBe(true)
-  })
-
-  it('노트 탭이 닫히면 다시 옛 선을 그린다', () => {
-    const { result } = renderHook(() => usePaneLinkedToNote('left'))
-    let stop: () => void = () => undefined
-    act(() => {
-      registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'a' }, docFrame)
-      stop = registerPaneLinks({ pane: 'right', role: 'note', channel: 'blue' }, noteSnapshot)
-    })
-    expect(result.current).toBe(true)
-    act(() => stop())
-    expect(result.current).toBe(false)
-  })
-
-  it('채널이 다르거나 이웃하지 않은 노트 창, 노트가 없는 경우에는 옛 선을 그대로 둔다', () => {
-    const { result } = renderHook(() => usePaneLinkedToNote('left'))
-    act(() => {
-      registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'a' }, docFrame)
-      registerPaneLinks({ pane: 'right', role: 'note', channel: 'green' }, noteSnapshot)
-    })
-    expect(result.current).toBe(false)
-    act(() => {
-      registerPaneLinks({ pane: 'right', role: 'note', channel: 'blue' }, () => ({ frame: box(1000, 0, 1400, 600), body: box(1000, 0, 1400, 600), items: [], activeIds: [] }))
-    })
-    expect(result.current).toBe(false)
-  })
-
-  it('창 이름이 없는 곳(시험·단독)은 늘 옛 선', () => {
-    const { result } = renderHook(() => usePaneLinkedToNote(null))
-    expect(result.current).toBe(false)
-  })
-})

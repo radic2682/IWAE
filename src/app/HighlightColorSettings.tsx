@@ -24,7 +24,7 @@ const OTHER_NOTE_OPTIONS: readonly { readonly value: OtherNoteHighlights; readon
   { value: 'hide', label: () => t('숨기기') },
 ]
 
-/** 「다른 노트의 형광펜」: 지금 노트 바에 없는 메모의 형광펜을 PDF 에서 어떻게 그릴까 */
+/** 「다른 노트의 형광펜」: 같은 색 창에 보이는 노트에 없는 메모의 형광펜을 PDF 에서 어떻게 그릴까 */
 function OtherNoteHighlightSetting() {
   const value = useOtherNoteHighlights()
   return (
@@ -44,7 +44,7 @@ function OtherNoteHighlightSetting() {
           </button>
         ))}
       </div>
-      <p className="hlc-caption">{t('지금 열린 노트에 없는 메모의 형광펜을 PDF 에서 어떻게 보일지 정합니다. 노트 바를 닫았을 때는 모두 보통으로 보입니다.')}</p>
+      <p className="hlc-caption">{t('같은 색 창에 보이는 노트에 없는 메모의 형광펜을 PDF 에서 어떻게 보일지 정합니다. 노트가 보이지 않을 때는 모두 보통으로 보입니다.')}</p>
     </div>
   )
 }

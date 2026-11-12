@@ -55,7 +55,8 @@ describe('useMemoNotes — 티켓', () => {
 
   it('제목을 고치면 같은 ID·같은 형광펜의 다른 노트 블록도 바뀌고, 충돌 중인 다른 메모는 그대로이며, 되돌리기 한 번에 모두 돌아온다', async () => {
     const { result } = openHook('C:/v-tickets-sync')
-    await waitFor(() => expect(result.current.openPath).toBe('노트/A.iwnote'))
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.open('노트/A.iwnote'))
     // 바로 앞에 같은 노트를 한 번 고쳐 두어도(1.2초 안) 티켓 고침은 그것과 합쳐지지 않는다
     await act(async () => { result.current.updateOpen((note) => ({ ...note, blocks: [...note.blocks, textBlock('끝 글')] })) })
     act(() => result.current.setTicket!('a1', { id: 'REQ-01', title: '새 제목' }))
@@ -79,7 +80,8 @@ describe('useMemoNotes — 티켓', () => {
 
   it('ID 를 바꾸면 같은 메모의 다른 블록 ID 도 같이 바뀐다', async () => {
     const { result } = openHook('C:/v-tickets-id')
-    await waitFor(() => expect(result.current.openPath).toBe('노트/A.iwnote'))
+    await waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => result.current.open('노트/A.iwnote'))
     act(() => result.current.setTicket!('a1', { id: 'REQ-09', title: '옛 제목' }))
     expect([...result.current.tickets!.groups.keys()].sort()).toEqual(['req-01', 'req-02', 'req-09'])
     expect(result.current.tickets!.groups.get('req-09')!.places.map((place) => place.path)).toEqual(['노트/A.iwnote', '노트/B.iwnote'])

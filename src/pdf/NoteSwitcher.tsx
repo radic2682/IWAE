@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { Browsers, NotePencil, Plus, Trash } from '@phosphor-icons/react'
+import { NotePencil, Plus, Trash } from '@phosphor-icons/react'
 import { groupMemoNotesByDoc, type MemoNoteEntry } from '../core/memoNote'
 import { t } from '../i18n'
 import type { MemoNoteApi } from './memoNoteContext'
 
-/** 지금 문서가 가진 노트와 다른 노트로 나눈다. 문서가 노트를 가질 수 없으면(Markdown 등) 모두 한 목록 */
-export function noteSwitcherGroups(api: MemoNoteApi, currentDocId: string): {
+/**
+ * 지금 문서가 가진 노트와 다른 노트로 나눈다. 문서가 노트를 가질 수 없으면(Markdown 등) 모두 한 목록.
+ * currentPath: 지금 보는 노트(노트 탭의 노트). 다른 PDF 의 노트면 「다른 노트」에 끼워 지금 보는 노트를 알 수 있게 한다
+ */
+export function noteSwitcherGroups(api: MemoNoteApi, currentDocId: string, currentPath: string | null = api.openPath): {
   readonly owner: string | null
   readonly mine: readonly MemoNoteEntry[]
   readonly others: readonly MemoNoteEntry[]
@@ -18,24 +21,32 @@ export function noteSwitcherGroups(api: MemoNoteApi, currentDocId: string): {
   }
   const mine = byDoc.get(owner) ?? []
   const others = [...general]
-  // 다른 PDF 의 노트를 열어 두었으면 그 노트도 목록에 보여 지금 보는 노트를 알 수 있게 한다
-  const open = api.entries.find((entry) => entry.path === api.openPath)
+  const open = api.entries.find((entry) => entry.path === currentPath)
   if (open !== undefined && !mine.some((entry) => entry.path === open.path) && !others.some((entry) => entry.path === open.path)) others.push(open)
   return { owner, mine, others }
 }
 
-/** 오른쪽 바 머리의 노트 바꾸기 목록: 「이 PDF 의 노트」 · 구분선 · 「다른 노트」 */
-export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose, onTrashOpen }: {
+/**
+ * 노트 탭 도구줄의 「노트 열기」 목록: 「이 PDF의 노트」 · 구분선 · 「다른 노트」. 노트를 고르면 탭으로 연다(onPick).
+ * 맨 아래에 새 노트 만들기(onCreate)와 이 노트 휴지통(onTrashCurrent)이 있다.
+ */
+export function NoteSwitcherMenu({ api, currentDocId, docLabel, currentPath, onPick, onCreate, onClose, onTrashCurrent }: {
   readonly api: MemoNoteApi
+  /** 이 노트가 속한 문서 id(없으면 빈 문자열: 일반 노트) */
   readonly currentDocId: string
-  /** 「이 PDF 의 노트 · …」 에 쓸 문서 이름 */
+  /** 「이 PDF의 노트 · …」 에 쓸 문서 이름 */
   readonly docLabel: string
+  /** 지금 보는 노트 */
+  readonly currentPath: string | null
+  readonly onPick: (path: string) => void
+  /** 「새 노트」를 눌렀다(문서에 속한 노트면 그 PDF 의 노트를 만든다) */
+  readonly onCreate?: () => void
   readonly onClose: () => void
-  /** 「이 노트 휴지통으로 이동…」을 눌렀다(열린 노트가 있을 때만 항목이 보인다) */
-  readonly onTrashOpen?: () => void
+  /** 「이 노트 휴지통으로 이동…」을 눌렀다 */
+  readonly onTrashCurrent?: () => void
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
-  const { owner, mine, others } = useMemo(() => noteSwitcherGroups(api, currentDocId), [api, currentDocId])
+  const { owner, mine, others } = useMemo(() => noteSwitcherGroups(api, currentDocId, currentPath), [api, currentDocId, currentPath])
 
   useEffect(() => {
     const onDown = (event: PointerEvent) => {
@@ -63,7 +74,7 @@ export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose, onTrash
   }, [onClose])
 
   const item = (entry: MemoNoteEntry) => {
-    const current = entry.path === api.openPath
+    const current = entry.path === currentPath
     return (
       <button
         key={entry.path}
@@ -72,7 +83,7 @@ export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose, onTrash
         aria-checked={current}
         className={`note-switch-item${current ? ' note-switch-item-current' : ''}`}
         onClick={() => {
-          api.open(entry.path)
+          onPick(entry.path)
           onClose()
         }}
       >
@@ -83,19 +94,19 @@ export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose, onTrash
   }
 
   return (
-    <div ref={ref} className="note-switch-menu" role="menu" aria-label={t('노트 바꾸기')}>
+    <div ref={ref} className="note-switch-menu" role="menu" aria-label={t('노트 열기')}>
       {owner !== null ? (
         <div role="group" aria-label={t('이 PDF의 노트 · {title}', { title: docLabel })}>
           <div className="note-switch-head">{t('이 PDF의 노트 · {title}', { title: docLabel })}</div>
           {mine.map(item)}
-          {api.createForDoc === undefined ? null : (
+          {onCreate === undefined ? null : (
             <button
               type="button"
               role="menuitem"
               className="note-switch-item note-switch-create"
               onClick={() => {
                 onClose()
-                void api.createForDoc?.(currentDocId)
+                onCreate()
               }}
             >
               <Plus size={14} weight="bold" aria-hidden="true" />
@@ -112,21 +123,27 @@ export function NoteSwitcherMenu({ api, currentDocId, docLabel, onClose, onTrash
         </div>
       ) : null}
       {owner === null && others.length === 0 ? <p className="note-switch-empty">{t('노트가 없습니다')}</p> : null}
-      {(onTrashOpen === undefined && api.openInTab === undefined) || api.openPath === null ? null : (
+      {owner === null && onCreate !== undefined ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="note-switch-item note-switch-create"
+          onClick={() => {
+            onClose()
+            onCreate()
+          }}
+        >
+          <Plus size={14} weight="bold" aria-hidden="true" />
+          <span>{t('새 노트 만들기')}</span>
+        </button>
+      ) : null}
+      {onTrashCurrent === undefined || currentPath === null ? null : (
         <>
           <hr className="note-switch-sep" />
-          {api.openInTab === undefined ? null : (
-            <button type="button" role="menuitem" className="note-switch-item note-switch-open-tab" onClick={() => { const path = api.openPath; onClose(); if (path !== null) api.openInTab?.(path) }}>
-              <Browsers size={14} aria-hidden="true" />
-              <span>{t('이 노트를 탭으로 열기')}</span>
-            </button>
-          )}
-          {onTrashOpen === undefined ? null : (
-            <button type="button" role="menuitem" className="note-switch-item note-switch-danger" onClick={() => { onClose(); onTrashOpen() }}>
-              <Trash size={14} aria-hidden="true" />
-              <span>{t('이 노트 휴지통으로 이동…')}</span>
-            </button>
-          )}
+          <button type="button" role="menuitem" className="note-switch-item note-switch-danger" onClick={() => { onClose(); onTrashCurrent() }}>
+            <Trash size={14} aria-hidden="true" />
+            <span>{t('이 노트 휴지통으로 이동…')}</span>
+          </button>
         </>
       )}
     </div>

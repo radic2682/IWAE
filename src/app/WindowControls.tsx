@@ -5,7 +5,7 @@ import { isMacPlatform } from '../core/platform'
 
 interface WindowControlsProps {
   onCloseWindow?: () => void
-  /** 창 단추 왼쪽에 붙일 앱 단추(예: 메모 바 열기·닫기) */
+  /** 창 단추 왼쪽에 붙일 앱 단추(예: 옆에 노트 열기·닫기) */
   leading?: ReactNode
 }
 

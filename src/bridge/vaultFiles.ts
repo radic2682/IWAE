@@ -246,7 +246,7 @@ async function writeTrashEntries(vault: VaultHandle, entries: readonly Record<st
  * 휴지통으로 옮긴 계기. 휴지통 기록(.iwae/trash/index.json)의 source 에 남겨, 문서가 사라졌다는 보고가 오면
  * 어느 화면의 어떤 동작이었는지 알 수 있게 한다.
  */
-export type TrashSource = 'context-menu-confirmed' | 'folder-dialog-confirmed' | 'note-bar-confirmed' | 'unspecified'
+export type TrashSource = 'context-menu-confirmed' | 'folder-dialog-confirmed' | 'note-tab-confirmed' | 'unspecified'
 
 export async function trashVaultEntry(vault: VaultHandle, id: string, source: TrashSource = 'unspecified'): Promise<void> {
   const index = await readVaultIndex(vault)

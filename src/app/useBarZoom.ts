@@ -50,7 +50,7 @@ export function attachBarZoomWheel(element: HTMLElement, side: BarSide): () => v
   }
 }
 
-/** element 위의 Ctrl+휠로 side 바를 확대·축소한다. enabled 가 false 면(메모만 보기 등) 듣지 않는다 */
+/** element 위의 Ctrl+휠로 side 바를 확대·축소한다. enabled 가 false 면(노트 창이 넓은 모양일 때 등) 듣지 않는다 */
 export function useBarZoomWheel(element: HTMLElement | null, side: BarSide, enabled = true): void {
   useEffect(() => {
     if (element === null || !enabled) return undefined

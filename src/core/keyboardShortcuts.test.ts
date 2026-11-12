@@ -96,6 +96,14 @@ describe('resolveAppShortcut', () => {
     expect(resolveAppShortcut(key('L', { ctrlKey: true, shiftKey: true, target: input }))).toBe('toggleLibrary')
   })
 
+  it('Ctrl/Cmd+Shift+M 을 「옆에 노트 열기·닫기」로 해석하고, 글 쓰는 칸 안에서는 쓰지 않는다', () => {
+    expect(resolveAppShortcut(key('M', { ctrlKey: true, shiftKey: true }))).toBe('toggleNoteBeside')
+    expect(resolveAppShortcut(key('m', { metaKey: true, shiftKey: true }))).toBe('toggleNoteBeside')
+    expect(resolveAppShortcut(key('m', { ctrlKey: true }))).toBeNull()
+    const input = document.createElement('input')
+    expect(resolveAppShortcut(key('M', { ctrlKey: true, shiftKey: true, target: input }))).toBeNull()
+  })
+
   it('Alt+←/→ 를 뒤로/앞으로로 해석하고, 입력 칸 안에서는 쓰지 않는다', () => {
     expect(resolveAppShortcut(key('ArrowLeft', { altKey: true }))).toBe('navBack')
     expect(resolveAppShortcut(key('ArrowRight', { altKey: true }))).toBe('navForward')

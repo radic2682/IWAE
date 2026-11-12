@@ -28,7 +28,7 @@ export interface MemoNotesSectionProps {
   /** 오른쪽 바에 열린 노트 */
   readonly openPath: string | null
   readonly onOpen: (path: string) => void
-  /** 노트를 창의 탭으로 연다(오른쪽 노트 바와 따로). 없으면 메뉴에 보이지 않는다 */
+  /** 노트를 창의 탭으로 연다(문서 옆에, 이미 노트를 보이는 창이 있으면 그 창의 탭으로). 없으면 메뉴에 보이지 않는다 */
   readonly onOpenInTab?: (path: string) => void
   readonly onCreate: () => void
   /** 그 폴더에 새 노트(폴더 우클릭·폴더 줄의 +) */

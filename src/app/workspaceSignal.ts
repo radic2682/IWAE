@@ -22,7 +22,7 @@ export interface PointSignal {
   readonly reason: 'click' | 'ai' | 'search'
   /**
    * 보낸 쪽이 문서 화면('document': 문서의 형광펜)인가 노트 화면('note': 노트 카드·출처)인가. 없으면 보낸 창의 보이는 탭 종류로 본다.
-   * 노트 바(오른쪽 고정 바)는 문서 창이 그리지만 노트 화면이다 — 그 카드를 누르면 'note'.
+   * 메모 노트 탭의 카드·출처를 누르면 'note', 문서의 형광펜을 누르면 'document'.
    */
   readonly origin?: 'document' | 'note'
 }

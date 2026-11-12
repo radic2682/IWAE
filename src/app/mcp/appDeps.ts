@@ -57,7 +57,8 @@ export interface McpAppInput {
   /** AI 가 가리키는 임시 표시(저장되지 않는다. 선택·형광펜과 따로 그린다) */
   readonly pointAt: (anchor: Anchor, message?: string | null) => void
   readonly draftAnchor: (anchor: Anchor) => void
-  readonly openMemoNote: (path: string) => void
+  /** 노트를 탭으로 연다: pane 이 있으면 그 창의 탭으로, 없으면 문서 창 옆(이미 노트를 보이는 창이 있으면 그 창의 탭). 놓은 창 */
+  readonly openMemoNote: (path: string, pane?: PaneId) => PaneId
   readonly liveSelection: () => { readonly docId: string; readonly page: number; readonly text: string } | null
   readonly setFileFavorite: (id: string, favorite: boolean) => void
   /** PDF 도구를 새 파일로(원본 옆, Vault 안). 쓴 경로 */
@@ -173,9 +174,11 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
     bookmarks: input.bookmarks.list,
 
     openDocument,
-    openNote: (path) => {
-      input.openMemoNote(path)
-      return { pane: input.activePaneId }
+    openNote: (path, pane) => {
+      const explicit = pane !== undefined && pane !== 'active'
+      const target = explicit ? resolvePane(pane) : undefined
+      if (target !== undefined) ensurePane(target)
+      return { pane: input.openMemoNote(path, target) }
     },
     setLayout: (count, focus) => {
       input.setPaneCount(count)

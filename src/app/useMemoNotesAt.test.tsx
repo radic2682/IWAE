@@ -100,6 +100,7 @@ describe('noteAt / updateNoteAt: 열린 노트가 아닌 노트도 같은 저장
 
   it('열린 노트(updateOpen)와 탭의 노트(updateNoteAt)를 번갈아 고쳐도 하나로 합쳐진다', async () => {
     const { result } = await mount()
+    act(() => result.current.open(OPEN))
     const path = result.current.openPath!
     act(() => result.current.updateOpen(add('from-bar')))
     act(() => result.current.updateNoteAt(path, add('from-tab')))

@@ -6,9 +6,6 @@ import type { VisiblePdfSourceReference } from '../core/workspaceSources'
 import type { PdfSearchMatch } from '../core/pdfSearch'
 import { setHighlightTool } from './highlightToolStore'
 import { PdfPane, pageFitZoom } from './PdfPane'
-import { resetMemoStore, setMemoBarVisible } from './memoStore'
-import { MemoNoteContext, type MemoNoteApi } from './memoNoteContext'
-import type { ReactNode } from 'react'
 
 vi.mock('../bridge/pdf', async (importOriginal) => {
   const original = await importOriginal<typeof import('../bridge/pdf')>()
@@ -94,7 +91,6 @@ function mount(
     rotation?: 0 | 90 | 180 | 270
     invert?: boolean
     onlyOpenNotes?: boolean
-    noteApi?: MemoNoteApi
   } = {},
 ) {
   setViewport(VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
@@ -123,9 +119,6 @@ function mount(
       invert={options.invert}
       onlyOpenNotes={options.onlyOpenNotes}
     />,
-    options.noteApi === undefined ? undefined : {
-      wrapper: ({ children }: { children: ReactNode }) => <MemoNoteContext.Provider value={options.noteApi!}>{children}</MemoNoteContext.Provider>,
-    },
   )
   const scroller = view.container.querySelector('.pdf-pane')
   if (scroller === null) throw new Error('.pdf-pane 이 없다')
@@ -539,92 +532,9 @@ describe('PdfPane — 형광펜 메모', () => {
     await waitFor(() => expect(renderedPages(spread.container).sort()).toEqual([2, 3]))
   })
 
-  it('메모 바는 맨 위 줄 단추(공유 상태)로 닫았다 열고, 메모만 보기로 바꾸면 PDF 자리에 같은 노트 블록이 넓게 나온다', async () => {
-    window.localStorage.removeItem('iwae:pdf-memo-column:v1')
-    resetMemoStore()
-    const highlight = {
-      id: '0123456789ab:0:0:1',
-      color: 'yellow' as const,
-      note: '펄스 폭으로 구분',
-      anchor: {
-        docId: '0123456789ab', page: 0, coordSpace: 'pdfium-page' as const,
-        rects: [{ x: 10, y: 10, w: 100, h: 12 }], charRange: [0, 1] as const, quote: 'Tstrpw', prefix: '', suffix: '',
-      },
-    }
-    const { container, findByRole } = mount({ pageCount: 2, persistentHighlights: [highlight], onPersistentHighlightUpdated: vi.fn() })
-    expect(await findByRole('button', { name: '노트 검색' })).toBeTruthy()
-    act(() => setMemoBarVisible(false))
-    // 닫는 동안(전환) 바는 서서히 사라지도록 잠깐 남아 있다가 지워진다
-    expect(container.querySelector('.pdf-memo-bar')?.classList.contains('note-bar-exiting')).toBe(true)
-    await waitFor(() => expect(container.querySelector('.pdf-memo-card')).toBeNull())
-    act(() => setMemoBarVisible(true))
-    await waitFor(() => expect(container.querySelector('.pdf-memo-card')).not.toBeNull())
-    fireEvent.click(await findByRole('button', { name: '메모만 보기' }))
-    await waitFor(() => expect(container.querySelector('.pdf-memo-bar-body.note-wide .pdf-memo-card')).not.toBeNull())
-    expect(container.querySelector('.pdf-memo-bar-wide')).not.toBeNull()
-    // 원문은 펼쳐 보인다
-    expect(container.querySelector('.pdf-memo-bar-wide .pdf-memo-card-quote')?.textContent).toContain('Tstrpw')
-    fireEvent.click(await findByRole('button', { name: '문서와 같이 보기' }))
-    expect(container.querySelector('.pdf-memo-bar-wide')).toBeNull()
-  })
-
-  it('형광펜을 클릭하면 오른쪽 메모 카드가 글쓰기로 열리고 고친 메모를 올려 보낸다', async () => {
-    const onPersistentHighlightUpdated = vi.fn()
-    const onPersistentHighlightRemoved = vi.fn()
-    const highlight = {
-      id: '0123456789ab:0:0:1',
-      color: 'yellow' as const,
-      anchor: {
-        docId: '0123456789ab', page: 0, coordSpace: 'pdfium-page' as const,
-        rects: [{ x: 0, y: 0, w: 612, h: 792 }], charRange: [0, 1] as const, quote: 'A', prefix: '', suffix: '',
-      },
-    }
-    const { container, findByRole } = mount({
-      pageCount: 2,
-      persistentHighlights: [highlight],
-      onPersistentHighlightUpdated,
-      onPersistentHighlightRemoved,
-    })
-    const layer = await waitFor(() => {
-      const found = container.querySelector('[data-testid="selection-layer"]')
-      if (found === null) throw new Error('선택 레이어가 아직 없다')
-      return found
-    })
-    fireEvent.pointerDown(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 1 })
-    fireEvent.pointerUp(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 1 })
-
-    const box = await findByRole('textbox', { name: '메모' })
-    expect(box.closest('.pdf-memo-card')).not.toBeNull()
-    box.textContent = '중요'
-    fireEvent.input(box)
-    fireEvent.blur(box)
-    expect(onPersistentHighlightUpdated).toHaveBeenCalledWith(highlight.id, { note: '중요', noteHtml: '' })
-    // 다시 눌러 카드를 열고 지운다
-    fireEvent.pointerDown(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 2 })
-    fireEvent.pointerUp(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 2 })
-    fireEvent.contextMenu(container.querySelector('.pdf-memo-card-flow')!)
-    fireEvent.click(await findByRole('menuitem', { name: '형광펜과 메모 지우기' }))
-    expect(onPersistentHighlightRemoved).toHaveBeenCalledWith(highlight.id)
-  })
 })
 
-describe('PdfPane — 손 도구·노트 닫기', () => {
-  const noteApi = (overrides: Partial<MemoNoteApi> = {}): MemoNoteApi => ({
-    entries: [{ path: '노트/A.iwnote', title: 'A' }],
-    openPath: '노트/A.iwnote',
-    openTitle: 'A',
-    openNote: { version: 1, blocks: [] },
-    open: vi.fn(),
-    close: vi.fn(),
-    closed: false,
-    create: vi.fn().mockResolvedValue('노트/새 노트.iwnote'),
-    updateOpen: vi.fn(),
-    noteAt: () => null,
-    updateNoteAt: vi.fn(),
-    notesOf: () => [],
-    ...overrides,
-  })
-
+describe('PdfPane — 손 도구', () => {
   it('손 도구로 빈 곳을 잡고 끌면 화면이 따라 움직인다', () => {
     const { scroller } = mount({ interactionMode: 'hand', pageCount: 3 })
     expect(scroller.classList.contains('pdf-pane-hand')).toBe(true)
@@ -649,45 +559,6 @@ describe('PdfPane — 손 도구·노트 닫기', () => {
     expect(top).toBe(400)
   })
 
-  it('「노트 닫기」는 열린 노트를 닫아 오른쪽 바를 비운다', async () => {
-    resetMemoStore()
-    const api = noteApi()
-    const { findByRole } = mount({ pageCount: 2, onPersistentHighlightUpdated: vi.fn(), noteApi: api })
-    fireEvent.click(await findByRole('button', { name: '노트 닫기' }))
-    expect(api.close).toHaveBeenCalledTimes(1)
-  })
-
-  it('노트를 닫아 두었으면 글을 골라도 새 노트를 저절로 만들지 않는다', async () => {
-    resetMemoStore()
-    const api = noteApi({ openPath: null, openTitle: null, openNote: null, closed: true })
-    const { container, queryByRole } = mount({ pageCount: 2, onPersistentHighlightUpdated: vi.fn(), noteApi: api })
-    expect(queryByRole('button', { name: '노트 닫기' })).toBeNull()
-    const layer = await waitFor(() => {
-      const found = container.querySelector('[data-testid="selection-layer"]')
-      if (found === null) throw new Error('선택 레이어가 아직 없다')
-      return found
-    })
-    fireEvent.pointerDown(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 1 })
-    fireEvent.pointerMove(layer, { clientX: 200, clientY: 34, pointerId: 1 })
-    fireEvent.pointerUp(layer, { button: 0, clientX: 200, clientY: 34, pointerId: 1 })
-    expect(queryByRole('toolbar', { name: 'PDF 선택 작업' })).not.toBeNull()
-    expect(api.create).not.toHaveBeenCalled()
-  })
-
-  it('노트를 닫지 않았는데 열린 노트가 없으면 글을 고를 때 새 노트를 만든다(예전 그대로)', async () => {
-    resetMemoStore()
-    const api = noteApi({ openPath: null, openTitle: null, openNote: null, closed: false })
-    const { container } = mount({ pageCount: 2, onPersistentHighlightUpdated: vi.fn(), noteApi: api })
-    const layer = await waitFor(() => {
-      const found = container.querySelector('[data-testid="selection-layer"]')
-      if (found === null) throw new Error('선택 레이어가 아직 없다')
-      return found
-    })
-    fireEvent.pointerDown(layer, { button: 0, clientX: 30, clientY: 30, pointerId: 1 })
-    fireEvent.pointerMove(layer, { clientX: 200, clientY: 34, pointerId: 1 })
-    fireEvent.pointerUp(layer, { button: 0, clientX: 200, clientY: 34, pointerId: 1 })
-    expect(api.create).toHaveBeenCalledTimes(1)
-  })
 })
 
 describe('PdfPane — 보기 옵션', () => {
@@ -724,47 +595,3 @@ describe('PdfPane — 보기 옵션', () => {
   })
 })
 
-describe('PdfPane — 열린 노트 표시만 보기', () => {
-  const make = (id: string, x: number) => ({
-    id,
-    color: 'yellow' as const,
-    note: id,
-    anchor: {
-      docId: '0123456789ab', page: 0, coordSpace: 'pdfium-page' as const,
-      rects: [{ x, y: 0, w: 100, h: 100 }], charRange: [x, x + 1] as const, quote: id, prefix: '', suffix: '',
-    },
-  })
-  const open = make('open-note', 0)
-  const closed = make('closed-note', 200)
-  const loose = make('no-note', 400)
-  const owners: Record<string, string[]> = { 'open-note': ['노트/A.iwnote'], 'closed-note': ['노트/Z.iwnote'] }
-  const api = (): MemoNoteApi => ({
-    entries: [{ path: '노트/A.iwnote', title: 'A' }, { path: '노트/Z.iwnote', title: 'Z' }],
-    openPath: '노트/A.iwnote',
-    openTitle: 'A',
-    openNote: { version: 1, blocks: [] },
-    open: vi.fn(),
-    create: vi.fn().mockResolvedValue(null),
-    updateOpen: vi.fn(),
-    noteAt: () => null,
-    updateNoteAt: vi.fn(),
-    notesOf: (id) => owners[id] ?? [],
-  })
-  const drawn = async (container: HTMLElement) => {
-    await waitFor(() => { if (container.querySelector('[data-testid="selection-layer"]') === null) throw new Error('선택 레이어가 아직 없다') })
-    return [...container.querySelectorAll('.selection-persistent-highlight')]
-  }
-
-  it('켜면 열린 노트에 없는 형광펜(다른 노트·노트 없음)은 그려지지 않는다', async () => {
-    resetMemoStore()
-    const { container } = mount({ pageCount: 1, persistentHighlights: [open, closed, loose], noteApi: api(), onlyOpenNotes: true })
-    const marks = await drawn(container)
-    expect(marks.length).toBe(1)
-  })
-
-  it('끄면 모두 그려진다', async () => {
-    resetMemoStore()
-    const { container } = mount({ pageCount: 1, persistentHighlights: [open, closed, loose], noteApi: api(), onlyOpenNotes: false })
-    expect((await drawn(container)).length).toBe(3)
-  })
-})

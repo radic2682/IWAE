@@ -417,8 +417,7 @@
 
 .topbar-panetab-zone .pane-tabs-menu { padding-inline: var(--grid); }
 .topbar-panetab-zone-right .pane-tabs-menu { padding-right: 146px; }
-/* 맨 오른쪽 탭 칸은 노트 바 칸(문서 창 바깥) 위까지 이어진다 — 나머지 칸 경계는 아래 문서 창 경계와 맞는다 */
-.topbar-panetab-zone-right { flex-basis: var(--note-dock-w, 0px); }
+.topbar-panetab-zone-right { flex-basis: 0px; }
 .topbar-sidebar-unreserved .topbar-panetab-zone:first-child .pane-tabs-menu { padding-left: 146px; }
 
 .topbar-pane-divider {

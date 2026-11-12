@@ -66,7 +66,10 @@ function external(path: string, value: MemoNote): void {
 async function open() {
   const messages: string[] = []
   const view = renderHook(() => useMemoNotes(vault, [], () => '', (message) => messages.push(message)))
-  await waitFor(() => expect(view.result.current.openPath).toBe(PATH))
+  await waitFor(() => expect(view.result.current.loaded).toBe(true))
+  // 마지막으로 만진 노트가 이 노트다(처음에는 아무도 만지지 않았다)
+  act(() => view.result.current.open(PATH))
+  expect(view.result.current.openPath).toBe(PATH)
   await waitFor(() => expect(watchers.callback).not.toBeNull())
   return { ...view, messages }
 }

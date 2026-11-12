@@ -57,7 +57,7 @@ interface MarkdownWriteLayerProps {
   readonly onOverlayUpdate?: (id: string, patch: OverlayPatch) => void
   readonly onOverlayRemove?: (id: string) => void
   readonly onModeChange?: (mode: 'text') => void
-  /** 메모 바에서 쓰는 중인 새 메모(형광펜만 칠한다) */
+  /** 노트 탭에서 쓰는 중인 새 메모(형광펜만 칠한다) */
   readonly draftMemo?: PersistentPdfHighlight | null
 }
 

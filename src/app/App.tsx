@@ -32,10 +32,12 @@ import { recognizePdfPageLines } from '../pdf/pdfOcrText'
 import { detectPageRotation } from '../pdf/pdfPageOrientation'
 import type { PageTextIndex } from '../core/textIndex'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
-import { setMemoBarVisible, useMemoBarVisible } from '../pdf/memoStore'
 import { MemoNoteContext, requestTitleEdit, type MemoNoteApi } from '../pdf/memoNoteContext'
 import { MemoNoteTabView } from '../pdf/MemoNoteTabView'
-import { memoNoteTabPane, useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './useMemoNoteTabs'
+import { useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './useMemoNoteTabs'
+import { createNoteBesideOpener, pickNotePath, type NoteBesideOpener, type NoteBesideHost } from './noteBeside'
+import { applyLayoutPreset, availableLayoutPresets, type LayoutPresetId } from './layoutPresets'
+import { barMigrationKey, legacyBarWasOpen, migrateNoteBar } from './noteBarMigration'
 import { useMemoNotes } from './useMemoNotes'
 import { useMouseGestures } from './useMouseGestures'
 import { useSmoothWheel } from './useSmoothWheel'
@@ -106,7 +108,7 @@ import {
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { collapseEmptyPane, dockTab, dockableEdges, moveTabToPaneAt, type DockEdge } from './tabDock'
-import { cyclePaneChannel, remapChannelsByKeep, swapPaneChannels } from './workspaceChannels'
+import { cyclePaneChannel, remapChannelsByKeep, swapPaneChannels, type PaneChannels } from './workspaceChannels'
 import { useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
 import { emitPointSignal, subscribePointSignal, type DeliveredSignal } from './workspaceSignal'
@@ -143,6 +145,7 @@ import {
   isDocumentKind,
   paneRouteOf,
   type PaneId,
+  type PanesState,
   type Tab,
 } from './tabs'
 import type { LibraryDoc, NotebookGroup, VaultMarkdownNode, VaultTreeNode } from '../core/vaultTree'
@@ -372,7 +375,7 @@ function AutosavedNoteCanvas({
  * 강제한다. 문서는 pdfTabs 로만, 노트는 noteTabs 로만 들어간다.
  */
 export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
-  // 창의 역할: 메인 · 떼어 낸 창(PDF 하나 + 노트 바) · 새 창. 같은 화면을 쓰고 몇 가지만 다르다
+  // 창의 역할: 메인 · 떼어 낸 창(PDF 하나) · 새 창. 같은 화면을 쓰고 몇 가지만 다르다
   const windowMode = currentWindowMode()
   const isMainWindow = windowMode.role === 'main'
   const isDetachedWindow = windowMode.role === 'detached'
@@ -1062,6 +1065,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     print: () => window.dispatchEvent(new CustomEvent('iwae:print')),
     openSettings: () => { setSettingsSection(undefined); setSettingsOpen(true) },
     toggleSinglePane: () => { if (SPLIT_PANES_ENABLED) toggleSinglePaneRef.current() },
+    toggleNoteBeside: () => { if (vault !== null) toggleNoteBeside() },
     // 형광펜·메모·박스 메모·그림·노트 블록 되돌리기. 글 칸 안에서는 브라우저의 글자 되돌리기가 먼저다.
     // 예전 캔버스 노트가 열려 있으면 그쪽 기록을 쓴다(NoteCanvas)
     undo: () => {
@@ -1142,7 +1146,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         { id: 'library', kind: 'action' as const, label: t('라이브러리 펼치기·접기'), shortcut: shortcutText('toggleLibrary'), keywords: 'library', run: act('toggleLibrary') },
         { id: 'sidebar', kind: 'action' as const, label: t('왼쪽 바 접기·펴기'), keywords: 'sidebar', run: () => setSidebarCollapsed((value) => !value) },
       ]),
-      { id: 'new-note', kind: 'action', label: t('새 노트 만들기'), keywords: 'new note', run: () => { void memoNotes.create() } },
+      { id: 'new-note', kind: 'action', label: t('새 노트 만들기'), keywords: 'new note', run: () => { void memoNotes.create().then((path) => { if (path !== null) openMemoNoteTab(path) }) } },
+      ...(docPaneId !== null && vault !== null ? [{ id: 'note-beside', kind: 'action' as const, label: noteBesideShown ? t('옆에 노트 닫기') : t('옆에 노트 열기'), shortcut: shortcutText('toggleNoteBeside'), keywords: 'note beside side open close memo reading 노트 옆 읽기', run: act('toggleNoteBeside') }] : []),
+      ...(SPLIT_PANES_ENABLED && !isDetachedWindow && vault !== null ? availableLayoutPresets(CANVAS_ENABLED).map((preset) => ({ id: `layout-${preset.id}`, kind: 'action' as const, label: t('배치: {name}', { name: preset.label }), keywords: 'layout preset arrangement 배치', run: () => { void applyPreset(preset.id) } })) : []),
       { id: 'zotero-import', kind: 'action', label: t('Zotero 에서 가져오기…'), keywords: 'zotero import library references pdf', run: () => { void interop.runZotero() } },
       { id: 'export-vault-markdown', kind: 'action', label: t('모든 노트를 Markdown 으로 내보내기…'), keywords: 'markdown export obsidian notion vault notes', run: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
       { id: 'undo', kind: 'action', label: t('되돌리기'), shortcut: shortcutText('undo'), keywords: 'undo', run: act('undo') },
@@ -1258,11 +1264,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ? activePaneId
     : activeTab(panes[otherPane(activePaneId)])?.kind === 'canvas' ? otherPane(activePaneId) : null
   const activeDocumentTab = docPaneId === null ? null : activeTab(panes[docPaneId])
-  // 노트 바(창 맨 오른쪽)를 그리는 문서 창. 만진 문서 창이 기본이지만, PDF 가 다른 창에 있으면 그 PDF 창이 그린다 —
-  // 그래야 만지는 창이 바뀌어도 바가 다시 만들어지지 않고, PDF 형광펜 선이 카드까지 이어진다(Markdown 창의 선은 바를 보고 따로 그린다)
-  const noteHostPaneId: PaneId | null = docPaneId === null
-    ? null
-    : activeTab(panes[docPaneId])?.kind === 'pdf' || activeTab(panes[otherPane(docPaneId)])?.kind !== 'pdf' ? docPaneId : otherPane(docPaneId)
   // Markdown 탭마다 지금 절(왼쪽 바 「목차」에 지금 자리로 보인다)
   const [markdownSectionState, setMarkdownSectionState] = useState<Readonly<Record<string, number>>>({})
   useEffect(() => {
@@ -1407,7 +1408,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }
   }, [navigation])
   // 왼쪽 바 「PDF 검색」 보기의 칸. 지금 문서의 검색 칸·결과가 여기에 붙는다
-  const memoBarVisible = useMemoBarVisible()
   const [pdfSearchSlot, setPdfSearchSlot] = useState<HTMLElement | null>(null)
   // 메모 노트: 오른쪽 바에 PDF 와 따로 여는 노트(여러 PDF 의 메모 + 글 블록). 처음 한 번 예전 카테고리를 노트로 옮긴다
   const memoNoteDocTitle = useCallback((docId: string) => docTitles[docId] ?? '', [docTitles])
@@ -1425,33 +1425,175 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     (docId: string) => groupOfDoc(versionGroups.groups, docId)?.title ?? docTitles[docId] ?? '',
     [docTitles, versionGroups.groups],
   )
+  /** 이 PDF 의 노트를 만든다(만든 경로). 열기는 부르는 쪽이 한다 */
   const createNoteForDoc = useCallback(async (docId: string) => {
     const owner = noteDocOwner(docId) ?? docId
     const title = docNoteTitle(noteDocLabel(owner), memoNotes.entries.map((entry) => entry.title))
-    const path = await memoNotes.createIn('', title, owner)
-    if (path !== null) {
-      setMemoBarVisible(true)
-      requestTitleEdit(path)
-    }
-    return path
+    return memoNotes.createIn('', title, owner)
   }, [memoNotes, noteDocLabel, noteDocOwner])
-  /**
-   * 메모 노트를 창의 탭으로 연다(이미 탭이면 그 탭으로). 창이 여럿이면 지금 만진 창의 옆 창에, 하나뿐이면 그 창에 연다.
-   * 노트 바의 열린 노트와는 따로다 — 같은 노트를 둘 다에서 봐도 저장소는 하나다
-   */
-  const openMemoNoteTab = (path: string) => {
-    const target = memoNoteTabPane(panes, path, visiblePanes(shownPaneCount), activePaneId)
-    openInPane({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' }, target)
-    setActivePaneId(target)
-    setPaneRoute('note', target)
-  }
-  const memoNoteApi: MemoNoteApi = { ...memoNotes, openInTab: openMemoNoteTab, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc, trashNote: async (path, source) => { await memoNotes.trash(path, source); forgetMemoPaths([path]) } }
 
   // ---------- 작업 공간: 색 채널·가리키기 신호 ----------
   // 같은 색 창끼리만 연동한다. 형광펜·카드·출처를 누르면 그 창이 신호(workspaceSignal)를 보내고,
   // 여기서 「필요한 문서·노트가 같은 색 창에 보이게」 한다(탭 활성화 → 미리보기 탭 → 옆에 새 창). 스크롤·깜빡임은 받는 창이 한다.
   const previewTabsEnabled = useAppPrefs().previewTabs
   const pinPaneTab = useCallback((tabId: string) => setPanes((current) => pinTabInPanes(current, tabId)), [setPanes])
+  const workspaceLatest = useRef({ panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled, docPaneId, activePaneId })
+  workspaceLatest.current = { panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled, docPaneId, activePaneId }
+  const memoNotesRef = useRef(memoNotes)
+  memoNotesRef.current = memoNotes
+
+  // ---------- 옆에 노트 열기 ----------
+  // 노트 바는 없다: 노트는 창의 탭이고, 「읽기」 배치(문서 | 노트)는 문서 창 옆에 노트 창을 여는 것이다.
+  const noteTabOf = (path: string): Tab => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' })
+  /** 새 창이 자라듯 나타나고, 끝나면 연결선이 새 자리를 다시 잰다 */
+  const announceFreshPane = (pane: PaneId) => {
+    setFreshPane(pane)
+    window.setTimeout(() => setFreshPane(null), 320)
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+      window.dispatchEvent(new Event('iwae:pane-resize-end'))
+    }, 280)
+  }
+  /**
+   * 창·색·배치를 바꾼다. 같은 틱의 다음 호출이 새 배치를 보도록 최신 값(workspaceLatest)도 바로 고친다.
+   * fresh: 새로 생긴 창(자라듯 나타나게 한다)
+   */
+  const applyWorkspace = (next: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: PdfSplitLayoutId }, fresh?: PaneId) => {
+    const latest = workspaceLatest.current
+    workspaceLatest.current = { ...latest, panes: next.panes, channels: next.channels, shownLayoutId: next.layout, shownPaneCount: pdfSplitLayout(next.layout).cells.length as PaneCount }
+    if (next.panes !== latest.panes) setPanes(next.panes)
+    if (next.channels !== latest.channels) setChannels(next.channels)
+    if (next.layout !== latest.shownLayoutId) setPaneLayout(next.layout)
+    if (fresh !== undefined) announceFreshPane(fresh)
+  }
+  /** 노트를 붙일 문서 창: 지금 보는 문서 창, 없으면 문서를 보는 첫 창. 문서가 없으면 null */
+  const anchorDocPane = (): PaneId | null => {
+    const now = workspaceLatest.current
+    if (now.docPaneId !== null) return now.docPaneId
+    return visiblePanes(now.shownPaneCount).find((pane) => isDocTab(activeTab(now.panes[pane]))) ?? null
+  }
+  // 옆에 노트 열기의 흐름(어느 노트를 열지 → 어디에 놓을지 → 반영)은 noteBeside.ts 가 맡고, 앱은 손잡이만 내준다
+  const besideHostRef = useRef<NoteBesideHost | null>(null)
+  besideHostRef.current = {
+    snapshot: () => ({ panes: workspaceLatest.current.panes, channels: workspaceLatest.current.channels, visible: visiblePanes(workspaceLatest.current.shownPaneCount), layoutId: workspaceLatest.current.shownLayoutId }),
+    apply: applyWorkspace,
+    lastTouched: () => memoNotesRef.current.openPath,
+    entries: () => memoNotesRef.current.entries,
+    docOwner: noteDocOwner,
+    createForDoc: createNoteForDoc,
+    createGeneral: () => memoNotesRef.current.create(),
+    touch: (path) => memoNotesRef.current.open(path),
+    available: () => vault !== null,
+    docIdOf: (tab) => (tab !== null && isDocumentKind(tab.kind) ? tabDocId(tab) : null),
+  }
+  const besideRef = useRef<NoteBesideOpener | null>(null)
+  besideRef.current ??= createNoteBesideOpener({
+    snapshot: () => besideHostRef.current!.snapshot(),
+    apply: (next, fresh) => besideHostRef.current!.apply(next, fresh),
+    lastTouched: () => besideHostRef.current!.lastTouched(),
+    entries: () => besideHostRef.current!.entries(),
+    docOwner: (docId) => besideHostRef.current!.docOwner(docId),
+    createForDoc: (docId) => besideHostRef.current!.createForDoc(docId),
+    createGeneral: () => besideHostRef.current!.createGeneral(),
+    touch: (path) => besideHostRef.current!.touch(path),
+    available: () => besideHostRef.current!.available(),
+    docIdOf: (tab) => besideHostRef.current!.docIdOf(tab),
+  })
+  /** 「옆에 노트 열기」: 어느 노트를 열지는 마지막으로 만진 노트 → 이 문서의 노트 → 새 노트 순서다. 열린 노트 경로(못 열면 null) */
+  const openNoteBeside = (pane: PaneId | null, notePath?: string, preview = false): Promise<string | null> => {
+    const anchor = pane ?? anchorDocPane()
+    return anchor === null ? Promise.resolve(null) : besideRef.current!.open(anchor, notePath, preview)
+  }
+  /** 노트 탭 열기(사이드바·노트 열기 메뉴·티켓의 다른 자리): 이미 탭이면 그 탭으로, 노트를 보이는 창이 있으면 거기에 탭으로, 아니면 문서 창 옆에 새 창. 놓은 창 */
+  const openMemoNoteTab = (path: string, from?: PaneId): PaneId => {
+    const now = workspaceLatest.current
+    const anchor = from ?? (activeTab(now.panes[now.activePaneId])?.kind === 'memoNote' ? now.activePaneId : anchorDocPane() ?? now.activePaneId)
+    const outcome = besideRef.current!.place(anchor, path)
+    setActivePaneId(outcome.pane)
+    setPaneRoute('note', outcome.pane)
+    return outcome.pane
+  }
+  /** 「옆에 노트 열기 / 닫기」: 같은 색 창에 노트가 보이면 그 노트 창을 닫고, 아니면 연다 */
+  const toggleNoteBeside = () => {
+    const anchor = anchorDocPane()
+    if (anchor === null) return
+    const result = besideRef.current!.toggle(anchor)
+    if (result.kind === 'opening') {
+      void result.opened.then((path) => {
+        if (path === null) announceAction(t('열 수 있는 노트가 없습니다'))
+      })
+      return
+    }
+    const landed = result.outcome.remap(anchor)
+    setActivePaneId(landed)
+    setPaneRoute('doc', landed)
+  }
+  /** 노트를 보이는 같은 색 창이 있는가(상단바 단추의 눌림 표시) */
+  const noteBesideShown = docPaneId !== null && visibleNotePathsIn(panes, channels, visiblePanes(shownPaneCount), channels[docPaneId]).length > 0
+  /** 이름 붙은 배치: 지금 탭들을 그 모양으로 다시 놓는다(탭은 닫지 않는다) */
+  const applyPreset = async (id: LayoutPresetId) => {
+    const now = workspaceLatest.current
+    const anchor = anchorDocPane()
+    const docTab = anchor === null ? null : activeTab(now.panes[anchor])
+    const docId = docTab !== null && isDocumentKind(docTab.kind) ? tabDocId(docTab) : null
+    const hasNote = allPaneTabs(now.panes).some((tab) => tab.kind === 'memoNote')
+    let fallbackPath: string | null = null
+    if (!hasNote && id !== 'organize') {
+      fallbackPath = pickNotePath({ lastTouched: memoNotesRef.current.openPath, docId, entries: memoNotesRef.current.entries, docOwner: noteDocOwner })
+      if (fallbackPath === null && docId !== null) fallbackPath = await createNoteForDoc(docId)
+    }
+    const latest = workspaceLatest.current
+    const result = applyLayoutPreset({ id, panes: latest.panes, channels: latest.channels, anchor, lastTouched: memoNotesRef.current.openPath, fallbackNote: fallbackPath === null ? null : noteTabOf(fallbackPath) })
+    applyWorkspace({ panes: result.panes, channels: result.channels, layout: result.layout })
+    setActivePaneId(result.focus)
+    const focusTab = activeTab(result.panes[result.focus])
+    if (focusTab !== null) setPaneRoute(paneRouteOf(focusTab.kind), result.focus)
+    announceFreshPane(result.focus === 'left' ? 'right' : 'left')
+  }
+  /** 문서 창에서 누른 형광펜을 보여 줄 노트가 같은 색 창에 안 보일 때: 그 메모의 노트를 옆에 열고(미리보기 설정이면 미리보기 탭) 그 카드를 보인다 */
+  const revealMemoBeside = (pane: PaneId | null, memoId: string) => {
+    const anchor = pane ?? anchorDocPane()
+    if (anchor === null) return
+    const owner = memoNotesRef.current.notesOf(memoId)[0]
+    void openNoteBeside(anchor, owner, workspaceLatest.current.previewTabsEnabled).then((path) => {
+      if (path === null) return
+      emitPointSignal({ from: anchor, channel: workspaceLatest.current.channels[anchor], target: { kind: 'memo', memoId, notePath: path }, reason: 'click', origin: 'document' })
+    })
+  }
+  // 마지막으로 만진 노트: 노트 탭이 보이는 창에 포커스가 가면 그 노트가 「마지막으로 만진 노트」(openPath)다. 편집·열기는 useMemoNotes 가 같은 값을 바꾼다
+  const focusedMemoNotePath = (() => { const tab = activeTab(panes[activePaneId]); return tab?.kind === 'memoNote' ? tab.id : null })()
+  const touchMemoNote = memoNotes.open
+  const memoNotesLoaded = memoNotes.loaded
+  useEffect(() => {
+    if (memoNotesLoaded && focusedMemoNotePath !== null) touchMemoNote(focusedMemoNotePath)
+  }, [focusedMemoNotePath, memoNotesLoaded, touchMemoNote])
+  // 예전 오른쪽 노트 바를 쓰던 Vault 는 처음 한 번 「읽기」 배치(문서 | 노트)로 옮긴다. 바를 닫아 두었으면 노트 창 없이 그대로 연다
+  useEffect(() => {
+    if (vault === null || !isMainWindow || initializing || !memoNotesLoaded) return
+    const key = barMigrationKey(vault.root)
+    try {
+      if (window.localStorage.getItem(key) === '1') return
+      window.localStorage.setItem(key, '1')
+    } catch { /* 저장 못 하면 이번 실행에서만 한 번 */ }
+    const now = workspaceLatest.current
+    const anchor = anchorDocPane()
+    const docTab = anchor === null ? null : activeTab(now.panes[anchor])
+    const docId = docTab !== null && isDocumentKind(docTab.kind) ? tabDocId(docTab) : null
+    const { openPath, entries } = memoNotesRef.current
+    // 예전 바가 보이던 노트: 기억해 둔 열린 노트 → 이 문서의 노트 → 첫 노트
+    const notePath = pickNotePath({ lastTouched: openPath, docId, entries, docOwner: noteDocOwner }) ?? entries[0]?.path ?? null
+    const outcome = migrateNoteBar({ barOpen: legacyBarWasOpen(window.localStorage), panes: now.panes, channels: now.channels, visible: visiblePanes(now.shownPaneCount), layoutId: now.shownLayoutId, anchor, notePath })
+    if (outcome === null) return
+    applyWorkspace({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
+    // 같은 색 노트 창이 문서 창 옆에 붙었다. 보던 문서 창이 계속 만진 창이다
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 실행 한 번(Vault 를 연 직후)만
+  }, [vault, isMainWindow, initializing, memoNotesLoaded])
+  const memoNoteApi: MemoNoteApi = { ...memoNotes, openInTab: (path) => { openMemoNoteTab(path) }, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc, trashNote: async (path, source) => { await memoNotes.trash(path, source); forgetMemoPaths([path]) } }
+  // 위 함수들은 렌더마다 새로 만들어지므로 ref 로 건넨다(workspaceLink 가 렌더마다 바뀌지 않게)
+  const openNoteBesideRef = useRef(openNoteBeside)
+  openNoteBesideRef.current = openNoteBeside
+  const revealMemoBesideRef = useRef(revealMemoBeside)
+  revealMemoBesideRef.current = revealMemoBeside
   const workspaceLink = useMemo<WorkspaceLink>(() => {
     const visible = visiblePanes(shownPaneCount)
     return {
@@ -1459,10 +1601,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       memoNoteTargetFor: (pane) => (pane === null ? null : memoNoteTargetFor(panes, channels, visible, pane)),
       visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channels[pane])),
       pinTab: pinPaneTab,
+      openNoteBeside: (pane, notePath) => openNoteBesideRef.current(pane, notePath),
+      revealMemo: (pane, memoId) => revealMemoBesideRef.current(pane, memoId),
     }
   }, [channels, panes, pinPaneTab, shownPaneCount])
-  const workspaceLatest = useRef({ panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled })
-  workspaceLatest.current = { panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled }
   /** 신호가 보여 줄 문서 탭: 이미 어느 창에 열린 문서·열린 PDF·라이브러리 PDF·Markdown. 알 수 없으면 null */
   const signalDocTab = (docId: string): Tab | null => {
     const existing = allPaneTabs(workspaceLatest.current.panes).find((tab) => isDocumentKind(tab.kind) && tabDocId(tab) === docId)
@@ -1513,23 +1655,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       channel: signal.channel,
       need,
       preview: now.previewTabsEnabled,
-      // 노트 바가 노트를 맡는 동안 문서 창이 보낸 신호는 새 창까지 열지 않는다(바의 노트는 바가 보여 준다)
-      // (노트 탭에서 누른 티켓의 다른 자리는 노트를 보이는 신호지만, 노트 탭 옆에 새 노트 창을 여는 것은 괜찮다)
-      allowNewPane: (need.kind === 'doc' || senderKind === 'memoNote') && SPLIT_PANES_ENABLED && focusedPane === 'split',
+      allowNewPane: SPLIT_PANES_ENABLED && focusedPane === 'split',
     })
     if (outcome.kind === 'none') { fallback(); return }
-    if (outcome.panes !== now.panes) setPanes(outcome.panes)
-    if (outcome.kind === 'beside' && outcome.pane !== null) {
-      setChannels(outcome.channels)
-      setPaneLayout(outcome.layout)
-      // 새 창은 자라듯 나타나고, 끝나면 노트 바·연결선이 새 자리를 다시 잰다
-      setFreshPane(outcome.pane)
-      window.setTimeout(() => setFreshPane(null), 320)
-      window.setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-        window.dispatchEvent(new Event('iwae:pane-resize-end'))
-      }, 280)
-    }
+    // 칸이 가득이면 가장 오른쪽 창에 탭으로 들어가고(rightmost) 색이 바뀔 수 있다. 새 창은 자라듯 나타난다
+    applyWorkspace({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' && outcome.pane !== null ? outcome.pane : undefined)
     // 위치 신호: 그 문서의 그 쪽으로 간다(이미 보이면 바로, 아니면 문서가 열리면 그 창이 꺼내 쓴다)
     if (target.kind === 'place' && outcome.pane !== null) {
       const controller = docControllersRef.current[outcome.pane]
@@ -1558,7 +1688,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     bibliography,
     activePdfDocId: activePdfDoc?.docId ?? null,
     activePdfPages: activePdfDoc?.pageCount ?? 0,
-    setMemoBarVisible,
+    showNote: (path) => { openMemoNoteTab(path) },
   })
   /** 노트·폴더 경로가 바뀌면(이름 바꾸기·옮기기) 이모지·색·차례도 새 경로로 옮긴다 */
   const remapMemoPaths = (moved: ReadonlyMap<string, string>, order = true) => {
@@ -1657,9 +1787,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       jump: (docId, page) => navigation.jump({ docId, page }),
       pointAt,
       draftAnchor: setDraftPdfHighlight,
-      openMemoNote: (path) => {
-        memoNotes.open(path)
-        setMemoBarVisible(true)
+      openMemoNote: (path, pane) => {
+        // 창을 정했으면 그 창의 탭으로, 아니면 문서 창 옆(이미 노트를 보이는 창이 있으면 그 창의 탭)으로 연다
+        if (pane !== undefined) {
+          openInPane(noteTabOf(path), pane)
+          memoNotes.open(path)
+          setActivePaneId(pane)
+          setPaneRoute('note', pane)
+          return pane
+        }
+        return openMemoNoteTab(path)
       },
       liveSelection: () => {
         const draft = draftPdfHighlightRef.current
@@ -2501,7 +2638,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPaneLayout(collapsed === null ? result.layout : collapsed.layout)
     setActivePaneId(landed)
     if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
-    // 새 패널은 자라듯 나타나고, 끝나면 노트 바·연결선이 새 자리를 다시 잰다
+    // 새 패널은 자라듯 나타나고, 끝나면 연결선이 새 자리를 다시 잰다
     setFreshPane(landed)
     window.setTimeout(() => setFreshPane(null), 320)
     window.setTimeout(() => {
@@ -2903,8 +3040,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             return patch === undefined ? highlight : updatePersistentPdfHighlight(highlight, patch)
           })
         }}
-        onMemoJump={(highlight) => jumpFromNotePane(highlight, pane)}
-        docTitles={docTitles}
         flashHighlightId={flashHighlightId}
         onSendToCanvas={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendPdfSelectionToCanvas}
         onCopyWithSource={(selection) => void copyPdfSelectionWithSource(selection)}
@@ -3010,22 +3145,22 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             onOpenDoc={(doc) => { setLibraryExpanded(false); void openDocument(doc) }}
             memoNotes={vault === null ? undefined : {
               docOwner: noteDocOwner,
-              onCreateForDoc: (docId) => { void createNoteForDoc(docId) },
+              onCreateForDoc: (docId) => {
+                void createNoteForDoc(docId).then((path) => {
+                  if (path === null) return
+                  openMemoNoteTab(path)
+                  requestTitleEdit(path)
+                })
+              },
               entries: orderMemoNoteEntries(memoNotes.entries, noteOrder),
               openPath: memoNotes.openPath,
               onReorder: setNoteOrder,
-              onOpen: (path) => {
-                memoNotes.open(path)
-                setMemoBarVisible(true)
-              },
-              onOpenInTab: openMemoNoteTab,
+              onOpen: (path) => { openMemoNoteTab(path) },
               onCreate: () => {
-                void memoNotes.create()
-                setMemoBarVisible(true)
+                void memoNotes.create().then((path) => { if (path !== null) openMemoNoteTab(path) })
               },
               onCreateIn: (folder) => {
-                void memoNotes.createIn(folder)
-                setMemoBarVisible(true)
+                void memoNotes.createIn(folder).then((path) => { if (path !== null) openMemoNoteTab(path) })
               },
               onRename: async (path, title) => {
                 const next = await memoNotes.rename(path, title)
@@ -3242,7 +3377,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       layout={layout}
       onLayoutChange={setLayout}
       focusedPane={focusedPane}
-      noteHostPane={noteHostPaneId}
       libraryExpanded={libraryExpanded}
       onLibraryHost={setLibraryHost}
       singlePane={singlePane}
@@ -3298,7 +3432,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           singlePane={singlePane}
           paneLayout={paneLayoutId}
           onPaneLayoutChange={SPLIT_PANES_ENABLED && !isDetachedWindow ? setPaneLayout : undefined}
-          memoBar={(activeDocumentTab?.kind === 'pdf' || activeDocumentTab?.kind === 'markdown') ? { visible: memoBarVisible, onToggle: () => setMemoBarVisible(!memoBarVisible) } : undefined}
+          noteBeside={docPaneId !== null && vault !== null ? { shown: noteBesideShown, onToggle: toggleNoteBeside } : undefined}
+          layoutPresets={SPLIT_PANES_ENABLED && !isDetachedWindow && vault !== null ? { presets: availableLayoutPresets(CANVAS_ENABLED), onApply: (id) => { void applyPreset(id) } } : undefined}
           onCloseWindow={closeWindowSafely}
           // 떼어 낸 창은 왼쪽 바 없이 시작한다(찾기 등으로 열렸을 때만 접을 수 있게 단추가 나온다)
           hideSidebarToggle={isDetachedWindow && sidebarCollapsed}

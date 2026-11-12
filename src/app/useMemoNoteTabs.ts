@@ -1,6 +1,6 @@
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from 'react'
 import { memoNoteTitleOf, type MemoNoteEntry } from '../core/memoNote'
-import { moveMemoNoteTabs, paneOfTab, syncMemoNoteTabs, type PaneId, type PanesState } from './tabs'
+import { moveMemoNoteTabs, syncMemoNoteTabs, type PanesState } from './tabs'
 
 /**
  * 노트 경로가 바뀌면(이름 바꾸기·옮기기·폴더 바꾸기) 그 노트를 탭으로 연 창의 탭도 새 경로·새 이름으로 따라가게 하는 콜백.
@@ -29,9 +29,3 @@ export function useSyncMemoNoteTabs(
   }, [entries, loaded, setPanes])
 }
 
-/**
- * 메모 노트 탭을 어느 창에 열지: 이미 탭이면 그 창, 아니면 지금 만진 창의 옆 창(보이는 창 중 다른 창), 창이 하나뿐이면 그 창
- */
-export function memoNoteTabPane(panes: PanesState, path: string, visible: readonly PaneId[], activePane: PaneId): PaneId {
-  return paneOfTab(panes, path) ?? visible.find((pane) => pane !== activePane) ?? activePane
-}

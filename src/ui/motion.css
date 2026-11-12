@@ -157,10 +157,6 @@ li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron
 /* 쪽 미리보기의 「보고 있는 곳」 네모는 손을 따라 부드럽게 미끄러진다(작은 요소라 위치 값으로 둔다) */
 .sidebar .thumb-viewport { transition: left 110ms var(--ease-out), top 110ms var(--ease-out), width 110ms var(--ease-out), height 110ms var(--ease-out); }
 
-/* ================= 노트 바 ================= */
-/* 바가 열릴 때: 옆에서 스프링으로 미끄러져 들어온다(칸 폭은 그대로 ease-out). 닫을 때는 ease-in */
-.note-dock .pdf-memo-bar { --slide-dx: 28px; animation: motion-fade-in var(--motion-base) ease-out backwards, motion-slide-x-move var(--spring-firm-dur) var(--ease-spring-firm) backwards; }
-.note-dock .pdf-memo-bar.note-bar-exiting { transition: opacity var(--motion-base) var(--ease-in), transform var(--motion-base) var(--ease-in); }
 /* 메모 카드 호버 탭: 아래에서 4px 올라오며 나타난다 */
 .note-block-tabs {
   transform: translateY(4px);

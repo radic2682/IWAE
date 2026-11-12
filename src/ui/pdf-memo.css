@@ -308,8 +308,6 @@
   background: color-mix(in srgb, var(--paper) 55%, var(--workspace));
 }
 
-.pane-doc .pdf-memo-bar-wide { left: 0; border-left: 0; background: var(--workspace); }
-
 .pdf-memo-header {
   position: absolute;
   z-index: 3;
@@ -325,7 +323,6 @@
 }
 
 .pdf-memo-bar-body { position: absolute; top: 0; right: 0; bottom: 0; left: 0; clip-path: inset(0 0 0 -4000px); }
-.pdf-memo-bar-wide .pdf-memo-bar-body { clip-path: none; overflow: hidden; }
 .pdf-memo-bar-inner { position: absolute; top: 0; left: 0; width: 100%; will-change: transform; }
 .pdf-memo-bar-nav {
   position: absolute; z-index: 1; top: 40%; left: 18px; right: 18px;
@@ -430,43 +427,13 @@
 
 .pane-doc .pdf-memo-reopen { position: absolute; z-index: 14; top: 44px; right: 14px; }
 
-/* ---------- 메모만 보기 ---------- */
-.pdf-pane-memo-hidden { visibility: hidden; }
-
-/* ---------- 메모 바 너비 조절(왼쪽 가장자리를 끈다) ---------- */
-.pdf-memo-bar-resize {
-  position: absolute;
-  z-index: 5;
-  top: 0;
-  bottom: 0;
-  left: -4px;
-  width: 8px;
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.pdf-memo-bar-resize::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 2px;
-  background: transparent;
-  transition: background-color 120ms ease;
-}
-
-.pdf-memo-bar-resize:hover::after,
-.pdf-memo-bar-resize:active::after { background: var(--accent); }
-
-/* ---------- PDF 의 제목줄·도구·하단바는 메모 바 왼쪽만 쓴다 ---------- */
+/* ---------- PDF 의 제목줄·도구 ---------- */
 /* 제목은 오른쪽 위 도구 단추 넷(선택·영역·전체 화면·형광펜) 앞에서 끝난다 */
-.pane-doc .pane-doc-title { right: calc(14px + 4 * (var(--doc-chip) + var(--doc-chip-gap)) + var(--memo-bar-w, 0px)); }
+.pane-doc .pane-doc-title { right: calc(14px + 4 * (var(--doc-chip) + var(--doc-chip-gap))); }
 .pane-doc .pane-toolbar,
-.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar { right: calc(14px + var(--doc-chip) + var(--doc-chip-gap) + var(--memo-bar-w, 0px)); }
-.pane-doc .pdf-highlighter-floating-tool { right: calc(14px + var(--memo-bar-w, 0px)); }
-.pane-doc .pane-frame-with-toolbar::before { right: var(--memo-bar-w, 0px); }
-.pane-doc .pane-bottom-bar { margin-right: var(--memo-bar-w, 0px); }
+.pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar { right: calc(14px + var(--doc-chip) + var(--doc-chip-gap)); }
+.pane-doc .pdf-highlighter-floating-tool { right: 14px; }
+.pane-doc .pane-frame-with-toolbar::before { right: 0; }
 
 /* ---------- 메모 서식 ---------- */
 .pdf-memo-editor-wrap { display: grid; gap: 4px; margin-top: 4px; }
@@ -670,7 +637,6 @@
   overscroll-behavior: contain;
 }
 .pdf-memo-card.pdf-memo-card-flow { position: relative; flex: 0 0 auto; top: auto; left: auto; width: auto; }
-.pdf-memo-links-flow { position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none; }
 .pdf-memo-card-jump { padding: 0 4px; margin-left: -4px; border: 0; border-radius: var(--r-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .pdf-memo-card-jump:hover { background: var(--chrome-hover); color: var(--accent); }
 

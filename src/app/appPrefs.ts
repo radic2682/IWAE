@@ -25,7 +25,7 @@ export interface AppFlagPrefs {
 export interface AppPrefs extends AppFlagPrefs {
   /** 왼쪽 바 안쪽 확대(Ctrl+휠, 0.8~1.5) */
   readonly leftBarZoom: number
-  /** 오른쪽 노트 바 안쪽 확대(Ctrl+휠, 0.8~1.5) */
+  /** 노트 창(카드 목록 모양) 안쪽 확대(Ctrl+휠, 0.8~1.5). 이름은 예전 오른쪽 노트 바 때 것을 그대로 쓴다 */
   readonly rightBarZoom: number
   /** 펼친 라이브러리(PDF 관리 화면) 안쪽 확대(Ctrl+휠, 0.8~1.5). 왼쪽 바와 따로 쓴다 */
   readonly libraryZoom: number
@@ -33,7 +33,7 @@ export interface AppPrefs extends AppFlagPrefs {
   readonly libraryView: 'list' | 'grid'
   /** 형광펜 색 목록(순서 = 선택 순서, 첫 색 = 새 형광펜의 기본 색). 문서에는 id 만 저장된다 */
   readonly highlightColors: readonly HighlightColorDef[]
-  /** 지금 노트 바에 없는 메모의 형광펜: 보통 · 흐리게(기본) · 숨기기 */
+  /** 같은 색 창에 보이는 노트에 없는 메모의 형광펜: 보통 · 흐리게(기본) · 숨기기 */
   readonly otherNoteHighlights: OtherNoteHighlights
   /** 바꾼 단축키: 명령 id → 키 조합(빈 글자 = 키 없음). 없는 id 는 기본값(core/shortcutRegistry) */
   readonly shortcuts: Readonly<Record<string, string>>

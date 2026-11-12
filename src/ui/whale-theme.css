@@ -121,7 +121,6 @@ body.reader-drop-active .pane .pane-frame::after {
    바는 한 단 어둡게(작업영역 색), 카드는 테두리 없이 바탕색만으로 떨어지게,
    인용은 옅은 색만, 글자는 한 단 작게 */
 .pane-doc .pdf-memo-bar { background: var(--workspace); }
-.pane-doc .pdf-memo-bar-wide { background: var(--workspace); }
 .pdf-memo-card {
   gap: 6px;
   padding: 10px 12px 11px;
@@ -403,19 +402,19 @@ button.note-source-page:hover { color: var(--accent); }
 .mouse-gesture-trail polyline { fill: none; stroke: var(--accent); stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
 
 /* ---------- 메모 카드는 밝은 종이, 메모 바 바탕은 어둡게 둔다 ---------- */
-:root .pdf-memo-bar-body .pdf-memo-card-flow:not(.note-text-card) {
+:root :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow:not(.note-text-card) {
   --paper: var(--card-light-paper); --ink: var(--card-light-ink); --text: var(--card-light-ink); --text-strong: var(--card-light-strong); --text-muted: var(--card-light-muted);
   --divider: var(--card-light-divider); --chrome-hover: var(--card-light-hover); --note-quote-bg: var(--card-light-quote-bg);
   color-scheme: light;
   color: var(--text-strong);
 }
 /* 어두운 테마에서 밝게 바꿔 보이던 메모 글자색을 종이 위에서는 원래 색으로 */
-:root[data-theme='dark'] .pdf-memo-bar-body .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(31, 35, 40)'] { color: var(--syn-light-ink) !important; }
-:root[data-theme='dark'] .pdf-memo-bar-body .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(207, 34, 46)'] { color: var(--syn-light-red) !important; }
-:root[data-theme='dark'] .pdf-memo-bar-body .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(188, 76, 0)'] { color: var(--syn-light-orange) !important; }
-:root[data-theme='dark'] .pdf-memo-bar-body .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(26, 127, 55)'] { color: var(--syn-light-green) !important; }
-:root[data-theme='dark'] .pdf-memo-bar-body .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(9, 105, 218)'] { color: var(--syn-light-blue) !important; }
-:root[data-theme='dark'] .pdf-memo-bar-body .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(130, 80, 223)'] { color: var(--syn-light-purple) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(31, 35, 40)'] { color: var(--syn-light-ink) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(207, 34, 46)'] { color: var(--syn-light-red) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(188, 76, 0)'] { color: var(--syn-light-orange) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(26, 127, 55)'] { color: var(--syn-light-green) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(9, 105, 218)'] { color: var(--syn-light-blue) !important; }
+:root[data-theme='dark'] :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow :is(.pdf-memo-card-text, .pdf-memo-editor) [style*='color: rgb(130, 80, 223)'] { color: var(--syn-light-purple) !important; }
 
 /* ---------- 이어지는 선을 잘 보이게: 파란 링크·보라 줄이 많은 PDF 와 어두운 바 양쪽에서 튀는 주황빨강 ---------- */
 /* 색은 그 메모 형광펜 색(--memo-link-color, pdf-memo.css) — 호버·선택은 같은 색을 더 굵고 또렷하게 */
@@ -466,7 +465,7 @@ button.note-source-page:hover { color: var(--accent); }
 .pane-doc .pdf-highlighter-floating-tool { display: none !important; }
 .pane-doc .pane-toolbar,
 .pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar {
-  right: calc(8px + var(--memo-bar-w, 0px));
+  right: 8px;
   left: auto;
   top: calc((var(--doc-card-h, 36px) - 24px) / 2);
   height: 24px;
@@ -818,7 +817,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .pane-toolbar,
 .pane-doc:has(.pdf-search-floating-tool-expanded) .pane-toolbar {
   left: 8px;
-  right: calc(8px + var(--memo-bar-w, 0px));
+  right: 8px;
   justify-content: space-between;
   overflow: hidden;
 }
@@ -902,7 +901,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .pane-doc .markdown-pane-host { background: var(--workspace); }
 .pane-doc .markdown-pane {
   --md-paper-w: calc(820px * var(--md-zoom, 1));
-  padding: 18px var(--md-link-gutter, 0px) 40px;
+  padding: 18px 0 40px;
   --md-center: 50%;
   scrollbar-width: none;
   /* 종이: 가운데 흰 기둥(내용과 함께 스크롤된다) */
@@ -945,18 +944,8 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-outline-item:hover { background: var(--chrome-hover); }
 .markdown-outline-current { background: var(--selected-bg); font-weight: 600; }
 
-/* Markdown 메모 바(오른쪽, PDF 메모 바와 같은 바탕) */
-/* 메모 바는 창 틀 오른쪽(PDF 와 같은 자리, PdfPane 처럼 .pane-frame 에 붙는다). 글은 --memo-bar-w 만큼 비운 왼쪽 */
-.pane-doc .markdown-pane-host-memo :is(.markdown-write-host, .markdown-mark-host) { right: var(--memo-bar-w, 0px); width: auto; }
-.pane-doc .markdown-pane-host-memo .markdown-pane { position: absolute; inset: 0 var(--memo-bar-w, 0px) 0 0; height: auto; }
-.pane-doc .markdown-pane-host-memo .markdown-scrollbar { right: var(--memo-bar-w, 0px); }
-.pane-doc .markdown-memo-bar { width: var(--memo-bar-w, 360px); display: flex; flex-direction: column; overflow: hidden; }
-/* 머리·본문은 PDF 메모 바와 같은 부품·클래스. 바가 세로 flex 라 머리는 흐름 안에 두고, 본문은 PDF 처럼 스크롤 칸을 꽉 채운다 */
-.pane-doc .markdown-memo-bar .pdf-memo-header.markdown-memo-bar-head { position: relative; flex: 0 0 auto; }
+/* 메모 노트 탭의 본문(머리 아래 나머지를 채운다) */
 .markdown-memo-bar-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-/* 메모만 보기: 바가 문서 자리를 덮는다 */
-.pane-doc .markdown-memo-bar.markdown-memo-bar-full { left: 0; width: auto; border-left: 0; z-index: 25; }
-
 /* Markdown 검색(왼쪽 바 「검색」 보기) */
 .markdown-search-panel { display: flex; flex-direction: column; gap: 6px; padding: 8px; color: var(--text-strong); }
 /* 왼쪽 바에 붙을 때: PDF 검색처럼 바 안에 놓는다(공용 .pdf-search-panel 의 떠 있는 자리 잡기를 끈다) */
@@ -975,7 +964,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
 .markdown-pane mark.markdown-search-hit-active { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Markdown 화면 나누기: 칸마다 Markdown 뷰어 */
-.pane-doc .pdf-split.markdown-split { position: absolute; inset: 0; top: 0; right: var(--memo-bar-w, 0px); display: grid; }
+.pane-doc .pdf-split.markdown-split { position: absolute; inset: 0; top: 0; right: 0; display: grid; }
 .pane-doc .markdown-split-cell { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .pane-doc .markdown-split-cell .pdf-overlay-palette { top: 40px; }
 
@@ -1058,9 +1047,6 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   border: 1px solid var(--accent); border-radius: var(--r-sm); outline: none;
   background: var(--paper); color: var(--text-strong); font: inherit; font-size: 13.5px; font-weight: 700;
 }
-/* 노트가 없을 때 안내: PDF 메모 바와 같은 자리(왼쪽 20px, 위 10px) */
-.pane-doc .markdown-memo-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 12px; }
-
 /* 깨끗이 보기(Markdown): PDF 와 같이 내 표시를 감춘다 — 형광펜·메모 칠·박스 메모·쓴 글·책갈피. 검색 칠과 지금 고르는 글은 남긴다 */
 .pdf-clean-view :is(.markdown-persistent-highlight, .markdown-box-mark) { background: transparent !important; fill: transparent !important; }
 .pdf-clean-view :is(.markdown-mark-host, .markdown-box-marks, .markdown-highlight-delete) { display: none !important; }

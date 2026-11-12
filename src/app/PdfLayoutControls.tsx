@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { BookOpen, Eye, EyeSlash, File, Funnel, Rows } from '@phosphor-icons/react'
 import { PDF_SPLIT_LAYOUTS, pdfSplitLayout, type PdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
+import type { LayoutPresetDef, LayoutPresetId } from './layoutPresets'
 import type { PdfSpread } from '../core/pdfViewPrefs'
 import { t } from '../i18n'
 
@@ -119,7 +120,7 @@ export function PdfPageLayoutButtons({ layout, onChange, buttonClassName, clean,
 
 /** 화면 나누기 단추. 누르면 배치 그림 목록이 펼쳐진다 */
 export function PdfSplitPicker({
-  value, onChange, buttonClassName, layouts = PDF_SPLIT_LAYOUTS, label = t('화면 나누기'), head = t('화면 나누기 · 같은 PDF 의 다른 쪽을 함께 봅니다'), align = 'right', activeClassName = 'toolbar-tool-btn-active', shortcut,
+  value, onChange, buttonClassName, layouts = PDF_SPLIT_LAYOUTS, label = t('화면 나누기'), head = t('화면 나누기 · 같은 PDF 의 다른 쪽을 함께 봅니다'), align = 'right', activeClassName = 'toolbar-tool-btn-active', shortcut, presets,
 }: {
   readonly value: PdfSplitLayoutId
   readonly onChange: (id: PdfSplitLayoutId) => void
@@ -132,6 +133,8 @@ export function PdfSplitPicker({
   readonly align?: 'left' | 'right'
   readonly activeClassName?: string
   readonly shortcut?: string
+  /** 이름 붙은 배치(읽기·노트 왼쪽 …). 주면 배치 그림 아래에 「배치」 목록이 나온다 */
+  readonly presets?: { readonly presets: readonly LayoutPresetDef[]; readonly onApply: (id: LayoutPresetId) => void }
 }) {
   // 펼친 목록은 창 맨 위 층에 띄운다(PDF 화면이 도구줄보다 위 층이라 그 안에 두면 가려진다)
   const [open, setOpen] = useState<{ readonly top: number; readonly right?: number; readonly left?: number } | null>(null)
@@ -195,6 +198,26 @@ export function PdfSplitPicker({
               </button>
             ))}
           </div>
+          {presets === undefined || presets.presets.length === 0 ? null : (
+            <div className="pdf-split-presets" role="group" aria-label={t('배치')}>
+              <div className="pdf-split-menu-head">{t('배치 · 열린 탭을 이 모양으로 다시 놓습니다')}</div>
+              {presets.presets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  role="menuitem"
+                  className="pdf-split-preset"
+                  onClick={() => {
+                    presets.onApply(preset.id)
+                    setOpen(null)
+                  }}
+                >
+                  <span className="pdf-split-preset-name">{preset.label}</span>
+                  <span className="pdf-split-preset-hint">{preset.hint}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>,
         document.body,
       ) : null}

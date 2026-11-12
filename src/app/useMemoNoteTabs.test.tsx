@@ -28,7 +28,7 @@ vi.mock('../bridge/memoNotes', () => ({
 vi.mock('../bridge/vault', () => ({ subscribeVaultFolder: () => () => undefined }))
 
 const { useMemoNotes } = await import('./useMemoNotes')
-const { memoNoteTabPane, useFollowMovedMemoNotes, useSyncMemoNoteTabs } = await import('./useMemoNoteTabs')
+const { useFollowMovedMemoNotes, useSyncMemoNoteTabs } = await import('./useMemoNoteTabs')
 
 const A = '노트/A.iwnote'
 const B = '노트/B.iwnote'
@@ -51,28 +51,6 @@ const start = (): PanesState => ({
   right: { tabs: [tab(A, 'A'), tab(B, 'B')], activeId: B },
   third: emptyTabs,
   fourth: emptyTabs,
-})
-
-describe('메모 노트 탭 열기: 어느 창에', () => {
-  const panes = (): PanesState => ({ left: { tabs: [pdf], activeId: 'doc-a' }, right: { tabs: [tab(A, 'A')], activeId: A }, third: emptyTabs, fourth: emptyTabs })
-
-  it('창이 여럿이면 지금 만진 창의 옆 창에, 이미 열려 있으면 그 탭이 있는 창에', () => {
-    expect(memoNoteTabPane(panes(), B, ['left', 'right'], 'left')).toBe('right')
-    expect(memoNoteTabPane(panes(), B, ['left', 'right'], 'right')).toBe('left')
-    expect(memoNoteTabPane(panes(), A, ['left', 'right'], 'left')).toBe('right')
-  })
-  it('창이 하나뿐이면 그 창에 연다', () => {
-    expect(memoNoteTabPane(panes(), B, ['left'], 'left')).toBe('left')
-  })
-  it('열면 그 창에 탭이 더해지고 활성이 된다. 같은 노트를 다시 열면 탭이 둘이 되지 않는다', () => {
-    const target = memoNoteTabPane(panes(), B, ['left', 'right'], 'right')
-    const opened = openTabInPanes(panes(), tab(B, 'B'), target)
-    expect(opened.left.tabs.map((t) => t.id)).toEqual(['doc-a', B])
-    expect(opened.left.activeId).toBe(B)
-    const again = openTabInPanes(opened, tab(B, 'B'), memoNoteTabPane(opened, B, ['left', 'right'], 'right'))
-    expect(again.left.tabs.length).toBe(2)
-    expect(again.right.tabs.map((t) => t.id)).toEqual([A])
-  })
 })
 
 describe('메모 노트 탭이 노트 목록을 따라간다', () => {

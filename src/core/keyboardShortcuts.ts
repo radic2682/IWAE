@@ -36,6 +36,7 @@ export type AppShortcut =
   | 'goTo'
   | 'print'
   | 'toggleSinglePane'
+  | 'toggleNoteBeside'
   | 'openSettings'
   | 'commandPalette'
   | 'newWindow'

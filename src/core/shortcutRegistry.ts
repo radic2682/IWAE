@@ -47,6 +47,7 @@ export const SHORTCUT_DEFS: readonly ShortcutDef[] = [
   app('print', '인쇄', 'general', ['Mod+P'], false, 'print'),
   app('toggleLibrary', '라이브러리 펼치기·접기', 'view', ['Mod+Shift+L'], true, 'library'),
   app('toggleSinglePane', '화면 나누기 바꾸기', 'view', ['Mod+\\'], true, 'split pane'),
+  app('toggleNoteBeside', '옆에 노트 열기·닫기', 'view', ['Mod+Shift+M'], false, 'note beside open close memo reading'),
   app('focusLeftPane', '왼쪽 칸으로', 'view', ['Mod+1'], true, 'focus left pane'),
   app('focusRightPane', '오른쪽 칸으로', 'view', ['Mod+2'], true, 'focus right pane'),
   app('nextTab', '다음 탭', 'tabs', ['Ctrl+Tab'], true, 'next tab'),

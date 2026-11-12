@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterToOpenNotes, openNotePaths } from './openNoteFilter'
+import { filterToOpenNotes } from './openNoteFilter'
 
 const highlights = [{ id: 'own' }, { id: 'shared' }, { id: 'other' }, { id: 'none' }, { id: 'draft' }, { id: 'fresh' }]
 const owners: Record<string, readonly string[]> = { own: ['A'], 'shared': ['A', 'Z'], other: ['Z'] }
@@ -25,10 +25,6 @@ describe('filterToOpenNotes — 열린 노트 표시만 보기', () => {
     expect(filterToOpenNotes(highlights, { ...base, tabPaths: [] })).toEqual([])
   })
 
-  it('보는 노트의 블록이 가리키는 것은 색인이 없어도 남긴다', () => {
-    expect(ids(filterToOpenNotes(highlights, { ...base, ownIds: new Set(['none']) }))).toContain('none')
-  })
-
   it('만드는 중인 메모·방금 만든 형광펜은 노트에 없어도 늘 보인다', () => {
     const result = filterToOpenNotes(highlights, { ...base, isExempt: (id) => id === 'draft' || id === 'fresh' })
     expect(ids(result)).toEqual(['own', 'shared', 'draft', 'fresh'])
@@ -39,16 +35,8 @@ describe('filterToOpenNotes — 열린 노트 표시만 보기', () => {
     expect(filterToOpenNotes(highlights, { ...base, enabled: false, clean: true })).toEqual([])
   })
 
-  it('열린 노트 = 같은 색 창에 보이는 노트 + 노트 바의 열린 노트(있는 동안). 겹치면 한 번만', () => {
-    expect(openNotePaths('A', ['M', 'N'])).toEqual(['A', 'M', 'N'])
-    expect(openNotePaths(null, ['M'])).toEqual(['M'])
-    expect(openNotePaths('A', ['A', 'M'])).toEqual(['A', 'M'])
-    expect(openNotePaths(null, [])).toEqual([])
-  })
-
-  it('같은 색 창의 노트가 열린 노트에 들어와 그 노트의 형광펜이 보인다', () => {
-    const paths = openNotePaths(null, ['노트/채널.iwnote'])
-    const result = filterToOpenNotes([{ id: 'in-channel' }, { id: 'elsewhere' }], { enabled: true, tabPaths: paths, notesOf: (id) => (id === 'in-channel' ? ['노트/채널.iwnote'] : ['노트/딴곳.iwnote']) })
+  it('열린 노트 = 같은 색 창에 보이는 노트 탭뿐이다(노트 바의 열린 노트는 더하지 않는다)', () => {
+    const result = filterToOpenNotes([{ id: 'in-channel' }, { id: 'elsewhere' }], { enabled: true, tabPaths: ['노트/채널.iwnote'], notesOf: (id) => (id === 'in-channel' ? ['노트/채널.iwnote'] : ['노트/딴곳.iwnote']) })
     expect(result.map((item) => item.id)).toEqual(['in-channel'])
   })
 

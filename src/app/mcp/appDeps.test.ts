@@ -56,7 +56,7 @@ function input(overrides: Partial<McpAppInput> = {}) {
     jump: (docId, page) => calls.push(`jump ${docId} ${page}`),
     pointAt: (anchor) => calls.push(`point ${anchor.quote}`),
     draftAnchor: (anchor) => calls.push(`draft ${anchor.quote}`),
-    openMemoNote: (path) => calls.push(`note ${path}`),
+    openMemoNote: (path, pane) => { calls.push(`note ${path} ${pane ?? 'beside'}`); return pane ?? 'right' },
     liveSelection: () => null,
     setFileFavorite: (id, favorite) => calls.push(`favorite ${id} ${String(favorite)}`),
     toolCopy: async (docId, op, suffix) => { calls.push(`tool ${docId} ${op.kind} ${suffix}`); return 'C:/vault/copy.pdf' },
@@ -83,6 +83,15 @@ describe('buildMcpAppDeps', () => {
     expect(opened).toEqual({ pane: 'right', page: 2 })
     expect(calls).toEqual(['paneCount 2', 'openAny', 'openInPane d1 right', 'active right', 'route doc right', 'activate right d1', 'pending d1 2'])
     await expect(app.openDocument('nope', {})).rejects.toThrow(/doc_id not found/u)
+  })
+
+  it('openNote: 창을 정하지 않으면 문서 옆(앱이 정한 창)에, 정하면 그 창의 탭으로 연다 — 노트 바는 없다', () => {
+    const { base, calls } = input()
+    const app = buildMcpAppDeps(base)
+    expect(app.openNote('노트/A.iwnote')).toEqual({ pane: 'right' })
+    expect(app.openNote('노트/A.iwnote', 'active')).toEqual({ pane: 'right' })
+    expect(app.openNote('노트/B.iwnote', 'third')).toEqual({ pane: 'third' })
+    expect(calls).toEqual(['note 노트/A.iwnote beside', 'note 노트/A.iwnote beside', 'paneCount 3', 'note 노트/B.iwnote third'])
   })
 
   it('runPdfTool: 쪽 범위를 0부터로 바꾸고, Vault 밖(참조) 문서와 쪽 일부 번호 매기기는 거절한다', async () => {

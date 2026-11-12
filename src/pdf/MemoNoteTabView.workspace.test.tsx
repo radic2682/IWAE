@@ -29,7 +29,7 @@ function Harness({ children, pinTab = vi.fn(), pane = 'right' }: { readonly chil
     updateNoteAt: (path, change) => { if (path === PATH) setNote((current) => change(current)) },
     notesOf: () => [],
   }), [note])
-  const link: WorkspaceLink = { channels: DEFAULT_CHANNELS, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab }
+  const link: WorkspaceLink = { channels: DEFAULT_CHANNELS, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab, openNoteBeside: vi.fn().mockResolvedValue(null), revealMemo: vi.fn() }
   return (
     <MemoNoteContext.Provider value={api}>
       <WorkspaceContext.Provider value={link}>

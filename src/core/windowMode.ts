@@ -3,7 +3,7 @@ import { emptySession, type SessionState } from './session'
 /**
  * 창의 역할. 같은 앱 화면(App)을 그대로 쓰고, 창을 만들 때 주소의 매개변수로 역할만 알려 준다.
  * - main: 평소 창. 세션(탭·패널 배치)을 저장하고, 닫을 때 다른 창을 정리한다
- * - detached: PDF 하나를 떼어 낸 창. 왼쪽 바 없이 문서 패널 하나와 오른쪽 노트 바. 닫으면 탭이 메인으로 돌아간다
+ * - detached: PDF 하나를 떼어 낸 창. 왼쪽 바 없이 문서 패널 하나(「옆에 노트 열기」로 노트를 옆에 열 수 있다). 닫으면 탭이 메인으로 돌아간다
  * - extra: 같은 Vault 의 전체 화면 새 창. 탭은 빈 채로 시작한다
  */
 export type WindowRole = 'main' | 'detached' | 'extra'

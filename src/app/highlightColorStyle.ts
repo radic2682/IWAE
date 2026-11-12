@@ -28,7 +28,7 @@ export function useHighlightColors(): readonly HighlightColorDef[] {
   return useSyncExternalStore(subscribeAppPrefs, () => getAppPrefs().highlightColors, () => getAppPrefs().highlightColors)
 }
 
-/** 노트 바에 없는 메모의 형광펜을 어떻게 그리는가(설정). 바뀌면 다시 그려진다 */
+/** 같은 색 창에 보이는 노트에 없는 메모의 형광펜을 어떻게 그리는가(설정). 바뀌면 다시 그려진다 */
 export function useOtherNoteHighlights(): OtherNoteHighlights {
   return useSyncExternalStore(subscribeAppPrefs, () => getAppPrefs().otherNoteHighlights, () => getAppPrefs().otherNoteHighlights)
 }

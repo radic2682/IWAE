@@ -254,11 +254,8 @@ export const GROUP_1: Readonly<Record<string, string>> = {
 
   // MarkdownMemoBar
   '다른 문서': 'Other document',
-  '메모 바': 'Memo bar',
   '노트 없음': 'No note',
-  '열린 노트가 없습니다.': 'No note is open.',
   '새 노트 만들기': 'Create new note',
-  'Markdown 에서 글을 고르면 이 노트에 메모가 생깁니다.': 'Select text in Markdown to add a memo to this note.',
 
   // translationSettings
   'console.anthropic.com 에서 만든 API key': 'API key created at console.anthropic.com',

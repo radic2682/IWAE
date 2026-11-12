@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { SIDEBAR_DEFAULT, clampLeftFrac, clampSidebar, fracFromPointer } from './splitLayout'
 import { evenFractions, fractionOffset, moveSplitBoundary, splitDividers, type PdfSplitLayout } from '../core/pdfSplit'
-import { NoteDockContext } from './noteDock'
 import { WorkspaceLinkLayer } from './WorkspaceLinkLayer'
 import '../ui/layout-transitions.css'
 import { t } from '../i18n'
@@ -39,8 +38,6 @@ interface SplitPanesProps {
   singlePane?: boolean
   /** 3단 보기. 있으면 오른쪽에 세 번째 패널을 둔다(singlePane 보다 뒤에 본다) */
   threePane?: boolean
-  /** 노트 바를 그릴 문서 창(창 맨 오른쪽 노트 바 칸에 그린다). 문서가 없으면 null */
-  noteHostPane?: string | null
   left: React.ReactNode
   right: React.ReactNode
   third?: React.ReactNode
@@ -112,7 +109,6 @@ export function SplitPanes({
   onLibraryHost,
   singlePane = false,
   threePane = false,
-  noteHostPane = null,
   left,
   right,
   third,
@@ -130,20 +126,7 @@ export function SplitPanes({
   const sidebarPx = sidebarUserSized || fitSidebarPx === null ? storedSidebarPx : fitSidebarPx
   const [leftFrac, setLeftFrac] = useState(() => clampLeftFrac(layout?.leftFrac ?? 0.5))
   const panesRef = useRef<HTMLDivElement>(null)
-  // 창 맨 오른쪽 노트 바 칸. 문서 창(PdfPane·MarkdownPane)이 여기에 노트 바를 그린다
-  const [noteDock, setNoteDock] = useState<HTMLElement | null>(null)
-  const noteDockValue = useMemo(() => ({ dock: noteDock, hostPane: noteHostPane }), [noteDock, noteHostPane])
   const dragController = useRef<AbortController | null>(null)
-  // 노트 바 칸 폭을 상단바에 알린다: 탭 줄의 칸 경계가 아래 문서 창 경계와 같은 자리에서 갈리도록(맨 오른쪽 탭 칸이 칸 폭만큼 더 넓다)
-  useLayoutEffect(() => {
-    const shell = shellRef.current
-    if (shell === null || noteDock === null) return undefined
-    const apply = () => shell.style.setProperty('--note-dock-w', `${noteDock.getBoundingClientRect().width}px`)
-    apply()
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply)
-    observer?.observe(noteDock)
-    return () => { observer?.disconnect(); shell.style.removeProperty('--note-dock-w') }
-  }, [noteDock])
 
   useEffect(() => () => dragController.current?.abort(), [])
 
@@ -356,7 +339,6 @@ export function SplitPanes({
   ].filter(Boolean).join(' ')
 
   return (
-    <NoteDockContext.Provider value={noteDockValue}>
     <div
       ref={shellRef}
       className={shellClassName}
@@ -443,14 +425,11 @@ export function SplitPanes({
           </div>
         </div>
         )}
-        {/* 노트 바 칸: 어느 창에 문서가 있든, 창이 비었든 늘 맨 오른쪽. 열고 닫을 때 폭이 부드럽게 움직인다 */}
-        <div ref={setNoteDock} className="note-dock pane-doc" data-note-dock="" aria-hidden={libraryExpanded || undefined} inert={libraryExpanded} />
         {libraryExpanded ? <div ref={onLibraryHost} className="library-host" /> : null}
         {/* 작업 공간 층: 문서 창과 이웃한 메모 노트 창 사이의 연결선을 모든 칸 위에 그린다(포인터는 지나간다) */}
         {libraryExpanded ? null : <WorkspaceLinkLayer />}
       </div>
     </div>
-    </NoteDockContext.Provider>
   )
 }
 

@@ -72,18 +72,15 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '{title} 캔버스': '{title} canvas',
 
   // PdfPane
-  '다른 PDF': 'Other PDF',
   '이미 메모를 단 글입니다. 박스 메모는 칠하지 않은 글에 만듭니다': 'This text already has a memo. Box memos go on unhighlighted text',
   '{page}쪽': 'Page {page}',
   '형광펜': 'Highlighter',
   '형광펜 색상': 'Highlighter colors',
   '형광펜 지우개': 'Highlight eraser',
   '메모': 'Memo',
-  '메모 바 너비 조절': 'Resize memo bar',
   '끌어서 너비 조절': 'Drag to resize',
   '노트 없음': 'No note',
   '노트 검색': 'Search notes',
-  '모든 노트에서 검색': 'Search all notes',
   '노트 검색 결과': 'Note search results',
   '찾은 메모가 없습니다': 'No memos found',
   '검색 닫기': 'Close search',
@@ -93,11 +90,8 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '모두 접기': 'Collapse all',
   '모두 펼치기': 'Expand all',
   'PDF와 같이 보기': 'Show with PDF',
-  '노트 닫기': 'Close note',
   '이 PDF': 'This PDF',
-  '열린 노트가 없습니다.': 'No note is open.',
   '새 노트 만들기': 'Create new note',
-  'PDF에서 글을 끌거나, 표·그림을 영역 캡처 도구(또는 Ctrl+끌기)로 감싸면 보고 있는 자리에 메모가 생깁니다. 「＋ 글」로 노트에 직접 쓸 수도 있습니다.': 'Drag text in the PDF, or box a table or figure with the region capture tool (or Ctrl+drag), to add a memo at the current spot. You can also write in the note directly with "+ Text".',
   '박스 메모': 'Box memo',
   '글을 끌면 박스가 생깁니다': 'Drag over text to create a box',
   '책갈피 핀 꽂기': 'Add bookmark pin',
@@ -191,8 +185,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   'PDF 검색 (Ctrl+F)': 'Search PDF (Ctrl+F)',
   '인쇄': 'Print',
   '인쇄 (Ctrl+P)': 'Print (Ctrl+P)',
-  '메모 바 닫기': 'Close memo bar',
-  '메모 바 열기': 'Open memo bar',
 
   // theme
   '짙은 회색, 파란 강조(기본)': 'Dark gray, blue accent (default)',
@@ -288,12 +280,10 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '주석이 없습니다.': 'No annotations.',
 
   // MemoNoteTabView, MemoNotesSection, NoteSwitcher (메모 노트를 탭으로)
-  '이 노트에서 검색': 'Search in this note',
   '메모 노트': 'Memo note',
   '노트 도구': 'Note tools',
   '비어 있는 노트입니다. 「＋」로 글 블록을 넣어 쓰세요.': 'This note is empty. Use + to add a text block.',
   '탭으로 열기': 'Open in tab',
-  '이 노트를 탭으로 열기': 'Open this note in a tab',
 
   // BehaviorSettings (미리보기 탭)
   '탭 열기': 'Opening tabs',

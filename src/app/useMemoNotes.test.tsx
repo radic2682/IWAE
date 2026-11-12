@@ -41,21 +41,29 @@ describe('useMemoNotes', () => {
     await waitFor(() => expect(result.current.entries.map((entry) => entry.title)).toEqual(['Design Review', 'TODO']))
   })
 
-  it('노트 닫기: 오른쪽 바를 비우고, 다시 켜도 닫힌 채 두며, 노트를 열면 풀린다', async () => {
-    const vault = { root: 'C:/vault-close' } as never
+  it('openPath 는 마지막으로 만진 노트다: 처음엔 없고, 열거나 고치면 그 노트가 되며, 다음 실행에도 기억한다', async () => {
+    files.clear()
+    dirs.clear()
+    files.set('노트/A.iwnote', { version: 1, blocks: [] })
+    files.set('노트/TODO.iwnote', { version: 1, blocks: [] })
+    const vault = { root: 'C:/vault-touched' } as never
     const first = renderHook(() => useMemoNotes(vault, [], () => '', () => {}))
-    await waitFor(() => expect(first.result.current.openPath).toBe('노트/TODO.iwnote'))
-    act(() => first.result.current.close())
+    await waitFor(() => expect(first.result.current.loaded).toBe(true))
+    // 아무 노트나 고르지 않는다
     expect(first.result.current.openPath).toBeNull()
-    expect(first.result.current.closed).toBe(true)
+    act(() => first.result.current.open('노트/TODO.iwnote'))
+    expect(first.result.current.openPath).toBe('노트/TODO.iwnote')
+    // 다른 노트를 고치면 그 노트가 마지막으로 만진 노트가 된다
+    act(() => first.result.current.updateNoteAt('노트/A.iwnote', (note) => ({ ...note, blocks: [{ id: 't', kind: 'text', text: 'x' }] })))
+    expect(first.result.current.openPath).toBe('노트/A.iwnote')
     first.unmount()
 
     const again = renderHook(() => useMemoNotes(vault, [], () => '', () => {}))
-    await waitFor(() => expect(again.result.current.closed).toBe(true))
+    await waitFor(() => expect(again.result.current.loaded).toBe(true))
+    expect(again.result.current.openPath).toBe('노트/A.iwnote')
+    // 지운 노트는 마지막으로 만진 노트에서 빠진다
+    await act(async () => { await again.result.current.trash('노트/A.iwnote') })
     expect(again.result.current.openPath).toBeNull()
-    act(() => again.result.current.open('노트/TODO.iwnote'))
-    expect(again.result.current.closed).toBe(false)
-    expect(again.result.current.openPath).toBe('노트/TODO.iwnote')
   })
 
   it('노트 폴더: 만들고, 노트를 옮기고, 폴더 이름을 바꾸면 안의 노트 경로와 열린 노트가 따라간다', async () => {

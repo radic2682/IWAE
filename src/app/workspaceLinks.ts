@@ -122,7 +122,7 @@ export interface LinkLine {
   readonly cardY: number
 }
 
-/** 카드 머리에서 선이 들어가는 깊이(px). 노트 바의 카드 안쪽 여백과 같다 */
+/** 카드 머리에서 선이 들어가는 깊이(px). 노트 카드의 안쪽 여백과 같다 */
 export const LINK_CARD_DEPTH = 18
 
 const within = (value: number, low: number, high: number) => value >= low && value <= high
@@ -240,7 +240,6 @@ let layerState: LinkLayerState = EMPTY_LAYER
 let layerKey = ''
 let layerElement: Element | null = null
 let linkedDocIds = new Map<PaneId, readonly string[]>()
-let linkedDocs = new Set<PaneId>()
 const pairListeners = new Set<() => void>()
 const layerListeners = new Set<() => void>()
 let scheduled: ReturnType<typeof setTimeout> | number | null = null
@@ -268,7 +267,6 @@ function recompute(): void {
   if (nextPairsKey !== pairsKey) {
     pairsKey = nextPairsKey
     pairs = nextPairs
-    linkedDocs = new Set(nextPairs.map((pair) => pair.doc))
     const byNote = new Map<PaneId, string[]>()
     for (const pair of nextPairs) {
       if (pair.docId === null) continue
@@ -366,15 +364,6 @@ export function subscribeLinkLayer(listener: () => void): () => void {
   return () => { layerListeners.delete(listener) }
 }
 
-/** 이 문서 창이 이웃한 같은 색 메모 노트 창과 이어져 있는가(이어졌으면 노트 바로 가는 옛 선은 그리지 않는다) */
-export function usePaneLinkedToNote(pane: PaneId | null): boolean {
-  return useSyncExternalStore(
-    (listener) => { pairListeners.add(listener); return () => { pairListeners.delete(listener) } },
-    () => pane !== null && linkedDocs.has(pane),
-    () => false,
-  )
-}
-
 /** 이 노트 창과 이웃한 같은 색 문서 창이 보는 문서들(카드의 원문이 옆에 보이는가) */
 export function useLinkedDocIds(pane: PaneId | null): readonly string[] {
   return useSyncExternalStore(
@@ -394,7 +383,6 @@ export function resetPaneLinks(): void {
   layerKey = ''
   layerElement = null
   linkedDocIds = new Map()
-  linkedDocs = new Set()
   pairListeners.clear()
   layerListeners.clear()
   if (scheduled !== null) {

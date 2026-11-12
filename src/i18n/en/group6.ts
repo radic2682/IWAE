@@ -253,7 +253,7 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '다른 노트의 형광펜': 'Highlights from other notes',
   '흐리게': 'Dimmed',
   '숨기기': 'Hidden',
-  '지금 열린 노트에 없는 메모의 형광펜을 PDF 에서 어떻게 보일지 정합니다. 노트 바를 닫았을 때는 모두 보통으로 보입니다.': 'Choose how highlights of memos that are not in the open note appear on the PDF. With the note bar closed, all highlights look normal.',
+  '같은 색 창에 보이는 노트에 없는 메모의 형광펜을 PDF 에서 어떻게 보일지 정합니다. 노트가 보이지 않을 때는 모두 보통으로 보입니다.': 'Choose how highlights of memos that are not in a note visible in the same-color pane appear on the PDF. When no note is visible, all highlights look normal.',
   '표·그림': 'Table/figure',
   '메모를 쓰세요': 'Write a memo',
   '설명을 쓰세요 (안 써도 그림은 노트에 남습니다 · Esc 로 취소)': 'Write a description (the figure stays in the note even without one · Esc to cancel)',
@@ -276,9 +276,7 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '글 지우기': 'Delete text',
   '소제목 지우기(블록은 남김)': 'Delete section (keep blocks)',
   // 메모만 보기 · NoteOutline
-  '메모만 보기': 'Memos only',
   '노트 목차': 'Note outline',
-  '다른 PDF': 'Other PDF',
   '표/그림': 'Table/figure',
   // PdfPins · PdfOverlayLayer · PageImage
   '{title} · {page}쪽': '{title} · p. {page}',

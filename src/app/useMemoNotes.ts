@@ -71,8 +71,6 @@ export function useMemoNotes(
   /** 노트 경로가 바뀌었다(이름 바꾸기·옮기기·폴더 바꾸기: 옛 → 새). 탭처럼 경로를 기억하는 곳이 따라가게 한다 */
   onMoved?: (moved: ReadonlyMap<string, string>) => void,
 ): MemoNoteApi & {
-  readonly close: () => void
-  readonly closed: boolean
   /** 처음 목록을 다 읽었는가(그 전에는 없는 노트와 아직 못 읽은 노트를 가릴 수 없다) */
   readonly loaded: boolean
   readonly rename: (path: string, title: string) => Promise<string>
@@ -109,11 +107,8 @@ export function useMemoNotes(
   const [loaded, setLoaded] = useState(false)
   // 어느 Vault 의 목록을 읽었는가. Vault 를 바꾼 첫 그리기에서 옛 Vault 의 loaded 가 새 Vault 의 것으로 보이지 않게 한다
   const [loadedRoot, setLoadedRoot] = useState<string | null>(null)
+  // 마지막으로 만진 메모 노트(마지막으로 포커스·편집·열기를 한 노트 탭). 다음 실행에도 기억한다
   const [openPath, setOpenPath] = useState<string | null>(null)
-  // 사용자가 「노트 닫기」로 닫아 두었는가(저장값 '' 로 다음 실행에도 이어진다)
-  const [closed, setClosed] = useState(false)
-  const closedRef = useRef(closed)
-  closedRef.current = closed
   // 노트 목록의 기준은 이 ref 다. 상태(notes)는 화면용 사본이라 한 박자 늦다 — 한 번의 입력 안에서 노트를 두 번 고치거나
   // 다른 창의 변경을 합치는 일이 겹쳐도 서로를 덮지 않게, 모든 갱신이 ref 에서 읽고 ref 에 먼저 쓴다
   const notesRef = useRef<ReadonlyMap<string, MemoNote>>(notes)
@@ -151,7 +146,6 @@ export function useMemoNotes(
     setLoaded(false)
     setLoadedRoot(null)
     setOpenPath(null)
-    setClosed(false)
     heldRef.current.clear()
     deferredRef.current.clear()
     absentRef.current.clear()
@@ -167,12 +161,8 @@ export function useMemoNotes(
         setFolders(tree.folders)
         let remembered: string | null = null
         try { remembered = localStorage.getItem(openKey(vault.root)) } catch { /* 없음 */ }
-        if (remembered === '') {
-          setOpenPath(null)
-          setClosed(true)
-        } else {
-          setOpenPath(remembered !== null && read.some(([path]) => path === remembered) ? remembered : read[0]?.[0] ?? null)
-        }
+        // 기억해 둔 노트가 아직 있으면 그것, 없으면 마지막으로 만진 노트가 없는 것(아무 노트나 고르지 않는다)
+        setOpenPath(remembered !== null && read.some(([path]) => path === remembered) ? remembered : null)
         setLoaded(true)
         setLoadedRoot(vault.root)
       } catch (cause) {
@@ -217,7 +207,7 @@ export function useMemoNotes(
     if (changed) {
       notesRef.current = next
       applyNotes(() => next)
-      setOpenPath((current) => current !== null && !next.has(current) ? [...next.keys()][0] ?? null : current)
+      setOpenPath((current) => current !== null && !next.has(current) ? null : current)
     }
     setFolders((current) => current.length === tree.folders.length && current.every((folder, index) => folder === tree.folders[index]) ? current : tree.folders)
   }, [vault])
@@ -245,7 +235,7 @@ export function useMemoNotes(
       next.delete(path)
       notesRef.current = next
       applyNotes(() => next)
-      setOpenPath((current) => current === path ? [...next.keys()][0] ?? null : current)
+      setOpenPath((current) => current === path ? null : current)
       return
     }
     if (pending) {
@@ -430,23 +420,16 @@ export function useMemoNotes(
       const { writeVaultRelativeText } = await import('../bridge/vault')
       await writeVaultRelativeText(vault, MIGRATION_MARK, `${JSON.stringify({ version: 1, migratedAt: new Date().toISOString(), notes: created.map(({ title }) => title) }, null, 2)}\n`)
       applyNotes(() => next)
-      setOpenPath((current) => current ?? (closedRef.current ? null : [...next.keys()][0] ?? null))
     })().catch((cause: unknown) => onErrorRef.current(t('카테고리를 노트로 옮기지 못했습니다: {error}', { error: errorText(cause) })))
   }, [docTitle, highlights, loaded, vault])
 
+  /** path 를 「마지막으로 만진 노트」로 삼는다(탭을 열거나 포커스를 옮기거나 고칠 때). 같은 값이면 아무것도 하지 않는다 */
   const open = useCallback((path: string | null) => {
+    if (path === openPathRef.current) return
+    openPathRef.current = path
     setOpenPath(path)
-    if (path !== null) setClosed(false)
     if (vault !== null && path !== null) {
       try { localStorage.setItem(openKey(vault.root), path) } catch { /* 이번 실행만 */ }
-    }
-  }, [vault])
-
-  const close = useCallback(() => {
-    setOpenPath(null)
-    setClosed(true)
-    if (vault !== null) {
-      try { localStorage.setItem(openKey(vault.root), '') } catch { /* 이번 실행만 */ }
     }
   }, [vault])
 
@@ -535,7 +518,7 @@ export function useMemoNotes(
         next.delete(path)
         notesRef.current = next
         applyNotes(() => next)
-        setOpenPath((current) => current === path ? copyPath ?? [...next.keys()][0] ?? null : current)
+        setOpenPath((current) => current === path ? copyPath : current)
       }
       if (copyPath !== null) onErrorRef.current(t('내 변경은 「{name}」 노트로 따로 저장했습니다', { name: memoNoteTitleOf(copyPath) }))
     } catch (cause) {
@@ -614,14 +597,13 @@ export function useMemoNotes(
     }
     await trashMemoNoteFolder(vault, path, notePaths)
     const removed = new Set(notePaths)
-    const rest = [...notesRef.current.keys()].filter((note) => !removed.has(note))
     applyNotes((current) => {
       const map = new Map(current)
       for (const note of notePaths) map.delete(note)
       return map
     })
     setFolders((current) => current.filter((folder) => folder !== path && !isInsideMemoFolder(folder, path)))
-    if (openPath !== null && removed.has(openPath)) open(rest[0] ?? null)
+    if (openPath !== null && removed.has(openPath)) open(null)
     return notePaths
   }, [open, openPath, vault])
 
@@ -655,13 +637,12 @@ export function useMemoNotes(
     heldRef.current.delete(path)
     publishConflicts()
     await trashMemoNote(vault, path, source)
-    const rest = [...notesRef.current.keys()].filter((item) => item !== path)
     applyNotes((current) => {
       const map = new Map(current)
       map.delete(path)
       return map
     })
-    if (openPath === path) open(rest[0] ?? null)
+    if (openPath === path) open(null)
   }, [open, openPath, publishConflicts, vault])
 
   /**
@@ -672,8 +653,11 @@ export function useMemoNotes(
     const current = notesRef.current.get(path)
     if (current === undefined) return
     const next = change(current)
-    if (next !== current) putNote(path, next)
-  }, [putNote])
+    if (next !== current) {
+      putNote(path, next)
+      open(path)
+    }
+  }, [open, putNote])
   /** path 노트의 지금 내용(그리기용: 노트가 바뀌면 이 함수도 새로 만들어져 다시 그린다). 목록에 없으면 null */
   const noteAt = useCallback((path: string): MemoNote | null => notes.get(path) ?? null, [notes])
   const updateOpen = useCallback((change: (note: MemoNote) => MemoNote) => {
@@ -761,8 +745,6 @@ export function useMemoNotes(
     openTitle: openPath === null ? null : memoNoteTitleOf(openPath),
     openNote: openPath === null ? null : notes.get(openPath) ?? EMPTY_MEMO_NOTE,
     open,
-    close,
-    closed,
     loaded: vault !== null && loadedRoot === vault.root,
     create,
     updateOpen,

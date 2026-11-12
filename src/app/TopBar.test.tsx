@@ -165,7 +165,7 @@ describe('TopBar', () => {
     expect(screen.getByRole('button', { name: 'IWAE 메뉴' })).toBeDefined()
   })
 
-  it('메모 바 열기·닫기는 상단바 오른쪽에 하나만 있다(모든 칸이 함께 열린다)', () => {
+  it('옆에 노트 열기·닫기는 상단바 오른쪽에 하나만 있고, 눌림 표시가 노트가 보이는지를 따른다', () => {
     const onToggle = vi.fn()
     const { container } = render(
       <TopBar
@@ -177,13 +177,56 @@ describe('TopBar', () => {
         leftFrac={1}
         leftTabs={<span>탭</span>}
         rightTabs={null}
-        memoBar={{ visible: true, onToggle }}
+        noteBeside={{ shown: true, onToggle }}
       />,
     )
-    const button = within(container.querySelector('.topbar-window-tools') as HTMLElement).getByRole('button', { name: '메모 바 닫기' })
+    const button = within(container.querySelector('.topbar-window-tools') as HTMLElement).getByRole('button', { name: '옆에 노트 닫기' })
     expect(button.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(button)
     expect(onToggle).toHaveBeenCalled()
+  })
+
+  it('노트가 보이지 않으면 「옆에 노트 열기」 단추가 눌리지 않은 모양이다', () => {
+    const { container } = render(
+      <TopBar
+        sidebarCollapsed={false}
+        onToggleSidebar={vi.fn()}
+        sidebarMode="library"
+        onSidebarModeChange={vi.fn()}
+        sidebarPx={240}
+        leftFrac={1}
+        leftTabs={<span>탭</span>}
+        rightTabs={null}
+        noteBeside={{ shown: false, onToggle: vi.fn() }}
+      />,
+    )
+    const button = within(container.querySelector('.topbar-window-tools') as HTMLElement).getByRole('button', { name: '옆에 노트 열기' })
+    expect(button.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('창 나누기 목록 아래에 「배치」(읽기·노트 왼쪽 …)가 나오고, 고르면 그 배치를 적용한다', () => {
+    const onApply = vi.fn()
+    const presets = [{ id: 'read' as const, label: '읽기', hint: '문서 | 노트', layout: 'cols2' as const }, { id: 'noteLeft' as const, label: '노트 왼쪽', hint: '노트 | 문서', layout: 'cols2' as const }]
+    render(
+      <TopBar
+        sidebarCollapsed={false}
+        onToggleSidebar={vi.fn()}
+        sidebarMode="library"
+        onSidebarModeChange={vi.fn()}
+        sidebarPx={240}
+        leftFrac={1}
+        leftTabs={<span>탭</span>}
+        rightTabs={null}
+        onPaneLayoutChange={vi.fn()}
+        layoutPresets={{ presets, onApply }}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
+    const group = screen.getByRole('group', { name: '배치' })
+    expect(within(group).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['읽기문서 | 노트', '노트 왼쪽노트 | 문서'])
+    fireEvent.click(within(group).getByRole('menuitem', { name: /노트 왼쪽/u }))
+    expect(onApply).toHaveBeenCalledWith('noteLeft')
+    expect(screen.queryByRole('group', { name: '배치' })).toBeNull()
   })
 
   it('창 나누기는 창 단추 곁(오른쪽)에 있고 문서 검색 단추는 없다', () => {

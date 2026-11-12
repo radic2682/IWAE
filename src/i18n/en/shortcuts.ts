@@ -1,6 +1,7 @@
 /** 단축키 등록부·설정 목록·「단축키 보기」 창 (core/shortcutRegistry, app/ShortcutSettings, app/ShortcutOverlay) */
 export const SHORTCUTS: Readonly<Record<string, string>> = {
   '명령 팔레트': 'Command palette',
+  '옆에 노트 열기·닫기': 'Open or close note beside',
   '새 창': 'New window',
   '설정': 'Settings',
   '단축키 보기': 'Keyboard shortcuts',
