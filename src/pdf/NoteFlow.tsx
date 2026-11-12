@@ -15,6 +15,7 @@ import { clearBlockReveal, onBlockRevealRequest, peekBlockReveal, revealNoteBloc
 import { usePaneChannel, useWorkspaceLink } from '../app/workspaceContext'
 import { placementRevealMode } from '../app/workspaceRouting'
 import { emitPointSignal } from '../app/workspaceSignal'
+import { menuGuardActive } from '../app/menuGuard'
 import { GapMenu, TicketBadge, TicketPicker, anchorOf, type AnchorBox } from './NoteTicketUi'
 import '../ui/note-ticket.css'
 
@@ -1330,7 +1331,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
       }}
       onPointerDown={headEditField !== null ? undefined : (event) => api.startDrag(item.key, event)}
       onClickCapture={(event) => api.pick(item.key, event)}
-      onPointerEnter={() => api.onActivate(item.key)}
+      onPointerEnter={() => { if (!menuGuardActive()) api.onActivate(item.key) }}
       onPointerLeave={() => api.onActivate(null)}
       onContextMenu={(event) => api.contextMenu(item.key, event)}
     >

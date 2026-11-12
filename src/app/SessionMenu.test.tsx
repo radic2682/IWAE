@@ -119,7 +119,7 @@ describe('SessionMenu', () => {
     await waitFor(() => screen.getByRole('menuitem', { name: /논문/u }))
     const open = screen.getByRole('menuitem', { name: /앱 창으로 띄우기/u }) as HTMLButtonElement
     expect(open.disabled).toBe(false)
-    expect(open.textContent).toContain('new-client')
+    expect(open.textContent).not.toContain('new-client')
     fireEvent.click(open)
     expect(actions.onNewClient).toHaveBeenCalledOnce()
     expect(onClose).toHaveBeenCalledWith(false)
@@ -132,17 +132,17 @@ describe('SessionMenu', () => {
       { name: '발표', screenCount: 1, lastUsedAt: Date.now() - 60 * 60_000, attached: 1 },
     ])
     await waitFor(() => screen.getByRole('menuitem', { name: /발표/u }))
-    const hint = (name: RegExp) => screen.getByRole('menuitem', { name }).querySelector('kbd')?.textContent
+    const hint = (name: RegExp) => screen.getByRole('menuitem', { name }).querySelector('.menu-value')?.textContent
     expect(hint(/기본/u)).toBe('화면 2개 · 앱 창 2개 · 지금')
     expect(hint(/논문/u)).toBe('화면 3개 · 5분 전')
     expect(hint(/발표/u)).toContain('앱 창 1개')
   })
 
-  it('힌트는 한 줄로 두는 전용 클래스를 쓴다(session-menu-hint)', async () => {
+  it('세션 줄의 힌트는 값 모양(.menu-value)이고, 키가 없는 동작에는 명령 이름(save-session …)을 힌트로 달지 않는다', async () => {
     setup()
     await waitFor(() => screen.getByRole('menuitem', { name: /논문/u }))
-    const hints = [...menu().querySelectorAll('kbd')]
-    expect(hints.length).toBeGreaterThan(4)
-    for (const kbd of hints) expect(kbd.classList.contains('session-menu-hint')).toBe(true)
+    expect(menu().querySelectorAll('.menu-value').length).toBeGreaterThan(1)
+    expect(menu().querySelectorAll('kbd')).toHaveLength(0)
+    expect(menu().textContent).not.toMatch(/save-session|rename-session|kill-session|new-client/u)
   })
 })

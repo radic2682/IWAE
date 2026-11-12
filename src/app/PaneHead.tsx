@@ -8,7 +8,7 @@ import type { PaneChannel } from './workspaceChannels'
 
 /**
  * 칸 머리(설계 3): 모든 칸의 맨 위에 탭 줄(색 점 · 칸 번호 · 탭들)과 ⋯ 메뉴가 놓인다. 칸이 하나여도 같다.
- * 「크게」로 키운 칸에는 작은 「Z」가 붙는다(누르면 되돌린다). 메뉴의 키 힌트는 지금 접두키(prefixText)를 앞에 붙여 보인다.
+ * 「크게」로 키운 칸에는 작은 「Z」가 붙는다(누르면 되돌린다). 메뉴의 키 힌트는 지금 접두키(prefixText)를 앞에 붙인 키캡이고, 키가 없는 항목(띄우기)은 힌트가 없다. 색 바꾸기는 지금 값(색 점 + 이름)을 값 모양으로 보인다.
  */
 export interface PaneHeadProps {
   /** 탭 줄(PaneTabsMenu: 색 점 · 칸 번호 · 탭들) */
@@ -94,20 +94,22 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
             <Rows size={15} aria-hidden="true" /><span>{t('아래로 나누기')}</span><kbd>{hint('"')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi && !zoomed} onClick={run(onToggleZoom)}>
-            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('크기 되돌리기') : t('크게')}</span><kbd>{hint('z')}</kbd>
+            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('되돌리기') : t('이 칸만 크게')}</span><kbd>{hint('z')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi || !splitEnabled} onClick={run(onBreak)}>
             <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('새 화면으로 떼기')}</span><kbd>{hint('!')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi || onFloat === undefined} title={multi ? undefined : t('칸이 하나뿐이라 띄울 수 없습니다')} onClick={run(() => onFloat?.())}>
-            <PictureInPicture size={15} aria-hidden="true" /><span>{t('띄우기')}</span><kbd>float-pane</kbd>
+            <PictureInPicture size={15} aria-hidden="true" /><span>{t('띄우기')}</span>
           </button>
           <button type="button" role="menuitem" disabled={!multi} onClick={run(onSwap)}>
             <ArrowsLeftRight size={15} aria-hidden="true" /><span>{t('칸 자리 바꾸기')}</span><kbd>{hint('{ }')}</kbd>
           </button>
           <div className="pane-tab-context-sep" role="separator" />
           <button type="button" role="menuitem" onClick={run(onCycleChannel)}>
-            <Circle size={15} aria-hidden="true" /><span>{t('색 바꾸기')}</span><kbd>{t(CHANNEL_NAME[channel ?? 'none'])}</kbd>
+            <Circle size={15} aria-hidden="true" /><span>{t('색 바꾸기')}</span>
+            {/* 지금 값(작은 색 점 + 이름): 단축키가 아니므로 키캡이 아니라 값 모양 */}
+            <span className="menu-value" data-channel={channel ?? 'none'}><span className="menu-value-dot" aria-hidden="true" />{t(CHANNEL_NAME[channel ?? 'none'])}</span>
           </button>
           <button type="button" role="menuitem" disabled={!multi} onClick={run(onClose)}>
             <X size={15} aria-hidden="true" /><span>{t('칸 닫기')}</span><kbd>{hint('x')}</kbd>

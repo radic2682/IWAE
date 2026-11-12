@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
+import './menuGuard'
 
 /**
  * 단추 곁에 뜨는 작은 메뉴(칸 ⋯ 메뉴 · 화면 탭 우클릭 · 새 화면 ＋ · 세션 이름). 탭 우클릭 메뉴(.pane-tab-context)와 같은 모양이다.

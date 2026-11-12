@@ -112,20 +112,20 @@ export function SessionMenu({ current, left, top, anchorRef, actions, onClose }:
             }}>
               {row.name === current ? <Check size={15} aria-hidden="true" /> : <span aria-hidden="true" style={{ flex: '0 0 15px' }} />}
               <span>{row.name}</span>
-              <kbd className="session-menu-hint">{rowHint(row, row.name === current, now)}</kbd>
+              <span className="menu-value">{rowHint(row, row.name === current, now)}</span>
             </button>
           ))}
           {problem === '' ? null : <div className="session-menu-problem" role="alert">{problem}</div>}
           <div className="pane-tab-context-sep" role="separator" />
           <button type="button" role="menuitem" onClick={() => begin('new')}><Plus size={15} aria-hidden="true" /><span>{t('새 세션')}</span></button>
-          <button type="button" role="menuitem" onClick={() => begin('saveAs')}><FloppyDisk size={15} aria-hidden="true" /><span>{t('다른 이름으로 저장')}</span><kbd className="session-menu-hint">save-session</kbd></button>
-          <button type="button" role="menuitem" onClick={() => begin('rename')}><PencilSimple size={15} aria-hidden="true" /><span>{t('이름 바꾸기')}</span><kbd className="session-menu-hint">rename-session</kbd></button>
+          <button type="button" role="menuitem" onClick={() => begin('saveAs')}><FloppyDisk size={15} aria-hidden="true" /><span>{t('다른 이름으로 저장')}</span></button>
+          <button type="button" role="menuitem" onClick={() => begin('rename')}><PencilSimple size={15} aria-hidden="true" /><span>{t('이름 바꾸기')}</span></button>
           <button type="button" role="menuitem" disabled={!canDelete} title={canDelete ? undefined : t('마지막 세션은 지울 수 없습니다')} onClick={() => { onClose(false); actions.onDelete() }}>
-            <Trash size={15} aria-hidden="true" /><span>{t('삭제')}</span><kbd className="session-menu-hint">kill-session</kbd>
+            <Trash size={15} aria-hidden="true" /><span>{t('삭제')}</span>
           </button>
           <div className="pane-tab-context-sep" role="separator" />
           <button type="button" role="menuitem" onClick={() => { onClose(false); actions.onNewClient() }}>
-            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('앱 창으로 띄우기')}</span><kbd className="session-menu-hint">new-client</kbd>
+            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('앱 창으로 띄우기')}</span>
           </button>
         </>
       )}

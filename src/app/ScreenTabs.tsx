@@ -191,7 +191,7 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
           <div className="popup-menu-head" aria-hidden="true">{t('새 화면 ▸ 템플릿')}</div>
           {templates.map((template) => (
             <button key={template.id} type="button" role="menuitem" onClick={() => { setMenu(null); onNew(template.id) }}>
-              <span>{template.label}</span><kbd>{template.hint}</kbd>
+              <span>{template.label}</span><span className="menu-value">{template.hint}</span>
             </button>
           ))}
         </PopupMenu>
