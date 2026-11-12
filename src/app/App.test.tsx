@@ -877,6 +877,19 @@ describe('App — 칸 나누기 트리', () => {
     expect(active()).toBe(0)
   })
 
+  it('칸 안쪽을 누를 때 왼쪽 단추만 그 칸을 만지는 칸으로 삼는다(오른쪽 · 가운데는 아니다)', () => {
+    const { container } = render(<App developmentPreview />)
+    const scopes = () => [...container.querySelectorAll<HTMLElement>('.pane-focus-scope')]
+    const active = () => scopes().findIndex((scope) => scope.hasAttribute('data-pane-active'))
+    fireEvent.keyDown(document.body, { key: '1', ctrlKey: true })
+    expect(active()).toBe(0)
+    fireEvent.pointerDown(scopes()[1]!, { button: 2 })
+    fireEvent.pointerDown(scopes()[1]!, { button: 1 })
+    expect(active()).toBe(0)
+    fireEvent.pointerDown(scopes()[1]!, { button: 0 })
+    expect(active()).toBe(1)
+  })
+
   it('한 글자 도구 단축키(P)는 문서 칸을 만지고 있을 때만 편집 도구를 고르고, 노트 칸을 만지는 동안은 건드리지 않는다', () => {
     render(<App developmentPreview />)
     const key = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }

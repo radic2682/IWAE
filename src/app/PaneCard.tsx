@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { PaneChannel } from './workspaceChannels'
 import { usePaneReaction } from './paneReaction'
+import { TAB_DRAG_THRESHOLD_PX } from './tabDrag'
 
 /**
  * 칸 하나의 면(둥근 카드). 머리(탭 줄)와 본문이 한 면을 이루고 안에 테두리 선이 없다.
@@ -10,8 +11,8 @@ import { usePaneReaction } from './paneReaction'
  *   점선이 모서리에서도 고르게 이어지도록 CSS border-style 이 아니라 둥근 사각형 선으로 그린다). 만지는 칸이면 같은 윤곽이 강조색이다.
  * - 같은 색의 다른 창에서 신호가 올 창(마우스를 올린 동안)과 신호가 방금 움직인 창(0.6초)은 `data-reacting` 이 채널 색이 되어 안쪽 윤곽이 생긴다.
  */
-/** 탭을 눌러 끌기 시작한 것으로 치는 움직임(px): 이보다 적게 움직이고 놓으면 그냥 누른 것이다 */
-const TAB_PRESS_SLOP_PX = 4
+/** 지금 기다리는 탭 누름 하나의 정리(새 누름이 오면 먼저 것을 접는다) */
+let cancelPendingPress: (() => void) | null = null
 
 /**
  * 카드를 누르면 그 칸을 만지는 칸으로: 왼쪽 단추(button 0)만(오른쪽 · 가운데 클릭으로는 바꾸지 않는다). 이미 만지는 칸이어도 부른다 — 칸 안에서 탭을 바꾼 뒤 누르면
@@ -20,22 +21,34 @@ const TAB_PRESS_SLOP_PX = 4
  */
 function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onFocusPane: (paneId: string) => void): void {
   if (event.button !== 0) return
-  if (!(event.target instanceof Element) || event.target.closest('[role="tab"]') === null) { onFocusPane(paneId); return }
+  cancelPendingPress?.()
+  const target = event.target instanceof Element ? event.target : null
+  // 탭 닫기 ×: 닫는 것 말고는 아무것도 하지 않는다(칸도 만지는 칸이 되지 않는다)
+  if (target?.closest('.pane-top-tab-close') != null) return
+  // 탭(오른쪽 여백 포함)은 끌기의 시작일 수 있어 놓을 때로 미룬다. 끌기와 같은 문턱(TAB_DRAG_THRESHOLD_PX) 이상 움직이면 끌기라 칸을 바꾸지 않는다
+  if (target?.closest('.pane-top-tab') == null) { onFocusPane(paneId); return }
   const startX = event.clientX
   const startY = event.clientY
   let moved = false
-  const move = (next: PointerEvent) => { if (Math.hypot(next.clientX - startX, next.clientY - startY) > TAB_PRESS_SLOP_PX) moved = true }
+  const move = (next: PointerEvent) => { if (Math.hypot(next.clientX - startX, next.clientY - startY) >= TAB_DRAG_THRESHOLD_PX) moved = true }
   const finish = (focus: boolean) => {
     window.removeEventListener('pointermove', move, true)
     window.removeEventListener('pointerup', up, true)
     window.removeEventListener('pointercancel', cancel, true)
+    window.removeEventListener('keydown', key, true)
+    window.removeEventListener('blur', cancel)
+    if (cancelPendingPress === cancel) cancelPendingPress = null
     if (focus && !moved) onFocusPane(paneId)
   }
   const up = () => finish(true)
   const cancel = () => finish(false)
+  const key = (keyEvent: KeyboardEvent) => { if (keyEvent.key === 'Escape') finish(false) }
+  cancelPendingPress = cancel
   window.addEventListener('pointermove', move, true)
   window.addEventListener('pointerup', up, true)
   window.addEventListener('pointercancel', cancel, true)
+  window.addEventListener('keydown', key, true)
+  window.addEventListener('blur', cancel)
 }
 
 export function PaneCard({ paneId, channel, active, empty = false, className = '', onFocusPane, children }: {

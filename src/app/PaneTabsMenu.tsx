@@ -166,8 +166,29 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     observer.observe(strip)
     return () => observer.disconnect()
   }, [titlesKey, state.activeId, subKey, subFits, renaming])
-  // 끌기를 마친 직후 따라오는 click 은 탭 전환이 아니다.
+  // 끌기가 시작된 때부터 놓은 뒤 따라오는 click 까지는 탭 전환이 아니다(고정 시간이 아니다: 오래 끌다 Esc 로 취소하고 탭 위에서 놓아도 click 이 막혀야 한다).
+  // 놓은 뒤(pointerup) click 이 지나가도록 한 틱 미루어 풀고, 새로 누르면(pointerdown) 바로 푼다 — 창이 따로 움직여 pointerup 이 안 오는 끌기도 갇히지 않게
   const suppressClickRef = useRef(false)
+  const clearSuppressRef = useRef<(() => void) | null>(null)
+  const armClickSuppress = () => {
+    clearSuppressRef.current?.()
+    suppressClickRef.current = true
+    let timer: number | null = null
+    const release = () => {
+      window.removeEventListener('pointerup', onUp, true)
+      window.removeEventListener('pointercancel', onUp, true)
+      window.removeEventListener('pointerdown', release, true)
+      if (timer !== null) window.clearTimeout(timer)
+      suppressClickRef.current = false
+      if (clearSuppressRef.current === release) clearSuppressRef.current = null
+    }
+    const onUp = () => { timer = window.setTimeout(release, 0) }
+    clearSuppressRef.current = release
+    window.addEventListener('pointerup', onUp, true)
+    window.addEventListener('pointercancel', onUp, true)
+    window.addEventListener('pointerdown', release, true)
+  }
+  useEffect(() => () => clearSuppressRef.current?.(), [])
   // 끄는 동안 다시 그려져도 최신 값을 읽도록 ref 로 둔다
   const dragHostRef = useRef<(tab: Tab) => TabDragHost>(() => { throw new Error('unset') })
   dragHostRef.current = (tab) => ({
@@ -179,10 +200,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     dockEdges,
     dragWindow: dragWindow === true && state.tabs.length === 1 && tab.kind === 'pdf',
     tearOff: onTearOffTab === undefined || tab.kind !== 'pdf' ? undefined : (id, info) => onTearOffTab(id, info),
-    onDragged: () => {
-      suppressClickRef.current = true
-      window.setTimeout(() => { suppressClickRef.current = false }, 400)
-    },
+    onDragged: armClickSuppress,
   })
   // 탭 우클릭 메뉴: 어느 탭에서, 화면 어디에 열렸나
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)

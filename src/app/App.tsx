@@ -3750,7 +3750,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 「PDF 도구」 탭이 다루는 문서: 도구를 연 문서(문서 우클릭 메뉴 등), 없으면 지금 보는 PDF
   const pdfToolsDoc = (pdfToolsTarget === null ? null : openedDocs.find((doc) => doc.docId === pdfToolsTarget.docId)) ?? activePdfDoc
   const renderPane = (pane: PaneId) => (
-    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && (paneCount > 1 || floatIds.includes(pane)) ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
+    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && (paneCount > 1 || floatIds.includes(pane)) ? '' : undefined} onPointerDownCapture={(event) => { if (event.button === 0) focusPane(pane) }}>
       <PaneIdContext.Provider value={pane}>
         {renderPaneBody(pane)}
       </PaneIdContext.Provider>
