@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { PDF_SPLIT_LAYOUTS } from '../core/pdfSplit'
-import { collapseEmptyPane, dockSplit, dockTab, dockZoneAt, dockZoneBox, dockableEdges, insertionIndexAt, insertTabAt, moveTabToPaneAt } from './tabDock'
+import { MAX_PANES, layoutForCount, layoutForLegacyId, leaves, paneCount, paneNode, shapeOf } from '../core/layoutTree'
+import { closePaneTree, collapseEmptyPane, dockRefusal, dockTab, dockZoneAt, dockZoneBox, edgeSplit, insertionIndexAt, insertTabAt, moveTabToPaneAt, openTabBeside, type TreeWorkspace } from './tabDock'
 import { emptyTabs, type PanesState, type Tab } from './tabs'
 
 const box = { left: 100, top: 50, width: 400, height: 300 }
@@ -49,63 +49,6 @@ describe('insertionIndexAt', () => {
   it('빈 줄이면 0', () => expect(insertionIndexAt([], 10)).toBe(0))
 })
 
-describe('dockSplit', () => {
-  it('한 화면을 좌우·위아래로', () => {
-    expect(dockSplit('single', 0, 'right')).toEqual({ layout: 'cols2', slots: [0, 'new'] })
-    expect(dockSplit('single', 0, 'left')).toEqual({ layout: 'cols2', slots: ['new', 0] })
-    expect(dockSplit('single', 0, 'bottom')).toEqual({ layout: 'rows2', slots: [0, 'new'] })
-    expect(dockSplit('single', 0, 'top')).toEqual({ layout: 'rows2', slots: ['new', 0] })
-  })
-  it('좌우 둘에서 오른쪽 칸을 아래로 가르면 왼쪽 하나 · 오른쪽 둘', () => {
-    expect(dockSplit('cols2', 1, 'bottom')).toEqual({ layout: 'left1-right2', slots: [0, 1, 'new'] })
-    expect(dockSplit('cols2', 1, 'top')).toEqual({ layout: 'left1-right2', slots: [0, 'new', 1] })
-    expect(dockSplit('cols2', 0, 'bottom')).toEqual({ layout: 'left2-right1', slots: [0, 'new', 1] })
-  })
-  it('좌우 둘에서 가로로 더 가르면 좌우 셋', () => {
-    expect(dockSplit('cols2', 0, 'right')).toEqual({ layout: 'cols3', slots: [0, 'new', 1] })
-    expect(dockSplit('cols2', 1, 'right')).toEqual({ layout: 'cols3', slots: [0, 1, 'new'] })
-  })
-  it('위아래 둘에서 가로로 가르면 위 둘·아래 하나 또는 위 하나·아래 둘', () => {
-    expect(dockSplit('rows2', 0, 'right')).toEqual({ layout: 'top2-bottom1', slots: [0, 'new', 1] })
-    expect(dockSplit('rows2', 1, 'left')).toEqual({ layout: 'top1-bottom2', slots: [0, 'new', 1] })
-  })
-  it('셋을 넷(2×2)으로', () => {
-    expect(dockSplit('top2-bottom1', 2, 'right')).toEqual({ layout: 'grid4', slots: [0, 1, 2, 'new'] })
-    expect(dockSplit('top2-bottom1', 2, 'left')).toEqual({ layout: 'grid4', slots: [0, 1, 'new', 2] })
-    expect(dockSplit('left1-right2', 0, 'right')).toBeNull()
-    expect(dockSplit('left1-right2', 1, 'bottom')).toBeNull()
-  })
-  it('넷에서는 더 나눌 수 없다', () => {
-    for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
-      for (let cell = 0; cell < 4; cell += 1) expect(dockSplit('grid4', cell, edge)).toBeNull()
-    }
-  })
-  it('없는 모양(좌우 셋의 가운데를 위아래로)은 null', () => {
-    expect(dockSplit('cols3', 1, 'bottom')).toBeNull()
-  })
-  it('잘못된 칸 번호는 null', () => {
-    expect(dockSplit('single', 3, 'left')).toBeNull()
-  })
-  it('나온 배치는 늘 새 칸을 하나 더 가지고, 옛 칸은 한 번씩만 쓴다', () => {
-    for (const layout of PDF_SPLIT_LAYOUTS) {
-      for (let cell = 0; cell < layout.cells.length; cell += 1) {
-        for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
-          const result = dockSplit(layout.id, cell, edge)
-          if (result === null) continue
-          expect(result.slots).toHaveLength(layout.cells.length + 1)
-          expect(result.slots.filter((slot) => slot === 'new')).toHaveLength(1)
-          const olds = result.slots.filter((slot): slot is number => slot !== 'new').sort()
-          expect(olds).toEqual(layout.cells.map((_, index) => index))
-        }
-      }
-    }
-  })
-  it('dockableEdges 는 나눌 수 있는 쪽만', () => {
-    expect(dockableEdges('single', 0)).toEqual(['left', 'right', 'top', 'bottom'])
-    expect(dockableEdges('grid4', 0)).toEqual([])
-  })
-})
-
 describe('탭 옮기기', () => {
   it('insertTabAt 은 원하는 자리에 넣고 활성화한다', () => {
     const next = insertTabAt(state('a', 'b', 'c'), tab('x'), 1)
@@ -113,69 +56,209 @@ describe('탭 옮기기', () => {
     expect(next.activeId).toBe('x')
     expect(ids(insertTabAt(state('a', 'b'), tab('a'), 5))).toEqual(['b', 'a'])
   })
-  const panes: PanesState = { left: state('a', 'b'), right: state('c'), third: emptyTabs, fourth: emptyTabs }
-  it('moveTabToPaneAt: 다른 패널의 자리로', () => {
+  const panes: PanesState = { left: state('a', 'b'), right: state('c') }
+  it('moveTabToPaneAt: 다른 패널의 자리로(가운데에 놓기)', () => {
     const next = moveTabToPaneAt(panes, 'a', 'right', 0)
     expect(ids(next.left)).toEqual(['b'])
     expect(ids(next.right)).toEqual(['a', 'c'])
-    expect(next.right.activeId).toBe('a')
+    expect(next.right!.activeId).toBe('a')
   })
   it('moveTabToPaneAt: 같은 패널이면 순서만', () => {
     expect(ids(moveTabToPaneAt(panes, 'a', 'left', 1).left)).toEqual(['b', 'a'])
   })
-  it('dockTab: 오른쪽 패널을 아래로 갈라 새 패널에', () => {
-    const result = dockTab({ ...panes, right: state('c', 'd') }, 'cols2', 'a', 'right', 'bottom')
-    expect(result?.layout).toBe('left1-right2')
-    expect(result?.newPane).toBe('third')
-    expect(ids(result?.panes.left)).toEqual(['b'])
-    expect(ids(result?.panes.right)).toEqual(['c', 'd'])
-    expect(ids(result?.panes.third)).toEqual(['a'])
+})
+
+describe('edgeSplit·dockRefusal', () => {
+  it('가장자리는 나누는 방향과 새 칸의 쪽을 정한다', () => {
+    expect(edgeSplit('left')).toEqual({ dir: 'h', before: true })
+    expect(edgeSplit('right')).toEqual({ dir: 'h', before: false })
+    expect(edgeSplit('top')).toEqual({ dir: 'v', before: true })
+    expect(edgeSplit('bottom')).toEqual({ dir: 'v', before: false })
   })
-  it('dockTab: 새 칸이 앞에 오면 패널 이름이 밀린다', () => {
-    const result = dockTab(panes, 'cols2', 'a', 'left', 'left')
-    expect(result?.layout).toBe('cols3')
-    expect(result?.newPane).toBe('left')
-    expect(ids(result?.panes.left)).toEqual(['a'])
-    expect(ids(result?.panes.right)).toEqual(['b'])
-    expect(ids(result?.panes.third)).toEqual(['c'])
+  it('칸 크기를 알면 반쪽이 최소 크기보다 작아지는 가장자리를 막는다', () => {
+    const layout = paneNode('a')
+    const sizeOf = () => ({ width: 300, height: 500 })
+    expect(dockRefusal(layout, 'a', 'right', sizeOf)).toBe('small')
+    expect(dockRefusal(layout, 'a', 'bottom', sizeOf)).toBeNull()
   })
-  it('dockTab: 하나뿐인 탭을 제 패널에서 갈라내기·넷 일 때는 null', () => {
-    expect(dockTab({ ...panes, left: state('a') }, 'cols2', 'a', 'left', 'right')).toBeNull()
-    const four: PanesState = { left: state('a', 'e'), right: state('b'), third: state('c'), fourth: state('d') }
-    expect(dockTab(four, 'grid4', 'a', 'right', 'left')).toBeNull()
+})
+
+describe('dockTab: 가장자리마다 칸을 나눠 새 칸에 넣는다', () => {
+  const base = (): TreeWorkspace => ({ panes: { left: state('a', 'b'), right: state('c', 'd') }, channels: { left: 'green', right: 'orange' }, layout: layoutForLegacyId('cols2', ['left', 'right']) })
+  const docked = (edge: 'left' | 'right' | 'top' | 'bottom', target = 'right', id = 'a') => {
+    const result = dockTab(base(), id, target, edge)
+    if (result === null || 'refused' in result) throw new Error('나뉘어야 한다')
+    return result
+  }
+
+  it.each([
+    ['right', 'h(P,h(P,P))'],
+    ['left', 'h(P,h(P,P))'],
+    ['bottom', 'h(P,v(P,P))'],
+    ['top', 'h(P,v(P,P))'],
+  ] as const)('%s: 칸이 하나 늘고 모양은 %s', (edge, shape) => {
+    const result = docked(edge)
+    expect(shapeOf(result.layout)).toBe(shape)
+    expect(paneCount(result.layout)).toBe(3)
+    expect(ids(result.panes[result.newPane])).toEqual(['a'])
+    expect(ids(result.panes.left)).toEqual(['b'])
+    expect(ids(result.panes.right)).toEqual(['c', 'd'])
+  })
+
+  it('새 칸의 자리: 오른쪽·아래는 대상 칸 뒤, 왼쪽·위는 대상 칸 앞', () => {
+    const right = docked('right')
+    expect(leaves(right.layout)).toEqual(['left', 'right', right.newPane])
+    const left = docked('left')
+    expect(leaves(left.layout)).toEqual(['left', left.newPane, 'right'])
+    const top = docked('top', 'left', 'c')
+    expect(leaves(top.layout)).toEqual([top.newPane, 'left', 'right'])
+  })
+
+  it('새 칸은 탭이 떠난 칸의 채널을 받는다(대상 칸의 채널이 아니다)', () => {
+    const result = docked('left')
+    expect(result.channels[result.newPane]).toBe('green')
+    expect(result.channels.right).toBe('orange')
+  })
+
+  it('하나뿐인 탭을 다른 칸 가장자리에 놓으면 비어 버린 원래 칸이 닫힌다', () => {
+    const input: TreeWorkspace = { ...base(), panes: { left: state('a'), right: state('c', 'd') } }
+    const result = dockTab(input, 'a', 'right', 'bottom')
+    if (result === null || 'refused' in result) throw new Error('나뉘어야 한다')
+    expect(result.collapsed).toBe(true)
+    expect(result.sourcePane).toBe('left')
+    expect(result.panes.left).toBeUndefined()
+    expect(leaves(result.layout)).toEqual(['right', result.newPane])
+    expect(shapeOf(result.layout)).toBe('v(P,P)')
+    expect(result.channels.left).toBeUndefined()
+    expect(result.channels[result.newPane]).toBe('green')
+  })
+
+  it('미리보기 탭은 새 칸에서 고정된다', () => {
+    const input: TreeWorkspace = { ...base(), panes: { left: { tabs: [{ ...tab('p'), preview: true }, tab('b')], activeId: 'p' }, right: state('c') } }
+    const result = dockTab(input, 'p', 'right', 'bottom')
+    if (result === null || 'refused' in result) throw new Error('나뉘어야 한다')
+    expect(result.panes[result.newPane]!.tabs[0]!.preview).toBeUndefined()
+  })
+
+  it('하나뿐인 탭을 제 칸에서 갈라내려 하거나 없는 탭·칸이면 null', () => {
+    const input: TreeWorkspace = { ...base(), panes: { left: state('a'), right: state('c', 'd') } }
+    expect(dockTab(input, 'a', 'left', 'right')).toBeNull()
+    expect(dockTab(input, 'zzz', 'right', 'right')).toBeNull()
+    expect(dockTab(input, 'c', 'nope', 'right')).toBeNull()
+  })
+
+  it('같은 칸의 가장자리에 놓으면(탭이 둘 이상) 그 칸을 나눈다', () => {
+    const result = docked('right', 'left', 'a')
+    expect(leaves(result.layout)).toEqual(['left', result.newPane, 'right'])
+    expect(ids(result.panes.left)).toEqual(['b'])
+    expect(result.collapsed).toBe(false)
+  })
+
+  it('칸이 8개면 어느 가장자리든 { refused: max }', () => {
+    const names = Array.from({ length: MAX_PANES }, (_, index) => `p${index}`)
+    const full: TreeWorkspace = {
+      layout: layoutForCount(MAX_PANES, names),
+      panes: Object.fromEntries(names.map((name, index) => [name, state(`t${index}a`, `t${index}b`)])),
+      channels: {},
+    }
+    for (const edge of ['left', 'right', 'top', 'bottom'] as const) expect(dockTab(full, 't0a', 'p3', edge)).toEqual({ refused: 'max' })
+  })
+
+  it('칸이 8개여도 하나뿐인 탭을 다른 칸으로 옮겨 원래 칸이 닫히면 나눌 수 있다', () => {
+    const names = Array.from({ length: MAX_PANES }, (_, index) => `p${index}`)
+    const full: TreeWorkspace = {
+      layout: layoutForCount(MAX_PANES, names),
+      panes: Object.fromEntries(names.map((name, index) => [name, state(`t${index}`)])),
+      channels: {},
+    }
+    const result = dockTab(full, 't0', 'p3', 'bottom')
+    if (result === null || 'refused' in result) throw new Error('나뉘어야 한다')
+    expect(paneCount(result.layout)).toBe(MAX_PANES)
+  })
+
+  it('칸 크기를 알면 너무 작아지는 방향은 { refused: small }, 다른 방향은 나뉜다', () => {
+    const sizeOf = () => ({ width: 300, height: 500 })
+    expect(dockTab(base(), 'a', 'right', 'right', sizeOf)).toEqual({ refused: 'small' })
+    expect(dockTab(base(), 'a', 'right', 'left', sizeOf)).toEqual({ refused: 'small' })
+    const down = dockTab(base(), 'a', 'right', 'bottom', sizeOf)
+    expect(down !== null && !('refused' in down)).toBe(true)
+  })
+})
+
+describe('openTabBeside', () => {
+  const panes: PanesState = { left: state('a'), right: state('b') }
+  const layout = layoutForLegacyId('cols2', ['left', 'right'])
+
+  it('보낸 칸의 오른쪽에 새 칸을 만들고 보낸 칸의 채널을 준다', () => {
+    const result = openTabBeside(panes, layout, 'left', tab('x'), { left: 'orange', right: 'blue' })
+    if (result === null) throw new Error('나뉘어야 한다')
+    expect(leaves(result.layout)).toEqual(['left', result.newPane, 'right'])
+    expect(ids(result.panes[result.newPane])).toEqual(['x'])
+    expect(result.channels[result.newPane]).toBe('orange')
+  })
+
+  it('오른쪽이 너무 좁으면 아래로, 그것도 안 되면 왼쪽·위를 차례로 본다', () => {
+    const narrowTall = () => ({ width: 300, height: 800 })
+    const down = openTabBeside(panes, layout, 'left', tab('x'), {}, narrowTall)
+    expect(down && shapeOf(down.layout)).toBe('h(v(P,P),P)')
+    const tiny = () => ({ width: 300, height: 300 })
+    expect(openTabBeside(panes, layout, 'left', tab('x'), {}, tiny)).toBeNull()
+  })
+
+  it('칸이 8개면 null', () => {
+    const names = Array.from({ length: MAX_PANES }, (_, index) => `p${index}`)
+    const full = Object.fromEntries(names.map((name) => [name, state(name)]))
+    expect(openTabBeside(full, layoutForCount(MAX_PANES, names), 'p0', tab('x'), {})).toBeNull()
+  })
+
+  it('없는 칸이면 null', () => {
+    expect(openTabBeside(panes, layout, 'zzz', tab('x'), {})).toBeNull()
   })
 })
 
 describe('collapseEmptyPane', () => {
-  const panes: PanesState = { left: emptyTabs, right: state('b'), third: state('c'), fourth: emptyTabs }
-  it('비어 버린 패널을 닫고 남은 패널이 그 자리를 채운다', () => {
-    const result = collapseEmptyPane(panes, 'cols3', 'left')
-    expect(result?.layout).toBe('cols2')
-    expect(ids(result?.panes.left)).toEqual(['b'])
-    expect(ids(result?.panes.right)).toEqual(['c'])
-    expect(result?.remap('right')).toBe('left')
-    expect(result?.remap('third')).toBe('right')
+  const input = (): TreeWorkspace => ({ panes: { a: emptyTabs, b: state('b'), c: state('c') }, channels: { a: 'green', b: 'orange', c: null }, layout: layoutForLegacyId('cols3', ['a', 'b', 'c']) })
+
+  it('비어 버린 패널의 칸을 빼고 남은 칸이 그 자리를 채운다(형제가 부모 자리를 차지한다)', () => {
+    const result = collapseEmptyPane(input(), 'a')
+    expect(result && leaves(result.layout)).toEqual(['b', 'c'])
+    expect(result && shapeOf(result.layout)).toBe('h(P,P)')
+    expect(result?.panes.a).toBeUndefined()
+    expect(result?.channels).toEqual({ b: 'orange', c: null })
   })
-  it('탭이 남아 있거나 칸이 하나뿐이면 null', () => {
-    expect(collapseEmptyPane(panes, 'cols3', 'right')).toBeNull()
-    expect(collapseEmptyPane({ ...panes, left: emptyTabs }, 'single', 'left')).toBeNull()
+
+  it('가운데 칸을 빼면 그 형제가 부모 자리를 차지한다', () => {
+    const middle: TreeWorkspace = { ...input(), panes: { a: state('a'), b: emptyTabs, c: state('c') } }
+    const result = collapseEmptyPane(middle, 'b')
+    expect(result && leaves(result.layout)).toEqual(['a', 'c'])
   })
-  it('dockTab 은 탭이 떠난 패널의 새 이름을 알려 준다', () => {
-    const base: PanesState = { left: state('a'), right: state('b', 'c'), third: emptyTabs, fourth: emptyTabs }
-    const docked = dockTab(base, 'cols2', 'a', 'right', 'left')
-    expect(docked?.layout).toBe('cols3')
-    expect(docked?.sourcePane).toBe('left')
-    const collapsed = collapseEmptyPane(docked!.panes, docked!.layout, docked!.sourcePane)
-    expect(collapsed?.layout).toBe('cols2')
-    expect(ids(collapsed?.panes.left)).toEqual(['a'])
-    expect(ids(collapsed?.panes.right)).toEqual(['b', 'c'])
-    const after = dockTab(base, 'cols2', 'a', 'right', 'bottom')
-    expect(after?.layout).toBe('left1-right2')
-    expect(after?.sourcePane).toBe('left')
-    const closed = collapseEmptyPane(after!.panes, after!.layout, after!.sourcePane)
-    expect(closed?.layout).toBe('rows2')
-    expect(ids(closed?.panes.left)).toEqual(['b', 'c'])
-    expect(ids(closed?.panes.right)).toEqual(['a'])
-    expect(closed?.remap(after!.newPane)).toBe('right')
+
+  it('탭이 남아 있거나 칸이 하나뿐이거나 없는 칸이면 null', () => {
+    expect(collapseEmptyPane(input(), 'b')).toBeNull()
+    expect(collapseEmptyPane({ panes: { a: emptyTabs }, channels: {}, layout: paneNode('a') }, 'a')).toBeNull()
+    expect(collapseEmptyPane(input(), 'zzz')).toBeNull()
+  })
+})
+
+describe('closePaneTree (kill-pane)', () => {
+  const input = (): TreeWorkspace => ({ panes: { a: state('a'), b: state('b'), c: state('c') }, channels: { a: 'blue', b: 'green', c: 'orange' }, layout: layoutForLegacyId('cols3', ['a', 'b', 'c']) })
+
+  it('칸을 닫고 그 탭을 다음 칸 뒤에 합친다. 닫은 칸의 채널은 사라진다', () => {
+    const result = closePaneTree(input(), 'b')
+    expect(result?.landed).toBe('c')
+    expect(result && leaves(result.layout)).toEqual(['a', 'c'])
+    expect(ids(result?.panes.c)).toEqual(['c', 'b'])
+    expect(result?.channels).toEqual({ a: 'blue', c: 'orange' })
+  })
+
+  it('맨 뒤 칸을 닫으면 앞 칸으로 합친다', () => {
+    const result = closePaneTree(input(), 'c')
+    expect(result?.landed).toBe('b')
+    expect(ids(result?.panes.b)).toEqual(['b', 'c'])
+  })
+
+  it('하나뿐인 칸이거나 없는 칸이면 null', () => {
+    expect(closePaneTree({ panes: { a: state('a') }, channels: {}, layout: paneNode('a') }, 'a')).toBeNull()
+    expect(closePaneTree(input(), 'zzz')).toBeNull()
   })
 })

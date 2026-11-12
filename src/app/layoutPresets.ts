@@ -1,8 +1,8 @@
-import type { PdfSplitLayoutId } from '../core/pdfSplit'
+import { layoutForLegacyId, leaves, newPaneId, type LayoutNode } from '../core/layoutTree'
 import { t } from '../i18n'
 import { pickFreeChannel } from './noteBeside'
-import { activeTab, emptyTabs, isDocumentKind, PANE_IDS, type PaneId, type PanesState, type Tab, type TabsState } from './tabs'
-import { DEFAULT_CHANNELS, type Channel, type PaneChannels } from './workspaceChannels'
+import { activeTab, allPaneTabs, isDocumentKind, tabsOf, type PaneId, type PanesState, type Tab, type TabsState } from './tabs'
+import { channelOf, type Channel, type PaneChannels } from './workspaceChannels'
 
 /**
  * 이름 붙은 배치(설계 3.6): 지금 열린 탭들을 그 모양으로 다시 놓는다. 어떤 탭도 닫지 않는다 —
@@ -16,17 +16,15 @@ export interface LayoutPresetDef {
   readonly label: string
   /** 한 줄 설명(현재 언어) */
   readonly hint: string
-  /** 칸 수에 맞는 배치 */
-  readonly layout: PdfSplitLayoutId
   /** 캔버스(YOLO 노트)가 필요한가 — CANVAS_ENABLED 가 꺼져 있으면 감춘다 */
   readonly needsCanvas?: boolean
 }
 
 export const LAYOUT_PRESETS: readonly LayoutPresetDef[] = [
-  { id: 'read', get label() { return t('읽기') }, get hint() { return t('문서 | 노트') }, layout: 'cols2' },
-  { id: 'noteLeft', get label() { return t('노트 왼쪽') }, get hint() { return t('노트 | 문서') }, layout: 'cols2' },
-  { id: 'compare', get label() { return t('비교') }, get hint() { return t('문서 둘 | 노트 둘') }, layout: 'grid4' },
-  { id: 'organize', get label() { return t('정리') }, get hint() { return t('노트 | 캔버스') }, layout: 'cols2', needsCanvas: true },
+  { id: 'read', get label() { return t('읽기') }, get hint() { return t('문서 | 노트') } },
+  { id: 'noteLeft', get label() { return t('노트 왼쪽') }, get hint() { return t('노트 | 문서') } },
+  { id: 'compare', get label() { return t('비교') }, get hint() { return t('문서 둘 | 노트 둘') } },
+  { id: 'organize', get label() { return t('정리') }, get hint() { return t('노트 | 캔버스') }, needsCanvas: true },
 ]
 
 export function availableLayoutPresets(canvasEnabled: boolean): readonly LayoutPresetDef[] {
@@ -37,6 +35,8 @@ export interface PresetInput {
   readonly id: LayoutPresetId
   readonly panes: PanesState
   readonly channels: PaneChannels
+  /** 지금의 배치(칸 차례와 칸 id 를 이어 쓴다) */
+  readonly layout: LayoutNode
   /** 지금 보는 문서 창(없으면 문서가 있는 첫 창) */
   readonly anchor: PaneId | null
   /** 마지막으로 만진 메모 노트(없으면 null) — 열린 노트 탭이 없을 때 쓴다 */
@@ -50,11 +50,13 @@ export interface PresetInput {
 }
 
 export interface PresetOutcome {
-  readonly layout: PdfSplitLayoutId
+  readonly layout: LayoutNode
   readonly panes: PanesState
   readonly channels: PaneChannels
   /** 지금 만진 것으로 삼을 창(문서 칸) */
   readonly focus: PaneId
+  /** 새로 자라듯 보일 창(문서 칸의 짝) */
+  readonly fresh: PaneId
 }
 
 /** first 를 맨 앞으로 옮긴다(비교처럼 「보던 것이 첫째 칸」일 때) */
@@ -70,10 +72,11 @@ function leadWith(list: readonly Tab[], first: Tab | undefined): Tab[] {
  * - 문서 칸과 노트 칸은 같은 색이다. 비교는 두 쌍이 서로 다른 색이다.
  */
 export function applyLayoutPreset(input: PresetInput): PresetOutcome {
-  const { id, panes, channels, anchor, lastTouched, fallbackNote, lastCanvas = null, fallbackCanvas = null } = input
-  const all = PANE_IDS.flatMap((pane) => panes[pane].tabs)
-  const shown = PANE_IDS.map((pane) => activeTab(panes[pane])).filter((tab): tab is Tab => tab !== null)
-  const anchorTab = anchor === null ? null : activeTab(panes[anchor])
+  const { id, panes, channels, layout, anchor, lastTouched, fallbackNote, lastCanvas = null, fallbackCanvas = null } = input
+  const order = leaves(layout)
+  const all = allPaneTabs(panes, order)
+  const shown = order.map((pane) => activeTab(tabsOf(panes, pane))).filter((tab): tab is Tab => tab !== null)
+  const anchorTab = anchor === null ? null : activeTab(tabsOf(panes, anchor))
   const activeDoc = anchorTab !== null && isDocumentKind(anchorTab.kind) ? anchorTab : shown.find((tab) => isDocumentKind(tab.kind))
   const docs = all.filter((tab) => isDocumentKind(tab.kind))
   let canvases = all.filter((tab) => tab.kind === 'canvas')
@@ -84,8 +87,10 @@ export function applyLayoutPreset(input: PresetInput): PresetOutcome {
   if (notes.length === 0 && fallbackNote !== null) notes = [fallbackNote]
   const activeNote = notes.find((tab) => tab.id === lastTouched) ?? notes.find((tab) => shown.some((candidate) => candidate.id === tab.id)) ?? notes[0]
 
-  const anchorChannel: Channel = (anchor === null ? null : channels[anchor]) ?? pickFreeChannel(channels, PANE_IDS.filter((pane) => panes[pane].tabs.length > 0))
-  const empty: PanesState = { left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs }
+  const anchorChannel: Channel = (anchor === null ? null : channelOf(channels, anchor)) ?? pickFreeChannel(channels, order.filter((pane) => tabsOf(panes, pane).tabs.length > 0))
+  // 새 배치의 칸은 지금 있는 칸 id 를 차례로 이어 쓰고(보던 칸이 그대로 남는다), 모자라면 새 id 를 만든다
+  const used = new Set(order)
+  const paneIds = (count: number): string[] => Array.from({ length: count }, (_, index) => order[index] ?? newPaneId(used)).map((pane) => { used.add(pane); return pane })
   /** 탭 줄: 차례는 그대로, 보일 탭은 activeId(없으면 첫째) */
   const strip = (list: readonly Tab[], activeId?: string): TabsState => ({
     tabs: [...list],
@@ -98,24 +103,29 @@ export function applyLayoutPreset(input: PresetInput): PresetOutcome {
     const [noteA, noteB, ...noteRest] = leadWith(notes, activeNote)
     const other: Channel = anchorChannel === 'blue' ? 'green' : 'blue'
     const list = (...tabs: (Tab | undefined)[]) => tabs.filter((tab): tab is Tab => tab !== undefined)
+    const [p0, p1, p2, p3] = paneIds(4) as [string, string, string, string]
     return {
-      layout: 'grid4',
+      // 위 줄: 문서 | 노트, 아래 줄: 문서 | 노트
+      layout: layoutForLegacyId('grid4', [p0, p1, p2, p3]),
       panes: {
-        left: strip(list(docA)),
-        right: strip([...list(noteA), ...canvases]),
-        third: strip(list(docB, ...docRest)),
-        fourth: strip(list(noteB, ...noteRest)),
+        [p0]: strip(list(docA)),
+        [p1]: strip([...list(noteA), ...canvases]),
+        [p2]: strip(list(docB, ...docRest)),
+        [p3]: strip(list(noteB, ...noteRest)),
       },
-      channels: { left: anchorChannel, right: anchorChannel, third: other, fourth: other },
-      focus: 'left',
+      channels: { [p0]: anchorChannel, [p1]: anchorChannel, [p2]: other, [p3]: other },
+      focus: p0,
+      fresh: p1,
     }
   }
 
   // 두 칸 배치. 읽기(문서 | 노트), 노트 왼쪽(노트 | 문서), 정리(노트 | 캔버스: 문서 탭은 닫지 않고 노트 칸 뒤에 둔다)
-  const channelsOut: PaneChannels = { ...DEFAULT_CHANNELS, left: anchorChannel, right: anchorChannel }
+  const [left, right] = paneIds(2) as [string, string]
+  const twoCols = layoutForLegacyId('cols2', [left, right])
+  const channelsOut: PaneChannels = { [left]: anchorChannel, [right]: anchorChannel }
   const docStrip = strip(docs, activeDoc?.id)
   const noteStrip = strip([...notes, ...canvases], activeNote?.id)
-  if (id === 'read') return { layout: 'cols2', panes: { ...empty, left: docStrip, right: noteStrip }, channels: channelsOut, focus: 'left' }
-  if (id === 'noteLeft') return { layout: 'cols2', panes: { ...empty, left: noteStrip, right: docStrip }, channels: channelsOut, focus: 'right' }
-  return { layout: 'cols2', panes: { ...empty, left: strip([...notes, ...docs], activeNote?.id ?? activeDoc?.id), right: strip(canvases, activeCanvas?.id) }, channels: channelsOut, focus: 'left' }
+  if (id === 'read') return { layout: twoCols, panes: { [left]: docStrip, [right]: noteStrip }, channels: channelsOut, focus: left, fresh: right }
+  if (id === 'noteLeft') return { layout: twoCols, panes: { [left]: noteStrip, [right]: docStrip }, channels: channelsOut, focus: right, fresh: left }
+  return { layout: twoCols, panes: { [left]: strip([...notes, ...docs], activeNote?.id ?? activeDoc?.id), [right]: strip(canvases, activeCanvas?.id) }, channels: channelsOut, focus: left, fresh: right }
 }

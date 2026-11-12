@@ -81,7 +81,7 @@ function unpinned(tab: Tab): Tab {
 /** 모든 창에서 id 탭을 고정한다. 바뀐 것이 없으면 같은 객체 */
 export function pinTabInPanes(panes: PanesState, id: string): PanesState {
   if (!allPaneTabs(panes).some((tab) => tab.id === id && tab.preview === true)) return panes
-  return { left: pinTab(panes.left, id), right: pinTab(panes.right, id), third: pinTab(panes.third, id), fourth: pinTab(panes.fourth, id) }
+  return mapPanes(panes, (state) => pinTab(state, id))
 }
 
 /** 저장해 둔 미리보기 탭 표시를 되살린다. 바뀐 것이 없으면 같은 객체 */
@@ -129,8 +129,8 @@ export function replaceTab(panes: PanesState, oldId: string, newTab: Tab): Panes
   const source = paneOfTab(panes, oldId)
   if (source === null || oldId === newTab.id) return panes
   const existing = paneOfTab(panes, newTab.id)
-  if (existing !== null) return { ...panes, [existing]: activateTab(panes[existing], newTab.id) }
-  const state = panes[source]
+  if (existing !== null) return { ...panes, [existing]: activateTab(tabsOf(panes, existing), newTab.id) }
+  const state = tabsOf(panes, source)
   return {
     ...panes,
     [source]: {
@@ -153,78 +153,72 @@ export function reorderTab(state: TabsState, id: string, toIndex: number): TabsS
 }
 
 /**
- * 좌우 두 패널. 패널마다 PDF·Markdown·캔버스 탭을 섞어 담는다.
+ * 칸(패널)들. 칸 id 는 만들 때 붙이는 문자열이고(core/layoutTree 의 newPaneId), 칸 차례(번호)는 나누기 트리의 잎 차례다.
+ * 이 객체의 키 차례는 의미가 없다 — 차례가 필요하면 트리(leaves)를 쓴다.
  *
- * 탭 id 는 두 패널을 통틀어 하나뿐이다 — 같은 PDF 가 양쪽에 열리면 읽던 쪽·형광펜
+ * 탭 id 는 모든 칸을 통틀어 하나뿐이다 — 같은 PDF 가 두 군데 열리면 읽던 쪽·형광펜
  * 초안이 어느 쪽 것인지 갈라지므로, 이미 열린 탭을 다시 열면 그 패널에서 활성화한다.
  */
-export type PaneId = 'left' | 'right' | 'third' | 'fourth'
+export type PaneId = string
 
-/**
- * 패널은 화면 차례로 left → right → third 다(이름은 2단 시절 그대로 둔다 — 세션·단축키가 이 이름을 쓴다).
- * 3단이면 right 가 가운데에 온다. 사람에게 보일 이름은 paneLabel 로 만든다.
- */
-export interface PanesState {
-  left: TabsState
-  right: TabsState
-  third: TabsState
-  /** 넷(2×2) 배치의 네 번째 패널 */
-  fourth: TabsState
+export type PanesState = Readonly<Record<PaneId, TabsState>>
+
+/** 칸의 탭 줄. 없는 칸이면 빈 줄 */
+export function tabsOf(panes: PanesState, pane: PaneId): TabsState {
+  return panes[pane] ?? emptyTabs
 }
 
-export const PANE_IDS: readonly PaneId[] = ['left', 'right', 'third', 'fourth']
-
-export type PaneCount = 1 | 2 | 3 | 4
-
-/** 지금 단 수에서 보이는 패널들(화면 차례) */
-export function visiblePanes(count: PaneCount): readonly PaneId[] {
-  return PANE_IDS.slice(0, count)
+/** 있는 칸들의 id(키 차례) */
+export function paneIdsOf(panes: PanesState): PaneId[] {
+  return Object.keys(panes)
 }
 
-/** 화면에 보일 패널 이름. 2단이면 왼쪽·오른쪽, 3단이면 왼쪽·가운데·오른쪽 */
-export function paneLabel(pane: PaneId, count: PaneCount): string {
-  if (count === 4) return t('{n}번', { n: PANE_IDS.indexOf(pane) + 1 })
-  if (pane === 'left') return t('왼쪽')
-  if (pane === 'third' || pane === 'fourth') return t('오른쪽')
-  return count === 3 ? t('가운데') : t('오른쪽')
+/** 칸마다 같은 변환을 한 새 상태 */
+export function mapPanes(panes: PanesState, map: (state: TabsState, pane: PaneId) => TabsState): PanesState {
+  return Object.fromEntries(Object.entries(panes).map(([pane, state]) => [pane, map(state, pane)]))
 }
 
-/** 반대편 패널(2단 기준). 3단의 맨 오른쪽 패널은 가운데를 반대편으로 본다 */
-export function otherPane(pane: PaneId): PaneId {
-  return pane === 'left' ? 'right' : 'left'
+/** 칸 번호(0 부터)를 사람에게 보일 이름으로: 「1번」 */
+export function paneLabel(index: number): string {
+  return t('{n}번', { n: index + 1 })
+}
+
+/** 칸 차례(order)에서 pane 의 다음 칸(끝이면 처음). 칸이 하나뿐이면 자기 자신 */
+export function otherPane(order: readonly PaneId[], pane: PaneId): PaneId {
+  const index = order.indexOf(pane)
+  if (index < 0 || order.length === 0) return order[0] ?? pane
+  return order[(index + 1) % order.length]!
 }
 
 export function paneOfTab(panes: PanesState, id: string): PaneId | null {
-  return PANE_IDS.find((pane) => panes[pane].tabs.some((tab) => tab.id === id)) ?? null
+  return paneIdsOf(panes).find((pane) => tabsOf(panes, pane).tabs.some((tab) => tab.id === id)) ?? null
 }
 
-/** 모든 패널의 탭(화면 차례) */
-export function allPaneTabs(panes: PanesState): Tab[] {
-  return PANE_IDS.flatMap((pane) => panes[pane].tabs)
+/** 모든 패널의 탭. order(칸 차례)를 주면 그 차례로 */
+export function allPaneTabs(panes: PanesState, order?: readonly PaneId[]): Tab[] {
+  return (order ?? paneIdsOf(panes)).flatMap((pane) => tabsOf(panes, pane).tabs)
 }
 
-/**
- * 단 수를 줄이면 숨는 패널의 탭을 남는 맨 끝 패널로 합친다. 보던 패널의 활성 탭을 그대로 보인다.
- * 바뀐 것이 없으면 같은 객체를 돌려준다.
- */
-export function mergeHiddenPanes(panes: PanesState, count: PaneCount, focused: PaneId): PanesState {
-  const shown = visiblePanes(count)
-  const hidden = PANE_IDS.filter((pane) => !shown.includes(pane))
-  if (hidden.every((pane) => panes[pane].tabs.length === 0)) return panes
-  const target = shown[shown.length - 1]!
-  const ids = new Set(panes[target].tabs.map((tab) => tab.id))
-  const extra = hidden.flatMap((pane) => panes[pane].tabs).filter((tab) => !ids.has(tab.id))
-  const focusedHidden = hidden.includes(focused) ? panes[focused].activeId : null
-  const next: PanesState = { ...panes, [target]: { tabs: [...panes[target].tabs, ...extra], activeId: focusedHidden ?? panes[target].activeId ?? extra[0]?.id ?? null } }
-  for (const pane of hidden) next[pane] = emptyTabs
-  return next
+/** 새 빈 칸을 더한다(이미 있으면 같은 객체) */
+export function addEmptyPane(panes: PanesState, pane: PaneId): PanesState {
+  return panes[pane] === undefined ? { ...panes, [pane]: emptyTabs } : panes
+}
+
+/** 칸을 지우고 그 탭을 into 칸의 뒤에 합친다(이미 있는 탭은 건너뛴다). into 에 보던 탭이 없었다면 닫은 칸의 보던 탭이 보인다 */
+export function closePaneInto(panes: PanesState, pane: PaneId, into: PaneId): PanesState {
+  const { [pane]: closed, ...rest } = panes
+  const target = rest[into]
+  if (closed === undefined || closed.tabs.length === 0 || pane === into || target === undefined) return rest
+  const have = new Set(target.tabs.map((tab) => tab.id))
+  const extra = closed.tabs.filter((tab) => !have.has(tab.id))
+  return { ...rest, [into]: { tabs: [...target.tabs, ...extra], activeId: target.activeId ?? closed.activeId } }
 }
 
 /** 열려 있으면 그 패널에서 활성화하고, 없으면 preferred 패널에 새로 연다. */
 export function openTabInPanes(panes: PanesState, tab: Tab, preferred: PaneId): PanesState {
   const existing = paneOfTab(panes, tab.id)
-  if (existing !== null) return { ...panes, [existing]: activateTab(panes[existing], tab.id) }
-  return { ...panes, [preferred]: openTab(panes[preferred], tab) }
+  if (existing !== null) return { ...panes, [existing]: activateTab(tabsOf(panes, existing), tab.id) }
+  return { ...panes, [preferred]: openTab(tabsOf(panes, preferred), tab) }
 }
 
 /**
@@ -233,25 +227,26 @@ export function openTabInPanes(panes: PanesState, tab: Tab, preferred: PaneId): 
  */
 export function openPreviewTabInPanes(panes: PanesState, tab: Tab, preferred: PaneId, preview = true): PanesState {
   const existing = paneOfTab(panes, tab.id)
-  if (existing !== null) return { ...panes, [existing]: activateTab(panes[existing], tab.id) }
-  return { ...panes, [preferred]: preview ? openPreviewTab(panes[preferred], tab) : openTab(panes[preferred], tab) }
+  if (existing !== null) return { ...panes, [existing]: activateTab(tabsOf(panes, existing), tab.id) }
+  const state = tabsOf(panes, preferred)
+  return { ...panes, [preferred]: preview ? openPreviewTab(state, tab) : openTab(state, tab) }
 }
 
 /** 탭을 반대편(또는 지정한) 패널로 옮긴다. 옮긴 패널에서 활성 탭이 된다. */
 export function moveTabToPane(panes: PanesState, id: string, target: PaneId): PanesState {
   const source = paneOfTab(panes, id)
   if (source === null || source === target) return panes
-  const tab = panes[source].tabs.find((candidate) => candidate.id === id)!
+  const tab = tabsOf(panes, source).tabs.find((candidate) => candidate.id === id)!
   return {
     ...panes,
-    [source]: closeTab(panes[source], id),
+    [source]: closeTab(tabsOf(panes, source), id),
     // 다른 창으로 옮긴 미리보기 탭은 고정된다
-    [target]: openTab(panes[target], unpinned(tab)),
+    [target]: openTab(tabsOf(panes, target), unpinned(tab)),
   }
 }
 
 export function closeTabEverywhere(panes: PanesState, id: string): PanesState {
-  return { left: closeTab(panes.left, id), right: closeTab(panes.right, id), third: closeTab(panes.third, id), fourth: closeTab(panes.fourth, id) }
+  return mapPanes(panes, (state) => closeTab(state, id))
 }
 
 /**
@@ -261,9 +256,9 @@ export function closeTabEverywhere(panes: PanesState, id: string): PanesState {
 export function moveMemoNoteTabs(panes: PanesState, moved: ReadonlyMap<string, string>, titleOf: (path: string) => string): PanesState {
   const touches = (tab: Tab) => tab.kind === 'memoNote' && moved.has(tab.id)
   if (!allPaneTabs(panes).some(touches)) return panes
-  const next = { ...panes }
-  for (const pane of PANE_IDS) {
-    const state = panes[pane]
+  const next: Record<PaneId, TabsState> = { ...panes }
+  for (const pane of paneIdsOf(panes)) {
+    const state = tabsOf(panes, pane)
     if (!state.tabs.some(touches)) continue
     const activeMoved = state.tabs.find((tab) => tab.id === state.activeId && touches(tab))
     next[pane] = {
@@ -292,12 +287,7 @@ export function syncMemoNoteTabs(panes: PanesState, titles: ReadonlyMap<string, 
 }
 
 export function mapPaneTabs(panes: PanesState, map: (tab: Tab) => Tab): PanesState {
-  return {
-    left: { ...panes.left, tabs: panes.left.tabs.map(map) },
-    right: { ...panes.right, tabs: panes.right.tabs.map(map) },
-    third: { ...panes.third, tabs: panes.third.tabs.map(map) },
-    fourth: { ...panes.fourth, tabs: panes.fourth.tabs.map(map) },
-  }
+  return mapPanes(panes, (state) => ({ ...state, tabs: state.tabs.map(map) }))
 }
 
 /**

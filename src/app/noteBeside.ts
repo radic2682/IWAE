@@ -1,17 +1,17 @@
-import { pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
+import { layoutRects, leaves, type LayoutNode } from '../core/layoutTree'
 import { groupMemoNotesByDoc, memoNoteTitleOf, type MemoNoteEntry } from '../core/memoNote'
-import { openTabBeside, collapseEmptyPane } from './tabDock'
+import { openTabBeside, collapseEmptyPane, type PaneSizer } from './tabDock'
 import {
   activeTab,
   openPreviewTab,
   openTab,
-  PANE_IDS,
+  tabsOf,
   type PaneId,
   type PanesState,
   type Tab,
   type TabsState,
 } from './tabs'
-import { CHANNELS, type Channel, type PaneChannel, type PaneChannels } from './workspaceChannels'
+import { CHANNELS, channelOf, type Channel, type PaneChannel, type PaneChannels } from './workspaceChannels'
 
 /**
  * 「옆에 노트 열기」의 규칙. DOM·React 를 모르는 순수 함수만 둔다 —
@@ -37,24 +37,23 @@ export function pickNotePath(args: {
 
 /** 보이는 창들이 아직 쓰지 않은 색(모두 썼으면 첫 색) */
 export function pickFreeChannel(channels: PaneChannels, visible: readonly PaneId[]): Channel {
-  const used = new Set(visible.map((pane) => channels[pane]))
+  const used = new Set(visible.map((pane) => channelOf(channels, pane)))
   return CHANNELS.find((channel) => !used.has(channel)) ?? CHANNELS[0]!
 }
 
-/** 배치에서 가장 오른쪽(같으면 가장 위) 창. 보이는 창만 본다 */
-export function rightmostPane(layoutId: PdfSplitLayoutId, visible: readonly PaneId[]): PaneId {
-  const layout = pdfSplitLayout(layoutId)
-  let best: PaneId = visible[0] ?? 'left'
+/** 배치에서 가장 오른쪽(같으면 가장 위) 창 */
+export function rightmostPane(layout: LayoutNode): PaneId {
+  const { panes } = layoutRects(layout)
+  let best: PaneId = leaves(layout)[0]!
   let bestRight = -1
-  let bestRow = Number.POSITIVE_INFINITY
-  for (const pane of visible) {
-    const cell = layout.cells[PANE_IDS.indexOf(pane)]
-    if (cell === undefined) continue
-    const right = cell.col + cell.colSpan
-    if (right > bestRight || (right === bestRight && cell.row < bestRow)) {
+  let bestTop = Number.POSITIVE_INFINITY
+  for (const [pane, rect] of panes) {
+    const right = rect.x + rect.w
+    // 부동소수점 오차는 같은 값으로 본다
+    if (right > bestRight + 1e-9 || (Math.abs(right - bestRight) <= 1e-9 && rect.y < bestTop - 1e-9)) {
       best = pane
       bestRight = right
-      bestRow = cell.row
+      bestTop = rect.y
     }
   }
   return best
@@ -75,8 +74,9 @@ export type PlaceNoteKind =
 export interface PlaceNoteInput {
   readonly panes: PanesState
   readonly channels: PaneChannels
-  readonly visible: readonly PaneId[]
-  readonly layoutId: PdfSplitLayoutId
+  readonly layout: LayoutNode
+  /** 칸의 지금 크기(px). 주면 너무 작은 칸은 나누지 않는다 */
+  readonly sizeOf?: PaneSizer
   /** 노트를 옆에 붙일 창(보통 지금 보는 문서 창). 이 창이 이미 노트를 보이면 거기에 탭으로 더한다 */
   readonly anchor: PaneId
   readonly tab: Tab
@@ -88,7 +88,7 @@ export interface PlaceNoteOutcome {
   readonly kind: PlaceNoteKind
   readonly panes: PanesState
   readonly channels: PaneChannels
-  readonly layout: PdfSplitLayoutId
+  readonly layout: LayoutNode
   /** 그 노트가 보이게 된 창 */
   readonly pane: PaneId
 }
@@ -100,43 +100,46 @@ const isNoteTab = (tab: Tab | null): boolean => tab !== null && tab.kind === 'me
  * 1. 이미 어느 창에 탭으로 있으면 그 탭으로 바꾼다.
  * 2. anchor 가 노트를 보이고 있거나, 같은 색의 이웃 창이 노트를 보이고 있으면 그 창에 탭으로 더한다.
  * 3. 없으면 anchor 의 오른쪽(안 되면 아래·왼쪽·위)에 새 창을 열고 anchor 의 색을 준다. anchor 에 색이 없으면 비어 있는 색을 둘 다에 준다.
- * 4. 칸이 가득(넷)이면 가장 오른쪽 창에 탭으로 넣고 그 창이 anchor 와 같은 색이 되게 한다.
+ * 4. 칸이 가득(상한)이거나 너무 작아 나눌 수 없으면 가장 오른쪽 창에 탭으로 넣고 그 창이 anchor 와 같은 색이 되게 한다.
  * 열린 탭은 하나도 닫지 않는다.
  */
 export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
-  const { panes, visible, layoutId, anchor, tab, preview = false } = input
+  const { panes, layout, anchor, tab, preview = false } = input
+  const visible = leaves(layout)
   const withTab = (state: TabsState, target: Tab) => (preview ? openPreviewTab(state, target) : openTab(state, target))
 
   // 1. 이미 보이는 창에 탭으로 있다
-  const holder = visible.find((pane) => panes[pane].tabs.some((candidate) => candidate.id === tab.id))
+  const holder = visible.find((pane) => tabsOf(panes, pane).tabs.some((candidate) => candidate.id === tab.id))
   if (holder !== undefined) {
-    if (panes[holder].activeId === tab.id) return { kind: 'visible', panes, channels: input.channels, layout: layoutId, pane: holder }
-    return { kind: 'activated', panes: { ...panes, [holder]: { tabs: panes[holder].tabs, activeId: tab.id } }, channels: input.channels, layout: layoutId, pane: holder }
+    const held = tabsOf(panes, holder)
+    if (held.activeId === tab.id) return { kind: 'visible', panes, channels: input.channels, layout, pane: holder }
+    return { kind: 'activated', panes: { ...panes, [holder]: { tabs: held.tabs, activeId: tab.id } }, channels: input.channels, layout, pane: holder }
   }
 
   // 색이 없는 문서 창이면 비어 있는 색을 골라 둘 다에 준다(노트 창이 같은 색이어야 연동된다)
-  const channel: PaneChannel = input.channels[anchor] ?? pickFreeChannel(input.channels, visible)
-  const channels: PaneChannels = input.channels[anchor] === null ? { ...input.channels, [anchor]: channel } : input.channels
+  const anchorChannel = channelOf(input.channels, anchor)
+  const channel: PaneChannel = anchorChannel ?? pickFreeChannel(input.channels, visible)
+  const channels: PaneChannels = anchorChannel === null ? { ...input.channels, [anchor]: channel } : input.channels
 
   // 2. 노트를 보이는 창(anchor 자신 → 같은 색 이웃)
-  const showsNote = (pane: PaneId) => { const shown = activeTab(panes[pane]); return shown !== null && shown.kind === tab.kind }
-  const peers = visible.filter((pane) => pane !== anchor && channels[pane] === channel && showsNote(pane))
-  const host = showsNote(anchor) ? anchor : peers.find((pane) => panes[pane].tabs.some((candidate) => candidate.preview === true)) ?? peers[0]
+  const showsNote = (pane: PaneId) => { const shown = activeTab(tabsOf(panes, pane)); return shown !== null && shown.kind === tab.kind }
+  const peers = visible.filter((pane) => pane !== anchor && channelOf(channels, pane) === channel && showsNote(pane))
+  const host = showsNote(anchor) ? anchor : peers.find((pane) => tabsOf(panes, pane).tabs.some((candidate) => candidate.preview === true)) ?? peers[0]
   if (host !== undefined) {
-    return { kind: 'tab', panes: { ...panes, [host]: withTab(panes[host], tab) }, channels, layout: layoutId, pane: host }
+    return { kind: 'tab', panes: { ...panes, [host]: withTab(tabsOf(panes, host), tab) }, channels, layout, pane: host }
   }
 
   // 3. anchor 옆에 새 창
-  const beside = openTabBeside(panes, layoutId, anchor, preview ? { ...tab, preview: true } : tab, channels)
+  const beside = openTabBeside(panes, layout, anchor, preview ? { ...tab, preview: true } : tab, channels, input.sizeOf)
   if (beside !== null) return { kind: 'beside', panes: beside.panes, channels: beside.channels, layout: beside.layout, pane: beside.newPane }
 
   // 4. 칸이 가득: 가장 오른쪽 창에 탭으로
-  const target = rightmostPane(layoutId, visible)
+  const target = rightmostPane(layout)
   return {
     kind: 'rightmost',
-    panes: { ...panes, [target]: withTab(panes[target], tab) },
+    panes: { ...panes, [target]: withTab(tabsOf(panes, target), tab) },
     channels: target === anchor ? channels : { ...channels, [target]: channel },
-    layout: layoutId,
+    layout,
     pane: target,
   }
 }
@@ -144,30 +147,27 @@ export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
 export interface CloseNoteInput {
   readonly panes: PanesState
   readonly channels: PaneChannels
-  readonly visible: readonly PaneId[]
-  readonly layoutId: PdfSplitLayoutId
+  readonly layout: LayoutNode
   readonly anchor: PaneId
 }
 
 export interface CloseNoteOutcome {
   readonly panes: PanesState
   readonly channels: PaneChannels
-  readonly layout: PdfSplitLayoutId
-  /** 노트를 거둔 창(닫힌 칸이면 닫기 전 이름) */
+  readonly layout: LayoutNode
+  /** 노트를 거둔 창(닫힌 칸이면 닫힌 칸의 id) */
   readonly pane: PaneId
   /** 닫힌 노트 탭 id 들 */
   readonly closed: readonly string[]
   /** 칸 자체가 닫혔는가 */
   readonly collapsed: boolean
-  /** 닫기 전 창 이름이 닫은 뒤에 무엇이 되는가(칸이 닫히지 않았으면 그대로) */
-  readonly remap: (pane: PaneId) => PaneId
 }
 
 /** anchor 와 같은 색 창(anchor 제외)에서 지금 노트를 보이는 창들 */
 export function visibleNotePanes(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], anchor: PaneId): PaneId[] {
-  const channel = channels[anchor]
+  const channel = channelOf(channels, anchor)
   if (channel === null) return []
-  return visible.filter((pane) => pane !== anchor && channels[pane] === channel && isNoteTab(activeTab(panes[pane])))
+  return visible.filter((pane) => pane !== anchor && channelOf(channels, pane) === channel && isNoteTab(activeTab(tabsOf(panes, pane))))
 }
 
 /**
@@ -176,29 +176,28 @@ export function visibleNotePanes(panes: PanesState, channels: PaneChannels, visi
  * 보이는 노트가 없으면 null
  */
 export function closeNoteBeside(input: CloseNoteInput): CloseNoteOutcome | null {
-  const { panes, channels, visible, layoutId, anchor } = input
-  const pane = visibleNotePanes(panes, channels, visible, anchor)[0]
+  const { panes, channels, layout, anchor } = input
+  const pane = visibleNotePanes(panes, channels, leaves(layout), anchor)[0]
   if (pane === undefined) return null
-  const closed = panes[pane].tabs.filter((tab) => tab.kind === 'memoNote')
-  const remaining = panes[pane].tabs.filter((tab) => tab.kind !== 'memoNote')
+  const state = tabsOf(panes, pane)
+  const closed = state.tabs.filter((tab) => tab.kind === 'memoNote')
+  const remaining = state.tabs.filter((tab) => tab.kind !== 'memoNote')
   // 보이던 노트 탭 자리에 가장 가까운 남은 탭이 보인다
-  const previousIndex = Math.max(panes[pane].tabs.findIndex((tab) => tab.id === panes[pane].activeId), 0)
+  const previousIndex = Math.max(state.tabs.findIndex((tab) => tab.id === state.activeId), 0)
   const nextActive = remaining[Math.min(previousIndex, remaining.length - 1)]?.id ?? null
   const trimmed: PanesState = { ...panes, [pane]: { tabs: remaining, activeId: nextActive } }
-  const collapsed = remaining.length === 0 ? collapseEmptyPane(trimmed, layoutId, pane, channels) : null
+  const collapsed = remaining.length === 0 ? collapseEmptyPane({ panes: trimmed, channels, layout }, pane) : null
   if (collapsed !== null) {
-    return { panes: collapsed.panes, channels: collapsed.channels, layout: collapsed.layout, pane, closed: closed.map((tab) => tab.id), collapsed: true, remap: collapsed.remap }
+    return { panes: collapsed.panes, channels: collapsed.channels, layout: collapsed.layout, pane, closed: closed.map((tab) => tab.id), collapsed: true }
   }
-  return { panes: trimmed, channels, layout: layoutId, pane, closed: closed.map((tab) => tab.id), collapsed: false, remap: (other) => other }
+  return { panes: trimmed, channels, layout, pane, closed: closed.map((tab) => tab.id), collapsed: false }
 }
 
 /** 지금 작업 공간(창·색·배치)의 한 장면 */
 export interface WorkspaceSnapshot {
   readonly panes: PanesState
   readonly channels: PaneChannels
-  /** 화면에 보이는 창들 */
-  readonly visible: readonly PaneId[]
-  readonly layoutId: PdfSplitLayoutId
+  readonly layout: LayoutNode
 }
 
 /** 앱이 옆에 노트 열기에 내주는 손잡이들. App 이 채우고, 시험은 가짜로 채운다 */
@@ -206,7 +205,9 @@ export interface NoteBesideHost {
   /** 지금 장면(부를 때마다 최신) */
   readonly snapshot: () => WorkspaceSnapshot
   /** 새 장면을 앱에 반영한다. fresh: 새로 생긴 창(자라듯 나타나게 한다) */
-  readonly apply: (next: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: PdfSplitLayoutId }, fresh?: PaneId) => void
+  readonly apply: (next: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode }, fresh?: PaneId) => void
+  /** 칸의 지금 크기(px). 모르면 null(크기는 따지지 않는다) */
+  readonly sizeOf?: PaneSizer
   /** 마지막으로 만진 메모 노트 */
   readonly lastTouched: () => string | null
   readonly entries: () => readonly MemoNoteEntry[]
@@ -243,7 +244,7 @@ export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
 
   const place: NoteBesideOpener['place'] = (anchor, path, preview = false) => {
     const now = host.snapshot()
-    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, visible: now.visible, layoutId: now.layoutId, anchor, tab: noteTab(path), preview })
+    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab: noteTab(path), preview, ...(host.sizeOf === undefined ? {} : { sizeOf: host.sizeOf }) })
     host.apply({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
     host.touch(path)
     return outcome
@@ -252,7 +253,7 @@ export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
   const open: NoteBesideOpener['open'] = async (anchor, notePath, preview = false) => {
     if (!host.available()) return null
     const first = host.snapshot()
-    const docId = host.docIdOf(activeTab(first.panes[anchor]))
+    const docId = host.docIdOf(activeTab(tabsOf(first.panes, anchor)))
     let path = notePath ?? pickNotePath({ lastTouched: host.lastTouched(), docId, entries: host.entries(), docOwner: host.docOwner })
     if (path === null) {
       creating ??= (docId === null ? host.createGeneral() : host.createForDoc(docId)).finally(() => { creating = null })
@@ -265,7 +266,7 @@ export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
 
   const toggle: NoteBesideOpener['toggle'] = (anchor) => {
     const now = host.snapshot()
-    const closed = closeNoteBeside({ panes: now.panes, channels: now.channels, visible: now.visible, layoutId: now.layoutId, anchor })
+    const closed = closeNoteBeside({ panes: now.panes, channels: now.channels, layout: now.layout, anchor })
     if (closed === null) return { kind: 'opening', opened: open(anchor) }
     host.apply({ panes: closed.panes, channels: closed.channels, layout: closed.layout })
     return { kind: 'closed', outcome: closed }

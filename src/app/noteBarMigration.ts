@@ -1,4 +1,4 @@
-import type { PdfSplitLayoutId } from '../core/pdfSplit'
+import type { LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
 import { placeNoteTab, type PlaceNoteOutcome } from './noteBeside'
 import { allPaneTabs, type PaneId, type PanesState } from './tabs'
@@ -31,8 +31,7 @@ export interface MigrateInput {
   readonly barOpen: boolean
   readonly panes: PanesState
   readonly channels: PaneChannels
-  readonly visible: readonly PaneId[]
-  readonly layoutId: PdfSplitLayoutId
+  readonly layout: LayoutNode
   /** 지금 보는 문서 창(없으면 null) */
   readonly anchor: PaneId | null
   /** 예전 바가 보이던 노트(기억해 둔 열린 노트, 없으면 이 문서의 노트, 그것도 없으면 첫 노트). 없으면 null */
@@ -41,8 +40,8 @@ export interface MigrateInput {
 
 /** 옮길 것이 없으면 null */
 export function migrateNoteBar(input: MigrateInput): PlaceNoteOutcome | null {
-  const { barOpen, panes, channels, visible, layoutId, anchor, notePath } = input
+  const { barOpen, panes, channels, layout, anchor, notePath } = input
   if (!barOpen || anchor === null || notePath === null) return null
   if (allPaneTabs(panes).some((tab) => tab.kind === 'memoNote')) return null
-  return placeNoteTab({ panes, channels, visible, layoutId, anchor, tab: { id: notePath, title: memoNoteTitleOf(notePath), kind: 'memoNote' } })
+  return placeNoteTab({ panes, channels, layout, anchor, tab: { id: notePath, title: memoNoteTitleOf(notePath), kind: 'memoNote' } })
 }

@@ -62,48 +62,47 @@ describe('메모 노트 탭이 노트 목록을 따라간다', () => {
   })
 
   it('목록을 다 읽기 전에는 복원한 탭을 닫지 않고, 읽은 뒤 사라진 노트의 탭만 닫는다', async () => {
-    const initial = start()
-    initial.right = { tabs: [tab(A, 'A'), tab('노트/없어짐.iwnote', '없어짐')], activeId: '노트/없어짐.iwnote' }
+    const initial: PanesState = { ...start(), right: { tabs: [tab(A, 'A'), tab('노트/없어짐.iwnote', '없어짐')], activeId: '노트/없어짐.iwnote' } }
     const { result } = renderHook(() => useWorkspace(initial))
     // 아직 읽는 중: 그대로
     expect(result.current.notes.loaded).toBe(false)
-    expect(result.current.panes.right.tabs.map((t) => t.id)).toEqual([A, '노트/없어짐.iwnote'])
+    expect(result.current.panes.right!.tabs.map((t) => t.id)).toEqual([A, '노트/없어짐.iwnote'])
     await waitFor(() => expect(result.current.notes.loaded).toBe(true))
-    expect(result.current.panes.right.tabs.map((t) => t.id)).toEqual([A])
-    expect(result.current.panes.right.activeId).toBe(A)
-    expect(result.current.panes.left.tabs.map((t) => t.id)).toEqual(['doc-a'])
+    expect(result.current.panes.right!.tabs.map((t) => t.id)).toEqual([A])
+    expect(result.current.panes.right!.activeId).toBe(A)
+    expect(result.current.panes.left!.tabs.map((t) => t.id)).toEqual(['doc-a'])
   })
 
   it('이름을 바꾸면 그 노트의 탭이 새 경로·새 이름으로 따라가고 활성 탭도 유지된다', async () => {
     const { result } = renderHook(() => useWorkspace(start()))
     await waitFor(() => expect(result.current.notes.loaded).toBe(true))
     await act(async () => { await result.current.notes.rename(B, '새 이름') })
-    expect(result.current.panes.right.tabs.map((t) => [t.id, t.title])).toEqual([[A, 'A'], ['노트/새 이름.iwnote', '새 이름']])
-    expect(result.current.panes.right.activeId).toBe('노트/새 이름.iwnote')
+    expect(result.current.panes.right!.tabs.map((t) => [t.id, t.title])).toEqual([[A, 'A'], ['노트/새 이름.iwnote', '새 이름']])
+    expect(result.current.panes.right!.activeId).toBe('노트/새 이름.iwnote')
   })
 
   it('폴더로 옮기면 탭이 새 경로로 따라간다', async () => {
     const { result } = renderHook(() => useWorkspace(start()))
     await waitFor(() => expect(result.current.notes.loaded).toBe(true))
     await act(async () => { await result.current.notes.move(A, '노트/회의') })
-    expect(result.current.panes.right.tabs.map((t) => t.id)).toEqual(['노트/회의/A.iwnote', B])
-    expect(result.current.panes.right.tabs[0]!.title).toBe('A')
+    expect(result.current.panes.right!.tabs.map((t) => t.id)).toEqual(['노트/회의/A.iwnote', B])
+    expect(result.current.panes.right!.tabs[0]!.title).toBe('A')
   })
 
   it('휴지통으로 보내면 그 노트의 탭이 닫히고 활성 탭은 이웃으로 물러난다', async () => {
     const { result } = renderHook(() => useWorkspace(start()))
     await waitFor(() => expect(result.current.notes.loaded).toBe(true))
     await act(async () => { await result.current.notes.trash(B) })
-    expect(result.current.panes.right.tabs.map((t) => t.id)).toEqual([A])
-    expect(result.current.panes.right.activeId).toBe(A)
+    expect(result.current.panes.right!.tabs.map((t) => t.id)).toEqual([A])
+    expect(result.current.panes.right!.activeId).toBe(A)
   })
 
   it('같은 노트가 노트 바에 열려 있어도(열린 노트) 탭은 따로 남고, 열린 노트를 지우면 탭도 닫힌다', async () => {
     const { result } = renderHook(() => useWorkspace(start()))
     await waitFor(() => expect(result.current.notes.loaded).toBe(true))
     act(() => result.current.notes.open(B))
-    expect(result.current.panes.right.tabs.map((t) => t.id)).toEqual([A, B])
+    expect(result.current.panes.right!.tabs.map((t) => t.id)).toEqual([A, B])
     await act(async () => { await result.current.notes.trash(B) })
-    expect(result.current.panes.right.tabs.map((t) => t.id)).toEqual([A])
+    expect(result.current.panes.right!.tabs.map((t) => t.id)).toEqual([A])
   })
 })

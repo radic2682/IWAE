@@ -1,17 +1,18 @@
-import type { PdfSplitLayoutId } from '../core/pdfSplit'
+import { leaves, type LayoutNode } from '../core/layoutTree'
 import { rightmostPane } from './noteBeside'
-import { openTabBeside } from './tabDock'
+import { openTabBeside, type PaneSizer } from './tabDock'
 import {
   activeTab,
   isDocumentKind,
   openPreviewTabInPanes,
   tabDocId,
+  tabsOf,
   type PaneId,
   type PanesState,
   type Tab,
   type TabKind,
 } from './tabs'
-import type { PaneChannel, PaneChannels } from './workspaceChannels'
+import { channelOf, type PaneChannel, type PaneChannels } from './workspaceChannels'
 
 /**
  * 가리키기 신호를 받아 「필요한 탭이 어느 창에 어떻게 보이는가」를 정하는 순수 함수들.
@@ -28,9 +29,9 @@ export interface ResolveNeed {
 export interface ResolveInput {
   readonly panes: PanesState
   readonly channels: PaneChannels
-  /** 화면에 보이는 창들 */
-  readonly visible: readonly PaneId[]
-  readonly layoutId: PdfSplitLayoutId
+  readonly layout: LayoutNode
+  /** 칸의 지금 크기(px). 주면 너무 작은 칸은 나누지 않는다 */
+  readonly sizeOf?: PaneSizer
   /** 신호를 보낸 창과 그 채널 */
   readonly from: PaneId
   readonly channel: PaneChannel
@@ -50,9 +51,9 @@ export type ResolveKind =
   | 'preview'
   /** 보낸 창 옆에 새 창을 열고 같은 채널을 줬다 */
   | 'beside'
-  /** 새 창을 못 열어(칸이 넷) 가장 오른쪽 창에 탭으로 열었다(노트만; 그 창은 보낸 창의 색이 된다) */
+  /** 새 창을 못 열어(칸이 상한·너무 작음) 가장 오른쪽 창에 탭으로 열었다(노트만; 그 창은 보낸 창의 색이 된다) */
   | 'rightmost'
-  /** 새 창을 못 열어(칸이 넷) 보낸 창에 미리보기 탭으로 열었다 */
+  /** 새 창을 못 열어(칸이 상한·너무 작음) 보낸 창에 미리보기 탭으로 열었다 */
   | 'sender'
   /** 할 일 없음(채널 없음·새 창을 열지 않는 경우) */
   | 'none'
@@ -61,7 +62,7 @@ export interface ResolveOutcome {
   readonly kind: ResolveKind
   readonly panes: PanesState
   readonly channels: PaneChannels
-  readonly layout: PdfSplitLayoutId
+  readonly layout: LayoutNode
   /** 그 탭이 보이게 된 창(none 이면 null) */
   readonly pane: PaneId | null
 }
@@ -74,45 +75,47 @@ export interface ResolveOutcome {
  * 보낸 창 자신은 1·2 의 후보가 아니다(누른 문서를 노트로 덮어 버리면 안 된다). 채널이 없으면 아무것도 하지 않는다.
  */
 export function resolvePointSignal(input: ResolveInput): ResolveOutcome {
-  const { panes, channels, visible, layoutId, from, channel, need, preview, allowNewPane = true } = input
-  const none: ResolveOutcome = { kind: 'none', panes, channels, layout: layoutId, pane: null }
+  const { panes, channels, layout, from, channel, need, preview, allowNewPane = true } = input
+  const visible = leaves(layout)
+  const none: ResolveOutcome = { kind: 'none', panes, channels, layout, pane: null }
   if (channel === null) return none
-  const peers = visible.filter((pane) => pane !== from && channels[pane] === channel)
+  const peers = visible.filter((pane) => pane !== from && channelOf(channels, pane) === channel)
 
   // 0. 이미 보인다(보낸 창 자신이 보고 있어도 마찬가지)
-  const own = activeTab(panes[from])
-  if (own !== null && need.matches(own)) return { kind: 'visible', panes, channels, layout: layoutId, pane: from }
-  const showing = peers.find((pane) => { const tab = activeTab(panes[pane]); return tab !== null && need.matches(tab) })
-  if (showing !== undefined) return { kind: 'visible', panes, channels, layout: layoutId, pane: showing }
+  const own = activeTab(tabsOf(panes, from))
+  if (own !== null && need.matches(own)) return { kind: 'visible', panes, channels, layout, pane: from }
+  const showing = peers.find((pane) => { const tab = activeTab(tabsOf(panes, pane)); return tab !== null && need.matches(tab) })
+  if (showing !== undefined) return { kind: 'visible', panes, channels, layout, pane: showing }
 
   // 1. 같은 채널 창에 탭으로 있다
-  const holder = peers.find((pane) => panes[pane].tabs.some(need.matches))
+  const holder = peers.find((pane) => tabsOf(panes, pane).tabs.some(need.matches))
   if (holder !== undefined) {
-    const held = panes[holder].tabs.find(need.matches)!
-    return { kind: 'activated', panes: { ...panes, [holder]: { tabs: panes[holder].tabs, activeId: held.id } }, channels, layout: layoutId, pane: holder }
+    const state = tabsOf(panes, holder)
+    const held = state.tabs.find(need.matches)!
+    return { kind: 'activated', panes: { ...panes, [holder]: { tabs: state.tabs, activeId: held.id } }, channels, layout, pane: holder }
   }
 
   // 2. 맞는 종류의 같은 채널 창에 미리보기 탭으로(이미 미리보기 탭이 있는 창을 먼저 — 새 탭을 늘리지 않고 갈아 끼운다)
   const fits = (pane: PaneId) => {
-    const tab = activeTab(panes[pane])
+    const tab = activeTab(tabsOf(panes, pane))
     return tab !== null && (need.kind === 'doc' ? isDocumentKind(tab.kind) : tab.kind === 'memoNote')
   }
   const hosts = peers.filter(fits)
-  const host = hosts.find((pane) => panes[pane].tabs.some((tab) => tab.preview === true)) ?? hosts[0]
+  const host = hosts.find((pane) => tabsOf(panes, pane).tabs.some((tab) => tab.preview === true)) ?? hosts[0]
   if (host !== undefined) {
-    return { kind: 'preview', panes: openPreviewTabInPanes(panes, need.tab, host, preview), channels, layout: layoutId, pane: host }
+    return { kind: 'preview', panes: openPreviewTabInPanes(panes, need.tab, host, preview), channels, layout, pane: host }
   }
 
   // 3. 보낸 창 옆에 새 창(같은 채널). 칸이 가득이면 보낸 창에 미리보기 탭
   if (!allowNewPane) return none
-  const beside = openTabBeside(panes, layoutId, from, preview ? { ...need.tab, preview: true } : need.tab, channels)
+  const beside = openTabBeside(panes, layout, from, preview ? { ...need.tab, preview: true } : need.tab, channels, input.sizeOf)
   if (beside !== null) return { kind: 'beside', panes: beside.panes, channels: beside.channels, layout: beside.layout, pane: beside.newPane }
   // 칸이 가득이면: 노트는 가장 오른쪽 창에 탭으로(그 창이 같은 색이 된다), 문서는 보낸 창에 미리보기 탭으로
   if (need.kind === 'note') {
-    const target = rightmostPane(layoutId, visible)
-    return { kind: 'rightmost', panes: openPreviewTabInPanes(panes, need.tab, target, preview), channels: target === from ? channels : { ...channels, [target]: channel }, layout: layoutId, pane: target }
+    const target = rightmostPane(layout)
+    return { kind: 'rightmost', panes: openPreviewTabInPanes(panes, need.tab, target, preview), channels: target === from ? channels : { ...channels, [target]: channel }, layout, pane: target }
   }
-  return { kind: 'sender', panes: openPreviewTabInPanes(panes, need.tab, from, preview), channels, layout: layoutId, pane: from }
+  return { kind: 'sender', panes: openPreviewTabInPanes(panes, need.tab, from, preview), channels, layout, pane: from }
 }
 
 /**
@@ -176,16 +179,16 @@ export function needForPlace(docId: string, docTab: (docId: string) => Tab | nul
 
 /** pane 과 같은 채널의, pane 이 아닌 창들 중 보이는 창 */
 export function channelPeers(channels: PaneChannels, visible: readonly PaneId[], pane: PaneId): PaneId[] {
-  const channel = channels[pane]
-  return channel === null ? [] : visible.filter((other) => other !== pane && channels[other] === channel)
+  const channel = channelOf(channels, pane)
+  return channel === null ? [] : visible.filter((other) => other !== pane && channelOf(channels, other) === channel)
 }
 
 /** channel 의 창들에서 지금 보이는(활성 탭인) 메모 노트 경로들(화면 차례) */
 export function visibleNotePathsIn(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], channel: PaneChannel): string[] {
   if (channel === null) return []
   return visible.flatMap((pane) => {
-    const tab = activeTab(panes[pane])
-    return channels[pane] === channel && tab?.kind === 'memoNote' ? [tab.id] : []
+    const tab = activeTab(tabsOf(panes, pane))
+    return channelOf(channels, pane) === channel && tab?.kind === 'memoNote' ? [tab.id] : []
   })
 }
 
@@ -194,7 +197,7 @@ export function visibleNotePathsIn(panes: PanesState, channels: PaneChannels, vi
  * 채널이 없는 창은 어느 노트 탭과도 잇지 않는다.
  */
 export function memoNoteTargetFor(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], pane: PaneId): string | null {
-  return visibleNotePathsIn(panes, channels, visible.filter((other) => other !== pane), channels[pane])[0] ?? null
+  return visibleNotePathsIn(panes, channels, visible.filter((other) => other !== pane), channelOf(channels, pane))[0] ?? null
 }
 
 /** 탭 종류 → 노트 화면인가(메모 노트·캔버스) */
@@ -204,5 +207,5 @@ export function isNoteSurface(kind: TabKind | null | undefined): boolean {
 
 /** 신호를 보낸 창의 보이는 탭 종류 */
 export function activeKindOf(panes: PanesState, pane: PaneId): TabKind | null {
-  return activeTab(panes[pane])?.kind ?? null
+  return activeTab(tabsOf(panes, pane))?.kind ?? null
 }

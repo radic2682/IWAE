@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { barMigrationKey, legacyBarWasOpen, LEGACY_BAR_KEY, migrateNoteBar } from './noteBarMigration'
-import { emptyTabs, type PaneId, type PanesState, type Tab } from './tabs'
+import { layoutForLegacyId, leaves, paneNode, shapeOf } from '../core/layoutTree'
+import { type PaneId, type PanesState, type Tab } from './tabs'
 import { DEFAULT_CHANNELS } from './workspaceChannels'
 
 const pdf = (id: string): Tab => ({ id, title: id, kind: 'pdf' })
 const note = (id: string): Tab => ({ id, title: id, kind: 'memoNote' })
 const strip = (tabs: Tab[], activeId: string | null = tabs[0]?.id ?? null) => ({ tabs, activeId })
-const panes = (p: Partial<PanesState>): PanesState => ({ left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs, ...p })
-const ids = (state: { tabs: readonly Tab[] }) => state.tabs.map((tab) => tab.id)
+const panes = (p: PanesState): PanesState => p
+const ids = (state: { tabs: readonly Tab[] } | undefined) => state?.tabs.map((tab) => tab.id)
 
 const storage = (value: string | null | 'throw') => ({
   getItem: (key: string) => {
@@ -34,24 +35,24 @@ describe('legacyBarWasOpen — 예전 노트 바가 열려 있었나', () => {
 })
 
 describe('migrateNoteBar — 예전 세션을 「읽기」(문서 | 노트)로', () => {
-  const base = { barOpen: true, channels: DEFAULT_CHANNELS, visible: ['left'] as readonly PaneId[], layoutId: 'single' as const, anchor: 'left' as PaneId, notePath: '노트/N.iwnote' }
+  const base = { barOpen: true, channels: DEFAULT_CHANNELS, layout: paneNode('left'), anchor: 'left' as PaneId | null, notePath: '노트/N.iwnote' as string | null }
 
   it('노트 바가 열려 있던 세션: 문서 창 오른쪽에 그 노트를 같은 색 노트 창으로 연다', () => {
     const result = migrateNoteBar({ ...base, panes: panes({ left: strip([pdf('D')]) }) })!
-    expect(result.layout).toBe('cols2')
+    expect(shapeOf(result.layout)).toBe('h(P,P)')
     expect(ids(result.panes.left)).toEqual(['D'])
-    expect(ids(result.panes.right)).toEqual(['노트/N.iwnote'])
-    expect(result.panes.right.tabs[0]).toMatchObject({ kind: 'memoNote', title: 'N' })
-    expect(result.channels.right).toBe(result.channels.left)
+    expect(ids(result.panes[result.pane])).toEqual(['노트/N.iwnote'])
+    expect(result.panes[result.pane]!.tabs[0]).toMatchObject({ kind: 'memoNote', title: 'N' })
+    expect(result.channels[result.pane]).toBe('blue')
   })
 
   it('이미 좌우 둘로 나눠 쓰던 세션이면 문서 창 옆에 끼운다(탭은 하나도 닫히지 않는다)', () => {
     const state = panes({ left: strip([pdf('D')]), right: strip([pdf('E')]) })
-    const result = migrateNoteBar({ ...base, panes: state, visible: ['left', 'right'], layoutId: 'cols2' })!
-    expect(result.layout).toBe('cols3')
+    const result = migrateNoteBar({ ...base, panes: state, layout: layoutForLegacyId('cols2', ['left', 'right']) })!
+    expect(leaves(result.layout)).toEqual(['left', result.pane, 'right'])
     expect(ids(result.panes.left)).toEqual(['D'])
-    expect(ids(result.panes.right)).toEqual(['노트/N.iwnote'])
-    expect(ids(result.panes.third)).toEqual(['E'])
+    expect(ids(result.panes[result.pane])).toEqual(['노트/N.iwnote'])
+    expect(ids(result.panes.right)).toEqual(['E'])
   })
 
   it('노트 바를 닫아 둔 세션은 노트 창 없이 그대로 연다', () => {
@@ -64,6 +65,6 @@ describe('migrateNoteBar — 예전 세션을 「읽기」(문서 | 노트)로',
   })
 
   it('이미 메모 노트 탭이 있는 세션(새 방식으로 쓰던 사람)은 건드리지 않는다', () => {
-    expect(migrateNoteBar({ ...base, panes: panes({ left: strip([pdf('D')]), right: strip([note('X')]) }), visible: ['left', 'right'], layoutId: 'cols2' })).toBeNull()
+    expect(migrateNoteBar({ ...base, panes: panes({ left: strip([pdf('D')]), right: strip([note('X')]) }), layout: layoutForLegacyId('cols2', ['left', 'right']) })).toBeNull()
   })
 })

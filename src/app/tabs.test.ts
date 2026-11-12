@@ -13,12 +13,17 @@ import {
   type Tab,
   closeTabEverywhere,
   mapPaneTabs,
+  closePaneInto,
+  addEmptyPane,
+  otherPane,
+  tabsOf,
+  paneIdsOf,
+  allPaneTabs,
   moveTabToPane,
   openTabInPanes,
   paneOfTab,
   reorderTab,
   replaceTab,
-  mergeHiddenPanes,
   paneLabel,
   type PanesState,
 } from './tabs'
@@ -124,13 +129,13 @@ describe('좌우 패널', () => {
   it('이미 반대편에 열린 탭은 새로 열지 않고 그 패널에서 활성화한다', () => {
     const opened = openTabInPanes(openTabInPanes(empty, pdf('a'), 'right'), pdf('b'), 'right')
     const again = openTabInPanes(opened, pdf('a'), 'left')
-    expect(again.left.tabs).toEqual([])
+    expect(again.left!.tabs).toEqual([])
     expect(again.right).toEqual({ tabs: [pdf('a'), pdf('b')], activeId: 'a' })
   })
 
   it('한 패널에 PDF 와 캔버스를 섞어 담고, 탭을 반대편으로 옮긴다', () => {
     const mixed = openTabInPanes(openTabInPanes(empty, pdf('a'), 'left'), note('n.canvas'), 'left')
-    expect(mixed.left.tabs.map((tab) => tab.kind)).toEqual(['pdf', 'canvas'])
+    expect(mixed.left!.tabs.map((tab) => tab.kind)).toEqual(['pdf', 'canvas'])
     const moved = moveTabToPane(mixed, 'a', 'right')
     expect(moved.left).toEqual({ tabs: [note('n.canvas')], activeId: 'n.canvas' })
     expect(moved.right).toEqual({ tabs: [pdf('a')], activeId: 'a' })
@@ -141,7 +146,7 @@ describe('좌우 패널', () => {
   it('어느 패널에 있든 닫고, 제목을 함께 고친다', () => {
     const panes = moveTabToPane(openTabInPanes(openTabInPanes(empty, pdf('a'), 'left'), pdf('b'), 'left'), 'b', 'right')
     expect(closeTabEverywhere(panes, 'b').right).toEqual(emptyTabs)
-    expect(mapPaneTabs(panes, (tab) => ({ ...tab, title: tab.id.toUpperCase() })).right.tabs[0]?.title).toBe('B')
+    expect(mapPaneTabs(panes, (tab) => ({ ...tab, title: tab.id.toUpperCase() })).right!.tabs[0]?.title).toBe('B')
   })
 })
 
@@ -156,26 +161,55 @@ describe('reorderTab', () => {
   })
 })
 
-describe('3단', () => {
+describe('칸 id 로 다루는 칸들', () => {
   const pdf = (id: string) => ({ id, title: id, kind: 'pdf' as const })
-  it('단을 줄이면 숨는 패널의 탭을 남는 맨 끝 패널로 합친다', () => {
-    const panes: PanesState = {
-      left: { tabs: [pdf('a')], activeId: 'a' },
-      right: { tabs: [pdf('b')], activeId: 'b' },
-      third: { tabs: [pdf('c')], activeId: 'c' },
-      fourth: emptyTabs,
-    }
-    const two = mergeHiddenPanes(panes, 2, 'third')
-    expect(two.right).toEqual({ tabs: [pdf('b'), pdf('c')], activeId: 'c' })
-    expect(two.third.tabs).toEqual([])
-    const one = mergeHiddenPanes(two, 1, 'left')
-    expect(one.left).toEqual({ tabs: [pdf('a'), pdf('b'), pdf('c')], activeId: 'a' })
-    expect(mergeHiddenPanes(one, 1, 'left')).toBe(one)
+  const panes = (): PanesState => ({
+    p1: { tabs: [pdf('a')], activeId: 'a' },
+    p2: { tabs: [pdf('b')], activeId: 'b' },
+    p3: { tabs: [pdf('c')], activeId: 'c' },
   })
-  it('3단이면 가운데 패널을 가운데라고 부른다', () => {
-    expect(paneLabel('right', 2)).toBe('오른쪽')
-    expect(paneLabel('right', 3)).toBe('가운데')
-    expect(paneLabel('third', 3)).toBe('오른쪽')
+
+  it('tabsOf 는 없는 칸에 빈 줄을 돌려주고, paneIdsOf·allPaneTabs·paneOfTab 이 칸 id 를 쓴다', () => {
+    expect(tabsOf(panes(), 'zz')).toBe(emptyTabs)
+    expect(paneIdsOf(panes())).toEqual(['p1', 'p2', 'p3'])
+    expect(allPaneTabs(panes()).map((tab) => tab.id)).toEqual(['a', 'b', 'c'])
+    // 차례를 주면 그 차례로
+    expect(allPaneTabs(panes(), ['p3', 'p1']).map((tab) => tab.id)).toEqual(['c', 'a'])
+    expect(paneOfTab(panes(), 'b')).toBe('p2')
+    expect(paneOfTab(panes(), 'nope')).toBeNull()
+  })
+
+  it('칸을 닫으면 그 탭이 지정한 칸 뒤에 합쳐지고, 이미 있는 탭은 건너뛰며, 보던 탭이 없던 칸은 닫은 칸의 보던 탭을 보인다', () => {
+    const merged = closePaneInto(panes(), 'p3', 'p2')
+    expect(merged.p3).toBeUndefined()
+    expect(merged.p2).toEqual({ tabs: [pdf('b'), pdf('c')], activeId: 'b' })
+    const withDup: PanesState = { ...panes(), p2: { tabs: [pdf('b'), pdf('c')], activeId: null } }
+    expect(closePaneInto(withDup, 'p3', 'p2').p2).toEqual({ tabs: [pdf('b'), pdf('c')], activeId: 'c' })
+  })
+
+  it('빈 칸이나 없는 칸을 닫아도 탭은 잃지 않는다', () => {
+    const base: PanesState = { ...panes(), p4: emptyTabs }
+    const closed = closePaneInto(base, 'p4', 'p1')
+    expect(closed.p4).toBeUndefined()
+    expect(closed.p1).toBe(base.p1)
+    expect(closePaneInto(base, 'nope', 'p1')).toEqual(base)
+  })
+
+  it('addEmptyPane 은 새 빈 칸을 더하고, 이미 있으면 같은 객체', () => {
+    const base = panes()
+    expect(addEmptyPane(base, 'p9').p9).toBe(emptyTabs)
+    expect(addEmptyPane(base, 'p1')).toBe(base)
+  })
+
+  it('otherPane 은 칸 차례에서 다음 칸(끝이면 처음), 하나뿐이면 자기 자신', () => {
+    expect(otherPane(['p1', 'p2', 'p3'], 'p1')).toBe('p2')
+    expect(otherPane(['p1', 'p2', 'p3'], 'p3')).toBe('p1')
+    expect(otherPane(['p1'], 'p1')).toBe('p1')
+  })
+
+  it('paneLabel 은 칸 번호를 1 부터 보인다', () => {
+    expect(paneLabel(0)).toBe('1번')
+    expect(paneLabel(3)).toBe('4번')
   })
 })
 
@@ -184,15 +218,15 @@ describe('replaceTab (탭 안에서 판 바꾸기)', () => {
   it('같은 자리·같은 패널에서 바꾸고 활성 여부를 지킨다', () => {
     const panes: PanesState = { left: { tabs: [pdf('a'), pdf('v1'), pdf('c')], activeId: 'v1' }, right: { tabs: [pdf('z')], activeId: 'z' }, third: emptyTabs, fourth: emptyTabs }
     const next = replaceTab(panes, 'v1', pdf('v2'))
-    expect(next.left.tabs.map((tab) => tab.id)).toEqual(['a', 'v2', 'c'])
-    expect(next.left.activeId).toBe('v2')
+    expect(next.left!.tabs.map((tab) => tab.id)).toEqual(['a', 'v2', 'c'])
+    expect(next.left!.activeId).toBe('v2')
     expect(next.right).toBe(panes.right)
   })
   it('바꿀 판이 이미 열려 있으면 그 탭을 활성화하고 옛 탭은 둔다', () => {
     const panes: PanesState = { left: { tabs: [pdf('v1')], activeId: 'v1' }, right: { tabs: [pdf('v2')], activeId: null }, third: emptyTabs, fourth: emptyTabs }
     const next = replaceTab(panes, 'v1', pdf('v2'))
-    expect(next.left.tabs.map((tab) => tab.id)).toEqual(['v1'])
-    expect(next.right.activeId).toBe('v2')
+    expect(next.left!.tabs.map((tab) => tab.id)).toEqual(['v1'])
+    expect(next.right!.activeId).toBe('v2')
   })
 })
 
@@ -231,9 +265,9 @@ describe('메모 노트 탭: 옮김·휴지통·이름 따라가기', () => {
 
   it('이름을 바꾸거나 폴더를 옮기면 그 노트의 탭이 새 경로·새 이름으로 따라가고 활성 탭도 유지된다', () => {
     const next = moveMemoNoteTabs(panes(), new Map([['노트/A.iwnote', '노트/회의/새 A.iwnote']]), titleOf)
-    expect(next.left.tabs.map((tab) => [tab.id, tab.title])).toEqual([['doc-a', 'doc-a'], ['노트/회의/새 A.iwnote', '새 A']])
-    expect(next.left.activeId).toBe('노트/회의/새 A.iwnote')
-    expect(next.right.tabs[0]!.id).toBe('노트/B.iwnote')
+    expect(next.left!.tabs.map((tab) => [tab.id, tab.title])).toEqual([['doc-a', 'doc-a'], ['노트/회의/새 A.iwnote', '새 A']])
+    expect(next.left!.activeId).toBe('노트/회의/새 A.iwnote')
+    expect(next.right!.tabs[0]!.id).toBe('노트/B.iwnote')
   })
   it('옮겨진 노트가 없으면 같은 객체를 돌려준다', () => {
     const state = panes()
@@ -241,16 +275,16 @@ describe('메모 노트 탭: 옮김·휴지통·이름 따라가기', () => {
   })
   it('목록에 없는 노트의 탭은 닫고 활성 탭은 이웃으로 물러난다', () => {
     const next = syncMemoNoteTabs(panes(), new Map([['노트/B.iwnote', 'B']]))
-    expect(next.left.tabs.map((tab) => tab.id)).toEqual(['doc-a'])
-    expect(next.left.activeId).toBe('doc-a')
-    expect(next.right.tabs.map((tab) => tab.id)).toEqual(['노트/B.iwnote'])
+    expect(next.left!.tabs.map((tab) => tab.id)).toEqual(['doc-a'])
+    expect(next.left!.activeId).toBe('doc-a')
+    expect(next.right!.tabs.map((tab) => tab.id)).toEqual(['노트/B.iwnote'])
   })
   it('이름이 달라진 탭은 새 이름으로 고치고, 문서 탭은 건드리지 않는다. 다 맞으면 같은 객체', () => {
     const state = panes()
     const titles = new Map([['노트/A.iwnote', 'A'], ['노트/B.iwnote', '다른 이름']])
     const next = syncMemoNoteTabs(state, titles)
-    expect(next.right.tabs[0]!.title).toBe('다른 이름')
-    expect(next.left.tabs[0]).toBe(state.left.tabs[0])
+    expect(next.right!.tabs[0]!.title).toBe('다른 이름')
+    expect(next.left!.tabs[0]).toBe(state.left!.tabs[0])
     expect(syncMemoNoteTabs(next, titles)).toBe(next)
   })
 })

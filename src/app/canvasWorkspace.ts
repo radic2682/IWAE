@@ -1,8 +1,8 @@
 import type { Anchor } from '../core/anchor'
 import type { CanvasBlockData } from '../core/canvasDocument'
 import type { PointTarget } from './workspaceSignal'
-import { activeTab, type PaneId, type PanesState } from './tabs'
-import type { PaneChannels } from './workspaceChannels'
+import { activeTab, tabsOf, type PaneId, type PanesState } from './tabs'
+import { channelOf, type PaneChannels } from './workspaceChannels'
 import { SOURCE_LINK_PREFIX, type LinkItem, type LinkRect } from './workspaceLinks'
 
 /**
@@ -172,7 +172,7 @@ export function viewportCenteredOn(node: CanvasNodeLike, zoom: number, frame: { 
 
 /** 지금 화면에 보이는(활성 탭이 캔버스인) 창들(화면 차례) */
 export function visibleCanvasPanes(panes: PanesState, visible: readonly PaneId[]): PaneId[] {
-  return visible.filter((pane) => activeTab(panes[pane])?.kind === 'canvas')
+  return visible.filter((pane) => activeTab(tabsOf(panes, pane))?.kind === 'canvas')
 }
 
 /**
@@ -191,10 +191,10 @@ export function pickCanvasPane(args: {
 }): PaneId | null {
   const { panes, channels, visible, active, from = null } = args
   const canvases = visibleCanvasPanes(panes, visible)
-  if (from !== null && channels[from] !== null) {
-    const peer = canvases.find((pane) => pane !== from && channels[pane] === channels[from])
+  if (from !== null && channelOf(channels, from) !== null) {
+    const peer = canvases.find((pane) => pane !== from && channelOf(channels, pane) === channelOf(channels, from))
     if (peer !== undefined) return peer
   }
   if (canvases.includes(active)) return active
-  return canvases.find((pane) => channels[pane] === channels[active]) ?? canvases[0] ?? null
+  return canvases.find((pane) => channelOf(channels, pane) === channelOf(channels, active)) ?? canvases[0] ?? null
 }
