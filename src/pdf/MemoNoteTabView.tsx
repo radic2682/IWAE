@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import { memoHighlightIds, updateSection, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
-import { useMemoPointSender, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
+import { useMemoPointSender, usePaneChannel, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
+import { LINK_CARD_DEPTH, registerPaneLinks, requestPaneLinks, useLinkedDocIds, visibleSlice, type LinkItem, type PaneLinkSnapshot } from '../app/workspaceLinks'
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from './MemoColumn'
 import { MemoNoteContext, useMemoNoteApi } from './memoNoteContext'
-import { NoteFlow } from './NoteFlow'
+import { NoteFlow, type NoteFlowItem } from './NoteFlow'
 import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from './persistentHighlight'
 import { useNoteFlowController } from './useNoteFlowController'
@@ -145,6 +146,76 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
     setRevealKey(null)
   }, [revealKey, items])
 
+  // ---------- 연결선: 이 노트의 보이는 카드 사각형을 작업 공간 층에 내놓는다(workspaceLinks) ----------
+  const { pane, channel } = usePaneChannel()
+  const cardsRef = useRef<readonly HTMLElement[] | null>(null)
+  const firstCardRef = useRef(0)
+  const publishRef = useRef({ activeKey: flow.activeKey, editingKey, items })
+  publishRef.current = { activeKey: flow.activeKey, editingKey, items }
+  const notePane = flow.note !== null
+  useLayoutEffect(() => {
+    if (pane === null) return undefined
+    const measure = (): PaneLinkSnapshot | null => {
+      const root = rootRef.current
+      const scroller = scrollRef.current
+      if (root === null || scroller === null) return null
+      const body = scroller.getBoundingClientRect()
+      const frame = (root.closest<HTMLElement>('.pane-grid-body, .pane') ?? root).getBoundingClientRect()
+      // 카드 목록은 그린 뒤 한 번만 훑어 둔다(스크롤마다 1,000 장을 다시 찾지 않는다). 보이는 카드만 재서 내놓는다
+      const cards = cardsRef.current ?? (cardsRef.current = [...scroller.querySelectorAll<HTMLElement>('[data-memo-id]')])
+      const slice = visibleSlice(cards.length, (index) => {
+        const rect = cards[index]!.getBoundingClientRect()
+        return rect.height === 0 ? null : rect
+      }, body.top, body.bottom, firstCardRef.current)
+      firstCardRef.current = slice.first
+      const items: LinkItem[] = slice.indexes.map((index) => {
+        const card = cards[index]!
+        const rect = card.getBoundingClientRect()
+        return { id: card.dataset.memoId ?? '', rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, y: rect.top + LINK_CARD_DEPTH }
+      })
+      const { activeKey, editingKey: editing, items: flowItems } = publishRef.current
+      const activeIds = flowItems.flatMap((item) => (item.kind === 'memo' && item.draft !== true && (item.key === activeKey || item.key === editing) ? [item.highlight.id] : []))
+      return {
+        frame: { left: frame.left, top: frame.top, right: frame.right, bottom: frame.bottom },
+        body: { left: body.left, top: body.top, right: body.right, bottom: body.bottom },
+        items,
+        activeIds,
+      }
+    }
+    return registerPaneLinks({ pane, role: 'note', channel }, measure)
+  }, [pane, channel, notePane])
+  // 그릴 때마다(카드 목록·활성 카드가 바뀌었을 수 있다) 카드 목록을 다시 훑게 하고, 스크롤·크기 변화와 함께 다시 잰다
+  useLayoutEffect(() => {
+    cardsRef.current = null
+    requestPaneLinks()
+  })
+  useEffect(() => {
+    const scroller = scrollRef.current
+    const root = rootRef.current
+    if (scroller === null || root === null) return undefined
+    const again = () => requestPaneLinks()
+    scroller.addEventListener('scroll', again, { passive: true })
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(again)
+    observer?.observe(root)
+    observer?.observe(scroller)
+    return () => {
+      scroller.removeEventListener('scroll', again)
+      observer?.disconnect()
+    }
+  }, [notePane])
+
+  // 원문 문서가 이웃한 같은 색 창에 보이지 않는 카드: 「→ 문서 이름 p.N」 으로 그 문서를 보이게 한다(신호는 새 창을 열기도 한다)
+  const linkedDocIds = useLinkedDocIds(pane)
+  const flowItems = useMemo<NoteFlowItem[]>(() => {
+    if (pane === null || channel === null) return items
+    return items.map((item) => {
+      if (item.kind !== 'memo' || item.draft === true || linkedDocIds.includes(item.highlight.anchor.docId)) return item
+      const label = (item.sourceLabel ?? item.docLabel ?? '').split(' · ')[0] ?? ''
+      const markdown = /.(md|markdown|mdx)$/iu.test(item.highlight.anchor.docId)
+      return { ...item, farSource: { label: label === '' ? t('원문') : label, ...(markdown ? {} : { page: item.highlight.anchor.page + 1 }) } }
+    })
+  }, [items, linkedDocIds, pane, channel])
+
   const saveMemo = (highlightId: string, content: MemoContent, ticket?: MemoTicket) => {
     if (draft !== null && highlightId === draft.highlight.id) draft.save(content, ticket, draftIndex)
     else flow.flowProps.onSaveMemo(highlightId, content, ticket)
@@ -217,7 +288,14 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
               className="pdf-memo-bar-scroll"
               onClick={(event) => {
                 // 카드를 누르면 같은 색 창이 그 형광펜으로 간다(글 쓰는 칸·단추·원문 칩은 제외: 원문 칩은 onJump 가 보낸다)
-                if (!(event.target instanceof Element) || event.target.closest('.pdf-memo-editor, button, input, textarea, [contenteditable="true"], .note-source-chip, .pdf-memo-card-source, .note-source-region') !== null) return
+                if (!(event.target instanceof Element)) return
+                // 「→ 문서 이름」: 원문 문서를 같은 색 창에 보이게 하는 신호(떨어진 창이면 탭으로 열린다)
+                const far = event.target.closest<HTMLElement>('[data-far-memo]')?.dataset.farMemo
+                if (far !== undefined) {
+                  sendPoint(far, 'note')
+                  return
+                }
+                if (event.target.closest('.pdf-memo-editor, button, input, textarea, [contenteditable="true"], .note-source-chip, .pdf-memo-card-source, .note-source-region') !== null) return
                 const memoId = event.target.closest<HTMLElement>('[data-memo-id]')?.dataset.memoId
                 if (memoId !== undefined && memoId !== '') sendPoint(memoId, 'note')
               }}
@@ -227,6 +305,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
                 <MemoFormatSlotContext.Provider value={flow.formatSlot}>
                   <NoteFlow
                     {...flow.flowProps}
+                    items={flowItems}
                     editingKey={draft !== null ? 'draft' : flow.flowProps.editingKey}
                     onSaveMemo={saveMemo}
                     onCancelDraft={draft !== null ? draft.cancel : flow.flowProps.onCancelDraft}

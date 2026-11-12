@@ -243,6 +243,7 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '출처': 'Source',
   '새 메모': 'New memo',
   '원문에서 보기': 'Show in source',
+  '이 메모의 문서를 같은 색 창에 보이기': 'Show the memo source document in the same-color pane',
   '원문 펼치기': 'Expand quote',
   '원문 접기': 'Collapse quote',
   '근거 펼치기': 'Show source quote',

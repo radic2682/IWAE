@@ -34,6 +34,8 @@ export type NoteFlowItem =
       readonly ticket?: MemoTicket
       /** 이 메모에 더 단 원문(형광펜). 첫 원문은 highlight */
       readonly extraHighlights?: readonly PersistentPdfHighlight[]
+      /** 원문 문서가 이웃한 같은 색 창에 보이지 않는다: 「→ 문서 이름 p.N」 링크를 단다(누르면 그 문서를 보이게 하는 신호) */
+      readonly farSource?: { readonly label: string; readonly page?: number }
     }
   | { readonly kind: 'text'; readonly key: string; readonly text: string; readonly html?: string }
   /** 소제목: 다음 소제목까지 묶는다. count = 묶인 블록 수 */
@@ -870,6 +872,7 @@ export function sameItem(a: NoteFlowItem, b: NoteFlowItem): boolean {
   const extraA = a.extraHighlights ?? []
   const extraB = b.extraHighlights ?? []
   return a.highlight === b.highlight && a.draft === b.draft && a.docLabel === b.docLabel && a.sourceLabel === b.sourceLabel
+    && a.farSource?.label === b.farSource?.label && a.farSource?.page === b.farSource?.page
     && a.ticket?.id === b.ticket?.id && a.ticket?.title === b.ticket?.title
     && extraA.length === extraB.length && extraA.every((highlight, at) => highlight === extraB[at])
 }
@@ -1336,6 +1339,11 @@ const NoteMemoRow = memo(function NoteMemoRow({
         {head}
         {memo}
         {sourceList}
+        {item.farSource === undefined ? null : (
+          <button type="button" className="note-far-link" data-far-memo={highlight.id} title={t('이 메모의 문서를 같은 색 창에 보이기')}>
+            <span aria-hidden="true">→</span> {item.farSource.label}{item.farSource.page === undefined ? '' : ` p.${item.farSource.page}`}
+          </button>
+        )}
       </div>
       {tabs}
     </div>

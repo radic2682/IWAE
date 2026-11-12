@@ -31,6 +31,7 @@ import { useMemoNoteApi } from '../pdf/memoNoteContext'
 import { useHighlightTool } from '../pdf/highlightToolStore'
 import { addMemoRef, insertBlock, memoBlock, type MemoNote, type MemoTicket } from '../core/memoNote'
 import type { MemoContent } from '../pdf/MemoColumn'
+import { flushPaneLinks, registerPaneLinks, usePaneLinkedToNote, type LinkItem, type PaneLinkSnapshot } from './workspaceLinks'
 import { useMemoPointSender, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useWorkspaceLink } from './workspaceContext'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../pdf/persistentHighlight'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
@@ -620,11 +621,20 @@ export function MarkdownPane({
     return () => { paneFrame.style.removeProperty('--memo-bar-w') }
   }, [memoBarOpen, primary, memoOnly, memoBar.size, paneFrame, noteHost])
   const [draftMemo, setDraftMemo] = useState<PersistentPdfHighlight | null>(null)
+  /** 연결선을 굵은 실선으로 보일 형광펜(가리킨 뒤 잠깐) */
+  const linkActiveRef = useRef<string | null>(null)
   const jumpToMemo = (highlight: PersistentPdfHighlight) => {
     if (highlight.anchor.docId !== path) {
       onMemoJump?.(highlight)
       return
     }
+    linkActiveRef.current = highlight.id
+    flushPaneLinks()
+    window.setTimeout(() => {
+      if (linkActiveRef.current !== highlight.id) return
+      linkActiveRef.current = null
+      flushPaneLinks()
+    }, 1400)
     const rect = rectsOf(highlight.anchor.charRange)[0]
     const article = articleRef.current
     if (rect === undefined || article === null) return
@@ -684,7 +694,9 @@ export function MarkdownPane({
   const [attachKey, setAttachKey] = useState<string | null>(null)
   // 작업 공간: 같은 색 창에 메모 노트 탭이 보이면 새 메모는 노트 바가 아니라 그 노트로 간다. 가리키기 신호를 받고 보낸다
   const workspace = useWorkspaceLink()
-  const { pane: paneId } = usePaneChannel()
+  const { pane: paneId, channel: paneChannel } = usePaneChannel()
+  // 이웃한 같은 색 창에 메모 노트 탭이 보이면 연결선은 작업 공간 층이 그린다 — 노트 바로 가는 옛 선은 그리지 않는다
+  const linkedToNoteTab = usePaneLinkedToNote(paneId)
   const sendPoint = useMemoPointSender()
   /** 새 메모를 같은 색 창의 메모 노트 탭으로 보내는 중이면 그 노트 경로(만드는 중인 동안). 아니면 노트 바 */
   const [draftNotePath, setDraftNotePath] = useState<string | null>(null)
@@ -721,6 +733,71 @@ export function MarkdownPane({
     return boxHighlights.find((item) => item.anchor.docId === path && item.box === undefined
       && (item.kind === 'region' ? item.anchor.rects : rectsOf(item.anchor.charRange)).some((rect) => x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h)) ?? null
   }
+  // ---------- 연결선: 보이는 형광펜의 사각형을 작업 공간 층에 내놓는다(workspaceLinks, PDF 와 같다) ----------
+  // 글자 위치 → 종이 좌표 계산(가장 무겁다)은 배치가 바뀔 때만 하고, 스크롤은 그 값에 화면 자리를 더해 보이는 것만 거른다
+  const linkMarksRef = useRef<{ readonly highlights: readonly PersistentPdfHighlight[]; readonly zoom: number; readonly layout: number; readonly html: string; readonly marks: readonly { readonly highlight: PersistentPdfHighlight; readonly x0: number; readonly x1: number; readonly y: number; readonly y0: number; readonly y1: number }[] } | null>(null)
+  const linkSourceRef = useRef({ boxHighlights, zoom, articleLayoutKey, html: search.html, rectsOf })
+  linkSourceRef.current = { boxHighlights, zoom, articleLayoutKey, html: search.html, rectsOf }
+  useLayoutEffect(() => {
+    if (paneId === null || !primary) return undefined
+    const measure = (): PaneLinkSnapshot | null => {
+      const article = articleRef.current
+      if (article === null) return null
+      const source = linkSourceRef.current
+      let cache = linkMarksRef.current
+      if (cache === null || cache.highlights !== source.boxHighlights || cache.zoom !== source.zoom || cache.layout !== source.articleLayoutKey || cache.html !== source.html) {
+        const marks: { highlight: PersistentPdfHighlight; x0: number; x1: number; y: number; y0: number; y1: number }[] = []
+        for (const highlight of source.boxHighlights) {
+          if (highlight.anchor.docId !== path || highlight.box !== undefined) continue
+          const region = highlight.kind === 'region' ? highlight.anchor.rects[0] : undefined
+          const rects = region === undefined ? source.rectsOf(highlight.anchor.charRange) : [region]
+          if (rects.length === 0) continue
+          const top = Math.min(...rects.map((rect) => rect.y))
+          const line = rects.filter((rect) => rect.y < top + 2)
+          const outset = region === undefined ? 0 : 4
+          marks.push({
+            highlight,
+            x0: Math.min(...line.map((rect) => rect.x)) - outset,
+            x1: Math.max(...line.map((rect) => rect.x + rect.w)) + outset,
+            // 글: 첫 줄 위 가장자리에서(같은 줄 뒷글자를 가로지르지 않게). 영역: 위 꺾쇠 근처
+            y: top + (region === undefined ? -1.5 : 8),
+            y0: top,
+            y1: Math.max(...line.map((rect) => rect.y + rect.h)),
+          })
+        }
+        cache = { highlights: source.boxHighlights, zoom: source.zoom, layout: source.articleLayoutKey, html: source.html, marks }
+        linkMarksRef.current = cache
+      }
+      const box = article.getBoundingClientRect()
+      const frame = (article.closest<HTMLElement>('.pane-grid-body, .pane') ?? article).getBoundingClientRect()
+      const paper = markdownPaperOf(article, source.zoom)
+      const items: LinkItem[] = []
+      for (const mark of cache.marks) {
+        const y = box.top - article.scrollTop + mark.y * paper.scale
+        if (y < box.top || y > box.bottom) continue
+        items.push({
+          id: mark.highlight.id,
+          color: mark.highlight.color,
+          y,
+          rect: {
+            left: box.left + paper.left + mark.x0 * paper.scale,
+            right: box.left + paper.left + mark.x1 * paper.scale,
+            top: box.top - article.scrollTop + mark.y0 * paper.scale,
+            bottom: box.top - article.scrollTop + mark.y1 * paper.scale,
+          },
+        })
+      }
+      return {
+        frame: { left: frame.left, top: frame.top, right: frame.right, bottom: frame.bottom },
+        body: { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
+        items,
+        activeIds: linkActiveRef.current === null ? [] : [linkActiveRef.current],
+      }
+    }
+    return registerPaneLinks({ pane: paneId, role: 'document', channel: paneChannel, docId: path }, measure)
+  }, [paneId, paneChannel, primary, path])
+  // 스크롤·배율·창 크기로 다시 그려질 때마다 같은 프레임 안에서 층을 맞춘다
+  useLayoutEffect(() => { flushPaneLinks() })
   // 가리키기 신호: 같은 색 창에서 누른 메모가 이 문서에 있으면 그 자리로 굴려 가서(나머지는 jumpToMemo) 기다렸다 간다
   const [pendingPoint, setPendingPoint] = useState<PersistentPdfHighlight | null>(null)
   usePointSignalReceiver((signal) => {
@@ -748,7 +825,7 @@ export function MarkdownPane({
     const scroller = bar?.querySelector<HTMLElement>('.pdf-memo-bar-scroll') ?? null
     const next: MemoLink[] = []
     // 노트 바 칸은 창 맨 오른쪽이라, 다른 문서 창이 사이에 있어도 그 위로 가로질러 카드까지 잇는다
-    if (memoBarOpen && primary && !memoOnly && bar?.classList.contains('pdf-memo-bar-wide') !== true && !bar?.classList.contains('markdown-memo-bar-full') && frame !== null && article !== null && bar !== null && scroller !== null) {
+    if (memoBarOpen && primary && !memoOnly && !linkedToNoteTab && bar?.classList.contains('pdf-memo-bar-wide') !== true && !bar?.classList.contains('markdown-memo-bar-full') && frame !== null && article !== null && bar !== null && scroller !== null) {
       const fr = frame.getBoundingClientRect()
       const ar = article.getBoundingClientRect()
       const br = bar.getBoundingClientRect()

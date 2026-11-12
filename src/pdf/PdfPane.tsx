@@ -46,6 +46,7 @@ import { BOX_DEFAULT_WIDTH, placeBoxMemo } from '../core/boxMemo'
 import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
 import { useMemoBarVisible, setMemoBarVisible } from './memoStore'
 import { useMemoNoteApi } from './memoNoteContext'
+import { flushPaneLinks, registerPaneLinks, usePaneLinkedToNote, type LinkItem, type PaneLinkSnapshot } from '../app/workspaceLinks'
 import { useMemoPointSender, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useWorkspaceLink } from '../app/workspaceContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
 import { buildNoteFlowItems } from './noteFlowItems'
@@ -470,7 +471,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const noteApi = useMemoNoteApi()
   // 작업 공간: 이 창과 같은 색 창에 보이는 메모 노트(새 메모가 갈 곳, 「열린 노트 표시만 보기」), 가리키기 신호를 보내는 손
   const workspace = useWorkspaceLink()
-  const { pane: paneId } = usePaneChannel()
+  const { pane: paneId, channel: paneChannel } = usePaneChannel()
+  // 이웃한 같은 색 창에 메모 노트 탭이 보이면 연결선은 작업 공간 층이 그린다 — 노트 바로 가는 옛 선은 그리지 않는다(노트 탭을 가로질러 겹줄이 되지 않게)
+  const linkedToNoteTab = usePaneLinkedToNote(paneId)
   const sendPoint = useMemoPointSender()
   const channelNotePaths = workspace.visibleNotePathsFor(paneId)
   const channelNotesKey = channelNotePaths.join('\n')
@@ -761,7 +764,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   }, [memoColumnVisible, draftNotePath])
 
   // 형광펜(PDF 화면) → 카드(메모 바 화면) 선: 둘 다 보일 때만. 바 쪽 곡선과 페이지 안쪽 점선이 같은 목록을 쓴다
-  const memoLinkLines = !memoColumn || !cellPlace.atRight ? [] : memoTargets.flatMap((target) => {
+  const memoLinkLines = !memoColumn || !cellPlace.atRight || linkedToNoteTab ? [] : memoTargets.flatMap((target) => {
     const box = memoCardLayout.get(target.key)
     if (box === undefined) return []
     if (unit !== null && (target.highlight.anchor.page < unit.first || target.highlight.anchor.page > unit.last)) return []
@@ -1107,6 +1110,68 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const currentPage = unit !== null ? unit.first : dominantPage(boxes, scrollTop, measured.height)
   const visibleStartRef = useRef(currentPage)
   visibleStartRef.current = currentPage
+
+  // ---------- 연결선: 보이는 형광펜의 사각형을 작업 공간 층에 내놓는다(workspaceLinks) ----------
+  // 읽기만 하는 measure 를 등록해 두고, 그릴 때마다 층을 깨운다. 층은 프레임마다 한 번 모두 읽고 짝을 맞춘다.
+  // 이웃한 같은 색 메모 노트 창이 없으면 층이 재지 않는다(등록만 있고 비용은 없다)
+  const linkSourceRef = useRef({ boxes, pageSizes, contentLeft, scrollTop, scrollLeft, paneInsetTop, start, end, byPage: persistentHighlightsByPage, activeIds: [] as readonly string[] })
+  linkSourceRef.current = {
+    boxes, pageSizes, contentLeft, scrollTop, scrollLeft, paneInsetTop, start, end, byPage: persistentHighlightsByPage,
+    activeIds: [activeMemoId, editingMemoId, localFlashId, flashHighlightId, draftMemo?.id ?? null].filter((id): id is string => id !== null),
+  }
+  useLayoutEffect(() => {
+    if (paneId === null || !primary) return undefined
+    const measure = (): PaneLinkSnapshot | null => {
+      const scroller = scrollerRef.current
+      if (scroller === null) return null
+      const source = linkSourceRef.current
+      const body = scroller.getBoundingClientRect()
+      const frame = (scroller.closest<HTMLElement>('.pane-grid-body, .pane') ?? scroller).getBoundingClientRect()
+      const items: LinkItem[] = []
+      // 화면에 보이는 쪽(앞뒤 여유 포함)의 형광펜만 훑는다 — 메모가 1,000 개여도 쪽 몇 장 분량
+      for (let page = source.start; page <= source.end; page += 1) {
+        const marks = source.byPage.get(page)
+        const box = source.boxes[page]
+        const pageSize = source.pageSizes[page]
+        if (marks === undefined || box === undefined || pageSize === undefined || pageSize[0] <= 0) continue
+        const scale = box.width / pageSize[0]
+        for (const highlight of marks) {
+          const rects = highlight.anchor.rects
+          if (rects.length === 0) continue
+          const firstTop = Math.min(...rects.map((rect) => rect.y))
+          const firstLine = rects.filter((rect) => rect.y < firstTop + 2)
+          const outset = highlight.kind === 'region' ? 4 : 0
+          const markLeft = Math.min(...firstLine.map((rect) => rect.x)) - outset
+          const markRight = Math.max(...firstLine.map((rect) => rect.x + rect.w)) + outset
+          const markBottom = Math.max(...firstLine.map((rect) => rect.y + rect.h))
+          // 글: 첫 줄 위 가장자리에서 나온다(같은 줄 뒷글자를 가로지르지 않게). 영역: 위 꺾쇠 근처
+          const y = body.top + box.top + firstTop * scale - source.scrollTop + source.paneInsetTop + (highlight.kind === 'region' ? 8 : -1.5)
+          if (y < body.top || y > body.bottom) continue
+          const originX = body.left + source.contentLeft + box.left - source.scrollLeft
+          items.push({
+            id: highlight.id,
+            color: highlight.color,
+            y,
+            rect: {
+              left: originX + markLeft * scale,
+              right: originX + markRight * scale,
+              top: body.top + box.top + firstTop * scale - source.scrollTop + source.paneInsetTop,
+              bottom: body.top + box.top + markBottom * scale - source.scrollTop + source.paneInsetTop,
+            },
+          })
+        }
+      }
+      return {
+        frame: { left: frame.left, top: frame.top, right: frame.right, bottom: frame.bottom },
+        body: { left: body.left, top: body.top, right: body.right, bottom: body.bottom },
+        items,
+        activeIds: source.activeIds,
+      }
+    }
+    return registerPaneLinks({ pane: paneId, role: 'document', channel: paneChannel, docId }, measure)
+  }, [paneId, paneChannel, primary, docId])
+  // 스크롤·확대·창 크기로 이 화면이 다시 그려질 때마다 같은 프레임 안에서 층을 맞춘다(한 프레임 늦지 않게)
+  useLayoutEffect(() => { flushPaneLinks() })
 
   // 넘긴 화면이 그려지면 정해 둔 자리로 스크롤한다
   useLayoutEffect(() => {
@@ -2000,7 +2065,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               }}
             />
           ) : null}
-          {memoColumn && memoTargets.length > 0 ? (
+          {memoColumn && memoTargets.length > 0 && !linkedToNoteTab ? (
             <svg className="pdf-memo-links pdf-memo-links-page" width={spacerWidth} height={docHeight} aria-hidden="true">
               {memoTargets.map((target) => {
                 const active = target.key === activeMemoId || target.key === editingMemoId || target.draft === true

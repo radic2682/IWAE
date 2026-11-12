@@ -18,3 +18,23 @@
 .pane-doc .memo-note-tab-bar > .markdown-memo-bar-body { flex: 1 1 auto; min-height: 0; }
 .memo-note-tab-spacer { flex: 1 1 auto; }
 .pane-doc .memo-note-tab-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 12px; }
+
+/* 「→ 문서 이름 p.N」: 원문 문서가 이웃한 같은 색 창에 보이지 않을 때만 카드에 붙는 작은 링크 */
+.note-far-link {
+  justify-self: start;
+  max-width: 100%;
+  margin: 2px 0 0;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted, var(--text-strong));
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.note-far-link:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--accent); outline: none; }
