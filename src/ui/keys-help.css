@@ -2,7 +2,7 @@
 /* 「?」 키와 명령 목록 */
 .keys-help { width: min(940px, calc(100vw - 32px)); }
 .keys-help .sko-body { overflow-y: auto; padding-bottom: calc(var(--space-4) + var(--space-2)); }
-.keys-help-note { margin: 0 0 8px; font-size: 12.5px; }
+.keys-help-note { margin: 0 0 8px; font-size: 12.5px; word-break: keep-all; overflow-wrap: anywhere; }
 .keys-help-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .keys-help-table th { padding: 4px 8px; border-bottom: 1px solid var(--divider); font-weight: 700; text-align: left; }
 .keys-help-table td { padding: 5px 8px; border-bottom: 1px solid var(--divider); vertical-align: middle; }
