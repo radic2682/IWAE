@@ -35,6 +35,20 @@ export interface McpPaneState {
 }
 
 /** 화면(tmux window) 하나: 번호 · 이름 · 보는 화면인가 · 그 화면의 칸들 */
+/** 세션 하나의 요약(app_state.session) */
+export interface McpSessionInfo {
+  readonly name: string
+  readonly active: boolean
+  readonly screens: number
+  /** 마지막으로 쓴 때(ms). 모르면 null */
+  readonly last_used_at: number | null
+}
+
+export interface McpSessionState {
+  readonly name: string
+  readonly sessions: readonly McpSessionInfo[]
+}
+
 export interface McpScreenState {
   /** 화면 번호(맨 위 줄 차례, 0 부터) */
   readonly index: number
@@ -105,6 +119,8 @@ export interface McpAppDeps {
   readonly closeTab: (tabId: string) => boolean
   /** 명령줄 명령(`split-window -h ; open 노트 A`)을 앱의 `:` 명령줄과 같은 실행기로 돌리고, 끝난 뒤의 화면 · 칸 요약을 돌려준다 */
   readonly workspaceCommand: (command: string) => Promise<{ readonly ok: boolean; readonly message: string; readonly state: McpWorkspaceState }>
+  /** 지금 세션의 이름과 있는 세션들 */
+  readonly session: () => Promise<McpSessionState>
 
   readonly addBookmark: (docId: string, page: number, title: string, options: { readonly y?: number; readonly emoji?: string }) => string
   readonly updateBookmark: (id: string, patch: McpBookmarkPatch) => string

@@ -78,6 +78,19 @@ describe('app_state / settings_get / sources', () => {
     expect(state.panes.map((pane) => pane.id)).toEqual(['pC', 'pD'])
   })
 
+  it('app_state 는 지금 세션의 이름과 세션 목록을 session 으로 알린다', async () => {
+    const app = fakeApp({
+      session: async () => ({ name: '논문', sessions: [
+        { name: '기본', active: false, screens: 1, last_used_at: 100 },
+        { name: '논문', active: true, screens: 3, last_used_at: 200 },
+      ] }),
+    })
+    const env = makeEnv({ app })
+    const state = await env.call('app_state') as { session: { name: string; sessions: { name: string; active: boolean; screens: number }[] } }
+    expect(state.session.name).toBe('논문')
+    expect(state.session.sessions.map((session) => [session.name, session.active, session.screens])).toEqual([['기본', false, 1], ['논문', true, 3]])
+  })
+
   it('app_state 의 트리는 칸 번호로 중첩해 적는다(위아래 나누기 포함)', async () => {
     const app = fakeApp({
       paneCount: 3,

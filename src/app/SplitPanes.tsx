@@ -37,6 +37,8 @@ interface SplitPanesProps {
   onLibraryHost?: (element: HTMLElement | null) => void
   /** 칸 나누기 트리(docs/design/workspace-tmux.md 4). 칸 자리와 경계선이 여기서 나온다 */
   root: LayoutNode
+  /** 세션을 바꿀 때마다 오르는 번호: 칸 DOM 의 열쇠에 섞어 칸 보기(PDF 렌더러 등)를 새로 마운트한다 */
+  epoch?: number
   /** 경계선을 끌어 놓았을 때(비율이 바뀐 새 트리). 끄는 동안에는 이 안에서만 다시 그린다 */
   onRootChange?: (root: LayoutNode) => void
   /** 칸 하나의 본문. index 는 칸 번호(왼쪽 위부터 0) */
@@ -81,6 +83,7 @@ export function SplitPanes({
   libraryExpanded = false,
   onLibraryHost,
   root,
+  epoch = 0,
   onRootChange,
   renderPane,
   renderHead,
@@ -355,7 +358,7 @@ export function SplitPanes({
               : { left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }
             return (
               <div
-                key={paneId}
+                key={`${epoch}:${paneId}`}
                 className={`pane pane-grid-cell${hidden ? ' pane-zoom-hidden' : ''}`}
                 data-pane-index={index}
                 style={style}

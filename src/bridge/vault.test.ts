@@ -18,6 +18,11 @@ import {
   writeBibliography,
   readBlockPresets,
   readSession,
+  loadSessions,
+  listSessionNames,
+  trashSessionNamed,
+  writeSessionNamed,
+  readSessionNamed,
   relinkDocument,
   registerUnlistedVaultPdfs,
   updateLibraryPageCount,
@@ -488,6 +493,97 @@ describe('vault session and notes', () => {
       'C:/Vault/.iwae/session.json',
       `${JSON.stringify(session, null, 2)}\n`,
     )
+  })
+
+  describe('이름 붙은 세션', () => {
+    const legacy = { pdfTabIds: ['doc-a'], noteTabIds: [], activePdfTabId: 'doc-a', activeNoteTabId: null, sidebarCollapsed: false, sidebarPx: 280, leftFrac: 0.5 }
+    /** 디스크 모양: 경로 → 내용, 폴더 경로 → 항목들 */
+    const disk = (files: Record<string, string>, dirs: Record<string, { name: string; isFile?: boolean; isDirectory?: boolean }[]> = {}) => {
+      fsMocks.exists.mockImplementation(async (path: string) => path in files || path in dirs)
+      fsMocks.readTextFile.mockImplementation(async (path: string) => files[path] ?? '')
+      fsMocks.readDir.mockImplementation(async (path: string) => dirs[path] ?? [])
+    }
+    const writes = () => Object.fromEntries(fsMocks.writeTextFile.mock.calls.map(([path, text]) => [path, text]))
+
+    it('sessions 폴더가 없으면 session.json 이 「기본」 세션이 된다(session.json 은 그대로 둔다)', async () => {
+      disk({ 'C:/Vault/.iwae/session.json': JSON.stringify(legacy) })
+      const loaded = await loadSessions(vault, '기본')
+      expect(loaded.name).toBe('기본')
+      expect(loaded.names).toEqual(['기본'])
+      expect(loaded.raw).toEqual(legacy)
+      const written = writes()
+      expect(JSON.parse(written['C:/Vault/.iwae/sessions/기본.json'] as string)).toEqual(legacy)
+      expect(JSON.parse(written['C:/Vault/.iwae/sessions/_last.json'] as string).last).toBe('기본')
+      expect(fsMocks.mkdir).toHaveBeenCalledWith('C:/Vault/.iwae/sessions', { recursive: true })
+      expect(Object.keys(written)).not.toContain('C:/Vault/.iwae/session.json')
+      expect(fsMocks.remove).not.toHaveBeenCalled()
+    })
+
+    it('세션도 session.json 도 없으면 빈 목록과 기본 이름을 돌려주고 아무것도 쓰지 않는다', async () => {
+      disk({})
+      const loaded = await loadSessions(vault, '기본')
+      expect(loaded).toMatchObject({ name: '기본', names: [], raw: null })
+      expect(fsMocks.writeTextFile).not.toHaveBeenCalled()
+    })
+
+    it('있는 세션은 이름만 읽고(_last.json · 하위 폴더는 뺀다) 마지막으로 쓴 세션을 연다', async () => {
+      disk({
+        'C:/Vault/.iwae/sessions/_last.json': JSON.stringify({ last: '발표', used: { 발표: 5 } }),
+        'C:/Vault/.iwae/sessions/발표.json': JSON.stringify(legacy),
+      }, {
+        'C:/Vault/.iwae/sessions': [
+          { name: '논문.json', isFile: true }, { name: '발표.json', isFile: true }, { name: '_last.json', isFile: true }, { name: '.trash', isDirectory: true },
+        ],
+      })
+      const loaded = await loadSessions(vault, '기본')
+      expect(loaded.names).toEqual(['논문', '발표'])
+      expect(loaded.name).toBe('발표')
+      expect(loaded.raw).toEqual(legacy)
+      expect(loaded.meta.used).toEqual({ 발표: 5 })
+      expect(fsMocks.writeTextFile).not.toHaveBeenCalled()
+    })
+
+    it('마지막으로 쓴 세션 파일이 없어졌으면 첫 세션을 연다', async () => {
+      disk({ 'C:/Vault/.iwae/sessions/_last.json': JSON.stringify({ last: '없는', used: {} }), 'C:/Vault/.iwae/sessions/논문.json': JSON.stringify(legacy) }, {
+        'C:/Vault/.iwae/sessions': [{ name: '논문.json', isFile: true }],
+      })
+      expect((await loadSessions(vault, '기본')).name).toBe('논문')
+    })
+
+    it('메인 창이 아니면 옮기지도 쓰지도 않고 session.json 을 그대로 읽는다', async () => {
+      disk({ 'C:/Vault/.iwae/session.json': JSON.stringify(legacy) })
+      setSessionWriter(false)
+      try {
+        const loaded = await loadSessions(vault, '기본')
+        expect(loaded.raw).toEqual(legacy)
+        await writeSessionNamed(vault, '논문', legacy as never)
+        expect(fsMocks.writeTextFile).not.toHaveBeenCalled()
+      } finally {
+        setSessionWriter(true)
+      }
+    })
+
+    it('세션 하나를 .iwae/sessions/<이름>.json 에 pretty JSON 으로 쓴다', async () => {
+      await writeSessionNamed(vault, '논문 3장', legacy as never)
+      expect(fsMocks.writeTextFile).toHaveBeenCalledWith('C:/Vault/.iwae/sessions/논문 3장.json', `${JSON.stringify(legacy, null, 2)}\n`)
+    })
+
+    it('깨진 세션 파일은 null 로 읽는다', async () => {
+      disk({ 'C:/Vault/.iwae/sessions/논문.json': '{깨짐' })
+      await expect(readSessionNamed(vault, '논문')).resolves.toBeNull()
+    })
+
+    it('지우기는 파일을 .trash 폴더로 옮긴다(세션 목록에는 더 나오지 않는다)', async () => {
+      disk({ 'C:/Vault/.iwae/sessions/논문.json': '{}' })
+      await trashSessionNamed(vault, '논문')
+      expect(fsMocks.rename).toHaveBeenCalledWith('C:/Vault/.iwae/sessions/논문.json', expect.stringMatching(/^C:\/Vault\/\.iwae\/sessions\/\.trash\/논문-\d+\.json$/u))
+      expect(fsMocks.mkdir).toHaveBeenCalledWith('C:/Vault/.iwae/sessions/.trash', { recursive: true })
+    })
+
+    it('목록 읽기가 실패하면 빈 목록이다', async () => {
+      fsMocks.exists.mockRejectedValue(new Error('boom'))
+      await expect(listSessionNames(vault)).resolves.toEqual([])
+    })
   })
 
   it('PDF 형광펜을 .iwae/highlights.json에 저장하고 복원한다', async () => {

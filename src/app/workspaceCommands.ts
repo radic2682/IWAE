@@ -68,6 +68,15 @@ export interface CommandHost {
   /** 「화면을 닫을까요? y/n」 */
   confirmKillWindow?: () => void
   showSessionMenu?: () => void
+  /** 세션 이름들(없으면 세션 명령은 「지금은 안 됩니다」) */
+  sessionNames?: () => readonly string[]
+  newSession?: (name: string | undefined) => Promise<CommandResult>
+  switchSession?: (name: string) => Promise<CommandResult>
+  renameSession?: (name: string) => Promise<CommandResult>
+  /** 이름이 없으면 지금 세션을 바로 저장, 있으면 그 이름으로 갈래(다른 이름으로 저장) */
+  saveSession?: (name: string | undefined) => Promise<CommandResult>
+  /** 이름이 없으면 지금 세션. 확인 창을 띄우고 돌아온다 */
+  killSession?: (name: string | undefined) => Promise<CommandResult>
   /** `.iwae/keys.conf` 를 다시 읽는다(source-file) */
   reloadKeys?: () => Promise<CommandResult>
 }
@@ -116,10 +125,12 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { name: 'confirm-kill-window', usage: 'confirm-kill-window' },
   { name: 'choose-session', usage: 'choose-session' },
   // 다음 단계
-  { name: 'new-session', aliases: ['new'], soon: true, usage: 'new-session' },
-  { name: 'switch-client', aliases: ['switchc'], valueFlags: ['t'], soon: true, usage: 'switch-client -t 이름' },
-  { name: 'save-session', soon: true, usage: 'save-session' },
-  { name: 'rename-session', soon: true, usage: 'rename-session' },
+  { name: 'new-session', aliases: ['new'], valueFlags: ['s'], usage: 'new-session [이름]' },
+  { name: 'switch-client', aliases: ['switchc'], valueFlags: ['t'], usage: 'switch-client -t 이름' },
+  { name: 'rename-session', aliases: ['rename'], usage: 'rename-session 이름' },
+  { name: 'save-session', usage: 'save-session [이름]  (이름이 없으면 지금 저장)' },
+  { name: 'kill-session', valueFlags: ['t'], usage: 'kill-session [-t 이름]' },
+  { name: 'list-sessions', aliases: ['ls'], usage: 'list-sessions' },
   { name: 'float-pane', soon: true, usage: 'float-pane' },
   { name: 'embed-pane', soon: true, usage: 'embed-pane' },
   { name: 'toggle-floating', soon: true, usage: 'toggle-floating' },
@@ -641,6 +652,34 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     case 'source-file':
       if (host.reloadKeys === undefined) return fail(t('지금은 안 됩니다'))
       return host.reloadKeys()
+    case 'new-session': {
+      if (host.newSession === undefined) return fail(t('지금은 안 됩니다'))
+      const name = (flags.s === undefined ? restText(command) : String(flags.s)).trim()
+      return host.newSession(name === '' ? undefined : name)
+    }
+    case 'switch-client': {
+      if (host.switchSession === undefined) return fail(t('지금은 안 됩니다'))
+      const name = (flags.t === undefined ? restText(command) : String(flags.t)).trim()
+      if (name === '') return fail(t('switch-client -t 이름'))
+      return host.switchSession(name)
+    }
+    case 'rename-session': {
+      if (host.renameSession === undefined) return fail(t('지금은 안 됩니다'))
+      const name = restText(command)
+      if (name === '') return fail(t('새 이름을 쓰세요: rename-session 이름'))
+      return host.renameSession(name)
+    }
+    case 'save-session': {
+      if (host.saveSession === undefined) return fail(t('지금은 안 됩니다'))
+      const name = restText(command)
+      return host.saveSession(name === '' ? undefined : name)
+    }
+    case 'kill-session': {
+      if (host.killSession === undefined) return fail(t('지금은 안 됩니다'))
+      const name = (flags.t === undefined ? restText(command) : String(flags.t)).trim()
+      return host.killSession(name === '' ? undefined : name)
+    }
+    case 'list-sessions':
     case 'choose-session':
       if (host.showSessionMenu === undefined) return fail(t('지금은 안 됩니다'))
       host.showSessionMenu()

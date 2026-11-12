@@ -110,17 +110,10 @@ describe('TopBar', () => {
       expect(container.querySelector('.pane-tabs-menu')).toBeNull()
     })
 
-    it('「세션 이름 ▾」 단추가 「기본」을 보이고, 메뉴는 세션이 다음 단계라고 알리며 새 화면 템플릿을 둔다', () => {
-      const screens = screensProp()
-      render(<TopBar {...props} screens={screens} />)
-      const button = screen.getByRole('button', { name: '기본' })
-      expect(button.getAttribute('aria-haspopup')).toBe('menu')
-      fireEvent.click(button)
-      const menu = screen.getByRole('menu', { name: '세션' })
-      expect(menu.textContent).toContain('세션은 다음 단계에서')
-      fireEvent.click(within(menu).getByRole('menuitem', { name: /비교/u }))
-      expect(screens.onNew).toHaveBeenCalledWith('compare')
-      expect(screen.queryByRole('menu')).toBeNull()
+    it('「세션 이름 ▾」 단추가 세션 이름을 보이고, 세션 동작이 없으면(떼어 낸 창) 눌리지 않는다', () => {
+      render(<TopBar {...props} sessionName="논문 3장" />)
+      const button = screen.getByRole('button', { name: '논문 3장' }) as HTMLButtonElement
+      expect(button.disabled).toBe(true)
     })
 
     it('「⌘ 명령」 단추가 창 단추 곁에 있고 명령 팔레트를 연다', () => {

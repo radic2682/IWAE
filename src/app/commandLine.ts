@@ -53,6 +53,8 @@ export function stepCommandHistory(history: readonly string[], cursor: number, d
 export interface CompletionContext {
   /** 화면 이름들(번호 순) */
   readonly screenNames: readonly string[]
+  /** 세션 이름들(없으면 빈 목록) */
+  readonly sessionNames?: readonly string[]
   /** 화면 템플릿 이름들 */
   readonly templateNames: readonly string[]
 }
@@ -99,6 +101,8 @@ export function completeCommandLine(input: string, context: CompletionContext): 
     if (command === 'select-window' && (previous === '-t' || before.length === 1)) pool = context.screenNames
     else if (command === 'join-pane' && previous === '-s') pool = context.screenNames
     else if (command === 'new-window' && previous === '-t') pool = context.templateNames
+    else if (command === 'switch-client' && (previous === '-t' || before.length === 1)) pool = context.sessionNames ?? []
+    else if (command === 'kill-session' && previous === '-t') pool = context.sessionNames ?? []
     else if (command === 'apply-template' && before.length === 1) pool = context.templateNames
     else if (command === 'select-layout' && before.length === 1) pool = RELAYOUT_KINDS
     else if (command === 'set-channel' && before.length === 1) pool = ['blue', 'green', 'orange', 'none']

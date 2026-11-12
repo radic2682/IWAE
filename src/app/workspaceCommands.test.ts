@@ -85,7 +85,7 @@ describe('파서', () => {
   })
 
   it('다음 단계 명령은 읽히고 soon 표시가 붙는다', () => {
-    for (const name of ['new-session', 'switch-client', 'save-session', 'float-pane', 'embed-pane', 'toggle-floating', 'display-popup', 'new-client', 'detach']) {
+    for (const name of ['float-pane', 'embed-pane', 'toggle-floating', 'display-popup', 'new-client', 'detach']) {
       const parsed = parseCommandLine(`${name} -t x`)
       expect(parsed.ok && parsed.commands[0]?.soon, name).toBe(true)
     }
@@ -495,10 +495,98 @@ describe('명령 실행: 앱이 하는 일', () => {
 
   it('다음 단계 명령은 「다음 단계에서 됩니다」', async () => {
     const h = harness()
-    for (const name of ['new-session', 'switch-client -t 기본', 'save-session', 'float-pane', 'embed-pane', 'toggle-floating', 'display-popup', 'new-client', 'detach']) {
+    for (const name of ['float-pane', 'embed-pane', 'toggle-floating', 'display-popup', 'new-client', 'detach']) {
       const result = await h.run(name)
       expect(result, name).toEqual({ ok: false, message: '다음 단계에서 됩니다' })
     }
+  })
+
+  describe('세션 명령', () => {
+    const ok = (message = '') => ({ ok: true, message })
+    const sessions = () => ({
+      newSession: vi.fn(async (_name: string | undefined) => ok()),
+      switchSession: vi.fn(async (_name: string) => ok()),
+      renameSession: vi.fn(async (_name: string) => ok()),
+      saveSession: vi.fn(async (_name: string | undefined) => ok()),
+      killSession: vi.fn(async (_name: string | undefined) => ok()),
+      showSessionMenu: vi.fn(),
+    })
+
+    it('줄임말을 읽는다(new · switchc · rename · ls)', () => {
+      for (const [alias, name] of Object.entries({ new: 'new-session', switchc: 'switch-client', rename: 'rename-session', ls: 'list-sessions' })) {
+        expect(canonicalCommandName(alias), alias).toBe(name)
+      }
+      expect(commandNames()).toEqual(expect.arrayContaining(['new-session', 'switch-client', 'rename-session', 'save-session', 'kill-session', 'list-sessions']))
+    })
+
+    it('new-session [이름] · -s 이름: 이름이 없으면 undefined', async () => {
+      const handles = sessions()
+      const h = harness(oneScreen(), handles)
+      await h.run('new-session')
+      await h.run('new-session 발표 준비')
+      await h.run('new -s 논문')
+      expect(handles.newSession.mock.calls.map(([name]) => name)).toEqual([undefined, '발표 준비', '논문'])
+    })
+
+    it('switch-client -t 이름 · 이름만 써도 된다 · 이름이 없으면 사용법', async () => {
+      const handles = sessions()
+      const h = harness(oneScreen(), handles)
+      await h.run('switch-client -t 논문')
+      await h.run('switchc "발표 준비"')
+      expect(handles.switchSession.mock.calls.map(([name]) => name)).toEqual(['논문', '발표 준비'])
+      const missing = await h.run('switch-client')
+      expect(missing).toEqual({ ok: false, message: 'switch-client -t 이름' })
+    })
+
+    it('rename-session 이름 · 이름이 없으면 막는다', async () => {
+      const handles = sessions()
+      const h = harness(oneScreen(), handles)
+      await h.run('rename-session 새 이름')
+      expect(handles.renameSession).toHaveBeenCalledWith('새 이름')
+      expect((await h.run('rename-session')).ok).toBe(false)
+      expect(handles.renameSession).toHaveBeenCalledOnce()
+    })
+
+    it('save-session: 이름이 없으면 지금 저장, 있으면 갈래', async () => {
+      const handles = sessions()
+      const h = harness(oneScreen(), handles)
+      await h.run('save-session')
+      await h.run('save-session 갈래')
+      expect(handles.saveSession.mock.calls.map(([name]) => name)).toEqual([undefined, '갈래'])
+    })
+
+    it('kill-session [-t 이름]', async () => {
+      const handles = sessions()
+      const h = harness(oneScreen(), handles)
+      await h.run('kill-session')
+      await h.run('kill-session -t 논문')
+      expect(handles.killSession.mock.calls.map(([name]) => name)).toEqual([undefined, '논문'])
+    })
+
+    it('list-sessions · choose-session 은 세션 메뉴를 연다', async () => {
+      const handles = sessions()
+      const h = harness(oneScreen(), handles)
+      await h.run('list-sessions')
+      await h.run('choose-session')
+      expect(handles.showSessionMenu).toHaveBeenCalledTimes(2)
+    })
+
+    it('손잡이가 없으면 「지금은 안 됩니다」, 손잡이가 실패를 돌려주면 그 말을 그대로 낸다', async () => {
+      const h = harness()
+      for (const line of ['new-session', 'switch-client -t x', 'rename-session x', 'save-session', 'kill-session', 'list-sessions']) {
+        expect(await h.run(line), line).toEqual({ ok: false, message: '지금은 안 됩니다' })
+      }
+      const failing = harness(oneScreen(), { switchSession: async () => ({ ok: false, message: '세션을 찾을 수 없습니다: x' }) })
+      expect(await failing.run('switch-client -t x')).toEqual({ ok: false, message: '세션을 찾을 수 없습니다: x' })
+    })
+
+    it('; 로 이은 줄에서 세션 명령이 실패하면 거기서 멈춘다', async () => {
+      const handles = { ...sessions(), switchSession: vi.fn(async () => ({ ok: false, message: '없음' })) }
+      const h = harness(oneScreen(), handles)
+      const result = await h.run('switch-client -t x ; split-window -h')
+      expect(result.ok).toBe(false)
+      expect(h.screen().layout.kind).toBe('pane')
+    })
   })
 
   it('손잡이가 없으면 「지금은 안 됩니다」로 답한다', async () => {

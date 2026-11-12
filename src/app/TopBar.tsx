@@ -10,7 +10,7 @@ import {
 import { closeWindow } from '../bridge/window'
 import { WindowControls } from './WindowControls'
 import { AppMenu, type AppMenuGroups } from './AppMenu'
-import { PopupMenu } from './PopupMenu'
+import { SessionMenu, type SessionMenuActions } from './SessionMenu'
 import { ScreenTabs, type ScreenTabItem, type ScreenTemplateItem } from './ScreenTabs'
 import { isMacPlatform } from '../core/platform'
 import '../ui/screens.css'
@@ -30,8 +30,10 @@ interface TopBarProps {
   appMenu?: AppMenuGroups
   /** 사이드바 접기·펴기 단추를 숨긴다(왼쪽 바가 없는 떼어 낸 창) */
   hideSidebarToggle?: boolean
-  /** 세션 이름(「세션 이름 ▾」 단추). 세션은 다음 단계 — 지금은 「기본」 하나 */
+  /** 세션 이름(「세션 이름 ▾」 단추) */
   sessionName?: string
+  /** 세션 메뉴의 동작들. 없으면(떼어 낸 창 · 새 창) 메뉴는 이름만 보이고 열리지 않는다 */
+  sessionActions?: SessionMenuActions
   /** 화면 탭(0 읽기 · 1 비교 …). 없으면(떼어 낸 창) 화면 줄을 그리지 않는다 */
   screens?: {
     readonly items: readonly ScreenTabItem[]
@@ -63,13 +65,14 @@ export function TopBar({
   appMenu,
   hideSidebarToggle = false,
   sessionName = t('기본'),
+  sessionActions,
   screens,
   onOpenPalette,
   paletteShortcut,
 }: TopBarProps) {
   const [sessionMenu, setSessionMenu] = useState<{ left: number; top: number } | null>(null)
   const sessionRef = useRef<HTMLButtonElement | null>(null)
-  // 접두키 + s: 지금 세션 메뉴를 연다(세션 목록은 다음 단계)
+  // 접두키 + s: 세션 메뉴를 연다
   useEffect(() => {
     const open = () => {
       const box = sessionRef.current?.getBoundingClientRect()
@@ -163,6 +166,7 @@ export function TopBar({
           aria-expanded={sessionMenu !== null}
           title={t('세션')}
           data-tauri-drag-region="false"
+          disabled={sessionActions === undefined}
           onClick={() => {
             if (sessionMenu !== null) { setSessionMenu(null); return }
             const box = sessionRef.current?.getBoundingClientRect()
@@ -172,21 +176,15 @@ export function TopBar({
           <span className="topbar-session-name">{sessionName}</span>
           <CaretDown size={11} weight="bold" aria-hidden="true" />
         </button>
-        {sessionMenu !== null ? (
-          <PopupMenu label={t('세션')} left={sessionMenu.left} top={sessionMenu.top} anchorRef={sessionRef} onClose={(restore) => { setSessionMenu(null); if (restore) sessionRef.current?.focus() }}>
-            <div className="popup-menu-head" aria-hidden="true">{t('세션은 다음 단계에서')}</div>
-            {screens === undefined ? null : (
-              <>
-                <div className="pane-tab-context-sep" role="separator" />
-                <div className="popup-menu-head" aria-hidden="true">{t('새 화면 ▸ 템플릿')}</div>
-                {screens.templates.map((template) => (
-                  <button key={template.id} type="button" role="menuitem" onClick={() => { setSessionMenu(null); screens.onNew(template.id) }}>
-                    <span>{template.label}</span><kbd>{template.hint}</kbd>
-                  </button>
-                ))}
-              </>
-            )}
-          </PopupMenu>
+        {sessionMenu !== null && sessionActions !== undefined ? (
+          <SessionMenu
+            current={sessionName}
+            left={sessionMenu.left}
+            top={sessionMenu.top}
+            anchorRef={sessionRef}
+            actions={sessionActions}
+            onClose={(restore) => { setSessionMenu(null); if (restore) sessionRef.current?.focus() }}
+          />
         ) : null}
         {screens === undefined ? null : (
           <ScreenTabs

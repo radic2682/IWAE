@@ -11,6 +11,7 @@ import { GROUP_5 } from './en/group5'
 import { GROUP_6 } from './en/group6'
 import { GROUP_7 } from './en/group7'
 import { INTEROP } from './en/interop'
+import { SESSIONS } from './en/sessions'
 import { SHORTCUTS } from './en/shortcuts'
 import { SUPPORT } from './en/support'
 import { THEME_FILES } from './en/themeFiles'
@@ -27,6 +28,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...GROUP_6,
   ...GROUP_7,
   ...WORKSPACE_COMMANDS,
+  ...SESSIONS,
   ...INTEROP,
   ...TICKETS,
   ...THEME_FILES,

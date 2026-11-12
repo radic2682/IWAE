@@ -99,6 +99,21 @@ describe('탭 완성', () => {
     expect(completeCommandLine('split-window -h;next-w', CONTEXT).text).toBe('split-window -h;next-window ')
   })
 
+  it('세션 이름: switch-client(-t 와 첫 인자) · kill-session -t', () => {
+    const context = { ...CONTEXT, sessionNames: ['기본', '논문', '논문 초안', '발표'] }
+    expect(completeCommandLine('switch-client -t 발', context).text).toBe('switch-client -t 발표 ')
+    expect(completeCommandLine('switchc 발', context).text).toBe('switchc 발표 ')
+    expect(completeCommandLine('switch-client -t 논', context).candidates).toEqual(['논문', '논문 초안'])
+    expect(completeCommandLine('switch-client -t 논', context).text).toBe('switch-client -t 논문')
+    expect(completeCommandLine('kill-session -t 기', context).text).toBe('kill-session -t 기본 ')
+    // 이름에 빈칸이 든 후보는 따옴표로 감싼다
+    expect(completeCommandLine('switch-client -t 논문 ', { ...context, sessionNames: ['논문 초안'] }).candidates).toEqual([])
+    expect(completeCommandLine('switch-client -t 논문 초', { ...context, sessionNames: ['논문 초안'] }).candidates).toEqual([])
+    expect(completeCommandLine('switch-client -t 논', { ...context, sessionNames: ['논문 초안'] }).text).toBe('switch-client -t "논문 초안" ')
+    // 세션 이름이 없는 맥락에서는 후보가 없다
+    expect(completeCommandLine('switch-client -t 기', CONTEXT).candidates).toEqual([])
+  })
+
   it('줄임말로 쓴 명령의 인자도 완성한다', () => {
     expect(completeCommandLine('selectw -t 비', CONTEXT).text).toBe('selectw -t 비교 ')
     expect(completeCommandLine('neww -t 정', CONTEXT).text).toBe('neww -t 정리 ')

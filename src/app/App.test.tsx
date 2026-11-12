@@ -1321,6 +1321,28 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     expect(statusMessage()).toBe('모르는 키: j — ? 로 목록')
   })
 
+  it('세션 명령: Vault 가 없으면 알리고(바꾸기 · 만들기), 하나뿐인 세션은 지우지 않으며, 세션 이름이 상태 줄에 보인다', async () => {
+    render(<App developmentPreview />)
+    expect(document.querySelector('.status-bar-session')?.textContent).toBe('[기본]')
+    await runLine('switch-client -t 없는세션')
+    await waitFor(() => expect(statusMessage()).toBe('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await runLine('kill-session')
+    await waitFor(() => expect(statusMessage()).toBe('마지막 세션은 지울 수 없습니다'))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await runLine('new-session 둘째')
+    await waitFor(() => expect(statusMessage()).toBe('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await runLine('list-sessions')
+    await waitFor(() => expect(screen.getByRole('menu', { name: '세션' })).toBeDefined())
+  })
+
+  it('세션 메뉴는 이름을 받는 동작과 「앱 창으로 띄우기(다음 단계)」를 보인다', async () => {
+    render(<App developmentPreview />)
+    fireEvent.click(screen.getByRole('button', { name: '기본' }))
+    const menu = await screen.findByRole('menu', { name: '세션' })
+    expect(within(menu).getByRole('menuitem', { name: /새 세션/u })).toBeDefined()
+    expect((within(menu).getByRole('menuitem', { name: /앱 창으로 띄우기/u }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('명령줄: Enter 로 실행하고 `;` 로 잇고, 오류는 상태 줄에 보이며, 기록(↑)이 남는다', async () => {
     const { container } = render(<App developmentPreview />)
     const before = cells(container).length

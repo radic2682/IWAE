@@ -17,7 +17,7 @@ describe('KeysHelpSheet', () => {
     expect(state('q')).toBe('됩니다')
     expect(state('f · w')).toBe('다음 단계')
     expect(state('d')).toBe('다음 단계')
-    expect(state('s')).toBe('일부만')
+    expect(state('s')).toBe('됩니다')
     expect(screen.getByText(/접두키\(Ctrl\+B\)를 누르고/u)).toBeDefined()
     expect(screen.getByText('Ctrl+K')).toBeDefined()
   })

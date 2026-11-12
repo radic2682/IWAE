@@ -16,7 +16,7 @@ export function treeShape(node: LayoutNode, order: readonly string[]): unknown {
 }
 
 /** 화면에 대한 작은 요약. 문서 글(선택한 글·제목)은 믿을 수 없는 글이다 */
-const appState = (_args: Record<string, unknown>, ctx: OpContext) => {
+const appState = async (_args: Record<string, unknown>, ctx: OpContext) => {
   const app = ctx.deps.app
   const notes = ctx.notes.available ? ctx.notes.list() : []
   const docs = app?.docs ?? []
@@ -47,6 +47,7 @@ const appState = (_args: Record<string, unknown>, ctx: OpContext) => {
   const view = viewPane === undefined ? undefined : app?.docViews[viewPane]
   const viewDoc = view === undefined ? undefined : docs.find((doc) => doc.docId === view.docId)
   const selection = app?.selection() ?? null
+  const session = app === undefined ? null : await app.session()
   return {
     vault: { open: app?.vaultRoot != null || ctx.notes.available, documents: docs.length, notes: notes.length },
     layout: {
@@ -57,6 +58,7 @@ const appState = (_args: Record<string, unknown>, ctx: OpContext) => {
     },
     panes,
     screens,
+    session,
     active_doc: view === undefined
       ? null
       : {

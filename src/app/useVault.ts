@@ -34,7 +34,12 @@ import {
   readPdfBookmarks,
   readPdfHighlights,
   registerUnlistedVaultPdfs,
-  readSession,
+  loadSessions,
+  listSessionNames,
+  readSessionNamed,
+  removeSessionNamed,
+  trashSessionNamed,
+  writeSessionsMeta,
   readVaultTreeOrder,
   readVaultIndex,
   readVaultMetadata,
@@ -46,7 +51,7 @@ import {
   writeCanvas,
   updateLibraryPageCount,
   writeLibrary,
-  writeSession,
+  writeSessionNamed,
   writeVaultIndex,
   writeVaultTreeOrder,
   writeVaultMetadata,
@@ -61,10 +66,11 @@ import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
 import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
-import { activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
+import { allScreenPaneIds, activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
-import { currentWindowMode, ownsSession, sessionForWindow } from '../core/windowMode'
+import { findSessionName, removeFromMeta, renameInMeta, emptySessionsMeta, touchSessionMeta, uniqueSessionName, validateSessionName, type SessionSummary, type SessionsMeta } from '../core/sessionNames'
+import { currentWindowMode, ownsSession, sessionForWindow, type WindowMode } from '../core/windowMode'
 import type { SyncCodec } from '../core/vaultSync'
 import { findStaleDocuments } from '../core/staleDocuments'
 import {
@@ -277,6 +283,140 @@ const READING_POSITION_WRITE_DELAY_MS = 1500
 /** 창 사이 알림에서 내용은 쓰지 않고 「바뀌었다」만 본다 */
 const SIGNAL_CODEC: SyncCodec<string> = { serialize: (value) => value, parse: (text) => text }
 
+interface RestoreContext {
+  readonly handle: VaultHandle
+  readonly windowMode: WindowMode
+  readonly libraryEntries: readonly VaultLibraryEntry[]
+  readonly reconciledIndex: VaultIndexFile
+  readonly nextTreeEntries: readonly VaultTreeEntry[]
+  readonly groups: readonly NotebookGroup[]
+  readonly markdownAsPdf: (handle: VaultHandle, indexId: string, path: string, storage: 'vault' | 'reference', title: string, source: string) => Promise<PdfDocMeta | null>
+}
+
+interface RestoredSession {
+  readonly missing: string[]
+  readonly documents: PdfDocMeta[]
+  readonly restoredMarkdownSources: Record<string, string>
+  readonly screens: ScreensState
+}
+
+/**
+ * 세션 하나의 탭(문서 · 노트)을 다시 열고 화면들로 되살린다. Vault 를 열 때와 세션을 바꿀 때 같이 쓴다.
+ * 사라진 파일의 탭은 missing 에 적고 건너뛴다.
+ */
+async function restoreSessionState(ctx: RestoreContext, session: SessionState): Promise<RestoredSession> {
+  const { handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf } = ctx
+  const missing: string[] = []
+  const notes = new Map<string, NotebookNote>()
+  for (const group of groups) {
+    for (const note of group.notes) notes.set(note.path, note)
+  }
+  const markdownTitles = new Map<string, string>()
+  for (const entry of nextTreeEntries) {
+    if (entry.isDirectory) continue
+    const path = entry.path.replaceAll('\\', '/')
+    const filename = path.split('/').at(-1)
+    if (filename === undefined || !isMarkdownPath(filename)) continue
+    markdownTitles.set(path, filename.replace(/\.(?:md|markdown)$/iu, ''))
+  }
+  const externalMarkdownByPath = new Map(reconciledIndex.entries
+    .filter((entry) => entry.kind === 'markdown' && entry.storage === 'reference' && !entry.missing)
+    .map((entry) => [entry.path.replaceAll('\\', '/').toLocaleLowerCase(), entry]))
+  const legacyMarkdownIds = session.noteTabIds.filter(isMarkdownPath)
+  const documentTabIds = [...new Set([...session.pdfTabIds, ...legacyMarkdownIds])]
+  const restoredDocumentRecords = await Promise.all(documentTabIds.map(async (id) => {
+    if (isMarkdownPath(id)) {
+      const external = externalMarkdownByPath.get(id.replaceAll('\\', '/').toLocaleLowerCase())
+      const title = external?.displayName ?? markdownTitles.get(id)
+      if (title === undefined) return null
+      try {
+        const source = await readMarkdown(handle, external?.id ?? id)
+        // 예전 세션의 Markdown 탭도 PDF 화면으로 연다(탭 id 가 색인 id 로 바뀐다)
+        const indexed = external ?? reconciledIndex.entries.find((entry) => entry.kind === 'markdown' && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
+        if (indexed !== undefined) {
+          const document = await markdownAsPdf(handle, indexed.id, indexed.path, indexed.storage === 'reference' ? 'reference' : 'vault', title, source)
+          if (document !== null) return { tab: { id: indexed.id, title, kind: 'pdf' as const }, document, source: null }
+        }
+        return {
+          tab: { id, title, kind: 'markdown' as const },
+          document: null,
+          source,
+        }
+      } catch {
+        return null
+      }
+    }
+    // 같은 PDF 의 두 번째 보기("docId#2")도 원래 문서로 연다
+    const baseId = id.replace(/#\d+$/u, '')
+    const entry = libraryEntries.find((candidate) => candidate.docId === baseId)
+    // PDF 화면으로 연 Markdown(탭 id = 색인 id)
+    const markdownEntry = entry === undefined ? reconciledIndex.entries.find((indexed) => indexed.id === baseId && indexed.kind === 'markdown' && !indexed.missing) : undefined
+    if (markdownEntry !== undefined) {
+      try {
+        const source = await readMarkdown(handle, markdownEntry.storage === 'reference' ? markdownEntry.id : markdownEntry.path)
+        const title = markdownEntry.displayName ?? (markdownEntry.path.split('/').at(-1) ?? markdownEntry.path).replace(/\.(?:md|markdown)$/iu, '')
+        const document = await markdownAsPdf(handle, markdownEntry.id, markdownEntry.path, markdownEntry.storage === 'reference' ? 'reference' : 'vault', title, source)
+        // PDF 화면을 쓰지 않으면 Markdown 뷰어 탭으로(탭 id 는 경로)
+        if (document === null) return { tab: { id: markdownEntry.path, title, kind: 'markdown' as const }, document: null, source }
+        return { tab: { id, title, kind: 'pdf' as const }, document, source: null }
+      } catch {
+        missing.push(id)
+        return null
+      }
+    }
+    if (entry === undefined) return null
+    try {
+      const document = await openPdf(entry.path, entry.docId)
+      return {
+        // 탭 제목은 사이드바와 같은 표시 이름이다. 파일 이름은 표시 이름이 없을 때만 쓴다.
+        tab: { id: id === baseId ? document.docId : id, title: reconciledIndex.entries.find((indexed) => indexed.id === document.docId)?.displayName ?? document.title, kind: 'pdf' as const },
+        document,
+        source: null,
+      }
+    } catch {
+      missing.push(id)
+      return null
+    }
+  }))
+  const availableDocumentRecords = restoredDocumentRecords.filter((record) => record !== null)
+  const documents = availableDocumentRecords
+    .map((record) => record.document)
+    .filter(isPdfDocMeta)
+  const restoredNotes = session.noteTabIds.flatMap((path) => {
+    if (isMarkdownPath(path)) return []
+    if (!CANVAS_ENABLED) return []
+    const note = notes.get(path)
+    return note === undefined ? [] : [note]
+  })
+  const restoredMarkdownSources = Object.fromEntries(availableDocumentRecords.flatMap((record) => (
+    record.source === null ? [] : [[record.tab.id, record.source]]
+  )))
+  const migratedActiveMarkdownId = session.activeNoteTabId !== null && isMarkdownPath(session.activeNoteTabId)
+    ? session.activeNoteTabId
+    : null
+  // 메인 창은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창·새 창은 한 칸에서 시작한다
+  const snapshot = windowMode.role === 'main' && SPLIT_PANES_ENABLED
+    ? screensFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage), t('읽기'))
+    : singleScreenSnapshot(t('읽기'))
+  const restored = restoredScreens(
+    restoredTabs(
+      availableDocumentRecords.map((record) => record.tab),
+      migratedActiveMarkdownId ?? session.activePdfTabId,
+    ),
+    restoredTabs(
+      [
+        ...restoredNotes.map((note): Tab => ({ id: note.path, title: note.title, kind: 'canvas' })),
+        // 탭으로 연 메모 노트: 노트 목록은 따로(useMemoNotes) 읽으므로 여기서는 이름만 경로에서 따 두고, 없어진 노트의 탭은 App 이 목록을 읽은 뒤 닫는다
+        ...(session.memoNoteTabIds ?? []).map((path): Tab => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' })),
+      ],
+      migratedActiveMarkdownId === null ? session.activeNoteTabId : null,
+    ),
+    snapshot,
+  )
+  const screens = { ...restored, screens: restored.screens.map((screen) => ({ ...screen, panes: markPreviewTabs(screen.panes, session.previewTabIds ?? []) })) }
+  return { missing, documents, restoredMarkdownSources, screens }
+}
+
 export function useVault(options: UseVaultOptions = {}) {
   // 이 창의 역할(메인·떼어 낸 창·새 창). 창이 사는 동안 바뀌지 않는다
   const windowMode = currentWindowMode()
@@ -419,6 +559,16 @@ export function useVault(options: UseVaultOptions = {}) {
     setTree(buildLegacyWorkspaceTree(injectedLibrary, notebooks))
   }, [injected, injectedLibrary, notebooks])
   const [sessionReady, setSessionReady] = useState(false)
+  // 이름 붙은 세션(docs/design/workspace-tmux.md 6): 지금 쓰는 세션 · 있는 세션들 · 바꿀 때마다 오르는 번호(칸 보기를 새로 마운트하는 열쇠)
+  const [sessionName, setSessionName] = useState(() => t('기본'))
+  const [sessionNames, setSessionNames] = useState<readonly string[]>([])
+  const [sessionEpoch, setSessionEpoch] = useState(0)
+  const sessionNameRef = useRef(sessionName)
+  sessionNameRef.current = sessionName
+  const sessionNamesRef = useRef(sessionNames)
+  sessionNamesRef.current = sessionNames
+  const sessionMetaRef = useRef<SessionsMeta>(emptySessionsMeta)
+  const sessionQueueRef = useRef<Promise<unknown>>(Promise.resolve())
 
   const loadVault = useCallback(async (handle: VaultHandle) => {
     const searchGeneration = searchGenerationRef.current + 1
@@ -433,7 +583,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const [
         rawLibraryEntries,
         nextTreeEntries,
-        rawSession,
+        loadedSessions,
         savedTreeOrder,
         savedIndex,
         metadata,
@@ -441,7 +591,7 @@ export function useVault(options: UseVaultOptions = {}) {
       ] = await Promise.all([
         readLibrary(handle),
         listVaultTree(handle),
-        readSession(handle),
+        loadSessions(handle, t('기본')),
         readVaultTreeOrder(handle),
         readVaultIndex(handle),
         readVaultMetadata(handle),
@@ -460,95 +610,9 @@ export function useVault(options: UseVaultOptions = {}) {
         await writeVaultIndex(handle, reconciledIndex)
       }
       // 메인은 저장된 세션, 떼어 낸 창은 그 문서 하나, 새 창은 빈 탭에서 시작한다
-      const session = sessionForWindow(windowMode, parseSession(rawSession))
-      const missing: string[] = []
-      const notes = new Map<string, NotebookNote>()
-      for (const group of groups) {
-        for (const note of group.notes) notes.set(note.path, note)
-      }
-      const markdownTitles = new Map<string, string>()
-      for (const entry of nextTreeEntries) {
-        if (entry.isDirectory) continue
-        const path = entry.path.replaceAll('\\', '/')
-        const filename = path.split('/').at(-1)
-        if (filename === undefined || !isMarkdownPath(filename)) continue
-        markdownTitles.set(path, filename.replace(/\.(?:md|markdown)$/iu, ''))
-      }
-      const externalMarkdownByPath = new Map(reconciledIndex.entries
-        .filter((entry) => entry.kind === 'markdown' && entry.storage === 'reference' && !entry.missing)
-        .map((entry) => [entry.path.replaceAll('\\', '/').toLocaleLowerCase(), entry]))
-      const legacyMarkdownIds = session.noteTabIds.filter(isMarkdownPath)
-      const documentTabIds = [...new Set([...session.pdfTabIds, ...legacyMarkdownIds])]
-      const restoredDocumentRecords = await Promise.all(documentTabIds.map(async (id) => {
-        if (isMarkdownPath(id)) {
-          const external = externalMarkdownByPath.get(id.replaceAll('\\', '/').toLocaleLowerCase())
-          const title = external?.displayName ?? markdownTitles.get(id)
-          if (title === undefined) return null
-          try {
-            const source = await readMarkdown(handle, external?.id ?? id)
-            // 예전 세션의 Markdown 탭도 PDF 화면으로 연다(탭 id 가 색인 id 로 바뀐다)
-            const indexed = external ?? reconciledIndex.entries.find((entry) => entry.kind === 'markdown' && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
-            if (indexed !== undefined) {
-              const document = await markdownAsPdf(handle, indexed.id, indexed.path, indexed.storage === 'reference' ? 'reference' : 'vault', title, source)
-              if (document !== null) return { tab: { id: indexed.id, title, kind: 'pdf' as const }, document, source: null }
-            }
-            return {
-              tab: { id, title, kind: 'markdown' as const },
-              document: null,
-              source,
-            }
-          } catch {
-            return null
-          }
-        }
-        // 같은 PDF 의 두 번째 보기("docId#2")도 원래 문서로 연다
-        const baseId = id.replace(/#\d+$/u, '')
-        const entry = libraryEntries.find((candidate) => candidate.docId === baseId)
-        // PDF 화면으로 연 Markdown(탭 id = 색인 id)
-        const markdownEntry = entry === undefined ? reconciledIndex.entries.find((indexed) => indexed.id === baseId && indexed.kind === 'markdown' && !indexed.missing) : undefined
-        if (markdownEntry !== undefined) {
-          try {
-            const source = await readMarkdown(handle, markdownEntry.storage === 'reference' ? markdownEntry.id : markdownEntry.path)
-            const title = markdownEntry.displayName ?? (markdownEntry.path.split('/').at(-1) ?? markdownEntry.path).replace(/\.(?:md|markdown)$/iu, '')
-            const document = await markdownAsPdf(handle, markdownEntry.id, markdownEntry.path, markdownEntry.storage === 'reference' ? 'reference' : 'vault', title, source)
-            // PDF 화면을 쓰지 않으면 Markdown 뷰어 탭으로(탭 id 는 경로)
-            if (document === null) return { tab: { id: markdownEntry.path, title, kind: 'markdown' as const }, document: null, source }
-            return { tab: { id, title, kind: 'pdf' as const }, document, source: null }
-          } catch {
-            missing.push(id)
-            return null
-          }
-        }
-        if (entry === undefined) return null
-        try {
-          const document = await openPdf(entry.path, entry.docId)
-          return {
-            // 탭 제목은 사이드바와 같은 표시 이름이다. 파일 이름은 표시 이름이 없을 때만 쓴다.
-            tab: { id: id === baseId ? document.docId : id, title: reconciledIndex.entries.find((indexed) => indexed.id === document.docId)?.displayName ?? document.title, kind: 'pdf' as const },
-            document,
-            source: null,
-          }
-        } catch {
-          missing.push(id)
-          return null
-        }
-      }))
-      const availableDocumentRecords = restoredDocumentRecords.filter((record) => record !== null)
-      const documents = availableDocumentRecords
-        .map((record) => record.document)
-        .filter(isPdfDocMeta)
-      const restoredNotes = session.noteTabIds.flatMap((path) => {
-        if (isMarkdownPath(path)) return []
-        if (!CANVAS_ENABLED) return []
-        const note = notes.get(path)
-        return note === undefined ? [] : [note]
-      })
-      const restoredMarkdownSources = Object.fromEntries(availableDocumentRecords.flatMap((record) => (
-        record.source === null ? [] : [[record.tab.id, record.source]]
-      )))
-      const migratedActiveMarkdownId = session.activeNoteTabId !== null && isMarkdownPath(session.activeNoteTabId)
-        ? session.activeNoteTabId
-        : null
+      const session = sessionForWindow(windowMode, parseSession(loadedSessions.raw))
+      const restoredSession = await restoreSessionState({ handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf }, session)
+      const { missing, documents, restoredMarkdownSources } = restoredSession
       const searchablePdfEntries = reconciledIndex.entries.filter((entry) => (
         entry.kind === 'pdf' && !entry.missing
       ))
@@ -587,37 +651,18 @@ export function useVault(options: UseVaultOptions = {}) {
         reconciledIndex.entries,
       ))
       setOpenedDocs(documents)
-      // 메인 창은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창·새 창은 한 칸에서 시작한다
-      const snapshot = windowMode.role === 'main' && SPLIT_PANES_ENABLED
-        ? screensFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage), t('읽기'))
-        : singleScreenSnapshot(t('읽기'))
-      const restored = restoredScreens(
-        restoredTabs(
-          availableDocumentRecords.map((record) => record.tab),
-          migratedActiveMarkdownId ?? session.activePdfTabId,
-        ),
-        restoredTabs(
-          [
-            ...restoredNotes.map((note): Tab => ({ id: note.path, title: note.title, kind: 'canvas' })),
-            // 탭으로 연 메모 노트: 노트 목록은 따로(useMemoNotes) 읽으므로 여기서는 이름만 경로에서 따 두고, 없어진 노트의 탭은 App 이 목록을 읽은 뒤 닫는다
-            ...(session.memoNoteTabIds ?? []).map((path): Tab => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' })),
-          ],
-          migratedActiveMarkdownId === null ? session.activeNoteTabId : null,
-        ),
-        snapshot,
-      )
-      const restoredActive = activeScreenOf(restored)
-      const restoredOrder = leaves(restoredActive.layout)
+      const restoredOrder = leaves(activeScreenOf(restoredSession.screens).layout)
       paneRouteRef.current = { doc: restoredOrder[0]!, note: restoredOrder[1] ?? restoredOrder[0]! }
-      setScreensState({
-        ...restored,
-        screens: restored.screens.map((screen) => ({ ...screen, panes: markPreviewTabs(screen.panes, session.previewTabIds ?? []) })),
-      })
+      setScreensState(restoredSession.screens)
       setMarkdownSources(restoredMarkdownSources)
       setMissingDocIds(missing)
       setAbsentDocIds(settled.absentDocIds)
       setSidebarCollapsed(session.sidebarCollapsed)
       setLayout({ sidebarPx: session.sidebarPx, leftFrac: session.leftFrac })
+      setSessionName(loadedSessions.name)
+      sessionNameRef.current = loadedSessions.name
+      setSessionNames(loadedSessions.names.includes(loadedSessions.name) ? loadedSessions.names : [...loadedSessions.names, loadedSessions.name])
+      sessionMetaRef.current = loadedSessions.meta
       setSessionReady(true)
       const markdownEntries = reconciledIndex.entries.filter((entry) => (
         entry.kind === 'markdown' && entry.storage === 'vault' && !entry.missing
@@ -870,7 +915,7 @@ export function useVault(options: UseVaultOptions = {}) {
   const flushSession = useCallback(async () => {
     const { vault: handle, session } = sessionSnapshotRef.current
     if (handle === null || session === null || !ownsSession(windowMode)) return
-    await writeSession(handle, session)
+    await writeSessionNamed(handle, sessionNameRef.current, session)
   }, [windowMode])
 
   useEffect(() => {
@@ -882,10 +927,162 @@ export function useVault(options: UseVaultOptions = {}) {
         sidebarPx: layout.sidebarPx,
         leftFrac: layout.leftFrac,
       })
-      void writeSession(vault, session).catch((err: unknown) => setError(errorText(err)))
+      void writeSessionNamed(vault, sessionName, session).catch((err: unknown) => setError(errorText(err)))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [layout, sessionReady, sidebarCollapsed, vault, windowMode, screensState])
+  }, [layout, sessionReady, sidebarCollapsed, vault, windowMode, screensState, sessionName])
+
+
+  // ───────── 이름 붙은 세션 동작(만들기 · 바꾸기 · 갈래 · 이름 바꾸기 · 지우기) ─────────
+  // 동작은 하나씩 차례로 한다(바꾸는 사이에 다른 동작이 끼면 저장할 상태가 어긋난다)
+  const restoreCtxRef = useRef<Omit<RestoreContext, 'markdownAsPdf'>>(null as unknown as Omit<RestoreContext, 'markdownAsPdf'>)
+  restoreCtxRef.current = { handle: vault as VaultHandle, windowMode, libraryEntries: entries, reconciledIndex: { version: 1, entries: vaultIndex } as VaultIndexFile, nextTreeEntries: treeEntries, groups: notebooks }
+  const sessionOps = useMemo(() => {
+    type Outcome = { readonly ok: boolean; readonly message: string }
+    const okResult = (message = ''): Outcome => ({ ok: true, message })
+    const failResult = (message: string): Outcome => ({ ok: false, message })
+    const exclusive = <T,>(task: () => Promise<T>): Promise<T> => {
+      const next = sessionQueueRef.current.then(task, task)
+      sessionQueueRef.current = next.catch(() => undefined)
+      return next
+    }
+    const guard = (): { readonly handle: VaultHandle } | Outcome => {
+      const handle = sessionSnapshotRef.current.vault
+      if (handle === null) return failResult(t('Vault 를 연 뒤에 쓸 수 있습니다'))
+      if (!ownsSession(windowMode)) return failResult(t('세션은 메인 창에서만 바꿀 수 있습니다'))
+      return { handle }
+    }
+    const names = () => sessionNamesRef.current
+    const writeMeta = async (handle: VaultHandle, meta: SessionsMeta) => {
+      sessionMetaRef.current = meta
+      await writeSessionsMeta(handle, meta)
+    }
+    /** 지금 상태를 지금 세션 파일에 쓴다 */
+    const flush = async (handle: VaultHandle) => {
+      const session = sessionSnapshotRef.current.session
+      if (session !== null) await writeSessionNamed(handle, sessionNameRef.current, session)
+    }
+    /** 이 이름의 세션으로 갈아탄다: 저장된 화면 · 탭을 다시 열고, 칸 보기를 새로 마운트한다 */
+    const applySession = async (handle: VaultHandle, name: string, raw: unknown) => {
+      setSessionReady(false)
+      try {
+        const session = parseSession(raw)
+        const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session)
+        const order = leaves(activeScreenOf(restored.screens).layout)
+        paneRouteRef.current = { doc: order[0]!, note: order[1] ?? order[0]! }
+        setOpenedDocs(restored.documents)
+        setMarkdownSources(restored.restoredMarkdownSources)
+        setMissingDocIds(restored.missing)
+        setScreensState(restored.screens)
+        setSessionName(name)
+        sessionNameRef.current = name
+        setSessionNames((current) => (current.includes(name) ? current : [...current, name]))
+        setSessionEpoch((current) => current + 1)
+        await writeMeta(handle, touchSessionMeta(sessionMetaRef.current, name, Date.now()))
+      } finally {
+        setSessionReady(true)
+      }
+    }
+    const switchTo = (query: string): Promise<Outcome> => exclusive(async () => {
+      const checked = guard()
+      if (!('handle' in checked)) return checked
+      const name = findSessionName(names(), query)
+      if (name === null) return failResult(t('세션을 찾을 수 없습니다: {name}', { name: query }))
+      if (name === sessionNameRef.current) return okResult()
+      await flush(checked.handle)
+      const raw = await readSessionNamed(checked.handle, name)
+      await applySession(checked.handle, name, raw)
+      return okResult(t('세션: {name}', { name }))
+    })
+    const create = (wanted?: string): Promise<Outcome> => exclusive(async () => {
+      const checked = guard()
+      if (!('handle' in checked)) return checked
+      const name = wanted === undefined || wanted.trim() === '' ? uniqueSessionName(t('세션'), names()) : wanted
+      const valid = validateSessionName(name, names())
+      if (!valid.ok) return failResult(valid.reason)
+      await flush(checked.handle)
+      const blank = blankScreen(t('빈 화면'), allScreenPaneIds(screensStateRef.current))
+      const state: ScreensState = { screens: [blank], activeScreen: blank.id, lastScreen: null }
+      const created = captureSession(state, { sidebarCollapsed, sidebarPx: layout.sidebarPx, leftFrac: layout.leftFrac })
+      await writeSessionNamed(checked.handle, valid.name, created)
+      await applySession(checked.handle, valid.name, created)
+      return okResult(t('새 세션: {name}', { name: valid.name }))
+    })
+    const fork = (wanted: string): Promise<Outcome> => exclusive(async () => {
+      const checked = guard()
+      if (!('handle' in checked)) return checked
+      const valid = validateSessionName(wanted, names())
+      if (!valid.ok) return failResult(valid.reason)
+      const session = sessionSnapshotRef.current.session
+      if (session === null) return failResult(t('지금은 저장할 수 없습니다'))
+      // 원래 세션은 지금까지의 상태로 두고, 같은 상태를 새 이름으로 쓴 뒤 그 세션으로 이어 간다
+      await flush(checked.handle)
+      await writeSessionNamed(checked.handle, valid.name, session)
+      setSessionName(valid.name)
+      sessionNameRef.current = valid.name
+      setSessionNames((current) => [...current, valid.name])
+      await writeMeta(checked.handle, touchSessionMeta(sessionMetaRef.current, valid.name, Date.now()))
+      return okResult(t('다른 이름으로 저장했습니다: {name}', { name: valid.name }))
+    })
+    const rename = (from: string, wanted: string): Promise<Outcome> => exclusive(async () => {
+      const checked = guard()
+      if (!('handle' in checked)) return checked
+      const source = findSessionName(names(), from)
+      if (source === null) return failResult(t('세션을 찾을 수 없습니다: {name}', { name: from }))
+      const valid = validateSessionName(wanted, names(), source)
+      if (!valid.ok) return failResult(valid.reason)
+      if (valid.name === source) return okResult()
+      const active = source === sessionNameRef.current
+      if (active) await flush(checked.handle)
+      const raw = active ? sessionSnapshotRef.current.session : await readSessionNamed(checked.handle, source)
+      if (raw === null || raw === undefined) return failResult(t('지금은 저장할 수 없습니다'))
+      await writeSessionNamed(checked.handle, valid.name, raw as SessionState)
+      await removeSessionNamed(checked.handle, source)
+      if (active) { setSessionName(valid.name); sessionNameRef.current = valid.name }
+      setSessionNames((current) => current.map((candidate) => (candidate === source ? valid.name : candidate)))
+      await writeMeta(checked.handle, renameInMeta(sessionMetaRef.current, source, valid.name))
+      return okResult(t('이름을 바꿨습니다: {name}', { name: valid.name }))
+    })
+    const remove = (query: string): Promise<Outcome> => exclusive(async () => {
+      const checked = guard()
+      if (!('handle' in checked)) return checked
+      const name = findSessionName(names(), query)
+      if (name === null) return failResult(t('세션을 찾을 수 없습니다: {name}', { name: query }))
+      if (names().length <= 1) return failResult(t('마지막 세션은 지울 수 없습니다'))
+      if (name === sessionNameRef.current) {
+        // 지우는 세션이 지금 세션이면, 가장 최근에 쓴 다른 세션으로 먼저 옮겨 간다
+        const used = sessionMetaRef.current.used
+        const next = names().filter((candidate) => candidate !== name).sort((a, b) => (used[b] ?? 0) - (used[a] ?? 0))[0]!
+        await applySession(checked.handle, next, await readSessionNamed(checked.handle, next))
+      }
+      await trashSessionNamed(checked.handle, name)
+      setSessionNames((current) => current.filter((candidate) => candidate !== name))
+      await writeMeta(checked.handle, removeFromMeta(sessionMetaRef.current, name))
+      return okResult(t('세션을 지웠습니다: {name}', { name }))
+    })
+    /** 목록(화면 수 · 마지막으로 쓴 때). 파일을 읽어 센다 — 지금 세션은 지금 상태로 */
+    const list = async (): Promise<SessionSummary[]> => {
+      const handle = sessionSnapshotRef.current.vault
+      if (handle === null) return [{ name: sessionNameRef.current, screenCount: screensStateRef.current.screens.length, lastUsedAt: null }]
+      const onDisk = await listSessionNames(handle)
+      const all = [...new Set([...onDisk, ...sessionNamesRef.current])]
+      const used = sessionMetaRef.current.used
+      const rows = await Promise.all(all.map(async (name): Promise<SessionSummary> => {
+        const active = name === sessionNameRef.current
+        const count = active ? screensStateRef.current.screens.length : parseSession(await readSessionNamed(handle, name)).screens?.length ?? 1
+        return { name, screenCount: count, lastUsedAt: used[name] ?? null }
+      }))
+      return rows.sort((a, b) => (a.name === sessionNameRef.current ? -1 : b.name === sessionNameRef.current ? 1 : (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0) || a.name.localeCompare(b.name)))
+    }
+    const saveNow = (): Promise<Outcome> => exclusive(async () => {
+      const checked = guard()
+      if (!('handle' in checked)) return checked
+      await flush(checked.handle)
+      return okResult(t('세션을 저장했습니다: {name}', { name: sessionNameRef.current }))
+    })
+    return { switchTo, create, fork, rename, remove, list, saveNow }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowMode, sidebarCollapsed, layout.sidebarPx, layout.leftFrac])
 
   /** PDF 를 열어 탭에 띄운다. 연 문서의 메타를 돌려주고, 열지 못하면 null */
   /** openTab 이 false 면 PDF 를 열어 두기만 하고 탭은 만들지 않는다(탭 안에서 판을 바꿀 때) */
@@ -1982,6 +2179,11 @@ export function useVault(options: UseVaultOptions = {}) {
     setMarkdownTheme,
     error,
     dismissError: () => setError(null),
+    sessionName,
+    // 아직 파일이 없는 새 Vault(또는 Vault 가 없을 때)도 지금 세션 하나는 있다
+    sessionNames: sessionNames.length === 0 ? [sessionName] : sessionNames,
+    sessionEpoch,
+    sessionOps,
     loadVault,
     openVaultPath,
     closeVault,

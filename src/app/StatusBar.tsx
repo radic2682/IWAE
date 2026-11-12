@@ -32,6 +32,8 @@ interface StatusBarProps {
   readonly onCloseCommandLine?: () => void
   /** Tab 완성에 쓸 이름들 */
   readonly screenNames?: readonly string[]
+  /** 세션 이름들(Tab 완성: switch-client · kill-session) */
+  readonly sessionNames?: readonly string[]
   readonly templateNames?: readonly string[]
   /** 이 화면의 칸 수(왼쪽 「칸 n개」) */
   readonly paneCount?: number
@@ -46,7 +48,7 @@ interface StatusBarProps {
  */
 export function StatusBar({
   sessionName, screens, activeId, lastId, onSelectScreen, onOpenHelp, prefixPhase = 'idle', onPrefixChip, confirmText,
-  commandLine = null, onRunCommand, onCloseCommandLine, screenNames = [], templateNames = [], paneCount, paletteShortcut,
+  commandLine = null, onRunCommand, onCloseCommandLine, screenNames = [], sessionNames = [], templateNames = [], paneCount, paletteShortcut,
 }: StatusBarProps) {
   const [message, setMessage] = useState('')
   const timer = useRef<number | null>(null)
@@ -69,6 +71,7 @@ export function StatusBar({
       <CommandLineBar
         prefill={commandLine.prefill}
         screenNames={screenNames}
+        sessionNames={sessionNames}
         templateNames={templateNames}
         onRun={(line) => onRunCommand?.(line)}
         onClose={() => onCloseCommandLine?.()}
@@ -120,9 +123,10 @@ export function StatusBar({
  * 상태 줄이 입력칸으로 바뀐 모양(`:`): Enter 실행 · Esc 닫기 · ↑/↓ 기록(최근 50줄, 저장됨) · Tab 명령·화면 이름 완성.
  * 후보가 여럿이면 공통 앞부분까지 채우고 후보를 오른쪽에 보인다.
  */
-function CommandLineBar({ prefill, screenNames, templateNames, onRun, onClose }: {
+function CommandLineBar({ prefill, screenNames, sessionNames, templateNames, onRun, onClose }: {
   readonly prefill: string
   readonly screenNames: readonly string[]
+  readonly sessionNames: readonly string[]
   readonly templateNames: readonly string[]
   readonly onRun: (line: string) => void
   readonly onClose: () => void
@@ -170,7 +174,7 @@ function CommandLineBar({ prefill, screenNames, templateNames, onRun, onClose }:
           if (event.key === 'Enter') { event.preventDefault(); submit(); return }
           if (event.key === 'Tab') {
             event.preventDefault()
-            const result = completeCommandLine(value, { screenNames, templateNames })
+            const result = completeCommandLine(value, { screenNames, sessionNames, templateNames })
             setValue(result.text)
             setCandidates(result.candidates.length > 1 ? result.candidates : [])
             return

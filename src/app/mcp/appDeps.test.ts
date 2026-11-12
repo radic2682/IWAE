@@ -76,6 +76,7 @@ function input(overrides: Partial<McpAppInput> = {}, paneTotal = 1) {
     exportNote: async () => 'C:/vault/out.md',
     pdfToolBusy: () => false,
     workspaceCommand: async (command) => { calls.push(`command ${command}`); return { ok: true, message: '', state: { active_screen: 0, active_pane: 0, screens: [] } } },
+    session: async () => ({ name: '기본', sessions: [] }),
     ...overrides,
   }
   return { base, calls }

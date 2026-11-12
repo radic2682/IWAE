@@ -8,6 +8,7 @@ import { VaultFileSync, isMergeableVaultPath, normalizeSyncKey, type DiskInspect
 import { emptyCanvasDoc, serializeCanvasDoc } from '../core/canvasSerialize'
 import { parseCanvasDocument, type CanvasDocument, type CanvasDocumentV2 } from '../core/canvasDocument'
 import type { SessionState } from '../core/session'
+import { SESSIONS_DIR, SESSIONS_META_FILE, emptySessionsMeta, parseSessionsMeta, touchSessionMeta, type SessionsMeta } from '../core/sessionNames'
 import {
   createVaultIndexEntry,
   libraryEntryVaultPath,
@@ -216,6 +217,9 @@ function writeIwaeFile(vault: VaultHandle, name: string, contents: string, fileI
   return fileSync.enqueue(key, async () => {
     const { mkdir } = await import('@tauri-apps/plugin-fs')
     await mkdir(await iwaePath(vault, ''), { recursive: true })
+    // 하위 폴더(.iwae/sessions/ 등)에 쓰는 파일은 그 폴더도 만든다
+    const slash = name.lastIndexOf('/')
+    if (slash > 0) await mkdir(await iwaePath(vault, name.slice(0, slash)), { recursive: true })
     await fileSync.writeNow(await iwaePath(vault, name), contents, fileId, { mergeable, root: vault.root, ...(ticket === undefined ? {} : { ticket }) })
   })
 }
@@ -738,6 +742,126 @@ export async function writeSession(vault: VaultHandle, session: SessionState): P
   // 탭·패널 배치는 메인 창만 남긴다(다른 창의 배치가 메인의 것을 덮지 않게)
   if (!sessionWriterAllowed) return
   await writeIwaeFile(vault, 'session.json', `${JSON.stringify(session, null, 2)}\n`, 'metadata:session.json')
+}
+
+// ── 이름 붙은 세션(.iwae/sessions/<이름>.json, docs/design/workspace-tmux.md 6) ─────────────────────
+
+/** 세션 파일 이름 → 저널·버전 기록의 파일 id. 기록 폴더 이름은 영문·숫자만 남기므로 한글 이름이 서로 겹치지 않게 바이트 16진으로 쓴다 */
+function sessionFileId(name: string): string {
+  const hex = [...new TextEncoder().encode(name)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `metadata:sessions/${hex}`
+}
+
+const sessionRelative = (name: string) => `${SESSIONS_DIR}/${name}.json`
+
+async function readSessionText(vault: VaultHandle, relative: string): Promise<string | null> {
+  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  const path = await iwaePath(vault, relative)
+  if (!(await exists(path))) return null
+  const text = await readTextFile(path)
+  return typeof text === 'string' ? text : null
+}
+
+/** 저장된 세션 하나(JSON). 없거나 깨졌으면 null */
+export async function readSessionNamed(vault: VaultHandle, name: string): Promise<unknown> {
+  try {
+    const text = await readSessionText(vault, sessionRelative(name))
+    return text === null ? null : (JSON.parse(text) as unknown)
+  } catch {
+    return null
+  }
+}
+
+/** 세션 하나를 쓴다(원자 쓰기 + 버전 기록). 메인 창만 쓴다 */
+export async function writeSessionNamed(vault: VaultHandle, name: string, session: SessionState): Promise<void> {
+  if (!sessionWriterAllowed) return
+  await writeIwaeFile(vault, sessionRelative(name), `${JSON.stringify(session, null, 2)}\n`, sessionFileId(name))
+}
+
+export async function readSessionsMeta(vault: VaultHandle): Promise<SessionsMeta> {
+  try {
+    const text = await readSessionText(vault, `${SESSIONS_DIR}/${SESSIONS_META_FILE}`)
+    return text === null ? emptySessionsMeta : parseSessionsMeta(JSON.parse(text) as unknown)
+  } catch {
+    return emptySessionsMeta
+  }
+}
+
+export async function writeSessionsMeta(vault: VaultHandle, meta: SessionsMeta): Promise<void> {
+  if (!sessionWriterAllowed) return
+  await writeIwaeFile(vault, `${SESSIONS_DIR}/${SESSIONS_META_FILE}`, `${JSON.stringify(meta, null, 2)}\n`, 'metadata:sessions-last')
+}
+
+/** 세션 파일들의 이름(확장자 뺌). 내부 파일(`_last.json`)과 하위 폴더(`.trash`)는 뺀다 */
+export async function listSessionNames(vault: VaultHandle): Promise<string[]> {
+  try {
+    const { exists, readDir } = await import('@tauri-apps/plugin-fs')
+    const directory = await iwaePath(vault, SESSIONS_DIR)
+    if (!(await exists(directory))) return []
+    const entries = await readDir(directory)
+    return entries
+      .filter((entry) => entry.isFile !== false && entry.isDirectory !== true && entry.name.endsWith('.json') && !entry.name.startsWith('_') && !entry.name.startsWith('.'))
+      .map((entry) => entry.name.slice(0, -'.json'.length))
+      .sort((a, b) => a.localeCompare(b))
+  } catch {
+    return []
+  }
+}
+
+/** 세션 파일을 지운다(이름 바꾸기에서 옛 이름 쪽). 지우기는 trashSessionNamed 를 쓴다 */
+export async function removeSessionNamed(vault: VaultHandle, name: string): Promise<void> {
+  if (!sessionWriterAllowed) return
+  const { exists, remove } = await import('@tauri-apps/plugin-fs')
+  const path = await iwaePath(vault, sessionRelative(name))
+  if (await exists(path)) await remove(path)
+  forgetObservedFile(path)
+}
+
+/** 세션 파일을 휴지통(`.iwae/sessions/.trash/<이름>-<시각>.json`)으로 옮긴다. 앱의 휴지통은 색인된 문서용이라 세션은 이 폴더에 둔다 */
+export async function trashSessionNamed(vault: VaultHandle, name: string): Promise<void> {
+  if (!sessionWriterAllowed) return
+  const { exists, mkdir, rename } = await import('@tauri-apps/plugin-fs')
+  const source = await iwaePath(vault, sessionRelative(name))
+  if (!(await exists(source))) return
+  const trash = await iwaePath(vault, `${SESSIONS_DIR}/.trash`)
+  await mkdir(trash, { recursive: true })
+  await rename(source, await iwaePath(vault, `${SESSIONS_DIR}/.trash/${name}-${Date.now()}.json`))
+  // 같은 이름이 저널의 기준으로 남지 않게 한다
+  forgetObservedFile(source)
+}
+
+/** 첫 실행 이전(sessions 폴더가 없을 때)에는 session.json 이 「기본」 세션이 된다 */
+export interface SessionsLoad {
+  /** 이번에 열 세션의 이름 */
+  readonly name: string
+  /** 있는 세션 이름들(아직 파일이 없는 새 Vault 면 빈 목록) */
+  readonly names: readonly string[]
+  readonly meta: SessionsMeta
+  /** 열 세션의 저장 내용(없으면 null) */
+  readonly raw: unknown
+}
+
+/**
+ * 세션들을 읽는다. 마지막으로 쓴 세션(`_last.json`)을 열고, 없으면 첫 세션을 연다.
+ * 세션 폴더가 아직 없으면 예전 session.json 을 defaultName 세션으로 옮긴다(쓸 수 있는 창만 쓰고 session.json 은 그대로 둔다).
+ */
+export async function loadSessions(vault: VaultHandle, defaultName: string): Promise<SessionsLoad> {
+  let names = await listSessionNames(vault)
+  let meta = await readSessionsMeta(vault)
+  let legacyRaw: unknown = null
+  if (names.length === 0) {
+    legacyRaw = await readSession(vault)
+    if (legacyRaw !== null && sessionWriterAllowed) {
+      await writeIwaeFile(vault, sessionRelative(defaultName), `${JSON.stringify(legacyRaw, null, 2)}\n`, sessionFileId(defaultName))
+      meta = touchSessionMeta(meta, defaultName, Date.now())
+      await writeSessionsMeta(vault, meta)
+      names = [defaultName]
+    }
+  }
+  const name = meta.last !== null && names.includes(meta.last) ? meta.last : names[0] ?? defaultName
+  // 방금 옮겼으면 옮긴 내용 그대로(다시 읽지 않는다)
+  const raw = legacyRaw !== null ? legacyRaw : await readSessionNamed(vault, name)
+  return { name, names, meta, raw }
 }
 
 export async function readPdfHighlights(vault: VaultHandle): Promise<PersistentPdfHighlight[]> {

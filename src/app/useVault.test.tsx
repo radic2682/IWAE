@@ -12,6 +12,8 @@ import {
   readSession,
   recentVaults,
   writeSession,
+  loadSessions,
+  writeSessionNamed,
   readVaultTreeOrder,
   readVaultIndex,
   readVaultMetadata,
@@ -63,6 +65,13 @@ vi.mock('../bridge/vault', () => ({
   readLibrary: vi.fn(),
   readMarkdown: vi.fn(),
   readSession: vi.fn(),
+  loadSessions: vi.fn(),
+  listSessionNames: vi.fn().mockResolvedValue([]),
+  readSessionNamed: vi.fn(),
+  writeSessionNamed: vi.fn(),
+  writeSessionsMeta: vi.fn().mockResolvedValue(undefined),
+  removeSessionNamed: vi.fn().mockResolvedValue(undefined),
+  trashSessionNamed: vi.fn().mockResolvedValue(undefined),
   readVaultTreeOrder: vi.fn(),
   readVaultIndex: vi.fn(),
   readVaultMetadata: vi.fn(),
@@ -106,6 +115,13 @@ const missingEntry = {
   sha256: 'b'.repeat(64),
   title: 'Missing',
 }
+
+// 세션은 이름 붙은 파일이지만, 이 파일의 시험은 한 세션(「기본」)의 내용만 본다: 읽기는 readSession 의 값을, 쓰기는 writeSession 을 거친다
+beforeEach(() => {
+  vi.mocked(loadSessions).mockImplementation(async () => ({ name: '기본', names: ['기본'], meta: { last: '기본', used: {} }, raw: await vi.mocked(readSession)({ root: 'C:/Vault' }) }))
+  vi.mocked(writeSessionNamed).mockReset()
+  vi.mocked(writeSessionNamed).mockImplementation(async (vault, _name, session) => vi.mocked(writeSession)(vault, session))
+})
 
 describe('useVault — 시작 복원', () => {
   beforeEach(() => {

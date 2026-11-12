@@ -217,7 +217,8 @@ import { buildEvidenceHtml, createCanvasRasterizer, saveHtmlFile } from './expor
 import { closeWindow, currentWindowLabel, interceptWindowClose, isDesktop } from '../bridge/window'
 import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, sendReattach, sendTabDrop, type ReattachRequest } from '../bridge/windows'
 import { clearExternalTabHover, holdTabFlip, insertionIndexInPane, showExternalTabHover, tabZoneRects, type TearOffInfo } from './tabDrag'
-import { currentWindowMode, windowQuery } from '../core/windowMode'
+import { currentWindowMode, ownsSession, windowQuery } from '../core/windowMode'
+import { findSessionName } from '../core/sessionNames'
 import { queueInitialZoom } from './pendingViewState'
 import { hasPendingVaultRecovery } from '../bridge/vaultRecovery'
 import { listenForDocumentDrop } from '../bridge/fileDrop'
@@ -432,6 +433,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     activeScreenId,
     lastScreenId,
     screensState,
+    sessionName,
+    sessionNames,
+    sessionEpoch,
+    sessionOps,
     zoomedPane,
     screenOps,
     openInPane,
@@ -1736,6 +1741,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // ───────── 접두키 · `:` 명령줄 · 워크스페이스 명령(설계 8) ─────────
   const [commandLine, setCommandLine] = useState<{ readonly prefill: string } | null>(null)
   const [paneNumbersOpen, setPaneNumbersOpen] = useState(false)
+  /** 지우기 확인을 기다리는 세션(kill-session · 세션 메뉴의 「삭제」) */
+  const [sessionToKill, setSessionToKill] = useState<string | null>(null)
   /** 명령 팔레트를 열 때 미리 채울 글(「:」 명령줄이 상태 줄이 꺼져 있을 때 팔레트로 온다) */
   const [paletteInitial, setPaletteInitial] = useState('')
   const commandModelRef = useRef<WorkspaceModel>({ screens: screensState, activePane: activePaneId })
@@ -1830,6 +1837,19 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     },
     confirmKillWindow: () => prefixApiRef.current.startConfirm(),
     showSessionMenu: () => window.dispatchEvent(new CustomEvent('iwae:open-session-menu')),
+    sessionNames: () => sessionNames,
+    newSession: (name) => sessionOps.create(name),
+    switchSession: (name) => sessionOps.switchTo(name),
+    renameSession: (name) => sessionOps.rename(sessionName, name),
+    saveSession: (name) => (name === undefined ? sessionOps.saveNow() : sessionOps.fork(name)),
+    killSession: async (name) => {
+      const target = findSessionName(sessionNames, name ?? sessionName)
+      if (target === null) return { ok: false, message: t('세션을 찾을 수 없습니다: {name}', { name: name ?? sessionName }) }
+      if (sessionNames.length <= 1) return { ok: false, message: t('마지막 세션은 지울 수 없습니다') }
+      // 지우기는 사람이 확인 창에서 정한다(바깥 AI 가 보낸 명령도 같다)
+      setSessionToKill(target)
+      return { ok: true, message: t('확인 창에서 세션 「{name}」 을(를) 지울지 정하세요', { name: target }) }
+    },
     reloadKeys: loadKeysConf,
   }
   const commandHost = useMemo<CommandHost>(() => new Proxy({} as CommandHost, { get: (_target, key) => (commandHostRef.current as unknown as Record<PropertyKey, unknown>)[key] }), [])
@@ -2100,6 +2120,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         const result = await runWorkspaceLine(command)
         await commandHost.settle?.()
         return { ok: result.ok, message: result.message, state: summarizeWorkspace(commandModelRef.current) }
+      },
+      session: async () => {
+        const rows = await sessionOps.list()
+        return { name: sessionName, sessions: rows.map((row) => ({ name: row.name, active: row.name === sessionName, screens: row.screenCount, last_used_at: row.lastUsedAt })) }
       },
       activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), tabId) })),
       closeTab: (tab) => {
@@ -3355,7 +3379,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const canvasTarget = canvasTargetFor(pane)
     return (
       <DocumentView
-        key={pane}
+        key={`${sessionEpoch}:${pane}`}
         paneId={pane}
         state={state}
         tab={tab}
@@ -3748,6 +3772,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       onLibraryHost={setLibraryHost}
       zoomedPane={zoomedPane}
       root={layoutRoot}
+      epoch={sessionEpoch}
       onRootChange={setLayoutRoot}
       renderPane={(pane) => renderPane(pane)}
       // 모든 칸이(하나여도) 자기 머리를 칸 맨 위에 둔다
@@ -3755,7 +3780,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       onSwapSplit={swapPanes}
       statusBar={statusBarOn ? (
         <StatusBar
-          sessionName={t('기본')}
+          sessionName={sessionName}
+          sessionNames={sessionNames}
           screens={screens}
           activeId={activeScreenId}
           lastId={lastScreenId}
@@ -3809,7 +3835,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             ],
           ]}
           sidebarPx={sidebarPx}
-          sessionName={t('기본')}
+          sessionName={sessionName}
+          sessionActions={ownsSession(windowMode)
+            ? {
+                list: sessionOps.list,
+                onSwitch: sessionOps.switchTo,
+                onNew: (name) => sessionOps.create(name),
+                onSaveAs: sessionOps.fork,
+                onRename: (name) => sessionOps.rename(sessionName, name),
+                onDelete: () => setSessionToKill(sessionName),
+              }
+            : undefined}
           screens={SPLIT_PANES_ENABLED && !isDetachedWindow ? {
             items: screens,
             activeId: activeScreenId,
@@ -3991,6 +4027,21 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onOpen={(path) => openMarkdownPath(path)}
         onPull={() => githubPullAndShow(githubDialog.source.name)}
       />
+    ) : null}
+    {sessionToKill !== null ? (
+      <ConfirmDialog
+        title={t('세션을 지울까요?')}
+        confirmLabel={t('삭제')}
+        tone="danger"
+        onConfirm={() => {
+          const name = sessionToKill
+          setSessionToKill(null)
+          void sessionOps.remove(name).then((result) => { if (result.message !== '') announceAction(result.message) })
+        }}
+        onCancel={() => setSessionToKill(null)}
+      >
+        <p>{t('세션 「{name}」 을(를) 지웁니다. 세션 파일은 .iwae/sessions/.trash 폴더로 옮겨 두고, 열려 있는 문서와 노트는 그대로입니다.', { name: sessionToKill })}</p>
+      </ConfirmDialog>
     ) : null}
     {memoNotes.conflict !== null ? (
       <ConfirmDialog
