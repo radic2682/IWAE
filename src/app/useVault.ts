@@ -60,7 +60,8 @@ import { reconcileLibraryPdfEntries, reconcileMissingVaultPdfs, reconcileVaultIn
 import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
-import { captureSession, emptySession, parseSession, type SessionState } from '../core/session'
+import { captureSession, emptySession, parseSession, readLegacyLayoutId, singlePaneWorkspace, workspaceFromSession, type SessionState, type WorkspaceSnapshot } from '../core/session'
+import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
 import { currentWindowMode, ownsSession, sessionForWindow } from '../core/windowMode'
 import type { SyncCodec } from '../core/vaultSync'
@@ -79,6 +80,7 @@ import {
   emptyTabs,
   isDocumentKind,
   mapPaneTabs,
+  mapPanes,
   markPreviewTabs,
   moveTabToPane,
   openTabInPanes,
@@ -89,7 +91,8 @@ import {
   type TabsState,
 } from './tabs'
 import { useVaultWatcher } from './useVaultWatcher'
-import { DEFAULT_CHANNELS, type PaneChannels } from './workspaceChannels'
+import { type PaneChannel, type PaneChannels } from './workspaceChannels'
+import type { TreeWorkspace } from './tabDock'
 import {
   convertReferenceToCopy,
   copyVaultEntryPath,
@@ -106,7 +109,7 @@ import {
 import { githubMoveTarget } from '../bridge/github'
 import { markdownToPdf } from '../bridge/pdf'
 import { isDesktop } from '../bridge/window'
-import { MARKDOWN_AS_PDF } from '../core/features'
+import { MARKDOWN_AS_PDF, SPLIT_PANES_ENABLED } from '../core/features'
 import { markdownPdfHtml, markdownPdfKey } from '../core/markdownPdf'
 import { buildSearchRecords, type VaultSearchPage, type VaultSearchRecord } from '../core/vaultSearch'
 import {
@@ -153,26 +156,47 @@ function restoredTabs(
 }
 
 /**
- * 세션에 패널 배치가 있으면 그대로, 없으면 문서는 왼쪽·캔버스는 오른쪽에 둔다.
+ * 세션의 칸 배치(트리·칸마다 탭·보던 탭·색)를 탭 기록으로 되살린다. 어느 칸에도 적히지 않은 탭은 문서는 첫 칸, 노트는 둘째 칸(없으면 첫 칸)에 둔다.
  * 사라진 파일의 탭은 위에서 이미 걸러졌으므로 여기서는 순서와 활성 탭만 맞춘다.
  */
-function restoredPanes(
+function restoredWorkspace(
   docs: TabsState,
   notes: TabsState,
-  saved: SessionState['panes'],
-): PanesState {
-  if (saved === undefined) return { left: docs, right: notes, third: emptyTabs, fourth: emptyTabs }
+  snapshot: WorkspaceSnapshot,
+): TreeWorkspace {
+  const order = leaves(snapshot.layout)
   const byId = new Map([...docs.tabs, ...notes.tabs].map((tab) => [tab.id, tab]))
-  const placed = new Set([...saved.left, ...saved.right, ...(saved.third ?? []), ...(saved.fourth ?? [])])
-  const pick = (ids: readonly string[]) => ids.flatMap((id) => byId.get(id) ?? [])
-  const left = [...pick(saved.left), ...docs.tabs.filter((tab) => !placed.has(tab.id))]
-  const right = [...pick(saved.right), ...notes.tabs.filter((tab) => !placed.has(tab.id))]
-  return {
-    left: restoredTabs(left, saved.activeLeft),
-    right: restoredTabs(right, saved.activeRight),
-    third: restoredTabs(pick(saved.third ?? []), saved.activeThird ?? null),
-    fourth: restoredTabs(pick(saved.fourth ?? []), saved.activeFourth ?? null),
+  const placed = new Set(order.flatMap((pane) => snapshot.paneState[pane]?.tabIds ?? []))
+  const docTarget = order[0]!
+  const noteTarget = order[1] ?? order[0]!
+  const panes: Record<string, TabsState> = {}
+  const channels: Record<string, PaneChannel> = {}
+  for (const pane of order) {
+    const saved = snapshot.paneState[pane]
+    const own = (saved?.tabIds ?? []).flatMap((id) => byId.get(id) ?? [])
+    const extra = [
+      ...(pane === docTarget ? docs.tabs.filter((tab) => !placed.has(tab.id)) : []),
+      ...(pane === noteTarget ? notes.tabs.filter((tab) => !placed.has(tab.id)) : []),
+    ]
+    const tabs = [...own, ...extra]
+    const ownActive = (id: string | null) => id !== null && tabs.some((tab) => tab.id === id) ? id : null
+    const fallbackActive = (pane === docTarget ? ownActive(docs.activeId) : null) ?? (pane === noteTarget ? ownActive(notes.activeId) : null)
+    panes[pane] = restoredTabs(tabs, ownActive(saved?.activeId ?? null) ?? fallbackActive)
+    channels[pane] = saved?.channel === undefined ? 'blue' : saved.channel
   }
+  return { panes, channels, layout: snapshot.layout }
+}
+
+/** 처음 상태: 한 칸(문서). 샘플 작업 공간처럼 노트 탭을 함께 받으면 좌우 둘로 시작한다 */
+function initialWorkspace(options: UseVaultOptions, windowRole: string): TreeWorkspace {
+  const first = newPaneId()
+  const docs = options.pdfTabs === undefined ? emptyTabs : { tabs: [...options.pdfTabs.tabs], activeId: options.pdfTabs.activeId }
+  const notes = options.noteTabs === undefined ? emptyTabs : { tabs: [...options.noteTabs.tabs], activeId: options.noteTabs.activeId }
+  if (notes.tabs.length > 0 && SPLIT_PANES_ENABLED && windowRole === 'main') {
+    const second = newPaneId([first])
+    return { panes: { [first]: docs, [second]: notes }, channels: { [first]: 'blue', [second]: 'blue' }, layout: layoutForLegacyId('cols2', [first, second]) }
+  }
+  return { panes: { [first]: { tabs: [...docs.tabs, ...notes.tabs], activeId: docs.activeId ?? notes.activeId } }, channels: { [first]: 'blue' }, layout: paneNode(first) }
 }
 
 function isPdfDocMeta(value: PdfDocMeta | null): value is PdfDocMeta {
@@ -260,39 +284,48 @@ export function useVault(options: UseVaultOptions = {}) {
     ? buildLegacyWorkspaceTree(options.library ?? [], options.notebooks ?? [])
     : [])
   const [openedDocs, setOpenedDocs] = useState<readonly PdfDocMeta[]>(options.openedDocs ?? [])
-  // 좌우 패널의 탭. 두 패널을 한 상태에 둬야 "이미 반대편에 열려 있으면 거기서 활성화"를
-  // 한 번의 갱신으로 판단할 수 있다. pdfTabs/noteTabs 는 예전 이름 그대로 왼쪽/오른쪽 패널이다.
-  const [panes, setPanes] = useState<PanesState>(() => ({
-    left: options.pdfTabs === undefined
-      ? emptyTabs
-      : { tabs: [...options.pdfTabs.tabs], activeId: options.pdfTabs.activeId },
-    right: options.noteTabs === undefined
-      ? emptyTabs
-      : { tabs: [...options.noteTabs.tabs], activeId: options.noteTabs.activeId },
-    third: emptyTabs,
-    fourth: emptyTabs,
-  }))
-  // 창마다 색 채널(같은 색의 창끼리 연동). 처음엔 모두 파랑 — 지금처럼 모두 한데 연동한다
-  const [channels, setChannels] = useState<PaneChannels>(DEFAULT_CHANNELS)
-  const pdfTabs = panes.left
-  const noteTabs = panes.right
-  const setPdfTabs = useCallback((update: SetStateAction<TabsState>) => {
-    setPanes((current) => ({ ...current, left: typeof update === 'function' ? update(current.left) : update }))
+  // 칸(패널)의 탭·색 채널·나누기 트리를 한 상태에 둔다. 칸이 생기고 없어지는 일(나누기·닫기)이 세 값을 한꺼번에 바꾸고,
+  // "이미 다른 칸에 열려 있으면 거기서 활성화"를 한 번의 갱신으로 판단하려면 한 곳에 있어야 한다.
+  const [workspace, setWorkspace] = useState<TreeWorkspace>(() => initialWorkspace(options, windowMode.role))
+  const { panes, channels, layout: paneLayout } = workspace
+  const setPanes = useCallback((update: SetStateAction<PanesState>) => {
+    setWorkspace((current) => {
+      const next = typeof update === 'function' ? update(current.panes) : update
+      return next === current.panes ? current : { ...current, panes: next }
+    })
   }, [])
-  const setNoteTabs = useCallback((update: SetStateAction<TabsState>) => {
-    setPanes((current) => ({ ...current, right: typeof update === 'function' ? update(current.right) : update }))
+  // 창마다 색 채널(같은 색의 창끼리 연동). 새 칸은 나눈 칸의 색을 받는다
+  const setChannels = useCallback((update: SetStateAction<PaneChannels>) => {
+    setWorkspace((current) => {
+      const next = typeof update === 'function' ? update(current.channels) : update
+      return next === current.channels ? current : { ...current, channels: next }
+    })
   }, [])
-  // 새 탭을 어느 패널에 열지. 문서·캔버스 각각 마지막으로 쓴 패널을 따른다.
-  const paneRouteRef = useRef<Record<'doc' | 'note', PaneId>>({ doc: 'left', note: 'right' })
+  const setPaneLayout = useCallback((update: SetStateAction<LayoutNode>) => {
+    setWorkspace((current) => {
+      const next = typeof update === 'function' ? update(current.layout) : update
+      return next === current.layout ? current : { ...current, layout: next }
+    })
+  }, [])
+  // 새 탭을 어느 패널에 열지. 문서·캔버스 각각 마지막으로 쓴 패널을 따른다(없어진 칸이면 첫 칸).
+  const paneRouteRef = useRef<Record<'doc' | 'note', PaneId>>((() => {
+    const order = leaves(workspace.layout)
+    return { doc: order[0]!, note: order[1] ?? order[0]! }
+  })())
   const setPaneRoute = useCallback((kind: 'doc' | 'note', pane: PaneId) => {
     paneRouteRef.current = { ...paneRouteRef.current, [kind]: pane }
   }, [])
   const openInPane = useCallback((tab: Tab, pane?: PaneId) => {
-    setPanes((current) => openTabInPanes(current, tab, pane ?? paneRouteRef.current[paneRouteOf(tab.kind)]))
+    setWorkspace((current) => {
+      const wanted = pane ?? paneRouteRef.current[paneRouteOf(tab.kind)]
+      const target = hasPane(current.layout, wanted) ? wanted : leaves(current.layout)[0]!
+      const next = openTabInPanes(current.panes, tab, target)
+      return next === current.panes ? current : { ...current, panes: next }
+    })
   }, [])
   const moveTab = useCallback((id: string, target: PaneId) => {
-    setPanes((current) => moveTabToPane(current, id, target))
-  }, [])
+    setPanes((current) => (current[target] === undefined ? current : moveTabToPane(current, id, target)))
+  }, [setPanes])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(emptySession.sidebarCollapsed)
   const [layout, setLayout] = useState({
     sidebarPx: emptySession.sidebarPx,
@@ -495,8 +528,11 @@ export function useVault(options: UseVaultOptions = {}) {
         reconciledIndex.entries,
       ))
       setOpenedDocs(documents)
-      setChannels(session.paneChannels ?? DEFAULT_CHANNELS)
-      setPanes(markPreviewTabs(restoredPanes(
+      // 메인 창은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창·새 창은 한 칸에서 시작한다
+      const snapshot = windowMode.role === 'main' && SPLIT_PANES_ENABLED
+        ? workspaceFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage))
+        : singlePaneWorkspace()
+      const restored = restoredWorkspace(
         restoredTabs(
           availableDocumentRecords.map((record) => record.tab),
           migratedActiveMarkdownId ?? session.activePdfTabId,
@@ -509,8 +545,11 @@ export function useVault(options: UseVaultOptions = {}) {
           ],
           migratedActiveMarkdownId === null ? session.activeNoteTabId : null,
         ),
-        session.panes,
-      ), session.previewTabIds ?? []))
+        snapshot,
+      )
+      const restoredOrder = leaves(restored.layout)
+      paneRouteRef.current = { doc: restoredOrder[0]!, note: restoredOrder[1] ?? restoredOrder[0]! }
+      setWorkspace({ ...restored, panes: markPreviewTabs(restored.panes, session.previewTabIds ?? []) })
       setMarkdownSources(restoredMarkdownSources)
       setMissingDocIds(missing)
       setAbsentDocIds(settled.absentDocIds)
@@ -759,11 +798,11 @@ export function useVault(options: UseVaultOptions = {}) {
   const sessionSnapshotRef = useRef<{ vault: VaultHandle | null; session: SessionState | null }>({ vault: null, session: null })
   sessionSnapshotRef.current = {
     vault,
-    session: vault === null || !sessionReady ? null : captureSession(pdfTabs, noteTabs, {
+    session: vault === null || !sessionReady ? null : captureSession(workspace, {
       sidebarCollapsed,
       sidebarPx: layout.sidebarPx,
       leftFrac: layout.leftFrac,
-    }, panes.third, panes.fourth, channels),
+    }),
   }
   const flushSession = useCallback(async () => {
     const { vault: handle, session } = sessionSnapshotRef.current
@@ -775,15 +814,15 @@ export function useVault(options: UseVaultOptions = {}) {
     // 탭·패널 배치(session.json)는 메인 창만 저장한다. 다른 창의 배치가 메인의 것을 덮으면 안 된다
     if (vault === null || !sessionReady || !ownsSession(windowMode)) return
     const timer = window.setTimeout(() => {
-      const session = captureSession(pdfTabs, noteTabs, {
+      const session = captureSession(workspace, {
         sidebarCollapsed,
         sidebarPx: layout.sidebarPx,
         leftFrac: layout.leftFrac,
-      }, panes.third, panes.fourth, channels)
+      })
       void writeSession(vault, session).catch((err: unknown) => setError(errorText(err)))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [channels, layout, noteTabs, panes.third, panes.fourth, pdfTabs, sessionReady, sidebarCollapsed, vault, windowMode])
+  }, [layout, sessionReady, sidebarCollapsed, vault, windowMode, workspace])
 
   /** PDF 를 열어 탭에 띄운다. 연 문서의 메타를 돌려주고, 열지 못하면 null */
   /** openTab 이 false 면 PDF 를 열어 두기만 하고 탭은 만들지 않는다(탭 안에서 판을 바꿀 때) */
@@ -1326,13 +1365,7 @@ export function useVault(options: UseVaultOptions = {}) {
     if (previous !== undefined && previous.path !== updated.path) {
       setPanes((current) => {
         const renamed = mapPaneTabs(current, (tab) => tab.id === previous.path ? { ...tab, id: updated.path } : tab)
-        const activeId = (state: TabsState) => state.activeId === previous.path ? updated.path : state.activeId
-        return {
-          left: { ...renamed.left, activeId: activeId(renamed.left) },
-          right: { ...renamed.right, activeId: activeId(renamed.right) },
-          third: { ...renamed.third, activeId: activeId(renamed.third) },
-          fourth: { ...renamed.fourth, activeId: activeId(renamed.fourth) },
-        }
+        return mapPanes(renamed, (state) => ({ ...state, activeId: state.activeId === previous.path ? updated.path : state.activeId }))
       })
       setMarkdownSources((current) => {
         const source = current[previous.path]
@@ -1440,12 +1473,7 @@ export function useVault(options: UseVaultOptions = {}) {
     }
     setPanes((current) => {
       const renamed = mapPaneTabs(current, (tab) => ({ ...tab, id: movePath(tab.id) }))
-      return {
-        left: { ...renamed.left, activeId: renamed.left.activeId === null ? null : movePath(renamed.left.activeId) },
-        right: { ...renamed.right, activeId: renamed.right.activeId === null ? null : movePath(renamed.right.activeId) },
-        third: { ...renamed.third, activeId: renamed.third.activeId === null ? null : movePath(renamed.third.activeId) },
-        fourth: { ...renamed.fourth, activeId: renamed.fourth.activeId === null ? null : movePath(renamed.fourth.activeId) },
-      }
+      return mapPanes(renamed, (state) => ({ ...state, activeId: state.activeId === null ? null : movePath(state.activeId) }))
     })
     setMarkdownSources((current) => Object.fromEntries(
       Object.entries(current).map(([path, source]) => [movePath(path), source]),
@@ -1631,8 +1659,10 @@ export function useVault(options: UseVaultOptions = {}) {
     setConflictFileIds([])
     setTree([])
     setOpenedDocs([])
-    setPanes({ left: emptyTabs, right: emptyTabs, third: emptyTabs, fourth: emptyTabs })
-    setChannels(DEFAULT_CHANNELS)
+    const fresh = singlePaneWorkspace()
+    const freshId = leaves(fresh.layout)[0]!
+    paneRouteRef.current = { doc: freshId, note: freshId }
+    setWorkspace({ panes: { [freshId]: emptyTabs }, channels: { [freshId]: 'blue' }, layout: fresh.layout })
     setMarkdownSources({})
     setMissingDocIds([])
     setSessionReady(false)
@@ -1843,14 +1873,13 @@ export function useVault(options: UseVaultOptions = {}) {
     notebooks,
     tree,
     openedDocs,
-    pdfTabs,
-    setPdfTabs,
-    noteTabs,
-    setNoteTabs,
     panes,
     setPanes,
     channels,
     setChannels,
+    paneLayout,
+    setPaneLayout,
+    setWorkspace,
     openInPane,
     moveTab,
     setPaneRoute,

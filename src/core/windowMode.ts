@@ -106,6 +106,9 @@ export function sessionForWindow(mode: WindowMode, saved: SessionState): Session
       activePdfTabId: null,
       activeNoteTabId: null,
       panes: undefined,
+      layout: undefined,
+      paneState: undefined,
+      paneChannels: undefined,
     }
   }
   return saved

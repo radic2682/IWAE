@@ -24,6 +24,13 @@ import {
   attachMarkdownReference,
 } from '../bridge/vault'
 import { useVault } from './useVault'
+import { leaves, shapeOf } from '../core/layoutTree'
+import { tabsOf } from './tabs'
+import { setWindowModeForTest } from '../core/windowMode'
+
+/** 지금 칸 차례(왼쪽 위부터 0)의 칸의 탭 줄 */
+const paneTabs = (result: { current: ReturnType<typeof useVault> }, index: number) => tabsOf(result.current.panes, leaves(result.current.paneLayout)[index]!)
+const paneIds = (result: { current: ReturnType<typeof useVault> }) => leaves(result.current.paneLayout)
 import { CANVAS_ENABLED } from '../core/features'
 import { useVaultWatcher } from './useVaultWatcher'
 import { recognizePdfPageText } from '../pdf/pdfOcrText'
@@ -102,6 +109,10 @@ const missingEntry = {
 
 describe('useVault — 시작 복원', () => {
   beforeEach(() => {
+    // 예전 세션은 배치 id 를 localStorage 에 따로 적었다. 대부분의 시험은 좌우 둘로 쓰던 사람의 세션이다
+    localStorage.clear()
+    localStorage.setItem('iwae:pane-layout:v1', 'cols2')
+    setWindowModeForTest(null)
     vi.mocked(recentVaults).mockReset()
     vi.mocked(openVault).mockReset()
     vi.mocked(readLibrary).mockReset()
@@ -219,12 +230,12 @@ describe('useVault — 시작 복원', () => {
     })
 
     expect(result.current.vault).toEqual({ root: 'C:/Vault' })
-    expect(result.current.pdfTabs).toEqual({
+    expect(paneTabs(result, 0)).toEqual({
       // 탭 제목은 사이드바와 같은 Vault 표시 이름이다(파일 안 제목이 아니라).
       tabs: [{ id: goodEntry.docId, title: 'Stored title', kind: 'pdf' }],
       activeId: goodEntry.docId,
     })
-    expect(result.current.noteTabs).toEqual({
+    expect(paneTabs(result, 1)).toEqual({
       tabs: [{ id: 'HTTP/OPTIONS.canvas', title: 'OPTIONS', kind: 'canvas' }],
       activeId: 'HTTP/OPTIONS.canvas',
     })
@@ -273,8 +284,8 @@ describe('useVault — 시작 복원', () => {
     })
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
-    expect(result.current.panes.left.tabs.map((tab) => [tab.id, tab.kind])).toEqual([['HTTP/OPTIONS.canvas', 'canvas']])
-    expect(result.current.panes.right.tabs.map((tab) => [tab.id, tab.kind])).toEqual([[goodEntry.docId, 'pdf']])
+    expect(paneTabs(result, 0).tabs.map((tab) => [tab.id, tab.kind])).toEqual([['HTTP/OPTIONS.canvas', 'canvas']])
+    expect(paneTabs(result, 1).tabs.map((tab) => [tab.id, tab.kind])).toEqual([[goodEntry.docId, 'pdf']])
   })
 
   it('새 캔버스: createCanvasNote 는 만들기만 하고, addNote 는 openCanvas 가 있으면 그 길로(없으면 캔버스 패널에) 연다', async () => {
@@ -282,17 +293,17 @@ describe('useVault — 시작 복원', () => {
     const openCanvas = vi.fn()
     const { result } = renderHook(() => useVault({ openCanvas }))
     await waitFor(() => expect(result.current.initializing).toBe(false))
-    const before = result.current.noteTabs.tabs.map((tab) => tab.id)
+    const before = paneTabs(result, 1).tabs.map((tab) => tab.id)
 
     let created: { path: string; title: string } | undefined
     await act(async () => { created = await result.current.createCanvasNote('HTTP', '새 캔버스') })
     expect(created).toEqual({ path: 'HTTP/새 캔버스.canvas', title: '새 캔버스' })
     expect(openCanvas).not.toHaveBeenCalled()
-    expect(result.current.noteTabs.tabs.map((tab) => tab.id)).toEqual(before)
+    expect(paneTabs(result, 1).tabs.map((tab) => tab.id)).toEqual(before)
 
     await act(async () => { await result.current.addNote('HTTP', '새 캔버스') })
     expect(openCanvas).toHaveBeenCalledWith({ path: 'HTTP/새 캔버스.canvas', title: '새 캔버스' })
-    expect(result.current.noteTabs.tabs.map((tab) => tab.id)).toEqual(before)
+    expect(paneTabs(result, 1).tabs.map((tab) => tab.id)).toEqual(before)
   })
 
   it('새 캔버스: openCanvas 가 없으면 예전처럼 캔버스 패널에 탭으로 연다', async () => {
@@ -300,7 +311,7 @@ describe('useVault — 시작 복원', () => {
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
     await act(async () => { await result.current.addNote('HTTP', '둘') })
-    expect(result.current.noteTabs.tabs.map((tab) => tab.id)).toContain('HTTP/둘.canvas')
+    expect(paneTabs(result, 1).tabs.map((tab) => tab.id)).toContain('HTTP/둘.canvas')
   })
 
   it('캔버스 편집 상태를 안정 ID의 watcher dirty 집합에 연결한다', async () => {
@@ -333,8 +344,8 @@ describe('useVault — 시작 복원', () => {
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
 
-    expect(result.current.panes.left).toEqual({ tabs: [{ id: '노트/회의/점검.iwnote', title: '점검', kind: 'memoNote' }], activeId: '노트/회의/점검.iwnote' })
-    expect(result.current.panes.right).toEqual({ tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' }], activeId: '노트/전원.iwnote' })
+    expect(paneTabs(result, 0)).toEqual({ tabs: [{ id: '노트/회의/점검.iwnote', title: '점검', kind: 'memoNote' }], activeId: '노트/회의/점검.iwnote' })
+    expect(paneTabs(result, 1)).toEqual({ tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' }], activeId: '노트/전원.iwnote' })
   })
 
   it('창마다 색 채널과 미리보기 탭 표시를 세션에서 되살린다', async () => {
@@ -355,20 +366,23 @@ describe('useVault — 시작 복원', () => {
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
 
-    expect(result.current.channels).toEqual({ left: 'green', right: null, third: 'blue', fourth: 'orange' })
-    expect(result.current.panes.left.tabs[0]!.preview).toBe(true)
-    expect(result.current.panes.right.tabs[0]!.preview).toBeUndefined()
+    // 예전 세션의 칸 이름별 색은 칸 차례대로 새 칸 id 에 이어진다(left → 0번, right → 1번)
+    const [first, second] = paneIds(result)
+    expect(result.current.channels).toEqual({ [first!]: 'green', [second!]: null })
+    expect(paneTabs(result, 0).tabs[0]!.preview).toBe(true)
+    expect(paneTabs(result, 1).tabs[0]!.preview).toBeUndefined()
   })
 
   it('예전 세션(채널 없음)은 모든 창이 파랑이고, 채널을 바꾸면 세션에 저장한다', async () => {
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
-    expect(result.current.channels).toEqual({ left: 'blue', right: 'blue', third: 'blue', fourth: 'blue' })
+    const [first, second] = paneIds(result)
+    expect(result.current.channels).toEqual({ [first!]: 'blue', [second!]: 'blue' })
 
-    act(() => result.current.setChannels((current) => ({ ...current, right: 'orange' })))
+    act(() => result.current.setChannels((current) => ({ ...current, [second!]: 'orange' })))
     await waitFor(() => expect(vi.mocked(writeSession)).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ paneChannels: { left: 'blue', right: 'orange', third: 'blue', fourth: 'blue' } }),
+      expect.objectContaining({ paneState: expect.objectContaining({ [second!]: expect.objectContaining({ channel: 'orange' }) }) }),
     ))
   })
 
@@ -387,11 +401,11 @@ describe('useVault — 시작 복원', () => {
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
 
-    expect(result.current.pdfTabs).toEqual({
+    expect(paneTabs(result, 0)).toEqual({
       tabs: [{ id: 'HTTP/README.md', title: 'README', kind: 'markdown' }],
       activeId: 'HTTP/README.md',
     })
-    expect(result.current.noteTabs).toEqual({
+    expect(paneTabs(result, 1)).toEqual({
       tabs: [],
       activeId: null,
     })
@@ -427,7 +441,7 @@ describe('useVault — 시작 복원', () => {
     await waitFor(() => expect(result.current.initializing).toBe(false))
 
     expect(readMarkdown).toHaveBeenCalledWith({ root: 'C:/Vault' }, external.id)
-    expect(result.current.pdfTabs).toEqual({
+    expect(paneTabs(result, 0)).toEqual({
       tabs: [{ id: external.path, title: external.displayName, kind: 'markdown' }],
       activeId: external.path,
     })
@@ -548,14 +562,14 @@ describe('useVault — 시작 복원', () => {
 
     expect(readMarkdown).toHaveBeenCalledWith({ root: 'C:/Vault' }, 'HTTP/README.md')
     expect(result.current.markdownSources).toEqual({ 'HTTP/README.md': '# HTTP' })
-    expect(result.current.pdfTabs).toEqual({
+    expect(paneTabs(result, 0)).toEqual({
       tabs: [
         { id: goodEntry.docId, title: 'Stored title', kind: 'pdf' },
         { id: 'HTTP/README.md', title: 'README', kind: 'markdown' },
       ],
       activeId: 'HTTP/README.md',
     })
-    expect(result.current.noteTabs).toEqual({
+    expect(paneTabs(result, 1)).toEqual({
       tabs: [{ id: 'HTTP/OPTIONS.canvas', title: 'OPTIONS', kind: 'canvas' }],
       activeId: 'HTTP/OPTIONS.canvas',
     })
@@ -793,5 +807,98 @@ describe('useVault — 시작 복원', () => {
     expect(convertReferenceToCopy).toHaveBeenCalledWith({ root: 'C:/Vault' }, goodEntry.docId, 'Imported')
     expect(listVaultTree).toHaveBeenCalledTimes(4)
     await expect(result.current.copyEntryPath(goodEntry.docId)).resolves.toBe('C:/Specs/good.pdf')
+  })
+})
+
+describe('useVault — 칸 나누기 트리 복원', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setWindowModeForTest(null)
+    vi.mocked(readSession).mockReset()
+  })
+
+  const baseSession = {
+    pdfTabIds: [] as string[],
+    noteTabIds: [] as string[],
+    memoNoteTabIds: ['노트/A.iwnote', '노트/B.iwnote', '노트/C.iwnote'],
+    activePdfTabId: null,
+    activeNoteTabId: null,
+    sidebarCollapsed: false,
+    sidebarPx: 280,
+    leftFrac: 0.5,
+  }
+
+  it('새 세션(layout·paneState)은 트리·칸 id·칸마다 탭·색을 그대로 되살린다', async () => {
+    const layout = { kind: 'split', id: 's1', dir: 'v', ratio: 0.3, a: { kind: 'pane', paneId: 'top' }, b: { kind: 'split', id: 's2', dir: 'h', ratio: 0.6, a: { kind: 'pane', paneId: 'bl' }, b: { kind: 'pane', paneId: 'br' } } }
+    vi.mocked(readSession).mockResolvedValue({
+      ...baseSession,
+      layout,
+      paneState: {
+        top: { tabIds: ['노트/A.iwnote'], activeId: '노트/A.iwnote', channel: 'green' },
+        bl: { tabIds: ['노트/B.iwnote'], activeId: '노트/B.iwnote', channel: null },
+        br: { tabIds: ['노트/C.iwnote'], activeId: '노트/C.iwnote', channel: 'orange' },
+      },
+    } as never)
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(result.current.paneLayout).toEqual(layout)
+    expect(paneIds(result)).toEqual(['top', 'bl', 'br'])
+    expect(result.current.panes.top!.tabs[0]!.id).toBe('노트/A.iwnote')
+    expect(result.current.panes.bl!.tabs[0]!.id).toBe('노트/B.iwnote')
+    expect(result.current.channels).toEqual({ top: 'green', bl: null, br: 'orange' })
+  })
+
+  it('예전 배치 id 가 cols3 이고 세션에 칸 이름별 탭이 있으면 같은 모양의 트리로 옮겨 칸마다 되살린다', async () => {
+    localStorage.setItem('iwae:pane-layout:v1', 'cols3')
+    vi.mocked(readSession).mockResolvedValue({
+      ...baseSession,
+      panes: { left: ['노트/A.iwnote'], right: ['노트/B.iwnote'], third: ['노트/C.iwnote'], activeLeft: '노트/A.iwnote', activeRight: '노트/B.iwnote', activeThird: '노트/C.iwnote' },
+    } as never)
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(shapeOf(result.current.paneLayout)).toBe('h(P,h(P,P))')
+    expect([0, 1, 2].map((index) => paneTabs(result, index).tabs[0]!.id)).toEqual(['노트/A.iwnote', '노트/B.iwnote', '노트/C.iwnote'])
+  })
+
+  it('배치 id 가 없으면 한 칸이고, 모든 탭이 그 칸에 모인다', async () => {
+    vi.mocked(readSession).mockResolvedValue({ ...baseSession, panes: { left: ['노트/A.iwnote'], right: ['노트/B.iwnote'], activeLeft: '노트/A.iwnote', activeRight: '노트/B.iwnote' } } as never)
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(shapeOf(result.current.paneLayout)).toBe('P')
+    // 칸 이름에 적히지 않은 노트(C)도 같은 칸에 모인다
+    expect(paneTabs(result, 0).tabs.map((tab) => tab.id)).toEqual(['노트/A.iwnote', '노트/B.iwnote', '노트/C.iwnote'])
+  })
+
+  it('떼어 낸 창은 저장된 배치와 상관없이 한 칸이다', async () => {
+    setWindowModeForTest({ role: 'detached', docId: goodEntry.docId, page: 1, zoom: null, vaultRoot: null })
+    localStorage.setItem('iwae:pane-layout:v1', 'grid4')
+    vi.mocked(readSession).mockResolvedValue({ ...baseSession, layout: { kind: 'split', id: 's', dir: 'h', ratio: 0.5, a: { kind: 'pane', paneId: 'a' }, b: { kind: 'pane', paneId: 'b' } }, paneState: {} } as never)
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(shapeOf(result.current.paneLayout)).toBe('P')
+    setWindowModeForTest(null)
+  })
+
+  it('openInPane 은 없어진 칸을 가리키면 첫 칸에 연다', async () => {
+    vi.mocked(readSession).mockResolvedValue({ ...baseSession, memoNoteTabIds: [] } as never)
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    act(() => result.current.openInPane({ id: 'x', title: 'x', kind: 'memoNote' }, 'gone'))
+    expect(paneTabs(result, 0).tabs.map((tab) => tab.id)).toEqual(['x'])
+    expect(result.current.panes.gone).toBeUndefined()
+  })
+
+  it('칸 상태를 바꾸면 트리·칸 상태·색이 함께 세션에 저장된다', async () => {
+    vi.mocked(readSession).mockResolvedValue({ ...baseSession, memoNoteTabIds: [] } as never)
+    vi.mocked(writeSession).mockReset()
+    vi.mocked(writeSession).mockResolvedValue(undefined)
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    act(() => result.current.setPaneLayout((root) => ({ kind: 'split', id: 'sx', dir: 'h', ratio: 0.4, a: root, b: { kind: 'pane', paneId: 'newer' } })))
+    act(() => result.current.setPanes((current) => ({ ...current, newer: { tabs: [], activeId: null } })))
+    await waitFor(() => expect(vi.mocked(writeSession)).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ layout: expect.objectContaining({ kind: 'split', ratio: 0.4 }), paneState: expect.objectContaining({ newer: expect.anything() }) }),
+    ))
   })
 })
