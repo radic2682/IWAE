@@ -115,3 +115,16 @@ describe('EmptyPane 스타일', () => {
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
   })
 })
+
+describe('EmptyPane — 캔버스 줄은 onCanvas 를 줄 때만(CANVAS_ENABLED 를 켜면 되살아난다)', () => {
+  it('onCanvas 가 없으면 없고, 있으면 노트 다음 · 칸 닫기 앞에 나와 누르면 불린다', () => {
+    const { rerender } = render(<EmptyPane prefixText="Ctrl+B" onPdf={vi.fn()} onNote={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: '캔버스 열기' })).toBeNull()
+    const onCanvas = vi.fn()
+    rerender(<EmptyPane prefixText="Ctrl+B" onPdf={vi.fn()} onNote={vi.fn()} onCanvas={onCanvas} onClose={vi.fn()} />)
+    const rows = [...document.querySelectorAll('button[data-empty-row]')].map((row) => row.getAttribute('data-empty-row'))
+    expect(rows).toEqual(['pdf', 'note', 'canvas', 'close'])
+    fireEvent.click(screen.getByRole('button', { name: '캔버스 열기' }))
+    expect(onCanvas).toHaveBeenCalledTimes(1)
+  })
+})

@@ -1111,11 +1111,13 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     expect(screen.getByRole('tab', { name: SAMPLE_TITLE })).toBeDefined()
   })
 
-  it('빈 칸의 빠른 단추: PDF 는 파일 선택을, MD 는 라이브러리를 연다. 번역기 · 캔버스 단추는 없다', async () => {
+  it('빈 칸의 빠른 단추: PDF 는 파일 선택을, MD 는 라이브러리를 연다. 번역기 단추는 없고, 캔버스 단추는 CANVAS_ENABLED 일 때만 있다', async () => {
     vi.mocked(pickPdfFile).mockResolvedValue(null)
     const { container } = renderApp()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
-    expect(within(quick).queryByRole('button', { name: /번역기|캔버스/u })).toBeNull()
+    expect(within(quick).queryByRole('button', { name: /번역기/u })).toBeNull()
+    // 캔버스를 끈 동안 줄이 없고, 켜면 (Vault 가 있을 때) 되살아난다
+    if (!CANVAS_ENABLED) expect(within(quick).queryByRole('button', { name: /캔버스/u })).toBeNull()
     fireEvent.click(within(quick).getByRole('button', { name: /^PDF 열기/u }))
     await waitFor(() => expect(pickPdfFile).toHaveBeenCalled())
     fireEvent.click(within(quick).getByRole('button', { name: /^Markdown 열기/u }))

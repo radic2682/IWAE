@@ -347,4 +347,5 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '명령줄 · 키 목록': 'Command line · key list',
   '미리보기 탭': 'Preview tab',
   '번역이 꺼져 있습니다. 설정에서 켜 주세요': 'Translation is turned off. Turn it on in settings',
+  '캔버스 열기': 'Open canvas',
 }

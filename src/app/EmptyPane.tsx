@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { FilePdf, FileText, NotePencil, SquaresFour, X } from '@phosphor-icons/react'
+import { FilePdf, FileText, Graph, NotePencil, SquaresFour, X } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import '../ui/empty-pane.css'
 
@@ -18,6 +18,8 @@ export interface EmptyPaneProps {
   readonly onPdf?: () => void
   readonly onMarkdown?: () => void
   readonly onNote?: () => void
+  /** 캔버스(CANVAS_ENABLED 가 켜질 때만 준다): 꺼 둔 동안에는 이 줄이 없다 */
+  readonly onCanvas?: () => void
   /** 칸이 둘 이상일 때만 준다 */
   readonly onClose?: () => void
   /** 최근 문서(많아야 4 개). 비어 있으면 「최근」 구역이 없다 */
@@ -59,11 +61,11 @@ export function fitEmptyPane(natural: number, avail: number, recents: number, pi
 
 /**
  * 빈 칸(설계 3): 가운데 한 줄 기둥 — 흐린 아이콘 · 「빈 칸」 · 한 줄 안내 · 조용한 명령 목록(PDF · Markdown · 노트 · 이 칸 닫기: 왼쪽 아이콘 · 이름 · 오른쪽 키 힌트) · 「최근」.
- * 번역기 · 캔버스 줄은 없다(번역기는 창 전체에 떠 있는 창이고, 캔버스는 꺼 두었다). 칸 테두리는 실선이 아니라 점선이다(empty-pane.css · screens.css).
+ * 번역기 줄은 없다(번역기는 창 전체에 떠 있는 창이다). 캔버스 줄은 CANVAS_ENABLED 를 켜면 onCanvas 로 되살아난다(지금은 꺼 두어 App 이 주지 않는다). 칸 테두리는 실선이 아니라 점선이다(empty-pane.css · screens.css).
  * 줄은 모두 단추라서 Tab 으로 들어와 ↑ ↓ (Home · End)로 오가고 Enter 로 연다. 키 힌트는 지금 접두키를 따른다.
  * 움직임 없음, 색은 토큰만. 좁은 칸(260px)에서도 읽히고, 칸이 낮으면 「최근」 은 접는다(empty-pane.css).
  */
-export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onClose, recents = [] }: EmptyPaneProps) {
+export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onCanvas, onClose, recents = [] }: EmptyPaneProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const [trim, setTrim] = useState<EmptyPaneTrim>({ recents: MAX_RECENTS, hint: true })
   // 높이를 재는 값: 줄 하나 · 「최근」 제목 · 안내 줄이 차지하는 높이(화면에 있을 때 잰다)
@@ -80,6 +82,7 @@ export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onClose, rece
   if (onPdf !== undefined) rows.push({ id: 'pdf', icon: <FilePdf size={ICON} aria-hidden="true" />, label: t('PDF 열기'), run: onPdf })
   if (onMarkdown !== undefined) rows.push({ id: 'markdown', icon: <FileText size={ICON} aria-hidden="true" />, label: t('Markdown 열기'), run: onMarkdown })
   if (onNote !== undefined) rows.push({ id: 'note', icon: <NotePencil size={ICON} aria-hidden="true" />, label: t('노트 열기'), run: onNote })
+  if (onCanvas !== undefined) rows.push({ id: 'canvas', icon: <Graph size={ICON} aria-hidden="true" />, label: t('캔버스 열기'), run: onCanvas })
   if (onClose !== undefined) rows.push({ id: 'close', icon: <X size={ICON} aria-hidden="true" />, label: t('이 칸 닫기'), hint: `${prefixText} x`, run: onClose })
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

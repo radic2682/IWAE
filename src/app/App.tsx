@@ -3572,6 +3572,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onPdf={isDetachedWindow ? undefined : () => emptyPaneActions.pdf(pane)}
         onMarkdown={isDetachedWindow ? undefined : () => emptyPaneActions.markdown(pane)}
         onNote={isDetachedWindow || vault === null ? undefined : () => void emptyPaneActions.note(pane)}
+        onCanvas={CANVAS_ENABLED && !isDetachedWindow && vault !== null ? () => void emptyPaneActions.canvas(pane) : undefined}
         onClose={paneCount > 1 ? () => closePane(pane) : undefined}
         recents={recents}
       />
