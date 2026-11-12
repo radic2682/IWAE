@@ -29,12 +29,27 @@ export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
   { keys: 'q', action: '칸 번호 보이기, 숫자로 이동', commands: ['display-panes'] },
   { keys: 'c · , · &', action: '새 화면 · 화면 이름 · 화면 닫기', commands: ['new-window', 'rename-window', 'kill-window'] },
   { keys: 'n p l · 0–9', action: '다음 · 이전 · 마지막 화면 · 번호로', commands: ['next-window', 'previous-window', 'last-window', 'select-window -t N'] },
-  { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 떠 있는 번역기', commands: ['toggle-floating', 'display-popup'] },
+  { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 번역기', commands: ['toggle-floating', 'display-popup'] },
   { keys: 's', action: '세션 목록', commands: ['choose-session'] },
   { keys: 'd', action: '이 앱 창 떼기', commands: ['detach'] },
   { keys: ':', action: '명령줄', commands: [], note: '명령 팔레트를 「:」 로 엽니다' },
   { keys: '?', action: '키 목록', commands: ['list-keys'] },
 ]
+
+/** 동작 글: 「 · 」 로 나뉜 토막마다 한 덩어리(줄은 토막 사이에서만 꺾인다). 구분점은 앞 토막 끝에 붙는다 */
+function ActionText({ text }: { readonly text: string }) {
+  const parts = text.split(' · ')
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={part}>
+          {index > 0 ? ' ' : ''}
+          <span className="keys-help-seg">{index < parts.length - 1 ? `${part} ·` : part}</span>
+        </Fragment>
+      ))}
+    </>
+  )
+}
 
 /**
  * 키와 명령 목록(접두키 ? · 명령 팔레트의 「키와 명령 보기」). 접두키 다음 키마다 동작과 명령을 보인다.
@@ -90,7 +105,7 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
                 {PREFIX_KEY_ROWS.map((row) => (
                   <tr key={row.keys}>
                     <td><kbd className="keycap">{row.keys}</kbd></td>
-                    <td>{t(row.action)}</td>
+                    <td><ActionText text={t(row.action)} /></td>
                     {/* 명령은 하나하나 줄이 꺾이지 않는 덩어리다. 꺾이는 곳은 「 · 」 뒤뿐 */}
                     <td className="keys-help-command">
                       {row.commands.length === 0 ? <span className="keys-help-command-note">{t(row.note ?? '')}</span> : row.commands.map((command, index) => (

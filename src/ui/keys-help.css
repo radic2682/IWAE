@@ -1,19 +1,21 @@
 /* 「?」 키와 명령 목록(KeysHelpSheet) · 칸 번호 겹침(PaneNumbersOverlay). 아래 상태 줄은 없앴다(2026-11-13) — 짧은 알림은 알림 줄기, 접두키 대기는 prefix-chip.css */
 /* 「?」 키와 명령 목록 */
 .keys-help { width: min(820px, calc(100vw - 32px)); }
-.keys-help .sko-body { overflow-y: auto; }
+.keys-help .sko-body { overflow-y: auto; padding-bottom: calc(var(--space-4) + var(--space-2)); }
 .keys-help-note { margin: 0 0 8px; font-size: 12.5px; }
 .keys-help-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .keys-help-table th { padding: 4px 8px; border-bottom: 1px solid var(--divider); font-weight: 700; text-align: left; }
 .keys-help-table td { padding: 5px 8px; border-bottom: 1px solid var(--divider); vertical-align: middle; }
 .keys-help-table td:first-child { white-space: nowrap; }
-.keys-help-table code { font-size: 11.5px; }
-/* 열 폭: 키 · 동작 · 명령(남는 폭 전부). 명령은 고정폭 글꼴 한 덩어리씩이라 명령 안에서는 줄이 꺾이지 않고(.keys-help-item 이 nowrap), 여러 명령은 「 · 」 뒤에서만 꺾인다 */
+/* 명령은 앱의 고정폭 글꼴(Cascadia Mono → Consolas)로: 글꼴을 안 정하면 브라우저의 generic monospace 가 Windows 에서 넓고 성긴 글꼴이 된다 */
+.keys-help code { font-family: 'Cascadia Mono', Consolas, ui-monospace, monospace; font-size: 11.5px; letter-spacing: normal; }
+/* 열 폭: 키 100px · 동작 220px · 명령(남는 폭 전부). 명령은 고정폭 글꼴 한 덩어리씩이라 명령 안에서는 줄이 꺾이지 않고(.keys-help-item 이 nowrap), 여러 명령은 「 · 」 뒤에서만 꺾인다 */
 .keys-help-table { table-layout: fixed; }
 .keys-help-table th:nth-child(1) { width: 100px; }
-.keys-help-table th:nth-child(2) { width: 32%; }
-/* 동작 글은 낱말(띄어쓰기) 자리에서만 꺾는다: 「화면 닫/기」 처럼 낱말 가운데서 꺾이지 않게 */
+.keys-help-table th:nth-child(2) { width: 220px; }
+/* 동작 글도 「 · 」 로 나뉜 토막(.keys-help-seg)이 한 덩어리다: 칸이 좁으면 토막 사이(「 · 」 뒤)에서만 꺾이고, 토막 하나가 칸보다 길 때만 그 안에서 낱말(띄어쓰기) 자리로 꺾는다 */
 .keys-help-table td:nth-child(2) { word-break: keep-all; }
+.keys-help-seg { display: inline-block; max-width: 100%; vertical-align: top; }
 .keys-help-item { white-space: nowrap; }
 .keys-help-sep { color: var(--text-dim); }
 .keys-help-command-note { color: var(--text-dim); }

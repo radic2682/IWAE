@@ -120,8 +120,7 @@
 .doc-format-strip::-webkit-scrollbar { display: none; }
 /* 도구줄과 띠는 한 막대: 같은 바탕(--paper), 밑선은 띠 밑에 한 줄만(도구줄 밑선은 띠가 있는 동안 감춘다) */
 .pane-doc .pane-frame-with-toolbar:has(.doc-format-strip)::before { border-bottom-color: transparent; }
-/* 띠가 있는 동안 문서는 띠 밑에서 시작한다(가리지 않게) */
-.pane-doc .pane-frame:has(.doc-format-strip) { --doc-head-h: calc(var(--doc-card-h, 36px) + 40px); }
+/* 띠가 있는 동안 문서는 띠 밑에서 시작한다(가리지 않게): --doc-head-h 는 workspace-surface.css 의 한 규칙이 정한다 */
 .pane-doc .pane-frame:has(.doc-format-strip) .markdown-pane { padding-top: 40px; }
 .doc-strip-chip {
   display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px;

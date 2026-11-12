@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { DEFAULT_PREFIX_BINDINGS } from '../core/prefixKeys'
 import { commandNames } from './workspaceCommands'
+import { ruleDecl } from './cssRules.testutil'
 import { KeysHelpSheet, PREFIX_KEY_ROWS } from './KeysHelpSheet'
 
 afterEach(cleanup)
@@ -39,9 +40,40 @@ describe('KeysHelpSheet', () => {
     expect(row('c · , · &').querySelectorAll('.keys-help-sep')).toHaveLength(2)
     // CSS: 덩어리는 줄바꿈 금지, 예전의 낱말 단위 꺾기(.keys-help-token · overflow-wrap) 규칙은 없다
     const css = readFileSync('src/ui/keys-help.css', 'utf8')
-    expect(css).toMatch(/\.keys-help-item \{ white-space: nowrap; \}/u)
+    expect(ruleDecl('keys-help.css', '.keys-help-item', 'white-space')).toBe('nowrap')
     expect(css).not.toContain('keys-help-token')
     expect(css).not.toContain('keys-help-state')
+  })
+
+  it('동작 글은 「 · 」 로 나뉜 토막마다 한 덩어리다: 구분점은 앞 토막 끝에 붙고, 토막이 하나면 그대로다', () => {
+    render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
+    const table = screen.getByRole('table')
+    const actionCell = (keys: string) => within(within(table).getAllByRole('row').slice(1).find((candidate) => within(candidate).getAllByRole('cell')[0]!.textContent === keys)!).getAllByRole('cell')[1]!
+    expect([...actionCell('f · w').querySelectorAll('.keys-help-seg')].map((seg) => seg.textContent)).toEqual(['떠 있는 칸 숨기기·보이기 ·', '번역기'])
+    expect([...actionCell('n p l · 0–9').querySelectorAll('.keys-help-seg')].map((seg) => seg.textContent)).toEqual(['다음 ·', '이전 ·', '마지막 화면 ·', '번호로'])
+    expect([...actionCell('x').querySelectorAll('.keys-help-seg')].map((seg) => seg.textContent)).toEqual(['칸 닫기'])
+    expect(actionCell('f · w').textContent).toBe('떠 있는 칸 숨기기·보이기 · 번역기')
+  })
+
+  it('동작 열은 220px, 명령 열이 나머지를 쓰며(고정 폭 표), 토막은 칸보다 길 때만 안에서 꺾인다', () => {
+    expect(ruleDecl('keys-help.css', '.keys-help-table', 'table-layout')).toBe('fixed')
+    expect(ruleDecl('keys-help.css', '.keys-help-table th:nth-child(2)', 'width')).toBe('220px')
+    expect(ruleDecl('keys-help.css', '.keys-help-table th:nth-child(3)', 'width')).toBeUndefined()
+    expect(ruleDecl('keys-help.css', '.keys-help-seg', 'display')).toBe('inline-block')
+    expect(ruleDecl('keys-help.css', '.keys-help-seg', 'max-width')).toBe('100%')
+  })
+
+  it('명령은 앱의 고정폭 글꼴(Cascadia Mono · Consolas)이고 자간은 그대로이다. 브라우저 기본 monospace 만 쓰지 않는다', () => {
+    const family = ruleDecl('keys-help.css', '.keys-help code', 'font-family') ?? ''
+    expect(family).toContain('Cascadia Mono')
+    expect(family).toContain('Consolas')
+    expect(family).not.toBe('monospace')
+    expect(ruleDecl('keys-help.css', '.keys-help code', 'letter-spacing')).toBe('normal')
+  })
+
+  it('본문은 스크롤되고 맨 아래에 여백이 있어 마지막 줄이 가려지지 않는다', () => {
+    expect(ruleDecl('keys-help.css', '.keys-help .sko-body', 'overflow-y')).toBe('auto')
+    expect(ruleDecl('keys-help.css', '.keys-help .sko-body', 'padding-bottom')).toContain('--space-')
   })
 
   it('「:」 줄은 명령 대신 풀이를 보이고 자연스럽게 읽힌다', () => {
