@@ -48,7 +48,7 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   // 명령 팔레트의 명령 목록(「:」)
   '칸을 나눕니다 (-h 가로 · -v 세로)': 'Split the pane (-h side by side, -v stacked)',
   '다른 칸을 만집니다': 'Focus another pane',
-  '이 칸만 크게 · 되돌리기': 'Zoom this pane · restore',
+  '이 칸만 크게 · 원래 크기로': 'Zoom this pane · restore size',
   '이 칸을 닫습니다': 'Close this pane',
   '칸 자리를 바꿉니다': 'Swap pane positions',
   '이 칸을 새 화면으로 뗍니다': 'Break this pane out to a new screen',
@@ -100,7 +100,7 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   '새 이름을 쓰세요: rename-window 이름': 'Give a new name: rename-window NAME',
   '모르는 배치: {name} — {list}': 'Unknown layout: {name} — {list}',
   '다음 단계에서 됩니다': 'Available in the next step',
-  'resize-pane 은 -Z(크게/되돌리기)만 됩니다': 'resize-pane only supports -Z (zoom / unzoom)',
+  'resize-pane 은 -Z(크게/원래 크기로)만 됩니다': 'resize-pane only supports -Z (zoom / restore size)',
   'join-pane -s N (가져올 화면 번호)': 'join-pane -s N (the screen number to take a pane from)',
   '모르는 템플릿: {name}': 'Unknown template: {name}',
   '지금은 템플릿으로 새 화면을 만들 수 없습니다': 'Cannot create a screen from a template right now',

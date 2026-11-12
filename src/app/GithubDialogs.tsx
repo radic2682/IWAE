@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { ArrowClockwise, FileText, GitBranch, GitCommit, GithubLogo, Tag, X } from '@phosphor-icons/react'
 import { previewGithubUrl, type GithubRef, type GithubSource } from '../bridge/github'
 import { errorText } from '../core/errorText'
+import { isMarkdownPath } from '../core/markdownPath'
 import '../ui/github-dialogs.css'
 import { pick, t } from '../i18n'
 
@@ -206,7 +207,7 @@ export function GithubChangesDialog({ source, changed, applied, onOpen, onPull, 
           <ul className="gh-changes">
             {documents.map((path) => (
               <li key={path}>
-                <button type="button" className="gh-change" disabled={!applied || !/\.(?:md|markdown)$/iu.test(path)} onClick={() => { onOpen(path); onClose() }}>
+                <button type="button" className="gh-change" disabled={!applied || !isMarkdownPath(path)} onClick={() => { onOpen(path); onClose() }}>
                   <FileText size={14} aria-hidden="true" />
                   <span>{path.split('/').slice(2).join('/')}</span>
                 </button>

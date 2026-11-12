@@ -1,4 +1,5 @@
 import { getAppPrefs } from './appPrefs'
+import { isMarkdownPath } from '../core/markdownPath'
 import { emptyVaultSearchTextCache } from '../core/vaultSearchCache'
 import type { FolderColor } from '../core/folderColors'
 import { seedSampleVaultInto } from './sampleVaultDesktop'
@@ -243,10 +244,6 @@ function dormantCanvasIds(session: SessionState): ReadonlySet<string> {
   return CANVAS_ENABLED ? new Set() : new Set(session.noteTabIds.filter((id) => !isMarkdownPath(id)))
 }
 
-function isMarkdownPath(path: string): boolean {
-  return /\.(?:md|markdown)$/iu.test(path)
-}
-
 function displayEntries(
   entries: readonly VaultLibraryEntry[],
   indexEntries: readonly VaultIndexEntry[],
@@ -325,7 +322,7 @@ interface RestoredSession {
  * 세션 하나의 탭(문서 · 노트)을 다시 열고 화면들로 되살린다. Vault 를 열 때와 세션을 바꿀 때 같이 쓴다.
  * 사라진 파일의 탭은 missing 에 적고 건너뛴다.
  */
-async function restoreSessionState(ctx: RestoreContext, session: SessionState): Promise<RestoredSession> {
+async function restoreSessionState(ctx: RestoreContext, session: SessionState, sessionName: string): Promise<RestoredSession> {
   const { handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf } = ctx
   const missing: string[] = []
   const notes = new Map<string, NotebookNote>()
@@ -417,7 +414,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState): 
     : null
   // 앱 창(메인 창 · 세션에 붙은 새 창)은 저장된 칸 배치(예전 세션이면 배치 id·칸 이름을 트리로 옮겨서), 떼어 낸 창은 한 칸에서 시작한다
   // 번역기 탭을 담은 떠 있는 칸이 저장돼 있던 세션이면 그 자리 · 크기로 번역기 창을 연다(칸 · 탭은 읽을 때 이미 버렸다)
-  if (session.legacyTranslator !== undefined && isAppClient(windowMode)) adoptLegacyTranslatorFloat(session.legacyTranslator)
+  if (session.legacyTranslator !== undefined && isAppClient(windowMode)) adoptLegacyTranslatorFloat(session.legacyTranslator, `${handle.root}|${sessionName}`)
   const snapshot = isAppClient(windowMode) && SPLIT_PANES_ENABLED
     ? screensFromSession(session, readLegacyLayoutId(typeof window === 'undefined' ? null : window.localStorage), t('읽기'))
     : singleScreenSnapshot(t('읽기'))
@@ -654,7 +651,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const startName = wantedSession !== null && loadedSessions.names.includes(wantedSession) ? wantedSession : loadedSessions.name
       const startRaw = startName === loadedSessions.name ? loadedSessions.raw : await readSessionNamed(handle, startName)
       const session = sessionForWindow(windowMode, parseSession(startRaw))
-      const restoredSession = await restoreSessionState({ handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf }, session)
+      const restoredSession = await restoreSessionState({ handle, windowMode, libraryEntries, reconciledIndex, nextTreeEntries, groups, markdownAsPdf }, session, startName)
       const { missing, documents, restoredMarkdownSources } = restoredSession
       dormantTabsRef.current = restoredSession.dormant
       const searchablePdfEntries = reconciledIndex.entries.filter((entry) => (
@@ -982,7 +979,7 @@ export function useVault(options: UseVaultOptions = {}) {
       remote = screensFromKnownTabs(session, known)
     } else {
       // 이 창에 아직 없는 문서가 있다: 세션을 되살리듯 열어 온다
-      const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session)
+      const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session, sessionNameRef.current)
       setOpenedDocs((current) => [...current, ...restored.documents.filter((document) => !current.some((candidate) => candidate.docId === document.docId))])
       setMarkdownSources((current) => ({ ...restored.restoredMarkdownSources, ...current }))
       remote = restored.screens
@@ -1066,7 +1063,7 @@ export function useVault(options: UseVaultOptions = {}) {
       setSessionReady(false)
       try {
         const session = parseSession(raw)
-        const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session)
+        const restored = await restoreSessionState({ ...restoreCtxRef.current, handle, markdownAsPdf }, session, name)
         const order = leaves(activeScreenOf(restored.screens).layout)
         paneRouteRef.current = { doc: order[0]!, note: order[1] ?? order[0]! }
         setOpenedDocs(restored.documents)
@@ -1616,7 +1613,7 @@ export function useVault(options: UseVaultOptions = {}) {
     for (const path of paths) {
       const fileName = path.split(/[\\/]/u).at(-1) ?? path
       try {
-        if (/\.(?:md|markdown)$/iu.test(path)) {
+        if (isMarkdownPath(path)) {
           const relativePath = [folderPath, fileName].filter(Boolean).join('/')
           const directory = folderPath === '' ? vault.root : await join(vault.root, ...folderPath.split('/'))
           const target = await join(directory, fileName)

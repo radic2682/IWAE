@@ -1,4 +1,5 @@
 import { MEMO_NOTES_FOLDER_KO, MEMO_NOTE_EXTENSION, memoNotesFolder, pickMemoNotesFolder } from './memoNote'
+import { isMarkdownPath } from './markdownPath'
 import type { VaultIndexEntry, VaultStorageKind } from './vaultIndex'
 
 export interface LibraryDoc {
@@ -275,7 +276,7 @@ export function buildVaultWorkspaceTree(
         name: (displayNames.get(path) ?? filename).replace(/\.canvas$/iu, ''),
         path,
       })
-    } else if (/\.(?:md|markdown)$/iu.test(lowerFilename)) {
+    } else if (isMarkdownPath(lowerFilename)) {
       const indexed = indexedMarkdownByPath.get(path.toLocaleLowerCase())
       ensureFolder(parts.slice(0, -1).join('/')).children.push({
         id: `markdown:${indexed?.id ?? path}`,

@@ -45,11 +45,18 @@ export function useHasTopBarSlot(): boolean {
 /**
  * children 을 상단바 도구줄 자리에 그린다(이 칸이 만지는 칸일 때만). 상단바 자리가 없으면 아무것도 그리지 않는다 —
  * 그때는 호출한 쪽이 `useHasTopBarSlot()` 로 알아 보고 칸 안에 직접 놓는다.
- * 포털이라 React 트리에서는 이 칸 안에 있다: 상태 · 문맥(PaneIdContext · 번역기 …)과 키보드 초점 순서는 그대로다.
+ * 포털이라 React 트리에서는 이 칸 안에 있다: 상태 · 문맥(PaneIdContext · 번역기 …)은 그대로 이어진다. 키보드 초점(Tab) 순서는 DOM 을 따르므로 상단바 자리의 순서다(칸 본문이 아니다).
+ * React 이벤트도 포털을 지나 칸 쪽으로 올라가므로, 칸의 누름 처리(`PaneCard` · `.pane-focus-scope`)는 `eventInsideCurrent` 로 DOM 안에서 일어난 것만 받는다.
+ * (여기서 stopPropagation 을 하지 않는다: 막으면 document 의 「바깥을 누르면 닫기」 같은 바깥 듣기도 못 받는다. 칸의 누름은 capture 단계라 어차피 경계 안쪽에서 먼저 막을 수 없다.)
  */
 export function TopBarToolbar({ children }: { readonly children: ReactNode }) {
   const slot = useContext(TopBarToolbarContext)
   const pane = useContext(PaneIdContext)
   if (slot === null || slot.element === null || !ownsTopBarToolbar(slot.activePane, pane)) return null
   return createPortal(children, slot.element)
+}
+
+/** 이벤트가 이 요소의 DOM 자손에서 일어났는가. 상단바 도구줄은 React 트리로는 칸 안이지만 DOM 으로는 밖이라, 칸의 누름 처리가 이것으로 거른다 */
+export function eventInsideCurrent(event: { readonly currentTarget: EventTarget; readonly target: EventTarget }): boolean {
+  return event.currentTarget instanceof Node && event.target instanceof Node && event.currentTarget.contains(event.target)
 }

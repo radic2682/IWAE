@@ -2,15 +2,8 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { PaneChannel } from './workspaceChannels'
 import { usePaneReaction } from './paneReaction'
 import { TAB_DRAG_THRESHOLD_PX } from './tabDrag'
+import { eventInsideCurrent } from './topBarToolbar'
 
-/**
- * 칸 하나의 면(둥근 카드). 머리(탭 줄)와 본문이 한 면을 이루고 안에 테두리 선이 없다.
- * - 만지는 칸(active)은 카드 테두리가 강조색 1.5px 로 굵어진다(`.pane-card-active`).
- * - 채널 색은 카드 맨 위 2px 가장자리로 보인다(`data-channel`; 채널이 없으면 `none` 이라 가장자리가 없다). 머리의 색 점은 바꾸는 단추로 그대로 있다.
- * - 탭이 하나도 없는 빈 칸(empty)은 카드가 아니라 자리(slot)다: 바탕 · 실선 · 채널 가장자리 없이 점선 윤곽 하나만(`data-empty` + SVG 윤곽,
- *   점선이 모서리에서도 고르게 이어지도록 CSS border-style 이 아니라 둥근 사각형 선으로 그린다). 만지는 칸이면 같은 윤곽이 강조색이다.
- * - 같은 색의 다른 창에서 신호가 올 창(마우스를 올린 동안)과 신호가 방금 움직인 창(0.6초)은 `data-reacting` 이 채널 색이 되어 안쪽 윤곽이 생긴다.
- */
 /** 지금 기다리는 탭 누름 하나의 정리(새 누름이 오면 먼저 것을 접는다) */
 let cancelPendingPress: (() => void) | null = null
 
@@ -21,6 +14,8 @@ let cancelPendingPress: (() => void) | null = null
  */
 function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onFocusPane: (paneId: string) => void): void {
   if (event.button !== 0) return
+  // 상단바 도구줄은 포털이라 React 로는 이 카드 안이다: 카드 DOM 밖(상단바)의 누름은 칸을 누른 것이 아니다
+  if (!eventInsideCurrent(event)) return
   cancelPendingPress?.()
   const target = event.target instanceof Element ? event.target : null
   // 탭 닫기 ×: 닫는 것 말고는 아무것도 하지 않는다(칸도 만지는 칸이 되지 않는다)
@@ -51,6 +46,14 @@ function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onF
   window.addEventListener('blur', cancel)
 }
 
+/**
+ * 칸 하나의 면(둥근 카드). 두 톤이다: 머리(탭 줄)는 `--paper`(`--pane-surface`), 본문은 `--workspace`(`--pane-body`)로 머리 아래 4px 를 띄우고 카드 가장자리까지 채운다. 안에 테두리 선 · 띠는 없다.
+ * - 카드 테두리 하나가 채널 색이다(`data-channel`, 층을 쌓지 않는다): 쉬는 칸은 채널 색 35%, 만지는 칸(`.pane-card-active`) · 반응하는 칸은 100%. 채널이 없으면(`none`) 쉴 때 `--divider`, 만질 때 `--accent`. 두께는 모두 1.5px.
+ *   머리의 색 점은 바꾸는 단추로 그대로 있다.
+ * - 탭이 하나도 없는 빈 칸(empty)은 카드가 아니라 자리(slot)다: 바탕 · 실선 · 채널 색 없이 점선 윤곽 하나만(`data-empty` + SVG 윤곽, 규칙은 workspace-surface.css 의 `.pane-slot-outline`;
+ *   점선이 모서리에서도 고르게 이어지도록 CSS border-style 이 아니라 둥근 사각형 선으로 그린다). 만지는 칸이면 같은 윤곽이 강조색이다.
+ * - 같은 색의 다른 창에서 신호가 올 창(마우스를 올린 동안)과 신호가 방금 움직인 창(0.6초)은 `data-reacting` 으로 테두리가 채널 색 100% 가 된다.
+ */
 export function PaneCard({ paneId, channel, active, empty = false, className = '', onFocusPane, children }: {
   readonly paneId: string
   readonly channel: PaneChannel

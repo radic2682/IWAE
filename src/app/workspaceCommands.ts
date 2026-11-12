@@ -66,8 +66,8 @@ export interface CommandHost {
   listKeys?: () => void
   /** `:` 명령줄을 연다(명령 팔레트가 `:` 와 미리 채울 글로 열린다) */
   promptCommand?: (prefill: string) => void
-  /** 번역기 창을 연다(display-popup 이름 없이 · 접두키 w). 이미 열려 있으면 그대로 */
-  openTranslator?: () => void
+  /** 번역기 창을 연다(display-popup 이름 없이 · 접두키 w). 이미 열려 있으면 그대로. 번역이 꺼져 있어 아무것도 열지 못하면 false */
+  openTranslator?: () => boolean
   /** 「화면을 닫을까요?」 확인(접두키 &) */
   confirmKillWindow?: () => void
   showSessionMenu?: () => void
@@ -108,7 +108,7 @@ interface CommandSpec {
 export const COMMAND_SPECS: readonly CommandSpec[] = [
   { name: 'split-window', aliases: ['splitw'], boolFlags: ['h', 'v'], summary: '칸을 나눕니다 (-h 가로 · -v 세로)', usage: 'split-window [-h|-v]' },
   { name: 'select-pane', aliases: ['selectp'], boolFlags: ['L', 'R', 'U', 'D', 'n', 'p'], valueFlags: ['t'], summary: '다른 칸을 만집니다', usage: 'select-pane -L|-R|-U|-D|-t N' },
-  { name: 'resize-pane', aliases: ['resizep'], boolFlags: ['Z'], summary: '이 칸만 크게 · 되돌리기', usage: 'resize-pane -Z' },
+  { name: 'resize-pane', aliases: ['resizep'], boolFlags: ['Z'], summary: '이 칸만 크게 · 원래 크기로', usage: 'resize-pane -Z' },
   { name: 'kill-pane', aliases: ['killp'], summary: '이 칸을 닫습니다', usage: 'kill-pane' },
   { name: 'swap-pane', aliases: ['swapp'], boolFlags: ['U', 'D'], summary: '칸 자리를 바꿉니다', usage: 'swap-pane -U|-D' },
   { name: 'break-pane', aliases: ['breakp'], summary: '이 칸을 새 화면으로 뗍니다', usage: 'break-pane' },
@@ -622,7 +622,7 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     case 'select-pane':
       return apply(selectPaneBy(raw, flags, host.paneRects?.() ?? null))
     case 'resize-pane':
-      if (flags.Z !== true) return fail(t('resize-pane 은 -Z(크게/되돌리기)만 됩니다'))
+      if (flags.Z !== true) return fail(t('resize-pane 은 -Z(크게/원래 크기로)만 됩니다'))
       return apply(zoomPane(model))
     case 'kill-pane':
       return apply(killPane(raw))
@@ -693,8 +693,7 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       const query = restText(command)
       if (query === '') {
         if (host.openTranslator === undefined) return fail(t('지금은 안 됩니다'))
-        host.openTranslator()
-        return ok()
+        return host.openTranslator() ? ok() : fail(t('번역이 꺼져 있습니다. 설정에서 켜 주세요'))
       }
       if (host.open === undefined) return fail(t('지금은 안 됩니다'))
       const created = addFloat(raw, anchor === undefined ? {} : { anchorPane: anchor })

@@ -49,7 +49,7 @@ interface SplitPanesProps {
   renderPane: (paneId: string, index: number) => React.ReactNode
   /** 칸 머리(색 점 · 번호 · 탭 줄 · ⋯ 메뉴). 칸이 하나여도 늘 칸 맨 위에 놓인다 */
   renderHead?: (paneId: string, index: number) => React.ReactNode
-  /** 칸의 색 채널(카드 맨 위 2px 가장자리의 색). 없으면 가장자리가 없다 */
+  /** 칸의 색 채널(카드 테두리의 색). 없으면 `--divider` · `--accent` 테두리 */
   paneChannel?: (paneId: string) => PaneChannel
   /** 칸 카드 어디든(머리의 빈 곳 포함) 눌렀다: 그 칸을 만지는 칸으로 삼는다 */
   onFocusPane?: (paneId: string) => void

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
+import { isMarkdownPath } from '../core/markdownPath'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { ShortcutOverlay } from './ShortcutOverlay'
@@ -48,7 +49,7 @@ import { PaneHead } from './PaneHead'
 import { EmptyPane, type EmptyPaneRecent } from './EmptyPane'
 import { PrefixChip } from './PrefixChip'
 import { prunePaneToolbarMemory } from './paneToolbarMemory'
-import { TopBarToolbarContext, toolbarOwnerOf } from './topBarToolbar'
+import { TopBarToolbarContext, eventInsideCurrent, toolbarOwnerOf } from './topBarToolbar'
 import { reactingPanes } from './paneReaction'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { TranslatorPanel } from './TranslatorPanel'
@@ -573,7 +574,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         const imported = await importPdfsAt(paths.filter((path) => /\.(?:pdf|md|markdown)$/iu.test(path)), folderPath, after) ?? []
         const added = pdfs.length === 1 ? imported[0] : undefined
         if (added !== undefined && added !== base) setStackRequest({ baseDocId: base, addedDocId: added, addedFileName: pdfs[0]!.split(/[\\/]/u).at(-1) })
-        if (others.length > 0) await importDroppedDocuments(others.filter((path) => !/\.(?:md|markdown)$/iu.test(path)))
+        if (others.length > 0) await importDroppedDocuments(others.filter((path) => !isMarkdownPath(path)))
       })()
       return
     }
@@ -964,12 +965,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     [],
   )
   const translation = useTranslation({ provider: translationProvider })
-  // 키 · 명령(접두키 w · display-popup · 팔레트)으로 번역기 창 열기: 번역을 꺼 두었으면 열지 않고 알린다. 열리면 입력칸에 포커스
+  // 키 · 명령(접두키 w · display-popup · 팔레트)으로 번역기 창 열기: 번역을 꺼 두었으면 열지 않고 false(알리는 것은 부른 쪽). 열리면 입력칸에 포커스
   const translationEnabledRef = useRef(translation.settings.enabled)
   translationEnabledRef.current = translation.settings.enabled
-  const openTranslator = useCallback(() => {
-    if (!translationEnabledRef.current) { announceAction(t('번역이 꺼져 있습니다. 설정에서 켜 주세요')); return }
+  const openTranslator = useCallback((): boolean => {
+    if (!translationEnabledRef.current) return false
     openTranslatorWindow()
+    return true
   }, [])
   // 번역 캐시(번역 기록): 같은 글·언어·번역기면 다시 묻지 않는다. 노트 카드·글 고르기·설정이 함께 쓴다
   const translateText = translation.translate
@@ -1228,7 +1230,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           : []),
       { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: shortcutText('openSettings'), keywords: 'settings preferences', run: act('openSettings') },
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
-      { id: 'translator', kind: 'action', label: translatorWindow.open && translation.settings.enabled ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open && translationEnabledRef.current) toggleTranslatorWindow(); else openTranslator() } },
+      { id: 'translator', kind: 'action', label: translatorWindow.open && translation.settings.enabled ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open && translationEnabledRef.current) toggleTranslatorWindow(); else if (!openTranslator()) announceAction(t('번역이 꺼져 있습니다. 설정에서 켜 주세요')) } },
       { id: 'keys-help', kind: 'action', label: t('키와 명령 보기'), shortcut: `${prefixHint} ?`, keywords: 'keys help shortcuts commands list-keys 키 명령 도움말', run: () => setKeysHelpOpen(true) },
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
@@ -1244,7 +1246,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         ...(vault === null ? [] : availableScreenTemplates(CANVAS_ENABLED).filter((template) => template.id !== 'blank').map((template) => ({ id: `reapply-${template.id}`, kind: 'action' as const, label: t('이 화면을 템플릿으로 다시 짜기: {name}', { name: template.label }), keywords: 'layout template rearrange apply reapply arrangement 배치 템플릿 다시 짜기', run: () => { void applyPreset(template.id as LayoutPresetId) } }))),
         { id: 'split-right', kind: 'action' as const, label: t('칸 나누기: 오른쪽으로'), keywords: 'split pane right split-window 칸 나누기', run: () => splitPaneFromHead(activePaneId, 'h') },
         { id: 'split-down', kind: 'action' as const, label: t('칸 나누기: 아래로'), keywords: 'split pane down split-window 칸 나누기', run: () => splitPaneFromHead(activePaneId, 'v') },
-        { id: 'zoom-pane', kind: 'action' as const, label: zoomedPane === null ? t('이 칸만 크게') : t('크기 되돌리기'), keywords: 'zoom pane resize-pane 크게', run: () => toggleFocus(activePaneId) },
+        { id: 'zoom-pane', kind: 'action' as const, label: zoomedPane === null ? t('이 칸만 크게') : t('원래 크기로'), keywords: 'zoom pane resize-pane 크게', run: () => toggleFocus(activePaneId) },
         { id: 'next-screen', kind: 'action' as const, label: t('다음 화면'), keywords: 'next screen window next-window', run: () => screenOps.step(1) },
         { id: 'prev-screen', kind: 'action' as const, label: t('이전 화면'), keywords: 'previous screen window previous-window', run: () => screenOps.step(-1) },
         { id: 'last-screen', kind: 'action' as const, label: t('마지막 화면으로'), keywords: 'last screen window last-window', run: () => screenOps.last() },
@@ -1342,8 +1344,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const pdfBookmarks = usePdfBookmarks(pdfBookmarkStorage)
   // 마지막으로 만진 패널. 사이드바 목차·축소판·주석과 Ctrl+F 가 이 패널의 문서를 따른다.
   const [activePaneId, setActivePaneId] = useState<PaneId>(() => leaves(layoutRoot)[0]!)
-  /** 방금 나눠서 생긴 패널(자라듯 나타나는 동안만) */
-  const [freshPane, setFreshPane] = useState<PaneId | null>(null)
   // 패널마다 지금 보이는 PDF 와 쪽. DocumentView 가 알려 준다.
   const [docViews, setDocViews] = useState<Partial<Record<PaneId, DocumentViewState>>>({})
   const docControllersRef = useRef<Partial<Record<PaneId, DocumentViewController>>>({})
@@ -1576,15 +1576,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // ---------- 옆에 노트 열기 ----------
   // 노트 바는 없다: 노트는 창의 탭이고, 「읽기」 배치(문서 | 노트)는 문서 창 옆에 노트 창을 여는 것이다.
   const noteTabOf = (path: string): Tab => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' })
-  /** 새 창이 자라듯 나타나고, 끝나면 연결선이 새 자리를 다시 잰다 */
-  const announceFreshPane = (pane: PaneId) => {
-    setFreshPane(pane)
-    window.setTimeout(() => setFreshPane(null), 320)
-    notifyPaneResizeSoon()
-  }
   /**
    * 창·색·배치를 바꾼다. 같은 틱의 다음 호출이 새 배치를 보도록 최신 값(workspaceLatest)도 바로 고친다.
-   * fresh: 새로 생긴 창(자라듯 나타나게 한다)
+   * fresh: 새로 생긴 창(연결선이 새 자리를 다시 잰다)
    */
   const applyWorkspace = (next: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode }, fresh?: PaneId) => {
     const latest = workspaceLatest.current
@@ -1592,7 +1586,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (next.panes !== latest.panes || next.channels !== latest.channels || next.layout !== latest.layout) {
       setWorkspace({ panes: next.panes, channels: next.channels, layout: next.layout })
     }
-    if (fresh !== undefined) announceFreshPane(fresh)
+    if (fresh !== undefined) notifyPaneResizeSoon()
   }
   /** 노트를 붙일 문서 창: 지금 보는 문서 창, 없으면 문서를 보는 첫 창. 문서가 없으면 null */
   const anchorDocPane = (): PaneId | null => {
@@ -1703,7 +1697,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const hasNote = allPaneTabs(pool).some((tab) => tab.kind === 'memoNote')
     let fallbackCanvas: Tab | null = null
     if (id === 'organize' && CANVAS_ENABLED && !allPaneTabs(pool).some((tab) => tab.kind === 'canvas')) {
-      const known = shownNotebooks.flatMap((group) => group.notes).filter((note) => !/.(?:md|markdown)$/iu.test(note.path))
+      const known = shownNotebooks.flatMap((group) => group.notes).filter((note) => !isMarkdownPath(note.path))
       const note = known.find((entry) => entry.path === lastCanvasRef.current) ?? known[0] ?? await createCanvasForPreset()
       if (note !== undefined) fallbackCanvas = { id: note.path, title: note.title, kind: 'canvas' }
     }
@@ -1727,7 +1721,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setActivePaneId(result.focus)
     const focusTab = activeTab(tabsOf(result.panes, result.focus))
     if (focusTab !== null) setPaneRoute(paneRouteOf(focusTab.kind), result.focus)
-    announceFreshPane(result.fresh)
+    notifyPaneResizeSoon()
   }
   /** 「새 화면 ▸ 템플릿」: 보던 문서와 마지막으로 만진 노트로 그 모양의 새 화면을 만들어 그리로 간다(바로, 움직임 없이) */
   const newScreenFromTemplate = async (id: ScreenTemplateId, nameOverride?: string) => {
@@ -1798,7 +1792,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     canvas: async (pane: PaneId) => {
       setPaneRoute('note', pane)
       setActivePaneId(pane)
-      const known = shownNotebooks.flatMap((group) => group.notes).filter((note) => !/.(?:md|markdown)$/iu.test(note.path))
+      const known = shownNotebooks.flatMap((group) => group.notes).filter((note) => !isMarkdownPath(note.path))
       const note = known.find((entry) => entry.path === lastCanvasRef.current) ?? known[0] ?? await createCanvasForPreset()
       if (note === undefined) { announceAction(t('열 수 있는 노트가 없습니다')); return }
       openInPane({ id: note.path, title: note.title, kind: 'canvas' }, pane)
@@ -1853,7 +1847,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         hint: entry.path,
         run: () => { focus('note'); openInPane(noteTabOf(entry.path), pane); memoNotesRef.current.open(entry.path) },
       })),
-      ...(CANVAS_ENABLED ? shownNotebooks.flatMap((group) => group.notes).filter((note) => !/.(?:md|markdown)$/iu.test(note.path)).map((note): Candidate => ({
+      ...(CANVAS_ENABLED ? shownNotebooks.flatMap((group) => group.notes).filter((note) => !isMarkdownPath(note.path)).map((note): Candidate => ({
         label: note.title,
         hint: note.path,
         run: () => { focus('note'); openInPane({ id: note.path, title: note.title, kind: 'canvas' }, pane) },
@@ -3280,7 +3274,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const root = vault.root.replaceAll('\\', '/').replace(/\/+$/u, '')
       if (absolute.toLocaleLowerCase().startsWith(`${root.toLocaleLowerCase()}/`)) {
         const relative = absolute.slice(root.length + 1)
-        if (/\.(?:md|markdown)$/iu.test(relative)) {
+        if (isMarkdownPath(relative)) {
           openMarkdownPath(relative)
           return
         }
@@ -3749,7 +3743,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 「PDF 도구」 탭이 다루는 문서: 도구를 연 문서(문서 우클릭 메뉴 등), 없으면 지금 보는 PDF
   const pdfToolsDoc = (pdfToolsTarget === null ? null : openedDocs.find((doc) => doc.docId === pdfToolsTarget.docId)) ?? activePdfDoc
   const renderPane = (pane: PaneId) => (
-    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && (paneCount > 1 || floatIds.includes(pane)) ? '' : undefined} onPointerDownCapture={(event) => { if (event.button === 0) focusPane(pane) }}>
+    <div className="pane-focus-scope" data-pane-id={pane} data-pane-active={activePaneId === pane && (paneCount > 1 || floatIds.includes(pane)) ? '' : undefined} onPointerDownCapture={(event) => { if (event.button === 0 && eventInsideCurrent(event)) focusPane(pane) }}>
       <PaneIdContext.Provider value={pane}>
         {renderPaneBody(pane)}
       </PaneIdContext.Provider>

@@ -237,6 +237,12 @@ function parseFloats(raw: unknown, treeIds: ReadonlySet<string>): FloatingPane[]
   return out
 }
 
+/** 칸 상태에서 예전 번역기 탭만 걷어 낸다: 남은 탭 목록으로 보던 탭(activeId)도 맞춘다(없어진 탭이었으면 null) */
+function withoutLegacyTranslatorTabs(saved: PaneSnapshot): PaneSnapshot {
+  const tabIds = saved.tabIds.filter((id) => !isLegacyTranslatorTabId(id))
+  return { ...saved, tabIds, activeId: saved.activeId !== null && tabIds.includes(saved.activeId) ? saved.activeId : null }
+}
+
 /**
  * 번역기는 한때 떠 있는 칸의 탭이었다(탭 id `translator:칸 id`). 지금은 창 하나라서 그 탭은 버리고,
  * 번역기 탭만 담았던 떠 있는 칸은 칸 · 상태째 없앤다. 처음 만난 번역기 칸의 자리 · 크기는 found 에 남겨 창으로 옮기게 한다(순수: 입력은 바꾸지 않는다).
@@ -258,8 +264,7 @@ export function withoutTranslatorFloats(
     }
     kept.push(float)
     if (saved !== undefined && ids.some(isLegacyTranslatorTabId)) {
-      const tabIds = ids.filter((id) => !isLegacyTranslatorTabId(id))
-      next[float.paneId] = { ...saved, tabIds, activeId: saved.activeId !== null && tabIds.includes(saved.activeId) ? saved.activeId : null }
+      next[float.paneId] = withoutLegacyTranslatorTabs(saved)
     }
   }
   return { floats: kept, state: next }
@@ -285,15 +290,15 @@ export function withoutTranslatorTreeTabs(
     const ids = saved?.tabIds ?? []
     if (saved === undefined || !ids.some(isLegacyTranslatorTabId)) continue
     found.translator ??= LEGACY_TREE_TRANSLATOR
-    const tabIds = ids.filter((id) => !isLegacyTranslatorTabId(id))
-    const smaller = tabIds.length === 0 ? removeLeaf(tree, pane) : null
+    const trimmed = withoutLegacyTranslatorTabs(saved)
+    const smaller = trimmed.tabIds.length === 0 ? removeLeaf(tree, pane) : null
     if (smaller !== null) {
       tree = smaller
       delete next[pane]
       removed.push(pane)
       continue
     }
-    next[pane] = { ...saved, tabIds, activeId: saved.activeId !== null && tabIds.includes(saved.activeId) ? saved.activeId : null }
+    next[pane] = trimmed
   }
   return { layout: tree, state: next, removed }
 }

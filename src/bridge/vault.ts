@@ -1,4 +1,5 @@
 import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, type PdfOverlaysFile } from '../core/pdfOverlays'
+import { isMarkdownPath } from '../core/markdownPath'
 import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from '../core/versionGroups'
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'
 import { EMPTY_BIBLIOGRAPHY, parseBibliographyFile, type BibliographyFile } from '../core/bibliography'
@@ -611,7 +612,7 @@ export async function attachMarkdownReference(
   vault: VaultHandle,
   sourcePath: string,
 ): Promise<VaultIndexEntry> {
-  if (!/\.(?:md|markdown)$/iu.test(sourcePath) || /[\\/]$/u.test(sourcePath)) {
+  if (!isMarkdownPath(sourcePath) || /[\\/]$/u.test(sourcePath)) {
     throw new Error(t('Markdown 파일 경로가 올바르지 않습니다.'))
   }
 
@@ -1044,7 +1045,7 @@ export async function writeBlockPresets(vault: VaultHandle, presets: readonly Us
 /** 파일·폴더가 없어서 난 오류인가(옮기거나 이름을 바꾼 직후 등) */
 export function isMissingPathError(err: unknown): boolean {
   const text = errorText(err)
-  return /os error (2|3)|not found|No such file|cannot find|찾을 수 없습니다/iu.test(text)
+  return /os error (?:2|3)\b|not found|No such file|cannot find|찾을 수 없습니다/iu.test(text)
 }
 
 export async function listVaultTree(vault: VaultHandle): Promise<VaultTreeEntry[]> {
@@ -1187,7 +1188,7 @@ function validateMarkdownPath(markdownPath: string): readonly string[] {
 
 export async function readMarkdown(vault: VaultHandle, markdownPath: string): Promise<string> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
-  if (!/\.(?:md|markdown)$/iu.test(markdownPath)) {
+  if (!isMarkdownPath(markdownPath)) {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/iu.test(markdownPath)) {
       throw new Error(t('Markdown 파일 경로가 올바르지 않습니다.'))
     }

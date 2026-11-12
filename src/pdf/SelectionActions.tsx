@@ -70,7 +70,7 @@ export function SelectionActions({
   const canTranslate = hasText && onTranslate !== undefined
   const isTranslating = translationState.status === 'pending'
 
-  // 떠 있는 번역기의 「선택한 글 넣기」가 읽을 수 있게 고른 글을 알린다
+  // 번역기의 「선택한 글 넣기」가 읽을 수 있게 고른 글을 알린다
   const readerSelectionId = useId()
   const quote = selection.anchor.quote
   useEffect(() => {

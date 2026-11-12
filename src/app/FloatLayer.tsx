@@ -26,7 +26,7 @@ export interface FloatLayerProps {
   readonly epoch: number
   readonly renderHead: (paneId: string) => ReactNode
   readonly renderBody: (paneId: string) => ReactNode
-  /** 칸의 색 채널(카드 맨 위 2px 가장자리) */
+  /** 칸의 색 채널(카드 테두리의 색) */
   readonly paneChannel?: (paneId: string) => PaneChannel
   /** 지금 만지는 칸인가(강조색 테두리) */
   readonly isActive?: (paneId: string) => boolean

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * 문서(PDF·Markdown)에서 지금 고른 글. 떠 있는 번역기의 「선택한 글 넣기」가 읽는다.
+ * 문서(PDF·Markdown)에서 지금 고른 글. 번역기의 「선택한 글 넣기」가 읽는다.
  * 고른 글의 작업 줄(SelectionActions·MarkdownPane)이 알려 주고, 선택이 풀리면 비운다.
  */
 let current = ''

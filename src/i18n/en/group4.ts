@@ -10,8 +10,8 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '메모리 {used} / {total} ({percent}%)': 'Memory {used} / {total} ({percent}%)',
   'IWAE(화면 그리기 포함) CPU {cpu} · 메모리 {memory}\n시스템 전체 CPU {systemCpu} · {systemMemory}': 'IWAE (incl. rendering) CPU {cpu} · Memory {memory}\nSystem CPU {systemCpu} · {systemMemory}',
   'CPU·메모리 표시': 'CPU and memory meter',
-  'PDF 하단 막대 오른쪽 끝에 IWAE 가 지금 쓰는 CPU·메모리를 보입니다. 마우스를 올리면 시스템 전체도 보입니다.': 'Shows the CPU and memory IWAE is using at the right end of the PDF status bar. Hover to see system-wide usage.',
-  '하단 막대에 CPU·메모리 보이기': 'Show CPU and memory in the status bar',
+  'PDF 하단 막대 오른쪽 끝에 IWAE 가 지금 쓰는 CPU·메모리를 보입니다. 마우스를 올리면 시스템 전체도 보입니다.': 'Shows the CPU and memory IWAE is using at the right end of the PDF bottom bar. Hover to see system-wide usage.',
+  '하단 막대에 CPU·메모리 보이기': 'Show CPU and memory in the PDF bottom bar',
   '2초마다 다시 잽니다 · 데스크톱 앱에서만': 'Updates every 2 seconds · desktop app only',
 
   // app/UiScaleSettings.tsx

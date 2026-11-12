@@ -65,7 +65,7 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
       {/* 칸별 상태 표시 자리(비어 있다). 단계 4 이후에 채운다 */}
       <span className="pane-head-status" data-slot="status" aria-hidden="true" />
       {zoomed ? (
-        <button type="button" className="pane-head-zoom" aria-label={t('크기 되돌리기')} title={t('크게 보는 중 · 눌러서 되돌리기')} onClick={onToggleZoom}>Z</button>
+        <button type="button" className="pane-head-zoom" aria-label={t('원래 크기로')} title={t('크게 보는 중 · 눌러서 원래 크기로')} onClick={onToggleZoom}>Z</button>
       ) : null}
       <button
         ref={buttonRef}

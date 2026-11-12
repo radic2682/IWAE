@@ -61,7 +61,7 @@ export function fitEmptyPane(natural: number, avail: number, recents: number, pi
 
 /**
  * 빈 칸(설계 3): 가운데 한 줄 기둥 — 흐린 아이콘 · 「빈 칸」 · 한 줄 안내 · 조용한 명령 목록(PDF · Markdown · 노트 · 이 칸 닫기: 왼쪽 아이콘 · 이름 · 오른쪽 키 힌트) · 「최근」.
- * 번역기 줄은 없다(번역기는 창 전체에 떠 있는 창이다). 캔버스 줄은 CANVAS_ENABLED 를 켜면 onCanvas 로 되살아난다(지금은 꺼 두어 App 이 주지 않는다). 칸 테두리는 실선이 아니라 점선이다(empty-pane.css · screens.css).
+ * 번역기 줄은 없다(번역기는 창 전체에 떠 있는 창이다). 캔버스 줄은 CANVAS_ENABLED 를 켜면 onCanvas 로 되살아난다(지금은 꺼 두어 App 이 주지 않는다). 칸 테두리는 실선이 아니라 점선이다(workspace-surface.css 의 `.pane-slot-outline`).
  * 줄은 모두 단추라서 Tab 으로 들어와 ↑ ↓ (Home · End)로 오가고 Enter 로 연다. 키 힌트는 지금 접두키를 따른다.
  * 움직임 없음, 색은 토큰만. 좁은 칸(260px)에서도 읽히고, 칸이 낮으면 「최근」 은 접는다(empty-pane.css).
  */

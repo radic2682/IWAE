@@ -1,5 +1,6 @@
 import { createPinPressTracker } from '../pdf/pinGesture'
 import { defaultHighlightColorId } from '../core/highlightColors'
+import { isMarkdownPath } from '../core/markdownPath'
 import { getHighlightColors } from './highlightColorStyle'
 import { t } from '../i18n'
 import { startInternalDrag } from '../core/internalDrag'
@@ -925,7 +926,7 @@ export function MarkdownPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- routeDraft 는 렌더마다 새로 만들어지지만 workspace·paneId 만 읽는다
   }, [onBoxHighlightCreated, paneId, path, sourceFileId, sourceHash, title, workspace, zoom])
 
-  // 떠 있는 번역기의 「선택한 글 넣기」가 읽을 수 있게 고른 글을 알린다
+  // 번역기의 「선택한 글 넣기」가 읽을 수 있게 고른 글을 알린다
   const readerSelectionId = useId()
   const selectedQuote = action?.payload.selection.quote ?? ''
   useEffect(() => {
@@ -1260,7 +1261,7 @@ export function MarkdownPane({
             const heading = articleRef.current.querySelector(`[id="${CSS.escape(resolved.id)}"]`)
             heading?.scrollIntoView({ block: 'start', behavior: 'smooth' })
           } else if (resolved?.kind === 'document') {
-            if (/\.(?:md|markdown)$/iu.test(resolved.path)) onOpenDocument?.(resolved.path, resolved.anchor)
+            if (isMarkdownPath(resolved.path)) onOpenDocument?.(resolved.path, resolved.anchor)
           }
           return
         }

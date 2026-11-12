@@ -3,6 +3,7 @@ import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus } fr
 import { t } from '../i18n'
 import { menuGuardActive } from '../app/menuGuard'
 import { memoHighlightIds, memoNoteTitleOf, updateSection, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
+import { isMarkdownPath } from '../core/markdownPath'
 import { announceAction } from '../app/actionFeedback'
 import { setAttachRequest, useAttachRequest, useMemoHoverReporter, useMemoPointSender, usePaneChannel, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
 import { useEvent } from '../ui/useEvent'
@@ -273,7 +274,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
     return items.map((item) => {
       if (item.kind !== 'memo' || item.draft === true || linkedDocIds.includes(item.highlight.anchor.docId)) return item
       const label = (item.sourceLabel ?? item.docLabel ?? '').split(' · ')[0] ?? ''
-      const markdown = /.(md|markdown|mdx)$/iu.test(item.highlight.anchor.docId)
+      const markdown = isMarkdownPath(item.highlight.anchor.docId)
       return { ...item, farSource: { label: label === '' ? t('원문') : label, ...(markdown ? {} : { page: item.highlight.anchor.page + 1 }) } }
     })
   }, [items, linkedDocIds, pane, channel])

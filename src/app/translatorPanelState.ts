@@ -228,8 +228,23 @@ export function translatorWindowFromFloat(float: LegacyTranslatorFloat, viewport
   }
 }
 
-/** 세션에서 읽은 번역기 떠 있는 칸을 창 상태로 옮긴다(상단바 높이를 비켜서 앉힌다) */
-export function adoptLegacyTranslatorFloat(float: LegacyTranslatorFloat): void {
-  if (typeof window === 'undefined') return
-  updateTranslatorWindow(translatorWindowFromFloat(float, { width: window.innerWidth, height: window.innerHeight, top: TOPBAR_HEIGHT_PX }))
+/** 이미 옮긴 세션들(보관함 · 세션 이름). 앱을 켜 둔 동안만 기억한다 — 세션을 다시 오가도 번역기를 또 열지 않는다 */
+const adoptedLegacySessions = new Set<string>()
+
+/**
+ * 세션에서 읽은 번역기 떠 있는 칸을 창 상태로 옮긴다(상단바 높이를 비켜서 앉힌다). 열거나 자리만 잡을 뿐 닫지는 않는다
+ * (접어 두었거나 숨겨 둔 칸이었으면 자리 · 크기만 옮긴다 — 이미 열려 있는 번역기를 세션 전환이 닫으면 안 된다).
+ * 세션마다(sessionKey) 한 번만 한다. 옮겼으면 true.
+ */
+export function adoptLegacyTranslatorFloat(float: LegacyTranslatorFloat, sessionKey: string): boolean {
+  if (typeof window === 'undefined' || adoptedLegacySessions.has(sessionKey)) return false
+  adoptedLegacySessions.add(sessionKey)
+  const { open, ...place } = translatorWindowFromFloat(float, { width: window.innerWidth, height: window.innerHeight, top: TOPBAR_HEIGHT_PX })
+  updateTranslatorWindow(open ? { open, ...place } : place)
+  return true
+}
+
+/** 시험용: 옮긴 세션 기억을 비운다 */
+export function resetAdoptedLegacySessions(): void {
+  adoptedLegacySessions.clear()
 }
