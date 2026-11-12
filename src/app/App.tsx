@@ -1440,8 +1440,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (!usable(paneRouteRef.current.doc)) setPaneRoute('doc', paneOrder[0]!)
     if (!usable(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
   }, [orphanKey, floatKey, paneOrder, activePaneId, setPanes, setPaneRoute, paneRouteRef])
-  // 닫힌 칸의 도구줄 기억(넘침 단계 · 검색 단추)은 버린다
-  const livePaneKey = [...paneOrder, ...floatIds].join(' ')
+  // 닫힌 칸의 도구줄 기억(넘침 단계 · 검색 단추)은 버린다. 다른 화면의 칸은 살아 있다: 화면을 옮겨도 그 칸들의 기억은 남아야 한다(칸 id 는 화면끼리 겹치지 않는다)
+  const livePaneKey = [...new Set([...allScreenPaneIds(screensState), ...paneOrder, ...floatIds])].join(' ')
   useEffect(() => { prunePaneToolbarMemory(livePaneKey === '' ? [] : livePaneKey.split(' ')) }, [livePaneKey])
   const focusPane = useCallback((pane: PaneId) => {
     const tab = activeTab(tabsOf(panes, pane))

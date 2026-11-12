@@ -14,6 +14,7 @@ import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { getAppPrefs, setAppPref } from './appPrefs'
 import { getTranslatorWindow, reloadTranslatorWindow, updateTranslatorWindow } from './translatorPanelState'
 import { announceAction } from './actionFeedback'
+import { freshPaneToolbarMemory, paneToolbarMemoryKeys, readPaneToolbarMemory, resetPaneToolbarMemory, writePaneToolbarMemory } from './paneToolbarMemory'
 import * as windowBridge from '../bridge/window'
 import { setWindowModeForTest } from '../core/windowMode'
 
@@ -1454,6 +1455,28 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     expect(commandInput().value).toBe(':next')
     fireEvent.keyDown(commandInput(), { key: 'Escape' })
     expect(screen.queryByRole('combobox', { name: '명령 찾기' })).toBeNull()
+  })
+
+  it('화면을 옮겨도 다른 화면 칸의 도구줄 기억은 남고, 칸이 닫히면 그 기억만 버려진다', async () => {
+    resetPaneToolbarMemory()
+    const { container } = render(<App developmentPreview />)
+    const firstPane = container.querySelector('.pane-focus-scope')!.getAttribute('data-pane-id')!
+    writePaneToolbarMemory(firstPane, 'pdf', { ...freshPaneToolbarMemory(), overflowLevel: 2 })
+    after({ key: 'c', code: 'KeyC' })
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기', '1화면 1']))
+    // 둘째 화면에서 첫 화면 칸의 기억은 그대로다
+    expect(paneToolbarMemoryKeys()).toContain(`${firstPane}:pdf`)
+    expect(readPaneToolbarMemory(firstPane, 'pdf').overflowLevel).toBe(2)
+    after({ key: '0', code: 'Digit0' })
+    await waitFor(() => expect(container.querySelector(`.pane-focus-scope[data-pane-id="${firstPane}"]`)).not.toBeNull())
+    expect(paneToolbarMemoryKeys()).toContain(`${firstPane}:pdf`)
+    // 어느 화면에도 없는 칸의 기억은 버린다
+    writePaneToolbarMemory('gone-pane', 'pdf', freshPaneToolbarMemory())
+    after({ key: 'c', code: 'KeyC' })
+    await waitFor(() => expect(screenTabs()).toHaveLength(3))
+    await waitFor(() => expect(paneToolbarMemoryKeys()).not.toContain('gone-pane:pdf'))
+    expect(paneToolbarMemoryKeys()).toContain(`${firstPane}:pdf`)
+    resetPaneToolbarMemory()
   })
 
   it('명령줄 select-pane · swap-pane · select-layout · break-pane · join-pane', async () => {
