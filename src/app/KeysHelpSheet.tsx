@@ -101,7 +101,7 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
           </section>
           <section className="sko-group keys-help-commands" aria-label={t('명령줄 명령')}>
             <h3>{t('명령줄 명령')}</h3>
-            <p className="keys-help-note">{t('「:」 를 누르면 명령 팔레트가 「:」 가 채워진 채 열립니다(Tab 으로 완성, ↑ ↓ 로 기록). 「;」 로 여러 명령을 잇습니다. 예: split-window -h ; open 노트 A')}</p>
+            <p className="keys-help-note">{t('「:」 를 누르면 명령 팔레트가 명령 목록과 함께 열립니다(↑ ↓ 로 고르고 Tab 으로 완성, Enter 로 실행, Alt+↑ ↓ 로 기록). 「;」 로 여러 명령을 잇습니다. 예: split-window -h ; open 노트 A')}</p>
             <ul className="keys-help-commandlist">
               {commandUsages().map((usage) => <li key={usage}><code>{usage}</code></li>)}
             </ul>

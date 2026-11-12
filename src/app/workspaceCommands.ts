@@ -101,49 +101,51 @@ interface CommandSpec {
   readonly soon?: boolean
   /** 짧은 설명(목록·완성에 쓴다) */
   readonly usage: string
+  /** 한 줄 풀이(명령 팔레트의 명령 목록에 쓴다; 안쪽 명령은 없다) */
+  readonly summary?: string
 }
 
 export const COMMAND_SPECS: readonly CommandSpec[] = [
-  { name: 'split-window', aliases: ['splitw'], boolFlags: ['h', 'v'], usage: 'split-window [-h|-v]' },
-  { name: 'select-pane', aliases: ['selectp'], boolFlags: ['L', 'R', 'U', 'D', 'n', 'p'], valueFlags: ['t'], usage: 'select-pane -L|-R|-U|-D|-t N' },
-  { name: 'resize-pane', aliases: ['resizep'], boolFlags: ['Z'], usage: 'resize-pane -Z' },
-  { name: 'kill-pane', aliases: ['killp'], usage: 'kill-pane' },
-  { name: 'swap-pane', aliases: ['swapp'], boolFlags: ['U', 'D'], usage: 'swap-pane -U|-D' },
-  { name: 'break-pane', aliases: ['breakp'], usage: 'break-pane' },
-  { name: 'join-pane', aliases: ['joinp'], boolFlags: ['h', 'v'], valueFlags: ['s'], usage: 'join-pane -s N' },
-  { name: 'new-window', aliases: ['neww'], valueFlags: ['n', 't'], usage: 'new-window [-n 이름] [-t 템플릿]' },
-  { name: 'select-window', aliases: ['selectw'], valueFlags: ['t'], usage: 'select-window -t N|이름' },
-  { name: 'next-window', aliases: ['next', 'nextw'], usage: 'next-window' },
-  { name: 'previous-window', aliases: ['prev', 'prevw'], usage: 'previous-window' },
-  { name: 'last-window', aliases: ['last', 'lastw'], usage: 'last-window' },
-  { name: 'rename-window', aliases: ['renamew'], usage: 'rename-window 이름' },
-  { name: 'kill-window', aliases: ['killw'], usage: 'kill-window' },
-  { name: 'select-layout', aliases: ['selectl'], usage: 'select-layout even-horizontal|even-vertical|main-vertical|main-horizontal|tiled' },
-  { name: 'display-panes', aliases: ['displayp'], usage: 'display-panes' },
-  { name: 'list-keys', aliases: ['lsk'], usage: 'list-keys' },
-  { name: 'open', usage: 'open 이름' },
-  { name: 'set-channel', usage: 'set-channel blue|green|orange|none' },
-  { name: 'note-beside', usage: 'note-beside' },
-  { name: 'apply-template', usage: 'apply-template 이름' },
-  { name: 'source-file', aliases: ['source'], usage: 'source-file  (.iwae/keys.conf 다시 읽기)' },
+  { name: 'split-window', aliases: ['splitw'], boolFlags: ['h', 'v'], summary: '칸을 나눕니다 (-h 가로 · -v 세로)', usage: 'split-window [-h|-v]' },
+  { name: 'select-pane', aliases: ['selectp'], boolFlags: ['L', 'R', 'U', 'D', 'n', 'p'], valueFlags: ['t'], summary: '다른 칸을 만집니다', usage: 'select-pane -L|-R|-U|-D|-t N' },
+  { name: 'resize-pane', aliases: ['resizep'], boolFlags: ['Z'], summary: '이 칸만 크게 · 되돌리기', usage: 'resize-pane -Z' },
+  { name: 'kill-pane', aliases: ['killp'], summary: '이 칸을 닫습니다', usage: 'kill-pane' },
+  { name: 'swap-pane', aliases: ['swapp'], boolFlags: ['U', 'D'], summary: '칸 자리를 바꿉니다', usage: 'swap-pane -U|-D' },
+  { name: 'break-pane', aliases: ['breakp'], summary: '이 칸을 새 화면으로 뗍니다', usage: 'break-pane' },
+  { name: 'join-pane', aliases: ['joinp'], boolFlags: ['h', 'v'], valueFlags: ['s'], summary: '다른 화면의 칸을 이 화면에 넣습니다', usage: 'join-pane -s N' },
+  { name: 'new-window', aliases: ['neww'], valueFlags: ['n', 't'], summary: '새 화면을 만듭니다', usage: 'new-window [-n 이름] [-t 템플릿]' },
+  { name: 'select-window', aliases: ['selectw'], valueFlags: ['t'], summary: '화면으로 갑니다', usage: 'select-window -t N|이름' },
+  { name: 'next-window', aliases: ['next', 'nextw'], summary: '다음 화면으로 갑니다', usage: 'next-window' },
+  { name: 'previous-window', aliases: ['prev', 'prevw'], summary: '이전 화면으로 갑니다', usage: 'previous-window' },
+  { name: 'last-window', aliases: ['last', 'lastw'], summary: '바로 전에 보던 화면으로 갑니다', usage: 'last-window' },
+  { name: 'rename-window', aliases: ['renamew'], summary: '이 화면 이름을 바꿉니다', usage: 'rename-window 이름' },
+  { name: 'kill-window', aliases: ['killw'], summary: '이 화면을 닫습니다', usage: 'kill-window' },
+  { name: 'select-layout', aliases: ['selectl'], summary: '칸 배치를 고릅니다', usage: 'select-layout even-horizontal|even-vertical|main-vertical|main-horizontal|tiled' },
+  { name: 'display-panes', aliases: ['displayp'], summary: '칸 번호를 보입니다', usage: 'display-panes' },
+  { name: 'list-keys', aliases: ['lsk'], summary: '키와 명령 목록을 봅니다', usage: 'list-keys' },
+  { name: 'open', summary: '문서나 노트를 이름으로 엽니다', usage: 'open 이름' },
+  { name: 'set-channel', summary: '이 칸의 색 채널을 정합니다', usage: 'set-channel blue|green|orange|none' },
+  { name: 'note-beside', summary: '옆에 노트를 엽니다', usage: 'note-beside' },
+  { name: 'apply-template', summary: '칸 배치 템플릿을 적용합니다', usage: 'apply-template 이름' },
+  { name: 'source-file', aliases: ['source'], summary: '키 설정 파일을 다시 읽습니다', usage: 'source-file  (.iwae/keys.conf 다시 읽기)' },
   // 접두키 표가 쓰는 안쪽 명령(목록·완성에는 보이지 않는다)
   { name: 'command-prompt', usage: 'command-prompt' },
   { name: 'rename-prompt', usage: 'rename-prompt' },
   { name: 'confirm-kill-window', usage: 'confirm-kill-window' },
   { name: 'choose-session', usage: 'choose-session' },
   // 다음 단계
-  { name: 'new-session', aliases: ['new'], valueFlags: ['s'], usage: 'new-session [이름]' },
-  { name: 'switch-client', aliases: ['switchc'], valueFlags: ['t'], usage: 'switch-client -t 이름' },
-  { name: 'rename-session', aliases: ['rename'], usage: 'rename-session 이름' },
-  { name: 'save-session', usage: 'save-session [이름]  (이름이 없으면 지금 저장)' },
-  { name: 'kill-session', valueFlags: ['t'], usage: 'kill-session [-t 이름]' },
-  { name: 'list-sessions', aliases: ['ls'], usage: 'list-sessions' },
-  { name: 'float-pane', usage: 'float-pane' },
-  { name: 'embed-pane', usage: 'embed-pane' },
-  { name: 'toggle-floating', usage: 'toggle-floating' },
-  { name: 'display-popup', aliases: ['popup'], usage: 'display-popup [열 이름]' },
-  { name: 'new-client', aliases: ['newc'], valueFlags: ['t'], usage: 'new-client [-t 세션이름]' },
-  { name: 'detach', aliases: ['detach-client'], usage: 'detach' },
+  { name: 'new-session', aliases: ['new'], valueFlags: ['s'], summary: '새 세션을 만듭니다', usage: 'new-session [이름]' },
+  { name: 'switch-client', aliases: ['switchc'], valueFlags: ['t'], summary: '다른 세션으로 갑니다', usage: 'switch-client -t 이름' },
+  { name: 'rename-session', aliases: ['rename'], summary: '세션 이름을 바꿉니다', usage: 'rename-session 이름' },
+  { name: 'save-session', summary: '세션을 저장합니다', usage: 'save-session [이름]  (이름이 없으면 지금 저장)' },
+  { name: 'kill-session', valueFlags: ['t'], summary: '세션을 지웁니다', usage: 'kill-session [-t 이름]' },
+  { name: 'list-sessions', aliases: ['ls'], summary: '세션 목록을 봅니다', usage: 'list-sessions' },
+  { name: 'float-pane', summary: '이 칸을 띄웁니다', usage: 'float-pane' },
+  { name: 'embed-pane', summary: '떠 있는 칸을 칸으로 넣습니다', usage: 'embed-pane' },
+  { name: 'toggle-floating', summary: '떠 있는 칸을 보이거나 숨깁니다', usage: 'toggle-floating' },
+  { name: 'display-popup', aliases: ['popup'], summary: '이름의 노트를 띄웁니다(이름이 없으면 번역기)', usage: 'display-popup [열 이름]' },
+  { name: 'new-client', aliases: ['newc'], valueFlags: ['t'], summary: '같은 세션에 새 앱 창을 엽니다', usage: 'new-client [-t 세션이름]' },
+  { name: 'detach', aliases: ['detach-client'], summary: '이 앱 창을 닫습니다(세션은 남습니다)', usage: 'detach' },
 ]
 
 const INTERNAL_COMMANDS: ReadonlySet<string> = new Set(['command-prompt', 'rename-prompt', 'confirm-kill-window', 'choose-session'])
@@ -167,6 +169,22 @@ export function commandNames(options: { readonly includeSoon?: boolean } = {}): 
 /** 지금 되는 명령의 한 줄 설명(`?` 목록과 도움말) */
 export function commandUsages(): string[] {
   return COMMAND_SPECS.filter((spec) => !INTERNAL_COMMANDS.has(spec.name) && spec.soon !== true).map((spec) => spec.usage)
+}
+
+/** 명령 팔레트의 명령 목록 한 줄(「:」 만 쳤을 때 고른다) */
+export interface CommandCatalogEntry {
+  readonly name: string
+  readonly aliases: readonly string[]
+  readonly usage: string
+  /** 한 줄 풀이(한국어; 화면에는 t() 로 보인다) */
+  readonly summary: string
+}
+
+/** 지금 되는 명령의 목록(이름 · 줄임말 · 사용법 · 한 줄 풀이). 안쪽 명령은 뺀다 */
+export function commandCatalog(): CommandCatalogEntry[] {
+  return COMMAND_SPECS
+    .filter((spec) => !INTERNAL_COMMANDS.has(spec.name) && spec.soon !== true)
+    .map((spec) => ({ name: spec.name, aliases: spec.aliases ?? [], usage: spec.usage, summary: spec.summary ?? '' }))
 }
 
 // ── 파서 ──────────────────────────────────────────────────────────────────────
