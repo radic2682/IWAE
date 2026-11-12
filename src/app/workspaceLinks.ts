@@ -86,6 +86,11 @@ export interface LinkPaneEntry extends PaneLinkMeta {
   readonly frame: LinkRect
 }
 
+/** 두 사각형이 눈에 띄게(1px 넘게) 겹치는가 */
+export function rectsOverlap(a: LinkRect, b: LinkRect): boolean {
+  return Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
+}
+
 /** 이어지는 문서 창 ↔ 노트(또는 캔버스) 창 한 쌍. noteSide: 노트가 문서의 어느 쪽에 있는가 */
 export interface LinkPair {
   readonly doc: PaneId
@@ -99,13 +104,15 @@ export interface LinkPair {
 /**
  * 짝 맞추기: 채널이 있고 같으며, 이웃하고, 보이는 탭이 문서와 메모 노트(또는 캔버스)인 창끼리만.
  * (격자 배치든 좌우 배치든 실제 칸 사각형으로 가르므로 같은 규칙이다.)
+ * 떠 있는 칸(floating)이 상대 칸과 겹치면 선을 잇지 않는다 — 카드 강조만 한다(설계 5). 겹치지 않는 떠 있는 칸은 보통 칸처럼 짝이 된다.
  */
-export function pairLinkedPanes(entries: readonly LinkPaneEntry[]): LinkPair[] {
+export function pairLinkedPanes(entries: readonly LinkPaneEntry[], floating: ReadonlySet<PaneId> = new Set()): LinkPair[] {
   const pairs: LinkPair[] = []
   for (const doc of entries) {
     if (doc.role !== 'document' || doc.channel === null) continue
     for (const note of entries) {
       if (note.role === 'document' || note.channel !== doc.channel || note.pane === doc.pane) continue
+      if ((floating.has(doc.pane) || floating.has(note.pane)) && rectsOverlap(doc.frame, note.frame)) continue
       const noteSide = neighborSide(doc.frame, note.frame)
       if (noteSide !== null) pairs.push({ doc: doc.pane, note: note.pane, noteRole: note.role, noteSide, docId: doc.docId ?? null })
     }
@@ -242,6 +249,8 @@ const EMPTY_LAYER: LinkLayerState = { originX: 0, originY: 0, lines: [] }
 const NO_DOC_IDS: readonly string[] = []
 
 const registry = new Map<PaneId, Registration>()
+/** 떠 있는 칸의 id 들(App 이 알려 준다). 문서 칸과 겹치는 떠 있는 칸은 선을 잇지 않는다 */
+let floatingPanes: ReadonlySet<PaneId> = new Set()
 const snapshots = new Map<PaneId, PaneLinkSnapshot>()
 let pairs: readonly LinkPair[] = []
 let pairsKey = ''
@@ -271,7 +280,7 @@ function recompute(): void {
     const snapshot = snapshots.get(pane)
     if (snapshot !== undefined) entries.push({ ...registration.meta, frame: snapshot.frame })
   }
-  const nextPairs = pairLinkedPanes(entries)
+  const nextPairs = pairLinkedPanes(entries, floatingPanes)
   const nextPairsKey = nextPairs.map((pair) => `${pair.doc}>${pair.note}:${pair.noteRole}:${pair.noteSide}:${pair.docId ?? ''}`).join('|')
   if (nextPairsKey !== pairsKey) {
     pairsKey = nextPairsKey
@@ -321,6 +330,13 @@ export function flushPaneLinks(): void {
     if (snapshot !== null) snapshots.set(pane, snapshot)
   }
   recompute()
+}
+
+/** 떠 있는 칸의 id 들을 알린다(바뀌었으면 짝을 다시 셈한다) */
+export function setFloatingLinkPanes(ids: readonly PaneId[]): void {
+  if (ids.length === floatingPanes.size && ids.every((id) => floatingPanes.has(id))) return
+  floatingPanes = new Set(ids)
+  requestPaneLinks()
 }
 
 /** 무언가 바뀌었다(스크롤·배치·크기·카드 목록). 같은 프레임의 알림은 하나로 합친다 */
@@ -399,6 +415,7 @@ export function isCanvasLinkedToDoc(canvasPane: string | null, docId: string): b
 /** 시험용: 등록·짝·층을 모두 비운다 */
 export function resetPaneLinks(): void {
   registry.clear()
+  floatingPanes = new Set()
   snapshots.clear()
   pairs = []
   pairsKey = ''

@@ -7,7 +7,9 @@ import {
   neighborSide,
   pairLinkedPanes,
   registerPaneLinks,
+  rectsOverlap,
   resetPaneLinks,
+  setFloatingLinkPanes,
   visibleSlice,
   type LinkItem,
   type LinkPaneEntry,
@@ -82,6 +84,56 @@ describe('pairLinkedPanes — 짝 맞추기', () => {
     expect(pairLinkedPanes(grid)).toEqual([])
     // 같은 줄이면 이웃
     expect(pairLinkedPanes([entry('left', 'document', 'blue', rect(0, 0, 400, 300), 'a'), entry('right', 'note', 'blue', rect(404, 0, 800, 300))])).toHaveLength(1)
+  })
+})
+
+describe('떠 있는 칸의 연결선(설계 5)', () => {
+  const docFrame = rect(0, 0, 400, 600)
+  const snapshot = (frame: LinkRect, items: LinkItem[] = [], activeIds: string[] = []): PaneLinkSnapshot => ({ frame, body: frame, items, activeIds })
+  const markItem: LinkItem = { id: 'h', color: 'green', rect: rect(100, 100, 200, 114), y: 100 }
+  const cardItem: LinkItem = { id: 'h', rect: rect(420, 90, 780, 170), y: 108 }
+
+  it('rectsOverlap: 1px 넘게 겹쳐야 겹친 것이다(맞닿기만 하면 아니다)', () => {
+    expect(rectsOverlap(rect(0, 0, 400, 600), rect(300, 100, 700, 400))).toBe(true)
+    expect(rectsOverlap(rect(0, 0, 400, 600), rect(400, 0, 800, 600))).toBe(false)
+    expect(rectsOverlap(rect(0, 0, 400, 600), rect(399.5, 0, 800, 600))).toBe(false)
+    expect(rectsOverlap(rect(0, 0, 400, 600), rect(100, 700, 300, 800))).toBe(false)
+  })
+
+  it('문서 칸과 겹치는 떠 있는 칸은 짝을 맺지 않는다(카드 강조만)', () => {
+    // 떠 있는 노트가 문서 칸 오른쪽 가장자리를 12px 안에서 겹쳐 놓였다: 보통 칸이면 이웃으로 칠 자리
+    const overlapping = entry('float', 'note', 'blue', rect(392, 50, 792, 450))
+    const document = entry('left', 'document', 'blue', docFrame, 'a')
+    expect(pairLinkedPanes([document, overlapping])).toHaveLength(1)
+    expect(pairLinkedPanes([document, overlapping], new Set(['float']))).toEqual([])
+    // 문서 칸이 떠 있는 칸일 때도 같다
+    expect(pairLinkedPanes([document, overlapping], new Set(['left']))).toEqual([])
+  })
+
+  it('겹치지 않는 떠 있는 칸은 보통 칸처럼 짝이 된다', () => {
+    const beside = entry('float', 'note', 'blue', rect(404, 50, 804, 450))
+    expect(pairLinkedPanes([entry('left', 'document', 'blue', docFrame, 'a'), beside], new Set(['float']))).toEqual([
+      { doc: 'left', note: 'float', noteRole: 'note', noteSide: 'right', docId: 'a' },
+    ])
+  })
+
+  it('떠 있는 칸이 아닌 칸은 겹침이 있어도(큰 칸 둘이 겹칠 수 없지만) 규칙이 그대로다', () => {
+    const touching = entry('right', 'note', 'blue', rect(404, 0, 800, 600))
+    expect(pairLinkedPanes([entry('left', 'document', 'blue', docFrame, 'a'), touching], new Set(['other']))).toHaveLength(1)
+  })
+
+  it('저장소: 떠 있는 칸을 알리면 겹치는 짝이 풀리고, 떠 있는 칸이 아니게 되면 다시 맺힌다', () => {
+    registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(docFrame, [markItem]))
+    registerPaneLinks({ pane: 'f1', role: 'note', channel: 'blue' }, () => snapshot(rect(392, 0, 792, 600), [cardItem]))
+    flushPaneLinks()
+    expect(currentLinkPairs()).toHaveLength(1)
+    setFloatingLinkPanes(['f1'])
+    flushPaneLinks()
+    expect(currentLinkPairs()).toEqual([])
+    expect(getLinkLayerState().lines).toEqual([])
+    setFloatingLinkPanes([])
+    flushPaneLinks()
+    expect(currentLinkPairs()).toHaveLength(1)
   })
 })
 
