@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
-import '../app/menuGuard'
 import { fitMenuInViewport } from './fitMenu'
 import { createPortal } from 'react-dom'
 import './context-menu.css'

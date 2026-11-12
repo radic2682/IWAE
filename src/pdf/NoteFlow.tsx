@@ -1055,6 +1055,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
   readonly canRemoveRef: boolean
 }) {
   const ref = useCallback((element: HTMLDivElement | null) => api.register(item.key, element), [api, item.key])
+  const enterSwallowed = useRef(false)
   const { highlight } = item
   const draft = item.draft === true
   const extras = item.extraHighlights ?? []
@@ -1331,8 +1332,10 @@ const NoteMemoRow = memo(function NoteMemoRow({
       }}
       onPointerDown={headEditField !== null ? undefined : (event) => api.startDrag(item.key, event)}
       onClickCapture={(event) => api.pick(item.key, event)}
-      onPointerEnter={() => { if (!menuGuardActive()) api.onActivate(item.key) }}
-      onPointerLeave={() => api.onActivate(null)}
+      // 메뉴 항목을 막 고른 자리면 진입을 비켜 가되, 포인터가 진짜 움직이면 그때 켠다(menuGuard)
+      onPointerEnter={() => { if (menuGuardActive()) enterSwallowed.current = true; else api.onActivate(item.key) }}
+      onPointerMove={() => { if (enterSwallowed.current && !menuGuardActive()) { enterSwallowed.current = false; api.onActivate(item.key) } }}
+      onPointerLeave={() => { enterSwallowed.current = false; api.onActivate(null) }}
       onContextMenu={(event) => api.contextMenu(item.key, event)}
     >
       {/* 늘 같은 차례: ID·제목 → 내 글 → 원문(출처) */}

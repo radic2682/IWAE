@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus } from '@phosphor-icons/react'
 import { t } from '../i18n'
+import { menuGuardActive } from '../app/menuGuard'
 import { memoHighlightIds, memoNoteTitleOf, updateSection, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { announceAction } from '../app/actionFeedback'
 import { setAttachRequest, useAttachRequest, useMemoHoverReporter, useMemoPointSender, usePaneChannel, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
@@ -93,6 +94,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   const sendPoint = useMemoPointSender()
   // 카드 위에 마우스를 올리면: 누를 때 움직일 같은 색 창(그 메모의 문서 · 같은 메모가 든 다른 노트)에 윤곽
   const reportMemoHover = useMemoHoverReporter()
+  const hoverSwallowed = useRef(false)
   const draftId = draft?.highlight.id ?? null
   const flow = useNoteFlowController({
     api,
@@ -389,12 +391,20 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
             <div
               ref={scrollRef}
               className="pdf-memo-bar-scroll"
+              // 메뉴 항목을 막 고른 자리면 호버를 비켜 가고(menuGuard), 포인터가 진짜 움직이면 그때 올려 둔 카드를 켠다
               onPointerOver={(event) => {
                 if (!(event.target instanceof Element)) return
+                if (menuGuardActive()) { hoverSwallowed.current = true; return }
                 const card = event.target.closest<HTMLElement>('[data-memo-id]')
                 reportMemoHover(card === null || card.dataset.noteBlock === 'draft' ? null : card.dataset.memoId ?? null)
               }}
-              onPointerLeave={() => reportMemoHover(null)}
+              onPointerMove={(event) => {
+                if (!hoverSwallowed.current || menuGuardActive() || !(event.target instanceof Element)) return
+                hoverSwallowed.current = false
+                const card = event.target.closest<HTMLElement>('[data-memo-id]')
+                reportMemoHover(card === null || card.dataset.noteBlock === 'draft' ? null : card.dataset.memoId ?? null)
+              }}
+              onPointerLeave={() => { hoverSwallowed.current = false; reportMemoHover(null) }}
               onClick={(event) => {
                 // 카드를 누르면 같은 색 창이 그 형광펜으로 간다(글 쓰는 칸·단추·원문 칩은 제외: 원문 칩은 onJump 가 보낸다)
                 if (!(event.target instanceof Element)) return

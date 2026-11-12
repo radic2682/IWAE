@@ -54,6 +54,7 @@ import { getMarkdownTheme, type MarkdownThemeId } from '../core/markdownTheme'
 import type { ReaderPaneToolMode } from './PaneToolbar'
 import '../ui/sidebar-followup.css'
 import { ContextMenu } from '../ui/ContextMenu'
+import { menuGuardActive } from './menuGuard'
 import { TranslationCard, useEffectiveTargetLanguage } from '../ui/TranslationCard'
 import { publishReaderSelection } from './readerSelectionStore'
 import { documentContextEntries } from '../ui/documentContextMenu'
@@ -1225,7 +1226,8 @@ export function MarkdownPane({
         setLassoRect({ left: event.clientX, top: event.clientY, width: 0, height: 0 })
       }}
       onPointerMove={(event) => {
-        if (memoHoverFrame.current !== null || (event.buttons & 1) !== 0) return
+        // 메뉴 항목을 막 고른 자리면 호버를 비켜 간다(포인터가 진짜 움직이면 다음 move 부터 보통대로)
+        if (menuGuardActive() || memoHoverFrame.current !== null || (event.buttons & 1) !== 0) return
         const { clientX, clientY } = event
         memoHoverFrame.current = requestAnimationFrame(() => {
           memoHoverFrame.current = null

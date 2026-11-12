@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import './menuGuard'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'

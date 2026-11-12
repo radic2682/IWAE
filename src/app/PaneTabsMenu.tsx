@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import './menuGuard'
 import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { ChannelDot } from './ChannelDot'

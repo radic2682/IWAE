@@ -22,6 +22,7 @@ import {
 } from './persistentHighlight'
 import { t } from '../i18n'
 import { isFreshHighlight } from './freshHighlight'
+import { menuGuardActive } from '../app/menuGuard'
 
 export type { PdfHighlightColor } from './persistentHighlight'
 
@@ -522,7 +523,8 @@ export function SelectionLayer({
       const hit = textLike && !eraseHighlights && onPersistentHighlightActivate !== undefined ? persistentHighlightAt(point) : undefined
       const over = hit !== undefined
       if (over !== hoverHighlight) setHoverHighlight(over)
-      if ((hit?.id ?? null) !== hoveredIdRef.current) {
+      // 메뉴 항목을 막 고른 자리면 호버 보고는 미룬다(hoveredIdRef 를 안 바꾸니 포인터가 진짜 움직이면 다음 move 에서 보고된다)
+      if (!menuGuardActive() && (hit?.id ?? null) !== hoveredIdRef.current) {
         hoveredIdRef.current = hit?.id ?? null
         onPersistentHighlightHover?.(hoveredIdRef.current)
       }

@@ -21,7 +21,7 @@ const start = (): MemoNote => ({
   blocks: [{ id: 's1', kind: 'section', title: '전원부', collapsed: true }, { id: 'm1', kind: 'memo', highlightId: 'h1' }, { id: 'm2', kind: 'memo', highlightId: 'h2' }],
 }) as MemoNote
 
-function Harness({ children, pinTab = vi.fn(), pane = 'right' }: { readonly children: ReactNode; readonly pinTab?: (id: string) => void; readonly pane?: 'left' | 'right' }) {
+function Harness({ children, pinTab = vi.fn(), pane = 'right', reactionPanesFor }: { readonly children: ReactNode; readonly pinTab?: (id: string) => void; readonly pane?: 'left' | 'right'; readonly reactionPanesFor?: WorkspaceLink['reactionPanesFor'] }) {
   const [note, setNote] = useState<MemoNote>(start())
   const api = useMemo<MemoNoteApi>(() => ({
     entries: [{ path: PATH, title: '전원' }], openPath: null, openTitle: null, openNote: null, open: vi.fn(), create: vi.fn(), updateOpen: vi.fn(),
@@ -29,7 +29,7 @@ function Harness({ children, pinTab = vi.fn(), pane = 'right' }: { readonly chil
     updateNoteAt: (path, change) => { if (path === PATH) setNote((current) => change(current)) },
     notesOf: () => [],
   }), [note])
-  const link: WorkspaceLink = { channels: DEFAULT_CHANNELS, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab, openNoteBeside: vi.fn().mockResolvedValue(null), revealMemo: vi.fn() }
+  const link: WorkspaceLink = { channels: DEFAULT_CHANNELS, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab, openNoteBeside: vi.fn().mockResolvedValue(null), revealMemo: vi.fn(), reactionPanesFor }
   return (
     <MemoNoteContext.Provider value={api}>
       <WorkspaceContext.Provider value={link}>
@@ -94,6 +94,32 @@ describe('MemoNoteTabView — 가리키기 신호', () => {
     fireEvent.click(container.querySelector('[data-note-block="m2"]')!)
     expect(received).toHaveLength(1)
     expect(received[0]).toMatchObject({ from: 'right', channel: 'blue', target: { kind: 'memo', memoId: 'h2' }, origin: 'note' })
+  })
+})
+
+describe('MemoNoteTabView — 카드 호버와 메뉴 막기(menuGuard)', () => {
+  it('메뉴 항목을 막 고른 자리의 카드는 켜지지 않고, 포인터가 진짜 움직이면 그 카드가 켜진다', () => {
+    const reactionPanesFor = vi.fn(() => new Map<'left', 'blue'>([['left', 'blue']]))
+    const { container } = render(<Harness reactionPanesFor={reactionPanesFor}><MemoNoteTabView path={PATH} highlights={HIGHLIGHTS} onJump={vi.fn()} /></Harness>)
+    act(() => { emitPointSignal({ from: 'left', channel: 'blue', target: { kind: 'memo', memoId: 'h2' }, reason: 'click' }) })
+    const card = container.querySelector<HTMLElement>('[data-note-block="m2"]')!
+    render(<button type="button" role="menuitem">항목</button>)
+    fireEvent.click(screen.getByRole('menuitem'))
+    reactionPanesFor.mockClear()
+    fireEvent.pointerOver(card)
+    expect(reactionPanesFor).not.toHaveBeenCalled()
+    card.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, movementX: 0, movementY: 0 }))
+    expect(reactionPanesFor).not.toHaveBeenCalled()
+    card.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, movementX: 2, movementY: 1 }))
+    expect(reactionPanesFor).toHaveBeenCalledWith('right', { kind: 'memo', memoId: 'h2' })
+  })
+
+  it('메뉴를 고르지 않았으면 올리는 순간 켜진다', () => {
+    const reactionPanesFor = vi.fn(() => new Map<'left', 'blue'>([['left', 'blue']]))
+    const { container } = render(<Harness reactionPanesFor={reactionPanesFor}><MemoNoteTabView path={PATH} highlights={HIGHLIGHTS} onJump={vi.fn()} /></Harness>)
+    act(() => { emitPointSignal({ from: 'left', channel: 'blue', target: { kind: 'memo', memoId: 'h2' }, reason: 'click' }) })
+    fireEvent.pointerOver(container.querySelector('[data-note-block="m2"]')!)
+    expect(reactionPanesFor).toHaveBeenCalledWith('right', { kind: 'memo', memoId: 'h2' })
   })
 })
 
