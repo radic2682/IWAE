@@ -66,6 +66,7 @@ import { errorText } from '../core/errorText'
 import { t } from '../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../core/vaultAccess'
 import { captureSession, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singleScreenSnapshot, type ScreenSnapshot, type ScreensSnapshot, type SessionState } from '../core/session'
+import { isTranslatorTabId } from './floatingPanes'
 import { allScreenPaneIds, activeScreenOf, addScreen, blankScreen, breakPane, closeScreen, lastScreenOf, newScreenId, renameScreen, reorderScreen, setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { hasPane, layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { memoNoteTitleOf } from '../core/memoNote'
@@ -172,7 +173,9 @@ function restoredScreens(
   snapshot: ScreensSnapshot,
 ): ScreensState {
   const byId = new Map([...docs.tabs, ...notes.tabs].map((tab) => [tab.id, tab]))
-  const placed = new Set(snapshot.screens.flatMap((screen) => leaves(screen.layout).flatMap((pane) => screen.paneState[pane]?.tabIds ?? [])))
+  const placed = new Set(snapshot.screens.flatMap((screen) => [...leaves(screen.layout), ...(screen.floats ?? []).map((float) => float.paneId)].flatMap((pane) => screen.paneState[pane]?.tabIds ?? [])))
+  /** 번역기 탭은 파일이 없어서 id 만으로 만든다 */
+  const tabOf = (id: string): Tab[] => { const tab = byId.get(id); return tab !== undefined ? [tab] : isTranslatorTabId(id) ? [{ id, title: t('번역기'), kind: 'translator' }] : [] }
   const screens = snapshot.screens.map((screen, screenIndex): Screen => {
     const order = leaves(screen.layout)
     const first = screenIndex === 0
@@ -182,7 +185,7 @@ function restoredScreens(
     const channels: Record<string, PaneChannel> = {}
     for (const pane of order) {
       const saved = screen.paneState[pane]
-      const own = (saved?.tabIds ?? []).flatMap((id) => byId.get(id) ?? [])
+      const own = (saved?.tabIds ?? []).flatMap(tabOf)
       const extra = [
         ...(pane === docTarget ? docs.tabs.filter((tab) => !placed.has(tab.id)) : []),
         ...(pane === noteTarget ? notes.tabs.filter((tab) => !placed.has(tab.id)) : []),
@@ -193,8 +196,15 @@ function restoredScreens(
       panes[pane] = restoredTabs(tabs, ownActive(saved?.activeId ?? null) ?? fallbackActive)
       channels[pane] = saved?.channel === undefined ? 'blue' : saved.channel
     }
+    // 떠 있는 칸: 보통 칸처럼 탭 · 보던 탭 · 색을 되살린다
+    for (const float of screen.floats ?? []) {
+      const saved = screen.paneState[float.paneId]
+      const tabs = (saved?.tabIds ?? []).flatMap(tabOf)
+      panes[float.paneId] = restoredTabs(tabs, saved?.activeId ?? null)
+      channels[float.paneId] = saved?.channel === undefined ? 'blue' : saved.channel
+    }
     const zoomed = screen.zoomed !== undefined && screen.zoomed !== null && order.includes(screen.zoomed) ? screen.zoomed : null
-    return { id: screen.id, name: screen.name, layout: screen.layout, panes, channels, zoomed }
+    return { id: screen.id, name: screen.name, layout: screen.layout, panes, channels, zoomed, floats: screen.floats ?? [], ...(screen.floatsHidden === true ? { floatsHidden: true } : {}) }
   })
   const activeScreen = screens.some((screen) => screen.id === snapshot.activeScreen) ? snapshot.activeScreen : screens[0]!.id
   const lastScreen = snapshot.lastScreen !== null && snapshot.lastScreen !== activeScreen && screens.some((screen) => screen.id === snapshot.lastScreen) ? snapshot.lastScreen : null
@@ -217,7 +227,7 @@ function initialWorkspace(options: UseVaultOptions, windowRole: string): TreeWor
 function initialScreens(options: UseVaultOptions, windowRole: string): ScreensState {
   const workspace = initialWorkspace(options, windowRole)
   const id = newScreenId()
-  return { screens: [{ id, name: t('읽기'), ...workspace, zoomed: null }], activeScreen: id, lastScreen: null }
+  return { screens: [{ id, name: t('읽기'), ...workspace, zoomed: null, floats: [] }], activeScreen: id, lastScreen: null }
 }
 
 function isPdfDocMeta(value: PdfDocMeta | null): value is PdfDocMeta {
@@ -487,7 +497,8 @@ export function useVault(options: UseVaultOptions = {}) {
   const openInPane = useCallback((tab: Tab, pane?: PaneId) => {
     setWorkspace((current) => {
       const wanted = pane ?? paneRouteRef.current[paneRouteOf(tab.kind)]
-      const target = hasPane(current.layout, wanted) ? wanted : leaves(current.layout)[0]!
+      // 떠 있는 칸(나누기 트리 밖이지만 칸 상태가 있다)도 열 곳이 된다
+      const target = hasPane(current.layout, wanted) || current.panes[wanted] !== undefined ? wanted : leaves(current.layout)[0]!
       const next = openTabInPanes(current.panes, tab, target)
       return next === current.panes ? current : { ...current, panes: next }
     })

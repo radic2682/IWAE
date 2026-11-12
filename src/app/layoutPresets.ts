@@ -206,7 +206,7 @@ export function buildTemplateScreen(input: NewScreenInput, allPaneIds: readonly 
     fallbackCanvas: input.fallbackCanvas ?? null,
   })
   return {
-    screen: { name: input.name, layout: result.layout, panes: result.panes, channels: result.channels, zoomed: null },
+    screen: { name: input.name, layout: result.layout, panes: result.panes, channels: result.channels, zoomed: null, floats: [] },
     focus: result.focus,
   }
 }

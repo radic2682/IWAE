@@ -258,8 +258,8 @@ describe('readLegacyLayoutId — 예전에 localStorage 에 따로 적던 배치
 describe('화면(screens) 저장과 읽기', () => {
   const screensState = () => ({
     screens: [
-      { id: 'w1', name: '읽기', layout: layoutForLegacyId('cols2', ['a', 'b']), panes: { a: pdfTabs, b: noteTabs } as PanesState, channels: { a: 'blue', b: 'green' } as Record<string, 'blue' | 'green'>, zoomed: 'a' as string | null },
-      { id: 'w2', name: '비교', layout: paneNode('c'), panes: { c: { tabs: [{ id: 'doc-a', title: 'A', kind: 'pdf' as const }], activeId: 'doc-a' } } as PanesState, channels: { c: 'orange' } as Record<string, 'orange'>, zoomed: null },
+      { id: 'w1', name: '읽기', layout: layoutForLegacyId('cols2', ['a', 'b']), panes: { a: pdfTabs, b: noteTabs } as PanesState, channels: { a: 'blue', b: 'green' } as Record<string, 'blue' | 'green'>, zoomed: 'a' as string | null, floats: [] },
+      { id: 'w2', name: '비교', layout: paneNode('c'), panes: { c: { tabs: [{ id: 'doc-a', title: 'A', kind: 'pdf' as const }], activeId: 'doc-a' } } as PanesState, channels: { c: 'orange' } as Record<string, 'orange'>, zoomed: null, floats: [] },
     ],
     activeScreen: 'w2',
     lastScreen: 'w1',
@@ -324,5 +324,92 @@ describe('화면(screens) 저장과 읽기', () => {
     expect(parseSession(raw).screens?.map((screen) => screen.id)).toEqual(['w2'])
     raw.screens = [{ id: 'x' }]
     expect(parseSession(raw)).not.toHaveProperty('screens')
+  })
+})
+
+describe('떠 있는 칸 저장과 읽기', () => {
+  const windowLayout = { sidebarCollapsed: false, sidebarPx: 280, leftFrac: 0.5 }
+  const floating = () => ({
+    screens: [{
+      id: 'w1',
+      name: '읽기',
+      layout: layoutForLegacyId('cols2', ['a', 'b']),
+      panes: {
+        a: { tabs: [{ id: 'doc-a', title: 'A', kind: 'pdf' as const }], activeId: 'doc-a' },
+        b: { tabs: [], activeId: null },
+        f1: { tabs: [{ id: 'translator:f1', title: '번역기', kind: 'translator' as const }], activeId: 'translator:f1' },
+        f2: { tabs: [{ id: 'doc-b', title: 'B', kind: 'pdf' as const }], activeId: 'doc-b' },
+      } as PanesState,
+      channels: { a: 'blue', b: 'green', f1: 'orange', f2: null } as Record<string, 'blue' | 'green' | 'orange' | null>,
+      zoomed: null,
+      floats: [
+        { paneId: 'f1', anchor: { kind: 'pane' as const, paneId: 'a' }, x: 0.55, y: 0.05, w: 340, h: 380, collapsed: false },
+        { paneId: 'f2', anchor: { kind: 'screen' as const }, x: 0.2, y: 0.3, w: 400, h: 260, collapsed: true },
+      ],
+      floatsHidden: true,
+    }],
+    activeScreen: 'w1',
+    lastScreen: null,
+  })
+  const roundTrip = (state: ReturnType<typeof floating>) => parseSession(JSON.parse(JSON.stringify(captureSession(state, windowLayout))))
+
+  it('떠 있는 칸의 자리 · 크기 · 접힘 · 붙은 곳과 그 칸의 탭 · 색을 저장하고 그대로 읽는다', () => {
+    const session = roundTrip(floating())
+    const screen = session.screens![0]!
+    expect(screen.floats).toEqual(floating().screens[0]!.floats)
+    expect(screen.floatsHidden).toBe(true)
+    expect(screen.paneState.f1).toEqual({ tabIds: ['translator:f1'], activeId: 'translator:f1', channel: 'orange' })
+    expect(screen.paneState.f2).toEqual({ tabIds: ['doc-b'], activeId: 'doc-b', channel: null })
+    // 트리 칸은 그대로다
+    expect(leaves(screen.layout)).toEqual(['a', 'b'])
+  })
+
+  it('떠 있는 칸의 문서 탭도 탭 id 목록에 든다(번역기 탭은 파일이 없어 든 목록이 없다)', () => {
+    const session = roundTrip(floating())
+    expect(session.pdfTabIds).toEqual(['doc-a', 'doc-b'])
+  })
+
+  it('떠 있는 칸이 없으면 floats 를 적지 않는다(예전 세션과 같은 모양)', () => {
+    const state = floating()
+    const plain = { ...state, screens: [{ ...state.screens[0]!, floats: [], floatsHidden: undefined }] }
+    const raw = JSON.parse(JSON.stringify(captureSession(plain as never, windowLayout))) as { screens: Record<string, unknown>[] }
+    expect('floats' in raw.screens[0]!).toBe(false)
+    expect('floatsHidden' in raw.screens[0]!).toBe(false)
+  })
+
+  it('읽을 때 나쁜 값을 바로잡는다: 자리 0–1, 최소 크기, 없는 붙은 칸은 화면, 겹치거나 비어 있는 칸 id 는 건너뜀', () => {
+    const raw = JSON.parse(JSON.stringify(captureSession(floating(), windowLayout))) as { screens: { floats: unknown[] }[] }
+    raw.screens[0]!.floats = [
+      { paneId: 'f1', anchor: { kind: 'pane', paneId: 'nope' }, x: 9, y: -3, w: 5, h: 'x', collapsed: 'yes' },
+      { paneId: 'f1', anchor: { kind: 'screen' }, x: 0, y: 0, w: 300, h: 300, collapsed: false },
+      { paneId: '', anchor: { kind: 'screen' } },
+      { paneId: 'a', anchor: { kind: 'screen' } },
+      'zzz',
+    ]
+    const screen = parseSession(raw).screens![0]!
+    expect(screen.floats).toHaveLength(1)
+    expect(screen.floats![0]).toEqual({ paneId: 'f1', anchor: { kind: 'screen' }, x: 1, y: 0, w: 120, h: 300, collapsed: false })
+  })
+
+  it('다른 화면과 칸 id 가 겹치면 뒤의 것에 새 id 를 주고 붙은 칸도 따라간다', () => {
+    const state = floating()
+    const second = { ...state.screens[0]!, id: 'w2', name: '비교' }
+    const session = roundTrip({ ...state, screens: [state.screens[0]!, second] })
+    const [first, again] = session.screens!
+    const firstIds = [...leaves(first!.layout), ...first!.floats!.map((float) => float.paneId)]
+    const againIds = [...leaves(again!.layout), ...again!.floats!.map((float) => float.paneId)]
+    expect(againIds.filter((id) => firstIds.includes(id))).toEqual([])
+    const renamedAnchor = again!.floats![0]!.anchor
+    expect(renamedAnchor.kind === 'pane' && leaves(again!.layout).includes(renamedAnchor.paneId)).toBe(true)
+    for (const id of againIds) expect(again!.paneState[id]).toBeDefined()
+  })
+
+  it('화면이 적힌 세션을 되살릴 때 떠 있는 칸 id 도 새 칸 id 가 비켜 간다', () => {
+    const session = roundTrip({ ...floating(), screens: [{ ...floating().screens[0]!, layout: paneNode('p41'), panes: { p41: { tabs: [], activeId: null }, p77: { tabs: [], activeId: null } } as PanesState, channels: { p41: 'blue', p77: 'blue' }, floats: [{ paneId: 'p77', anchor: { kind: 'screen' as const }, x: 0, y: 0, w: 300, h: 300, collapsed: false }] }] })
+    const restored = screensFromSession(session, null, '읽기')
+    expect(restored.screens[0]!.floats?.[0]?.paneId).toBe('p77')
+    expect(singlePaneWorkspace().layout.kind).toBe('pane')
+    const fresh = leaves(singlePaneWorkspace().layout)[0]!
+    expect(Number(fresh.slice(1))).toBeGreaterThan(77)
   })
 })

@@ -1,4 +1,4 @@
-import { leaves, paneNode, newPaneId, removeLeaf, type LayoutNode } from '../core/layoutTree'
+import { layoutRects, leaves, paneNode, newPaneId, removeLeaf, type LayoutNode } from '../core/layoutTree'
 import { emptyTabs, tabsOf, type PanesState } from './tabs'
 import { channelOf, pruneChannels, type PaneChannels } from './workspaceChannels'
 import type { TreeWorkspace } from './tabDock'
@@ -7,6 +7,27 @@ import type { TreeWorkspace } from './tabDock'
  * 화면(tmux 의 window, docs/design/workspace-tmux.md 2). 칸을 모은 파티션이다: 화면마다 자기 나누기 트리 · 칸의 탭 · 색 채널 ·
  * 「크게」로 키운 칸을 가진다. 칸은 한 화면에만 속한다. DOM·React 를 모르는 순수 함수만 둔다.
  */
+/**
+ * 떠 있는 칸이 붙는 곳(설계 5): 화면 전체이거나 나누기 트리의 한 칸.
+ * 칸에 붙으면 그 칸을 따라 움직이고, 그 칸이 닫히면 화면에 붙는다.
+ */
+export type FloatAnchor = { readonly kind: 'screen' } | { readonly kind: 'pane'; readonly paneId: string }
+
+/**
+ * 떠 있는 칸 하나. 칸 자체(탭 · 색 채널)는 보통 칸처럼 Screen.panes · Screen.channels 에 paneId 로 있고, 여기는 놓인 자리와 크기만 적는다.
+ * 자리(x · y)는 붙은 곳의 사각형에 대한 왼쪽 위 모서리의 비율(0–1)이고, 크기(w · h)는 px 이다.
+ */
+export interface FloatingPane {
+  readonly paneId: string
+  readonly anchor: FloatAnchor
+  readonly x: number
+  readonly y: number
+  readonly w: number
+  readonly h: number
+  /** 접힘: 머리만 남긴다(h 는 펼쳤을 때의 높이로 그대로 둔다) */
+  readonly collapsed: boolean
+}
+
 export interface Screen {
   readonly id: string
   readonly name: string
@@ -15,6 +36,10 @@ export interface Screen {
   readonly channels: PaneChannels
   /** 「크게」로 화면 전체를 차지한 칸(없으면 null) */
   readonly zoomed: string | null
+  /** 이 화면의 떠 있는 칸들(나누기 트리 밖). 뒤에 있을수록 위에 그려진다 */
+  readonly floats: readonly FloatingPane[]
+  /** toggle-floating 으로 떠 있는 칸을 모두 숨긴 상태(없으면 보임) */
+  readonly floatsHidden?: boolean
 }
 
 export interface ScreensState {
@@ -48,9 +73,35 @@ export function workspaceOf(screen: Screen): TreeWorkspace {
   return { panes: screen.panes, channels: screen.channels, layout: screen.layout }
 }
 
-/** 모든 화면의 칸 id(새 칸 id 가 다른 화면의 칸과 겹치지 않게) */
+/** 한 화면의 칸 id 들: 나누기 트리의 칸 + 떠 있는 칸 */
+export function screenPaneIds(screen: Screen): string[] {
+  return [...leaves(screen.layout), ...screen.floats.map((float) => float.paneId)]
+}
+
+/** 모든 화면의 칸 id(새 칸 id 가 다른 화면의 칸과 겹치지 않게). 떠 있는 칸도 센다 */
 export function allScreenPaneIds(state: ScreensState): string[] {
-  return state.screens.flatMap((screen) => leaves(screen.layout))
+  return state.screens.flatMap(screenPaneIds)
+}
+
+/**
+ * 떠 있는 칸이 붙은 칸이 트리에서 없어졌으면 화면에 붙인다(칸이 닫히거나 다른 화면으로 떼어졌을 때).
+ * previousLayout 을 알면 그 칸이 있던 자리를 화면 비율로 바꿔 놓아 떠 있는 칸이 눈에 띄게 튀지 않게 한다.
+ * 바뀐 것이 없으면 같은 객체.
+ */
+export function normalizeFloats(screen: Screen, previousLayout?: LayoutNode): Screen {
+  if (screen.floats.length === 0) return screen
+  const alive = new Set(leaves(screen.layout))
+  const before = previousLayout === undefined ? null : layoutRects(previousLayout).panes
+  let changed = false
+  const floats = screen.floats.map((float) => {
+    if (float.anchor.kind === 'screen' || alive.has(float.anchor.paneId)) return float
+    changed = true
+    const rect = before?.get(float.anchor.paneId)
+    return rect === undefined
+      ? { ...float, anchor: { kind: 'screen' as const } }
+      : { ...float, anchor: { kind: 'screen' as const }, x: rect.x + float.x * rect.w, y: rect.y + float.y * rect.h }
+  })
+  return changed ? { ...screen, floats } : screen
 }
 
 export function activeScreenOf(state: ScreensState): Screen {
@@ -67,10 +118,15 @@ export function withActiveWorkspace(state: ScreensState, next: TreeWorkspace): S
   if (next.panes === active.panes && next.channels === active.channels && next.layout === active.layout) return state
   const order = leaves(next.layout)
   const zoomed = active.zoomed !== null && order.includes(active.zoomed) ? active.zoomed : null
-  return replaceScreen(state, { ...active, ...next, zoomed })
+  // 나누기 트리 동작(칸 닫기 · 나누기 …)은 떠 있는 칸의 색 채널을 모른다: 지워졌으면 이전 값을 되살린다
+  let channels = next.channels
+  for (const float of active.floats) {
+    if (channels[float.paneId] === undefined && active.channels[float.paneId] !== undefined) channels = { ...channels, [float.paneId]: active.channels[float.paneId]! }
+  }
+  return replaceScreen(state, normalizeFloats({ ...active, ...next, channels, zoomed }, active.layout))
 }
 
-function replaceScreen(state: ScreensState, screen: Screen): ScreensState {
+export function replaceScreen(state: ScreensState, screen: Screen): ScreensState {
   return { ...state, screens: state.screens.map((candidate) => (candidate.id === screen.id ? screen : candidate)) }
 }
 
@@ -84,7 +140,7 @@ export function setZoomed(state: ScreensState, pane: string | null): ScreensStat
 /** 빈 화면: 빈 칸 하나 */
 export function blankScreen(name: string, used: Iterable<string> = []): Screen {
   const pane = newPaneId(used)
-  return { id: newScreenId(), name, layout: paneNode(pane), panes: { [pane]: emptyTabs }, channels: { [pane]: 'blue' }, zoomed: null }
+  return { id: newScreenId(), name, layout: paneNode(pane), panes: { [pane]: emptyTabs }, channels: { [pane]: 'blue' }, zoomed: null, floats: [] }
 }
 
 /** 새 화면의 id 를 붙여 맨 뒤에 더한다. activate 면 그 화면으로 옮겨 간다(바로 앞 화면은 lastScreen 이 된다) */
@@ -166,15 +222,16 @@ export function breakPane(state: ScreensState, pane: string, name: string): Scre
   const layout = removeLeaf(active.layout, pane)
   if (layout === null) return null
   const { [pane]: moved, ...rest } = active.panes
-  const shrunk: Screen = {
+  const floatIds = active.floats.map((float) => float.paneId)
+  const shrunk: Screen = normalizeFloats({
     ...active,
     layout,
     panes: rest,
-    channels: pruneChannels(active.channels, leaves(layout)),
+    channels: pruneChannels(active.channels, [...leaves(layout), ...floatIds]),
     zoomed: active.zoomed === pane ? null : active.zoomed,
-  }
+  }, active.layout)
   const id = newScreenId(state.screens.map((screen) => screen.id))
-  const created: Screen = { id, name, layout: paneNode(pane), panes: { [pane]: moved ?? tabsOf(active.panes, pane) }, channels: { [pane]: channelOf(active.channels, pane) }, zoomed: null }
+  const created: Screen = { id, name, layout: paneNode(pane), panes: { [pane]: moved ?? tabsOf(active.panes, pane) }, channels: { [pane]: channelOf(active.channels, pane) }, zoomed: null, floats: [] }
   return { screens: [...state.screens.map((screen) => (screen.id === active.id ? shrunk : screen)), created], activeScreen: id, lastScreen: active.id }
 }
 

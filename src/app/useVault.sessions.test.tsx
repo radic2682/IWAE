@@ -227,3 +227,44 @@ describe('useVault — 이름 붙은 세션', () => {
     expect(vi.mocked(writeSessionNamed)).toHaveBeenCalledWith(expect.anything(), '기본', expect.anything())
   })
 })
+
+describe('useVault — 떠 있는 칸 복원과 열기', () => {
+  const withFloat = (): SessionState => baseSession({
+    screens: [{
+      id: 's-읽기', name: '읽기',
+      layout: { kind: 'split' as const, id: 'sp', dir: 'h' as const, ratio: 0.5, a: { kind: 'pane' as const, paneId: 'pa' }, b: { kind: 'pane' as const, paneId: 'pb' } },
+      paneState: { pa: { tabIds: [], activeId: null, channel: 'blue' as const }, pb: { tabIds: [], activeId: null, channel: 'green' as const }, pf: { tabIds: ['translator:pf'], activeId: 'translator:pf', channel: 'orange' as const } },
+      floats: [{ paneId: 'pf', anchor: { kind: 'pane' as const, paneId: 'pb' }, x: 0.5, y: 0.1, w: 340, h: 380, collapsed: true }],
+      floatsHidden: true,
+    }],
+    activeScreen: 's-읽기',
+    lastScreen: null,
+  })
+
+  it('저장된 떠 있는 칸을 칸 상태(번역기 탭 · 색)와 함께 되살린다', async () => {
+    disk.set('기본', withFloat())
+    const { result } = await open()
+    const screen = result.current.screensState.screens[0]!
+    expect(screen.floats).toEqual([{ paneId: 'pf', anchor: { kind: 'pane', paneId: 'pb' }, x: 0.5, y: 0.1, w: 340, h: 380, collapsed: true }])
+    expect(screen.floatsHidden).toBe(true)
+    expect(screen.panes.pf!.tabs).toEqual([{ id: 'translator:pf', title: '번역기', kind: 'translator' }])
+    expect(screen.channels.pf).toBe('orange')
+  })
+
+  it('떠 있는 칸에도 탭을 연다(openInPane): 나누기 트리에 없는 칸 id 도 열 곳이다', async () => {
+    disk.set('기본', withFloat())
+    const { result } = await open()
+    act(() => result.current.openInPane({ id: 'n1', title: '노트', kind: 'memoNote' }, 'pf'))
+    expect(result.current.screensState.screens[0]!.panes.pf!.tabs.map((tab) => tab.id)).toEqual(['translator:pf', 'n1'])
+  })
+
+  it('다시 저장해도 떠 있는 칸이 그대로 나간다', async () => {
+    disk.set('기본', withFloat())
+    const { result } = await open()
+    vi.mocked(writeSessionNamed).mockClear()
+    await act(async () => { await result.current.sessionOps.saveNow() })
+    const saved = vi.mocked(writeSessionNamed).mock.calls.at(-1)![2]
+    expect(saved.screens?.[0]?.floats?.[0]).toMatchObject({ paneId: 'pf', collapsed: true })
+    expect(saved.screens?.[0]?.paneState.pf).toEqual({ tabIds: ['translator:pf'], activeId: 'translator:pf', channel: 'orange' })
+  })
+})

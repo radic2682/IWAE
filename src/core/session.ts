@@ -1,7 +1,7 @@
 import { allPaneTabs, tabsOf, type PanesState } from '../app/tabs'
 import { channelOf, parseChannel, type PaneChannel, type PaneChannels } from '../app/workspaceChannels'
 import { layoutForLegacyId, leaves, legacyPaneCount, newPaneId, paneNode, parseLayoutTree, renamePane, reservePaneIds, type LayoutNode } from './layoutTree'
-import { newScreenId, reserveScreenIds, workspaceOf, type ScreensState } from '../app/screens'
+import { newScreenId, reserveScreenIds, screenPaneIds, type FloatAnchor, type FloatingPane, type ScreensState } from '../app/screens'
 import { isPdfSplitLayoutId, type PdfSplitLayoutId } from './pdfSplit'
 
 /** 칸 하나가 저장하는 것: 탭 id 들(차례대로), 보던 탭, 색 채널 */
@@ -19,6 +19,10 @@ export interface ScreenSnapshot {
   readonly layout: LayoutNode
   readonly paneState: Readonly<Record<string, PaneSnapshot>>
   readonly zoomed?: string | null
+  /** 떠 있는 칸들(설계 5): 칸 자체(탭 · 색)는 paneState 에 칸 id 로 같이 적힌다. 없으면 없다 */
+  readonly floats?: readonly FloatingPane[]
+  /** toggle-floating 으로 모두 숨긴 상태 */
+  readonly floatsHidden?: boolean
 }
 
 export interface SessionState {
@@ -71,8 +75,9 @@ export const emptySession: SessionState = {
 
 type CaptureWorkspace = { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode }
 
-function snapshotPanes(workspace: CaptureWorkspace): Record<string, PaneSnapshot> {
-  return Object.fromEntries(leaves(workspace.layout).map((pane): [string, PaneSnapshot] => {
+/** 칸마다의 저장 모양. ids 는 저장할 칸들(트리의 칸 + 떠 있는 칸) */
+function snapshotPanes(workspace: CaptureWorkspace, ids: readonly string[] = leaves(workspace.layout)): Record<string, PaneSnapshot> {
+  return Object.fromEntries(ids.map((pane): [string, PaneSnapshot] => {
     const state = tabsOf(workspace.panes, pane)
     return [pane, { tabIds: state.tabs.map((tab) => tab.id), activeId: state.activeId, channel: channelOf(workspace.channels, pane) }]
   }))
@@ -87,10 +92,12 @@ export function captureSession(
   layout: { sidebarCollapsed: boolean; sidebarPx: number; leftFrac: number },
 ): SessionState {
   const screens = 'screens' in input ? input : null
-  const workspaces: readonly CaptureWorkspace[] = screens === null ? [input as CaptureWorkspace] : screens.screens.map(workspaceOf)
-  const active: CaptureWorkspace = screens === null ? (input as CaptureWorkspace) : workspaceOf(screens.screens.find((screen) => screen.id === screens.activeScreen) ?? screens.screens[0]!)
+  const active: CaptureWorkspace = screens === null ? (input as CaptureWorkspace) : (screens.screens.find((screen) => screen.id === screens.activeScreen) ?? screens.screens[0]!)
   const order = leaves(active.layout)
-  const everything = workspaces.flatMap((workspace) => allPaneTabs(workspace.panes, leaves(workspace.layout)))
+  // 떠 있는 칸의 탭도 센다(떠 있는 칸에 문서를 열어 두었으면 다음에 켤 때 다시 열려야 한다)
+  const everything = screens === null
+    ? allPaneTabs((input as CaptureWorkspace).panes, leaves((input as CaptureWorkspace).layout))
+    : screens.screens.flatMap((screen) => allPaneTabs(screen.panes, screenPaneIds(screen)))
   const seen = new Set<string>()
   const all = everything.filter((tab) => (seen.has(tab.id) ? false : (seen.add(tab.id), true)))
   const docTabs = all.filter((tab) => tab.kind === 'pdf' || tab.kind === 'markdown')
@@ -114,8 +121,9 @@ export function captureSession(
         id: screen.id,
         name: screen.name,
         layout: screen.layout,
-        paneState: snapshotPanes(screen),
+        paneState: snapshotPanes(screen, screenPaneIds(screen)),
         ...(screen.zoomed === null ? {} : { zoomed: screen.zoomed }),
+        ...(screen.floats.length === 0 ? {} : { floats: screen.floats, ...(screen.floatsHidden === true ? { floatsHidden: true } : {}) }),
       })),
       activeScreen: screens.activeScreen,
       lastScreen: screens.lastScreen,
@@ -147,10 +155,10 @@ function parseLegacyChannels(raw: unknown): SessionState['paneChannels'] {
   return { left: pick('left'), right: pick('right'), third: pick('third'), fourth: pick('fourth') }
 }
 
-function parsePaneState(raw: unknown, tree: LayoutNode): Record<string, PaneSnapshot> | undefined {
+function parsePaneState(raw: unknown, tree: LayoutNode, extraIds: readonly string[] = []): Record<string, PaneSnapshot> | undefined {
   if (!isRecord(raw)) return undefined
   const out: Record<string, PaneSnapshot> = {}
-  for (const pane of leaves(tree)) {
+  for (const pane of [...leaves(tree), ...extraIds]) {
     const value = raw[pane]
     if (value === undefined) {
       out[pane] = { tabIds: [], activeId: null, channel: 'blue' }
@@ -162,6 +170,33 @@ function parsePaneState(raw: unknown, tree: LayoutNode): Record<string, PaneSnap
       activeId: isNullableString(value.activeId) ? value.activeId : null,
       channel: channelOrBlue(value.channel),
     }
+  }
+  return out
+}
+
+const finiteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
+
+/** 저장된 떠 있는 칸들을 읽는다: 칸 id 가 문자열이 아니거나 겹치면 건너뛰고, 자리는 0–1, 크기는 최소 크기 이상으로 바로잡는다 */
+function parseFloats(raw: unknown, treeIds: ReadonlySet<string>): FloatingPane[] {
+  if (!Array.isArray(raw)) return []
+  const out: FloatingPane[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (!isRecord(item) || typeof item.paneId !== 'string' || item.paneId === '' || seen.has(item.paneId) || treeIds.has(item.paneId)) continue
+    seen.add(item.paneId)
+    const anchorRaw = item.anchor
+    const anchor: FloatAnchor = isRecord(anchorRaw) && anchorRaw.kind === 'pane' && typeof anchorRaw.paneId === 'string' && treeIds.has(anchorRaw.paneId)
+      ? { kind: 'pane', paneId: anchorRaw.paneId }
+      : { kind: 'screen' }
+    out.push({
+      paneId: item.paneId,
+      anchor,
+      x: finiteNumber(item.x) ? Math.min(Math.max(item.x, 0), 1) : 0.1,
+      y: finiteNumber(item.y) ? Math.min(Math.max(item.y, 0), 1) : 0.1,
+      w: finiteNumber(item.w) ? Math.max(item.w, 120) : 380,
+      h: finiteNumber(item.h) ? Math.max(item.h, 80) : 300,
+      collapsed: item.collapsed === true,
+    })
   }
   return out
 }
@@ -197,25 +232,35 @@ function parseScreens(raw: unknown): ScreenSnapshot[] | undefined {
     if (!isRecord(item) || typeof item.id !== 'string' || item.id === '' || typeof item.name !== 'string') continue
     const tree = parseLayoutTree(item.layout)
     if (tree === null) continue
-    const state = parsePaneState(item.paneState, tree)
+    const floats = parseFloats(item.floats, new Set(leaves(tree)))
+    const state = parsePaneState(item.paneState, tree, floats.map((float) => float.paneId))
     if (state === undefined) continue
     let layout = tree
     const paneState: Record<string, PaneSnapshot> = {}
     let zoomed = typeof item.zoomed === 'string' ? item.zoomed : null
-    for (const pane of leaves(tree)) {
+    const renamed = new Map<string, string>()
+    const screenIds = [...leaves(tree), ...floats.map((float) => float.paneId)]
+    for (const pane of screenIds) {
       let id = pane
       if (usedPanes.has(id)) {
-        id = newPaneId([...usedPanes, ...leaves(tree)])
+        id = newPaneId([...usedPanes, ...screenIds])
         layout = renamePane(layout, pane, id)
         if (zoomed === pane) zoomed = id
+        renamed.set(pane, id)
       }
       usedPanes.add(id)
       paneState[id] = state[pane]!
     }
+    // 겹쳐서 새 id 를 받은 칸을 따라가게 떠 있는 칸의 id · 붙은 칸도 바꾼다
+    const keptFloats = floats.map((float): FloatingPane => ({
+      ...float,
+      paneId: renamed.get(float.paneId) ?? float.paneId,
+      anchor: float.anchor.kind === 'pane' && renamed.has(float.anchor.paneId) ? { kind: 'pane', paneId: renamed.get(float.anchor.paneId)! } : float.anchor,
+    }))
     if (zoomed !== null && !leaves(layout).includes(zoomed)) zoomed = null
     const id = usedScreens.has(item.id) ? newScreenId(usedScreens) : item.id
     usedScreens.add(id)
-    out.push({ id, name: item.name, layout, paneState, ...(zoomed === null ? {} : { zoomed }) })
+    out.push({ id, name: item.name, layout, paneState, ...(zoomed === null ? {} : { zoomed }), ...(keptFloats.length === 0 ? {} : { floats: keptFloats, ...(item.floatsHidden === true ? { floatsHidden: true } : {}) }) })
   }
   return out.length === 0 ? undefined : out
 }
@@ -344,7 +389,7 @@ export interface ScreensSnapshot {
 export function screensFromSession(session: SessionState, legacyLayout: PdfSplitLayoutId | null, defaultName: string): ScreensSnapshot {
   if (session.screens !== undefined && session.screens.length > 0 && session.activeScreen !== undefined) {
     reserveScreenIds(session.screens.map((screen) => screen.id))
-    reservePaneIds(session.screens.flatMap((screen) => leaves(screen.layout)))
+    reservePaneIds(session.screens.flatMap((screen) => [...leaves(screen.layout), ...(screen.floats ?? []).map((float) => float.paneId)]))
     return { screens: session.screens, activeScreen: session.activeScreen, lastScreen: session.lastScreen ?? null }
   }
   if (session.layout !== undefined) reservePaneIds(leaves(session.layout))

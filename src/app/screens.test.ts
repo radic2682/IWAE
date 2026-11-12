@@ -12,7 +12,7 @@ function screenOf(id: string, name: string, panes: Record<string, TabsState>): S
   const ids = Object.keys(panes)
   let layout: LayoutNode = paneNode(ids[0]!)
   for (const pane of ids.slice(1)) layout = splitLeaf(layout, ids[0]!, 'h', pane)
-  return { id, name, layout, panes, channels: Object.fromEntries(ids.map((pane) => [pane, 'blue' as const])), zoomed: null }
+  return { id, name, layout, panes, channels: Object.fromEntries(ids.map((pane) => [pane, 'blue' as const])), zoomed: null, floats: [] }
 }
 
 const three = (): ScreensState => ({

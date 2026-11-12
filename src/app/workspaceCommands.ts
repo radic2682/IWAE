@@ -3,7 +3,7 @@ import {
   type RelayoutKind, type SplitDir, type SplitRefusal,
 } from '../core/layoutTree'
 import { t } from '../i18n'
-import { blankScreen, activeScreenOf, addScreen, breakPane, closeScreen, lastScreenOf, renameScreen, setZoomed, stepScreen, switchScreen, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
+import { blankScreen, normalizeFloats, activeScreenOf, addScreen, breakPane, closeScreen, lastScreenOf, renameScreen, setZoomed, stepScreen, switchScreen, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { closePaneTree, type PaneSizer } from './tabDock'
 import { selectLayout, splitPane } from './paneLayoutOps'
 import { tabsOf } from './tabs'
@@ -450,13 +450,13 @@ function joinPane(model: WorkspaceModel, ref: string, dir: SplitDir, sizeOf?: Pa
   }
   const shrunkLayout = removeLeaf(source.layout, pane)
   const { [pane]: _gone, ...restPanes } = source.panes
-  const shrunk: Screen | null = shrunkLayout === null ? null : {
+  const shrunk: Screen | null = shrunkLayout === null ? null : normalizeFloats({
     ...source,
     layout: shrunkLayout,
     panes: restPanes,
-    channels: pruneChannels(source.channels, leaves(shrunkLayout)),
+    channels: pruneChannels(source.channels, [...leaves(shrunkLayout), ...source.floats.map((float) => float.paneId)]),
     zoomed: source.zoomed === pane ? null : source.zoomed,
-  }
+  }, source.layout)
   const screens = state.screens.flatMap((screen) => (screen.id === active.id ? [joined] : screen.id === source.id ? (shrunk === null ? [] : [shrunk]) : [screen]))
   return { model: { screens: { screens, activeScreen: active.id, lastScreen: shrunk === null && state.lastScreen === source.id ? null : state.lastScreen }, activePane: pane } }
 }

@@ -35,7 +35,7 @@ function input(overrides: Partial<McpAppInput> = {}, paneTotal = 1) {
     growPanes: (count) => { calls.push(`grow ${count}`); return workspace(count).names },
     activePaneId: 'p0',
     panes,
-    screens: [{ id: 'w1', name: '읽기', layout, panes, channels: { p0: 'blue', p1: 'green' }, zoomed: null }],
+    screens: [{ id: 'w1', name: '읽기', layout, panes, channels: { p0: 'blue', p1: 'green' }, zoomed: null, floats: [] }],
     activeScreenId: 'w1',
     docViews: {},
     shownLibrary: [{ docId: 'd1', title: '문서', pages: 3 }],
@@ -92,6 +92,7 @@ describe('buildMcpAppDeps', () => {
       panes: { q0: { tabs: [{ id: 'd1', title: '문서', kind: 'pdf' }], activeId: 'd1' } },
       channels: { q0: 'orange' },
       zoomed: null,
+      floats: [],
     }
     const app = buildMcpAppDeps({ ...base, screens: [...base.screens, other] })
     expect(app.screens.map((screen) => [screen.index, screen.name, screen.active])).toEqual([[0, '읽기', true], [1, '비교', false]])

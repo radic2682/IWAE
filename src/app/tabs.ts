@@ -8,15 +8,15 @@ import { t } from '../i18n'
  */
 
 /**
- * 탭의 종류. memoNote 는 메모 노트(.iwnote), canvas 는 YOLO 노트(캔버스, .canvas).
+ * 탭의 종류. memoNote 는 메모 노트(.iwnote), canvas 는 YOLO 노트(캔버스, .canvas), translator 는 번역기(떠 있는 칸의 탭, 파일이 없다).
  * 예전에는 캔버스를 'note' 라고 불렀다 — 남아 있는 'note' 는 normalizeTabKind 가 'canvas' 로 옮긴다.
  */
-export type TabKind = 'pdf' | 'markdown' | 'memoNote' | 'canvas'
+export type TabKind = 'pdf' | 'markdown' | 'memoNote' | 'canvas' | 'translator'
 
 /** 저장된 값·바깥(MCP)에서 온 탭 종류를 읽는다. 예전 'note' 는 'canvas'. 모르는 값이면 null */
 export function normalizeTabKind(raw: unknown): TabKind | null {
   if (raw === 'note') return 'canvas'
-  return raw === 'pdf' || raw === 'markdown' || raw === 'memoNote' || raw === 'canvas' ? raw : null
+  return raw === 'pdf' || raw === 'markdown' || raw === 'memoNote' || raw === 'canvas' || raw === 'translator' ? raw : null
 }
 
 /** 문서(PDF·Markdown) 탭인가. 메모 노트·캔버스는 문서가 아니다 */
