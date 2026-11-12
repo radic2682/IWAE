@@ -225,7 +225,7 @@ export function OnlyOpenNotesButton({ on, onChange, buttonClassName }: { readonl
       type="button"
       className={`${buttonClassName} pdf-only-open-notes${on ? ' toolbar-tool-btn-active' : ''}`}
       aria-label={t('열린 노트 표시만 보기')}
-      title={t('켜면 지금 열린 노트의 형광펜·메모만 PDF에 보입니다')}
+      title={t('켜면 같은 색 창에 보이는 노트의 형광펜·메모만 PDF에 보입니다')}
       aria-pressed={on}
       onClick={() => onChange(!on)}
     >

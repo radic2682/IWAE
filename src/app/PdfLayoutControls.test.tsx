@@ -12,7 +12,7 @@ describe('PDF 쪽 배치 단추', () => {
     expect(order.slice(0, 2)).toEqual(['표시 모두 감추기', '열린 노트 표시만 보기'])
     const button = screen.getByRole('button', { name: '열린 노트 표시만 보기' })
     expect(button.getAttribute('aria-pressed')).toBe('false')
-    expect(button.getAttribute('title')).toBe('켜면 지금 열린 노트의 형광펜·메모만 PDF에 보입니다')
+    expect(button.getAttribute('title')).toBe('켜면 같은 색 창에 보이는 노트의 형광펜·메모만 PDF에 보입니다')
     fireEvent.click(button)
     expect(onChange).toHaveBeenCalledWith(true)
     rerender(<PdfPageLayoutButtons {...props} onlyOpenNotes />)

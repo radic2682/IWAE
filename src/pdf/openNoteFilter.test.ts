@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterToOpenNotes } from './openNoteFilter'
+import { filterToOpenNotes, openNotePaths } from './openNoteFilter'
 
 const highlights = [{ id: 'own' }, { id: 'shared' }, { id: 'other' }, { id: 'none' }, { id: 'draft' }, { id: 'fresh' }]
 const owners: Record<string, readonly string[]> = { own: ['A'], 'shared': ['A', 'Z'], other: ['Z'] }
@@ -37,6 +37,19 @@ describe('filterToOpenNotes — 열린 노트 표시만 보기', () => {
   it('표시 모두 감추기가 이긴다: 예외도 감춘 채로', () => {
     expect(filterToOpenNotes(highlights, { ...base, clean: true, isExempt: () => true })).toEqual([])
     expect(filterToOpenNotes(highlights, { ...base, enabled: false, clean: true })).toEqual([])
+  })
+
+  it('열린 노트 = 같은 색 창에 보이는 노트 + 노트 바의 열린 노트(있는 동안). 겹치면 한 번만', () => {
+    expect(openNotePaths('A', ['M', 'N'])).toEqual(['A', 'M', 'N'])
+    expect(openNotePaths(null, ['M'])).toEqual(['M'])
+    expect(openNotePaths('A', ['A', 'M'])).toEqual(['A', 'M'])
+    expect(openNotePaths(null, [])).toEqual([])
+  })
+
+  it('같은 색 창의 노트가 열린 노트에 들어와 그 노트의 형광펜이 보인다', () => {
+    const paths = openNotePaths(null, ['노트/채널.iwnote'])
+    const result = filterToOpenNotes([{ id: 'in-channel' }, { id: 'elsewhere' }], { enabled: true, tabPaths: paths, notesOf: (id) => (id === 'in-channel' ? ['노트/채널.iwnote'] : ['노트/딴곳.iwnote']) })
+    expect(result.map((item) => item.id)).toEqual(['in-channel'])
   })
 
   it('원본 배열을 고치지 않는다', () => {
