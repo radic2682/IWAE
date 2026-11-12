@@ -55,8 +55,65 @@ export function aiActivityEnd(changes: number, target?: string): void {
   }, AI_ACTIVITY_LINGER_MS)
 }
 
+/** Rust 가 begin 만 보내고 end 를 못 보냈을 때(패닉 등) 알약이 영영 켜져 있지 않게 하는 한도 */
+export const AI_ACTIVITY_SAFETY_MS = 60_000
+
+/** Rust 의 `mcp-tool-activity` 이벤트 내용 */
+export interface McpToolActivityEvent {
+  readonly phase: 'begin' | 'end'
+  readonly tool?: string
+  readonly target?: string
+}
+
+// 이벤트로 켠 begin 마다 하나씩 쌓이는 안전 타이머. end 가 오면 가장 오래된 것부터 끈다
+const guards: ReturnType<typeof setTimeout>[] = []
+
+/** Rust 쪽 MCP tools/call 알림을 알약에 반영한다. 모든 도구(읽기 포함)가 지나간다 */
+export function applyMcpToolActivity(event: McpToolActivityEvent): void {
+  if (event.phase === 'begin') {
+    aiActivityBegin(event.target ?? '')
+    const guard = setTimeout(() => {
+      const at = guards.indexOf(guard)
+      if (at >= 0) guards.splice(at, 1)
+      aiActivityEnd(0)
+    }, AI_ACTIVITY_SAFETY_MS)
+    guards.push(guard)
+    return
+  }
+  const guard = guards.shift()
+  if (guard === undefined) return // 짝 없는 end(안전 타이머가 이미 닫았다)
+  clearTimeout(guard)
+  aiActivityEnd(0)
+}
+
+let unlistenActivity: (() => void) | null = null
+
+/** Tauri 이벤트를 듣는다. 돌려주는 함수는 구독 해제(다시 마운트돼도 겹치지 않는다) */
+export function initAiActivityListener(): () => void {
+  let cancelled = false
+  void (async () => {
+    try {
+      const { listen } = await import('@tauri-apps/api/event')
+      const stop = await listen<McpToolActivityEvent>('mcp-tool-activity', (event) => applyMcpToolActivity(event.payload))
+      if (cancelled) stop()
+      else {
+        unlistenActivity?.()
+        unlistenActivity = stop
+      }
+    } catch {
+      // 브라우저(Tauri 없음)에서는 듣지 않는다
+    }
+  })()
+  return () => {
+    cancelled = true
+    unlistenActivity?.()
+    unlistenActivity = null
+  }
+}
+
 /** 시험용 */
 export function resetAiActivity(): void {
+  for (const guard of guards.splice(0)) clearTimeout(guard)
   running = 0
   if (timer !== null) { clearTimeout(timer); timer = null }
   publish(IDLE)

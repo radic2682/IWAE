@@ -2,7 +2,7 @@ import { ArrowCounterClockwise, Robot, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
 import { aiChangeViews, hasUndoableAiChange, subscribeAiChanges, undoAllAiChanges, type AiChangeView } from './mcp/aiChangeLog'
-import { useAiActivity } from './mcp/aiActivityStore'
+import { initAiActivityListener, useAiActivity } from './mcp/aiActivityStore'
 import '../ui/ai-inbox.css'
 
 /**
@@ -16,6 +16,7 @@ export function AiActivityPill() {
   const [busy, setBusy] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => initAiActivityListener(), [])
   useEffect(() => subscribeAiChanges(() => setChanges(aiChangeViews())), [])
   // 목록은 열 때마다 새로 읽는다(사람이 고쳐서 되돌릴 수 없게 된 것도 보이게)
   useEffect(() => { if (open) setChanges(aiChangeViews()) }, [open, activity])
@@ -38,7 +39,9 @@ export function AiActivityPill() {
     }
   }, [open])
   if (!activity.active && !open) return null
-  const label = activity.target === ''
+  const label = activity.changes === 0
+    ? (activity.target === '' ? t('AI가 보는 중') : t('AI가 보는 중: {target}', { target: activity.target }))
+    : activity.target === ''
     ? t('AI가 작업 중 ({count}개 변경)', { count: activity.changes })
     : t('AI가 편집 중: {target} ({count}개 변경)', { target: activity.target, count: activity.changes })
   const undoAll = () => {

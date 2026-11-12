@@ -164,6 +164,15 @@ impl ToolContext for AiContext {
         crate::mcp::webview_call::call_class(&self.app, op, args, "read", timeout)
     }
 
+    fn tool_activity(&self, phase: &str, tool: &str, target: &str) {
+        // 알약은 메인 창에만 있다. 실패해도 도구 호출에는 영향이 없다
+        let _ = self.app.emit_to(
+            crate::windows::MAIN_LABEL,
+            "mcp-tool-activity",
+            serde_json::json!({"phase": phase, "tool": tool, "target": target}),
+        );
+    }
+
     fn show_location(&self, location: LocationRequest) -> Result<(), String> {
         if self.state.root().is_none() {
             return Err("IWAE 에 열린 Vault 가 없습니다.".into());

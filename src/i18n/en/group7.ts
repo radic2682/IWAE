@@ -265,6 +265,8 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '출처 {count}개 뺌': '{count} sources removed',
   'Markdown 내보내기': 'Markdown export',
   'AI가 편집 중: {target} ({count}개 변경)': 'AI is editing: {target} ({count} changes)',
+  'AI가 보는 중': 'AI is looking',
+  'AI가 보는 중: {target}': 'AI is looking at: {target}',
   'AI가 작업 중 ({count}개 변경)': 'AI is working ({count} changes)',
   'AI가 한 변경': 'Changes made by the AI',
   '모두 되돌리기': 'Undo all',

@@ -18,6 +18,14 @@ describe('AiActivityPill', () => {
     expect(screen.getByRole('button', { name: /AI가 편집 중: 논문 노트 \(2개 변경\)/u })).toBeTruthy()
   })
 
+  it('바뀐 것이 없으면 「보는 중」으로 보여 준다', () => {
+    render(<AiActivityPill />)
+    act(() => { aiActivityBegin('논문'); aiActivityEnd(0) })
+    expect(screen.getByRole('button', { name: 'AI가 보는 중: 논문' })).toBeTruthy()
+    act(() => { resetAiActivity(); aiActivityBegin(''); aiActivityEnd(0) })
+    expect(screen.getByRole('button', { name: 'AI가 보는 중' })).toBeTruthy()
+  })
+
   it('누르면 변경 목록이 열리고 Esc 로 닫히며 초점이 알약으로 돌아온다', () => {
     render(<AiActivityPill />)
     act(() => { aiActivityBegin('노트'); aiActivityEnd(1) })

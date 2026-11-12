@@ -64,6 +64,9 @@ pub trait ToolContext {
     fn webview(&self, _op: &str, _args: &Value, _timeout: std::time::Duration) -> Result<Value, String> {
         Err("unsupported op: no IWAE window".to_string())
     }
+    /// tools/call 한 번의 시작(`begin`)·끝(`end`)을 앱에 알린다(「AI가 편집 중」 알약용). 기본은 아무것도 안 한다.
+    /// 알림이 실패해도 도구 호출은 실패하면 안 되므로 반환값이 없다.
+    fn tool_activity(&self, _phase: &str, _tool: &str, _target: &str) {}
     /// 문서 판 묶음(`.iwae/versions.json` 의 내용). 없으면 Null
     fn version_groups(&self) -> Value {
         Value::Null
@@ -438,6 +441,17 @@ fn read_pages(args: &Value, ctx: &dyn ToolContext) -> Value {
     text_result(json!({"docId": doc_id, "title": title, "pages": pages, "from": from, "to": last, "items": items, "untrusted_text": true}))
 }
 
+/// 알약에 보일 대상 힌트. 인자에 제목이 있을 때만(문서·노트 제목), 없으면 빈 문자열
+fn activity_target(args: &Value) -> String {
+    ["title", "note_title"]
+        .iter()
+        .find_map(|key| args.get(*key).and_then(Value::as_str))
+        .unwrap_or("")
+        .chars()
+        .take(80)
+        .collect()
+}
+
 fn call_tool(id: &Value, name: &str, args: &Value, ctx: &dyn ToolContext) -> Outcome {
     let result = match name {
         "search_vault" => {
@@ -589,7 +603,11 @@ pub fn handle(body: &str, ctx: &dyn ToolContext, version: &str) -> Outcome {
                 .cloned()
                 .unwrap_or_else(|| json!({}));
             let args = normalize_args(name, args);
-            call_tool(&id, name, &args, ctx)
+            let target = activity_target(&args);
+            ctx.tool_activity("begin", name, &target);
+            let outcome = call_tool(&id, name, &args, ctx);
+            ctx.tool_activity("end", name, "");
+            outcome
         }
         "resources/list" => response(&id, json!({"resources": crate::mcp::guide::resources_list()})),
         "resources/read" => {
@@ -653,6 +671,7 @@ mod tests {
     #[derive(Default)]
     struct Fake {
         shown: RefCell<Vec<LocationRequest>>,
+        activity: RefCell<Vec<(String, String, String)>>,
     }
 
     impl ToolContext for Fake {
@@ -705,6 +724,9 @@ mod tests {
             self.shown.borrow_mut().push(location);
             Ok(())
         }
+        fn tool_activity(&self, phase: &str, tool: &str, target: &str) {
+            self.activity.borrow_mut().push((phase.into(), tool.into(), target.into()));
+        }
     }
 
     fn call(fake: &Fake, body: Value) -> Value {
@@ -723,6 +745,32 @@ mod tests {
 
     fn tool_payload(response: &Value) -> Value {
         serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap()).unwrap()
+    }
+
+    #[test]
+    fn tools_call_reports_begin_and_end_but_other_methods_do_not() {
+        let fake = Fake::default();
+        tool(&fake, "list_documents", json!({}));
+        tool(&fake, "read_page", json!({"doc_id": "nope", "page": 1}));
+        tool(&fake, "search_vault", json!({}));
+        let log = fake.activity.borrow().clone();
+        let phases: Vec<(&str, &str)> = log.iter().map(|(p, t, _)| (p.as_str(), t.as_str())).collect();
+        assert_eq!(
+            phases,
+            vec![
+                ("begin", "list_documents"), ("end", "list_documents"),
+                ("begin", "read_page"), ("end", "read_page"),
+                ("begin", "search_vault"), ("end", "search_vault"),
+            ]
+        );
+        let quiet = Fake::default();
+        call(&quiet, json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}));
+        call(&quiet, json!({"jsonrpc":"2.0","id":2,"method":"ping"}));
+        call(&quiet, json!({"jsonrpc":"2.0","method":"notifications/initialized"}));
+        assert!(quiet.activity.borrow().is_empty());
+        let titled = Fake::default();
+        tool(&titled, "list_documents", json!({"title": "노트"}));
+        assert_eq!(titled.activity.borrow()[0].2, "노트");
     }
 
     #[test]

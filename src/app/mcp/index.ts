@@ -50,7 +50,15 @@ export async function handleMcpOp(op: string, args: Record<string, unknown>, dep
   const def = OPS[op]!
   const notes = noteAdapter(deps.notes)
   const make = (change: ChangeNote): OpContext => ({ deps, notes, change, highlights: () => currentHighlights(deps) })
-  if (def.cls === 'read') return def.run(args, make({ target: '', count: 0, summary: '' }))
+  if (def.cls === 'read') {
+    // 읽기는 아무것도 바꾸지 않는다: 알약만 켜고 0개 변경으로 끝낸다
+    aiActivityBegin(targetHint(args))
+    try {
+      return await def.run(args, make({ target: '', count: 0, summary: '' }))
+    } finally {
+      aiActivityEnd(0)
+    }
+  }
   // 되돌리기는 AI 변경이 아니다: 묶음을 새로 만들지 않고 알약만 켠다
   if (def.cls === 'ui' || op === 'ai_undo') {
     aiActivityBegin(targetHint(args))
