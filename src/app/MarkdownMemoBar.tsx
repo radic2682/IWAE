@@ -1,12 +1,13 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type CSSProperties } from 'react'
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type CSSProperties } from 'react'
 import { NoteBarHeader } from '../pdf/NoteBarHeader'
 import { NoteOutline, useExpandQuotesWhileWide } from '../pdf/NoteOutline'
-import { NoteFlow, type NoteFlowItem } from '../pdf/NoteFlow'
+import { NoteFlow } from '../pdf/NoteFlow'
+import { useNoteFlowController } from '../pdf/useNoteFlowController'
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from '../pdf/MemoColumn'
 import { useMemoNoteApi } from '../pdf/memoNoteContext'
 import { useBarZoom, useBarZoomWheel } from './useBarZoom'
 import { t } from '../i18n'
-import { insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
+import { insertBlock, memoBlock, updateSection, type MemoTicket } from '../core/memoNote'
 import { updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import '../ui/pdf-memo.css'
 
@@ -50,43 +51,27 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
   const rightZoom = useBarZoom('right')
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
   useBarZoomWheel(barEl, 'right', !memoOnly)
-  const [editingKey, setEditingKey] = useState<string | null>(null)
-  const [activeKey, setActiveKey] = useState<string | null>(null)
-  const [openQuotes, setOpenQuotes] = useState<ReadonlySet<string>>(() => new Set())
-  const [formatSlot, setFormatSlot] = useState<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const [query, setQuery] = useState('')
-  const highlightById = useMemo(() => new Map(highlights.map((item) => [item.id, item])), [highlights])
-  const blocks: readonly MemoNoteBlock[] = noteApi?.openNote?.blocks ?? []
-  const updateNote = (change: (note: MemoNote) => MemoNote) => noteApi?.updateOpen(change)
-
-  const items: NoteFlowItem[] = []
-  let hidden = false
-  blocks.forEach((block, index) => {
-    if (block.kind === 'section') {
-      hidden = block.collapsed === true
-      const next = blocks.findIndex((item, at) => at > index && item.kind === 'section')
-      items.push({ kind: 'section', key: block.id, title: block.title, collapsed: hidden, count: (next < 0 ? blocks.length : next) - index - 1 })
-      return
-    }
-    if (hidden) return
-    if (block.kind === 'text') {
-      items.push({ kind: 'text', key: block.id, text: block.text, ...(block.html === undefined ? {} : { html: block.html }) })
-      return
-    }
-    const highlight = highlightById.get(block.highlightId)
-    if (highlight === undefined) return
-    items.push({
-      kind: 'memo',
-      key: block.id,
-      highlight,
-      ...(highlight.anchor.docId === docId ? {} : { docLabel: (docTitles?.[highlight.anchor.docId] ?? t('다른 문서')).split(' · ')[0]! }),
-      sourceLabel: docTitles?.[highlight.anchor.docId] ?? (highlight.anchor.docId === docId ? title : t('다른 문서')),
-      ...(block.ticket === undefined ? {} : { ticket: block.ticket }),
-      ...((block.refs ?? []).length === 0 ? {} : { extraHighlights: (block.refs ?? []).flatMap((ref) => { const found = highlightById.get(ref); return found === undefined ? [] : [found] }) }),
-    })
+  // 카드 목록·블록 편집은 노트 탭과 같은 컨트롤러가 한다(열린 노트 하나를 다룬다)
+  const flow = useNoteFlowController({
+    api: noteApi,
+    path: noteApi?.openPath ?? null,
+    highlights,
+    docId,
+    title,
+    docTitles,
+    otherLabel: t('다른 문서'),
+    draft,
+    onHighlightUpdated,
+    onHighlightRemoved,
+    onJump: (highlight) => {
+      // 메모만 보기에서 원문을 누르면 문서와 같이 보기로 돌아가 그 자리로 간다
+      if (!memoOnly) { onJump(highlight); return }
+      onMemoOnlyChange?.(false)
+      window.setTimeout(() => onJump(highlight), 0)
+    },
   })
-  if (draft !== null) items.push({ kind: 'memo', key: 'draft', highlight: draft, draft: true, sourceLabel: title })
+  const { items, noteMemos, anyQuoteOpen, editingKey, setEditingKey, activeKey, setActiveKey, openQuotes, setOpenQuotes, updateNote } = flow
 
   const saveMemo = (id: string, content: MemoContent, ticket?: MemoTicket) => {
     const patch = { note: content.text, noteHtml: content.html }
@@ -99,23 +84,9 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
     }
     onHighlightUpdated?.(id, patch)
   }
-  const insertNear = (key: string, block: MemoNoteBlock, after: boolean) => {
-    updateNote((note) => {
-      const at = note.blocks.findIndex((item) => item.id === key)
-      return insertBlock(note, block, at < 0 ? note.blocks.length : at + (after ? 1 : 0))
-    })
-    setEditingKey(block.id)
-  }
-
-  const noteMemos = items.flatMap((item) => (item.kind === 'memo' && item.draft !== true ? [item.highlight] : []))
-  const anyQuoteOpen = noteMemos.some((highlight) => openQuotes.has(highlight.id))
   // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
   useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
-  const appendText = () => {
-    const block = textBlock()
-    updateNote((note) => insertBlock(note, block, note.blocks.length))
-    setEditingKey(block.id)
-  }
+  const query = flow.query
 
   // PDF 메모 바와 같은 머리·같은 구조(맨 위 서식 줄 고정, 왼쪽 손잡이 자리)
   return (
@@ -143,14 +114,11 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
         highlights={highlights}
         currentDocId={docId}
         docTitles={docTitles}
-        onQueryChange={setQuery}
+        onQueryChange={flow.setQuery}
         onPickResult={onJump}
-        onAddText={noteApi === null ? undefined : appendText}
+        onAddText={noteApi === null ? undefined : flow.appendText}
         anyQuoteOpen={noteMemos.length === 0 ? undefined : anyQuoteOpen}
-        onToggleQuotes={() => {
-          setEditingKey(null)
-          setOpenQuotes(anyQuoteOpen ? new Set() : new Set(noteMemos.filter((highlight) => highlight.kind !== 'region').map((highlight) => highlight.id)))
-        }}
+        onToggleQuotes={flow.toggleQuotes}
         memoOnly={memoOnly}
         onToggleMemoOnly={onMemoOnlyChange === undefined ? undefined : () => {
           setEditingKey(null)
@@ -170,67 +138,19 @@ export function MarkdownMemoBar({ docId, title, highlights, draft, onDraftDone, 
       ) : (
         <div className={`markdown-memo-bar-body${memoOnly ? ' note-wide' : ''}`}>
           <div className="note-format-dock">
-            <div className="note-format-slot" ref={setFormatSlot} />
+            <div className="note-format-slot" ref={flow.setFormatSlot} />
             {draft === null && editingKey === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
           </div>
           <div ref={scrollRef} className="pdf-memo-bar-scroll" style={memoOnly ? undefined : { paddingLeft: 12 }}>
           {items.length === 0 ? <p className="note-empty-hint">{t('Markdown 에서 글을 고르면 이 노트에 메모가 생깁니다.')}</p> : null}
-          <MemoFormatSlotContext.Provider value={formatSlot}>
+          <MemoFormatSlotContext.Provider value={flow.formatSlot}>
             <NoteFlow
-              items={items}
-              query={query}
+              {...flow.flowProps}
               attachingKey={attachingKey}
               onAddRef={onAddRef}
               editingKey={draft !== null ? 'draft' : editingKey}
-              activeKey={activeKey}
-              pageSizeOf={(highlight) => highlight.pageSize}
-              onEdit={setEditingKey}
-              onActivate={setActiveKey}
               onSaveMemo={saveMemo}
               onCancelDraft={onDraftDone}
-              onSaveText={(key, content) => updateNote((note) => content.text.trim() === '' ? removeBlock(note, key) : updateTextBlock(note, key, content.text, content.html))}
-              onRemoveText={(key) => updateNote((note) => removeBlock(note, key))}
-              onRecolor={(id, color) => onHighlightUpdated?.(id, { color })}
-              onDeleteMemo={(id) => {
-                setEditingKey(null)
-                onHighlightRemoved?.(id)
-              }}
-              onRemoveRef={(key, highlightId) => updateNote((note) => removeMemoRef(note, key, highlightId))}
-              onDeleteBlocks={(keys) => {
-                const wanted = new Set(keys)
-                setEditingKey(null)
-                for (const block of blocks) {
-                  if (wanted.has(block.id)) for (const id of memoHighlightIds(block)) onHighlightRemoved?.(id)
-                }
-                updateNote((note) => ({ ...note, blocks: note.blocks.filter((block) => !wanted.has(block.id)) }))
-              }}
-              onToggleCollapse={(id, collapsed) => setOpenQuotes((current) => {
-                const next = new Set(current)
-                if (collapsed) next.delete(id)
-                else next.add(id)
-                return next
-              })}
-              openQuotes={openQuotes}
-              onRate={(id, rating) => onHighlightUpdated?.(id, { rating })}
-              onMove={(keys, beforeKey) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note))}
-              onJump={(highlight) => {
-                // 메모만 보기에서 원문을 누르면 문서와 같이 보기로 돌아가 그 자리로 간다
-                if (!memoOnly) { onJump(highlight); return }
-                onMemoOnlyChange?.(false)
-                window.setTimeout(() => onJump(highlight), 0)
-              }}
-              onCardLayout={() => undefined}
-              onRenameSection={(key, sectionTitle) => updateNote((note) => updateSection(note, key, { title: sectionTitle }))}
-              onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))}
-              onSetTicket={(key, ticket) => (noteApi?.setTicket !== undefined ? noteApi.setTicket(key, ticket) : updateNote((note) => setMemoTicket(note, key, ticket)))}
-              onRemoveSection={(key) => updateNote((note) => removeBlock(note, key))}
-              onInsertSection={(key) => insertNear(key, sectionBlock(), false)}
-              onInsertText={(key) => insertNear(key, textBlock(), true)}
-              onAppendText={() => {
-                const block = textBlock()
-                updateNote((note) => insertBlock(note, block, note.blocks.length))
-                setEditingKey(block.id)
-              }}
             />
           </MemoFormatSlotContext.Provider>
           </div>

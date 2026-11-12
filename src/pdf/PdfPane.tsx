@@ -47,6 +47,7 @@ import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
 import { useMemoBarVisible, setMemoBarVisible } from './memoStore'
 import { useMemoNoteApi } from './memoNoteContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
+import { buildNoteFlowItems } from './noteFlowItems'
 import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
@@ -478,39 +479,10 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   // 새 메모가 들어갈 노트 안 자리(만들 때 보고 있던 화면 가운데)
   const [draftIndex, setDraftIndex] = useState(0)
   // 같은 입력이면 같은 배열: 스크롤·마우스 올리기로 PdfPane 이 다시 그려져도 노트 카드가 다시 그려지지 않게
-  const noteItems = useMemo<NoteFlowItem[]>(() => {
-  const noteItems: NoteFlowItem[] = []
-  // 접힌 소제목 아래 블록은 숨긴다(새로 쓰는 메모는 늘 보인다)
-  let hidden = false
-  noteBlocks.forEach((block, index) => {
-    if (draftMemo !== null && index === draftIndex) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true, sourceLabel: title })
-    if (block.kind === 'section') {
-      hidden = block.collapsed === true
-      const next = noteBlocks.findIndex((item, at) => at > index && item.kind === 'section')
-      noteItems.push({ kind: 'section', key: block.id, title: block.title, collapsed: hidden, count: (next < 0 ? noteBlocks.length : next) - index - 1 })
-      return
-    }
-    if (hidden) return
-    if (block.kind === 'text') {
-      noteItems.push({ kind: 'text', key: block.id, text: block.text, ...(block.html === undefined ? {} : { html: block.html }) })
-      return
-    }
-    const highlight = highlightById.get(block.highlightId)
-    if (highlight === undefined) return
-    noteItems.push({
-      kind: 'memo',
-      key: block.id,
-      highlight,
-      // 다른 PDF 의 메모: 그 PDF 이름(「·」 앞의 짧은 이름)을 카드 머리에
-      ...(highlight.anchor.docId === docId ? {} : { docLabel: (docTitles?.[highlight.anchor.docId] ?? t('다른 PDF')).split(' · ')[0]! }),
-      sourceLabel: docTitles?.[highlight.anchor.docId] ?? (highlight.anchor.docId === docId ? title : t('다른 PDF')),
-      ...(block.ticket === undefined ? {} : { ticket: block.ticket }),
-      ...((block.refs ?? []).length === 0 ? {} : { extraHighlights: (block.refs ?? []).flatMap((ref) => { const found = highlightById.get(ref); return found === undefined ? [] : [found] }) }),
-    })
-  })
-  if (draftMemo !== null && draftIndex >= noteBlocks.length) noteItems.push({ kind: 'memo', key: 'draft', highlight: draftMemo, draft: true, sourceLabel: title })
-  return noteItems
-  }, [noteBlocks, highlightById, draftMemo, draftIndex, docTitles, docId, title])
+  const noteItems = useMemo<NoteFlowItem[]>(
+    () => buildNoteFlowItems(noteBlocks, { highlightById, docId, title, docTitles, otherLabel: t('다른 PDF'), draft: draftMemo, draftIndex }),
+    [noteBlocks, highlightById, draftMemo, draftIndex, docTitles, docId, title],
+  )
   const noteMemos = noteItems.flatMap((item) => item.kind === 'memo' && item.draft !== true ? [item.highlight] : [])
   // 노트 바에 열린 노트가 있을 때, 그 노트에 없는 형광펜은 카드도 연결선도 없다: 설정에 따라 흐리게·숨기고, 올리면 어느 노트의 것인지 말한다
   const otherNotePref = useOtherNoteHighlights()
