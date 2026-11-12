@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { requestTitleEdit } from '../pdf/memoNoteContext'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import type { TabsState } from './tabs'
+import { allCssRules, declarationsOf, rulesMatching, ruleDecl } from './cssRules.testutil'
 
 afterEach(cleanup)
 
@@ -52,28 +51,37 @@ describe('PaneTabsMenu — 보조 글은 제목 바로 뒤, 같은 알약 안', 
   })
 })
 
-describe('칸 머리 탭은 예전 탭 모양(알약 스타일 없음)', () => {
-  const css = readFileSync(join(__dirname, '../ui/screens.css'), 'utf8').split(String.fromCharCode(13)).join('')
+describe('칸 머리 탭은 한 모양의 알약이다', () => {
+  const rules = allCssRules()
+  const inHead = (state: TabsState) => {
+    const { container } = render(<div className="pane-head"><PaneTabsMenu {...base} state={state} secondary="p.1" /></div>)
+    return container
+  }
 
-  it('알약 규칙(고른 탭 연한 바탕 · × 숨김 · 칸 머리 높이 30px)이 없고 탭은 예전 .topbar-panetab-zone 규칙을 쓴다', () => {
-    expect(css).not.toContain('pane-top-tab.pane-top-tab')
-    expect(css).not.toContain('.pane-head .pane-top-tab .pane-top-tab-close')
-    expect(css).not.toContain('.pane-top-tab-title { height: 100%')
-    expect(css).not.toContain('flex: 0 0 30px')
-    expect(css).not.toContain('Herdr')
+  it('탭 높이는 --icon-btn 한 값(workspace-surface)이고, 어느 스타일시트도 그 탭에 30px 높이를 걸지 않는다', () => {
+    const tab = inHead(two).querySelector<HTMLElement>('.pane-top-tab')!
+    expect(ruleDecl('workspace-surface.css', '.pane-head .pane-top-tab', 'height')).toBe('var(--icon-btn)')
+    const heights = rulesMatching(tab, rules).map((rule) => declarationsOf(rule.body)).flatMap((decl) => [decl.height, decl.flex, decl['min-height']])
+    expect(heights).not.toContain('30px')
+    expect(heights).not.toContain('0 0 30px')
+  })
+
+  it('닫기 ×와 제목 단추에는 칸 머리 탭 규칙이 걸리고, 보조 글(.pane-top-tab-sub)은 칸 머리 바깥 따로 요소(.pane-head-sub)가 아니라 탭 안에 있다', () => {
+    const container = inHead(two)
+    const active = container.querySelector<HTMLElement>('.pane-top-tab-active')!
+    expect(container.querySelector('.pane-head-sub')).toBeNull()
+    const sub = active.querySelector<HTMLElement>('.pane-top-tab-sub')!
+    expect(sub).not.toBeNull()
+    expect(rulesMatching(sub, rules).length).toBeGreaterThan(0)
+    expect(rulesMatching(active.querySelector<HTMLElement>('.pane-top-tab-close')!, rules).length).toBeGreaterThan(0)
   })
 
   it('탭 줄 마크업은 예전 그대로: 탭 > 제목 단추(아이콘 · 이름) + ×, 알약 클래스는 없다', () => {
     const { container } = render(<PaneTabsMenu {...base} state={two} />)
-    expect(container.innerHTML).not.toContain('pill')
+    expect(container.querySelector('[class*="pill"]')).toBeNull()
     const tab = container.querySelector('.pane-top-tab.pane-top-tab-active')!
     expect([...tab.children].map((child) => child.className.split(' ')[0])).toEqual(['pane-top-tab-title', 'pane-top-tab-close'])
     expect(tab.querySelector('.pane-top-tab-kind')).not.toBeNull()
-  })
-
-  it('보조 글은 칸 머리 바깥 따로 요소(.pane-head-sub)가 아니라 알약 안(.pane-top-tab-sub)에 있다', () => {
-    expect(css).not.toContain('.pane-head-sub')
-    expect(css).toContain('.pane-head .pane-top-tab-sub')
   })
 })
 

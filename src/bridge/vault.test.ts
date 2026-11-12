@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addToLibrary,
+  isMissingPathError,
   attachMarkdownReference,
   attachPdfToLibrary,
   createNote,
@@ -1012,5 +1013,20 @@ describe('registerUnlistedVaultPdfs with PDFs moved inside the Vault', () => {
     specInFolder = false
     await expect(registerUnlistedVaultPdfs(vault)).resolves.toEqual(['copy of spec.pdf'])
     expect(libraryNow()[registered.docId]).toMatchObject({ path: 'C:/Vault/copy of spec.pdf', folderPath: '' })
+  })
+})
+
+describe('isMissingPathError', () => {
+  it('os error 2 · 3 와 「없음」 글을 없는 경로로 본다', () => {
+    expect(isMissingPathError(new Error('The system cannot find the file specified. (os error 2)'))).toBe(true)
+    expect(isMissingPathError('경로를 찾을 수 없습니다. (os error 3)')).toBe(true)
+    expect(isMissingPathError('os error 3')).toBe(true)
+    expect(isMissingPathError(new Error('No such file or directory'))).toBe(true)
+  })
+
+  it('os error 2 로 시작하는 다른 번호(21 · 32 · 5)는 없는 경로가 아니다', () => {
+    expect(isMissingPathError(new Error('os error 21'))).toBe(false)
+    expect(isMissingPathError(new Error('os error 32'))).toBe(false)
+    expect(isMissingPathError(new Error('Access is denied. (os error 5)'))).toBe(false)
   })
 })

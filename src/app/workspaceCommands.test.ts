@@ -229,7 +229,7 @@ describe('명령 실행: 칸', () => {
     expect(h.model().activePane).toBe(before)
   })
 
-  it('resize-pane -Z 는 크게/되돌리기를 오가고, 칸이 하나면 알린다', async () => {
+  it('resize-pane -Z 는 크게/원래 크기로를 오가고, 칸이 하나면 알린다', async () => {
     const h = harness()
     expect((await h.run('resize-pane -Z')).ok).toBe(false)
     await split(h)
@@ -683,13 +683,21 @@ describe('명령 실행: 앱이 하는 일', () => {
     })
 
     it('display-popup: 이름이 없으면 번역기 창을 연다(떠 있는 칸을 만들지 않는다). 번역기를 열 수 없는 곳이면 알린다', async () => {
-      const openTranslator = vi.fn()
+      const openTranslator = vi.fn(() => true)
       const h = harness(oneScreen(), { openTranslator })
       expect((await h.run('display-popup')).ok).toBe(true)
       expect((await h.run('popup')).ok).toBe(true)
       expect(openTranslator).toHaveBeenCalledTimes(2)
       expect(floatsOf(h)).toHaveLength(0)
       expect(await harness().run('display-popup')).toEqual({ ok: false, message: '지금은 안 됩니다' })
+    })
+
+    it('display-popup: 번역이 꺼져 있어 번역기가 열리지 않으면 ok 가 아니라 이유로 실패한다', async () => {
+      const openTranslator = vi.fn(() => false)
+      const h = harness(oneScreen(), { openTranslator })
+      expect(await h.run('display-popup')).toEqual({ ok: false, message: '번역이 꺼져 있습니다. 설정에서 켜 주세요' })
+      expect(openTranslator).toHaveBeenCalledTimes(1)
+      expect(floatsOf(h)).toHaveLength(0)
     })
 
     it('display-popup 이름: 만든 떠 있는 칸에 그 이름을 열고, 열지 못하면 빈 칸을 남기지 않는다', async () => {

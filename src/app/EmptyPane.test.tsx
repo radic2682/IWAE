@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { cssRules, cssSource, declarationsOf, ruleDecl } from './cssRules.testutil'
 import { EmptyPane } from './EmptyPane'
 
 afterEach(cleanup)
@@ -97,20 +98,27 @@ describe('EmptyPane 스타일', () => {
     expect(surface).toMatch(/--pane-edge-w: 1\.5px;/u)
     expect(surface).toMatch(/--pane-edge-empty: var\(--divider-strong\);/u)
     // 같은 .pane-card 규칙(둥글기 --r-md · 두께 --pane-edge-w)에서 선 모양과 색만 바꾼다
-    expect(surface).toMatch(/\.panes-tree \.pane-card \{[^\}]*border: var\(--pane-edge-w\) solid var\(--pane-c\);[^\}]*border-radius: var\(--r-md\);/u)
-    expect(surface).toContain('.panes-tree .pane-card[data-empty] { border-color: transparent; background: transparent; }')
-    expect(surface).toMatch(/\.pane-slot-outline rect \{[^}]*rx: calc\(var\(--r-md\) - var\(--pane-edge-w\) \/ 2\);[^}]*stroke-width: var\(--pane-edge-w\);[^}]*stroke-dasharray: 6 5;/u)
-    expect(surface).toContain('.panes-tree .pane-card[data-empty].pane-card-active .pane-slot-outline { color: color-mix(in srgb, var(--accent) 70%, transparent); }')
-    expect(surface).toMatch(/body\.pane-tab-dragging[^{]*\.pane-card\[data-reacting\]:not\(\.pane-card-active\) \{ border-color: var\(--pane-c\); \}/u)
+    expect(ruleDecl('workspace-surface.css', '.panes-tree .pane-card', 'border')).toBe('var(--pane-edge-w) solid var(--pane-c)')
+    expect(ruleDecl('workspace-surface.css', '.panes-tree .pane-card', 'border-radius')).toBe('var(--r-md)')
+    expect(ruleDecl('workspace-surface.css', '.panes-tree .pane-card[data-empty]', 'border-color')).toBe('transparent')
+    expect(ruleDecl('workspace-surface.css', '.panes-tree .pane-card[data-empty]', 'background')).toBe('transparent')
+    expect(ruleDecl('workspace-surface.css', '.pane-slot-outline rect', 'rx')).toBe('calc(var(--r-md) - var(--pane-edge-w) / 2)')
+    expect(ruleDecl('workspace-surface.css', '.pane-slot-outline rect', 'stroke-width')).toBe('var(--pane-edge-w)')
+    expect(ruleDecl('workspace-surface.css', '.pane-slot-outline rect', 'stroke-dasharray')).toBe('6 5')
+    expect(ruleDecl('workspace-surface.css', '.panes-tree .pane-card[data-empty].pane-card-active .pane-slot-outline', 'color')).toBe('color-mix(in srgb, var(--accent) 70%, transparent)')
+    // 끌기 중에는 반응 표시가 꺼진다: 끄는 동안(body.pane-tab-dragging …) 반응하는 칸의 테두리는 쉴 때 색(--pane-c)으로 되돌려 둔다
+    const dragging = cssRules(cssSource('workspace-surface.css')).find((rule) => rule.selectors.some((selector) => selector.includes('dragging) .panes-tree') && selector.endsWith('.pane-card[data-reacting]:not(.pane-card-active)')))
+    expect(dragging).toBeDefined()
+    expect(declarationsOf(dragging!.body)['border-color']).toBe('var(--pane-c)')
   })
 
   it('빈 칸 안 내용은 칸 한가운데에 서고(auto 여백), 위아래 치우침이 없다', () => {
-    expect(css).toMatch(/\.empty-pane \{[^\}]*margin: auto;/u)
-    expect(css).toMatch(/\.pane-placeholder:has\(> \.empty-pane\) \{ container-type: size; \}/u)
+    expect(ruleDecl('empty-pane.css', '.empty-pane', 'margin')).toBe('auto')
+    expect(ruleDecl('empty-pane.css', '.pane-placeholder:has(> .empty-pane)', 'container-type')).toBe('size')
   })
 
   it('최대 280px 기둥이고, 움직임이 없으며, 낮은 칸 줄이기는 CSS 400px 기준이 아니라 실제 높이로 한다', () => {
-    expect(css).toContain('max-width: 280px')
+    expect(ruleDecl('empty-pane.css', '.empty-pane', 'max-width')).toBe('280px')
     expect(css).not.toMatch(/@container/u)
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
   })

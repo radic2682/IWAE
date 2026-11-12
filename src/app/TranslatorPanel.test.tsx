@@ -26,11 +26,14 @@ import {
   readLegacyTranslatorPanels,
   reloadTranslatorWindow,
   toggleTranslatorWindow,
+  adoptLegacyTranslatorFloat,
+  resetAdoptedLegacySessions,
   translatorWindowFromFloat,
   translatorWindowFromLegacy,
   updateTranslatorWindow,
 } from './translatorPanelState'
 import { TranslatorContext, type TranslatorService } from './translatorContext'
+import { ruleDecl } from './cssRules.testutil'
 
 function Harness({ service, target = 'ko' }: { readonly service: TranslatorService; readonly target?: string }) {
   const [targetLanguage, setTargetLanguage] = useState(target)
@@ -126,8 +129,7 @@ describe('번역기 창 상태는 같은 저장소를 쓰는 창들이 나눠 �
 
 describe('상단바 높이 상수는 --bar-h 와 같다', () => {
   it('TOPBAR_HEIGHT_PX 가 tokens.css 의 --bar-h 값이다', () => {
-    const tokens = readFileSync('src/ui/tokens.css', 'utf8')
-    expect(tokens).toContain(`--bar-h: ${TOPBAR_HEIGHT_PX}px;`)
+    expect(ruleDecl('tokens.css', ':root', '--bar-h')).toBe(`${TOPBAR_HEIGHT_PX}px`)
   })
 })
 
@@ -423,5 +425,35 @@ describe('예전 값 옮기기', () => {
     expect(translatorWindowFromFloat({ x: 0.5, y: 0.1, w: 340, h: 300, collapsed: true }, { width: 1600, height: 1000, top: 36 }).open).toBe(false)
     expect(translatorWindowFromFloat({ x: 0.5, y: 0.1, w: 340, h: 300, hidden: true }, { width: 1600, height: 1000, top: 36 }).open).toBe(false)
     expect(translatorWindowFromFloat({ x: 0, y: 0, w: 120, h: 80 }, { width: 1600, height: 1000 })).toMatchObject({ x: 0, y: 0, w: 280, h: 240 })
+  })
+
+  describe('예전 번역기 칸 옮기기(adoptLegacyTranslatorFloat)', () => {
+    beforeEach(() => { resetAdoptedLegacySessions() })
+
+    it('접어 두었거나 숨겨 둔 칸은 열려 있는 번역기를 닫지 않고 자리 · 크기만 옮긴다', () => {
+      act(() => { updateTranslatorWindow({ open: true }) })
+      expect(adoptLegacyTranslatorFloat({ x: 0.5, y: 0.1, w: 340, h: 300, collapsed: true }, 'v|A')).toBe(true)
+      expect(getTranslatorWindow().open).toBe(true)
+      expect(getTranslatorWindow()).toMatchObject({ w: 340, h: 300 })
+      act(() => { updateTranslatorWindow({ open: true }) })
+      adoptLegacyTranslatorFloat({ x: 0.2, y: 0.2, w: 300, h: 260, hidden: true }, 'v|B')
+      expect(getTranslatorWindow().open).toBe(true)
+    })
+
+    it('열려 있던 칸은 번역기를 연다', () => {
+      act(() => { updateTranslatorWindow({ open: false }) })
+      adoptLegacyTranslatorFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, 'v|A')
+      expect(getTranslatorWindow().open).toBe(true)
+    })
+
+    it('세션 이름마다 한 번만 옮긴다: 세션을 다시 오가도 사용자가 닫은 번역기를 다시 열지 않는다', () => {
+      act(() => { updateTranslatorWindow({ open: false }) })
+      expect(adoptLegacyTranslatorFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, 'v|A')).toBe(true)
+      act(() => { toggleTranslatorWindow() })
+      expect(getTranslatorWindow().open).toBe(false)
+      expect(adoptLegacyTranslatorFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, 'v|A')).toBe(false)
+      expect(getTranslatorWindow().open).toBe(false)
+      expect(adoptLegacyTranslatorFloat({ x: 0.5, y: 0.1, w: 340, h: 300 }, 'v|B')).toBe(true)
+    })
   })
 })

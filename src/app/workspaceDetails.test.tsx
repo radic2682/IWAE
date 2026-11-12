@@ -11,6 +11,7 @@ import { floatBoxOnScreen, floatOutgrowsAnchor } from './floatingPanes'
 import { relayoutMessage } from './workspaceCommands'
 import { fitFormatClusters } from '../pdf/MemoEditor'
 import { KeysHelpSheet } from './KeysHelpSheet'
+import { cssRules, cssSource, declarationsOf, ruleDecl } from './cssRules.testutil'
 
 afterEach(cleanup)
 
@@ -60,10 +61,22 @@ describe('칸 머리', () => {
   })
 
   it('색 점 · 번호는 머리 높이(--bar-h)의 세로 가운데에 서고, 점은 28px 높이의 누르는 자리에 8px 점이다', () => {
-    const rules = css('workspace-surface.css')
-    expect(rules).toMatch(/\.pane-head \.pane-tabs-menu > \.pane-channel-dot,[^{]*\{[^}]*align-self: center;[^}]*width: 20px; height: var\(--icon-btn\); margin: 0 0 0 -6px;/u)
-    expect(rules).toMatch(/\.pane-head \.pane-tabs-menu > \.pane-head-number,[^{]*\{[^}]*align-self: center; display: inline-flex; align-items: center; height: var\(--icon-btn\); margin: 0 var\(--space-2\) 0 0; font-family: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums;/u)
-    expect(css('screens.css')).toContain('.pane-head .pane-channel-dot-mark { width: 8px; height: 8px; }')
+    const dot = '.pane-head .pane-tabs-menu > .pane-channel-dot'
+    const decl = (selector: string, property: string) => ruleDecl('workspace-surface.css', selector, property)
+    expect(decl(dot, 'align-self')).toBe('center')
+    expect(decl(dot, 'width')).toBe('20px')
+    expect(decl(dot, 'height')).toBe('var(--icon-btn)')
+    expect(decl(dot, 'margin')).toBe('0 0 0 -6px')
+    const number = '.pane-head .pane-tabs-menu > .pane-head-number'
+    expect(decl(number, 'align-self')).toBe('center')
+    expect(decl(number, 'display')).toBe('inline-flex')
+    expect(decl(number, 'align-items')).toBe('center')
+    expect(decl(number, 'height')).toBe('var(--icon-btn)')
+    expect(decl(number, 'margin')).toBe('0 var(--space-2) 0 0')
+    expect(decl(number, 'font-size')).toBe('12.5px')
+    expect(decl(number, 'font-variant-numeric')).toBe('tabular-nums')
+    expect(ruleDecl('screens.css', '.pane-head .pane-channel-dot-mark', 'width')).toBe('8px')
+    expect(ruleDecl('screens.css', '.pane-head .pane-channel-dot-mark', 'height')).toBe('8px')
   })
 })
 
@@ -112,42 +125,47 @@ describe('빈 칸 높이 맞춤(fitEmptyPane)', () => {
 
 describe('CSS 규칙', () => {
   it('노트 도구줄 오른쪽 단추(검색 · ＋ · 접기)는 테두리가 없다', () => {
-    const rule = /\.pane-doc \.memo-note-tab-actions \.pdf-memo-header-button \{([^}]*)\}/u.exec(css('memo-note-tab.css'))?.[1] ?? ''
-    expect(rule).toContain('border: 0')
-    expect(rule).toContain('background: transparent')
+    const selector = '.pane-doc .memo-note-tab-actions .pdf-memo-header-button'
+    expect(ruleDecl('memo-note-tab.css', selector, 'border')).toBe('0')
+    expect(ruleDecl('memo-note-tab.css', selector, 'background')).toBe('transparent')
   })
 
   it('어두운 화면의 틈은 칸 바탕보다 어둡다(밝은 화면 규칙은 건드리지 않는다)', () => {
-    const rules = css('screens.css')
-    expect(rules).toContain(":root[data-theme='dark'] .panes.panes-tree {\n  background: var(--tabstrip, var(--workspace));")
-    expect(rules).toContain(":root[data-theme='dark'] .panes-tree > .pane-grid-cell:not(.pane-float) { background: transparent; }")
+    expect(ruleDecl('screens.css', ":root[data-theme='dark'] .panes.panes-tree", 'background')).toBe('var(--tabstrip, var(--workspace))')
+    expect(ruleDecl('screens.css', ":root[data-theme='dark'] .panes-tree > .pane-grid-cell:not(.pane-float)", 'background')).toBe('transparent')
   })
 
   it('글 블록도 메모 카드와 같은 종이 카드다', () => {
-    expect(css('whale-theme.css')).toContain(':root :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow {')
-    expect(css('note-ticket.css')).toContain('.note-block.pdf-memo-card-flow.note-text-card {')
+    // 메모 카드(.pdf-memo-card-flow)는 밝은 종이(--card-light-paper)를 --paper 로 삼고, 글 블록(.note-text-card)의 바탕은 그 --paper 위에서 정해진다
+    const flow = cssRules(cssSource('whale-theme.css')).find((candidate) => candidate.selectors.some((selector) => selector.endsWith('.markdown-memo-bar-body) .pdf-memo-card-flow')))
+    expect(flow).toBeDefined()
+    expect(declarationsOf(flow!.body)['--paper']).toBe('var(--card-light-paper)')
+    expect(ruleDecl('note-ticket.css', '.note-block.pdf-memo-card-flow.note-text-card', 'background')).toBe('var(--memo-card-bg) !important')
+    expect(ruleDecl('note-ticket.css', '.note-block.pdf-memo-card-flow.note-text-card', '--memo-card-bg')).toContain('var(--paper)')
   })
 
   it('소제목 아래 간격은 카드 사이(24px)보다 좁다', () => {
-    expect(css('note-ticket.css')).toContain('.pane-doc .note-block.note-section + .note-gap { height: 14px; }')
+    expect(ruleDecl('note-ticket.css', '.pane-doc .note-block.note-section + .note-gap', 'height')).toBe('14px')
   })
 
   it('원문 따옴표 색은 45% 이고 줄임 칩 글자에도 입힌다', () => {
-    const wide = css('note-wide.css')
-    expect(wide).toContain('color-mix(in srgb, var(--hlc-dot) 45%, transparent)')
-    expect(wide).toContain(':is(.note-source-quote, .note-source-chip-text)')
+    // 선택자 목록 안의 :is(…) 쉼표는 규칙 분해기가 갈라 놓으므로, 그 규칙은 선택자 끝으로 찾는다
+    const rule = cssRules(cssSource('note-wide.css')).find((candidate) => candidate.selectors.some((selector) => selector.includes('.note-source-chip-text)')))
+    expect(rule).toBeDefined()
+    expect(declarationsOf(rule!.body).background).toBe('color-mix(in srgb, var(--hlc-dot) 45%, transparent)')
   })
 
   it('「→ 문서」 링크는 원문 줄의 왼쪽 선에 맞추고 위 간격이 좁다', () => {
-    expect(css('memo-note-tab.css')).toContain('margin: -3px 0 0 -6px;')
+    expect(ruleDecl('memo-note-tab.css', '.note-far-link', 'margin')).toBe('-3px 0 0 -6px')
   })
 
   it('번역기 창은 앱 창 위에 고정되고 머리 줄은 --bar-h, 결과 칸은 최소 2줄이다', () => {
-    const rules = css('translator-panel.css')
-    expect(rules).toMatch(/\.translator-window \{[^}]*position: fixed;/u)
-    expect(rules).toMatch(/\.translator-window-head \{[^}]*flex: 0 0 var\(--bar-h\);/u)
-    expect(rules).toContain('.translator-panel-result:not(:empty) { min-height: 48px; }')
-    expect(rules).toContain('.translator-panel-result:empty { height: 0; min-height: 0; padding: 0; overflow: hidden; }')
+    const decl = (selector: string, property: string) => ruleDecl('translator-panel.css', selector, property)
+    expect(decl('.translator-window', 'position')).toBe('fixed')
+    expect(decl('.translator-window-head', 'flex')).toBe('0 0 var(--bar-h)')
+    expect(decl('.translator-panel-result:not(:empty)', 'min-height')).toBe('48px')
+    expect(decl('.translator-panel-result:empty', 'height')).toBe('0')
+    expect(decl('.translator-panel-result:empty', 'overflow')).toBe('hidden')
   })
 })
 
@@ -156,9 +174,8 @@ describe('라운드 2', () => {
     render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
     expect(document.querySelectorAll('.keys-help-state')).toHaveLength(0)
     expect([...document.querySelectorAll('.keys-help-table th')].map((cell) => cell.textContent)).toEqual(['키', '동작', '명령'])
-    const rules = css('keys-help.css')
-    expect(rules).toContain('.keys-help .sko-close { margin-left: auto; }')
-    expect(rules).not.toContain('nth-child(4)')
+    expect(ruleDecl('keys-help.css', '.keys-help .sko-close', 'margin-left')).toBe('auto')
+    expect(cssRules(cssSource('keys-help.css')).flatMap((rule) => rule.selectors).some((selector) => selector.includes('nth-child(4)'))).toBe(false)
   })
 
   it('떠 있는 칸은 붙은 칸보다 크면(가로든 세로든) 화면 사각형에 가둔다', () => {

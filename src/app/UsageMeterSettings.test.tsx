@@ -34,7 +34,7 @@ describe('CPU·메모리 표시 설정', () => {
     setLocale('en')
     render(<UsageMeterSettings />)
     expect(screen.getByRole('heading', { name: 'CPU and memory meter' })).toBeTruthy()
-    expect(screen.getByRole('switch', { name: 'Show CPU and memory in the status bar' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Show CPU and memory in the PDF bottom bar' })).toBeTruthy()
   })
 })
 

@@ -10,12 +10,12 @@ import { InputSettings } from './BehaviorSettings'
 import { FloatLayer } from './FloatLayer'
 import { PaneCard } from './PaneCard'
 import { PaneTabsMenu } from './PaneTabsMenu'
-import { cssRules, cssSource, rulesMatching } from './cssRules.testutil'
+import { cssRules, cssSource, declarationsOf, ruleDecl, rulesMatching } from './cssRules.testutil'
 import { PrefixChip } from './PrefixChip'
 import { SplitPanes, snapRect } from './SplitPanes'
 import { useOverlayToolShortcuts } from './PaneToolbar'
 import { getOverlayTool, setOverlayTool } from '../pdf/overlayToolStore'
-import { TopBarToolbar, TopBarToolbarContext, ownsTopBarToolbar, toolbarOwnerOf } from './topBarToolbar'
+import { TopBarToolbar, TopBarToolbarContext, eventInsideCurrent, ownsTopBarToolbar, toolbarOwnerOf } from './topBarToolbar'
 import { PaneIdContext } from './workspaceContext'
 import {
   REACTION_FLASH_MS, flashReaction, paneReactionOf, reactingPanes, resetPaneReaction, setHoverReaction, usePaneReaction,
@@ -259,6 +259,24 @@ describe('한 높이 표준 --bar-h', () => {
   })
 })
 
+describe('세로 구분선 1×16px 한 규칙', () => {
+  const dividers = [
+    '.topbar-toolbar-host[data-owner]::before',
+    '.topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right::before',
+    '.topbar-toolbar-host .memo-note-tab-actions::before',
+    '.topbar-app-group::after',
+  ]
+
+  it('주인 칩 앞 · 오른쪽 묶음 앞 · 노트 검색 묶음 앞 · 앱 묶음 뒤 네 구분선이 모양(1×16px · --divider · 세로 가운데)을 한 규칙에서 받는다', () => {
+    const shared = cssRules(cssSource('workspace-surface.css')).find((rule) => dividers.every((selector) => rule.selectors.includes(selector)))
+    expect(shared).toBeDefined()
+    expect(declarationsOf(shared!.body)).toMatchObject({ width: '1px', height: '16px', background: 'var(--divider)', position: 'absolute', top: '50%', 'margin-top': '-8px' })
+    // 앞에 두는 셋은 왼쪽, 앱 묶음 뒤의 것은 오른쪽 — 자리만 따로
+    for (const selector of dividers.slice(0, 3)) expect(ruleDecl('workspace-surface.css', selector, 'left')).toBe('0')
+    expect(ruleDecl('workspace-surface.css', '.topbar-app-group::after', 'right')).toBe('0')
+  })
+})
+
 describe('상단바 도구줄 자리 — 만지는 칸의 도구줄만', () => {
   const Probe = ({ pane, label }: { readonly pane: string; readonly label: string }) => (
     <PaneIdContext.Provider value={pane}>
@@ -318,6 +336,35 @@ describe('상단바 도구줄 자리 — 만지는 칸의 도구줄만', () => {
     expect(document.activeElement).toBe(button)
     fireEvent.click(button)
     expect(onClick).toHaveBeenCalledOnce()
+    slot.remove()
+  })
+
+  it('상단바 도구를 눌러도 칸의 누름 처리(PaneCard · .pane-focus-scope)는 일어나지 않는다 — 포털의 이벤트가 React 트리로 칸 쪽에 올라오지만 DOM 으로는 카드 밖이다', () => {
+    const onFocusPane = vi.fn()
+    const onScopeFocus = vi.fn()
+    const slot = document.createElement('div')
+    slot.className = 'topbar-slot-probe'
+    document.body.append(slot)
+    render(
+      <TopBarToolbarContext.Provider value={{ element: slot, activePane: 'pdf' }}>
+        <PaneIdContext.Provider value="pdf">
+          <PaneCard paneId="pdf" channel="blue" active={false} onFocusPane={onFocusPane}>
+            <div className="pane-focus-scope" onPointerDownCapture={(event) => { if (event.button === 0 && eventInsideCurrent(event)) onScopeFocus() }}>
+              <p>본문</p>
+              <TopBarToolbar><button type="button">도구</button></TopBarToolbar>
+            </div>
+          </PaneCard>
+        </PaneIdContext.Provider>
+      </TopBarToolbarContext.Provider>,
+    )
+    const tool = slot.querySelector('button') as HTMLButtonElement
+    fireEvent.pointerDown(tool, { button: 0, clientX: 4, clientY: 4 })
+    expect(onFocusPane).not.toHaveBeenCalled()
+    expect(onScopeFocus).not.toHaveBeenCalled()
+    // 카드 안(본문)을 누르면 그대로 칸이 된다
+    fireEvent.pointerDown(screen.getByText('본문'), { button: 0, clientX: 4, clientY: 4 })
+    expect(onFocusPane).toHaveBeenCalledExactlyOnceWith('pdf')
+    expect(onScopeFocus).toHaveBeenCalledOnce()
     slot.remove()
   })
 
@@ -551,7 +598,8 @@ describe('D1 · 노트 서식 줄과 노트 단추 묶음은 한 덩어리로 �
     const actions = rule(surface, '.topbar-toolbar-host .memo-note-tab-actions')
     expect(actions).not.toContain('margin-left: auto')
     expect(actions).toContain('margin-left: var(--space-2);')
-    expect(rule(surface, '.topbar-toolbar-host .memo-note-tab-actions::before')).toContain('width: 1px; height: 16px;')
+    expect(ruleDecl('workspace-surface.css', '.topbar-toolbar-host .memo-note-tab-actions::before', 'width')).toBe('1px')
+    expect(ruleDecl('workspace-surface.css', '.topbar-toolbar-host .memo-note-tab-actions::before', 'height')).toBe('16px')
     // 서식 줄은 내용 폭만큼만(남는 자리를 먹지 않는다), 도구줄이 남는 자리를 갖는다
     expect(surface).toMatch(/\.topbar-toolbar-host \.note-format-dock \.pdf-memo-format-bar \{[^}]*flex: 0 1 auto;/u)
     expect(surface).toContain('.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 0 1 auto; min-width: 0; }')

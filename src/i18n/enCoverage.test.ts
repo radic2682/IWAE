@@ -53,7 +53,7 @@ const DATA_ALLOWLIST: ReadonlySet<string> = new Set<string>([
 describe('영어 사전 범위(자료 속 글)', () => {
   it('label·hint·title 같은 속성의 한글 글이 영어 사전에 있다', () => {
     const missing = new Map<string, string>()
-    const property = /\b(?:label|hint|title|description|placeholder|caption|tooltip)\s*:\s*'((?:[^'\\\n]|\\.)*)'/gu
+    const property = /\b(?:label|hint|title|description|placeholder|caption|tooltip|action|note|summary)\s*:\s*'((?:[^'\\\n]|\\.)*)'/gu
     for (const file of sourceFiles(SRC)) {
       const text = readFileSync(file, 'utf8')
       for (const match of text.matchAll(property)) {
