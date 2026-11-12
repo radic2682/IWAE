@@ -49,7 +49,7 @@ import { PaneHead } from './PaneHead'
 import { EmptyPane, type EmptyPaneRecent } from './EmptyPane'
 import { PrefixChip } from './PrefixChip'
 import { prunePaneToolbarMemory } from './paneToolbarMemory'
-import { TopBarToolbarContext, eventInsideCurrent, toolbarOwnerOf } from './topBarToolbar'
+import { TopBarToolbarContext, eventInTopBarSlot, toolbarOwnerOf } from './topBarToolbar'
 import { reactingPanes } from './paneReaction'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { TranslatorPanel } from './TranslatorPanel'
@@ -3743,7 +3743,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 「PDF 도구」 탭이 다루는 문서: 도구를 연 문서(문서 우클릭 메뉴 등), 없으면 지금 보는 PDF
   const pdfToolsDoc = (pdfToolsTarget === null ? null : openedDocs.find((doc) => doc.docId === pdfToolsTarget.docId)) ?? activePdfDoc
   const renderPane = (pane: PaneId) => (
-    <div className="pane-focus-scope" data-pane-id={pane} data-pane-active={activePaneId === pane && (paneCount > 1 || floatIds.includes(pane)) ? '' : undefined} onPointerDownCapture={(event) => { if (event.button === 0 && eventInsideCurrent(event)) focusPane(pane) }}>
+    <div className="pane-focus-scope" data-pane-id={pane} data-pane-active={activePaneId === pane && (paneCount > 1 || floatIds.includes(pane)) ? '' : undefined} onPointerDownCapture={(event) => { if (event.button === 0 && !eventInTopBarSlot(event, toolbarSlot)) focusPane(pane) }}>
       <PaneIdContext.Provider value={pane}>
         {renderPaneBody(pane)}
       </PaneIdContext.Provider>

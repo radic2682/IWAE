@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -15,7 +16,7 @@ import { PrefixChip } from './PrefixChip'
 import { SplitPanes, snapRect } from './SplitPanes'
 import { useOverlayToolShortcuts } from './PaneToolbar'
 import { getOverlayTool, setOverlayTool } from '../pdf/overlayToolStore'
-import { TopBarToolbar, TopBarToolbarContext, eventInsideCurrent, ownsTopBarToolbar, toolbarOwnerOf } from './topBarToolbar'
+import { TopBarToolbar, TopBarToolbarContext, eventInTopBarSlot, ownsTopBarToolbar, toolbarOwnerOf } from './topBarToolbar'
 import { PaneIdContext } from './workspaceContext'
 import {
   REACTION_FLASH_MS, flashReaction, paneReactionOf, reactingPanes, resetPaneReaction, setHoverReaction, usePaneReaction,
@@ -349,7 +350,7 @@ describe('상단바 도구줄 자리 — 만지는 칸의 도구줄만', () => {
       <TopBarToolbarContext.Provider value={{ element: slot, activePane: 'pdf' }}>
         <PaneIdContext.Provider value="pdf">
           <PaneCard paneId="pdf" channel="blue" active={false} onFocusPane={onFocusPane}>
-            <div className="pane-focus-scope" onPointerDownCapture={(event) => { if (event.button === 0 && eventInsideCurrent(event)) onScopeFocus() }}>
+            <div className="pane-focus-scope" onPointerDownCapture={(event) => { if (event.button === 0 && !eventInTopBarSlot(event, slot)) onScopeFocus() }}>
               <p>본문</p>
               <TopBarToolbar><button type="button">도구</button></TopBarToolbar>
             </div>
@@ -365,6 +366,34 @@ describe('상단바 도구줄 자리 — 만지는 칸의 도구줄만', () => {
     fireEvent.pointerDown(screen.getByText('본문'), { button: 0, clientX: 4, clientY: 4 })
     expect(onFocusPane).toHaveBeenCalledExactlyOnceWith('pdf')
     expect(onScopeFocus).toHaveBeenCalledOnce()
+    slot.remove()
+  })
+
+  it('칸에 딸린 body 포털 메뉴(우클릭 메뉴 · 노트 카드 메뉴 · 박스 메모 메뉴)의 항목을 눌러도 그 칸이 만지는 칸이 된다 — 거르는 것은 상단바 도구줄 자리뿐이다', () => {
+    const onFocusPane = vi.fn()
+    const onScopeFocus = vi.fn()
+    const slot = document.createElement('div')
+    document.body.append(slot)
+    render(
+      <TopBarToolbarContext.Provider value={{ element: slot, activePane: 'pdf' }}>
+        <PaneIdContext.Provider value="pdf">
+          <PaneCard paneId="pdf" channel="blue" active={false} onFocusPane={onFocusPane}>
+            <div className="pane-focus-scope" onPointerDownCapture={(event) => { if (event.button === 0 && !eventInTopBarSlot(event, slot)) onScopeFocus() }}>
+              <p>본문</p>
+              {createPortal(<div role="menu"><button type="button" role="menuitem">메뉴 항목</button></div>, document.body)}
+            </div>
+          </PaneCard>
+        </PaneIdContext.Provider>
+      </TopBarToolbarContext.Provider>,
+    )
+    const item = screen.getByRole('menuitem')
+    expect(item.closest('.pane-card')).toBeNull()
+    fireEvent.pointerDown(item, { button: 0, clientX: 4, clientY: 4 })
+    expect(onFocusPane).toHaveBeenCalledExactlyOnceWith('pdf')
+    expect(onScopeFocus).toHaveBeenCalledOnce()
+    // 상단바 자리가 없으면(시험 · 단독) 아무것도 거르지 않는다
+    expect(eventInTopBarSlot({ target: item }, null)).toBe(false)
+    expect(eventInTopBarSlot({ target: item }, slot)).toBe(false)
     slot.remove()
   })
 
@@ -386,6 +415,29 @@ describe('상단바 도구줄 자리 — 만지는 칸의 도구줄만', () => {
     fireEvent.keyDown(field, { key: 'e' })
     expect(onMode).not.toHaveBeenCalled()
     field.remove()
+  })
+
+  it('모달 대화상자(키 목록 등)가 떠 있으면 포커스가 어디 있든 한 글자 도구 단축키가 뒤 칸의 도구를 바꾸지 않는다', () => {
+    const onMode = vi.fn()
+    const Keys = () => { useOverlayToolShortcuts(true, onMode); return null }
+    setOverlayTool('text')
+    render(<Keys />)
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    dialog.setAttribute('aria-modal', 'true')
+    const close = document.createElement('button')
+    dialog.append(close)
+    document.body.append(dialog)
+    close.focus()
+    fireEvent.keyDown(close, { key: 't' })
+    fireEvent.keyDown(window, { key: 'p' })
+    expect(onMode).not.toHaveBeenCalled()
+    expect(getOverlayTool()).toBe('text')
+    // 모달이 닫히면 다시 받는다
+    dialog.remove()
+    fireEvent.keyDown(window, { key: 'p' })
+    expect(onMode).toHaveBeenCalledWith('edit')
+    expect(getOverlayTool()).toBe('pen')
   })
 
   it('CSS: 도구줄 자리는 화면 탭 뒤 남는 폭을 쓰고 넘치면 스스로 접는다(overflow hidden), 노트 서식 줄의 띠는 없다', () => {

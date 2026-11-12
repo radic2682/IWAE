@@ -1,8 +1,8 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import { useContext, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import type { PaneChannel } from './workspaceChannels'
 import { usePaneReaction } from './paneReaction'
 import { TAB_DRAG_THRESHOLD_PX } from './tabDrag'
-import { eventInsideCurrent } from './topBarToolbar'
+import { TopBarToolbarContext, eventInTopBarSlot } from './topBarToolbar'
 
 /** 지금 기다리는 탭 누름 하나의 정리(새 누름이 오면 먼저 것을 접는다) */
 let cancelPendingPress: (() => void) | null = null
@@ -12,10 +12,10 @@ let cancelPendingPress: (() => void) | null = null
  * 연결 경로(노트 · 문서가 오는 칸)를 이 칸으로 다시 잡아야 한다(`focusPane` 은 이미 그 칸이고 경로도 같으면 아무것도 하지 않는다). 탭을 누른 것은 끌기의 시작일 수 있으므로 놓을 때(움직이지 않았을 때)로 미룬다 —
  * 끄는 동안 상단바 도구줄이 바뀌면 끌기 위의 화면이 흔들린다.
  */
-function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onFocusPane: (paneId: string) => void): void {
+function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onFocusPane: (paneId: string) => void, toolbarSlot: HTMLElement | null): void {
   if (event.button !== 0) return
-  // 상단바 도구줄은 포털이라 React 로는 이 카드 안이다: 카드 DOM 밖(상단바)의 누름은 칸을 누른 것이 아니다
-  if (!eventInsideCurrent(event)) return
+  // 상단바 도구줄은 포털이라 React 로는 이 카드 안이다: 상단바 도구줄 자리의 누름은 칸을 누른 것이 아니다(body 포털 메뉴는 이 칸의 것이라 누른 것이다)
+  if (eventInTopBarSlot(event, toolbarSlot)) return
   cancelPendingPress?.()
   const target = event.target instanceof Element ? event.target : null
   // 탭 닫기 ×: 닫는 것 말고는 아무것도 하지 않는다(칸도 만지는 칸이 되지 않는다)
@@ -66,11 +66,12 @@ export function PaneCard({ paneId, channel, active, empty = false, className = '
   readonly children: ReactNode
 }) {
   const reacting = usePaneReaction(paneId)
+  const toolbarSlot = useContext(TopBarToolbarContext)?.element ?? null
   return (
     <div
       className={`pane-card${active ? ' pane-card-active' : ''}${className === '' ? '' : ` ${className}`}`}
       data-card-pane={paneId}
-      onPointerDownCapture={onFocusPane === undefined ? undefined : (event) => focusOnPress(event, paneId, onFocusPane)}
+      onPointerDownCapture={onFocusPane === undefined ? undefined : (event) => focusOnPress(event, paneId, onFocusPane, toolbarSlot)}
       data-channel={channel ?? 'none'}
       data-empty={empty ? '' : undefined}
       data-reacting={reacting ?? undefined}
