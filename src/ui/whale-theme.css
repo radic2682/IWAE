@@ -402,7 +402,8 @@ button.note-source-page:hover { color: var(--accent); }
 .mouse-gesture-trail polyline { fill: none; stroke: var(--accent); stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
 
 /* ---------- 메모 카드는 밝은 종이, 메모 바 바탕은 어둡게 둔다 ---------- */
-:root :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow:not(.note-text-card) {
+/* 글 블록(.note-text-card)도 같은 종이 카드다 — 한 노트 안에서 카드 모양이 달라 보이지 않게(예전 오른쪽 노트 바도 그랬다). 글 블록의 바탕 · 테두리는 아래 변수에서 나온다 */
+:root :is(.pdf-memo-bar-body, .markdown-memo-bar-body) .pdf-memo-card-flow {
   --paper: var(--card-light-paper); --ink: var(--card-light-ink); --text: var(--card-light-ink); --text-strong: var(--card-light-strong); --text-muted: var(--card-light-muted);
   --divider: var(--card-light-divider); --chrome-hover: var(--card-light-hover); --note-quote-bg: var(--card-light-quote-bg);
   color-scheme: light;

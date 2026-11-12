@@ -19,7 +19,13 @@
 .pane-doc .memo-note-tab-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 1 1 auto; min-width: 0; }
 .pane-doc .memo-note-tab-dock > .note-format-slot:empty { flex: 0 0 0; }
 .memo-note-tab-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; margin-left: auto; }
-.pane-doc .memo-note-tab-actions .pdf-memo-header-button { width: 28px; height: 28px; }
+/* 다른 아이콘 단추처럼: 테두리 없이, 마우스를 올리거나 눌렸을 때만 바탕 */
+.pane-doc .memo-note-tab-actions .pdf-memo-header-button {
+  min-width: 28px; width: 28px; height: 28px; padding: 0;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong);
+}
+.pane-doc .memo-note-tab-actions .pdf-memo-header-button:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--text-strong); outline: none; }
+.pane-doc .memo-note-tab-actions .pdf-memo-header-button[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
 /* 검색을 열면 서식 줄 위에 한 줄로 */
 .memo-note-tab-searchrow { position: relative; flex: 0 0 auto; padding: 6px 12px 0; }
 .pane-doc .memo-note-tab-searchrow .pdf-memo-search { height: 28px; }
@@ -29,7 +35,8 @@
 .note-far-link {
   justify-self: start;
   max-width: 100%;
-  margin: 2px 0 0;
+  /* 글자는 원문 줄(점)의 왼쪽 선에 맞추고(왼쪽 여백 -6px = 안쪽 여백 6px), 위 간격은 카드 본문 줄 간격 7px 에서 줄여 원문 줄과 4px */
+  margin: -3px 0 0 -6px;
   padding: 1px 6px;
   border: 0;
   border-radius: var(--r-sm);

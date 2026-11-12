@@ -17,18 +17,18 @@
 .pane-doc .note-wide .pdf-memo-card-dim { display: none; }
 
 /* 원문: 상자는 바탕 없이 「점 + 따옴표 글 … 쪽 번호 · 번역」 한 줄로 두고(좁은 카드와 같다),
-   형광펜 색은 따옴표 글에만 옅게 입힌다(예전 메모만 보기의 원문 줄과 같다). 쪽 번호와 번역 단추는 색 밖, 오른쪽 */
+   형광펜 색은 따옴표 글에만 입힌다 — PDF 형광펜처럼 알아볼 수 있게 45%(밝은·어두운 화면 모두 카드가 흰 종이라 같다). 쪽 번호와 번역 단추는 색 밖, 오른쪽 */
 .pane-doc .note-wide .note-block.note-block .pdf-memo-card-quote.note-source.note-source {
   display: flex; align-items: flex-start; gap: 6px;
   background: transparent !important;
 }
-.pane-doc .note-wide .note-block .note-source-quote {
+.pane-doc .note-wide .note-block :is(.note-source-quote, .note-source-chip-text) {
   flex: 0 1 auto; min-width: 0;
   padding: 1px 4px; border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--hlc-dot) 22%, transparent);
+  background: color-mix(in srgb, var(--hlc-dot) 45%, transparent);
   box-decoration-break: clone; -webkit-box-decoration-break: clone;
 }
-.pane-doc .note-wide .note-block .pdf-memo-card-quote .note-source-page { margin-left: auto; }
+.pane-doc .note-wide .note-block :is(.pdf-memo-card-quote, .note-source-chip) .note-source-page { margin-left: auto; }
 
 /* 목차 */
 .note-outline {

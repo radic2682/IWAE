@@ -259,6 +259,8 @@ body.note-block-dragging .note-block-tabs { display: none; }
 
 /* 호버 탭(22px)이 위 카드에 겹치지 않게: 블록 사이 간격 = 탭 높이 + 2px */
 .pane-doc .note-gap { margin-block: 0; height: 24px; }
+/* 소제목 바로 아래는 카드 사이(24px)보다 좁게: 제목 상자 아래 여백 4px + 14px, 소제목과 첫 카드가 한 덩어리로 읽히게 */
+.pane-doc .note-block.note-section + .note-gap { height: 14px; }
 
 /* 한글은 음절 사이가 아니라 띄어쓰기 단위로 줄을 바꾼다(너무 긴 낱말만 마지막 수단으로 끊는다) */
 .note-block :is(.pdf-memo-card-text, .pdf-memo-editor, .note-ticket-title, .note-source, .note-source-translation) { word-break: keep-all; overflow-wrap: anywhere; }
@@ -295,4 +297,24 @@ body.note-block-dragging .note-block-tabs { display: none; }
   }
   .pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .pdf-memo-bar-scroll { z-index: 5; }
   .pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .note-format-dock:has(.pdf-memo-format-menu, .pdf-memo-format-palette) { z-index: 12; }
+}
+
+/* ---------- 글 블록도 메모 카드와 같은 종이 카드: 같은 바탕 · 모서리 · 안쪽 여백, 테두리 없음 ----------
+   (밝은 종이 변수는 whale-theme.css 의 「메모 카드는 밝은 종이」 규칙이 글 블록에도 준다) */
+.note-block.pdf-memo-card-flow.note-text-card {
+  --memo-card-bg: var(--memo-card, color-mix(in srgb, var(--ink) 4%, var(--paper)));
+  padding: 12px 14px !important;
+  border-width: 0 !important;
+  border-radius: var(--r-md) !important;
+  background: var(--memo-card-bg) !important;
+  box-shadow: none !important;
+}
+.note-block.pdf-memo-card-flow.note-text-card:is(:hover, .pdf-memo-card-active) { background: var(--memo-card-hover, color-mix(in srgb, var(--ink) 7%, var(--paper))) !important; }
+.note-block.pdf-memo-card-flow.note-text-card.pdf-memo-card-editing {
+  background: var(--paper) !important;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent) !important;
+}
+.note-block.pdf-memo-card-flow.note-text-card.note-block-selected {
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper)) !important;
+  box-shadow: 0 0 0 1.5px var(--accent) !important;
 }
