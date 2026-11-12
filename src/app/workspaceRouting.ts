@@ -1,4 +1,5 @@
 import type { PdfSplitLayoutId } from '../core/pdfSplit'
+import { rightmostPane } from './noteBeside'
 import { openTabBeside } from './tabDock'
 import {
   activeTab,
@@ -36,7 +37,7 @@ export interface ResolveInput {
   readonly need: ResolveNeed
   /** 설정 「다른 노트·문서를 미리보기 탭으로 열기」. 끄면 보통 탭으로 연다 */
   readonly preview: boolean
-  /** 같은 채널에 맞는 창이 없을 때 보낸 창 옆에 새 창을 열어도 되는가(노트 바가 노트를 맡는 동안 문서 창의 신호는 열지 않는다) */
+  /** 같은 채널에 맞는 창이 없을 때 보낸 창 옆에 새 창을 열어도 되는가 */
   readonly allowNewPane?: boolean
 }
 
@@ -49,6 +50,8 @@ export type ResolveKind =
   | 'preview'
   /** 보낸 창 옆에 새 창을 열고 같은 채널을 줬다 */
   | 'beside'
+  /** 새 창을 못 열어(칸이 넷) 가장 오른쪽 창에 탭으로 열었다(노트만; 그 창은 보낸 창의 색이 된다) */
+  | 'rightmost'
   /** 새 창을 못 열어(칸이 넷) 보낸 창에 미리보기 탭으로 열었다 */
   | 'sender'
   /** 할 일 없음(채널 없음·새 창을 열지 않는 경우) */
@@ -104,6 +107,11 @@ export function resolvePointSignal(input: ResolveInput): ResolveOutcome {
   if (!allowNewPane) return none
   const beside = openTabBeside(panes, layoutId, from, preview ? { ...need.tab, preview: true } : need.tab, channels)
   if (beside !== null) return { kind: 'beside', panes: beside.panes, channels: beside.channels, layout: beside.layout, pane: beside.newPane }
+  // 칸이 가득이면: 노트는 가장 오른쪽 창에 탭으로(그 창이 같은 색이 된다), 문서는 보낸 창에 미리보기 탭으로
+  if (need.kind === 'note') {
+    const target = rightmostPane(layoutId, visible)
+    return { kind: 'rightmost', panes: openPreviewTabInPanes(panes, need.tab, target, preview), channels: target === from ? channels : { ...channels, [target]: channel }, layout: layoutId, pane: target }
+  }
   return { kind: 'sender', panes: openPreviewTabInPanes(panes, need.tab, from, preview), channels, layout: layoutId, pane: from }
 }
 
@@ -144,11 +152,11 @@ export function needForMemo(args: {
 
 /**
  * 노트 블록의 「다른 자리」로 가기(티켓 배지의 곳 목록): 같은 색 창에 메모 노트가 보이면 신호로 그 창에 보이고('signal'),
- * 아니면 예전처럼 이 화면에서(노트 바면 바에서 노트를 열어) 보인다('local'). 이 화면이 이미 그 노트를 보고 있으면(openPath) 늘 'local'.
+ * 아니면 이 화면에서 그 노트를 탭으로 열어(옆에 노트 열기와 같다) 보인다('local'). 이 화면이 이미 그 노트를 보고 있으면(openPath) 늘 'local'.
  */
 export function placementRevealMode(args: {
   readonly path: string
-  /** 이 화면(노트 바의 열린 노트·노트 탭의 노트) */
+  /** 이 화면(노트 탭의 노트) */
   readonly openPath: string | null
   readonly pane: PaneId | null
   readonly channel: PaneChannel
@@ -182,7 +190,7 @@ export function visibleNotePathsIn(panes: PanesState, channels: PaneChannels, vi
 }
 
 /**
- * pane(문서 창)에서 새 메모가 갈 노트: 같은 채널 창에서 지금 보이는 메모 노트 탭(첫째). 없으면 null — 노트 바의 열린 노트를 쓴다.
+ * pane(문서 창)에서 새 메모가 갈 노트: 같은 채널 창에서 지금 보이는 메모 노트 탭(첫째). 없으면 null — 문서 창이 옆에 노트를 연다.
  * 채널이 없는 창은 어느 노트 탭과도 잇지 않는다.
  */
 export function memoNoteTargetFor(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], pane: PaneId): string | null {

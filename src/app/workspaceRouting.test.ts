@@ -149,6 +149,18 @@ describe('resolvePointSignal — 신호가 필요한 탭을 보이게 하는 차
     expect(outcome.layout).toBe('grid4')
   })
 
+  it('3. 칸이 이미 넷이면 노트는 가장 오른쪽 창에 탭으로(미리보기) 열고, 그 창이 보낸 창과 같은 색이 된다', () => {
+    const panes: PanesState = { left: pane([pdf('doc')]), right: pane([pdf('B')]), third: pane([pdf('C')]), fourth: pane([pdf('D')]) }
+    const channels: PaneChannels = { ...DEFAULT_CHANNELS, right: 'green' }
+    const outcome = resolvePointSignal(base(panes, { channels, visible: ['left', 'right', 'third', 'fourth'], layoutId: 'grid4', need: noteNeed('N') }))
+    expect(outcome).toMatchObject({ kind: 'rightmost', pane: 'right', layout: 'grid4' })
+    expect(ids(outcome.panes.right)).toEqual(['B', 'N'])
+    expect(outcome.panes.right.tabs[1]!.preview).toBe(true)
+    expect(outcome.channels.right).toBe('blue')
+    // 미리보기를 끄면 보통 탭
+    expect(resolvePointSignal(base(panes, { channels, visible: ['left', 'right', 'third', 'fourth'], layoutId: 'grid4', need: noteNeed('N'), preview: false })).panes.right.tabs[1]!.preview).toBeUndefined()
+  })
+
   it('allowNewPane 가 꺼져 있으면(노트 바가 노트를 맡는 동안의 문서 신호) 새 창을 열지 않는다', () => {
     const panes: PanesState = { left: pane([pdf('doc')]), right: emptyTabs, third: emptyTabs, fourth: emptyTabs }
     const outcome = resolvePointSignal(base(panes, { visible: ['left'], layoutId: 'single', allowNewPane: false }))
