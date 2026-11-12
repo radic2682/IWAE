@@ -4074,6 +4074,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               { id: 'zotero-import', label: t('Zotero 에서 가져오기…'), onSelect: () => { void interop.runZotero() } },
               { id: 'export-markdown', label: t('모든 노트를 Markdown 으로 내보내기…'), onSelect: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
             ],
+            // 마우스로도 명령 팔레트 · 키 목록에 닿게(맨 위 줄의 ⌘ 단추는 없앴다)
+            [
+              { id: 'command-palette', label: t('명령 팔레트'), hint: paletteHint, onSelect: () => { setPaletteInitial(''); setPaletteOpen(true) } },
+              { id: 'keys-help', label: t('키와 명령 보기'), hint: `${prefixHint} ?`, onSelect: () => setKeysHelpOpen(true) },
+            ],
             [{
               id: 'theme',
               label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'),

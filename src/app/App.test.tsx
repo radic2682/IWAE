@@ -1203,6 +1203,22 @@ describe('App — 화면 탭 · 알림(아래 상태 줄은 없다)', () => {
     expect([...sheet.querySelectorAll('.keys-help-command')].some((cell) => cell.textContent === 'split-window -h / -v')).toBe(true)
   })
 
+  it('로고 메뉴에서 「명령 팔레트」(단축키 표시)와 「키와 명령 보기」를 마우스로 열 수 있다', async () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    render(<App developmentPreview />)
+    fireEvent.click(screen.getByRole('button', { name: 'IWAE 메뉴' }))
+    const palette = screen.getByRole('menuitem', { name: /^명령 팔레트/u })
+    expect(palette.textContent).toContain('Ctrl+K')
+    fireEvent.click(palette)
+    expect(screen.getByRole('dialog', { name: '명령 팔레트' })).toBeDefined()
+    fireEvent.keyDown(screen.getByRole('combobox', { name: '명령 찾기' }), { key: 'Escape' })
+    fireEvent.click(screen.getByRole('button', { name: 'IWAE 메뉴' }))
+    const help = screen.getByRole('menuitem', { name: /^키와 명령 보기/u })
+    expect(help.textContent).toMatch(/\?$/u)
+    fireEvent.click(help)
+    expect(await screen.findByRole('dialog', { name: '키와 명령' })).toBeDefined()
+  })
+
   it('짧은 알림은 오른쪽 아래 알림 줄기의 토스트로 뜬다(아래 상태 줄이 받지 않는다)', () => {
     render(<App developmentPreview />)
     act(() => announceAction('저장했습니다'))
