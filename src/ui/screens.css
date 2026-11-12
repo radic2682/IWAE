@@ -317,20 +317,53 @@
 .pane-head .pane-tabs-single .pane-top-tab:is(:hover, :focus-within) .pane-top-tab-close { opacity: 1; }
 .pane-head .pane-top-tab-dot { flex: 0 0 auto; width: 5px; height: 5px; margin-left: 2px; border-radius: 50%; background: var(--accent); }
 .pane-head .pane-tabs-single { flex: 0 1 auto; width: auto; }
-.pane-head .pane-head-sub {
-  flex: 1 1 0;
+/* 흐린 보조 글(PDF 쪽 · 노트 폴더 · MD 경로): 보는 탭의 제목 바로 뒤, 같은 알약 안. 좁아지면 이 글이 먼저 줄어든다 */
+.pane-head .pane-top-tab-sep { flex: 0 0 auto; margin: 0 -2px; opacity: 0.45; }
+.pane-head .pane-top-tab-sub {
+  flex: 0 8 auto;
   min-width: 0;
-  margin-left: 2px;
   overflow: hidden;
   color: var(--text-muted, var(--text-strong));
   font-size: 11.5px;
+  font-weight: 400;
   opacity: 0.7;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 닫기 ×: 칸 머리의 모든 알약에서 올려 두거나 초점이 갈 때만 보인다(자리는 알약 끝에 잡아 둔다) */
+.pane-head .pane-top-tab .pane-top-tab-close { opacity: 0; }
+.pane-head .pane-top-tab:is(:hover, :focus-within) .pane-top-tab-close { opacity: 1; }
+/* 메모 노트 탭: 제목 뒤 ⌄(노트 열기)와 그 자리에서 바꾸는 이름 칸 */
+.pane-head .pane-top-tab-note-menu {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--text-muted, var(--text-strong));
+  cursor: pointer;
+}
+.pane-head .pane-top-tab-note-menu:is(:hover, :focus-visible, [aria-expanded='true']) { background: var(--chrome-hover); color: var(--text-strong); outline: none; }
+.pane-head .pane-top-tab-rename {
+  flex: 1 1 auto;
+  min-width: 80px;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-xs);
+  background: var(--paper);
+  color: var(--text-strong);
+  font: inherit;
+  outline: none;
+}
+.note-head-menu-pop { position: fixed; z-index: 80; width: min(300px, calc(100vw - 16px)); }
+.note-head-menu-pop .note-switch-menu { position: static; width: 100%; }
 /* 칸별 상태 표시 자리(지금은 비어 있다) */
 .pane-head .pane-head-status { flex: 0 0 14px; align-self: center; height: 14px; margin-left: auto; }
-.pane-head .pane-head-sub + .pane-head-status { margin-left: 0; }
 .pane-head > .pane-tabs-menu:not(.pane-tabs-single) { flex: 1 1 auto; }
 .pane-head > .pane-tabs-menu:not(.pane-tabs-single) ~ .pane-head-status { margin-left: 0; }
 

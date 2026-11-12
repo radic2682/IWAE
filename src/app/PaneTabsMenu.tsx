@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { ChannelDot } from './ChannelDot'
@@ -9,6 +9,7 @@ import { platformShortcut } from '../core/platform'
 import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
 import type { DockEdge } from './tabDock'
 import { popIn, slideFrom } from './motion'
+import { onTitleEditRequest, takeTitleEdit } from '../pdf/memoNoteContext'
 import '../ui/tab-menu.css'
 import '../ui/tab-drag.css'
 
@@ -53,6 +54,14 @@ interface PaneTabsMenuProps {
   onPinTab?: (id: string) => void
   /** 칸 번호(왼쪽 위부터 0). 색 점 바로 뒤에 작은 숫자로 보인다 */
   paneNumber?: number
+  /** 보는 탭의 제목 바로 뒤에 「·」 로 이어 흐리게 보일 보조 글(PDF 는 쪽, 노트는 폴더, MD 는 경로). 보는 탭에만 붙는다 */
+  secondary?: string | null
+  /** 보는 탭의 제목 뒤에 붙일 것(메모 노트의 「노트 열기」 ⌄ 단추). 보는 탭에만 붙는다 */
+  renderTabExtra?: (tab: Tab) => ReactNode
+  /** 탭 이름을 그 자리에서 바꾼다(제목을 두 번 누르면). 주면 그 탭 종류에서만 바꾸기가 켜진다 */
+  onRenameTab?: (tab: Tab, title: string) => void
+  /** 이름 바꾸기를 지원하는 탭인가(기본: 지원 안 함) */
+  canRenameTab?: (tab: Tab) => boolean
 }
 
 /**
@@ -72,7 +81,7 @@ function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
 }
 
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber }: PaneTabsMenuProps) {
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber, secondary = null, renderTabExtra, onRenameTab, canRenameTab }: PaneTabsMenuProps) {
   const channelDot = onCycleChannel === undefined ? null : (
     <>
       <ChannelDot channel={channel} onCycle={onCycleChannel} />
@@ -80,6 +89,23 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     </>
   )
   const label = t(rawLabel)
+  // 탭 제목을 그 자리에서 바꾸는 중인 탭(두 번 눌러서, 또는 새 노트를 막 만들어서)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const shownTab = state.tabs.find((tab) => tab.id === state.activeId)
+  const shownRenamable = shownTab !== undefined && onRenameTab !== undefined && canRenameTab?.(shownTab) === true
+  const shownId = shownTab?.id ?? null
+  // 노트를 막 만들었으면(새 노트 · 이 PDF 에 노트 만들기) 이름 칸을 바로 연다
+  useEffect(() => {
+    if (!shownRenamable || shownId === null) return undefined
+    const check = () => { if (takeTitleEdit(shownId)) setRenaming(shownId) }
+    check()
+    return onTitleEditRequest(check)
+  }, [shownRenamable, shownId])
+  const finishRename = (tab: Tab, value: string) => {
+    setRenaming(null)
+    const next = value.trim()
+    if (next !== '' && next !== tab.title) onRenameTab?.(tab, next)
+  }
   const [menuOpen, setMenuOpen] = useState(false)
   const overflowRef = useRef<HTMLButtonElement>(null)
   // 열린 탭 목록: 열리면 첫 항목으로 초점(방향키로 고른다), Esc 로 닫으면 목록 단추로 돌아간다
@@ -257,13 +283,34 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 startTabDrag(event, event.currentTarget, () => dragHostRef.current(tab))
               }}
             >
+              {renaming === tab.id ? (
+                <div className="pane-top-tab-title pane-top-tab-renaming">
+                  <TabKindIcon kind={tab.kind} />
+                  <input
+                    className="pane-top-tab-rename"
+                    aria-label={t('노트 이름')}
+                    defaultValue={tab.title}
+                    autoFocus
+                    spellCheck={false}
+                    data-prefix-off=""
+                    onFocus={(event) => event.currentTarget.select()}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onBlur={(event) => finishRename(tab, event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur()
+                      else if (event.key === 'Escape') { event.stopPropagation(); setRenaming(null) }
+                    }}
+                  />
+                </div>
+              ) : (
               <button
                 type="button"
                 className="pane-top-tab-title"
                 role="tab"
                 aria-selected={active}
                 tabIndex={active || (state.activeId === null && tab === state.tabs[0]) ? 0 : -1}
-                title={tab.title}
+                title={canRenameTab?.(tab) === true ? t('{title} · 두 번 눌러 이름 바꾸기', { title: tab.title }) : tab.title}
+                onDoubleClick={onRenameTab !== undefined && canRenameTab?.(tab) === true ? () => setRenaming(tab.id) : undefined}
                 onKeyDown={(event) => {
                   // 탭 줄 방향키: ←→ 이웃 탭(자동으로 보이게), Home·End 처음·끝
                   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return
@@ -283,9 +330,18 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
               >
                 <TabKindIcon kind={tab.kind} />
                 <span className="pane-top-tab-label">{active ? tab.title : shortTabTitle(tab.title)}</span>
+                {/* 흐린 보조 글: 보는 탭의 제목 바로 뒤에 「·」 로 이어 붙는다(안 보이는 탭에는 없다) */}
+                {active && secondary !== null && secondary !== '' ? (
+                  <>
+                    <span className="pane-top-tab-sep" aria-hidden="true">·</span>
+                    <span className="pane-top-tab-sub" aria-hidden="true" title={secondary}>{secondary}</span>
+                  </>
+                ) : null}
                 {/* 상태 점: 미리보기 탭일 때만(고치면 고정되어 사라진다) */}
                 {tab.preview === true ? <span className="pane-top-tab-dot" title={t('미리보기 탭')} aria-hidden="true" /> : null}
               </button>
+              )}
+              {active && renaming !== tab.id && renderTabExtra !== undefined ? renderTabExtra(tab) : null}
               <button
                 type="button"
                 className="pane-top-tab-close"

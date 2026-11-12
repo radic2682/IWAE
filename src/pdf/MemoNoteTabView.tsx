@@ -3,16 +3,13 @@ import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus } fr
 import { t } from '../i18n'
 import { memoHighlightIds, memoNoteTitleOf, updateSection, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { announceAction } from '../app/actionFeedback'
-import { DeleteEntryDialog } from '../app/SidebarDialogs'
 import { setAttachRequest, useAttachRequest, useMemoPointSender, usePaneChannel, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
 import { useEvent } from '../ui/useEvent'
 import { useBarZoom, useBarZoomWheel } from '../app/useBarZoom'
 import { CategoryTag } from './CategoryTag'
-import { NoteTitle } from './NoteTitle'
-import { NoteSwitcherMenu } from './NoteSwitcher'
 import { LINK_CARD_DEPTH, registerPaneLinks, requestPaneLinks, useLinkedDocIds, visibleSlice, type LinkItem, type PaneLinkSnapshot } from '../app/workspaceLinks'
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from './MemoColumn'
-import { MemoNoteContext, requestTitleEdit, revealNoteBlock, useMemoNoteApi } from './memoNoteContext'
+import { MemoNoteContext, revealNoteBlock, useMemoNoteApi } from './memoNoteContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
 import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from './persistentHighlight'
@@ -87,10 +84,8 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
   useBarZoomWheel(barEl, 'right', !wide)
   const [searchOpen, setSearchOpen] = useState(false)
-  // 모든 메모에서 찾기: 검색 결과 목록, 노트 열기 메뉴, 노트 휴지통 확인
+  // 모든 메모에서 찾기: 검색 결과 목록
   const [resultsOpen, setResultsOpen] = useState(false)
-  const [switchOpen, setSwitchOpen] = useState(false)
-  const [trashTarget, setTrashTarget] = useState<{ readonly path: string; readonly title: string } | null>(null)
   // 문서 창에서 만드는 새 메모(같은 색 창의 문서에서 고른 글): 이 노트로 오면 새 메모 카드로 보이고 여기서 쓴다(비우면 사라진다)
   const draft = useRoutedMemoDraft(path)
   const [draftIndex, setDraftIndex] = useState(0)
@@ -166,9 +161,6 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
     // 어느 노트에도 없는 메모: 문서의 그 자리로
     else onJump(highlight)
   }
-  // 노트 열기 메뉴(노트 바꾸기)와 휴지통 확인은 이 노트(path)를 기준으로 한다
-  const noteDocId = flow.note?.docId ?? ''
-  const canSwitch = api !== null && api.openInTab !== undefined && api.entries.length > 0
 
   // 새 메모가 들어올 때 보고 있던 화면 가운데에 끼우고(그 자리로 굴려 보인다), 쓰기 시작하면 미리보기 탭은 고정한다
   useLayoutEffect(() => {
@@ -299,41 +291,8 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   return (
     <div ref={rootRef} className={`pane-doc memo-note-tab${wide ? ' memo-note-tab-wide' : ''}`} data-memo-note-tab={path} data-layout={wide ? 'wide' : 'narrow'}>
       <section ref={setBarEl} className="pdf-memo-bar memo-note-tab-bar" aria-label={t('메모 노트')} style={{ '--bar-zoom': wide ? 1 : barZoom } as CSSProperties}>
-        <div className="pdf-memo-header memo-note-tab-head" role="toolbar" aria-label={t('노트 도구')}>
-          {searchOpen ? null : (
-            <span className="note-head-switch" data-note-switch-trigger="">
-              <NoteTitle
-                api={flow.scopedApi}
-                className="note-head-title"
-                fallback={t('노트 없음')}
-                switcher={canSwitch ? { open: switchOpen, onToggle: () => setSwitchOpen((open) => !open), onRename: () => setSwitchOpen(false) } : undefined}
-              />
-            </span>
-          )}
-          {!searchOpen && switchOpen && canSwitch ? (
-            <NoteSwitcherMenu
-              api={api}
-              currentDocId={noteDocId}
-              docLabel={api.docLabel?.(noteDocId) ?? ''}
-              currentPath={path}
-              onPick={(picked) => api.openInTab?.(picked)}
-              onCreate={api.createForDoc !== undefined && noteDocId !== '' && api.docOwner?.(noteDocId) != null
-                ? () => { void api.createForDoc?.(noteDocId).then((created) => { if (created !== null) { api.openInTab?.(created); requestTitleEdit(created) } }) }
-                : () => { void api.create().then((created) => { if (created !== null) { api.openInTab?.(created); requestTitleEdit(created) } }) }}
-              onClose={() => setSwitchOpen(false)}
-              onTrashCurrent={api.trashNote === undefined ? undefined : () => setTrashTarget({ path, title: memoNoteTitleOf(path) })}
-            />
-          ) : null}
-          {trashTarget !== null && api?.trashNote !== undefined ? (
-            <DeleteEntryDialog
-              kind="note"
-              name={trashTarget.title}
-              path={trashTarget.path.replaceAll('\\', '/').split('/').slice(0, -1).join('/')}
-              onConfirm={() => api.trashNote!(trashTarget.path, 'note-tab-confirmed')}
-              onClose={() => setTrashTarget(null)}
-            />
-          ) : null}
-          {searchOpen ? (
+        {searchOpen ? (
+          <div className="memo-note-tab-searchrow">
             <div className="pdf-memo-search">
               <MagnifyingGlass size={14} aria-hidden="true" />
               <input
@@ -377,43 +336,46 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
                 </div>
               ) : null}
             </div>
-          ) : <span className="memo-note-tab-spacer" />}
-          <button
-            type="button"
-            className="pdf-memo-header-button"
-            aria-label={searchOpen ? t('검색 닫기') : t('노트 검색')}
-            title={t('모든 메모에서 찾기')}
-            aria-pressed={searchOpen}
-            onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
-          >
-            <MagnifyingGlass size={15} aria-hidden="true" />
-          </button>
-          {flow.note === null ? null : (
-            <button type="button" className="pdf-memo-header-button" aria-label={t('글 블록 넣기')} title={t('글 블록 넣기')} onClick={flow.appendText}>
-              <Plus size={15} weight="bold" aria-hidden="true" />
-            </button>
-          )}
-          {noteMemos.length === 0 ? null : (
-            <button
-              type="button"
-              className="pdf-memo-header-button"
-              aria-label={anyQuoteOpen ? t('메모 모두 접기') : t('메모 모두 펼치기')}
-              title={anyQuoteOpen ? t('모두 접기') : t('모두 펼치기')}
-              onClick={flow.toggleQuotes}
-            >
-              {anyQuoteOpen ? <ArrowsInLineVertical size={15} aria-hidden="true" /> : <ArrowsOutLineVertical size={15} aria-hidden="true" />}
-            </button>
-          )}
-        </div>
+          </div>
+        ) : null}
         {flow.note === null ? (
           <div className="note-empty">
             <p>{t('노트를 불러올 수 없습니다')}</p>
           </div>
         ) : (
           <div className={`markdown-memo-bar-body${wide ? ' note-wide' : ''}`}>
-            <div className="note-format-dock">
+            <div className="note-format-dock memo-note-tab-dock">
               <div className="note-format-slot" ref={flow.setFormatSlot} />
               {editingKey === null && draft === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
+              {/* 검색 · 글 블록 넣기 · 펼치기: 서식 줄 오른쪽 끝(제목 줄은 칸 머리와 겹쳐서 없앴다) */}
+              <div className="memo-note-tab-actions" role="toolbar" aria-label={t('노트 도구')}>
+              <button
+                type="button"
+                className="pdf-memo-header-button"
+                aria-label={searchOpen ? t('검색 닫기') : t('노트 검색')}
+                title={t('모든 메모에서 찾기')}
+                aria-pressed={searchOpen}
+                onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+              >
+                <MagnifyingGlass size={15} aria-hidden="true" />
+              </button>
+              {flow.note === null ? null : (
+                <button type="button" className="pdf-memo-header-button" aria-label={t('글 블록 넣기')} title={t('글 블록 넣기')} onClick={flow.appendText}>
+                  <Plus size={15} weight="bold" aria-hidden="true" />
+                </button>
+              )}
+              {noteMemos.length === 0 ? null : (
+                <button
+                  type="button"
+                  className="pdf-memo-header-button"
+                  aria-label={anyQuoteOpen ? t('메모 모두 접기') : t('메모 모두 펼치기')}
+                  title={anyQuoteOpen ? t('모두 접기') : t('모두 펼치기')}
+                  onClick={flow.toggleQuotes}
+                >
+                  {anyQuoteOpen ? <ArrowsInLineVertical size={15} aria-hidden="true" /> : <ArrowsOutLineVertical size={15} aria-hidden="true" />}
+                </button>
+              )}
+              </div>
             </div>
             <div
               ref={scrollRef}

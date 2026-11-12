@@ -118,6 +118,7 @@ import {
 } from './usePdfBookmarks'
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
+import { NoteHeadMenu } from './NoteHeadMenu'
 import { closePaneTree, collapseEmptyPane, dockTab, moveTabToPaneAt, type DockEdge } from './tabDock'
 import { moveTabToNewPane, setPaneCountTree, splitPane, swapSplitSides } from './paneLayoutOps'
 import { MAX_PANES, leaves, swapLeaves, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
@@ -2095,12 +2096,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setPaneCount,
       setActivePane: setActivePaneId,
       setPaneRoute,
-      activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), tabId) })),
       workspaceCommand: async (command) => {
         const result = await runWorkspaceLine(command)
         await commandHost.settle?.()
         return { ok: result.ok, message: result.message, state: summarizeWorkspace(commandModelRef.current) }
       },
+      activateTabIn: (pane, tabId) => setPanes((current) => ({ ...current, [pane]: activateTab(tabsOf(current, pane), tabId) })),
       closeTab: (tab) => {
         if (tab.kind === 'canvas') closeNoteTabSafely(tab.id)
         else setPanes((current) => closeTabEverywhere(current, tab.id))
@@ -3190,6 +3191,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       channel={channelOf(channels, pane)}
       onCycleChannel={() => setChannels((current) => cyclePaneChannel(current, pane))}
       paneNumber={index}
+      secondary={paneSecondary(pane)}
+      // 메모 노트 탭: 제목 뒤 ⌄ 에서 노트 열기 · 제목을 두 번 눌러 이름 바꾸기(예전엔 노트 탭 안의 제목 줄이었다)
+      renderTabExtra={(tab) => (tab.kind === 'memoNote' ? <NoteHeadMenu api={memoNoteApi} path={tab.id} /> : null)}
+      canRenameTab={(tab) => tab.kind === 'memoNote'}
+      onRenameTab={(tab, title) => {
+        void memoNotes.rename(tab.id, title).catch((error: unknown) => {
+          announceAction(t('노트 이름을 바꾸지 못했습니다: {reason}', { reason: errorText(error) }))
+        })
+      }}
       onPinTab={(id) => setPanes((current) => pinTabInPanes(current, id))}
       state={tabsWithVersion(tabsOf(panes, pane))}
       label={t('탭')}
@@ -3225,11 +3235,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }}
     />
   )
-  /** 칸 머리의 흐린 보조 글(탭이 하나일 때): PDF 는 쪽, 노트는 폴더, Markdown 은 경로 */
+  /** 보는 탭의 제목 뒤에 흐리게 붙는 보조 글(탭이 여럿이어도 보는 탭에만): PDF 는 쪽, 노트는 폴더, Markdown 은 경로 */
   const paneSecondary = (pane: PaneId): string | null => {
     const state = tabsOf(panes, pane)
     const tab = activeTab(state)
-    if (tab === null || state.tabs.length !== 1) return null
+    if (tab === null) return null
     if (tab.kind === 'pdf') { const page = docViews[pane]?.page; return page === undefined ? null : `p.${page}` }
     if (tab.kind === 'markdown') return tab.id
     if (tab.kind === 'memoNote') { const at = tab.id.lastIndexOf('/'); return at < 0 ? null : tab.id.slice(0, at) }
@@ -3239,7 +3249,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const renderPaneHead = (pane: PaneId, index: number) => (
     <PaneHead
       tabs={renderPaneTabs(pane, index)}
-      secondary={paneSecondary(pane)}
       paneCount={paneCount}
       zoomed={zoomedPane === pane}
       splitEnabled={SPLIT_PANES_ENABLED && !isDetachedWindow}

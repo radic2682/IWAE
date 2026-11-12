@@ -13,10 +13,16 @@
   overflow: hidden;
   border-left: 0;
 }
-/* 머리는 흐름 안에 두고(노트 바 머리는 겹쳐 놓는다), 본문이 나머지를 채운다 */
-.pane-doc .memo-note-tab-bar > .pdf-memo-header.memo-note-tab-head { position: relative; flex: 0 0 auto; }
+/* 제목 줄은 없다(제목은 칸 머리에 있다). 서식 줄 오른쪽 끝에 검색 · 글 블록 · 펼치기 단추가 놓인다 */
 .pane-doc .memo-note-tab-bar > .markdown-memo-bar-body { flex: 1 1 auto; min-height: 0; }
-.memo-note-tab-spacer { flex: 1 1 auto; }
+.pane-doc .note-format-dock.memo-note-tab-dock { display: flex; align-items: flex-start; gap: 8px; }
+.pane-doc .memo-note-tab-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 1 1 auto; min-width: 0; }
+.pane-doc .memo-note-tab-dock > .note-format-slot:empty { flex: 0 0 0; }
+.memo-note-tab-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.pane-doc .memo-note-tab-actions .pdf-memo-header-button { width: 28px; height: 28px; }
+/* 검색을 열면 서식 줄 위에 한 줄로 */
+.memo-note-tab-searchrow { position: relative; flex: 0 0 auto; padding: 6px 12px 0; }
+.pane-doc .memo-note-tab-searchrow .pdf-memo-search { height: 28px; }
 .pane-doc .memo-note-tab-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 12px; }
 
 /* 「→ 문서 이름 p.N」: 원문 문서가 이웃한 같은 색 창에 보이지 않을 때만 카드에 붙는 작은 링크 */

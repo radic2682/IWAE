@@ -1,5 +1,8 @@
 /** 영어 사전: 접두키 · `:` 명령줄 · 워크스페이스 명령(설계 8) */
 export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
+  // 칸 머리의 노트 탭
+  '눌러서 노트 바꾸기 · 제목을 두 번 눌러 이름 바꾸기': 'Click to switch note · double-click the title to rename',
+  '{title} · 두 번 눌러 이름 바꾸기': '{title} · double-click to rename',
   // keys.conf
   'Vault 를 연 뒤에 쓸 수 있습니다': 'Available after a vault is open',
   'keys.conf 를 일부 건너뛰었습니다: {line}': 'Some keys.conf lines were skipped: {line}',

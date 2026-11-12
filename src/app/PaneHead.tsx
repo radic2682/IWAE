@@ -15,8 +15,6 @@ export interface PaneHeadProps {
   readonly tabs: ReactNode
   /** 이 화면의 칸 수 */
   readonly paneCount: number
-  /** 탭이 하나일 때 제목 곁에 흐리게 보일 보조 글(PDF 는 쪽, 노트는 폴더, MD 는 경로). 없으면 비운다 */
-  readonly secondary?: string | null
   /** 칸을 나누고 떼는 것을 허용하는가(떼어 낸 창은 아니다). 기본 true */
   readonly splitEnabled?: boolean
   /** 이 칸이 「크게」로 화면 전체를 차지하고 있는가 */
@@ -39,7 +37,7 @@ const CHANNEL_NAME: Record<'blue' | 'green' | 'orange' | 'none', string> = {
   none: '없음',
 }
 
-export function PaneHead({ tabs, paneCount, secondary = null, splitEnabled = true, zoomed, onSplit, onToggleZoom, onBreak, onSwap, onCycleChannel, onClose, channel }: PaneHeadProps) {
+export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit, onToggleZoom, onBreak, onSwap, onCycleChannel, onClose, channel }: PaneHeadProps) {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const [at, setAt] = useState<{ right: number; top: number } | null>(null)
@@ -59,7 +57,6 @@ export function PaneHead({ tabs, paneCount, secondary = null, splitEnabled = tru
   return (
     <>
       {tabs}
-      {secondary === null || secondary === '' ? null : <span className="pane-head-sub" title={secondary}>{secondary}</span>}
       {/* 칸별 상태 표시 자리(비어 있다). 단계 4 이후에 채운다 */}
       <span className="pane-head-status" data-slot="status" aria-hidden="true" />
       {zoomed ? (

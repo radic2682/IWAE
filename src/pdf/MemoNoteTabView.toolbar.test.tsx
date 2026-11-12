@@ -156,59 +156,34 @@ describe('MemoNoteTabView — 모든 메모에서 찾기', () => {
   })
 })
 
-describe('MemoNoteTabView — 노트 열기 메뉴(노트 바꾸기)', () => {
-  const titleButton = () => screen.getByRole('button', { name: /노트 바꾸기: 전원/ })
-
-  it('도구줄에 노트 이름이 보이고, 누르면 「노트 열기」 목록이 열려 다른 노트를 탭으로 연다', () => {
-    const spies = makeSpies()
-    render(<Harness spies={spies} />)
-    fireEvent.click(titleButton())
-    const menu = screen.getByRole('menu', { name: '노트 열기' })
-    expect(within(menu).getByRole('menuitemradio', { name: '전원' }).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(within(menu).getByRole('menuitemradio', { name: '통신' }))
-    expect(spies.openInTab).toHaveBeenCalledWith(OTHER)
-    expect(screen.queryByRole('menu', { name: '노트 열기' })).toBeNull()
+describe('MemoNoteTabView — 제목 줄 없음(제목은 칸 머리에 있다)', () => {
+  it('노트 이름 ⌄ 단추와 제목 줄이 없고, 검색 · 글 블록 · 펼치기 단추는 서식 줄 오른쪽 끝에 있다', () => {
+    const { container } = render(<Harness spies={makeSpies()} />)
+    expect(screen.queryByRole('button', { name: /노트 바꾸기/ })).toBeNull()
+    expect(container.querySelector('.memo-note-tab-head')).toBeNull()
+    expect(container.querySelector('.note-head-switch')).toBeNull()
+    const dock = container.querySelector('.memo-note-tab-dock')!
+    const actions = dock.querySelector('.memo-note-tab-actions')!
+    expect(actions.getAttribute('role')).toBe('toolbar')
+    // 서식 줄(.note-format-dock) 안, 맨 끝 묶음
+    expect(dock.lastElementChild).toBe(actions)
+    expect(within(actions as HTMLElement).getByRole('button', { name: '노트 검색' })).toBeTruthy()
+    expect(within(actions as HTMLElement).getByRole('button', { name: '글 블록 넣기' })).toBeTruthy()
+    expect(within(actions as HTMLElement).getByRole('button', { name: /메모 모두 (접기|펼치기)/ })).toBeTruthy()
   })
 
-  it('문서에 속한 노트에서는 「이 PDF에 노트 만들기」가 그 PDF 의 새 노트를 만들어 탭으로 연다', async () => {
-    const spies = makeSpies()
-    render(<Harness spies={spies} />)
-    fireEvent.click(titleButton())
-    fireEvent.click(screen.getByRole('menuitem', { name: '이 PDF에 노트 만들기' }))
-    await waitFor(() => expect(spies.openInTab).toHaveBeenCalledWith('노트/새.iwnote'))
-    expect(spies.createForDoc).toHaveBeenCalledWith('doc-a')
+  it('검색을 열면 서식 줄 위에 검색 칸이 한 줄로 나오고, 닫으면 사라진다', () => {
+    const { container } = render(<Harness spies={makeSpies()} />)
+    expect(container.querySelector('.memo-note-tab-searchrow')).toBeNull()
+    openSearch()
+    expect(container.querySelector('.memo-note-tab-searchrow .pdf-memo-search')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '검색 닫기' }))
+    expect(container.querySelector('.memo-note-tab-searchrow')).toBeNull()
   })
 
-  it('일반 노트에서는 「새 노트 만들기」가 새 노트를 만들어 탭으로 연다', async () => {
-    const spies = makeSpies()
-    render(<Harness spies={spies} path={OTHER} />)
-    fireEvent.click(screen.getByRole('button', { name: /노트 바꾸기: 통신/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '새 노트 만들기' }))
-    await waitFor(() => expect(spies.openInTab).toHaveBeenCalledWith('노트/새 노트.iwnote'))
-  })
-
-  it('「이 노트 휴지통으로 이동…」은 확인 창(취소에 초점)을 거쳐 이 노트를 옮긴다', async () => {
-    const spies = makeSpies()
-    render(<Harness spies={spies} />)
-    fireEvent.click(titleButton())
-    fireEvent.click(within(screen.getByRole('menu', { name: '노트 열기' })).getByRole('menuitem', { name: '이 노트 휴지통으로 이동…' }))
-    const dialog = await screen.findByRole('dialog', { name: '노트 삭제' })
-    expect(within(dialog).getByText('‘전원’ 노트를 휴지통으로 옮길까요?')).toBeDefined()
-    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: '취소' }))
-    expect(spies.trashNote).not.toHaveBeenCalled()
-    fireEvent.click(within(dialog).getByRole('button', { name: '휴지통으로 이동' }))
-    await waitFor(() => expect(spies.trashNote).toHaveBeenCalledWith(PATH, 'note-tab-confirmed'))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-  })
-
-  it('취소하면 옮기지 않는다', async () => {
-    const spies = makeSpies()
-    render(<Harness spies={spies} />)
-    fireEvent.click(titleButton())
-    fireEvent.click(within(screen.getByRole('menu', { name: '노트 열기' })).getByRole('menuitem', { name: '이 노트 휴지통으로 이동…' }))
-    fireEvent.click(await screen.findByRole('button', { name: '취소' }))
-    expect(spies.trashNote).not.toHaveBeenCalled()
-    expect(screen.queryByRole('dialog')).toBeNull()
+  it('노트 이름은 이 보기 안에 따로 그리지 않는다(칸 머리와 겹쳐 두 번 보이던 것)', () => {
+    const { container } = render(<Harness spies={makeSpies()} />)
+    expect(within(container as HTMLElement).queryByText('전원')).toBeNull()
   })
 })
 
