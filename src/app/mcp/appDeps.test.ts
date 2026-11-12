@@ -4,6 +4,7 @@ import type { PdfBookmark } from '../../core/pdfBookmarks'
 import type { VaultSearchRecord } from '../../core/vaultSearch'
 import { layoutForCount, layoutForLegacyId, leaves } from '../../core/layoutTree'
 import { emptyTabs, type PanesState } from '../tabs'
+import type { Screen } from '../screens'
 import { buildMcpAppDeps, paneIndexOfRef, type McpAppInput } from './appDeps'
 
 vi.mock('../../bridge/pdf', async () => {
@@ -34,6 +35,8 @@ function input(overrides: Partial<McpAppInput> = {}, paneTotal = 1) {
     growPanes: (count) => { calls.push(`grow ${count}`); return workspace(count).names },
     activePaneId: 'p0',
     panes,
+    screens: [{ id: 'w1', name: '읽기', layout, panes, channels: { p0: 'blue', p1: 'green' }, zoomed: null }],
+    activeScreenId: 'w1',
     docViews: {},
     shownLibrary: [{ docId: 'd1', title: '문서', pages: 3 }],
     openedDocs: [{ docId: 'd1', title: '문서', pageCount: 3, hasText: true }],
@@ -78,6 +81,22 @@ function input(overrides: Partial<McpAppInput> = {}, paneTotal = 1) {
 }
 
 describe('buildMcpAppDeps', () => {
+  it('screens: 모든 화면을 번호·이름·보는 화면 표시·칸들로 알리고, 보는 화면의 칸은 panes 와 같다', () => {
+    const { base } = input({}, 2)
+    const other: Screen = {
+      id: 'w2',
+      name: '비교',
+      layout: { kind: 'pane', paneId: 'q0' },
+      panes: { q0: { tabs: [{ id: 'd1', title: '문서', kind: 'pdf' }], activeId: 'd1' } },
+      channels: { q0: 'orange' },
+      zoomed: null,
+    }
+    const app = buildMcpAppDeps({ ...base, screens: [...base.screens, other] })
+    expect(app.screens.map((screen) => [screen.index, screen.name, screen.active])).toEqual([[0, '읽기', true], [1, '비교', false]])
+    expect(app.screens[0]!.panes).toEqual(app.panes)
+    expect(app.screens[1]!.panes).toEqual([{ index: 0, id: 'q0', tabs: [{ id: 'd1', title: '문서', kind: 'pdf' }], activeId: 'd1', channel: 'orange' }])
+  })
+
   it('docs 는 쓸 때 한 번만 계산하고 PDF·Markdown 만 담는다', () => {
     const { base } = input()
     const app = buildMcpAppDeps(base)

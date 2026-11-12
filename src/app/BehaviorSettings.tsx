@@ -43,6 +43,11 @@ export function InputSettings() {
         <PrefToggle pref="previewTabs" title={t('다른 노트·문서를 미리보기 탭으로 열기')} description={t('같은 색 창에 없는 노트나 문서를 가리키면 기울임 글씨의 미리보기 탭으로 엽니다. 다음 미리보기가 그 자리를 갈아 끼우고, 고치거나 탭을 두 번 누르면 고정됩니다. 끄면 보통 탭으로 엽니다.')} />
       </div>
 
+      <h3 className="behavior-title">{t('화면 구성')}</h3>
+      <div className="translation-cache-settings">
+        <PrefToggle pref="statusBar" title={t('아래 상태 줄')} description={t('창 맨 아래에 세션과 화면 목록(0:읽기*), 짧은 알림, 키 목록(?)을 보입니다. 끄면 짧은 알림이 오른쪽 아래에 뜹니다.')} />
+      </div>
+
       <h3 className="behavior-title">{t('마우스 제스처')}</h3>
       <div className="translation-cache-settings">
         <PrefToggle pref="mouseGestures" title={t('마우스 제스처 사용')} description={t('오른쪽 버튼을 누른 채 그리면 아래 동작을 합니다. 움직이지 않고 떼면 평소 우클릭 메뉴입니다.')} />

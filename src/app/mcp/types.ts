@@ -33,6 +33,16 @@ export interface McpPaneState {
   readonly channel: PaneChannel
 }
 
+/** 화면(tmux window) 하나: 번호 · 이름 · 보는 화면인가 · 그 화면의 칸들 */
+export interface McpScreenState {
+  /** 화면 번호(맨 위 줄 차례, 0 부터) */
+  readonly index: number
+  readonly id: string
+  readonly name: string
+  readonly active: boolean
+  readonly panes: readonly McpPaneState[]
+}
+
 /** 서재의 문서 한 건(PDF·Markdown) */
 export interface McpLibraryDoc {
   readonly docId: string
@@ -72,8 +82,10 @@ export interface McpAppDeps {
   /** 칸 나누기 트리(칸 id 가 잎) */
   readonly layout: LayoutNode
   readonly activePane: PaneId
-  /** 칸 번호 차례의 칸들 */
+  /** 칸 번호 차례의 칸들(지금 보는 화면) */
   readonly panes: readonly McpPaneState[]
+  /** 모든 화면(맨 위 줄 차례). 보는 화면의 칸들은 panes 와 같다 */
+  readonly screens: readonly McpScreenState[]
   /** 패널마다 지금 보이는 PDF 와 쪽(1부터) */
   readonly docViews: Readonly<Partial<Record<PaneId, { readonly docId: string; readonly page: number; readonly pageCount?: number }>>>
   /** 지금 PDF 에서 고른 글(없으면 null) */

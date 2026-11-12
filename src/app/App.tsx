@@ -37,7 +37,12 @@ import { MemoNoteTabView } from '../pdf/MemoNoteTabView'
 import { useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './useMemoNoteTabs'
 import { blocksForTarget, pickCanvasPane, visibleCanvasPanes, type PointableHighlight } from './canvasWorkspace'
 import { createNoteBesideOpener, pickNotePath, placeNoteTab, type NoteBesideOpener, type NoteBesideHost } from './noteBeside'
-import { applyLayoutPreset, availableLayoutPresets, type LayoutPresetId } from './layoutPresets'
+import { applyLayoutPreset, availableScreenTemplates, buildTemplateScreen, templateScreenName, type LayoutPresetId, type ScreenTemplateId } from './layoutPresets'
+import { allScreenPaneIds } from './screens'
+import { PaneHead } from './PaneHead'
+import { StatusBar } from './StatusBar'
+import { KeysHelpSheet } from './KeysHelpSheet'
+import { updateTranslatorPanel } from './translatorPanelState'
 import { barMigrationKey, legacyBarWasOpen, migrateNoteBar } from './noteBarMigration'
 import { useMemoNotes } from './useMemoNotes'
 import { useMouseGestures } from './useMouseGestures'
@@ -109,14 +114,13 @@ import {
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { closePaneTree, collapseEmptyPane, dockTab, moveTabToPaneAt, type DockEdge } from './tabDock'
-import { applyLegacyLayout, moveTabToNewPane, setPaneCountTree, swapSplitSides } from './paneLayoutOps'
-import { MAX_PANES, leaves, matchLegacyLayout, type LayoutNode, type Size, type SplitRefusal } from '../core/layoutTree'
+import { moveTabToNewPane, setPaneCountTree, splitPane, swapSplitSides } from './paneLayoutOps'
+import { MAX_PANES, leaves, swapLeaves, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
 import { channelOf, cyclePaneChannel, type PaneChannel, type PaneChannels } from './workspaceChannels'
 import { useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
 import { emitPointSignal, subscribePointSignal, type DeliveredSignal } from './workspaceSignal'
 import { activeKindOf, isNoteSurface, memoNoteTargetFor, needForMemo, needForPlace, resolvePointSignal, visibleNotePathsIn } from './workspaceRouting'
-import type { PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePanel, ThumbnailPanel } from './SidePanels'
 import { MarkdownOutline, MarkdownSectionPreview } from './MarkdownOutline'
@@ -225,10 +229,7 @@ import {
 import { getLocale, pick, t } from '../i18n'
 import { buildMcpAppDeps } from './mcp/appDeps'
 
-const PDF_EMPTY = '사이드바에서 PDF 문서를 여세요'
 const NOTE_EMPTY = '사이드바에서 노트를 여세요'
-/** 나눈 창의 빈 칸. 탭을 끌어 오거나 사이드바에서 문서를 열면 된다 */
-const SPLIT_PANE_EMPTY = '탭을 여기로 끌어 오거나 사이드바에서 문서를 여세요'
 /** 떼어 낸 새 창에서 첫 탭이 놓이는 자리(창 왼쪽 위에서, CSS 픽셀). 탭을 끌어 떼어 낼 때 마우스가 그 탭 위에 오게 한다 */
 const DETACHED_TAB_LEFT = 54
 const DETACHED_TAB_TOP = 5
@@ -421,6 +422,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     paneLayout: layoutRoot,
     setPaneLayout: setLayoutRoot,
     setWorkspace,
+    screens,
+    activeScreenId,
+    lastScreenId,
+    screensState,
+    zoomedPane,
+    screenOps,
     openInPane,
     moveTab,
     setPaneRoute,
@@ -657,6 +664,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('library')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  // 아래 상태 줄(설정 「아래 상태 줄」): 켜면 짧은 알림도 거기에 뜬다
+  const statusBarOn = useAppPrefs().statusBar
+  const [keysHelpOpen, setKeysHelpOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -682,7 +692,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (open) aiPointerSeenRef.current = aiPointer.id
     else if (aiPointerSeenRef.current === aiPointer.id) setAiPointer(null)
   }, [aiPointer, panes])
-  const [focusedPane, setFocusedPane] = useState<FocusedPane>('split')
+  // 「크게」(resize-pane -Z)는 화면마다 저장된다(screen.zoomed). 크게 보는 칸이 있으면 'zoom', 없으면 'split'
+  const focusedPane: FocusedPane = zoomedPane !== null ? 'zoom' : 'split'
+  const setFocusedPane = useCallback((mode: FocusedPane) => { if (mode === 'split') screenOps.setZoomed(null) }, [screenOps])
   const [libraryExpanded, setLibraryExpanded] = useState(false)
   /** 펼친 라이브러리가 올라갈 자리(왼쪽 바 오른쪽 영역). Sidebar 가 여기에 그린다 */
   const [libraryHost, setLibraryHost] = useState<HTMLElement | null>(null)
@@ -694,7 +706,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 칸 번호(0, 1, 2 …)는 트리를 왼쪽 위부터 센 차례다
   const paneOrder = useMemo(() => leaves(layoutRoot), [layoutRoot])
   const paneCount = paneOrder.length
-  const singlePane = paneCount === 1
   const documentSearch = useDocumentSearch()
   const [pendingExternalLink, setPendingExternalLink] = useState<string | null>(null)
   // 다른 화면(문제 보고·번역 설정 …)이 열려는 링크도 같은 확인 창을 거친다
@@ -873,12 +884,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     })
   }, [])
   // 칸 하나를 화면 전체로(다시 누르면 되돌린다)
-  const [zoomedPane, setZoomedPane] = useState<PaneId | null>(null)
   const toggleFocus = useCallback((pane: PaneId) => {
     setLibraryExpanded(false)
-    setFocusedPane((current) => (current === 'zoom' && zoomedPane === pane ? 'split' : 'zoom'))
-    setZoomedPane(pane)
-  }, [zoomedPane])
+    screenOps.setZoomed(zoomedPane === pane ? null : pane)
+  }, [screenOps, zoomedPane])
   const [excerptInsertRequest, setExcerptInsertRequest] = useState<ReaderExcerptInsertRequest>()
   const [markdownJumpRequest, setMarkdownJumpRequest] = useState<MarkdownSourceJumpRequest | null>(null)
   useEffect(() => {
@@ -1149,7 +1158,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       ]),
       { id: 'new-note', kind: 'action', label: t('새 노트 만들기'), keywords: 'new note', run: () => { void memoNotes.create().then((path) => { if (path !== null) openMemoNoteTab(path) }) } },
       ...(docPaneId !== null && vault !== null ? [{ id: 'note-beside', kind: 'action' as const, label: noteBesideShown ? t('옆에 노트 닫기') : t('옆에 노트 열기'), shortcut: shortcutText('toggleNoteBeside'), keywords: 'note beside side open close memo reading 노트 옆 읽기', run: act('toggleNoteBeside') }] : []),
-      ...(SPLIT_PANES_ENABLED && !isDetachedWindow && vault !== null ? availableLayoutPresets(CANVAS_ENABLED).map((preset) => ({ id: `layout-${preset.id}`, kind: 'action' as const, label: t('배치: {name}', { name: preset.label }), keywords: 'layout preset arrangement 배치', run: () => { void applyPreset(preset.id) } })) : []),
+      ...(SPLIT_PANES_ENABLED && !isDetachedWindow ? [
+        ...availableScreenTemplates(CANVAS_ENABLED).map((template) => ({ id: `new-screen-${template.id}`, kind: 'action' as const, label: t('새 화면: {name}', { name: template.label }), keywords: 'new screen window template new-window 화면 템플릿', run: () => { void newScreenFromTemplate(template.id) } })),
+        ...(vault === null ? [] : availableScreenTemplates(CANVAS_ENABLED).filter((template) => template.id !== 'blank').map((template) => ({ id: `reapply-${template.id}`, kind: 'action' as const, label: t('이 화면을 템플릿으로 다시 짜기: {name}', { name: template.label }), keywords: 'layout template rearrange apply reapply arrangement 배치 템플릿 다시 짜기', run: () => { void applyPreset(template.id as LayoutPresetId) } }))),
+        { id: 'split-right', kind: 'action' as const, label: t('칸 나누기: 오른쪽으로'), keywords: 'split pane right split-window 칸 나누기', run: () => splitPaneFromHead(activePaneId, 'h') },
+        { id: 'split-down', kind: 'action' as const, label: t('칸 나누기: 아래로'), keywords: 'split pane down split-window 칸 나누기', run: () => splitPaneFromHead(activePaneId, 'v') },
+        { id: 'zoom-pane', kind: 'action' as const, label: zoomedPane === null ? t('이 칸만 크게') : t('크기 되돌리기'), keywords: 'zoom pane resize-pane 크게', run: () => toggleFocus(activePaneId) },
+        { id: 'next-screen', kind: 'action' as const, label: t('다음 화면'), keywords: 'next screen window next-window', run: () => screenOps.step(1) },
+        { id: 'prev-screen', kind: 'action' as const, label: t('이전 화면'), keywords: 'previous screen window previous-window', run: () => screenOps.step(-1) },
+        { id: 'last-screen', kind: 'action' as const, label: t('마지막 화면으로'), keywords: 'last screen window last-window', run: () => screenOps.last() },
+        ...(screens.length > 1 ? [{ id: 'close-screen', kind: 'action' as const, label: t('화면 닫기'), keywords: 'close screen window kill-window', run: () => screenOps.close(activeScreenId) }] : []),
+      ] : []),
       { id: 'zotero-import', kind: 'action', label: t('Zotero 에서 가져오기…'), keywords: 'zotero import library references pdf', run: () => { void interop.runZotero() } },
       { id: 'export-vault-markdown', kind: 'action', label: t('모든 노트를 Markdown 으로 내보내기…'), keywords: 'markdown export obsidian notion vault notes', run: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
       { id: 'undo', kind: 'action', label: t('되돌리기'), shortcut: shortcutText('undo'), keywords: 'undo', run: act('undo') },
@@ -1309,14 +1328,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   /** 칸을 못 나눈 까닭을 알린다 */
   const announceRefusal = (reason: SplitRefusal) => announceAction(reason === 'max' ? t('칸은 {max}개까지입니다', { max: MAX_PANES }) : t('칸이 너무 작습니다'))
-  /** 「창 나누기」 목록에서 예전 배치 하나를 고른다: 지금 칸들을 그 모양으로 다시 짠다(남는 칸의 탭은 마지막 칸 뒤에 합친다) */
-  const setPaneLayout = (next: PdfSplitLayoutId) => {
-    const now = workspaceLatest.current
-    const result = applyLegacyLayout({ panes: now.panes, channels: now.channels, layout: now.layout }, next)
-    applyWorkspace(result)
-    if (next === 'single') setFocusedPane('split')
-    if (!result.kept.includes(now.activePaneId)) setActivePaneId(result.kept[result.kept.length - 1]!)
-  }
   /** 칸 수만 정할 때(MCP 칸 수·Ctrl+\): 줄이면 뒤 칸을 합치고, 늘리면 마지막 칸을 좌우로 나눈다. 칸 수를 바꾼 뒤의 칸 차례 */
   const setPaneCount = (next: number): readonly PaneId[] => {
     const now = workspaceLatest.current
@@ -1344,9 +1355,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (!paneOrder.includes(activePaneId)) setActivePaneId(paneOrder[0]!)
     if (!paneOrder.includes(paneRouteRef.current.doc)) setPaneRoute('doc', paneOrder[0]!)
     if (!paneOrder.includes(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
-    // 크게 보던 칸이 사라졌다(탭을 다 끌어내 닫힘 …): 전체 화면을 푼다
-    if (focusedPane === 'zoom' && (zoomedPane === null || !paneOrder.includes(zoomedPane))) setFocusedPane('split')
-  }, [orphanKey, paneOrder, activePaneId, focusedPane, zoomedPane, setPanes, setPaneRoute, paneRouteRef])
+  }, [orphanKey, paneOrder, activePaneId, setPanes, setPaneRoute, paneRouteRef])
   const focusPane = useCallback((pane: PaneId) => {
     setActivePaneId(pane)
     const tab = activeTab(tabsOf(panes, pane))
@@ -1449,6 +1458,21 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 같은 색 창끼리만 연동한다. 형광펜·카드·출처를 누르면 그 창이 신호(workspaceSignal)를 보내고,
   // 여기서 「필요한 문서·노트가 같은 색 창에 보이게」 한다(탭 활성화 → 미리보기 탭 → 옆에 새 창). 스크롤·깜빡임은 받는 창이 한다.
   const previewTabsEnabled = useAppPrefs().previewTabs
+  /** 화면을 옮긴다: 라이브러리는 접고(칸이 보이게) 화면은 바로 바뀐다(움직임 없음). 다른 화면의 PDF 보기는 닫히고, 돌아오면 저장된 쪽·배율로 다시 연다 */
+  const switchToScreen = useCallback((id: string) => {
+    setLibraryExpanded(false)
+    screenOps.switchTo(id)
+  }, [screenOps])
+  /** 「?」 목록의 「지금 되는 키」 */
+  const shortcutKeys = (name: Parameters<typeof shortcutText>[0]) => shortcutText(name) ?? ''
+  const keysHelpCurrentKeys = () => [
+    { label: t('명령 팔레트'), keys: shortcutKeys('commandPalette') },
+    { label: t('옆에 노트 열기·닫기'), keys: shortcutKeys('toggleNoteBeside') },
+    { label: t('왼쪽 칸으로'), keys: shortcutKeys('focusLeftPane') },
+    { label: t('오른쪽 칸으로'), keys: shortcutKeys('focusRightPane') },
+    { label: t('다음 탭'), keys: shortcutKeys('nextTab') },
+    { label: t('단축키 보기'), keys: shortcutKeys('showShortcuts') },
+  ]
   const pinPaneTab = useCallback((tabId: string) => setPanes((current) => pinTabInPanes(current, tabId)), [setPanes])
   const workspaceLatest = useRef({ panes, channels, layout: layoutRoot, previewTabsEnabled, docPaneId, activePaneId })
   workspaceLatest.current = { panes, channels, layout: layoutRoot, previewTabsEnabled, docPaneId, activePaneId }
@@ -1580,15 +1604,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }
     return undefined
   }
-  const applyPreset = async (id: LayoutPresetId) => {
-    const now = workspaceLatest.current
-    const anchor = anchorDocPane()
-    const docTab = anchor === null ? null : activeTab(tabsOf(now.panes, anchor))
-    const docId = docTab !== null && isDocumentKind(docTab.kind) ? tabDocId(docTab) : null
-    const hasNote = allPaneTabs(now.panes).some((tab) => tab.kind === 'memoNote')
-    // 「정리」: 열린 캔버스가 없으면 마지막으로 만진 캔버스 → 목록의 첫 캔버스 → 새 캔버스(노트를 만드는 것과 같은 길)
+  /**
+   * 템플릿이 쓸 노트·캔버스(없으면 만든다). pool 은 그 화면에 이미 있는 탭들(노트·캔버스가 있으면 그것을 쓰고 이 값은 필요 없다).
+   * 「정리」: 열린 캔버스가 없으면 마지막으로 만진 캔버스 → 목록의 첫 캔버스 → 새 캔버스(노트를 만드는 것과 같은 길)
+   */
+  const resolveTemplateFallbacks = async (id: LayoutPresetId, pool: PanesState, docId: string | null): Promise<{ fallbackNote: Tab | null; fallbackCanvas: Tab | null }> => {
+    const hasNote = allPaneTabs(pool).some((tab) => tab.kind === 'memoNote')
     let fallbackCanvas: Tab | null = null
-    if (id === 'organize' && CANVAS_ENABLED && !allPaneTabs(now.panes).some((tab) => tab.kind === 'canvas')) {
+    if (id === 'organize' && CANVAS_ENABLED && !allPaneTabs(pool).some((tab) => tab.kind === 'canvas')) {
       const known = shownNotebooks.flatMap((group) => group.notes).filter((note) => !/.(?:md|markdown)$/iu.test(note.path))
       const note = known.find((entry) => entry.path === lastCanvasRef.current) ?? known[0] ?? await createCanvasForPreset()
       if (note !== undefined) fallbackCanvas = { id: note.path, title: note.title, kind: 'canvas' }
@@ -1598,13 +1621,103 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       fallbackPath = pickNotePath({ lastTouched: memoNotesRef.current.openPath, docId, entries: memoNotesRef.current.entries, docOwner: noteDocOwner })
       if (fallbackPath === null && docId !== null) fallbackPath = await createNoteForDoc(docId)
     }
+    return { fallbackNote: fallbackPath === null ? null : noteTabOf(fallbackPath), fallbackCanvas }
+  }
+  /** 「이 화면을 템플릿으로 다시 짜기」: 지금 탭들을 그 모양으로 다시 놓는다(탭은 닫지 않는다) */
+  const applyPreset = async (id: LayoutPresetId) => {
+    const now = workspaceLatest.current
+    const anchor = anchorDocPane()
+    const docTab = anchor === null ? null : activeTab(tabsOf(now.panes, anchor))
+    const docId = docTab !== null && isDocumentKind(docTab.kind) ? tabDocId(docTab) : null
+    const fallbacks = await resolveTemplateFallbacks(id, now.panes, docId)
     const latest = workspaceLatest.current
-    const result = applyLayoutPreset({ id, panes: latest.panes, channels: latest.channels, layout: latest.layout, anchor, lastTouched: memoNotesRef.current.openPath, fallbackNote: fallbackPath === null ? null : noteTabOf(fallbackPath), lastCanvas: lastCanvasRef.current, fallbackCanvas })
+    const result = applyLayoutPreset({ id, panes: latest.panes, channels: latest.channels, layout: latest.layout, anchor, lastTouched: memoNotesRef.current.openPath, fallbackNote: fallbacks.fallbackNote, lastCanvas: lastCanvasRef.current, fallbackCanvas: fallbacks.fallbackCanvas })
     applyWorkspace({ panes: result.panes, channels: result.channels, layout: result.layout })
     setActivePaneId(result.focus)
     const focusTab = activeTab(tabsOf(result.panes, result.focus))
     if (focusTab !== null) setPaneRoute(paneRouteOf(focusTab.kind), result.focus)
     announceFreshPane(result.fresh)
+  }
+  /** 「새 화면 ▸ 템플릿」: 보던 문서와 마지막으로 만진 노트로 그 모양의 새 화면을 만들어 그리로 간다(바로, 움직임 없이) */
+  const newScreenFromTemplate = async (id: ScreenTemplateId) => {
+    const now = workspaceLatest.current
+    setLibraryExpanded(false)
+    const anchor = id === 'blank' ? null : anchorDocPane()
+    const docTab = anchor === null ? null : activeTab(tabsOf(now.panes, anchor))
+    const document = docTab !== null && isDocumentKind(docTab.kind) ? docTab : null
+    const fallbacks = id === 'blank' ? { fallbackNote: null, fallbackCanvas: null } : await resolveTemplateFallbacks(id, {}, document === null ? null : tabDocId(document))
+    const built = buildTemplateScreen({
+      id,
+      name: templateScreenName(id, screens.length),
+      document,
+      documentChannel: anchor === null ? null : channelOf(now.channels, anchor),
+      lastTouched: memoNotesRef.current.openPath,
+      fallbackNote: fallbacks.fallbackNote,
+      lastCanvas: lastCanvasRef.current,
+      fallbackCanvas: fallbacks.fallbackCanvas,
+    }, allScreenPaneIds(screensState))
+    screenOps.add(built.screen)
+    const order = leaves(built.screen.layout)
+    setActivePaneId(built.focus)
+    setPaneRoute('doc', built.focus)
+    setPaneRoute('note', order[1] ?? built.focus)
+  }
+  /** 칸 머리 ⋯ 「오른쪽으로 · 아래로 나누기」(split-window). 크게 보던 중이면 먼저 푼다. 새 칸은 비어 있고 이 칸의 색을 받는다 */
+  const splitPaneFromHead = (pane: PaneId, dir: SplitDir) => {
+    const now = workspaceLatest.current
+    const result = splitPane({ panes: now.panes, channels: now.channels, layout: now.layout }, pane, dir, paneSizeOf)
+    if ('refused' in result) { announceRefusal(result.refused); return }
+    if (zoomedPane !== null) screenOps.setZoomed(null)
+    applyWorkspace(result, result.newPane)
+    setActivePaneId(result.newPane)
+    // 빈 칸을 만들었다: 다음에 여는 문서·노트가 이 칸으로 온다
+    setPaneRoute('doc', result.newPane)
+    setPaneRoute('note', result.newPane)
+  }
+  /** 칸 머리 ⋯ 「칸 자리 바꾸기」(swap-pane): 다음 칸과(맨 끝 칸이면 앞 칸과) 자리를 맞바꾼다. 탭·색은 칸을 따라간다 */
+  const swapPaneWithNeighbor = (pane: PaneId) => {
+    const now = workspaceLatest.current
+    const order = leaves(now.layout)
+    const index = order.indexOf(pane)
+    const other = order[index + 1] ?? order[index - 1]
+    if (index < 0 || other === undefined) return
+    applyWorkspace({ panes: now.panes, channels: now.channels, layout: swapLeaves(now.layout, pane, other) })
+  }
+  /** 칸 머리 ⋯ 「새 화면으로 떼기」(break-pane): 이 칸을 새 화면으로 옮겨 그리로 간다 */
+  const breakPaneToScreen = (pane: PaneId) => {
+    if (paneCount <= 1) { announceAction(t('칸이 하나뿐입니다')); return }
+    setLibraryExpanded(false)
+    screenOps.breakPane(pane, t('화면 {n}', { n: screens.length }))
+    setActivePaneId(pane)
+  }
+  /** 빈 칸의 빠른 단추(PDF · MD · 노트 · 캔버스 · 번역기). 누른 칸이 다음에 여는 것을 받는다 */
+  const emptyPaneActions = {
+    pdf: (pane: PaneId) => { setPaneRoute('doc', pane); setActivePaneId(pane); void addDocument() },
+    markdown: (pane: PaneId) => { setPaneRoute('doc', pane); setActivePaneId(pane); toggleLibrary() },
+    note: async (pane: PaneId) => {
+      setPaneRoute('note', pane)
+      setActivePaneId(pane)
+      const latest = memoNotesRef.current
+      const last = latest.openPath !== null && latest.entries.some((entry) => entry.path === latest.openPath) ? latest.openPath : null
+      const path = last ?? await latest.create()
+      if (path === null) { announceAction(t('열 수 있는 노트가 없습니다')); return }
+      openInPane(noteTabOf(path), pane)
+      memoNotesRef.current.open(path)
+    },
+    canvas: async (pane: PaneId) => {
+      setPaneRoute('note', pane)
+      setActivePaneId(pane)
+      const known = shownNotebooks.flatMap((group) => group.notes).filter((note) => !/.(?:md|markdown)$/iu.test(note.path))
+      const note = known.find((entry) => entry.path === lastCanvasRef.current) ?? known[0] ?? await createCanvasForPreset()
+      if (note === undefined) { announceAction(t('열 수 있는 노트가 없습니다')); return }
+      openInPane({ id: note.path, title: note.title, kind: 'canvas' }, pane)
+    },
+    // 떠 있는 번역기는 문서 칸 위에 뜬다(단계 6 에서 떠 있는 칸이 된다). 열어 두면 문서를 연 칸에 나타난다
+    translator: () => {
+      const docTab = activeDocumentTab
+      updateTranslatorPanel(docTab?.kind === 'markdown' ? 'markdown' : 'pdf', { open: true })
+      if (docTab === null) announceAction(t('문서를 열면 번역기가 보입니다'))
+    },
   }
   /** 문서 창에서 누른 형광펜을 보여 줄 노트가 같은 색 창에 안 보일 때: 그 메모의 노트를 옆에 열고(미리보기 설정이면 미리보기 탭) 그 카드를 보인다 */
   const revealMemoBeside = (pane: PaneId | null, memoId: string) => {
@@ -1826,6 +1939,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       growPanes,
       activePaneId,
       panes,
+      screens,
+      activeScreenId,
       docViews,
       shownLibrary,
       openedDocs,
@@ -2935,12 +3050,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     })
     return () => setPageDragHost(null)
   })
-  const renderPaneTabs = (pane: PaneId) => (
+  const renderPaneTabs = (pane: PaneId, index: number) => (
     <PaneTabsMenu
-      onClosePane={paneCount > 1 ? () => closePane(pane) : undefined}
-      // 색 점은 창이 둘 이상일 때만(하나뿐이면 연동할 상대가 없다)
+      // 색 점과 칸 번호는 칸이 하나여도 보인다(모든 칸의 머리가 같다)
       channel={channelOf(channels, pane)}
-      onCycleChannel={paneCount > 1 ? () => setChannels((current) => cyclePaneChannel(current, pane)) : undefined}
+      onCycleChannel={() => setChannels((current) => cyclePaneChannel(current, pane))}
+      paneNumber={index}
       onPinTab={(id) => setPanes((current) => pinTabInPanes(current, id))}
       state={tabsWithVersion(tabsOf(panes, pane))}
       label={t('탭')}
@@ -2976,6 +3091,33 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }}
     />
   )
+  /** 칸 머리의 흐린 보조 글(탭이 하나일 때): PDF 는 쪽, 노트는 폴더, Markdown 은 경로 */
+  const paneSecondary = (pane: PaneId): string | null => {
+    const state = tabsOf(panes, pane)
+    const tab = activeTab(state)
+    if (tab === null || state.tabs.length !== 1) return null
+    if (tab.kind === 'pdf') { const page = docViews[pane]?.page; return page === undefined ? null : `p.${page}` }
+    if (tab.kind === 'markdown') return tab.id
+    if (tab.kind === 'memoNote') { const at = tab.id.lastIndexOf('/'); return at < 0 ? null : tab.id.slice(0, at) }
+    return null
+  }
+  /** 칸 머리: 색 점 · 번호 · 탭 줄 + ⋯ 메뉴(나누기 · 크게 · 새 화면으로 떼기 · 자리 · 색 · 닫기). 모든 칸이 같다 */
+  const renderPaneHead = (pane: PaneId, index: number) => (
+    <PaneHead
+      tabs={renderPaneTabs(pane, index)}
+      secondary={paneSecondary(pane)}
+      paneCount={paneCount}
+      zoomed={zoomedPane === pane}
+      splitEnabled={SPLIT_PANES_ENABLED && !isDetachedWindow}
+      channel={channelOf(channels, pane)}
+      onSplit={(dir) => splitPaneFromHead(pane, dir)}
+      onToggleZoom={() => toggleFocus(pane)}
+      onBreak={() => breakPaneToScreen(pane)}
+      onSwap={() => swapPaneWithNeighbor(pane)}
+      onCycleChannel={() => setChannels((current) => cyclePaneChannel(current, pane))}
+      onClose={() => closePane(pane)}
+    />
+  )
   /**
    * 도구줄에 보일 문서 이름. 탭은 짧은 표시 이름이라, 여기는 정식 이름(PDF 서지 제목)을
    * 진하게, 파일 이름을 흐리게 둔다. 정식 이름을 모르면 표시 이름을 쓴다.
@@ -2989,12 +3131,28 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const main = formal !== undefined && formal.length >= 8 ? formal : shown
     return { main, sub: fileName === undefined || fileName === main ? undefined : fileName }
   }
+  /** 빈 칸: 「PDF · MD · 노트 · 캔버스 · 번역기」 빠른 단추와 안내 */
+  const renderEmptyPane = (pane: PaneId) => (
+    <span className="pane-empty-quick">
+      <span className="pane-empty-quick-buttons" role="group" aria-label={t('이 칸에 열기')}>
+        {isDetachedWindow ? null : (
+          <>
+            <button type="button" className="pane-empty-quick-button" onClick={() => emptyPaneActions.pdf(pane)}>{t('PDF')}</button>
+            <button type="button" className="pane-empty-quick-button" onClick={() => emptyPaneActions.markdown(pane)}>{t('MD')}</button>
+            {vault === null ? null : <button type="button" className="pane-empty-quick-button" onClick={() => void emptyPaneActions.note(pane)}>{t('노트')}</button>}
+            {vault === null || !CANVAS_ENABLED ? null : <button type="button" className="pane-empty-quick-button" onClick={() => void emptyPaneActions.canvas(pane)}>{t('캔버스')}</button>}
+            <button type="button" className="pane-empty-quick-button" onClick={emptyPaneActions.translator}>{t('번역기')}</button>
+          </>
+        )}
+      </span>
+      <span className="pane-empty-quick-hint">{t('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')}</span>
+    </span>
+  )
   const renderPaneBody = (pane: PaneId) => {
     const state = tabsOf(panes, pane)
     const tab = activeTab(state)
     if (tab === null) {
-      const hint = pane === paneOrder[0] ? t(PDF_EMPTY) : t(SPLIT_PANE_EMPTY)
-      return <PaneShell state={state} emptyHint={hint} placeholder="" />
+      return <PaneShell state={state} emptyHint="" placeholder="" emptyContent={renderEmptyPane(pane)} />
     }
     if (tab.kind === 'memoNote') {
       return (
@@ -3449,9 +3607,21 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       root={layoutRoot}
       onRootChange={setLayoutRoot}
       renderPane={(pane) => renderPane(pane)}
-      // 칸이 둘 이상이면 탭 줄은 칸마다 칸 안 맨 위에 둔다(하나뿐일 때만 상단바에 있다)
-      renderTabs={(pane) => renderPaneTabs(pane)}
+      // 모든 칸이(하나여도) 자기 머리를 칸 맨 위에 둔다
+      renderHead={(pane, index) => renderPaneHead(pane, index)}
       onSwapSplit={swapPanes}
+      statusBar={statusBarOn ? (
+        <StatusBar
+          sessionName={t('기본')}
+          screens={screens}
+          activeId={activeScreenId}
+          lastId={lastScreenId}
+          onSelectScreen={switchToScreen}
+          onOpenHelp={() => setKeysHelpOpen(true)}
+          paneCount={paneCount}
+          paletteShortcut={shortcutText('commandPalette')}
+        />
+      ) : undefined}
       topBar={({ sidebarPx, leftFrac, sidebarVisible }) => (
         <TopBar
           sidebarCollapsed={sidebarCollapsed}
@@ -3488,15 +3658,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             ],
           ]}
           sidebarPx={sidebarPx}
-          leftFrac={leftFrac}
-          leftTabs={singlePane ? renderPaneTabs(paneOrder[0]!) : null}
-          leftPaneId={paneOrder[0]}
-          docSearchActive={!sidebarCollapsed && sidebarMode === 'search' && searchScope === 'vault'}
-          singlePane={singlePane}
-          paneLayout={matchLegacyLayout(layoutRoot)}
-          onPaneLayoutChange={SPLIT_PANES_ENABLED && !isDetachedWindow ? setPaneLayout : undefined}
-          noteBeside={docPaneId !== null && vault !== null ? { shown: noteBesideShown, onToggle: toggleNoteBeside } : undefined}
-          layoutPresets={SPLIT_PANES_ENABLED && !isDetachedWindow && vault !== null ? { presets: availableLayoutPresets(CANVAS_ENABLED), onApply: (id) => { void applyPreset(id) } } : undefined}
+          sessionName={t('기본')}
+          screens={SPLIT_PANES_ENABLED && !isDetachedWindow ? {
+            items: screens,
+            activeId: activeScreenId,
+            lastId: lastScreenId,
+            templates: availableScreenTemplates(CANVAS_ENABLED),
+            onSelect: switchToScreen,
+            onRename: screenOps.rename,
+            onReorder: screenOps.reorder,
+            onClose: screenOps.close,
+            onNew: (id) => { void newScreenFromTemplate(id as ScreenTemplateId) },
+          } : undefined}
+          onOpenPalette={() => setPaletteOpen(true)}
+          paletteShortcut={shortcutText('commandPalette')}
           onCloseWindow={closeWindowSafely}
           // 떼어 낸 창은 왼쪽 바 없이 시작한다(찾기 등으로 열렸을 때만 접을 수 있게 단추가 나온다)
           hideSidebarToggle={isDetachedWindow && sidebarCollapsed}
@@ -3510,7 +3685,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       />
     ) : null}
     {/* 앱의 모든 알림은 오른쪽 아래 한 줄기로: 위 토스트, 아래로 오류 · AI 위치 · 가져오기 권유 · 업데이트 · AI 알약 */}
-    <NoticeStack>
+    <NoticeStack toasts={!statusBarOn}>
       {error !== null && <ErrorNotice message={error} onDismiss={dismissError} />}
       <AiLocationInbox
         items={aiLocations}
@@ -3710,6 +3885,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} /> : null}
     {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
+    {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} /> : null}
     {paletteOpen ? <CommandPalette commands={paletteCommands()} onClose={() => setPaletteOpen(false)} /> : null}
     {shortcutsOpen ? <ShortcutOverlay onClose={() => setShortcutsOpen(false)} onOpenSettings={() => { setSettingsSection('input'); setSettingsOpen(true) }} /> : null}
     <ThemeIntakeHost resolvedTheme={theme.resolvedTheme} />

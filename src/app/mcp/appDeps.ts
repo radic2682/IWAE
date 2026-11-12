@@ -9,7 +9,8 @@ import type { PersistentPdfHighlight } from '../../pdf/persistentHighlight'
 import { leaves, MAX_PANES, type LayoutNode } from '../../core/layoutTree'
 import { otherPane, tabDocId, tabsOf, type PaneId, type PanesState, type Tab } from '../tabs'
 import { channelOf, type PaneChannels } from '../workspaceChannels'
-import type { McpAppDeps, McpBookmarkPatch, McpLibraryDoc, PaneRef } from './types'
+import type { McpAppDeps, McpBookmarkPatch, McpLibraryDoc, McpPaneState, McpScreenState, PaneRef } from './types'
+import type { Screen } from '../screens'
 
 /** 예전 칸 이름 → 칸 번호(왼쪽 위부터 0) */
 const LEGACY_PANE_INDEX: Readonly<Record<string, number>> = { left: 0, right: 1, third: 2, fourth: 3 }
@@ -31,6 +32,9 @@ export interface McpAppInput {
   readonly growPanes: (count: number) => readonly PaneId[]
   readonly activePaneId: PaneId
   readonly panes: PanesState
+  /** 모든 화면(맨 위 줄 차례)과 보는 화면의 id. 보는 화면의 칸은 위의 layout · panes · channels 와 같다 */
+  readonly screens: readonly Screen[]
+  readonly activeScreenId: string
   readonly docViews: Readonly<Partial<Record<PaneId, { readonly docId: string; readonly page: number }>>>
   readonly shownLibrary: readonly LibraryDoc[]
   readonly openedDocs: readonly { readonly docId: string; readonly title: string; readonly hasText?: boolean; readonly pageCount: number }[]
@@ -117,6 +121,17 @@ function libraryDocs(input: McpAppInput, ocrBusy: (docId: string) => boolean): M
   })
 }
 
+/** 화면 하나의 칸들을 MCP 모양(칸 번호 · id · 탭 · 보던 탭 · 색)으로 */
+function paneStatesOf(layout: LayoutNode, panes: PanesState, channels: PaneChannels): McpPaneState[] {
+  return leaves(layout).map((pane, index) => ({
+    index,
+    id: pane,
+    tabs: tabsOf(panes, pane).tabs.map((tab) => ({ id: tab.id, title: tab.title, kind: tab.kind })),
+    activeId: tabsOf(panes, pane).activeId,
+    channel: channelOf(channels, pane),
+  }))
+}
+
 export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
   const order = leaves(input.layout)
   /**
@@ -183,12 +198,14 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
     paneCount: input.paneCount,
     layout: input.layout,
     activePane: input.activePaneId,
-    panes: order.map((pane, index) => ({
+    panes: paneStatesOf(input.layout, input.panes, input.channels),
+    screens: input.screens.map((screen, index): McpScreenState => ({
       index,
-      id: pane,
-      tabs: tabsOf(input.panes, pane).tabs.map((tab) => ({ id: tab.id, title: tab.title, kind: tab.kind })),
-      activeId: tabsOf(input.panes, pane).activeId,
-      channel: channelOf(input.channels, pane),
+      id: screen.id,
+      name: screen.name,
+      active: screen.id === input.activeScreenId,
+      // 보는 화면은 App 이 막 만든 최신 값(layout · panes · channels), 나머지는 저장된 화면의 값
+      panes: screen.id === input.activeScreenId ? paneStatesOf(input.layout, input.panes, input.channels) : paneStatesOf(screen.layout, screen.panes, screen.channels),
     })),
     docViews: input.docViews,
     selection: input.liveSelection,

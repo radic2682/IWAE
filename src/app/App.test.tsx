@@ -10,6 +10,8 @@ import { PDF_EXCERPT_DRAG_MIME, serializePdfExcerptDrag, type PdfExcerptSelectio
 import { SAMPLE_DOC_ID, SAMPLE_TITLE } from '../pdf/samplePage'
 import { SelectionActions } from '../pdf/SelectionActions'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
+import { setAppPref } from './appPrefs'
+import { announceAction } from './actionFeedback'
 
 const fileDropMocks = vi.hoisted(() => ({
   listen: vi.fn(),
@@ -277,7 +279,10 @@ describe('App — 껍데기 배선', () => {
 
   it('처음에는 한 칸이 비어 있다', () => {
     const { container } = renderApp()
-    expect(screen.getByText('사이드바에서 PDF 문서를 여세요')).toBeDefined()
+    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    // 빈 칸에는 빠른 단추가 있다
+    const quick = screen.getByRole('group', { name: '이 칸에 열기' })
+    expect(within(quick).getAllByRole('button').map((button) => button.textContent)).toEqual(['PDF', 'MD', '번역기'])
     expect(container.querySelectorAll('.pane-grid-cell')).toHaveLength(1)
   })
 
@@ -297,7 +302,7 @@ describe('App — 껍데기 배선', () => {
     // 문서도 노트도 없는 처음: 빈 창에 캔버스 탭으로 열린다(안내 문구는 사라진다)
     fireEvent.click(screen.getByRole('button', { name: 'OPTIONS' }))
     expect(screen.getByRole('tab', { name: 'OPTIONS' })).toBeDefined()
-    expect(screen.queryByText('사이드바에서 PDF 문서를 여세요')).toBeNull()
+    expect(screen.queryByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeNull()
   })
 
   it('같은 문서를 두 번 눌러도 탭은 하나다', () => {
@@ -315,7 +320,7 @@ describe('App — 껍데기 배선', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /탭 목록/ })[0]!)
     fireEvent.click(screen.getByRole('button', { name: 'Team Onboarding Guide (Rev C) 목록에서 닫기' }))
     expect(screen.getAllByText('열린 탭 없음')[0]).toBeDefined()
-    expect(screen.getByText('사이드바에서 PDF 문서를 여세요')).toBeDefined()
+    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
   })
 })
 
@@ -676,7 +681,7 @@ describe('App — 문서 추가', () => {
     expect(openPdf).not.toHaveBeenCalled()
     expect(screen.getAllByText('열린 탭 없음')[0]).toBeDefined()
     expect(screen.getAllByRole('button')).toHaveLength(before)
-    expect(screen.getByText('사이드바에서 PDF 문서를 여세요')).toBeDefined()
+    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
   })
 
   it('같은 문서를 두 번 추가해도 목록과 탭은 하나다', async () => {
@@ -707,7 +712,7 @@ describe('App — 문서 추가', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('PDF 가 아닙니다')
 
     expect(screen.getAllByText('열린 탭 없음')[0]).toBeDefined()
-    expect(screen.getByText('사이드바에서 PDF 문서를 여세요')).toBeDefined()
+    expect(screen.getByText('왼쪽 바에서 열거나 다른 칸의 탭을 끌어 오세요')).toBeDefined()
   })
 })
 
@@ -848,19 +853,6 @@ describe('App — 칸 나누기 트리', () => {
     expect(container.querySelectorAll('.pane-divider, .pane-tree-divider')).toHaveLength(1)
   })
 
-  it('「창 나누기」 목록에서 예전 배치를 고르면 같은 모양의 칸들로 바뀐다(넷 → 한 화면)', () => {
-    const { container } = render(<App developmentPreview />)
-    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
-    fireEvent.click(screen.getAllByRole('menuitemradio').find((item) => item.textContent === '넷(2×2)')!)
-    expect(cells(container)).toHaveLength(4)
-    expect(container.querySelectorAll('.pane-tree-divider')).toHaveLength(3)
-    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
-    fireEvent.click(screen.getAllByRole('menuitemradio').find((item) => item.textContent === '한 화면')!)
-    expect(cells(container)).toHaveLength(1)
-    // 칸이 하나면 탭 줄은 다시 상단바에 있다
-    expect(container.querySelector('.topbar .topbar-panetab-zone')).not.toBeNull()
-  })
-
   it('Ctrl+\ 는 칸을 늘리고(둘 → 셋) 한 번 더 누르면 한 칸으로 돌아온다', () => {
     const { container } = render(<App developmentPreview />)
     fireEvent.keyDown(document.body, { key: '\\', ctrlKey: true })
@@ -876,20 +868,6 @@ describe('App — 칸 나누기 트리', () => {
     expect(active()).toBe(1)
     fireEvent.keyDown(document.body, { key: '1', ctrlKey: true })
     expect(active()).toBe(0)
-  })
-
-  it('빈 칸의 닫기 단추는 그 칸을 빼고 남은 칸이 자리를 채우며 탭은 하나도 잃지 않는다', () => {
-    const { container } = render(<App developmentPreview />)
-    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
-    fireEvent.click(screen.getAllByRole('menuitemradio').find((item) => item.textContent === '넷(2×2)')!)
-    expect(cells(container)).toHaveLength(4)
-    // 새로 생긴 두 칸은 비어 있고 닫기 단추가 있다
-    fireEvent.click(screen.getAllByRole('button', { name: '이 창 닫기' })[0]!)
-    expect(cells(container)).toHaveLength(3)
-    fireEvent.click(screen.getAllByRole('button', { name: '이 창 닫기' })[0]!)
-    expect(cells(container)).toHaveLength(2)
-    expect(screen.getByRole('tab', { name: SAMPLE_TITLE })).toBeDefined()
-    expect(screen.getByRole('tab', { name: 'Evidence Map — Sample Research Note' })).toBeDefined()
   })
 
   it('칸이 너무 작아 더 나눌 수 없으면 「칸이 너무 작습니다」를 알린다(크기를 잴 수 있을 때)', async () => {
@@ -1013,5 +991,210 @@ describe('App — PDF 도구', () => {
     expect(dialog.closest('.pdf-tools-body')).not.toBeNull()
     fireEvent.click(within(dialog).getByRole('button', { name: 'OCR 시작' }))
     expect((await within(dialog).findAllByText('이 PDF는 이미 모든 쪽에 글자가 있습니다')).length).toBeGreaterThan(0)
+  })
+})
+
+describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
+  const cells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell')
+  const openMenu = (index: number) => fireEvent.click(screen.getAllByRole('button', { name: '칸 메뉴' })[index]!)
+  const pick = (name: RegExp) => fireEvent.click(screen.getByRole('menuitem', { name }))
+
+  it('칸이 하나여도 칸 머리(색 점 · 번호 · ⋯)가 칸 맨 위에 있고 상단바에는 탭 줄이 없다', () => {
+    const { container } = renderApp()
+    const heads = container.querySelectorAll('.pane-head')
+    expect(heads).toHaveLength(1)
+    expect(heads[0]!.querySelector('.pane-channel-dot')).not.toBeNull()
+    expect(heads[0]!.querySelector('.pane-head-number')?.textContent).toBe('0')
+    expect(within(heads[0] as HTMLElement).getByRole('button', { name: '칸 메뉴' })).toBeDefined()
+    expect(container.querySelector('.topbar .pane-tabs-menu')).toBeNull()
+    expect(container.querySelector('.topbar .topbar-panetab-zone')).toBeNull()
+  })
+
+  it('칸이 여럿이면 칸마다 머리가 있고 번호는 왼쪽 위부터 0, 1 …', () => {
+    const { container } = render(<App developmentPreview />)
+    const heads = [...container.querySelectorAll('.pane-head')]
+    expect(heads).toHaveLength(2)
+    expect(heads.map((head) => head.querySelector('.pane-head-number')?.textContent)).toEqual(['0', '1'])
+    expect(heads.every((head) => head.querySelector('.pane-channel-dot') !== null)).toBe(true)
+    // 머리는 카드 안 맨 위에 있다
+    expect(container.querySelectorAll('.pane-card')).toHaveLength(2)
+  })
+
+  it('⋯ 메뉴: 오른쪽으로 나누기 / 아래로 나누기가 새 빈 칸을 만든다(키 힌트가 보인다)', () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(0)
+    const menu = screen.getByRole('menu', { name: '칸 메뉴' })
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      '오른쪽으로 나누기%', '아래로 나누기"', '크게z', '새 화면으로 떼기!', '칸 자리 바꾸기{ }', '색 바꾸기파랑', '칸 닫기x',
+    ])
+    pick(/오른쪽으로 나누기/u)
+    expect(cells(container)).toHaveLength(3)
+    // 새 칸은 비어 있고 빠른 단추를 보인다
+    expect(screen.getByRole('group', { name: '이 칸에 열기' })).toBeDefined()
+    openMenu(0)
+    pick(/아래로 나누기/u)
+    expect(cells(container)).toHaveLength(4)
+    expect(container.querySelectorAll('.pane-tree-divider')).toHaveLength(3)
+  })
+
+  it('⋯ 메뉴의 칸 닫기는 그 칸을 빼고 남은 칸이 자리를 채우며 탭은 잃지 않는다', () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(0)
+    pick(/오른쪽으로 나누기/u)
+    expect(cells(container)).toHaveLength(3)
+    const emptyIndex = [...container.querySelectorAll('.pane-head')].findIndex((head) => head.querySelector('.pane-tabs-empty') !== null)
+    openMenu(emptyIndex)
+    pick(/칸 닫기/u)
+    expect(cells(container)).toHaveLength(2)
+    expect(screen.getByRole('tab', { name: SAMPLE_TITLE })).toBeDefined()
+    expect(screen.getByRole('tab', { name: 'Evidence Map — Sample Research Note' })).toBeDefined()
+  })
+
+  it('칸이 하나뿐이면 칸 닫기 · 새 화면으로 떼기 · 칸 자리 바꾸기 · 크게는 쓸 수 없다', () => {
+    renderApp()
+    openMenu(0)
+    for (const name of [/칸 닫기/u, /새 화면으로 떼기/u, /칸 자리 바꾸기/u, /크게/u]) {
+      expect((screen.getByRole('menuitem', { name }) as HTMLButtonElement).disabled).toBe(true)
+    }
+  })
+
+  it('크게: 그 칸만 화면에 남고 머리에 「Z」가 붙는다. 다시 누르면 되돌린다', () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(0)
+    pick(/크게/u)
+    expect(container.querySelectorAll('.pane-zoom-hidden')).toHaveLength(1)
+    expect((cells(container)[0] as HTMLElement).classList.contains('pane-zoom-hidden')).toBe(false)
+    const mark = screen.getByRole('button', { name: '크기 되돌리기' })
+    expect(mark.textContent).toBe('Z')
+    fireEvent.click(mark)
+    expect(container.querySelectorAll('.pane-zoom-hidden')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: '크기 되돌리기' })).toBeNull()
+  })
+
+  it('칸 자리 바꾸기: 두 칸의 자리가 맞바뀌고 탭은 칸을 따라간다', () => {
+    const { container } = render(<App developmentPreview />)
+    const order = () => [...container.querySelectorAll('.pane-head')].map((head) => head.querySelector('[role="tab"]')?.textContent)
+    const before = order()
+    openMenu(0)
+    pick(/칸 자리 바꾸기/u)
+    expect(order()).toEqual([before[1], before[0]])
+  })
+
+  it('새 화면으로 떼기: 그 칸이 새 화면이 되어 그리로 가고, 원래 화면은 한 칸 줄어 있다', () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(1)
+    pick(/새 화면으로 떼기/u)
+    expect(screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)).toEqual(['0읽기-', '1화면 1*'])
+    expect(cells(container)).toHaveLength(1)
+    fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
+    expect(cells(container)).toHaveLength(1)
+    expect(screen.getByRole('tab', { name: SAMPLE_TITLE })).toBeDefined()
+  })
+
+  it('빈 칸의 빠른 단추: PDF 는 파일 선택을, MD 는 라이브러리를, 번역기는 떠 있는 번역기를 연다', async () => {
+    vi.mocked(pickPdfFile).mockResolvedValue(null)
+    const { container } = renderApp()
+    const quick = screen.getByRole('group', { name: '이 칸에 열기' })
+    fireEvent.click(within(quick).getByRole('button', { name: 'PDF' }))
+    await waitFor(() => expect(pickPdfFile).toHaveBeenCalled())
+    fireEvent.click(within(quick).getByRole('button', { name: '번역기' }))
+    expect(JSON.parse(localStorage.getItem('iwae:translator-panel:v1') ?? '{}').pdf.open).toBe(true)
+    expect((await screen.findAllByText('문서를 열면 번역기가 보입니다')).length).toBeGreaterThan(0)
+    fireEvent.click(within(quick).getByRole('button', { name: 'MD' }))
+    expect(container.querySelector('.shell-library-expanded')).not.toBeNull()
+  })
+})
+
+describe('App — 화면 · 상태 줄', () => {
+  const cells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell')
+  const screenTabs = () => screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)
+  const newScreen = async (name: RegExp) => {
+    fireEvent.click(screen.getByRole('button', { name: '새 화면' }))
+    fireEvent.click(within(screen.getByRole('menu', { name: '새 화면' })).getByRole('menuitem', { name }))
+  }
+
+  it('처음에는 「0 읽기」 화면 하나뿐이다', () => {
+    render(<App developmentPreview />)
+    expect(screenTabs()).toEqual(['0읽기*'])
+  })
+
+  it('＋ 에서 빈 화면을 만들면 그 화면으로 가고, 이전 화면은 내려가(unmount) 있다가 돌아가면 다시 열린다', async () => {
+    const { container } = render(<App developmentPreview />)
+    expect(screen.getByRole('button', { name: '테스트 스크롤 보고' })).toBeDefined()
+    await newScreen(/빈 화면/u)
+    expect(screenTabs()).toEqual(['0읽기-', '1화면 1*'])
+    expect(cells(container)).toHaveLength(1)
+    // 숨은 화면의 PDF 보기는 마운트되어 있지 않다
+    expect(screen.queryByRole('button', { name: '테스트 스크롤 보고' })).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
+    expect(screenTabs()).toEqual(['0읽기*', '1화면 1-'])
+    expect(cells(container)).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '테스트 스크롤 보고' })).toBeDefined()
+  })
+
+  it('새 화면의 칸은 그 화면에만 속한다: 다른 화면에서 연 문서가 앞 화면에 끼어들지 않는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    await newScreen(/빈 화면/u)
+    fireEvent.click(within(screen.getByRole('region', { name: '문서' })).getAllByRole('button').find((button) => button.textContent?.includes(SAMPLE_TITLE))!)
+    expect(screen.getByRole('tab', { name: SAMPLE_TITLE })).toBeDefined()
+    expect(cells(container)).toHaveLength(1)
+    fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
+    // 앞 화면은 처음 그대로(문서 | 캔버스 두 칸, 문서 탭은 하나)
+    expect(cells(container)).toHaveLength(2)
+    expect(screen.getAllByRole('tab', { name: SAMPLE_TITLE })).toHaveLength(1)
+  })
+
+  it('「읽기」 템플릿으로 새 화면을 만들면 보던 문서가 문서 칸에 놓이고 노트 칸이 붙는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    await newScreen(/^읽기/u)
+    await waitFor(() => expect(screenTabs()).toEqual(['0읽기-', '1읽기*']))
+    expect(cells(container)).toHaveLength(2)
+    expect(screen.getAllByRole('tab', { name: SAMPLE_TITLE }).length).toBeGreaterThan(0)
+  })
+
+  it('이름 바꾸기(두 번 누르기)와 순서 바꾸기(Alt+→)', async () => {
+    render(<App developmentPreview />)
+    await newScreen(/빈 화면/u)
+    fireEvent.doubleClick(screen.getByRole('tab', { name: /화면 1/u }))
+    const input = screen.getByRole('textbox', { name: '화면 이름' })
+    fireEvent.change(input, { target: { value: '메모' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screenTabs()).toEqual(['0읽기-', '1메모*'])
+    fireEvent.keyDown(screen.getByRole('tab', { name: /읽기/u }), { key: 'ArrowRight', altKey: true })
+    expect(screenTabs()).toEqual(['0메모*', '1읽기-'])
+  })
+
+  it('아래 상태 줄: [기본] 0:읽기* 1:비교- 처럼 화면 목록을 보이고, 「?」가 키와 명령 목록을 연다', async () => {
+    render(<App developmentPreview />)
+    const bar = document.querySelector('.status-bar') as HTMLElement
+    expect(bar.querySelector('.status-bar-session')?.textContent).toBe('[기본]')
+    expect(bar.querySelector('.status-bar-screens')?.textContent).toBe('0:읽기*')
+    await newScreen(/빈 화면/u)
+    expect([...bar.querySelectorAll('.status-bar-screen')].map((button) => button.textContent).join(' ')).toBe('0:읽기- 1:화면 1*')
+    // 접두키 칩은 단계 4 까지 꺼져 있다
+    expect(bar.querySelector('.status-bar-prefix')?.getAttribute('data-active')).toBe('false')
+    fireEvent.click(within(bar).getByRole('button', { name: '키와 명령 보기' }))
+    const sheet = screen.getByRole('dialog', { name: '키와 명령' })
+    expect(within(sheet).getByText('다음 단계')).toBeDefined()
+    expect(within(sheet).getByText('split-window -h / -v')).toBeDefined()
+  })
+
+  it('짧은 알림은 상태 줄이 켜져 있으면 상태 줄 가운데에 뜨고 오른쪽 아래 토스트는 없다', () => {
+    render(<App developmentPreview />)
+    act(() => announceAction('저장했습니다'))
+    expect(document.querySelector('.status-bar-message')?.textContent).toBe('저장했습니다')
+    expect(document.querySelector('.notice-toast')).toBeNull()
+  })
+
+  it('설정 「아래 상태 줄」을 끄면 상태 줄이 없고 알림은 예전처럼 토스트로 뜬다', () => {
+    setAppPref('statusBar', false)
+    try {
+      render(<App developmentPreview />)
+      expect(document.querySelector('.status-bar')).toBeNull()
+      act(() => announceAction('저장했습니다'))
+      expect(document.querySelector('.notice-toast')?.textContent).toContain('저장했습니다')
+    } finally {
+      setAppPref('statusBar', true)
+    }
   })
 })

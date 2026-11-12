@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyLayoutPreset, availableLayoutPresets, LAYOUT_PRESETS } from './layoutPresets'
+import { applyLayoutPreset, availableLayoutPresets, availableScreenTemplates, buildTemplateScreen, LAYOUT_PRESETS, SCREEN_TEMPLATES, templateScreenName } from './layoutPresets'
 import { layoutForLegacyId, leaves, shapeOf } from '../core/layoutTree'
 import { allPaneTabs, emptyTabs, type PanesState, type Tab } from './tabs'
 import { DEFAULT_CHANNELS } from './workspaceChannels'
@@ -193,5 +193,44 @@ describe('applyLayoutPreset — 칸 id 와 배치', () => {
     const order = leaves(result.layout)
     expect(result.focus).toBe(order[1])
     expect(result.fresh).toBe(order[0])
+  })
+})
+
+describe('화면 템플릿', () => {
+  it('읽기 · 노트 왼쪽 · 비교 · 정리 · 빈 화면 다섯 가지이고 캔버스가 꺼져 있으면 「정리」를 감춘다', () => {
+    expect(SCREEN_TEMPLATES.map((template) => template.id)).toEqual(['read', 'noteLeft', 'compare', 'organize', 'blank'])
+    expect(availableScreenTemplates(false).map((template) => template.id)).toEqual(['read', 'noteLeft', 'compare', 'blank'])
+  })
+
+  it('화면 이름: 템플릿 이름, 빈 화면은 「화면 N」', () => {
+    expect(templateScreenName('compare', 3)).toBe('비교')
+    expect(templateScreenName('blank', 3)).toBe('화면 3')
+  })
+
+  it('새 화면(읽기): 보던 문서와 마지막으로 만진 노트가 문서 | 노트로 놓이고, 칸 id 는 다른 화면과 겹치지 않는다', () => {
+    const doc: Tab = { ...pdf('d1'), preview: true }
+    const built = buildTemplateScreen({ id: 'read', name: '읽기', document: doc, documentChannel: 'green', lastTouched: null, fallbackNote: note('n1') }, ['p-old'])
+    expect(shapeOf(built.screen.layout)).toBe('h(P,P)')
+    const [left, right] = leaves(built.screen.layout)
+    expect(ids(built.screen.panes[left!])).toEqual(['d1'])
+    expect(ids(built.screen.panes[right!])).toEqual(['n1'])
+    // 복사본은 미리보기 표시를 뗀 보통 탭이고, 문서 칸의 색을 이어 받는다
+    expect(built.screen.panes[left!]!.tabs[0]!.preview).toBeUndefined()
+    expect(built.screen.channels).toEqual({ [left!]: 'green', [right!]: 'green' })
+    expect(built.focus).toBe(left)
+    expect(leaves(built.screen.layout)).not.toContain('p-old')
+  })
+
+  it('새 화면(비교)은 2×2, 새 화면(빈 화면)은 빈 칸 하나', () => {
+    expect(shapeOf(buildTemplateScreen({ id: 'compare', name: '비교', document: pdf('d1'), lastTouched: null, fallbackNote: null }, []).screen.layout)).toBe('v(h(P,P),h(P,P))')
+    const blank = buildTemplateScreen({ id: 'blank', name: '화면 1', document: null, lastTouched: null, fallbackNote: null }, [])
+    expect(leaves(blank.screen.layout)).toHaveLength(1)
+    expect(allPaneTabs(blank.screen.panes)).toEqual([])
+  })
+
+  it('다시 짜기(applyLayoutPreset)는 어떤 탭도 닫지 않는다', () => {
+    const state = panes({ left: strip([pdf('a'), pdf('b')]), right: strip([note('n1')]), third: strip([canvas('c1')]), fourth: strip([]) })
+    const result = applyLayoutPreset({ id: 'noteLeft', panes: state, channels: DEFAULT_CHANNELS, layout: current, anchor: 'left', lastTouched: null, fallbackNote: null })
+    expect(sorted(result.panes)).toEqual(['a', 'b', 'c1', 'n1'])
   })
 })

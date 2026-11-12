@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
+  CaretDown, Command,
   ImagesSquare, MagnifyingGlass,
   ListBullets,
   SidebarSimple,
@@ -8,12 +9,11 @@ import {
 } from '@phosphor-icons/react'
 import { closeWindow } from '../bridge/window'
 import { WindowControls } from './WindowControls'
-import { PdfSplitPicker } from './PdfLayoutControls'
-import type { PdfSplitLayoutId } from '../core/pdfSplit'
-import type { LayoutPresetDef, LayoutPresetId } from './layoutPresets'
 import { AppMenu, type AppMenuGroups } from './AppMenu'
-import { MemoPanelIcon } from '../pdf/MemoPanelIcon'
+import { PopupMenu } from './PopupMenu'
+import { ScreenTabs, type ScreenTabItem, type ScreenTemplateItem } from './ScreenTabs'
 import { isMacPlatform } from '../core/platform'
+import '../ui/screens.css'
 import { t } from '../i18n'
 
 export type SidebarMode = 'library' | 'thumbnails' | 'outline' | 'tools' | 'search'
@@ -25,48 +25,50 @@ interface TopBarProps {
   sidebarMode: SidebarMode
   onSidebarModeChange: (mode: SidebarMode) => void
   sidebarPx: number
-  leftFrac: number
-  /** 칸이 하나일 때 그 칸의 탭 줄(둘 이상이면 탭 줄은 칸마다 칸 안에 있어 null) */
-  leftTabs: ReactNode
-  /** leftTabs 가 놓이는 칸의 id(탭을 끌어 놓는 자리를 찾는 데 쓴다) */
-  leftPaneId?: string
   onCloseWindow?: () => void
-  /** 문서 검색 화면인가. 단추가 눌린 모양이 된다 */
-  docSearchActive?: boolean
-  /** 1단 보기인가(탭 줄 배치용) */
-  singlePane?: boolean
-  /** 창 나누기 배치(예전 배치 중 하나와 같은 모양이면 그 id, 직접 나눈 모양이면 null). onPaneLayoutChange 가 있으면 배치 고르는 단추가 나온다 */
-  paneLayout?: PdfSplitLayoutId | null
-  onPaneLayoutChange?: (layout: PdfSplitLayoutId) => void
   /** 로고 메뉴의 항목들(인쇄·화면·설정 …). 주면 맨 왼쪽에 로고 메뉴 단추가 나온다 */
   appMenu?: AppMenuGroups
   /** 사이드바 접기·펴기 단추를 숨긴다(왼쪽 바가 없는 떼어 낸 창) */
   hideSidebarToggle?: boolean
-  /** 「옆에 노트 열기 / 닫기」: 보는 문서 옆에 메모 노트 창을 열고 닫는다. shown 은 같은 색 창에 노트가 보이는가. 문서를 볼 때만 준다 */
-  noteBeside?: { readonly shown: boolean; readonly onToggle: () => void }
-  /** 이름 붙은 배치(읽기·노트 왼쪽·비교·정리). 주면 창 나누기 목록 아래에 「배치」가 나온다 */
-  layoutPresets?: { readonly presets: readonly LayoutPresetDef[]; readonly onApply: (id: LayoutPresetId) => void }
+  /** 세션 이름(「세션 이름 ▾」 단추). 세션은 다음 단계 — 지금은 「기본」 하나 */
+  sessionName?: string
+  /** 화면 탭(0 읽기 · 1 비교 …). 없으면(떼어 낸 창) 화면 줄을 그리지 않는다 */
+  screens?: {
+    readonly items: readonly ScreenTabItem[]
+    readonly activeId: string
+    readonly lastId: string | null
+    readonly templates: readonly ScreenTemplateItem[]
+    readonly onSelect: (id: string) => void
+    readonly onRename: (id: string, name: string) => void
+    readonly onReorder: (id: string, toIndex: number) => void
+    readonly onClose: (id: string) => void
+    readonly onNew: (templateId: string) => void
+  }
+  /** 「⌘ 명령」 단추: 명령 팔레트를 연다. shortcut 은 단추 말풍선에 보일 키 */
+  onOpenPalette?: () => void
+  paletteShortcut?: string
 }
 
-/** 창 조작과 열린 문서 탭을 한 줄에 놓는 프레임리스 제목줄이다. */
+/**
+ * 프레임리스 제목줄(설계 3): 앱 메뉴 · 왼쪽 바 · 세션 이름 ▾ · 화면 탭 · ⌘ 명령 · 창 단추.
+ * 문서 탭은 여기 없다 — 칸마다 자기 머리(PaneHead)에 있다. 「창 나누기」 · 「옆에 노트」 단추도 없다(칸 ⋯ 메뉴와 명령 팔레트로 옮겼다).
+ */
 export function TopBar({
   sidebarCollapsed,
   sidebarVisible = true,
   onToggleSidebar,
   sidebarMode,
   onSidebarModeChange,
-  leftFrac,
-  leftTabs,
-  leftPaneId,
   onCloseWindow = closeWindow,
-  singlePane = false,
-  paneLayout = 'single',
-  onPaneLayoutChange,
   appMenu,
-  noteBeside,
-  layoutPresets,
   hideSidebarToggle = false,
+  sessionName = t('기본'),
+  screens,
+  onOpenPalette,
+  paletteShortcut,
 }: TopBarProps) {
+  const [sessionMenu, setSessionMenu] = useState<{ left: number; top: number } | null>(null)
+  const sessionRef = useRef<HTMLButtonElement | null>(null)
   // 왼쪽 위 단추 묶음의 실제 폭. 사이드바가 이보다 좁으면 묶음이 첫 탭(왼쪽 모서리·곡선)을 덮었다 — 그만큼 탭을 민다
   const actionsRef = useRef<HTMLDivElement | null>(null)
   const [actionsWidth, setActionsWidth] = useState<number | null>(null)
@@ -99,7 +101,7 @@ export function TopBar({
   return (
     <div
       ref={rootRef}
-      className={`topbar${singlePane ? ' topbar-single' : ''}${sidebarCollapsed ? ' topbar-sidebar-collapsed' : ''}${sidebarCollapsed || !sidebarVisible ? ' topbar-sidebar-unreserved' : ''}${isMacPlatform() ? ' topbar-mac' : ''}`}
+      className={`topbar${sidebarCollapsed ? ' topbar-sidebar-collapsed' : ''}${sidebarCollapsed || !sidebarVisible ? ' topbar-sidebar-unreserved' : ''}${isMacPlatform() ? ' topbar-mac' : ''}`}
       style={Object.keys(widthVars).length === 0 ? undefined : widthVars as CSSProperties}
       data-tauri-drag-region="deep"
     >
@@ -142,48 +144,71 @@ export function TopBar({
       </div>
 
       {/* "deep" 이어야 한다. 값 없는 속성은 이 div 자체를 눌렀을 때만 드래그로 치고,
-          그 안의 탭 줄·빈 칸을 누르면 바깥 .topbar 의 deep 까지 올라가기 전에 막아 버린다. */}
-      <div className="topbar-panetabs" data-tauri-drag-region="deep">
-        {leftTabs === null || leftTabs === undefined ? null : (
-          <>
-            <div className="topbar-panetab-zone" data-pane-id={leftPaneId} style={{ flexGrow: leftFrac }}>{leftTabs}</div>
-            <div className="topbar-pane-divider" aria-hidden="true" />
-            {/* 오른쪽 창 단추 묶음이 차지하는 자리 */}
-            <div className="topbar-panetab-zone topbar-panetab-zone-right" style={{ flexGrow: 1 - leftFrac }} />
-          </>
+          그 안의 빈 칸을 누르면 바깥 .topbar 의 deep 까지 올라가기 전에 막아 버린다. */}
+      <div className="topbar-session-row" data-tauri-drag-region="deep">
+        <button
+          ref={sessionRef}
+          type="button"
+          className="topbar-session"
+          aria-haspopup="menu"
+          aria-expanded={sessionMenu !== null}
+          title={t('세션')}
+          data-tauri-drag-region="false"
+          onClick={() => {
+            if (sessionMenu !== null) { setSessionMenu(null); return }
+            const box = sessionRef.current?.getBoundingClientRect()
+            setSessionMenu({ left: box?.left ?? 0, top: (box?.bottom ?? 0) + 4 })
+          }}
+        >
+          <span className="topbar-session-name">{sessionName}</span>
+          <CaretDown size={11} weight="bold" aria-hidden="true" />
+        </button>
+        {sessionMenu !== null ? (
+          <PopupMenu label={t('세션')} left={sessionMenu.left} top={sessionMenu.top} anchorRef={sessionRef} onClose={(restore) => { setSessionMenu(null); if (restore) sessionRef.current?.focus() }}>
+            <div className="popup-menu-head" aria-hidden="true">{t('세션은 다음 단계에서')}</div>
+            {screens === undefined ? null : (
+              <>
+                <div className="pane-tab-context-sep" role="separator" />
+                <div className="popup-menu-head" aria-hidden="true">{t('새 화면 ▸ 템플릿')}</div>
+                {screens.templates.map((template) => (
+                  <button key={template.id} type="button" role="menuitem" onClick={() => { setSessionMenu(null); screens.onNew(template.id) }}>
+                    <span>{template.label}</span><kbd>{template.hint}</kbd>
+                  </button>
+                ))}
+              </>
+            )}
+          </PopupMenu>
+        ) : null}
+        {screens === undefined ? null : (
+          <ScreenTabs
+            screens={screens.items}
+            activeId={screens.activeId}
+            lastId={screens.lastId}
+            templates={screens.templates}
+            onSelect={screens.onSelect}
+            onRename={screens.onRename}
+            onReorder={screens.onReorder}
+            onClose={screens.onClose}
+            onNew={screens.onNew}
+          />
         )}
       </div>
 
       <WindowControls
         onCloseWindow={onCloseWindow}
-        leading={(
-          // 창 전체에 관한 단추(창 나누기·옆에 노트)는 창 단추 곁에 둔다
+        leading={onOpenPalette === undefined ? undefined : (
+          // 앱 전체에 관한 단추(명령)는 창 단추 곁에 둔다
           <div className="topbar-window-tools">
-            {onPaneLayoutChange === undefined ? null : (
-              <PdfSplitPicker
-                value={paneLayout}
-                onChange={onPaneLayoutChange}
-                label={t('창 나누기')}
-                head={t('창 나누기 · 다른 문서를 나란히 봅니다')}
-                align="right"
-                buttonClassName="topbar-navbtn topbar-panecount-cycle"
-                activeClassName="topbar-navbtn-active"
-                shortcut={t('(Ctrl+\\ 로 차례로)')}
-                presets={layoutPresets}
-              />
-            )}
-            {noteBeside === undefined ? null : (
-              <button
-                type="button"
-                className={`topbar-navbtn topbar-memo-toggle${noteBeside.shown ? ' topbar-navbtn-active' : ''}`}
-                aria-label={noteBeside.shown ? t('옆에 노트 닫기') : t('옆에 노트 열기')}
-                aria-pressed={noteBeside.shown}
-                title={noteBeside.shown ? t('옆에 노트 닫기') : t('옆에 노트 열기')}
-                onClick={noteBeside.onToggle}
-              >
-                <MemoPanelIcon />
-              </button>
-            )}
+            <button
+              type="button"
+              className="topbar-command"
+              aria-label={t('명령 팔레트')}
+              title={paletteShortcut === undefined ? t('명령 팔레트') : t('명령 팔레트 ({shortcut})', { shortcut: paletteShortcut })}
+              onClick={onOpenPalette}
+            >
+              <Command size={13} aria-hidden="true" />
+              <span>{paletteShortcut === undefined ? t('명령') : t('명령 ({shortcut})', { shortcut: paletteShortcut })}</span>
+            </button>
           </div>
         )}
       />

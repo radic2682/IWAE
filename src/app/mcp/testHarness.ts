@@ -129,6 +129,7 @@ export function fakeApp(overrides: Partial<McpAppDeps> = {}): McpAppDeps {
     layout: { kind: 'pane', paneId: 'p1' },
     activePane: 'p1',
     panes: [{ index: 0, id: 'p1', tabs: [], activeId: null, channel: 'blue' }],
+    screens: [{ index: 0, id: 'w1', name: '읽기', active: true, panes: [{ index: 0, id: 'p1', tabs: [], activeId: null, channel: 'blue' }] }],
     docViews: {},
     selection: () => null,
     docs: [],

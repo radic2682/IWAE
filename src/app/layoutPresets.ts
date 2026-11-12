@@ -1,7 +1,8 @@
-import { layoutForLegacyId, leaves, newPaneId, type LayoutNode } from '../core/layoutTree'
+import { layoutForLegacyId, leaves, newPaneId, paneNode, type LayoutNode } from '../core/layoutTree'
 import { t } from '../i18n'
 import { pickFreeChannel } from './noteBeside'
 import { activeTab, allPaneTabs, isDocumentKind, tabsOf, type PaneId, type PanesState, type Tab, type TabsState } from './tabs'
+import { blankScreen, type Screen } from './screens'
 import { channelOf, type Channel, type PaneChannels } from './workspaceChannels'
 
 /**
@@ -128,4 +129,84 @@ export function applyLayoutPreset(input: PresetInput): PresetOutcome {
   if (id === 'read') return { layout: twoCols, panes: { [left]: docStrip, [right]: noteStrip }, channels: channelsOut, focus: left, fresh: right }
   if (id === 'noteLeft') return { layout: twoCols, panes: { [left]: noteStrip, [right]: docStrip }, channels: channelsOut, focus: right, fresh: left }
   return { layout: twoCols, panes: { [left]: strip([...notes, ...docs], activeNote?.id ?? activeDoc?.id), [right]: strip(canvases, activeCanvas?.id) }, channels: channelsOut, focus: left, fresh: right }
+}
+
+// ── 화면 템플릿(설계 4·9): 「새 화면 ▸ 템플릿」과 「이 화면을 템플릿으로 다시 짜기」 ─────────────────────────────
+
+export type ScreenTemplateId = LayoutPresetId | 'blank'
+
+export interface ScreenTemplateDef extends Omit<LayoutPresetDef, 'id'> {
+  readonly id: ScreenTemplateId
+}
+
+/** 화면 템플릿: 읽기 · 노트 왼쪽 · 비교 · 정리 · 빈 화면 */
+export const SCREEN_TEMPLATES: readonly ScreenTemplateDef[] = [
+  ...LAYOUT_PRESETS,
+  { id: 'blank', get label() { return t('빈 화면') }, get hint() { return t('빈 칸 하나') } },
+]
+
+export function availableScreenTemplates(canvasEnabled: boolean): readonly ScreenTemplateDef[] {
+  return SCREEN_TEMPLATES.filter((template) => canvasEnabled || template.needsCanvas !== true)
+}
+
+/** 새 화면의 이름: 템플릿 이름(빈 화면은 「화면 N」) */
+export function templateScreenName(id: ScreenTemplateId, index: number): string {
+  return id === 'blank' ? t('화면 {n}', { n: index }) : SCREEN_TEMPLATES.find((template) => template.id === id)?.label ?? t('화면 {n}', { n: index })
+}
+
+/** 방금 만든 화면의 칸에 쓸 탭 복사본(미리보기 표시는 뗀다 — 새 화면에서는 보통 탭이다) */
+function pinnedCopy(tab: Tab): Tab {
+  if (tab.preview !== true) return tab
+  const { preview: _preview, ...rest } = tab
+  return rest
+}
+
+export interface NewScreenInput {
+  readonly id: ScreenTemplateId
+  readonly name: string
+  /** 새 화면에 놓을 문서(보던 문서 탭). 없으면 문서 칸은 비어 있다 */
+  readonly document: Tab | null
+  /** 문서 칸의 색(없으면 파랑) */
+  readonly documentChannel?: Channel | null
+  readonly lastTouched: string | null
+  readonly fallbackNote: Tab | null
+  readonly lastCanvas?: string | null
+  readonly fallbackCanvas?: Tab | null
+}
+
+export interface NewScreenOutcome {
+  readonly screen: Omit<Screen, 'id'>
+  /** 처음 만질 칸(문서 칸) */
+  readonly focus: PaneId
+}
+
+/**
+ * 템플릿으로 새 화면을 짠다: 보던 문서 하나와 마지막으로 만진 노트를 그 모양으로 놓는다.
+ * 보던 문서의 탭은 다른 화면에도 그대로 있다(복사본이다). 「빈 화면」은 빈 칸 하나.
+ * allPaneIds 는 모든 화면의 칸 id — 새 칸 id 가 겹치지 않게 비켜 간다.
+ */
+export function buildTemplateScreen(input: NewScreenInput, allPaneIds: readonly string[]): NewScreenOutcome {
+  if (input.id === 'blank') {
+    const blank = blankScreen(input.name, allPaneIds)
+    const { id: _id, ...screen } = blank
+    return { screen, focus: leaves(blank.layout)[0]! }
+  }
+  const source = newPaneId(allPaneIds)
+  const documents = input.document === null ? [] : [pinnedCopy(input.document)]
+  const channel: Channel = input.documentChannel ?? 'blue'
+  const result = applyLayoutPreset({
+    id: input.id,
+    panes: { [source]: { tabs: documents, activeId: documents[0]?.id ?? null } },
+    channels: { [source]: channel },
+    layout: paneNode(source),
+    anchor: source,
+    lastTouched: input.lastTouched,
+    fallbackNote: input.fallbackNote,
+    lastCanvas: input.lastCanvas ?? null,
+    fallbackCanvas: input.fallbackCanvas ?? null,
+  })
+  return {
+    screen: { name: input.name, layout: result.layout, panes: result.panes, channels: result.channels, zoomed: null },
+    focus: result.focus,
+  }
 }

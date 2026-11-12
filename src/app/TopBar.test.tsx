@@ -3,89 +3,56 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { TopBar } from './TopBar'
 
+const props = { sidebarCollapsed: false, onToggleSidebar: vi.fn(), sidebarMode: 'library' as const, onSidebarModeChange: vi.fn(), sidebarPx: 240 }
+
+const templates = [
+  { id: 'read', label: '읽기', hint: '문서 | 노트' },
+  { id: 'compare', label: '비교', hint: '문서 둘 | 노트 둘' },
+  { id: 'blank', label: '빈 화면', hint: '빈 칸 하나' },
+]
+
+function screensProp(overrides: Partial<NonNullable<React.ComponentProps<typeof TopBar>['screens']>> = {}) {
+  return {
+    items: [{ id: 'w1', name: '읽기' }, { id: 'w2', name: '비교' }, { id: 'w3', name: '정리' }],
+    activeId: 'w1',
+    lastId: 'w2',
+    templates,
+    onSelect: vi.fn(),
+    onRename: vi.fn(),
+    onReorder: vi.fn(),
+    onClose: vi.fn(),
+    onNew: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('TopBar', () => {
   it('버튼이 아닌 상단 영역을 잡아 프레임리스 창을 이동할 수 있다', () => {
-    const { container } = render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={0.5}
-        leftTabs={<span>왼쪽</span>}
-      />,
-    )
-
+    const { container } = render(<TopBar {...props} />)
     expect(container.querySelector('.topbar')?.getAttribute('data-tauri-drag-region')).toBe('deep')
   })
 
   it('닫기 버튼은 앱이 제공한 저장 후 종료 동작을 호출한다', () => {
     const onCloseWindow = vi.fn()
-    render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={0.5}
-        leftTabs={<span>왼쪽</span>}
-        onCloseWindow={onCloseWindow}
-      />,
-    )
-
+    render(<TopBar {...props} onCloseWindow={onCloseWindow} />)
     fireEvent.click(screen.getByRole('button', { name: '닫기' }))
     expect(onCloseWindow).toHaveBeenCalledOnce()
   })
 
   it('동작하지 않는 뒤로·앞으로 주석단 버튼을 렌더링하지 않는다', () => {
-    render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={0.5}
-        leftTabs={<span>왼쪽</span>}
-      />,
-    )
-
+    render(<TopBar {...props} />)
     expect(screen.queryByRole('button', { name: '뒤로' })).toBeNull()
     expect(screen.queryByRole('button', { name: '앞으로' })).toBeNull()
   })
 
   it('사이드바가 접히면 빈 사이드바 폭을 남기지 않는 정렬 상태를 표시한다', () => {
-    const { container } = render(
-      <TopBar
-        sidebarCollapsed
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={320}
-        leftFrac={0.5}
-        leftTabs={<span>왼쪽</span>}
-      />,
-    )
+    const { container } = render(<TopBar {...props} sidebarCollapsed sidebarPx={320} />)
     expect(container.querySelector('.topbar')?.classList.contains('topbar-sidebar-collapsed')).toBe(true)
     expect((container.querySelector('.topbar-leftcluster') as HTMLElement).style.width).toBe('')
   })
 
-  it('노트 전체화면에서 숨은 사이드바 폭이 탭 영역과 겹치지 않는다', () => {
-    const { container } = render(
-      <TopBar
-        sidebarCollapsed={false}
-        sidebarVisible={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={320}
-        leftFrac={0.5}
-        leftTabs={<span>왼쪽</span>}
-      />,
-    )
-
+  it('노트 전체화면에서 숨은 사이드바 폭이 줄과 겹치지 않는다', () => {
+    const { container } = render(<TopBar {...props} sidebarVisible={false} sidebarPx={320} />)
     expect(container.querySelector('.topbar')?.classList.contains('topbar-sidebar-unreserved')).toBe(true)
     expect((container.querySelector('.topbar-leftcluster') as HTMLElement).style.width).toBe('')
     expect(screen.getByRole('button', { name: '사이드바 접기' }).getAttribute('aria-expanded')).toBe('true')
@@ -93,17 +60,7 @@ describe('TopBar', () => {
 
   it('주석 탭은 없고 다른 보기로 바꿀 수 있다', () => {
     const onSidebarModeChange = vi.fn()
-    render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="thumbnails"
-        onSidebarModeChange={onSidebarModeChange}
-        sidebarPx={240}
-        leftFrac={0.5}
-        leftTabs={<span>왼쪽</span>}
-      />,
-    )
+    render(<TopBar {...props} sidebarMode="thumbnails" onSidebarModeChange={onSidebarModeChange} />)
     expect(screen.queryByRole('radio', { name: '주석' })).toBeNull()
     expect(screen.getByRole('radio', { name: '미리보기' }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByRole('radio', { name: '목록' }))
@@ -115,13 +72,7 @@ describe('TopBar', () => {
     const onSettings = vi.fn()
     render(
       <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={1}
-        leftTabs={<span>탭</span>}
+        {...props}
         appMenu={[
           [{ id: 'print', label: '인쇄', hint: 'Ctrl+P', onSelect: onPrint }],
           [],
@@ -141,148 +92,131 @@ describe('TopBar', () => {
   })
 
   it('사이드바를 접으면 사이드바 보기 탭을 숨기고, 로고 메뉴는 남긴다', () => {
-    render(
-      <TopBar
-        sidebarCollapsed
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={1}
-        leftTabs={<span>탭</span>}
-        appMenu={[[{ id: 'settings', label: '설정', onSelect: vi.fn() }]]}
-      />,
-    )
+    render(<TopBar {...props} sidebarCollapsed appMenu={[[{ id: 'settings', label: '설정', onSelect: vi.fn() }]]} />)
     expect(screen.queryByRole('radiogroup', { name: '사이드바 보기' })).toBeNull()
     expect(screen.getByRole('button', { name: 'IWAE 메뉴' })).toBeDefined()
   })
 
-  it('옆에 노트 열기·닫기는 상단바 오른쪽에 하나만 있고, 눌림 표시가 노트가 보이는지를 따른다', () => {
-    const onToggle = vi.fn()
-    const { container } = render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={1}
-        leftTabs={<span>탭</span>}
-        noteBeside={{ shown: true, onToggle }}
-      />,
-    )
-    const button = within(container.querySelector('.topbar-window-tools') as HTMLElement).getByRole('button', { name: '옆에 노트 닫기' })
-    expect(button.getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(button)
-    expect(onToggle).toHaveBeenCalled()
+  describe('칸 탭 구역은 없다 — 화면 탭이 대신한다', () => {
+    it('상단바에 문서 탭 구역(.topbar-panetab-zone)이 없고, 창 나누기·옆에 노트 단추도 없다', () => {
+      const { container } = render(<TopBar {...props} screens={screensProp()} onOpenPalette={vi.fn()} />)
+      expect(container.querySelectorAll('.topbar-panetab-zone')).toHaveLength(0)
+      expect(container.querySelector('.topbar-panetabs')).toBeNull()
+      expect(screen.queryByRole('button', { name: '창 나누기' })).toBeNull()
+      expect(screen.queryByRole('button', { name: '옆에 노트 열기' })).toBeNull()
+      expect(screen.queryByRole('button', { name: '옆에 노트 닫기' })).toBeNull()
+      // 탭 줄 자체(탭 목록)가 상단바에 없다: 있는 tablist 는 화면 탭 하나뿐
+      expect(container.querySelectorAll('[role="tablist"]')).toHaveLength(1)
+      expect(container.querySelector('.pane-tabs-menu')).toBeNull()
+    })
+
+    it('「세션 이름 ▾」 단추가 「기본」을 보이고, 메뉴는 세션이 다음 단계라고 알리며 새 화면 템플릿을 둔다', () => {
+      const screens = screensProp()
+      render(<TopBar {...props} screens={screens} />)
+      const button = screen.getByRole('button', { name: '기본' })
+      expect(button.getAttribute('aria-haspopup')).toBe('menu')
+      fireEvent.click(button)
+      const menu = screen.getByRole('menu', { name: '세션' })
+      expect(menu.textContent).toContain('세션은 다음 단계에서')
+      fireEvent.click(within(menu).getByRole('menuitem', { name: /비교/u }))
+      expect(screens.onNew).toHaveBeenCalledWith('compare')
+      expect(screen.queryByRole('menu')).toBeNull()
+    })
+
+    it('「⌘ 명령」 단추가 창 단추 곁에 있고 명령 팔레트를 연다', () => {
+      const onOpenPalette = vi.fn()
+      const { container } = render(<TopBar {...props} onOpenPalette={onOpenPalette} paletteShortcut="Ctrl+K" />)
+      const tools = container.querySelector('.wincontrols .topbar-window-tools') as HTMLElement
+      const button = within(tools).getByRole('button', { name: '명령 팔레트' })
+      expect(button.textContent).toContain('명령 (Ctrl+K)')
+      fireEvent.click(button)
+      expect(onOpenPalette).toHaveBeenCalledOnce()
+    })
   })
 
-  it('노트가 보이지 않으면 「옆에 노트 열기」 단추가 눌리지 않은 모양이다', () => {
-    const { container } = render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={1}
-        leftTabs={<span>탭</span>}
-        noteBeside={{ shown: false, onToggle: vi.fn() }}
-      />,
-    )
-    const button = within(container.querySelector('.topbar-window-tools') as HTMLElement).getByRole('button', { name: '옆에 노트 열기' })
-    expect(button.getAttribute('aria-pressed')).toBe('false')
-  })
+  describe('화면 탭', () => {
+    it('「0 읽기」 「1 비교」 …를 보이고 보는 화면이 선택되어 있다', () => {
+      render(<TopBar {...props} screens={screensProp()} />)
+      const tabs = screen.getAllByRole('tab')
+      expect(tabs.map((tab) => tab.textContent)).toEqual(['0읽기*', '1비교-', '2정리'])
+      expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false'])
+    })
 
-  it('창 나누기 목록 아래에 「배치」(읽기·노트 왼쪽 …)가 나오고, 고르면 그 배치를 적용한다', () => {
-    const onApply = vi.fn()
-    const presets = [{ id: 'read' as const, label: '읽기', hint: '문서 | 노트', layout: 'cols2' as const }, { id: 'noteLeft' as const, label: '노트 왼쪽', hint: '노트 | 문서', layout: 'cols2' as const }]
-    render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={1}
-        leftTabs={<span>탭</span>}
-        onPaneLayoutChange={vi.fn()}
-        layoutPresets={{ presets, onApply }}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
-    const group = screen.getByRole('group', { name: '배치' })
-    expect(within(group).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['읽기문서 | 노트', '노트 왼쪽노트 | 문서'])
-    fireEvent.click(within(group).getByRole('menuitem', { name: /노트 왼쪽/u }))
-    expect(onApply).toHaveBeenCalledWith('noteLeft')
-    expect(screen.queryByRole('group', { name: '배치' })).toBeNull()
-  })
+    it('누르면 그 화면으로 간다', () => {
+      const screens = screensProp()
+      render(<TopBar {...props} screens={screens} />)
+      fireEvent.click(screen.getByRole('tab', { name: /정리/u }))
+      expect(screens.onSelect).toHaveBeenCalledWith('w3')
+    })
 
-  it('창 나누기는 창 단추 곁(오른쪽)에 있고 문서 검색 단추는 없다', () => {
-    const { container } = render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={1}
-        leftTabs={<span>탭</span>}
-        onPaneLayoutChange={vi.fn()}
-      />,
-    )
-    const tools = container.querySelector('.wincontrols .topbar-window-tools') as HTMLElement
-    expect(within(tools).queryByRole('button', { name: '문서 검색' })).toBeNull()
-    expect(within(tools).getByRole('button', { name: '창 나누기' })).toBeDefined()
-    expect(container.querySelector('.topbar-leftcluster')?.textContent).not.toContain('문서 검색')
-  })
+    it('두 번 누르면 이름 바꾸기: Enter 로 확정하고 Esc 로 취소한다', () => {
+      const screens = screensProp()
+      render(<TopBar {...props} screens={screens} />)
+      fireEvent.doubleClick(screen.getByRole('tab', { name: /비교/u }))
+      const input = screen.getByRole('textbox', { name: '화면 이름' })
+      fireEvent.change(input, { target: { value: '대조' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(screens.onRename).toHaveBeenCalledWith('w2', '대조')
+      expect(screen.queryByRole('textbox')).toBeNull()
 
-  it('창 나누기는 PDF 화면 나누기와 같은 배치를 고른다', () => {
-    const onPaneLayoutChange = vi.fn()
-    render(
-      <TopBar
-        sidebarCollapsed={false}
-        onToggleSidebar={vi.fn()}
-        sidebarMode="library"
-        onSidebarModeChange={vi.fn()}
-        sidebarPx={240}
-        leftFrac={1}
-        leftTabs={<span>탭</span>}
-        paneLayout="single"
-        onPaneLayoutChange={onPaneLayoutChange}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: '창 나누기' }))
-    const items = screen.getAllByRole('menuitemradio')
-    // PDF 안 화면 나누기와 같은 아홉 배치
-    expect(items).toHaveLength(9)
-    expect(items.map((item) => item.textContent)).toContain('위아래 둘')
-    fireEvent.click(items.find((item) => item.textContent === '넷(2×2)')!)
-    expect(onPaneLayoutChange).toHaveBeenCalledWith('grid4')
-  })
+      fireEvent.doubleClick(screen.getByRole('tab', { name: /정리/u }))
+      fireEvent.keyDown(screen.getByRole('textbox', { name: '화면 이름' }), { key: 'Escape' })
+      expect(screens.onRename).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
 
-  const props = { sidebarCollapsed: false, onToggleSidebar: vi.fn(), sidebarMode: 'library' as const, onSidebarModeChange: vi.fn(), sidebarPx: 240, leftFrac: 1 }
+    it('끌어서 순서를 바꾼다: 이웃 탭의 가운데를 넘으면 그 뒤로 간다', () => {
+      const screens = screensProp()
+      const { container } = render(<TopBar {...props} screens={screens} />)
+      const rects: Record<string, [number, number]> = { w1: [0, 100], w2: [100, 100], w3: [200, 100] }
+      for (const [id, [left, width]] of Object.entries(rects)) {
+        const element = container.querySelector(`[data-screen-id="${id}"]`) as HTMLElement
+        element.getBoundingClientRect = () => ({ left, width, right: left + width, top: 0, bottom: 26, height: 26, x: left, y: 0, toJSON: () => ({}) })
+      }
+      const first = container.querySelector('[data-screen-id="w1"]') as HTMLElement
+      fireEvent.pointerDown(first, { button: 0, clientX: 50 })
+      fireEvent(window, new MouseEvent('pointermove', { clientX: 260 }))
+      fireEvent(window, new MouseEvent('pointerup', { clientX: 260 }))
+      // 나머지(w2, w3) 기준으로 x=260 은 둘 다의 가운데를 넘었다 → 맨 뒤(2)
+      expect(screens.onReorder).toHaveBeenCalledWith('w1', 2)
+    })
 
-  it('칸이 하나일 때만 그 칸의 탭 줄이 상단바 구역에 있고, 탭을 놓는 자리를 찾도록 칸 id 가 붙는다', () => {
-    const { container } = render(<TopBar {...props} leftTabs={<span>탭</span>} leftPaneId="p7" singlePane />)
-    const zone = container.querySelector('.topbar-panetab-zone[data-pane-id="p7"]')
-    expect(zone?.textContent).toBe('탭')
-    expect(container.querySelector('.topbar')?.classList.contains('topbar-single')).toBe(true)
-    // 오른쪽 창 단추 묶음 자리는 비어 있다
-    expect(container.querySelector('.topbar-panetab-zone-right')?.textContent).toBe('')
-  })
+    it('조금만 움직이면 끌기가 아니라 누름이다(순서가 바뀌지 않는다)', () => {
+      const screens = screensProp()
+      const { container } = render(<TopBar {...props} screens={screens} />)
+      fireEvent.pointerDown(container.querySelector('[data-screen-id="w2"]') as HTMLElement, { button: 0, clientX: 150 })
+      fireEvent(window, new MouseEvent('pointermove', { clientX: 152 }))
+      fireEvent(window, new MouseEvent('pointerup', { clientX: 152 }))
+      expect(screens.onReorder).not.toHaveBeenCalled()
+    })
 
-  it('칸이 둘 이상이면(leftTabs 가 null) 상단바에는 탭 구역이 없다 — 탭 줄은 칸 안에 있다', () => {
-    const { container } = render(<TopBar {...props} leftTabs={null} />)
-    expect(container.querySelectorAll('.topbar-panetab-zone')).toHaveLength(0)
-    expect(container.querySelector('.topbar-panetabs')).not.toBeNull()
-  })
+    it('Alt+←→ 로도 순서를 바꾼다', () => {
+      const screens = screensProp()
+      render(<TopBar {...props} screens={screens} />)
+      fireEvent.keyDown(screen.getByRole('tab', { name: /비교/u }), { key: 'ArrowRight', altKey: true })
+      expect(screens.onReorder).toHaveBeenCalledWith('w2', 2)
+    })
 
-  it('직접 나눈 배치(paneLayout null)는 어느 배치도 고른 것으로 보이지 않고 이름은 「직접 나눈 배치」다', () => {
-    render(<TopBar {...props} leftTabs={null} paneLayout={null} onPaneLayoutChange={vi.fn()} />)
-    const button = screen.getByRole('button', { name: '창 나누기' })
-    expect(button.getAttribute('title')).toContain('직접 나눈 배치')
-    fireEvent.click(button)
-    expect(screen.getAllByRole('menuitemradio').every((item) => item.getAttribute('aria-checked') === 'false')).toBe(true)
+    it('「＋」는 템플릿 목록을 펼치고 고른 템플릿으로 새 화면을 만든다', () => {
+      const screens = screensProp()
+      render(<TopBar {...props} screens={screens} />)
+      fireEvent.click(screen.getByRole('button', { name: '새 화면' }))
+      const menu = screen.getByRole('menu', { name: '새 화면' })
+      expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['읽기문서 | 노트', '비교문서 둘 | 노트 둘', '빈 화면빈 칸 하나'])
+      fireEvent.click(within(menu).getByRole('menuitem', { name: /빈 화면/u }))
+      expect(screens.onNew).toHaveBeenCalledWith('blank')
+    })
+
+    it('우클릭 메뉴에서 닫는다(화면이 하나뿐이면 닫을 수 없다)', () => {
+      const screens = screensProp()
+      const { rerender } = render(<TopBar {...props} screens={screens} />)
+      fireEvent.contextMenu(screen.getByRole('tab', { name: /비교/u }))
+      fireEvent.click(screen.getByRole('menuitem', { name: /화면 닫기/u }))
+      expect(screens.onClose).toHaveBeenCalledWith('w2')
+
+      rerender(<TopBar {...props} screens={screensProp({ items: [{ id: 'w1', name: '읽기' }], lastId: null })} />)
+      fireEvent.contextMenu(screen.getByRole('tab', { name: /읽기/u }))
+      expect((screen.getByRole('menuitem', { name: /화면 닫기/u }) as HTMLButtonElement).disabled).toBe(true)
+    })
   })
 })

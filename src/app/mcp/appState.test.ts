@@ -55,6 +55,29 @@ describe('app_state / settings_get / sources', () => {
     expect(panes[1]!.tabs[0]).toMatchObject({ kind: 'memoNote', note: '전원' })
   })
 
+  it('app_state 는 모든 화면을 screens 로 알리고, panes 는 보는 화면의 칸이다(예전 도구와 호환)', async () => {
+    const first = [{ index: 0, id: 'pA', tabs: [{ id: 'd1', title: '사양서', kind: 'pdf' as const }], activeId: 'd1', channel: 'blue' as const }]
+    const second = [
+      { index: 0, id: 'pC', tabs: [{ id: '노트/전원.iwnote', title: '전원', kind: 'memoNote' as const }], activeId: '노트/전원.iwnote', channel: 'green' as const },
+      { index: 1, id: 'pD', tabs: [], activeId: null, channel: null },
+    ]
+    const app = fakeApp({
+      activePane: 'pC',
+      panes: second,
+      screens: [
+        { index: 0, id: 'w1', name: '읽기', active: false, panes: first },
+        { index: 1, id: 'w2', name: '비교', active: true, panes: second },
+      ],
+    })
+    const env = makeEnv({ app })
+    const state = await env.call('app_state') as { panes: { id: string }[]; screens: { index: number; name: string; active: boolean; panes: { id: string; tabs: { doc_id?: string; note?: string }[] }[] }[] }
+    expect(state.screens.map((screen) => [screen.index, screen.name, screen.active, screen.panes.map((pane) => pane.id)])).toEqual([[0, '읽기', false, ['pA']], [1, '비교', true, ['pC', 'pD']]])
+    expect(state.screens[0]!.panes[0]!.tabs[0]).toMatchObject({ doc_id: 'd1' })
+    expect(state.screens[1]!.panes[0]!.tabs[0]).toMatchObject({ note: '전원' })
+    // 예전처럼 panes 만 읽어도 지금 보는 화면의 칸이 온다
+    expect(state.panes.map((pane) => pane.id)).toEqual(['pC', 'pD'])
+  })
+
   it('app_state 의 트리는 칸 번호로 중첩해 적는다(위아래 나누기 포함)', async () => {
     const app = fakeApp({
       paneCount: 3,
