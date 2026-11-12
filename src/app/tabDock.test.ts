@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_PANES, layoutForCount, layoutForLegacyId, leaves, paneCount, paneNode, shapeOf } from '../core/layoutTree'
-import { allowedDockEdges, closePaneTree, collapseEmptyPane, dockRefusal, dockTab, dropTabAt, dockZoneAt, dockZoneBox, edgeSplit, insertionIndexAt, insertTabAt, moveTabToPaneAt, openTabBeside, type TreeWorkspace } from './tabDock'
+import { allowedDockEdges, closePaneTree, collapseEmptyPane, dockRefusal, dockTab, dragDockEdges, dropTabAt, dockZoneAt, dockZoneBox, edgeSplit, insertionIndexAt, insertTabAt, moveTabToPaneAt, openTabBeside, type TreeWorkspace } from './tabDock'
 import { emptyTabs, type PanesState, type Tab } from './tabs'
 
 const box = { left: 100, top: 50, width: 400, height: 300 }
@@ -330,6 +330,30 @@ describe('dropTabAt: 왼쪽 바에서 끌어 온 탭을 연다', () => {
     expect(result.panes.right).toBeUndefined()
     expect(paneCount(result.layout)).toBe(2)
   })
+  it('U5 · 탭 줄에 놓아도 이미 다른 칸에 열린 탭은 복제하지 않고 옮기며, 비어 버린 원래 칸은 탭 끌기처럼 닫힌다', () => {
+    const result = landed(dropTabAt(base(), tab('c'), { kind: 'strip', pane: 'left', index: 1 }))
+    expect(ids(result.panes.left)).toEqual(['a', 'c', 'b'])
+    expect(result.panes.right).toBeUndefined()
+    expect(paneCount(result.layout)).toBe(2)
+    expect(result.landed).toBe('left')
+    expect(result.created).toBeNull()
+    // 어느 칸에도 c 는 한 번만 있다
+    expect(Object.values(result.panes).flatMap((pane) => ids(pane) ?? []).filter((id) => id === 'c')).toHaveLength(1)
+  })
+  it('U5 · 가장자리에 놓아도 이미 열린 탭은 옮겨 새 칸에 들어가고, 원래 칸이 비면 닫혀 칸 수는 그대로다', () => {
+    const result = landed(dropTabAt(base(), tab('c'), { kind: 'body', pane: 'left', zone: 'bottom' }))
+    expect(result.created).not.toBeNull()
+    expect(ids(result.panes[result.created!])).toEqual(['c'])
+    expect(ids(result.panes.left)).toEqual(['a', 'b'])
+    expect(result.panes.right).toBeUndefined()
+    expect(paneCount(result.layout)).toBe(3)
+  })
+  it('U5 · 원래 칸에 탭이 남아 있으면 그 칸은 닫히지 않는다', () => {
+    const result = landed(dropTabAt(base(), tab('b'), { kind: 'body', pane: 'right', zone: 'center' }))
+    expect(ids(result.panes.left)).toEqual(['a'])
+    expect(ids(result.panes.right)).toEqual(['c', 'b'])
+    expect(paneCount(result.layout)).toBe(3)
+  })
   it('같은 칸에 이미 열린 탭은 활성만 바뀐다', () => {
     const result = landed(dropTabAt(base(), tab('a'), { kind: 'body', pane: 'left', zone: 'center' }))
     expect(ids(result.panes.left)).toEqual(['b', 'a'])
@@ -337,5 +361,38 @@ describe('dropTabAt: 왼쪽 바에서 끌어 온 탭을 연다', () => {
   })
   it('없는 칸이면 null', () => {
     expect(dropTabAt(base(), fresh, { kind: 'body', pane: 'nope', zone: 'center' })).toBeNull()
+  })
+})
+
+describe('dragDockEdges: 탭 끌기와 왼쪽 바 끌기가 같이 쓰는 「나눌 수 있는 가장자리」', () => {
+  const panes: PanesState = { left: state('a', 'b'), right: state('c'), empty: emptyTabs }
+  const layout = layoutForLegacyId('cols3', ['left', 'right', 'empty'])
+  const input = { enabled: true, layout, panes, visible: ['left', 'right', 'empty'], pane: 'left', ids: ['x'], splitEmptyPane: true }
+
+  it('꺼져 있거나 보이지 않는 칸이면 없다', () => {
+    expect(dragDockEdges({ ...input, enabled: false })).toEqual([])
+    expect(dragDockEdges({ ...input, visible: ['right'] })).toEqual([])
+  })
+  it('열려 있지 않은 탭은 어느 칸이든 네 가장자리다', () => {
+    expect(dragDockEdges(input)).toEqual(['left', 'right', 'top', 'bottom'])
+  })
+  it('자기 칸의 하나뿐인 탭은 나눌 수 없다 · 둘 이상이면 나눌 수 있다', () => {
+    expect(dragDockEdges({ ...input, pane: 'right', ids: ['c'] })).toEqual([])
+    expect(dragDockEdges({ ...input, pane: 'left', ids: ['a'] })).toEqual(['left', 'right', 'top', 'bottom'])
+  })
+  it('칸 상한에서 하나뿐인 탭이 다른 칸에서 오면 그 칸이 닫히니 닫힌 뒤로 세어 나눌 수 있다', () => {
+    const names = Array.from({ length: MAX_PANES }, (_, index) => `p${index}`)
+    const full: PanesState = Object.fromEntries(names.map((name) => [name, state(`t-${name}`)]))
+    const fullLayout = layoutForCount(MAX_PANES, names)
+    const atMax = { enabled: true, layout: fullLayout, panes: full, visible: names, pane: 'p0', splitEmptyPane: true }
+    expect(dragDockEdges({ ...atMax, ids: ['새 탭'] })).toEqual([])
+    expect(dragDockEdges({ ...atMax, ids: ['t-p3'] })).toEqual(['left', 'right', 'top', 'bottom'])
+  })
+  it('빈 칸: 탭 끌기는 나눌 수 있고(splitEmptyPane) 왼쪽 바 끌기는 가운데뿐이다', () => {
+    expect(dragDockEdges({ ...input, pane: 'empty', ids: ['c'], splitEmptyPane: true }).length).toBeGreaterThan(0)
+    expect(dragDockEdges({ ...input, pane: 'empty', ids: ['x'], splitEmptyPane: false })).toEqual([])
+  })
+  it('여러 id 후보 중 하나라도 열려 있으면 그 탭이 나온 칸이 원래 칸이다(왼쪽 바 Markdown)', () => {
+    expect(dragDockEdges({ ...input, pane: 'right', ids: ['md-index', 'c'], splitEmptyPane: false })).toEqual([])
   })
 })

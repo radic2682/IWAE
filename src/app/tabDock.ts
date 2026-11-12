@@ -101,6 +101,36 @@ export function allowedDockEdges(layout: LayoutNode, pane: PaneId, closingSource
   return ALL_DOCK_EDGES.filter((edge) => dockRefusal(base, pane, edge, sizeOf) === null)
 }
 
+/** 끌어 온 탭(들)이 칸 pane 의 가장자리로 나눌 수 있는 쪽을 묻는 입력 */
+export interface DragDockEdgesInput {
+  /** 나누기 자체가 켜져 있는가(분할 기능 · 앱 창 · 칸 모양 보기 · 라이브러리가 접혀 있음) */
+  readonly enabled: boolean
+  readonly layout: LayoutNode
+  readonly panes: PanesState
+  /** 화면에 보이는 트리 칸들(떠 있는 칸은 나누지 않는다) */
+  readonly visible: readonly PaneId[]
+  readonly pane: PaneId
+  /** 끌어 온 탭의 id 후보들: 하나라도 이미 열려 있으면 그 탭이 나온 칸이 원래 칸이다(탭 줄의 탭은 하나, 왼쪽 바 Markdown 은 둘일 수 있다) */
+  readonly ids: readonly string[]
+  /** 탭이 하나도 없는 칸에도 나눌 것인가(탭 끌기는 예, 왼쪽 바 끌기는 아니오: 열 곳이 가운데뿐이다) */
+  readonly splitEmptyPane: boolean
+  readonly sizeOf?: PaneSizer
+}
+
+/**
+ * 탭 끌기와 왼쪽 바 끌기가 같이 쓰는 「이 칸에서 나눌 수 있는 가장자리」. 자기 칸의 하나뿐인 탭은 나눌 수 없고,
+ * 하나뿐인 탭이 다른 칸에서 오면 그 칸이 닫히므로 칸 수 상한은 닫힌 뒤로 센다.
+ */
+export function dragDockEdges(input: DragDockEdgesInput): readonly DockEdge[] {
+  const { enabled, layout, panes, visible, pane, ids, splitEmptyPane, sizeOf } = input
+  if (!enabled || !visible.includes(pane)) return []
+  if (!splitEmptyPane && tabsOf(panes, pane).tabs.length === 0) return []
+  const source = ids.map((id) => paneOfTab(panes, id)).find((found) => found !== null) ?? null
+  if (source === pane && tabsOf(panes, pane).tabs.length <= 1) return []
+  const closing = source !== null && source !== pane && tabsOf(panes, source).tabs.length <= 1 ? source : null
+  return allowedDockEdges(layout, pane, closing, sizeOf)
+}
+
 /** 미리보기 표시를 뗀 탭(다른 창으로 끌린 탭은 보통 탭이 된다) */
 function pinned(tab: TabsState['tabs'][number]): TabsState['tabs'][number] {
   if (tab.preview !== true) return tab

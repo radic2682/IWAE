@@ -125,7 +125,7 @@ import {
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { NoteHeadMenu } from './NoteHeadMenu'
-import { allowedDockEdges, closePaneTree, collapseEmptyPane, dockTab, dropTabAt, moveTabToPaneAt, type DockEdge, type TabDropTarget } from './tabDock'
+import { closePaneTree, collapseEmptyPane, dockTab, dragDockEdges, dropTabAt, moveTabToPaneAt, type DockEdge, type TabDropTarget } from './tabDock'
 import type { SidebarDropItem, SidebarPaneDrop } from './dockSession'
 import { moveTabToNewPane, setPaneCountTree, splitPane, swapSplitSides } from './paneLayoutOps'
 import { MAX_PANES, leaves, swapLeaves, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
@@ -388,6 +388,17 @@ function AutosavedNoteCanvas({
       />
     </Suspense>
   )
+}
+
+/** 칸이 늘거나 줄어 자리가 잡히는 움직임(280ms)이 끝난 뒤 */
+const PANE_RESIZE_SETTLE_MS = 280
+
+/** 칸 수가 바뀌었다: 자리가 잡힌 뒤 창 크기 변화를 알려 연결선 · 문서 보기가 새 크기를 다시 재게 한다 */
+function notifyPaneResizeSoon(): void {
+  window.setTimeout(() => {
+    window.dispatchEvent(new Event('resize'))
+    window.dispatchEvent(new Event('iwae:pane-resize-end'))
+  }, PANE_RESIZE_SETTLE_MS)
 }
 
 /**
@@ -1565,10 +1576,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const announceFreshPane = (pane: PaneId) => {
     setFreshPane(pane)
     window.setTimeout(() => setFreshPane(null), 320)
-    window.setTimeout(() => {
-      window.dispatchEvent(new Event('resize'))
-      window.dispatchEvent(new Event('iwae:pane-resize-end'))
-    }, 280)
+    notifyPaneResizeSoon()
   }
   /**
    * 창·색·배치를 바꾼다. 같은 틱의 다음 호출이 새 배치를 보도록 최신 값(workspaceLatest)도 바로 고친다.
@@ -3159,38 +3167,27 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     else applyWorkspace(collapsed)
     setActivePaneId(landed)
     if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
-    if (collapsed !== null) {
-      window.setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-        window.dispatchEvent(new Event('iwae:pane-resize-end'))
-      }, 280)
-    }
+    if (collapsed !== null) notifyPaneResizeSoon()
   }
   /**
    * 이 패널에서 탭을 가장자리로 끌어 나눌 수 있는 쪽들(창 모드·탭 수에 따라 달라진다). 칸이 상한이거나 너무 작아 못 나누는 쪽은 빼서,
    * 미리보기가 보이는 자리는 놓으면 꼭 된다(그런 가장자리는 「이 칸으로 옮기기」 가운데로 본다)
    */
-  const dockEdgesFor = (pane: PaneId, id: string): readonly DockEdge[] => {
-    if (!SPLIT_PANES_ENABLED || isDetachedWindow || focusedPane !== 'split' || libraryExpanded) return []
-    if (!paneOrder.includes(pane)) return []
-    const source = paneOfTab(panes, id)
-    if (source === pane && tabsOf(panes, pane).tabs.length <= 1) return []
-    // 하나뿐인 탭을 다른 칸으로 끌면 원래 칸이 닫히므로 칸 수 상한은 닫힌 뒤로 본다
-    const closing = source !== null && source !== pane && tabsOf(panes, source).tabs.length <= 1 ? source : null
-    return allowedDockEdges(layoutRoot, pane, closing, paneSizeOf)
-  }
+  const dragDockEdgesFor = (pane: PaneId, ids: readonly string[], splitEmptyPane: boolean): readonly DockEdge[] => dragDockEdges({
+    enabled: SPLIT_PANES_ENABLED && !isDetachedWindow && focusedPane === 'split' && !libraryExpanded,
+    layout: layoutRoot,
+    panes,
+    visible: paneOrder,
+    pane,
+    ids,
+    splitEmptyPane,
+    sizeOf: paneSizeOf,
+  })
+  const dockEdgesFor = (pane: PaneId, id: string): readonly DockEdge[] => dragDockEdgesFor(pane, [id], true)
   /** 왼쪽 바 줄이 열 탭의 id 후보(이미 열려 있으면 그 탭을 옮긴다). Markdown 은 PDF 화면 id 일 수도, 경로일 수도 있다 */
   const sidebarItemTabIds = (item: SidebarDropItem): readonly string[] => item.kind === 'pdf' ? [item.doc.docId] : item.kind === 'markdown' ? [item.node.indexId, item.node.path] : [item.path]
   /** 왼쪽 바에서 끌어 온 줄이 이 칸의 가장자리로 나눌 수 있는 쪽들. 빈 칸은 가운데만(나눌 것이 없다) */
-  const sidebarDockEdgesFor = (pane: PaneId, item: SidebarDropItem): readonly DockEdge[] => {
-    if (!SPLIT_PANES_ENABLED || isDetachedWindow || focusedPane !== 'split' || libraryExpanded) return []
-    if (!paneOrder.includes(pane) || tabsOf(panes, pane).tabs.length === 0) return []
-    // 이미 열려 있는 탭이면 탭 끌기와 같다: 자기 칸의 하나뿐인 탭은 나눌 수 없고, 하나뿐인 탭이 다른 칸에서 오면 그 칸이 닫힌다
-    const source = sidebarItemTabIds(item).map((id) => paneOfTab(panes, id)).find((found) => found !== null) ?? null
-    if (source === pane && tabsOf(panes, pane).tabs.length <= 1) return []
-    const closing = source !== null && source !== pane && tabsOf(panes, source).tabs.length <= 1 ? source : null
-    return allowedDockEdges(layoutRoot, pane, closing, paneSizeOf)
-  }
+  const sidebarDockEdgesFor = (pane: PaneId, item: SidebarDropItem): readonly DockEdge[] => dragDockEdgesFor(pane, sidebarItemTabIds(item), false)
   /** 왼쪽 바에서 끌어 온 문서·노트를 놓은 자리(칸 가운데 · 가장자리 · 탭 줄)에 보통 탭으로 연다 */
   const openSidebarItemAt = async (item: SidebarDropItem, target: TabDropTarget) => {
     let tab: Tab | null = null
@@ -3213,12 +3210,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     applyWorkspace(result, result.created ?? undefined)
     setActivePaneId(result.landed)
     setPaneRoute(paneRouteOf(tab.kind), result.landed)
-    if (leaves(result.layout).length !== leaves(now.layout).length) {
-      window.setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-        window.dispatchEvent(new Event('iwae:pane-resize-end'))
-      }, 280)
-    }
+    if (leaves(result.layout).length !== leaves(now.layout).length) notifyPaneResizeSoon()
   }
   const sidebarPaneDrop: SidebarPaneDrop = { edgesFor: sidebarDockEdgesFor, open: (item, target) => { void openSidebarItemAt(item, target) } }
   /** 탭을 패널의 edge 쪽을 갈라 새 패널에 넣는다 */
