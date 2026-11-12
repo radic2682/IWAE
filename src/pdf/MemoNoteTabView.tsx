@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus } from '@phosphor-icons/react'
 import { t } from '../i18n'
-import { updateSection } from '../core/memoNote'
-import { MemoFormatBar, MemoFormatSlotContext } from './MemoColumn'
+import { memoHighlightIds, updateSection, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
+import { useMemoPointSender, usePointSignalReceiver, useRoutedMemoDraft } from '../app/workspaceContext'
+import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from './MemoColumn'
 import { MemoNoteContext, useMemoNoteApi } from './memoNoteContext'
 import { NoteFlow } from './NoteFlow'
 import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
@@ -43,6 +44,23 @@ export interface MemoNoteTabViewProps {
   readonly onHighlightRemoved?: (id: string) => void
   /** 카드의 출처·쪽을 눌렀다: 그 메모의 문서 자리로 간다 */
   readonly onJump: (highlight: PersistentPdfHighlight) => void
+  /** 이 탭 안에서 고치기 시작했다(글 쓰기·색·별점·지우기·새 메모) — 미리보기 탭이면 보통 탭으로 고정한다 */
+  readonly onEdited?: () => void
+}
+
+/** 노트 안에서 지금 보는 화면 가운데의 블록 자리(새 메모를 그 앞에 끼운다). 가운데 아래에 처음 오는 카드 앞, 없으면 맨 끝 */
+export function centerBlockIndex(scroller: HTMLElement | null, blocks: readonly MemoNoteBlock[]): number {
+  if (scroller === null) return blocks.length
+  const view = scroller.getBoundingClientRect()
+  const center = view.top + view.height / 2
+  const cards = new Map([...scroller.querySelectorAll<HTMLElement>('[data-note-block]')].map((element) => [element.dataset.noteBlock ?? '', element] as const))
+  const index = blocks.findIndex((block) => {
+    const card = cards.get(block.id)
+    if (card === undefined) return false
+    const box = card.getBoundingClientRect()
+    return box.top + box.height / 2 > center
+  })
+  return index < 0 ? blocks.length : index
 }
 
 /**
@@ -51,14 +69,86 @@ export interface MemoNoteTabViewProps {
  * 폭이 좁으면 노트 바의 카드 목록, 넓으면 문서처럼(글 칸 가운데 + 목차) — 따로 켜는 모드는 없다.
  * 검색·글 블록 넣기·펼치기 단추는 창 머리가 아니라 이 안의 도구줄에 둔다.
  */
-export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdated, onHighlightRemoved, onJump }: MemoNoteTabViewProps) {
+export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdated, onHighlightRemoved, onJump, onEdited }: MemoNoteTabViewProps) {
   const api = useMemoNoteApi()
   const rootRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const wide = useMinWidth(rootRef, MEMO_NOTE_WIDE_MIN)
   const [searchOpen, setSearchOpen] = useState(false)
-  const flow = useNoteFlowController({ api, path, highlights, docTitles, otherLabel: t('다른 문서'), onHighlightUpdated, onHighlightRemoved, onJump })
+  // 문서 창에서 만드는 새 메모(같은 색 창의 문서에서 고른 글): 이 노트로 오면 새 메모 카드로 보이고 여기서 쓴다(비우면 사라진다)
+  const draft = useRoutedMemoDraft(path)
+  const [draftIndex, setDraftIndex] = useState(0)
+  const sendPoint = useMemoPointSender()
+  const draftId = draft?.highlight.id ?? null
+  const flow = useNoteFlowController({
+    api,
+    path,
+    highlights,
+    docTitles,
+    otherLabel: t('다른 문서'),
+    draft: draft?.highlight ?? null,
+    draftIndex,
+    onHighlightUpdated: (id, patch) => {
+      if (draft !== null && id === draft.highlight.id) draft.patch(patch)
+      else {
+        onHighlightUpdated?.(id, patch)
+        onEdited?.()
+      }
+    },
+    onHighlightRemoved: onHighlightRemoved === undefined ? undefined : (id) => {
+      onHighlightRemoved(id)
+      onEdited?.()
+    },
+    onJump,
+  })
   const { items, noteMemos, anyQuoteOpen, editingKey, query, updateNote } = flow
+  const [revealKey, setRevealKey] = useState<string | null>(null)
+
+  // 새 메모가 들어올 때 보고 있던 화면 가운데에 끼우고(그 자리로 굴려 보인다), 쓰기 시작하면 미리보기 탭은 고정한다
+  useLayoutEffect(() => {
+    if (draftId === null) return
+    setDraftIndex(centerBlockIndex(scrollRef.current, flow.blocks))
+    onEdited?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 초안이 새로 생길 때만 자리를 정한다
+  }, [draftId])
+  useEffect(() => {
+    if (draftId === null) return
+    scrollRef.current?.querySelector<HTMLElement>('[data-note-block="draft"]')?.scrollIntoView?.({ block: 'nearest' })
+  }, [draftId, draftIndex])
+  // 글을 쓰기 시작하면(카드 편집) 미리보기 탭은 보통 탭이 된다
+  useEffect(() => {
+    if (editingKey !== null) onEdited?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 편집 시작에만
+  }, [editingKey])
+
+  // 가리키기 신호: 같은 색 창에서 누른 형광펜의 카드를 활성으로 하고 보이게 굴린다
+  usePointSignalReceiver((signal) => {
+    if (signal.target.kind !== 'memo') return false
+    const { memoId, notePath, blockId } = signal.target
+    // 어느 노트인지 정해진 신호(티켓의 다른 자리)는 그 노트만 받는다
+    if (notePath !== undefined && notePath !== path) return false
+    const at = flow.blocks.findIndex((block) => (blockId === undefined ? block.kind === 'memo' && memoHighlightIds(block).includes(memoId) : block.id === blockId))
+    const block = flow.blocks[at]
+    if (block === undefined) return false
+    // 접힌 소제목 안이면 펼친다
+    const section = flow.blocks.slice(0, at).reverse().find((candidate) => candidate.kind === 'section')
+    if (section?.kind === 'section' && section.collapsed === true) updateNote((note) => updateSection(note, section.id, { collapsed: false }))
+    flow.setActiveKey(block.id)
+    setRevealKey(block.id)
+    return true
+  }, flow.blocks)
+  useEffect(() => {
+    if (revealKey === null) return
+    const card = scrollRef.current?.querySelector<HTMLElement>('[data-note-block="' + revealKey + '"]')
+    if (card === null || card === undefined) return
+    card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    setRevealKey(null)
+  }, [revealKey, items])
+
+  const saveMemo = (highlightId: string, content: MemoContent, ticket?: MemoTicket) => {
+    if (draft !== null && highlightId === draft.highlight.id) draft.save(content, ticket, draftIndex)
+    else flow.flowProps.onSaveMemo(highlightId, content, ticket)
+  }
   // 문서처럼 읽는 폭에서는 원문을 모두 펼쳐 보인다(좁아지면 전 상태로)
   useExpandQuotesWhileWide(wide, flow.openQuotes, flow.setOpenQuotes, noteMemos)
 
@@ -120,13 +210,27 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
           <div className={`markdown-memo-bar-body${wide ? ' note-wide' : ''}`}>
             <div className="note-format-dock">
               <div className="note-format-slot" ref={flow.setFormatSlot} />
-              {editingKey === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
+              {editingKey === null && draft === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
             </div>
-            <div ref={scrollRef} className="pdf-memo-bar-scroll">
-              {items.length === 0 ? <p className="note-empty-hint">{t('비어 있는 노트입니다. 「＋」로 글 블록을 넣어 쓰세요.')}</p> : null}
+            <div
+              ref={scrollRef}
+              className="pdf-memo-bar-scroll"
+              onClick={(event) => {
+                // 카드를 누르면 같은 색 창이 그 형광펜으로 간다(글 쓰는 칸·단추·원문 칩은 제외: 원문 칩은 onJump 가 보낸다)
+                if (!(event.target instanceof Element) || event.target.closest('.pdf-memo-editor, button, input, textarea, [contenteditable="true"], .note-source-chip, .pdf-memo-card-source, .note-source-region') !== null) return
+                const memoId = event.target.closest<HTMLElement>('[data-memo-id]')?.dataset.memoId
+                if (memoId !== undefined && memoId !== '') sendPoint(memoId, 'note')
+              }}
+            >
+              {items.length === 0 && draft === null ? <p className="note-empty-hint">{t('비어 있는 노트입니다. 「＋」로 글 블록을 넣어 쓰세요.')}</p> : null}
               <MemoNoteContext.Provider value={flow.scopedApi}>
                 <MemoFormatSlotContext.Provider value={flow.formatSlot}>
-                  <NoteFlow {...flow.flowProps} />
+                  <NoteFlow
+                    {...flow.flowProps}
+                    editingKey={draft !== null ? 'draft' : flow.flowProps.editingKey}
+                    onSaveMemo={saveMemo}
+                    onCancelDraft={draft !== null ? draft.cancel : flow.flowProps.onCancelDraft}
+                  />
                 </MemoFormatSlotContext.Provider>
               </MemoNoteContext.Provider>
             </div>

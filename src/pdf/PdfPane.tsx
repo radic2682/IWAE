@@ -46,13 +46,14 @@ import { BOX_DEFAULT_WIDTH, placeBoxMemo } from '../core/boxMemo'
 import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
 import { useMemoBarVisible, setMemoBarVisible } from './memoStore'
 import { useMemoNoteApi } from './memoNoteContext'
+import { useMemoPointSender, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useWorkspaceLink } from '../app/workspaceContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
 import { buildNoteFlowItems } from './noteFlowItems'
 import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, moveBlockBefore, removeBlock, removeMemoRef, sectionBlock, setMemoTicket, textBlock, updateSection, updateTextBlock, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
 import { markFreshHighlight } from './freshHighlight'
-import { filterToOpenNotes } from './openNoteFilter'
+import { filterToOpenNotes, openNotePaths } from './openNoteFilter'
 import type { PdfSelectionTranslation } from './SelectionActions'
 import { createFrameScheduler } from '../core/frameScheduler'
 import '../ui/pdf-followup.css'
@@ -467,6 +468,14 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   // 오른쪽 바는 열린 「노트」를 보인다(PDF 와 따로 열리고, 여러 PDF 의 메모와 글 블록을 담는다).
   // 노트 기능이 없는 곳(일부 시험)에서는 이 PDF 의 메모를 문서 순서로 보인다
   const noteApi = useMemoNoteApi()
+  // 작업 공간: 이 창과 같은 색 창에 보이는 메모 노트(새 메모가 갈 곳, 「열린 노트 표시만 보기」), 가리키기 신호를 보내는 손
+  const workspace = useWorkspaceLink()
+  const { pane: paneId } = usePaneChannel()
+  const sendPoint = useMemoPointSender()
+  const channelNotePaths = workspace.visibleNotePathsFor(paneId)
+  const channelNotesKey = channelNotePaths.join('\n')
+  /** 새 메모를 같은 색 창의 메모 노트 탭으로 보내는 중이면 그 노트 경로(만드는 중인 동안). 아니면 노트 바 */
+  const [draftNotePath, setDraftNotePath] = useState<string | null>(null)
   const highlightById = useMemo(() => new Map(persistentHighlights.map((highlight) => [highlight.id, highlight])), [persistentHighlights])
   // (노트 기능 없음) 메모가 아직 없는 형광펜도 누르면 카드로 보인다
   const [fallbackShownId, setFallbackShownId] = useState<string | null>(null)
@@ -480,8 +489,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const [draftIndex, setDraftIndex] = useState(0)
   // 같은 입력이면 같은 배열: 스크롤·마우스 올리기로 PdfPane 이 다시 그려져도 노트 카드가 다시 그려지지 않게
   const noteItems = useMemo<NoteFlowItem[]>(
-    () => buildNoteFlowItems(noteBlocks, { highlightById, docId, title, docTitles, otherLabel: t('다른 PDF'), draft: draftMemo, draftIndex }),
-    [noteBlocks, highlightById, draftMemo, draftIndex, docTitles, docId, title],
+    () => buildNoteFlowItems(noteBlocks, { highlightById, docId, title, docTitles, otherLabel: t('다른 PDF'), draft: draftNotePath === null ? draftMemo : null, draftIndex }),
+    [noteBlocks, highlightById, draftMemo, draftNotePath, draftIndex, docTitles, docId, title],
   )
   const noteMemos = noteItems.flatMap((item) => item.kind === 'memo' && item.draft !== true ? [item.highlight] : [])
   // 노트 바에 열린 노트가 있을 때, 그 노트에 없는 형광펜은 카드도 연결선도 없다: 설정에 따라 흐리게·숨기고, 올리면 어느 노트의 것인지 말한다
@@ -518,14 +527,16 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     return filterToOpenNotes(persistentHighlights, {
       enabled: true,
       clean,
-      tabPaths: noteApi.openPath === null ? [] : [noteApi.openPath],
+      // 열린 노트 = 같은 색 창에 보이는 메모 노트 + 노트 바의 열린 노트(있는 동안)
+      tabPaths: openNotePaths(noteApi.openPath, channelNotePaths),
       notesOf: noteApi.notesOf,
       ownIds,
       isExempt: (id) => id === draftMemo?.id || id === draftBox?.id || id === editingMemoId || id === editingBoxId || id === flashHighlightId
         // 여기서 막 만든 것은 아직 어느 노트에도 들어가지 않은 동안만 봐준다(노트에 들어간 뒤에는 그 노트가 열려 있어야 보인다)
         || (createdHere.has(id) && noteApi.notesOf(id).length === 0),
     })
-  }, [clean, createdHere, draftBox, draftMemo, editingBoxId, editingMemoId, flashHighlightId, noteApi, onlyOpenNotes, persistentHighlights])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- channelNotePaths 는 channelNotesKey 가 같으면 같은 내용이다
+  }, [channelNotesKey, clean, createdHere, draftBox, draftMemo, editingBoxId, editingMemoId, flashHighlightId, noteApi, onlyOpenNotes, persistentHighlights])
   const persistentHighlightsByPage = useMemo(() => {
     const grouped = new Map<number, PersistentPdfHighlight[]>()
     for (const highlight of [...shownHighlights, ...(draftMemo === null ? [] : [draftMemo]), ...(draftBox === null ? [] : [draftBox])]) {
@@ -719,7 +730,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (bottom !== dockBottom) setDockBottom(bottom)
   })
   // 쓰기 시작한 카드(새 메모·PDF 에서 누른 형광펜)는 메모 바에서 보이게 굴린다
-  const focusMemoId = draftMemo !== null ? 'draft' : editingMemoId
+  const focusMemoId = draftMemo !== null && draftNotePath === null ? 'draft' : editingMemoId
   useEffect(() => {
     if (focusMemoId === null) return
     const card = memoBarScrollRef.current?.querySelector<HTMLElement>(`[data-note-block="${focusMemoId}"]`)
@@ -742,12 +753,12 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (box !== undefined && memoBarScrollRef.current !== null) memoBarScrollRef.current.scrollTop = Math.max(box.top - 12, 0)
   })
 
-  // 메모 바를 접으면 쓰던 새 메모·고치기를 그만둔다
+  // 메모 바를 접으면 쓰던 새 메모·고치기를 그만둔다(같은 색 노트 탭으로 쓰는 새 메모는 바와 상관없다)
   useEffect(() => {
     if (memoColumnVisible) return
-    setDraftMemo(null)
+    if (draftNotePath === null) setDraftMemo(null)
     setEditingMemoId(null)
-  }, [memoColumnVisible])
+  }, [memoColumnVisible, draftNotePath])
 
   // 형광펜(PDF 화면) → 카드(메모 바 화면) 선: 둘 다 보일 때만. 바 쪽 곡선과 페이지 안쪽 점선이 같은 목록을 쓴다
   const memoLinkLines = !memoColumn || !cellPlace.atRight ? [] : memoTargets.flatMap((target) => {
@@ -788,6 +799,22 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     window.setTimeout(() => setLocalFlashId((current) => current === highlight.id ? null : current), 1400)
   }
 
+  // 가리키기 신호: 같은 색 창에서 누른 메모(카드·원문)가 이 문서에 있으면 그 형광펜으로 굴려 가서 깜빡인다.
+  // 탭이 막 열려 쪽 자리를 아직 모르면 자리가 잡힐 때까지 기다렸다 간다
+  const [pendingPoint, setPendingPoint] = useState<PersistentPdfHighlight | null>(null)
+  usePointSignalReceiver((signal) => {
+    if (signal.target.kind !== 'memo') return false
+    const highlight = highlightById.get(signal.target.memoId)
+    if (highlight === undefined || highlight.anchor.docId !== docId) return false
+    setPendingPoint(highlight)
+    return true
+  }, docId)
+  useEffect(() => {
+    if (pendingPoint === null || boxes[pendingPoint.anchor.page] === undefined || pageSizes[pendingPoint.anchor.page] === undefined || measured.height <= 0) return
+    setPendingPoint(null)
+    jumpToMemo(pendingPoint)
+  })
+
   /**
    * 고른 것(글은 끌기, 표·그림은 Ctrl+끌기나 영역 선택 도구)에 새 메모 카드를 연다.
    * 글 메모는 글을 써야 저장되고, 표·그림은 글 없이도 남는다
@@ -804,7 +831,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       return
     }
     const region = selection.mode === 'region'
-    if (!memoAvailable || !memoColumnVisible || memoOnly) return
+    // 같은 색 창에 메모 노트 탭이 보이면 새 메모는 노트 바가 아니라 그 노트로 간다(바가 접혀 있어도 된다)
+    const routedPath = workspace.memoNoteTargetFor(paneId)
+    if (!memoAvailable || (!memoColumnVisible && routedPath === null) || memoOnly) return
     // 손 도구는 글을 골라 복사만 한다(메모 바로 보내지 않는다)
     if (interactionMode !== 'text' && !(interactionMode === 'lasso' && region)) return
     if (!region && selection.anchor.quote.trim() === '') return
@@ -826,16 +855,18 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (existing !== undefined) {
       setDraftMemo(null)
       clearPageSelection(selection.anchor.page)
-      showHighlightInNote(existing.id)
+      if (routedPath !== null) sendPoint(existing.id, 'document')
+      else showHighlightInNote(existing.id)
       return
     }
     // 노트가 하나도 열려 있지 않으면 새로 만들어 연다. 사용자가 「노트 닫기」로 닫아 두었으면 만들지 않는다(고른 것만 남긴다)
-    if (noteApi !== null && noteApi.openPath === null) {
+    if (routedPath === null && noteApi !== null && noteApi.openPath === null) {
       if (noteApi.closed === true) return
       void noteApi.create()
     }
     setEditingMemoId(null)
     setDraftIndex(noteCenterIndex())
+    setDraftNotePath(routedPath)
     if (draftMemo?.id !== highlight.id) markFreshHighlight(highlight.id)
     setCreatedHere((ids) => (ids.has(highlight.id) ? ids : new Set(ids).add(highlight.id)))
     // 같은 자리를 다시 받으면(스캔 영역의 OCR 글자가 뒤늦게 온 경우) 원문 글만 바꿔 끼운다
@@ -1040,7 +1071,30 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const cancelDraftMemo = () => {
     if (draftMemo !== null) clearPageSelection(draftMemo.anchor.page)
     setDraftMemo(null)
+    setDraftNotePath(null)
   }
+  /**
+   * 같은 색 창의 메모 노트 탭에서 쓰던 새 메모를 저장한다(노트 바의 saveMemo 와 같은 규칙): 글이 비면 칠한 것도 함께 사라지고,
+   * 표·그림은 글 없이도 남는다. index 는 노트 탭이 정한 끼울 자리
+   */
+  const saveRoutedDraft = (content: MemoContent, ticket: MemoTicket | undefined, index: number) => {
+    const draft = draftMemo
+    const path = draftNotePath
+    if (draft === null || path === null || noteApi === null) return
+    setDraftMemo(null)
+    setDraftNotePath(null)
+    clearPageSelection(draft.anchor.page)
+    if (content.text.trim() === '' && draft.kind !== 'region') return
+    reportCreated(updatePersistentPdfHighlight(draft, { note: content.text, noteHtml: content.html }))
+    const insert = (note: MemoNote) => insertBlock(note, memoBlock(draft.id, ticket), index)
+    if (path === noteApi.openPath) noteApi.updateOpen(insert)
+    else noteApi.updateNoteAt(path, insert)
+  }
+  usePublishRoutedMemoDraft(draftMemo, draftNotePath, {
+    save: saveRoutedDraft,
+    cancel: cancelDraftMemo,
+    patch: (patch) => { if (draftMemo !== null) setDraftMemo(updatePersistentPdfHighlight(draftMemo, patch)) },
+  })
   const patchMemo = (id: string, patch: PersistentPdfHighlightPatch) => {
     if (draftMemo !== null && id === draftMemo.id) setDraftMemo(updatePersistentPdfHighlight(draftMemo, patch))
     else onPersistentHighlightUpdated?.(id, patch)
@@ -1526,6 +1580,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const noteRate = useEvent((id: string, rating: number) => patchMemo(id, { rating }))
   const noteMove = useEvent((keys: string | readonly string[], beforeKey: string | null) => updateNote((note) => (typeof keys === 'string' ? [keys] : keys).reduce((current, key) => moveBlockBefore(current, key, beforeKey), note)))
   const noteJump = useEvent((highlight: PersistentPdfHighlight) => {
+    // 이 문서의 메모면 같은 색의 다른 창(같은 문서를 한 군데 더 연 창·노트 탭)도 같이 가리킨다. 다른 문서면 App 이 신호로 보인다(onMemoJump)
+    if (highlight.anchor.docId === docId) sendPoint(highlight.id, 'note')
     // 메모만 보기에서 원문·쪽을 누르면 문서와 같이 보기로 돌아가 그 자리로 간다
     if (!memoOnly) { jumpToMemo(highlight); return }
     setMemoOnly(false)
@@ -1643,8 +1699,12 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
                       setEditingBoxId(id)
                       return
                     }
-                    // 메모 바를 켜 두었으면 노트에서 그 카드를 고치기로 연다
-                    if (memoAvailable && memoColumnVisible) {
+                    // 같은 색 창에 메모 노트 탭이 보이면 그 창이 카드를 보이고(신호), 노트 바는 건드리지 않는다.
+                    // 아니면 메모 바를 켜 두었을 때 노트에서 그 카드를 고치기로 연다
+                    const routed = workspace.memoNoteTargetFor(paneId) !== null
+                    sendPoint(id, 'document')
+                    if (memoAvailable && routed) setDraftMemo(null)
+                    else if (memoAvailable && memoColumnVisible) {
                       setDraftMemo(null)
                       showHighlightInNote(id)
                     }
@@ -1771,7 +1831,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               // 서식 도구: 노트 목록(스크롤) 밖, 바 맨 위에 따로 둔다. 쓰는 칸이 없으면 꺼진 채로 보인다
               <div className="note-format-dock">
                 <div className="note-format-slot" ref={setFormatSlot} />
-                {draftMemo === null && editingMemoId === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
+                {(draftMemo === null || draftNotePath !== null) && editingMemoId === null ? <MemoFormatBar onCommand={() => undefined} disabled /> : null}
               </div>
             ) : null}
             <div
@@ -1794,7 +1854,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
               <MemoFormatSlotContext.Provider value={formatSlot}>
               <NoteFlow
                 items={noteItems}
-                editingKey={draftMemo !== null ? 'draft' : editingMemoId}
+                editingKey={draftMemo !== null && draftNotePath === null ? 'draft' : editingMemoId}
                 activeKey={activeMemoId}
                 query={memoQuery}
                 pageSizeOf={notePageSizeOf}

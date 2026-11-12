@@ -107,6 +107,10 @@ import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { collapseEmptyPane, dockTab, dockableEdges, moveTabToPaneAt, type DockEdge } from './tabDock'
 import { cyclePaneChannel, remapChannelsByKeep, swapPaneChannels } from './workspaceChannels'
+import { useAppPrefs } from './appPrefs'
+import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
+import { emitPointSignal, subscribePointSignal, type DeliveredSignal } from './workspaceSignal'
+import { activeKindOf, isNoteSurface, memoNoteTargetFor, needForMemo, needForPlace, resolvePointSignal, visibleNotePathsIn } from './workspaceRouting'
 import { closeSplitCell, isPdfSplitLayoutId, pdfSplitLayout, type PdfSplitLayoutId } from '../core/pdfSplit'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePanel, ThumbnailPanel } from './SidePanels'
@@ -1357,7 +1361,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   /** 문서·쪽으로 간다. 어느 패널에 보이면 그 패널에서, 아니면 탭을 열고 쪽은 맡겨 둔다. */
   const navigateToPdfLocation = useCallback((location: NavLocation) => {
     // 같은 PDF 가 양쪽에 열려 있으면 지금 만지는 패널이 먼저다
-    const showing = [activePaneId, otherPane(activePaneId)].find((pane) => docControllersRef.current[pane]?.docId === location.docId)
+    // 보이는 모든 창에서 찾는다(만진 창이 먼저)
+    const showing = [activePaneId, ...visiblePanes(shownPaneCount).filter((pane) => pane !== activePaneId)].find((pane) => docControllersRef.current[pane]?.docId === location.docId)
     if (showing !== undefined) {
       docControllersRef.current[showing]?.requestPage(location.page)
       setActivePaneId(showing)
@@ -1374,7 +1379,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const libraryDoc = shownLibrary.find((doc) => doc.docId === location.docId)
     if (libraryDoc !== undefined) void openDocument(libraryDoc)
     else pendingDocPageRef.current = null
-  }, [activePaneId, openDocument, openInPane, openedDocs, paneRouteRef, panes, shownLibrary])
+  }, [activePaneId, openDocument, openInPane, openedDocs, paneRouteRef, panes, shownLibrary, shownPaneCount])
 
   const navigation = useNavigationHistory({
     current: () => activePdfDoc === null ? null : { docId: activePdfDoc.docId, page: currentPdfPage },
@@ -1441,6 +1446,107 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPaneRoute('note', target)
   }
   const memoNoteApi: MemoNoteApi = { ...memoNotes, openInTab: openMemoNoteTab, docOwner: noteDocOwner, docLabel: noteDocLabel, createForDoc: createNoteForDoc, trashNote: async (path, source) => { await memoNotes.trash(path, source); forgetMemoPaths([path]) } }
+
+  // ---------- 작업 공간: 색 채널·가리키기 신호 ----------
+  // 같은 색 창끼리만 연동한다. 형광펜·카드·출처를 누르면 그 창이 신호(workspaceSignal)를 보내고,
+  // 여기서 「필요한 문서·노트가 같은 색 창에 보이게」 한다(탭 활성화 → 미리보기 탭 → 옆에 새 창). 스크롤·깜빡임은 받는 창이 한다.
+  const previewTabsEnabled = useAppPrefs().previewTabs
+  const pinPaneTab = useCallback((tabId: string) => setPanes((current) => pinTabInPanes(current, tabId)), [setPanes])
+  const workspaceLink = useMemo<WorkspaceLink>(() => {
+    const visible = visiblePanes(shownPaneCount)
+    return {
+      channels,
+      memoNoteTargetFor: (pane) => (pane === null ? null : memoNoteTargetFor(panes, channels, visible, pane)),
+      visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channels[pane])),
+      pinTab: pinPaneTab,
+    }
+  }, [channels, panes, pinPaneTab, shownPaneCount])
+  const workspaceLatest = useRef({ panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled })
+  workspaceLatest.current = { panes, channels, shownPaneCount, shownLayoutId, previewTabsEnabled }
+  /** 신호가 보여 줄 문서 탭: 이미 어느 창에 열린 문서·열린 PDF·라이브러리 PDF·Markdown. 알 수 없으면 null */
+  const signalDocTab = (docId: string): Tab | null => {
+    const existing = allPaneTabs(workspaceLatest.current.panes).find((tab) => isDocumentKind(tab.kind) && tabDocId(tab) === docId)
+    if (existing !== undefined) return { id: existing.id, title: existing.title, kind: existing.kind }
+    const opened = openedDocs.find((doc) => doc.docId === docId)
+    if (opened !== undefined) return { id: opened.docId, title: docTitles[opened.docId] ?? opened.title, kind: 'pdf' }
+    const entry = shownLibrary.find((doc) => doc.docId === docId)
+    if (entry !== undefined) return { id: entry.docId, title: docTitles[entry.docId] ?? entry.title, kind: 'pdf' }
+    if (markdownSources[docId] !== undefined) return { id: docId, title: docId.split(/[\\/]/u).at(-1)?.replace(/\.(?:md|markdown)$/iu, '') ?? docId, kind: 'markdown' }
+    return null
+  }
+  const routePointSignalRef = useRef<(signal: DeliveredSignal) => Promise<void>>(async () => undefined)
+  routePointSignalRef.current = async (signal) => {
+    if (signal.channel === null || isDetachedWindow) return
+    const { target } = signal
+    const senderKind = signal.origin === 'note' ? 'memoNote' : signal.origin === 'document' ? 'pdf' : activeKindOf(workspaceLatest.current.panes, signal.from)
+    const fromNote = isNoteSurface(senderKind)
+    const memo = target.kind === 'memo' ? pdfHighlights.highlights.find((highlight) => highlight.id === target.memoId) : undefined
+    const need = target.kind === 'memo'
+      ? needForMemo({
+        memoId: target.memoId,
+        notePath: target.notePath,
+        fromNote,
+        notesOf: memoNotes.notesOf,
+        visibleNotes: visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, visiblePanes(workspaceLatest.current.shownPaneCount), signal.channel),
+        docIdOf: () => memo?.anchor.docId ?? null,
+        docTab: signalDocTab,
+        noteTab: (path) => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' }),
+      })
+      : needForPlace(target.docId, signalDocTab)
+    // 노트 화면에서 누른 메모의 문서를 못 찾으면 예전처럼 문서를 연다
+    const fallback = () => { if (memo !== undefined && fromNote) jumpToAnnotation(memo) }
+    if (need === null) { fallback(); return }
+    // 위치 신호(AI·검색)로 아직 열지 않은 문서를 여는 일은 예전 길(navigation.jump)이 한다
+    if (target.kind === 'place' && need.kind === 'doc' && need.tab.kind === 'pdf' && !openedDocs.some((doc) => doc.docId === need.tab.id)) return
+    // 아직 열지 않은 라이브러리 PDF 는 탭 없이 먼저 연다(탭은 아래에서 정한 창에 연다)
+    if (need.kind === 'doc' && need.tab.kind === 'pdf' && !openedDocs.some((doc) => doc.docId === need.tab.id)) {
+      const entry = shownLibrary.find((doc) => doc.docId === need.tab.id)
+      if (entry !== undefined && allPaneTabs(workspaceLatest.current.panes).every((tab) => tabDocId(tab) !== entry.docId)) await openDocument(entry, false)
+    }
+    const now = workspaceLatest.current
+    const outcome = resolvePointSignal({
+      panes: now.panes,
+      channels: now.channels,
+      visible: visiblePanes(now.shownPaneCount),
+      layoutId: now.shownLayoutId,
+      from: signal.from,
+      channel: signal.channel,
+      need,
+      preview: now.previewTabsEnabled,
+      // 노트 바가 노트를 맡는 동안 문서 창이 보낸 신호는 새 창까지 열지 않는다(바의 노트는 바가 보여 준다)
+      // (노트 탭에서 누른 티켓의 다른 자리는 노트를 보이는 신호지만, 노트 탭 옆에 새 노트 창을 여는 것은 괜찮다)
+      allowNewPane: (need.kind === 'doc' || senderKind === 'memoNote') && SPLIT_PANES_ENABLED && focusedPane === 'split',
+    })
+    if (outcome.kind === 'none') { fallback(); return }
+    if (outcome.panes !== now.panes) setPanes(outcome.panes)
+    if (outcome.kind === 'beside' && outcome.pane !== null) {
+      setChannels(outcome.channels)
+      setPaneLayout(outcome.layout)
+      // 새 창은 자라듯 나타나고, 끝나면 노트 바·연결선이 새 자리를 다시 잰다
+      setFreshPane(outcome.pane)
+      window.setTimeout(() => setFreshPane(null), 320)
+      window.setTimeout(() => {
+        window.dispatchEvent(new Event('resize'))
+        window.dispatchEvent(new Event('iwae:pane-resize-end'))
+      }, 280)
+    }
+    // 위치 신호: 그 문서의 그 쪽으로 간다(이미 보이면 바로, 아니면 문서가 열리면 그 창이 꺼내 쓴다)
+    if (target.kind === 'place' && outcome.pane !== null) {
+      const controller = docControllersRef.current[outcome.pane]
+      if (controller?.docId === target.docId) controller.requestPage(target.page)
+      else pendingDocPageRef.current = { docId: target.docId, page: target.page }
+    }
+  }
+  useEffect(() => subscribePointSignal((signal) => { void routePointSignalRef.current(signal) }), [])
+  /** 노트 화면(메모 노트 탭의 카드·출처)에서 메모의 원문으로: 색 채널이 있으면 신호로(같은 색 창에 문서를 보인다), 없으면 예전처럼 */
+  const jumpFromNotePane = (highlight: PersistentPdfHighlight, pane: PaneId) => {
+    const channel = channels[pane]
+    if (isDetachedWindow || channel === null) {
+      jumpToAnnotation(highlight)
+      return
+    }
+    emitPointSignal({ from: pane, channel, target: { kind: 'memo', memoId: highlight.id }, reason: 'click', origin: 'note' })
+  }
   // 들여오기·내보내기: PDF 안의 기존 표시, Zotero, Markdown
   const interop = useInteropActions({
     vault,
@@ -1647,6 +1753,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       announceAction(t('AI가 보낸 문서를 이 Vault에서 찾을 수 없습니다'))
       return
     }
+    // 같은 색 창에 그 문서가 보이게 한다(탭 활성화 → 미리보기 탭 → 옆에 새 창). 색 채널이 없는 창이면 예전처럼 쪽으로만 간다
+    const senderChannel = workspaceLatest.current.channels[activePaneId]
+    if (senderChannel !== null) emitPointSignal({ from: activePaneId, channel: senderChannel, target: { kind: 'place', docId: location.docId, page: location.page }, reason: 'ai' })
     navigation.jump({ docId: location.docId, page: location.page })
     const pageIndex = location.page - 1
     void pageTextIndex(location.docId, pageIndex).then((index) => {
@@ -1659,7 +1768,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }
       if (range !== null) pointAt(buildAnchor(location.docId, pageIndex, index, range[0], range[1]), location.message ?? location.quote)
     }).catch(() => undefined)
-  }, [pointAt, docTitles, navigation, openMarkdown, searchRecords])
+  }, [activePaneId, pointAt, docTitles, navigation, openMarkdown, searchRecords])
   /** PDF 도구 화면(대상 문서·펼친 도구). 있으면 그 문서를 보이던 PDF 창 자리를 도구 화면이 대신한다. 쪽 편집도 도구 하나다 */
   const [pdfToolsTarget, setPdfToolsTarget] = useState<{ docId: string; tool?: PdfToolViewId } | null>(null)
   /** 왼쪽 바 「PDF 도구」 탭을 열고 그 도구를 펼친다(명령 팔레트·탭 메뉴·문서 우클릭 메뉴가 부른다). 쪽 편집만 PDF 창 자리를 쓴다 */
@@ -2703,7 +2812,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                 pdfHighlights.remove(id)
                 memoNotes.forgetHighlight(id)
               }}
-              onJump={jumpToAnnotation}
+              onJump={(highlight) => jumpFromNotePane(highlight, pane)}
+              onEdited={() => pinPaneTab(memoTab.id)}
             />
           )}
         />
@@ -2775,7 +2885,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onAnchorCreated={setDraftPdfHighlight}
         sourceHighlights={workspaceSources.visibleSources}
         persistentHighlights={pdfHighlights.highlights}
-        onPersistentHighlightCreated={pdfHighlights.add}
+        onPersistentHighlightCreated={(highlight) => {
+          pdfHighlights.add(highlight)
+          // 형광펜을 만들면 그 문서 탭은 보통 탭으로 고정된다(미리보기 탭이 다음 미리보기에 갈아 끼워지지 않게)
+          for (const tab of allPaneTabs(workspaceLatest.current.panes)) if (tab.preview === true && tabDocId(tab) === highlight.anchor.docId) pinPaneTab(tab.id)
+        }}
         onPersistentHighlightRemoved={(id) => {
           pdfHighlights.remove(id)
           memoNotes.forgetHighlight(id)
@@ -2789,7 +2903,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             return patch === undefined ? highlight : updatePersistentPdfHighlight(highlight, patch)
           })
         }}
-        onMemoJump={jumpToAnnotation}
+        onMemoJump={(highlight) => jumpFromNotePane(highlight, pane)}
         docTitles={docTitles}
         flashHighlightId={flashHighlightId}
         onSendToCanvas={!CANVAS_ENABLED || activeNoteId === null ? undefined : sendPdfSelectionToCanvas}
@@ -2846,7 +2960,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const pdfToolsDoc = (pdfToolsTarget === null ? null : openedDocs.find((doc) => doc.docId === pdfToolsTarget.docId)) ?? activePdfDoc
   const renderPane = (pane: PaneId) => (
     <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && shownPaneCount > 1 ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
-      {renderPaneBody(pane)}
+      <PaneIdContext.Provider value={pane}>
+        {renderPaneBody(pane)}
+      </PaneIdContext.Provider>
       {pdfToolsTarget !== null && pdfToolsTarget.tool === 'pageEdit' && pdfToolsPane === pane ? renderPageEdit(pdfToolsTarget) : null}
     </div>
   )
@@ -2881,6 +2997,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
 
   return (
     <MemoNoteContext.Provider value={memoNoteApi}>
+    <WorkspaceContext.Provider value={workspaceLink}>
     <TranslationCardSettingsContext.Provider value={translationCardSettings}>
     <TranslatorContext.Provider value={translatorService}>
     <SplitPanes
@@ -3512,6 +3629,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     />
     </TranslatorContext.Provider>
     </TranslationCardSettingsContext.Provider>
+    </WorkspaceContext.Provider>
     </MemoNoteContext.Provider>
   )
 }

@@ -12,6 +12,9 @@ import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHigh
 import { insertBlock, memoBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
 import { ticketGroupOf, type TicketChoice, type TicketGroup, type TicketIndex, type TicketPlace } from '../core/memoTickets'
 import { clearBlockReveal, onBlockRevealRequest, peekBlockReveal, revealNoteBlock, useMemoNoteApi, type MemoNoteApi } from './memoNoteContext'
+import { usePaneChannel, useWorkspaceLink } from '../app/workspaceContext'
+import { placementRevealMode } from '../app/workspaceRouting'
+import { emitPointSignal } from '../app/workspaceSignal'
 import { GapMenu, TicketBadge, TicketPicker, anchorOf, type AnchorBox } from './NoteTicketUi'
 import '../ui/note-ticket.css'
 
@@ -59,6 +62,7 @@ function menuLabel(icon: ReactNode, label: string) {
 
 function NoteFlowImpl({
   noteApiRef,
+  revealRef: placementRef,
   tickets,
   openPath,
   items,
@@ -94,6 +98,8 @@ function NoteFlowImpl({
 }: {
   /** 노트 기능(MemoNoteContext). 컨텍스트 값은 앱이 그릴 때마다 새 객체라서, 안에서는 늘 같은 ref 로 가장 새 값을 읽는다 */
   readonly noteApiRef: { readonly current: MemoNoteApi | null }
+  /** 티켓의 다른 자리로 가기(곳 목록): 같은 색 창이 있으면 신호로, 아니면 이 화면에서 */
+  readonly revealRef: { readonly current: (path: string, blockId: string, highlightId: string) => void }
   /** 노트 기능에서 카드 모양에 쓰는 값만 따로 받는다(이 값이 바뀔 때만 다시 그린다) */
   readonly tickets: TicketIndex | undefined
   readonly openPath: string | null
@@ -507,7 +513,7 @@ function NoteFlowImpl({
       saveHead: (key, current, field, value) => liveRef.current.saveHead(key, current, field, value),
       toggleTranslation: (source) => liveRef.current.toggleTranslation(source),
       highlightOf: (highlightId) => noteApiRef.current?.highlightOf?.(highlightId),
-      reveal: (path, blockId) => { if (noteApiRef.current !== null) revealNoteBlock(noteApiRef.current, path, blockId) },
+      reveal: (path, blockId, highlightId) => placementRef.current(path, blockId, highlightId),
       onEdit: (key) => liveRef.current.onEdit(key),
       onActivate: (key) => liveRef.current.onActivate(key),
       onSaveMemo: (highlightId, content, ticket) => liveRef.current.onSaveMemo(highlightId, content, ticket),
@@ -790,7 +796,7 @@ interface NoteFlowApi {
   readonly saveHead: (key: string, current: MemoTicket | undefined, field: 'id' | 'title', value: string) => void
   readonly toggleTranslation: (source: PersistentPdfHighlight) => void
   readonly highlightOf: (highlightId: string) => PersistentPdfHighlight | undefined
-  readonly reveal: (path: string, blockId: string) => void
+  readonly reveal: (path: string, blockId: string, highlightId: string) => void
   readonly onEdit: (key: string | null) => void
   readonly onActivate: (key: string | null) => void
   readonly onSaveMemo: (highlightId: string, content: MemoContent, ticket?: MemoTicket) => void
@@ -829,12 +835,24 @@ function sameRowProps(previous: Readonly<Record<string, unknown>>, next: Readonl
  * 노트 바의 카드 목록. 노트 기능 컨텍스트는 앱이 그릴 때마다(스크롤로 쪽이 바뀌어도) 새 객체가 되므로,
  * 여기서 한 번 읽고 카드 모양에 쓰는 값만 넘긴다(카드 수백 장이 컨텍스트 때문에 다시 그려지지 않게)
  */
-type NoteFlowProps = Omit<Parameters<typeof NoteFlowImpl>[0], 'noteApiRef' | 'tickets' | 'openPath'>
+type NoteFlowProps = Omit<Parameters<typeof NoteFlowImpl>[0], 'noteApiRef' | 'revealRef' | 'tickets' | 'openPath'>
 export function NoteFlow(props: NoteFlowProps) {
   const noteApi = useMemoNoteApi()
   const noteApiRef = useRef(noteApi)
   noteApiRef.current = noteApi
-  return <NoteFlowMemo {...props} noteApiRef={noteApiRef} tickets={noteApi?.tickets} openPath={noteApi?.openPath ?? null} />
+  // 티켓의 다른 자리로: 같은 색 창에 메모 노트가 보이면 가리키기 신호로(그 창이 그 노트를 보이고 그 블록으로 간다),
+  // 아니면 예전처럼 이 화면(노트 바)에서 그 노트를 열어 보인다
+  const workspace = useWorkspaceLink()
+  const { pane, channel } = usePaneChannel()
+  const revealRef = useRef<(path: string, blockId: string, highlightId: string) => void>(() => undefined)
+  revealRef.current = (path, blockId, highlightId) => {
+    const api = noteApiRef.current
+    if (api === null) return
+    const mode = placementRevealMode({ path, openPath: api.openPath, pane, channel, channelNotes: workspace.visibleNotePathsFor(pane) })
+    if (mode === 'signal' && pane !== null && channel !== null) emitPointSignal({ from: pane, channel, target: { kind: 'memo', memoId: highlightId, notePath: path, blockId }, reason: 'click' })
+    else revealNoteBlock(api, path, blockId)
+  }
+  return <NoteFlowMemo {...props} noteApiRef={noteApiRef} revealRef={revealRef} tickets={noteApi?.tickets} openPath={noteApi?.openPath ?? null} />
 }
 
 /** 카드 목록이 같은가(순서와 각 카드 내용) */
@@ -1244,7 +1262,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
               group={badgeGroup}
               current={{ path: openPath, blockId: item.key }}
               highlightOf={api.highlightOf}
-              onReveal={(place: TicketPlace) => api.reveal(place.path, place.blockId)}
+              onReveal={(place: TicketPlace) => api.reveal(place.path, place.blockId, place.highlightId)}
             />
           ) : null}
         </div>

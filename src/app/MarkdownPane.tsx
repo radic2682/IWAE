@@ -29,8 +29,10 @@ import type { PdfBookmark } from '../core/pdfBookmarks'
 import { useMemoBarVisible } from '../pdf/memoStore'
 import { useMemoNoteApi } from '../pdf/memoNoteContext'
 import { useHighlightTool } from '../pdf/highlightToolStore'
-import { addMemoRef } from '../core/memoNote'
-import { createPersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../pdf/persistentHighlight'
+import { addMemoRef, insertBlock, memoBlock, type MemoNote, type MemoTicket } from '../core/memoNote'
+import type { MemoContent } from '../pdf/MemoColumn'
+import { useMemoPointSender, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useWorkspaceLink } from './workspaceContext'
+import { createPersistentPdfHighlight, updatePersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../pdf/persistentHighlight'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import type { OverlayPatch, PdfOverlay } from '../core/pdfOverlays'
 
@@ -680,6 +682,60 @@ export function MarkdownPane({
   // 메모에 원문을 더하는 중인 블록, 메모만 보기(PDF 와 같다)
   const noteApi = useMemoNoteApi()
   const [attachKey, setAttachKey] = useState<string | null>(null)
+  // 작업 공간: 같은 색 창에 메모 노트 탭이 보이면 새 메모는 노트 바가 아니라 그 노트로 간다. 가리키기 신호를 받고 보낸다
+  const workspace = useWorkspaceLink()
+  const { pane: paneId } = usePaneChannel()
+  const sendPoint = useMemoPointSender()
+  /** 새 메모를 같은 색 창의 메모 노트 탭으로 보내는 중이면 그 노트 경로(만드는 중인 동안). 아니면 노트 바 */
+  const [draftNotePath, setDraftNotePath] = useState<string | null>(null)
+  const cancelRoutedDraft = () => {
+    setDraftMemo(null)
+    setDraftNotePath(null)
+  }
+  /** 노트 탭에서 쓰던 새 메모 저장(노트 바의 saveMemo 와 같은 규칙: 글이 비면 사라지고 표·그림은 남는다) */
+  const saveRoutedDraft = (content: MemoContent, ticket: MemoTicket | undefined, index: number) => {
+    const draft = draftMemo
+    const notePath = draftNotePath
+    if (draft === null || notePath === null || noteApi === null) return
+    setDraftMemo(null)
+    setDraftNotePath(null)
+    if (content.text.trim() === '' && draft.kind !== 'region') return
+    onBoxHighlightCreated?.(updatePersistentPdfHighlight(draft, { note: content.text, noteHtml: content.html }))
+    const insert = (note: MemoNote) => insertBlock(note, memoBlock(draft.id, ticket), index)
+    if (notePath === noteApi.openPath) noteApi.updateOpen(insert)
+    else noteApi.updateNoteAt(notePath, insert)
+  }
+  usePublishRoutedMemoDraft(draftMemo, draftNotePath, {
+    save: saveRoutedDraft,
+    cancel: cancelRoutedDraft,
+    patch: (patch) => { if (draftMemo !== null) setDraftMemo(updatePersistentPdfHighlight(draftMemo, patch)) },
+  })
+  // 이 자리의 메모(글 형광펜·영역)가 있으면 그것: 누르면 같은 색 창이 그 메모로 간다
+  const memoAtPoint = (clientX: number, clientY: number): PersistentPdfHighlight | null => {
+    const article = articleRef.current
+    if (article === null) return null
+    const box = article.getBoundingClientRect()
+    const paper = markdownPaperOf(article, zoom)
+    const x = (clientX - box.left - paper.left) / paper.scale
+    const y = (clientY - box.top + article.scrollTop) / paper.scale
+    return boxHighlights.find((item) => item.anchor.docId === path && item.box === undefined
+      && (item.kind === 'region' ? item.anchor.rects : rectsOf(item.anchor.charRange)).some((rect) => x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h)) ?? null
+  }
+  // 가리키기 신호: 같은 색 창에서 누른 메모가 이 문서에 있으면 그 자리로 굴려 가서(나머지는 jumpToMemo) 기다렸다 간다
+  const [pendingPoint, setPendingPoint] = useState<PersistentPdfHighlight | null>(null)
+  usePointSignalReceiver((signal) => {
+    if (signal.target.kind !== 'memo') return false
+    const memoId = signal.target.memoId
+    const highlight = boxHighlights.find((item) => item.id === memoId)
+    if (highlight === undefined || highlight.anchor.docId !== path) return false
+    setPendingPoint(highlight)
+    return true
+  }, path)
+  useEffect(() => {
+    if (pendingPoint === null || articleRef.current === null || (pendingPoint.kind !== 'region' && rectsOf(pendingPoint.anchor.charRange).length === 0)) return
+    setPendingPoint(null)
+    jumpToMemo(pendingPoint)
+  })
 
   // ---------- 형광펜 → 노트 카드 선(PDF 와 같은 모양): 형광펜 끝 → 종이 오른쪽 점선, 거기서 카드까지 곡선 ----------
   const [memoLinks, setMemoLinks] = useState<readonly MemoLink[]>([])
@@ -797,13 +853,15 @@ export function MarkdownPane({
     }
     if (interactionMode !== 'text' && interactionMode !== 'highlight') return
     // 메모 바가 열려 있으면 고른 글로 노트 메모를 만든다(PDF 와 같다)
-    if (interactionMode === 'text' && memoBarVisible && onBoxHighlightCreated !== undefined) {
+    const routedPath = workspace.memoNoteTargetFor(paneId)
+    if (interactionMode === 'text' && (memoBarVisible || routedPath !== null) && onBoxHighlightCreated !== undefined) {
       const root = articleRef.current
       const selection = window.getSelection()
       if (root !== null && selection !== null && selection.rangeCount > 0 && !selection.isCollapsed) {
         const offsets = rangeOffsets(root, selection.getRangeAt(0))
         if (offsets !== null) {
           const charRange: [number, number] = [offsets.startOffset, offsets.endOffset]
+          setDraftNotePath(routedPath)
           setDraftMemo(createPersistentPdfHighlight({
             docId: path,
             page: 0,
@@ -858,7 +916,7 @@ export function MarkdownPane({
       top: Math.max(8, rangeRect.bottom - hostRect.top + 8),
     })
     setTranslationState({ status: 'idle' })
-  }, [attachKey, boxHighlights, eraseHighlights, highlightColor, interactionMode, memoBarVisible, noteApi, onBoxHighlightCreated, onPersistentHighlightCreated, path, rectsOf, sourceFileId, sourceHash, title])
+  }, [attachKey, boxHighlights, eraseHighlights, highlightColor, interactionMode, memoBarVisible, noteApi, onBoxHighlightCreated, onPersistentHighlightCreated, paneId, path, rectsOf, sourceFileId, sourceHash, title, workspace])
 
   const finishLasso = useCallback((clientX: number, clientY: number) => {
     const root = articleRef.current
@@ -876,8 +934,9 @@ export function MarkdownPane({
     const range = document.createRange()
     range.setStartBefore(first)
     range.setEndAfter(last)
-    // 메모 바가 열려 있으면 PDF 처럼 영역 메모: 끈 네모(종이 좌표)와 그 자리 블록들의 모습을 남긴다
-    if (memoBarVisible && onBoxHighlightCreated !== undefined) {
+    // 메모 바가 열려 있으면(같은 색 창에 노트 탭이 보여도) PDF 처럼 영역 메모: 끈 네모(종이 좌표)와 그 자리 블록들의 모습을 남긴다
+    const routedPath = workspace.memoNoteTargetFor(paneId)
+    if ((memoBarVisible || routedPath !== null) && onBoxHighlightCreated !== undefined) {
       const offsets = rangeOffsets(root, range)
       const box = root.getBoundingClientRect()
       const paper = markdownPaperOf(root, zoom)
@@ -895,6 +954,7 @@ export function MarkdownPane({
           prefix: '',
           suffix: '',
         }
+        setDraftNotePath(routedPath)
         setDraftMemo(createPersistentPdfHighlight(anchor, defaultHighlightColorId(getHighlightColors()), {
           kind: 'region',
           // 글 칸의 자리·폭도 잰다(종이 안 글 칸 위치는 배율·창 폭에 따라 다르다)
@@ -925,7 +985,7 @@ export function MarkdownPane({
       top: Math.max(8, rect.top + rect.height - hostRect.top + 8),
     })
     setTranslationState({ status: 'idle' })
-  }, [memoBarVisible, onBoxHighlightCreated, path, sourceFileId, sourceHash, title, zoom])
+  }, [memoBarVisible, onBoxHighlightCreated, paneId, path, sourceFileId, sourceHash, title, workspace, zoom])
 
   // 떠 있는 번역기의 「선택한 글 넣기」가 읽을 수 있게 고른 글을 알린다
   const readerSelectionId = useId()
@@ -1247,6 +1307,9 @@ export function MarkdownPane({
           }
           return
         }
+        // 메모가 달린 자리를 누르면 같은 색 창(노트 탭·같은 문서를 연 다른 창)이 그 메모로 간다
+        const memoHit = memoAtPoint(event.clientX, event.clientY)
+        if (memoHit !== null) sendPoint(memoHit.id, 'document')
         const target = event.target instanceof Element
           ? event.target.closest<HTMLElement>('[data-markdown-highlight-id]')
           : null
@@ -1334,12 +1397,16 @@ export function MarkdownPane({
           docId={path}
           title={title}
           highlights={boxHighlights}
-          draft={draftMemo}
+          draft={draftNotePath === null ? draftMemo : null}
           onDraftDone={() => setDraftMemo(null)}
           onHighlightCreated={onBoxHighlightCreated}
           onHighlightUpdated={onBoxHighlightUpdated}
           onHighlightRemoved={onBoxHighlightRemoved}
-          onJump={jumpToMemo}
+          onJump={(highlight) => {
+            // 이 문서의 메모면 같은 색의 다른 창도 같이 가리킨다. 다른 문서면 App 이 신호로 보인다(onMemoJump)
+            if (highlight.anchor.docId === path) sendPoint(highlight.id, 'note')
+            jumpToMemo(highlight)
+          }}
           docTitles={docTitles}
           attachingKey={attachKey}
           onAddRef={(key) => {
