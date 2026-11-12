@@ -4,6 +4,22 @@
 body.pane-tab-dragging,
 body.pane-tab-dragging * { cursor: grabbing !important; user-select: none !important; }
 
+/* 왼쪽 바 줄 끌기(dockSession): 받을 수 없는 자리에서는 잡은 손, 받을 수 있는 자리에서만 복사 커서 */
+body.dock-dragging,
+body.dock-dragging *,
+body.internal-dragging.dock-dragging,
+body.internal-dragging.dock-dragging * { cursor: grabbing !important; user-select: none !important; }
+body.dock-dragging.dock-drop-ok,
+body.dock-dragging.dock-drop-ok *,
+body.internal-dragging.dock-dragging.dock-drop-ok,
+body.internal-dragging.dock-dragging.dock-drop-ok * { cursor: copy !important; }
+
+/* 끄는 동안 올려 둔 것은 아무 것도 들뜨지 않는다: 칸 안 내용 · 칸 머리 · (탭을 끌 때) 왼쪽 바와 상단바에는 마우스가 걸리지 않는다.
+   놓을 자리는 마우스 밑 요소가 아니라 칸의 자리(paneHitAt)로 정한다 */
+body:is(.pane-tab-dragging, .dock-dragging) :is(.pane-grid-body, .pane-head) * { pointer-events: none !important; }
+body:is(.pane-tab-dragging, .dock-dragging) .pane-head { pointer-events: none !important; }
+body.pane-tab-dragging :is(.sidebar, .topbar) * { pointer-events: none !important; }
+
 /* 손에 붙어 따라오는 탭. 탭 줄 안에서만 맞는 모양 규칙이 걸리도록 같은 껍질(.topbar-panetab-zone …) 안에 그린다 */
 .tab-drag-ghost {
   position: fixed;
@@ -19,6 +35,15 @@ body.pane-tab-dragging * { cursor: grabbing !important; user-select: none !impor
   background: transparent;
   will-change: transform;
   transition: none;
+}
+/* 들린 껍질은 자리만 잡아 준다: 머리 바탕 · 선 · 여백이 따라와 사각형이 같이 뜨지 않게(탭 하나만 들린다) */
+.tab-drag-ghost,
+.tab-drag-ghost.topbar-panetab-zone,
+.tab-drag-ghost.pane-head {
+  padding: 0;
+  border: 0;
+  background: transparent !important;
+  box-shadow: none;
 }
 .tab-drag-ghost .pane-tabs-menu { padding: 0; margin: 0; align-items: flex-start; }
 .tab-drag-ghost .pane-tabs-strip { padding: 0 20px; overflow: visible; }
@@ -46,18 +71,23 @@ body.pane-tab-dragging * { cursor: grabbing !important; user-select: none !impor
 }
 
 /* 원래 탭: 자리만 남은 구멍. 이웃 탭이 비켜 간 자리에 들린 탭이 내려앉는다 */
-.pane-top-tab[data-dragging] > * { opacity: 0; }
+/* !important 인 까닭: 탭 모양 규칙(× 의 opacity: 1, 고른 탭의 바탕 · 아래 곡선 장식)이 더 센 선택자라 구멍이 빈 알약 + × 로 보였다 */
+.pane-top-tab[data-dragging] { background: transparent !important; box-shadow: none !important; }
+.pane-top-tab[data-dragging] > * { opacity: 0 !important; }
 .topbar-panetab-zone .pane-tabs-menu .pane-top-tab[data-dragging]::before,
 .pane-top-tab[data-dragging]::before {
   content: '';
   display: block !important;
-  position: absolute;
-  inset: 3px 2px 0 2px;
-  border-radius: var(--r-sm) var(--r-sm) 0 0;
-  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
-  border-bottom: 0;
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  z-index: 0 !important;
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent) !important;
+  border-radius: var(--r-sm) !important;
   background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
   opacity: 1 !important;
+  pointer-events: none;
 }
 .pane-top-tab[data-dragging]::after { display: none !important; }
 /* 다른 패널로 옮겨 가는 중이면 원래 줄에서는 구멍이 접힌다 */
@@ -97,7 +127,7 @@ body.pane-tab-dragging * { cursor: grabbing !important; user-select: none !impor
   z-index: 2147482000;
   box-sizing: border-box;
   border: 2px solid color-mix(in srgb, var(--accent) 62%, transparent);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 16%, transparent);
   opacity: 0;

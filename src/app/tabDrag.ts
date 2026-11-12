@@ -62,9 +62,11 @@ export interface TearOffInfo {
   readonly height: number
 }
 
-type Hit =
-  | { readonly kind: 'strip'; readonly pane: PaneId; readonly strip: HTMLElement | null; readonly zone: HTMLElement }
-  | { readonly kind: 'body'; readonly pane: PaneId; readonly scope: HTMLElement }
+export type Hit =
+  /** 칸 머리(탭 줄 구역). card 는 칸 카드(머리 + 본문) */
+  | { readonly kind: 'strip'; readonly pane: PaneId; readonly strip: HTMLElement | null; readonly zone: HTMLElement; readonly card: HTMLElement }
+  /** 칸 본문. card 는 칸 카드 — 구역도 미리보기도 머리까지 포함한 카드 전체를 기준으로 한다 */
+  | { readonly kind: 'body'; readonly pane: PaneId; readonly card: HTMLElement }
   | { readonly kind: 'none' }
 
 type Drop =
@@ -96,21 +98,35 @@ function paneOfZone(zone: HTMLElement): PaneId | null {
   return asPane(zone.closest<HTMLElement>('.pane-grid-cell')?.querySelector<HTMLElement>('[data-pane-id]')?.dataset.paneId)
 }
 
-/** 화면 한 점이 어느 패널의 탭 줄(구역)·본문 위인가 */
+const insideBox = (box: DOMRect, x: number, y: number): boolean => box.width > 0 && box.height > 0 && x >= box.left && x < box.right && y >= box.top && y < box.bottom
+
+/**
+ * 화면 한 점이 어느 칸의 머리(탭 줄)·본문 위인가. 칸 상자(칸 사이 틈까지 칸에 든다)의 자리로 따진다 —
+ * 틈과 경계선 위에서도 가장 가까운 칸이라 미리보기가 깜빡이지 않는다. 떠 있는 칸은 DOM 에서 뒤라 먼저 본다(위에 있다).
+ * 칸 영역 밖(왼쪽 바 · 상단바 · 창 위에 뜬 것)은 none.
+ */
 export function paneHitAt(x: number, y: number): Hit {
   const element = document.elementFromPoint(x, y)
-  if (element === null) return { kind: 'none' }
-  const zone = element.closest<HTMLElement>('.topbar-panetab-zone[data-pane-id], .pane-grid-tabs')
-  if (zone !== null) {
-    const pane = paneOfZone(zone)
-    if (pane !== null) return { kind: 'strip', pane, strip: zone.querySelector<HTMLElement>('.pane-tabs-strip'), zone }
+  if (element === null || element.closest('.panes') === null) return { kind: 'none' }
+  const cells = Array.from(document.querySelectorAll<HTMLElement>('.pane-grid-cell')).reverse()
+  for (const cell of cells) {
+    if (cell.classList.contains('pane-zoom-hidden') || cell.closest('[inert]') !== null) continue
+    if (!insideBox(cell.getBoundingClientRect(), x, y)) continue
+    const card = cell.querySelector<HTMLElement>('.pane-card[data-card-pane]')
+    const pane = asPane(card?.dataset.cardPane)
+    if (card === null || pane === null) continue
+    const head = cell.querySelector<HTMLElement>('.pane-grid-tabs')
+    if (head !== null && y < head.getBoundingClientRect().bottom) return { kind: 'strip', pane, strip: head.querySelector<HTMLElement>('.pane-tabs-strip'), zone: head, card }
+    return { kind: 'body', pane, card }
   }
-  const scope = element.closest<HTMLElement>('.pane-focus-scope[data-pane-id]')
-  const pane = asPane(scope?.dataset.paneId)
-  // .pane-focus-scope 는 display: contents 라 자리가 없다 — 패널 칸(.pane 또는 격자 칸 본문)이 구역의 바탕이다
-  const area = scope?.closest<HTMLElement>('.pane-grid-body, .pane') ?? null
-  if (scope !== null && area !== null && pane !== null) return { kind: 'body', pane, scope: area }
   return { kind: 'none' }
+}
+
+/** 칸 카드 안 한 점의 구역과 그 카드의 자리. 카드 밖(칸 사이 틈)이면 가장 가까운 카드 안쪽으로 당겨 본다 */
+export function dockZoneInCard(card: HTMLElement, x: number, y: number, allowed: readonly DockEdge[]): { readonly zone: DockZone; readonly box: Box } {
+  const box = card.getBoundingClientRect()
+  const zone = dockZoneAt(box, Math.min(Math.max(x, box.left), box.right), Math.min(Math.max(y, box.top), box.bottom), allowed) ?? 'center'
+  return { zone, box }
 }
 
 export const tabsIn = (strip: HTMLElement | null): HTMLElement[] => strip === null ? [] : Array.from(strip.querySelectorAll<HTMLElement>(':scope > .pane-top-tab'))
@@ -221,7 +237,8 @@ function ghostFor(tabElement: HTMLElement, rect: DOMRect): HTMLElement {
   const zoneClass = tabElement.closest<HTMLElement>('.topbar-panetab-zone, .pane-grid-tabs')?.className ?? ''
   const root = document.createElement('div')
   // 상단바 안에서만 맞는 탭 모양 규칙(.topbar-panetab-zone …)이 그대로 걸리게 같은 껍질을 씌운다
-  root.className = `tab-drag-ghost ${zoneClass}`.replace(/\bpane-drop-target\b/gu, '')
+  // 머리 바탕을 그려 주는 pane-grid-tabs(와 표시용 pane-drop-target)는 뺀다: 들린 것은 탭 하나뿐이어야 한다
+  root.className = `tab-drag-ghost ${zoneClass}`.replace(/\b(?:pane-drop-target|pane-grid-tabs)\b/gu, '').replace(/\s+/gu, ' ').trim()
   root.setAttribute('aria-hidden', 'true')
   const menu = document.createElement('div')
   menu.className = 'pane-tabs-menu pane-tabs-focused'
@@ -240,16 +257,79 @@ function ghostFor(tabElement: HTMLElement, rect: DOMRect): HTMLElement {
   return root
 }
 
-/** 구역 미리보기 상자. 한 번 만들어 두고 자리·크기만 옮겨 다닌다(전환으로 미끄러진다) */
-function createPreview(): HTMLElement {
-  const preview = document.createElement('div')
-  preview.className = 'tab-dock-preview'
-  preview.setAttribute('aria-hidden', 'true')
-  document.body.append(preview)
-  return preview
+const INSET = 1
+
+/** 끄는 동안의 표시 한 벌: 구역 미리보기 · 탭 줄 틈(점선 칸) · 탭 줄 구역 표시. 탭 끌기와 왼쪽 바 끌기가 같이 쓴다 */
+export interface DockVisuals {
+  /** 구역 미리보기. null 이면 숨긴다. 한 번 만들어 두고 자리·크기만 옮겨 다닌다(전환으로 미끄러진다) */
+  showPreview(box: Box | null): void
+  /** 탭 줄(strip)의 index 자리에 width 만큼 틈을 연다. 다른 줄에 열려 있던 틈은 닫는다 */
+  setGap(strip: HTMLElement | null, index: number, width: number): void
+  clearGap(immediate?: boolean): void
+  markZone(zone: HTMLElement | null): void
+  /** 모두 치운다 */
+  clear(immediate?: boolean): void
 }
 
-const INSET = 5
+export function createDockVisuals(): DockVisuals {
+  let preview: HTMLElement | null = null
+  let gapStrip: HTMLElement | null = null
+  let marked: HTMLElement | null = null
+  const clearGap = (immediate = false) => {
+    if (gapStrip === null) return
+    setStripGap(gapStrip, null, 0, immediate)
+    gapStrip = null
+  }
+  return {
+    showPreview(box) {
+      if (box === null) {
+        preview?.classList.remove('tab-dock-preview-on')
+        return
+      }
+      if (preview === null) {
+        preview = document.createElement('div')
+        preview.className = 'tab-dock-preview'
+        preview.setAttribute('aria-hidden', 'true')
+        document.body.append(preview)
+      }
+      const on = preview.classList.contains('tab-dock-preview-on')
+      // 처음 나타날 때는 자리를 바로 잡고(떠돌지 않게), 그 뒤로는 전환으로 옮겨 간다
+      if (!on) preview.style.transition = 'none'
+      preview.style.left = `${box.left + INSET}px`
+      preview.style.top = `${box.top + INSET}px`
+      preview.style.width = `${Math.max(0, box.width - INSET * 2)}px`
+      preview.style.height = `${Math.max(0, box.height - INSET * 2)}px`
+      if (!on) {
+        void preview.offsetWidth
+        preview.style.transition = ''
+        preview.classList.add('tab-dock-preview-on')
+      }
+    },
+    setGap(strip, index, width) {
+      if (gapStrip !== null && gapStrip !== strip) clearGap()
+      if (strip === null) return
+      gapStrip = strip
+      setStripGap(strip, index, width)
+    },
+    clearGap,
+    markZone(zone) {
+      if (marked === zone) return
+      marked?.classList.remove('pane-drop-target')
+      marked = zone
+      marked?.classList.add('pane-drop-target')
+    },
+    clear(immediate = false) {
+      clearGap(immediate)
+      if (marked !== null) { marked.classList.remove('pane-drop-target'); marked = null }
+      if (preview !== null) {
+        const element = preview
+        preview = null
+        element.classList.remove('tab-dock-preview-on')
+        window.setTimeout(() => element.remove(), 240)
+      }
+    },
+  }
+}
 
 export function startTabDrag(event: { readonly clientX: number; readonly clientY: number; readonly button: number }, tabElement: HTMLElement, getHost: () => TabDragHost): void {
   if (event.button !== 0) return
@@ -264,15 +344,13 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
   let dragging = false
   let finished = false
   let ghost: HTMLElement | null = null
-  let preview: HTMLElement | null = null
+  const visuals = createDockVisuals()
   let drop: Drop = { kind: 'none' }
   let lastX = startX
   let lastY = startY
-  let gapStrip: HTMLElement | null = null
   let holeCollapsed = false
   let edgeTimer: number | null = null
   let tearing = false
-  let marked: HTMLElement | null = null
   // 껍질 안에서 탭이 놓인 자리(껍질 왼쪽 위에서). 탭의 왼쪽 위가 손에서 grab 만큼 떨어지게 껍질을 둔다
   let insetX = 20
   let insetY = 0
@@ -289,17 +367,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     ghost.style.transform = `translate3d(${ghostX}px, ${ghostY}px, 0)`
   }
 
-  const clearGap = (immediate = false) => {
-    if (gapStrip === null) return
-    setStripGap(gapStrip, null, 0, immediate)
-    gapStrip = null
-  }
-  const setGap = (strip: HTMLElement | null, index: number) => {
-    if (gapStrip !== null && gapStrip !== strip) clearGap()
-    if (strip === null) return
-    gapStrip = strip
-    setStripGap(strip, index, startRect.width + 3)
-  }
+  const setGap = (strip: HTMLElement | null, index: number) => visuals.setGap(strip, index, startRect.width + 3)
   const collapseHole = (collapsed: boolean) => {
     if (collapsed === holeCollapsed) return
     holeCollapsed = collapsed
@@ -307,32 +375,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     if (hole === null) return
     flip(tabsIn(hole.parentElement), () => { if (collapsed) hole.dataset.collapsed = ''; else delete hole.dataset.collapsed }, 170)
   }
-  const markZone = (zone: HTMLElement | null) => {
-    if (marked === zone) return
-    marked?.classList.remove('pane-drop-target')
-    marked = zone
-    marked?.classList.add('pane-drop-target')
-  }
-
-  const showPreview = (box: Box | null) => {
-    if (box === null) {
-      preview?.classList.remove('tab-dock-preview-on')
-      return
-    }
-    if (preview === null) preview = createPreview()
-    const on = preview.classList.contains('tab-dock-preview-on')
-    // 처음 나타날 때는 자리를 바로 잡고(떠돌지 않게), 그 뒤로는 전환으로 옮겨 간다
-    if (!on) preview.style.transition = 'none'
-    preview.style.left = `${box.left + INSET}px`
-    preview.style.top = `${box.top + INSET}px`
-    preview.style.width = `${Math.max(0, box.width - INSET * 2)}px`
-    preview.style.height = `${Math.max(0, box.height - INSET * 2)}px`
-    if (!on) {
-      void preview.offsetWidth
-      preview.style.transition = ''
-      preview.classList.add('tab-dock-preview-on')
-    }
-  }
+  const { clearGap, markZone, showPreview } = visuals
 
   const reorderAt = (strip: HTMLElement) => {
     const h = getHost()
@@ -371,9 +414,8 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     clearGap()
     markZone(null)
     if (hit.kind === 'body' && h.moveAt !== undefined) {
-      const box = hit.scope.getBoundingClientRect()
-      const zone: DockZone | null = dockZoneAt(box, lastX, lastY, h.dockEdges?.(hit.pane, tabId) ?? [])
-      if (zone === null || (hit.pane === sourcePane && zone === 'center')) {
+      const { zone, box } = dockZoneInCard(hit.card, lastX, lastY, h.dockEdges?.(hit.pane, tabId) ?? [])
+      if (hit.pane === sourcePane && zone === 'center') {
         // 자기 패널의 한가운데: 아무 일도 하지 않는다(구멍은 그대로)
         collapseHole(false)
         showPreview(null)
@@ -449,14 +491,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     if (edgeTimer !== null) window.clearTimeout(edgeTimer)
   }
   const cleanupVisuals = (immediateGap = false) => {
-    clearGap(immediateGap)
-    markZone(null)
-    if (preview !== null) {
-      const element = preview
-      preview = null
-      element.classList.remove('tab-dock-preview-on')
-      window.setTimeout(() => element.remove(), 240)
-    }
+    visuals.clear(immediateGap)
     document.body.classList.remove('pane-tab-dragging')
   }
   /** 구멍(원래 탭)을 되살린다 */
@@ -571,7 +606,9 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     if (h.tearOff !== undefined) {
       const outside = lastX < -TEAR_OFF_MARGIN_PX || lastY < -TEAR_OFF_MARGIN_PX
         || lastX > window.innerWidth + TEAR_OFF_MARGIN_PX || lastY > window.innerHeight + TEAR_OFF_MARGIN_PX
-      const atEdge = lastX <= 0 || lastY <= 0 || lastX >= window.innerWidth - 1 || lastY >= window.innerHeight - 1
+      // 왼쪽 바가 보이면 창 왼쪽 가장자리는 왼쪽 바 위다: 거기 머문다고 새 창으로 떼어 내지 않는다(창 밖으로 나가야 떼어 낸다)
+      const leftIsSidebar = document.querySelector('.sidebar:not([inert])') !== null
+      const atEdge = (lastX <= 0 && !leftIsSidebar) || lastY <= 0 || lastX >= window.innerWidth - 1 || lastY >= window.innerHeight - 1
       if (atEdge && !outside) {
         if (edgeTimer === null) edgeTimer = window.setTimeout(() => { edgeTimer = null; void tear(moveEvent.screenX, moveEvent.screenY) }, TEAR_OFF_EDGE_DWELL_MS)
       } else if (edgeTimer !== null) {

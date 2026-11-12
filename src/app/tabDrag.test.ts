@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { startTabDrag, type TabDragHost } from './tabDrag'
+import { paneHitAt, startTabDrag, type TabDragHost } from './tabDrag'
 import type { Tab } from './tabs'
 
 /**
  * 탭 끌기 컨트롤러의 DOM 쪽. jsdom 은 자리(getBoundingClientRect)·elementFromPoint 를 모르므로
  * 필요한 것만 흉내 낸다 — 어느 구역에 놓았을 때 어느 호출이 일어나는지를 못박는다.
+ * 칸은 앱과 같은 모양이다: .pane-grid-cell(칸 사이 틈까지 든다) 안에 .pane-card(머리 + 본문).
  */
 
 const tab: Tab = { id: 'a', title: 'A', kind: 'pdf' }
@@ -27,29 +28,39 @@ let rects = new Map<Element, DOMRect>()
 
 function build(overrides: Partial<TabDragHost> = {}): Fixture {
   document.body.innerHTML = `
-    <div class="topbar-panetab-zone" data-pane-id="left"><div class="pane-tabs-menu"><div class="pane-tabs-strip">
-      <div class="pane-top-tab" data-tab-id="a"><button class="pane-top-tab-title">A</button></div>
-    </div></div></div>
-    <div class="topbar-panetab-zone" data-pane-id="right"><div class="pane-tabs-menu"><div class="pane-tabs-strip">
-      <div class="pane-top-tab" data-tab-id="b"></div>
-    </div></div></div>
-    <div class="pane" data-test="left-pane"><div class="pane-focus-scope" data-pane-id="left"><div id="left-body"></div></div></div>
-    <div class="pane" data-test="right-pane"><div class="pane-focus-scope" data-pane-id="right"><div id="right-body"></div></div></div>
+    <div class="panes panes-tree">
+      <div class="pane pane-grid-cell" data-test="left-cell"><div class="pane-card" data-card-pane="left">
+        <div class="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head="left"><div class="pane-tabs-menu"><div class="pane-tabs-strip">
+          <div class="pane-top-tab" data-tab-id="a"><button class="pane-top-tab-title">A</button></div>
+        </div></div></div>
+        <div class="pane-grid-body" id="left-body"></div>
+      </div></div>
+      <div class="pane pane-grid-cell" data-test="right-cell"><div class="pane-card" data-card-pane="right">
+        <div class="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head="right"><div class="pane-tabs-menu"><div class="pane-tabs-strip">
+          <div class="pane-top-tab" data-tab-id="b"></div>
+        </div></div></div>
+        <div class="pane-grid-body" id="right-body"></div>
+      </div></div>
+    </div>
+    <div class="sidebar" id="sidebar"></div>
   `
   const q = (selector: string) => document.querySelector<HTMLElement>(selector)!
   rects = new Map<Element, DOMRect>([
     [q('[data-tab-id="a"]'), box(10, 5, 100, 30)],
     [q('[data-tab-id="b"]'), box(210, 5, 100, 30)],
-    [q('[data-test="left-pane"]'), box(0, 40, 200, 400)],
-    [q('[data-test="right-pane"]'), box(200, 40, 200, 400)],
+    // 칸 상자는 틈까지 든다(3px). 카드는 그 안쪽, 머리는 카드 위 38px
+    [q('[data-test="left-cell"]'), box(0, 0, 200, 440)],
+    [q('[data-test="right-cell"]'), box(200, 0, 200, 440)],
+    [q('[data-card-pane="left"]'), box(3, 3, 194, 434)],
+    [q('[data-card-pane="right"]'), box(203, 3, 194, 434)],
+    [q('[data-pane-head="left"]'), box(3, 3, 194, 37)],
+    [q('[data-pane-head="right"]'), box(203, 3, 194, 37)],
   ])
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     return rects.get(this) ?? box(0, 0, 0, 0)
   })
-  document.elementFromPoint = (x: number, y: number) => {
-    if (y < 40) return x < 200 ? q('.topbar-panetab-zone[data-pane-id="left"] .pane-tabs-strip') : q('.topbar-panetab-zone[data-pane-id="right"] .pane-tabs-strip')
-    return x < 200 ? q('#left-body') : q('#right-body')
-  }
+  // 칸 영역 밖(왼쪽 바 자리 x < 0)은 칸이 아니다. 안쪽 어디든 앱 안의 한 요소를 돌려주면 된다(자리는 칸 상자로 정한다)
+  document.elementFromPoint = (x: number) => (x < 0 ? q('#sidebar') : q('#left-body'))
   const calls: string[] = []
   const host: TabDragHost & { calls: string[] } = {
     tab,
@@ -186,6 +197,26 @@ describe('탭 끌기', () => {
     expect(document.querySelector('.tab-drag-ghost')).toBeNull()
   })
 
+  it('왼쪽 바가 보일 때 창 왼쪽 가장자리에 머무는 것으로는 떼어 내지 않는다(왼쪽 바 위에 놓으려는 것이다)', () => {
+    vi.useFakeTimers()
+    try {
+      const fixture = build()
+      start(fixture)
+      fire('pointermove', 100, 100)
+      fire('pointermove', 0, 100)
+      vi.advanceTimersByTime(1000)
+      expect(fixture.host.calls).toEqual([])
+      // 왼쪽 바가 접혀 있으면(inert) 가장자리 머무름은 예전처럼 떼어 낸다
+      document.querySelector('.sidebar')!.setAttribute('inert', '')
+      fire('pointermove', 5, 100)
+      fire('pointermove', 0, 100)
+      vi.advanceTimersByTime(1000)
+      expect(fixture.host.calls).toEqual(['tear:a'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('창 밖으로 나가도 떼어 낼 수 없는 탭(tearOff 없음)은 그냥 따라다닌다', () => {
     const fixture = build({ tearOff: undefined })
     start(fixture)
@@ -201,5 +232,79 @@ describe('탭 끌기', () => {
     fire('pointermove', 80, 25)
     await Promise.resolve()
     expect(fixture.host.calls).toEqual(['tear:a'])
+  })
+})
+
+describe('탭 끌기: 자리 판정 · 표시', () => {
+  it('들린 탭 껍질은 머리 바탕(pane-grid-tabs)을 달지 않는다: 탭 하나만 들린다', () => {
+    const fixture = build()
+    start(fixture)
+    fire('pointermove', 100, 100)
+    const ghost = document.querySelector('.tab-drag-ghost')!
+    expect(ghost.classList.contains('pane-grid-tabs')).toBe(false)
+    expect(ghost.classList.contains('topbar-panetab-zone')).toBe(true)
+    fire('pointerup', 100, 240)
+  })
+
+  it('칸 사이 틈과 경계선 위에서도 가장 가까운 칸이다(미리보기가 깜빡이지 않는다)', () => {
+    build()
+    // 왼쪽 카드 바깥(칸 상자 안 틈)
+    expect(paneHitAt(1, 100)).toMatchObject({ kind: 'body', pane: 'left' })
+    // 두 칸 경계 양쪽
+    expect(paneHitAt(199.5, 100)).toMatchObject({ kind: 'body', pane: 'left' })
+    expect(paneHitAt(200.5, 100)).toMatchObject({ kind: 'body', pane: 'right' })
+    // 머리 위 틈도 탭 줄이다
+    expect(paneHitAt(250, 1)).toMatchObject({ kind: 'strip', pane: 'right' })
+  })
+
+  it('칸 영역 밖(왼쪽 바 · 상단바)은 아무 칸도 아니다: 미리보기도 놓을 자리도 없다', () => {
+    const fixture = build()
+    start(fixture)
+    fire('pointermove', 100, 100)
+    fire('pointermove', -10, 100)
+    expect(paneHitAt(-10, 100)).toEqual({ kind: 'none' })
+    expect(document.querySelector('.tab-dock-preview-on')).toBeNull()
+    fire('pointerup', -10, 100)
+    expect(fixture.host.calls).toEqual([])
+    expect(fixture.tabEl.dataset.dragging).toBeUndefined()
+    expect(document.body.classList.contains('pane-tab-dragging')).toBe(false)
+  })
+
+  it('떠 있는 칸은 칸들 위에 있어 먼저 잡힌다', () => {
+    build()
+    const float = document.createElement('div')
+    float.className = 'pane pane-grid-cell pane-float'
+    float.innerHTML = '<div class="pane-card" data-card-pane="float"><div class="pane-grid-tabs" data-pane-head="float"></div><div class="pane-grid-body"></div></div>'
+    document.querySelector('.panes')!.append(float)
+    rects.set(float, box(150, 100, 100, 100))
+    rects.set(float.querySelector('.pane-card')!, box(150, 100, 100, 100))
+    rects.set(float.querySelector('.pane-grid-tabs')!, box(150, 100, 100, 30))
+    expect(paneHitAt(180, 150)).toMatchObject({ kind: 'body', pane: 'float' })
+    expect(paneHitAt(180, 110)).toMatchObject({ kind: 'strip', pane: 'float' })
+    expect(paneHitAt(140, 150)).toMatchObject({ kind: 'body', pane: 'left' })
+  })
+
+  it('미리보기는 머리까지 든 카드 전체를 기준으로 한다(진짜 나뉘는 모양과 같다)', () => {
+    const fixture = build()
+    start(fixture)
+    fire('pointermove', 100, 100)
+    fire('pointermove', 390, 200)
+    const preview = document.querySelector<HTMLElement>('.tab-dock-preview-on')!
+    // 오른쪽 카드(203, 3, 194, 434)의 오른쪽 절반(300, 3, 97)을 1px 안쪽으로
+    expect(preview.style.top).toBe('4px')
+    expect(preview.style.height).toBe('432px')
+    expect(preview.style.left).toBe('301px')
+    fire('pointerup', 390, 200)
+  })
+
+  it('나눌 수 없는 가장자리(허락 목록에 없는 쪽)는 미리보기 없이 가운데로 본다', () => {
+    const fixture = build({ dockEdges: () => ['top', 'bottom'] })
+    start(fixture)
+    fire('pointermove', 100, 100)
+    fire('pointermove', 390, 200) // 오른쪽 띠 — 오른쪽은 못 나눈다
+    const preview = document.querySelector<HTMLElement>('.tab-dock-preview-on')!
+    expect(preview.style.left).toBe('204px') // 카드 전체(가운데 구역)
+    fire('pointerup', 390, 200)
+    expect(fixture.host.calls).toEqual([`move:a:right:${Number.MAX_SAFE_INTEGER}`])
   })
 })
