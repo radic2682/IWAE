@@ -142,12 +142,13 @@
 .topbar-toolbar-host .topbar-toolbar-slot .pdf-mode-toggle-row { gap: var(--space-1); min-height: 0; align-items: center; }
 /* 노트 서식 줄: 칸 안 맨 위 줄이 아니라 상단바 한 줄. 칸 안 규칙(.pane-doc .note-format-dock …)을 빌려 오지 않고 여기서 모두 정한다.
    줄 안의 띠(위 접착 · 아래 선 · 바탕 · 높이)는 없다 */
-.topbar-toolbar-host .note-format-dock { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; min-height: 0; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+.topbar-toolbar-host .note-format-dock { display: flex; flex: 1 1 auto; align-items: center; gap: 0; min-width: 0; min-height: 0; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
 .topbar-toolbar-host .note-format-slot { display: contents; }
-.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 1 1 auto; min-width: 0; }
+.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 0 1 auto; min-width: 0; }
 .topbar-toolbar-host .note-format-dock > .note-format-slot:empty { flex: 0 0 0; }
 .topbar-toolbar-host .note-format-dock .pdf-memo-format-bar {
   position: relative;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
   row-gap: 2px;
@@ -166,8 +167,9 @@
 .topbar-toolbar-host .note-format-dock .pdf-memo-format-bar-idle .pdf-memo-format-button:disabled { opacity: 0.35; cursor: default; }
 .topbar-toolbar-host .note-format-dock .pdf-memo-format-more { flex: 0 0 auto; margin-left: 6px; }
 .topbar-toolbar-host .note-format-dock .pdf-memo-format-more[aria-expanded='true'] { background: var(--chrome-hover); }
-/* 검색 · 글 블록 넣기 · 펼치기 */
-.topbar-toolbar-host .memo-note-tab-actions { flex: 0 0 auto; display: flex; align-items: center; gap: var(--space-1); height: 100%; margin-left: auto; }
+/* 검색 · 글 블록 넣기 · 펼치기: 서식 단추 바로 뒤에 구분선을 두고 이어 붙는다(남는 자리는 이 묶음 뒤에 있다) */
+.topbar-toolbar-host .memo-note-tab-actions { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: var(--space-1); height: 100%; margin-left: var(--space-2); padding-left: calc(var(--space-2) + 1px); }
+.topbar-toolbar-host .memo-note-tab-actions::before { content: ''; position: absolute; left: 0; top: 50%; width: 1px; height: 16px; margin-top: -8px; background: var(--divider); }
 .topbar-toolbar-host .memo-note-tab-actions .pdf-memo-header-button { min-width: var(--icon-btn); width: var(--icon-btn); height: var(--icon-btn); padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); }
 .topbar-toolbar-host .memo-note-tab-actions .pdf-memo-header-button:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--text-strong); outline: none; }
 .topbar-toolbar-host .memo-note-tab-actions .pdf-memo-header-button[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
@@ -282,6 +284,18 @@
 .pane-head .pane-top-tab-sep,
 .pane-head .pane-top-tab-sub { font-size: 12.5px; line-height: 1; }
 .pane-head .pane-top-tab-kind { width: 14px; height: 14px; }
+/* 탭이 아주 좁아지면(탭 폭 76px 이하) 다른 탭은 아이콘만, 보는 탭은 아이콘 대신 × 만 남긴다. 아이콘만 남은 탭도 탭으로 읽히게 알약 모양(28px 높이 · 최소 폭 40px ·
+   옅은 바탕 · 올리면 한 단계 진하게)을 지키고, 이름은 말풍선(title)으로 나온다. 탭 자신의 바탕은 자기 컨테이너 쿼리로 못 바꾸므로 제목 단추(.pane-top-tab-title)가 알약을 그린다 */
+@container (max-width: 76px) {
+  .pane-head .pane-top-tab-label { display: none; }
+  .pane-head .pane-top-tab-title { justify-content: center; padding: 0; }
+  .pane-head .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-close { display: none; }
+  .pane-head .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-title { border-radius: var(--r-sm); background: color-mix(in srgb, var(--text-strong) 5%, transparent); }
+  .pane-head .pane-top-tab:not(.pane-top-tab-active):hover .pane-top-tab-title { background: color-mix(in srgb, var(--text-strong) 9%, transparent); }
+  .pane-head .pane-top-tab-active .pane-top-tab-kind { display: none; }
+  .pane-head .pane-top-tab-active .pane-top-tab-title { flex: 0 0 4px; }
+  .pane-head .pane-top-tab-active .pane-top-tab-close { margin-inline: auto; }
+}
 /* 끌어 든 탭(들린 그림자)도 같은 알약: 높이 28 · 둥글기 --r-sm */
 .tab-drag-ghost .pane-top-tab,
 .tab-drag-ghost .pane-top-tab:not(.pane-top-tab-active),

@@ -325,6 +325,9 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
     if (bar === null || typeof ResizeObserver === 'undefined') return undefined
     const observer = new ResizeObserver(() => setTick((value) => value + 1))
     observer.observe(bar)
+    // 서식 줄은 내용 폭만큼만 차지하므로(옆의 검색 · 글 블록 · 펼치기 단추가 바로 이어 붙는다) 줄 폭이 아니라 도구줄의 폭 변화를 봐야 다시 넓어졌을 때 알아챈다
+    const dock = bar.closest('.note-format-dock')
+    if (dock !== null) observer.observe(dock)
     return () => observer.disconnect()
   }, [barRef])
   useLayoutEffect(() => {
@@ -333,7 +336,7 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
     for (const element of Array.from(bar.querySelectorAll<HTMLElement>(':scope > [data-cluster]'))) {
       widths.current[Number(element.dataset.cluster)] = element.offsetWidth
     }
-    const capacity = bar.clientWidth
+    const capacity = formatCapacity(bar)
     const known = widths.current
     if (capacity <= 0 || known.length < total || known.some((width) => !(width > 0))) return
     const next = fitFormatClusters(known, capacity, FORMAT_MORE_W)
@@ -353,6 +356,26 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
   }, [moreOpen, barRef])
   void tick
   return [visible, moreOpen, setMoreOpen]
+}
+
+/**
+ * 서식 줄이 쓸 수 있는 폭(px). 줄은 내용 폭만큼만 차지해서(남는 자리는 도구줄 맨 뒤에 있다) 줄 자신의 폭은 쓸 수 있는 폭이 아니다 —
+ * 도구줄 안쪽 폭에서 줄 곁의 다른 것들(검색 · 글 블록 · 펼치기 묶음과 그 여백)을 빼고, 줄의 음수 왼쪽 여백(-11px)을 돌려 더한다.
+ * 도구줄 밖(박스 메모 등)의 서식 줄은 줄 폭 그대로다.
+ */
+export function formatCapacity(bar: HTMLElement): number {
+  const dock = bar.closest<HTMLElement>('.note-format-dock')
+  if (dock === null) return bar.clientWidth
+  const style = getComputedStyle(dock)
+  const number = (value: string) => Number.parseFloat(value) || 0
+  let beside = 0
+  for (const child of Array.from(dock.children)) {
+    if (!(child instanceof HTMLElement) || child === bar || child.contains(bar)) continue
+    const own = getComputedStyle(child)
+    beside += child.offsetWidth + number(own.marginLeft) + number(own.marginRight)
+  }
+  const inner = dock.clientWidth - number(style.paddingLeft) - number(style.paddingRight)
+  return inner - beside - number(getComputedStyle(bar).marginLeft)
 }
 
 /** 「⋯」 단추가 차지하는 폭(px): 28px + 앞 여백 6px */

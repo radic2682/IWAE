@@ -158,7 +158,7 @@ describe('MemoNoteTabView — 모든 메모에서 찾기', () => {
 })
 
 describe('MemoNoteTabView — 제목 줄 없음(제목은 칸 머리에 있다)', () => {
-  it('노트 이름 ⌄ 단추와 제목 줄이 없고, 검색 · 글 블록 · 펼치기 단추는 서식 줄 오른쪽 끝에 있다', () => {
+  it('노트 이름 ⌄ 단추와 제목 줄이 없고, 검색 · 글 블록 · 펼치기 단추는 서식 단추 바로 뒤(구분선 다음 맨 끝 묶음)에 있다', () => {
     const { container } = render(<Harness spies={makeSpies()} />)
     expect(screen.queryByRole('button', { name: /노트 바꾸기/ })).toBeNull()
     expect(container.querySelector('.memo-note-tab-head')).toBeNull()

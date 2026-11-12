@@ -128,3 +128,16 @@ describe('EmptyPane — 캔버스 줄은 onCanvas 를 줄 때만(CANVAS_ENABLED 
     expect(onCanvas).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('EmptyPane — 키 힌트는 접두키 칩 · 명령 팔레트와 같은 키캡 모양(UI 글꼴)', () => {
+  it('힌트가 고정폭 글꼴이 아니라 UI 글꼴 키캡이고, 접두키 칩 · 팔레트 키 표시와 같은 테두리 · 둥글기다', () => {
+    const css = readFileSync(join(__dirname, '../ui/empty-pane.css'), 'utf8')
+    const hint = css.slice(css.indexOf('.empty-pane-row-hint {'), css.indexOf('}', css.indexOf('.empty-pane-row-hint {')))
+    expect(hint).not.toMatch(/monospace|font-mono/u)
+    expect(hint).toContain('font: inherit;')
+    expect(hint).toContain('border: 1px solid var(--divider-strong')
+    expect(hint).toContain('border-radius: var(--r-xs);')
+    const palette = readFileSync(join(__dirname, '../ui/command-palette.css'), 'utf8')
+    expect(palette).toMatch(/\.command-palette-kbd \{[^}]*border: 1px solid var\(--divider-strong\)[^}]*font: inherit;/u)
+  })
+})

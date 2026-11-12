@@ -535,3 +535,37 @@ describe('CSS 정리: 옛 크롬 탭 규칙을 이기려던 선택자 사슬 · 
     for (const [name, text] of all) expect(text, name).not.toMatch(/var\(--(?:topbar-h|toolbar-height|tabbar-h|bottom-bar-height)\)/u)
   })
 })
+
+describe('D1 · 노트 서식 줄과 노트 단추 묶음은 한 덩어리로 왼쪽에 붙는다', () => {
+  it('묶음은 서식 단추 바로 뒤(구분선 1×16px)에 이어 붙고 오른쪽 끝으로 밀리지 않으며, 남는 자리는 묶음 뒤에 온다', () => {
+    const surface = css('workspace-surface.css')
+    const actions = rule(surface, '.topbar-toolbar-host .memo-note-tab-actions')
+    expect(actions).not.toContain('margin-left: auto')
+    expect(actions).toContain('margin-left: var(--space-2);')
+    expect(rule(surface, '.topbar-toolbar-host .memo-note-tab-actions::before')).toContain('width: 1px; height: 16px;')
+    // 서식 줄은 내용 폭만큼만(남는 자리를 먹지 않는다), 도구줄이 남는 자리를 갖는다
+    expect(surface).toMatch(/\.topbar-toolbar-host \.note-format-dock \.pdf-memo-format-bar \{[^}]*flex: 0 1 auto;/u)
+    expect(surface).toContain('.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 0 1 auto; min-width: 0; }')
+  })
+
+  it('접두키 칩 글은 점 셋(...)이 아니라 말줄임표 한 글자(…)다', () => {
+    const { container } = render(<PrefixChip phase="prefix" prefixText="Ctrl+B" confirmText="" />)
+    const text = container.querySelector('.prefix-chip')!.textContent!
+    expect(text).toBe('Ctrl+B …')
+    expect(text).not.toContain('...')
+    expect(text.codePointAt(text.length - 1)).toBe(0x2026)
+  })
+})
+
+describe('D2 · 좁은 탭도 알약으로 읽힌다', () => {
+  it('탭 폭 76px 이하: 다른 탭은 아이콘만 · 보는 탭은 × 만 남고, 아이콘만 남은 탭은 알약 바탕(옅은 바탕 · 올리면 진하게)을 가진다. 탭 최소 폭 40px', () => {
+    const surface = css('workspace-surface.css')
+    const query = surface.slice(surface.indexOf('@container (max-width: 76px) {'))
+    const block = query.slice(0, query.indexOf('\n}\n'))
+    expect(block).toContain('.pane-head .pane-top-tab-label { display: none; }')
+    expect(block).toMatch(/\.pane-top-tab:not\(\.pane-top-tab-active\) \.pane-top-tab-title \{[^}]*border-radius: var\(--r-sm\);[^}]*background: color-mix\(in srgb, var\(--text-strong\) 5%, transparent\)/u)
+    expect(block).toMatch(/:not\(\.pane-top-tab-active\):hover \.pane-top-tab-title \{[^}]*9%/u)
+    expect(rule(surface, '.pane-head .pane-top-tab')).toMatch(/min-width: 40px;/u)
+    expect(rule(surface, '.pane-head .pane-top-tab')).toMatch(/height: var\(--icon-btn\);/u)
+  })
+})
