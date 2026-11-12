@@ -4036,6 +4036,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       // 모든 칸이(하나여도) 자기 머리를 칸 맨 위에 둔다
       renderHead={(pane, index) => renderPaneHead(pane, index)}
       paneChannel={(pane) => channelOf(channels, pane)}
+      onFocusPane={focusPane}
       paneEmpty={(pane) => tabsOf(panes, pane).tabs.length === 0}
       activePane={activePaneId}
       floats={shownFloats}
@@ -4083,7 +4084,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           clientLabel={isMainWindow || isDetachedWindow ? undefined : clients.selfLetter}
           sessionActions={ownsSession(windowMode)
             ? {
-      onFocusPane={focusPane}
                 list: sessionOps.list,
                 onSwitch: sessionOps.switchTo,
                 onNew: (name) => sessionOps.create(name),
