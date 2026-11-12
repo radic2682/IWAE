@@ -1,9 +1,48 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { HighlighterStrip } from '../pdf/HighlighterTool'
 import { PaneToolbar } from './PaneToolbar'
+import { resetPaneToolbarMemory } from './paneToolbarMemory'
+import { PaneIdContext } from './workspaceContext'
 import { PdfBottomBar } from './PdfBottomBar'
+
+describe('PaneToolbar — 칸을 옮겨 만져도 칸마다 상태를 이어 받는다', () => {
+  const toolbar = (pane: string | null) => (
+    <PaneIdContext.Provider value={pane}>
+      <PaneToolbar kind="markdown" mode="text" onModeChange={vi.fn()} query="" onQueryChange={vi.fn()} />
+    </PaneIdContext.Provider>
+  )
+  beforeEach(() => resetPaneToolbarMemory())
+
+  it('검색 단추를 눌러 고정하고 도구줄이 사라졌다 다시 그려져도 같은 칸이면 고정이 남는다', () => {
+    const first = render(toolbar('a'))
+    fireEvent.click(screen.getByRole('button', { name: '검색' }))
+    expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('true')
+    first.unmount()
+    render(toolbar('a'))
+    expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('다른 칸의 도구줄은 그 칸의 상태를 따로 가진다(칸 b 는 고정 없음, 칸 a 로 돌아오면 고정)', () => {
+    const first = render(toolbar('a'))
+    fireEvent.click(screen.getByRole('button', { name: '검색' }))
+    first.unmount()
+    const second = render(toolbar('b'))
+    expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('false')
+    second.unmount()
+    render(toolbar('a'))
+    expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('칸 id 가 없는(시험 · 단독) 도구줄은 이어 받지 않는다', () => {
+    const first = render(toolbar(null))
+    fireEvent.click(screen.getByRole('button', { name: '검색' }))
+    first.unmount()
+    render(toolbar(null))
+    expect(screen.getByRole('button', { name: '검색' }).getAttribute('aria-pressed')).toBe('false')
+  })
+})
 
 describe('PaneToolbar', () => {
   it('형광펜은 도구줄 단추: 누르면 형광펜 모드. 색 넷과 지우개는 도구줄 아래 서식 띠에(PDF·Markdown 같다)', () => {

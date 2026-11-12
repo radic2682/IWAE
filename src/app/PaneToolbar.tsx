@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut } from '@phosphor-icons/react'
 import { OVERLAY_TOOLS, overlayToolInfo } from '../pdf/PdfOverlayPalette'
@@ -7,12 +7,14 @@ import type { OverlayTool } from '../pdf/PdfOverlayLayer'
 import { ContextMenu } from '../ui/ContextMenu'
 import { getAppPrefs } from './appPrefs'
 import { HighlighterToolbarControl } from '../pdf/HighlighterTool'
-import { INITIAL_READER_TOOL_STATE, readerToolReducer, type ReaderToolAction, type ReaderToolState } from '../core/readerTools'
+import { readerToolReducer, type ReaderToolAction, type ReaderToolState } from '../core/readerTools'
 import { ReaderToolbar } from './ReaderToolbar'
 import { CleanViewButton, PdfPageLayoutButtons, PdfSplitPicker, type PdfPageLayout } from './PdfLayoutControls'
 import type { PdfSplitLayoutId } from '../core/pdfSplit'
 import '../ui/pdf-followup.css'
 import { t } from '../i18n'
+import { PaneIdContext } from './workspaceContext'
+import { readPaneToolbarMemory, writePaneToolbarMemory } from './paneToolbarMemory'
 
 /** hand: 손 도구(PDF). 글자 위에서는 글을 고르고, 빈 곳은 잡고 끌어 화면을 옮긴다 */
 export type ReaderPaneToolMode = 'hand' | 'text' | 'lasso' | 'highlight' | 'box' | 'edit'
@@ -141,7 +143,10 @@ export function PaneToolbar({
       </button>
     )
   }
-  const [toolbarState, updateToolbarState] = useReducer(readerToolReducer, INITIAL_READER_TOOL_STATE)
+  // 칸을 옮겨 만지면 이 도구줄은 사라졌다 다시 그려진다: 넘침 단계 · 검색 단추 상태는 칸마다 적어 두었다가 이어 받는다(paneToolbarMemory)
+  const paneId = useContext(PaneIdContext)
+  const [remembered] = useState(() => readPaneToolbarMemory(paneId))
+  const [toolbarState, updateToolbarState] = useReducer(readerToolReducer, remembered.reader)
   const state: ReaderToolState = {
     ...toolbarState,
     primary: mode === 'lasso' ? 'region-select' : mode === 'highlight' ? 'highlight' : mode === 'box' ? 'box-memo' : mode === 'edit' ? 'edit' : mode === 'hand' ? 'pan' : 'text-select',
@@ -164,9 +169,10 @@ export function PaneToolbar({
   const leftRef = useRef<HTMLDivElement | null>(null)
   const moreRef = useRef<HTMLDivElement | null>(null)
   const morePanelRef = useRef<HTMLDivElement | null>(null)
-  const [overflowLevel, setOverflowLevel] = useState(0)
+  const [overflowLevel, setOverflowLevel] = useState(remembered.overflowLevel)
   const [, setResizeTick] = useState(0)
-  const needWidthRef = useRef<number[]>([])
+  const needWidthRef = useRef<number[]>(remembered.needWidth)
+  useEffect(() => { writePaneToolbarMemory(paneId, { overflowLevel, needWidth: needWidthRef.current, reader: toolbarState }) }, [paneId, overflowLevel, toolbarState])
   const [moreOpen, setMoreOpen] = useState<{ top: number; right: number } | null>(null)
   useLayoutEffect(() => {
     const bar = leftRef.current?.parentElement
