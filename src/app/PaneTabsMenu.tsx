@@ -6,6 +6,7 @@ import type { PaneChannel } from './workspaceChannels'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
 import { platformShortcut } from '../core/platform'
+import { hasHiddenTabs } from './tabStripOverflow'
 import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type TearOffInfo } from './tabDrag'
 import type { DockEdge } from './tabDock'
 import { popIn, slideFrom } from './motion'
@@ -131,7 +132,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   useLayoutEffect(() => {
     const strip = stripRef.current
     if (strip === null) return
-    const measure = () => setOverflowing(strip.scrollWidth > strip.clientWidth + 1)
+    const measure = () => setOverflowing(hasHiddenTabs(strip))
     measure()
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
@@ -225,9 +226,8 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
 
   if (state.tabs.length === 0) {
     return (
-      <span className="pane-tabs-empty-row">
+      <span className="pane-tabs-empty-row" role="group" aria-label={t('열린 {label} 없음', { label })}>
         {channelDot}
-        <span className="pane-tabs-empty">{t('열린 {label} 없음', { label })}</span>
         {onClosePane === undefined ? null : (
           <button type="button" className="pane-close-button" aria-label={t('이 창 닫기')} title={t('이 창 닫기')} onClick={onClosePane}>
             <X size={14} aria-hidden="true" />

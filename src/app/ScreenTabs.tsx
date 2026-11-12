@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, SquaresFour } from '@phosphor-icons/react'
+import { Plus } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import { insertionIndexAt } from './tabDock'
 import { PopupMenu } from './PopupMenu'
@@ -19,7 +19,7 @@ export interface ScreenTemplateItem {
 interface ScreenTabsProps {
   readonly screens: readonly ScreenTabItem[]
   readonly activeId: string
-  /** 바로 앞에 보던 화면(`-` 표시) */
+  /** 바로 앞에 보던 화면(상태 줄에만 `-` 로 표시) */
   readonly lastId: string | null
   /** 「＋」가 펼칠 새 화면 템플릿 */
   readonly templates: readonly ScreenTemplateItem[]
@@ -161,11 +161,8 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
                     }
                   }}
                 >
-                  <SquaresFour size={13} aria-hidden="true" className="screen-tab-icon" />
                   <span className="screen-tab-index">{index}</span>
                   <span className="screen-tab-name">{screen.name}</span>
-                  {/* 보는 화면은 알약 모양이 이미 보여 준다(* 는 상태 줄에만). 바로 앞 화면만 - 로 흐리게 */}
-                  {!active && last ? <span className="screen-tab-mark" aria-hidden="true">-</span> : null}
                 </button>
               )}
             </div>

@@ -105,7 +105,9 @@ describe('PaneTabsMenu', () => {
       />,
     )
 
-    const empty = screen.getByText('열린 캔버스 없음')
+    const empty = screen.getByRole('group', { name: '열린 캔버스 없음' })
+    // 머리에는 안내 글자가 없다(본문의 「빈 칸」 과 겹말) — 이름은 접근성 이름으로만 남는다
+    expect(screen.queryByText('열린 캔버스 없음')).toBeNull()
     fireEvent.contextMenu(empty)
     expect(screen.queryByRole('menu')).toBeNull()
   })
