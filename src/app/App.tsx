@@ -210,6 +210,7 @@ import { AiSettings } from './AiSettings'
 import { buildAnchor } from '../core/anchor'
 import { errorText } from '../core/errorText'
 import { UpdateSettings } from './UpdateSettings'
+import { WhatsNewHost } from './WhatsNewDialog'
 import { useUpdater } from './useUpdater'
 import packageMetadata from '../../package.json'
 import developmentMarkdown from '../fixtures/development-note.md?raw'
@@ -691,6 +692,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [reportOpen, setReportOpen] = useState(false)
   // 저절로 열 때 먼저 보일 설정 항목. 사용자가 열면 지난번 항목 그대로
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined)
+  // 설정을 연 이유가 업데이트 기록일 때 먼저 펼칠 버전(「지난 기록 보기」·정보 보기의 「업데이트 기록」)
+  const [settingsHistoryVersion, setSettingsHistoryVersion] = useState<string | null>(null)
+  const openUpdateHistory = useCallback((version: string) => { setSettingsSection('updates'); setSettingsHistoryVersion(version); setSettingsOpen(true) }, [])
   const [draftPdfHighlight, setDraftPdfHighlight] = useState<Anchor | null>(null)
   const draftPdfHighlightRef = useRef(draftPdfHighlight)
   draftPdfHighlightRef.current = draftPdfHighlight
@@ -4271,7 +4275,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         }}
       />
     ) : null}
-    {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} /> : null}
+    {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} onShowHistory={() => { setAboutOpen(false); openUpdateHistory(packageMetadata.version) }} /> : null}
+    <WhatsNewHost enabled={isMainWindow && !initializing} version={packageMetadata.version} onShowHistory={openUpdateHistory} />
     {reportOpen ? <ReportProblemDialog version={packageMetadata.version} vaultRoot={vault?.root ?? null} onClose={() => setReportOpen(false)} /> : null}
     {keysHelpOpen ? <KeysHelpSheet onClose={() => setKeysHelpOpen(false)} currentKeys={keysHelpCurrentKeys()} prefixText={prefixHint} /> : null}
     {paneNumbersOpen ? <PaneNumbersOverlay panes={paneOrder} activePane={activePaneId} onDone={() => setPaneNumbersOpen(false)} /> : null}
@@ -4284,6 +4289,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       onClose={() => {
         setSettingsOpen(false)
         setSettingsSection(undefined)
+        setSettingsHistoryVersion(null)
       }}
       sections={[
         {
@@ -4358,7 +4364,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         {
           id: 'updates',
           label: t('업데이트'),
-          content: <UpdateSettings currentVersion={packageMetadata.version} state={updater} />,
+          content: <UpdateSettings currentVersion={packageMetadata.version} state={updater} historyFocusVersion={settingsHistoryVersion} />,
         },
         {
           id: 'data',

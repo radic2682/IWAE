@@ -2,10 +2,13 @@ import { ArrowClockwise, CheckCircle, DownloadSimple, EyeSlash, WarningCircle } 
 import { dateLocale, pick, t } from '../i18n'
 import type { UseUpdaterResult } from './useUpdater'
 import { progressLabel } from './UpdateBanner'
+import { ReleaseHistory } from './ReleaseNotesView'
 
 interface UpdateSettingsProps {
   readonly currentVersion: string
   readonly state: UseUpdaterResult
+  /** 업데이트 기록에서 먼저 펼쳐 보일 버전(「지난 기록 보기」·정보 보기에서 열 때) */
+  readonly historyFocusVersion?: string | null
 }
 
 function checkedAtLabel(value: string | null): string {
@@ -64,7 +67,7 @@ function UpdateResult({ state }: { readonly state: UseUpdaterResult }) {
   )
 }
 
-export function UpdateSettings({ currentVersion, state }: UpdateSettingsProps) {
+export function UpdateSettings({ currentVersion, state, historyFocusVersion = null }: UpdateSettingsProps) {
   return (
     <section className="update-settings" aria-labelledby="update-settings-title">
       <header className="settings-section-heading">
@@ -117,6 +120,8 @@ export function UpdateSettings({ currentVersion, state }: UpdateSettingsProps) {
         </div>
       )}
       {state.error !== null && state.status !== 'error' && <p className="settings-inline-error" role="alert">{state.error}</p>}
+
+      <ReleaseHistory currentVersion={currentVersion} focusVersion={historyFocusVersion} />
     </section>
   )
 }

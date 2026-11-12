@@ -11,7 +11,12 @@ export const IWAE_REPOSITORY_URL = 'https://github.com/radic2682/IWAE'
  * 정보 보기. 로고가 두 조각(파란 판 + 고리, 흰 판)으로 날아와 맞물리고, 끝에 원본 로고로 바뀐다.
  * 열 때마다 한 번 재생하고, 움직임 줄이기를 켠 사람에게는 바로 완성된 로고를 보인다.
  */
-export function AboutDialog({ version, onClose }: { readonly version: string; readonly onClose: () => void }) {
+export function AboutDialog({ version, onClose, onShowHistory }: {
+  readonly version: string
+  readonly onClose: () => void
+  /** 「업데이트 기록」: 설정의 업데이트 기록을 연다. 없으면 링크를 그리지 않는다 */
+  readonly onShowHistory?: () => void
+}) {
   const closeRef = useRef<HTMLButtonElement | null>(null)
   useEffect(() => { closeRef.current?.focus() }, [])
   return createPortal(
@@ -44,6 +49,9 @@ export function AboutDialog({ version, onClose }: { readonly version: string; re
         <p className="about-subtitle">{t('원문과 엮이는 PDF 노트')}</p>
         <p className="about-tagline">Interwoven Writing and Evidence</p>
         <p className="about-version">{t('버전 {version}', { version })}</p>
+        {onShowHistory !== undefined ? (
+          <button type="button" className="about-link about-history-link" onClick={onShowHistory}>{t('업데이트 기록')}</button>
+        ) : null}
         <dl className="about-facts">
           <div><dt>{t('개발')}</dt><dd>radic2682</dd></div>
           <div><dt>{t('라이선스')}</dt><dd>MIT</dd></div>

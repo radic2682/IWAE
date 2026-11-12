@@ -14,6 +14,7 @@ import { INTEROP } from './en/interop'
 import { SESSIONS } from './en/sessions'
 import { SHORTCUTS } from './en/shortcuts'
 import { SUPPORT } from './en/support'
+import { RELEASE_NOTES } from './en/releaseNotes'
 import { THEME_FILES } from './en/themeFiles'
 import { WORKSPACE_COMMANDS } from './en/workspaceCommands'
 import { TICKETS } from './en/tickets'
@@ -33,5 +34,6 @@ export const EN: Readonly<Record<string, string>> = {
   ...TICKETS,
   ...THEME_FILES,
   ...SUPPORT,
+  ...RELEASE_NOTES,
   ...COMMON,
 }

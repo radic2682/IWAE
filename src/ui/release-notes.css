@@ -1,0 +1,61 @@
+/* 릴리스 노트: 「새 버전」 안내와 설정의 업데이트 기록. 색은 토큰만, 움직임 없음 */
+.release-notes-body {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.release-notes-body > :first-child { margin-top: 0; }
+.release-notes-body > :last-child { margin-bottom: 0; }
+.release-notes-body p { margin: 0 0 8px; }
+.release-notes-body h1,
+.release-notes-body h2,
+.release-notes-body h3 { margin: 12px 0 6px; color: var(--text-strong); font-size: 12px; font-weight: 700; }
+.release-notes-body ul,
+.release-notes-body ol { margin: 0 0 8px; padding-left: 18px; }
+.release-notes-body li { margin: 0 0 4px; }
+.release-notes-body strong { color: var(--text-strong); }
+.release-notes-body a { color: var(--accent); text-decoration: underline; cursor: pointer; }
+.release-notes-body code { padding: 0 3px; border-radius: var(--r-sm, 4px); background: var(--chrome-hover); font-size: 11px; }
+.release-notes-body hr { margin: 10px 0; border: 0; border-top: 1px solid var(--divider); }
+
+/* 「새 버전」 안내: 본문은 화면 높이의 70% 까지, 넘으면 스크롤 */
+.confirm-dialog:has(.whats-new-body) { width: min(560px, calc(100vw - 32px)); }
+.whats-new-body { max-height: 70vh; overflow-y: auto; }
+.whats-new-release + .whats-new-release { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--divider); }
+.whats-new-release h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+.whats-new-release h3 time { color: var(--text-muted); font-size: 11px; font-weight: 400; }
+
+/* 설정 → 업데이트 → 업데이트 기록 */
+.release-history { display: grid; gap: 6px; margin-top: 14px; }
+.release-history h3 { margin: 0; color: var(--text-strong); font-size: 13px; font-weight: 600; }
+.release-history-empty { margin: 0; color: var(--text-muted); font-size: 12px; }
+.release-history-list { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--divider); border-radius: var(--r-md, 8px); }
+.release-history-row + .release-history-row { border-top: 1px solid var(--divider); }
+.release-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.release-history-toggle:hover { background: var(--chrome-hover); }
+.release-history-toggle strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.release-history-toggle time { margin-left: auto; color: var(--text-muted); font-size: 11px; }
+.release-history-current { padding: 0 6px; border-radius: 999px; background: var(--chrome-hover); color: var(--accent); font-size: 11px; }
+.release-history-row .release-notes-body { padding: 0 12px 10px 31px; }

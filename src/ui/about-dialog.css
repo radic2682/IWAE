@@ -93,3 +93,5 @@
 }
 .about-link:hover,
 .about-link:focus-visible { text-decoration: underline; outline: none; }
+
+.about-history-link { display: block; margin: -2px auto 10px; }

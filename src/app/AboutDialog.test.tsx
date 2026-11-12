@@ -34,4 +34,13 @@ describe('AboutDialog', () => {
     fireEvent.mouseDown(dialog.parentElement as HTMLElement)
     expect(onClose).toHaveBeenCalledTimes(3)
   })
+
+  it('「업데이트 기록」 링크는 onShowHistory 가 있을 때만 보이고 누르면 호출한다', () => {
+    const { rerender } = render(<AboutDialog version="1.0.0" onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: '업데이트 기록' })).toBeNull()
+    const onShowHistory = vi.fn()
+    rerender(<AboutDialog version="1.0.0" onClose={vi.fn()} onShowHistory={onShowHistory} />)
+    fireEvent.click(screen.getByRole('button', { name: '업데이트 기록' }))
+    expect(onShowHistory).toHaveBeenCalledOnce()
+  })
 })
