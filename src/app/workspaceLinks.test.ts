@@ -46,8 +46,8 @@ describe('pairLinkedPanes — 짝 맞추기', () => {
   const note = rect(404, 0, 800, 600)
 
   it('같은 채널의 이웃한 문서와 노트를 잇고, 노트가 어느 쪽인지 알려 준다', () => {
-    expect(pairLinkedPanes([entry('left', 'document', 'blue', doc, 'a'), entry('right', 'note', 'blue', note)])).toEqual([{ doc: 'left', note: 'right', noteSide: 'right', docId: 'a' }])
-    expect(pairLinkedPanes([entry('left', 'note', 'blue', doc), entry('right', 'document', 'blue', note, 'a')])).toEqual([{ doc: 'right', note: 'left', noteSide: 'left', docId: 'a' }])
+    expect(pairLinkedPanes([entry('left', 'document', 'blue', doc, 'a'), entry('right', 'note', 'blue', note)])).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }])
+    expect(pairLinkedPanes([entry('left', 'note', 'blue', doc), entry('right', 'document', 'blue', note, 'a')])).toEqual([{ doc: 'right', note: 'left', noteRole: 'note', noteSide: 'left', docId: 'a' }])
   })
   it('채널이 다르거나 없으면 잇지 않는다', () => {
     expect(pairLinkedPanes([entry('left', 'document', 'blue', doc), entry('right', 'note', 'green', note)])).toEqual([])
@@ -92,24 +92,24 @@ describe('linkLines — 선 모양', () => {
   const note = (items: LinkItem[], frame = rect(404, 0, 800, 600), activeIds: string[] = []): PaneLinkSnapshot => ({ frame, body: frame, items, activeIds })
 
   it('노트가 오른쪽이면 형광펜의 오른쪽 끝에서 문서 창 오른쪽 가장자리까지 가서 카드 왼쪽 가장자리로 든다', () => {
-    const pair: LinkPair = { doc: 'left', note: 'right', noteSide: 'right', docId: 'a' }
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }
     const [line] = linkLines(pair, doc([mark('h', 100, 220, 120)]), note([card('h', 420, 780, 200)]))
     expect(line).toMatchObject({ id: 'h', side: 'right', startX: 220, y: 120, edgeX: 400, cardX: 420, cardY: 218, active: false })
   })
   it('노트가 왼쪽이면 형광펜의 왼쪽 끝에서 왼쪽으로 가서 카드 오른쪽 가장자리로 든다', () => {
-    const pair: LinkPair = { doc: 'right', note: 'left', noteSide: 'left', docId: 'a' }
+    const pair: LinkPair = { doc: 'right', note: 'left', noteRole: 'note', noteSide: 'left', docId: 'a' }
     const [line] = linkLines(pair, doc([mark('h', 500, 620, 120)], rect(404, 0, 800, 600)), note([card('h', 20, 380, 200)], rect(0, 0, 400, 600)))
     expect(line).toMatchObject({ side: 'left', startX: 500, edgeX: 404, cardX: 380, cardY: 218 })
   })
   it('보이는 형광펜과 보이는 카드가 둘 다 있는 것만, 각 몸통 안에 걸친 것만 그린다', () => {
-    const pair: LinkPair = { doc: 'left', note: 'right', noteSide: 'right', docId: 'a' }
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }
     const lines = linkLines(pair,
       doc([mark('both', 100, 200, 100), mark('noCard', 100, 200, 150), mark('outside', 100, 200, 700), mark('cardBelow', 100, 200, 160)]),
       note([card('both', 420, 780, 90), card('outside', 420, 780, 90), card('cardBelow', 420, 780, 590)]))
     expect(lines.map((line) => line.id)).toEqual(['both'])
   })
   it('가리키는 선(문서 쪽이든 노트 쪽이든)은 활성이고 맨 뒤에 놓여 위에 그려진다', () => {
-    const pair: LinkPair = { doc: 'left', note: 'right', noteSide: 'right', docId: 'a' }
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }
     const lines = linkLines(pair,
       doc([mark('x', 100, 200, 100), mark('y', 100, 200, 140), mark('z', 100, 200, 180)]),
       note([card('x', 420, 780, 90), card('y', 420, 780, 130), card('z', 420, 780, 170)], rect(404, 0, 800, 600), ['x']))
@@ -150,7 +150,7 @@ describe('등록 — 탭이 바뀌거나 닫히면 거둔다', () => {
   it('문서와 노트가 같은 채널로 이웃하면 짝이 맺히고 선이 나온다', () => {
     registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(docFrame, [markItem]))
     registerPaneLinks({ pane: 'right', role: 'note', channel: 'blue' }, () => snapshot(noteFrame, [cardItem]))
-    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteSide: 'right', docId: 'a' }])
+    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }])
     expect(getLinkLayerState().lines.map((line) => line.id)).toEqual(['h'])
   })
   it('노트 탭을 닫으면(거두면) 짝과 선이 사라진다', () => {

@@ -229,3 +229,33 @@ describe('closeNoteBeside — 옆에 노트 닫기', () => {
     expect(ids(again.panes.right)).toEqual(['N'])
   })
 })
+
+describe('placeNoteTab — 캔버스 탭', () => {
+  const canvas = (id: string): Tab => ({ id, title: id, kind: 'canvas' })
+  const base = { channels: DEFAULT_CHANNELS, visible: ['left'] as readonly PaneId[], layoutId: 'single' as const, anchor: 'left' as PaneId }
+
+  it('문서 창 옆에 새 창을 열어 캔버스 탭을 놓고 같은 색을 준다', () => {
+    const result = placeNoteTab({ ...base, panes: panes({ left: strip([pdf('A')]) }), tab: canvas('C') })
+    expect(result.kind).toBe('beside')
+    expect(result.layout).toBe('cols2')
+    expect(ids(result.panes[result.pane])).toEqual(['C'])
+    expect(result.panes[result.pane].tabs[0]?.kind).toBe('canvas')
+    expect(result.channels.right).toBe(result.channels.left)
+  })
+
+  it('같은 색 창에 캔버스가 보이면 거기에 탭으로 더한다(메모 노트 창은 캔버스를 받지 않는다)', () => {
+    const state = panes({ left: strip([pdf('A')]), right: strip([note('N')]), third: strip([canvas('C1')]) })
+    const result = placeNoteTab({ ...base, panes: state, visible: ['left', 'right', 'third'], layoutId: 'cols3', tab: canvas('C2') })
+    expect(result.kind).toBe('tab')
+    expect(result.pane).toBe('third')
+    expect(ids(result.panes.third)).toEqual(['C1', 'C2'])
+    expect(ids(result.panes.right)).toEqual(['N'])
+  })
+
+  it('이미 탭으로 있으면 그 탭으로 바꾼다', () => {
+    const state = panes({ left: strip([pdf('A')]), right: strip([canvas('C1'), canvas('C2')], 'C1') })
+    const result = placeNoteTab({ ...base, panes: state, visible: ['left', 'right'], layoutId: 'cols2', tab: canvas('C2') })
+    expect(result.kind).toBe('activated')
+    expect(result.panes.right.activeId).toBe('C2')
+  })
+})

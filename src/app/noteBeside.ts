@@ -96,7 +96,7 @@ export interface PlaceNoteOutcome {
 const isNoteTab = (tab: Tab | null): boolean => tab !== null && tab.kind === 'memoNote'
 
 /**
- * 메모 노트 탭을 문서 창(anchor) 옆에 놓는다(설계 3.4·3.6):
+ * 메모 노트 탭(또는 캔버스 탭 — 같은 종류의 탭끼리 한 창에 모인다)을 문서 창(anchor) 옆에 놓는다(설계 3.4·3.6):
  * 1. 이미 어느 창에 탭으로 있으면 그 탭으로 바꾼다.
  * 2. anchor 가 노트를 보이고 있거나, 같은 색의 이웃 창이 노트를 보이고 있으면 그 창에 탭으로 더한다.
  * 3. 없으면 anchor 의 오른쪽(안 되면 아래·왼쪽·위)에 새 창을 열고 anchor 의 색을 준다. anchor 에 색이 없으면 비어 있는 색을 둘 다에 준다.
@@ -119,7 +119,7 @@ export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
   const channels: PaneChannels = input.channels[anchor] === null ? { ...input.channels, [anchor]: channel } : input.channels
 
   // 2. 노트를 보이는 창(anchor 자신 → 같은 색 이웃)
-  const showsNote = (pane: PaneId) => isNoteTab(activeTab(panes[pane]))
+  const showsNote = (pane: PaneId) => { const shown = activeTab(panes[pane]); return shown !== null && shown.kind === tab.kind }
   const peers = visible.filter((pane) => pane !== anchor && channels[pane] === channel && showsNote(pane))
   const host = showsNote(anchor) ? anchor : peers.find((pane) => panes[pane].tabs.some((candidate) => candidate.preview === true)) ?? peers[0]
   if (host !== undefined) {

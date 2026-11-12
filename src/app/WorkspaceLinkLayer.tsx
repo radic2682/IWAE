@@ -40,7 +40,7 @@ export function WorkspaceLinkLayer() {
         {lines.map((line) => {
           const { lead, curve } = linkLinePath(line)
           return (
-            <g key={`${line.side}-${line.id}`} className={`workspace-link${line.active ? ' workspace-link-active' : ''}`} data-hl={line.color} data-side={line.side}>
+            <g key={line.key} className={`workspace-link${line.active ? ' workspace-link-active' : ''}`} data-hl={line.color} data-side={line.side}>
               <path className="workspace-link-lead" d={lead} />
               <path className="workspace-link-curve" d={curve} />
               <circle className="workspace-link-dot" cx={line.startX} cy={line.y} r={line.active ? 3 : 2.2} />

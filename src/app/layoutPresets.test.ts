@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { applyLayoutPreset, availableLayoutPresets, LAYOUT_PRESETS } from './layoutPresets'
 import { allPaneTabs, emptyTabs, type PanesState, type Tab } from './tabs'
 import { DEFAULT_CHANNELS } from './workspaceChannels'
+import { CANVAS_ENABLED } from '../core/features'
 
 const pdf = (id: string): Tab => ({ id, title: id, kind: 'pdf' })
 const md = (id: string): Tab => ({ id, title: id, kind: 'markdown' })
@@ -18,6 +19,11 @@ describe('배치 목록', () => {
     expect(availableLayoutPresets(true).map((preset) => preset.id)).toEqual(['read', 'noteLeft', 'compare', 'organize'])
     expect(availableLayoutPresets(false).map((preset) => preset.id)).toEqual(['read', 'noteLeft', 'compare'])
     expect(LAYOUT_PRESETS.map((preset) => preset.label)).toEqual(['읽기', '노트 왼쪽', '비교', '정리'])
+  })
+
+  it('캔버스가 켜져 있으면 앱이 쓰는 목록에 「정리」가 보인다', () => {
+    expect(CANVAS_ENABLED).toBe(true)
+    expect(availableLayoutPresets(CANVAS_ENABLED).map((preset) => preset.id)).toContain('organize')
   })
 })
 
@@ -111,6 +117,32 @@ describe('applyLayoutPreset — 열린 탭을 그 모양으로 다시 놓는다'
     expect(result.panes.left.activeId).toBe('N')
     expect(ids(result.panes.right)).toEqual(['C'])
     expect(sorted(result.panes)).toEqual(sorted(state))
+  })
+
+  it('정리: 캔버스가 여럿이면 마지막으로 만진 캔버스가 보인다', () => {
+    const state = panes({ left: strip([note('N')]), right: strip([canvas('C1'), canvas('C2')], 'C1') })
+    const result = applyLayoutPreset(input(state, 'organize', { lastCanvas: 'C2' }))
+    expect(ids(result.panes.right)).toEqual(['C1', 'C2'])
+    expect(result.panes.right.activeId).toBe('C2')
+    expect(result.channels.left).toBe(result.channels.right)
+  })
+
+  it('정리: 열린 캔버스 탭이 없으면 준 캔버스(마지막으로 만진·첫 캔버스·새 캔버스)를 캔버스 칸에 놓는다', () => {
+    const state = panes({ left: strip([pdf('A'), note('N')], 'N') })
+    const result = applyLayoutPreset(input(state, 'organize', { fallbackCanvas: canvas('NEW') }))
+    expect(ids(result.panes.left)).toEqual(['N', 'A'])
+    expect(ids(result.panes.right)).toEqual(['NEW'])
+    expect(result.panes.right.activeId).toBe('NEW')
+    // 준 캔버스가 없으면 캔버스 칸은 비어 있다(다른 프리셋은 캔버스를 만들지 않는다)
+    expect(applyLayoutPreset(input(state, 'organize')).panes.right).toEqual(emptyTabs)
+    expect(applyLayoutPreset(input(state, 'read', { fallbackCanvas: canvas('NEW') })).panes.right.tabs.map((tab) => tab.id)).not.toContain('NEW')
+  })
+
+  it('정리: 노트가 없으면 보던 문서가 왼쪽 칸에 보인다', () => {
+    const state = panes({ left: strip([pdf('A'), pdf('B')], 'B'), right: strip([canvas('C')]) })
+    const result = applyLayoutPreset(input(state, 'organize'))
+    expect(ids(result.panes.left)).toEqual(['A', 'B'])
+    expect(result.panes.left.activeId).toBe('B')
   })
 
   it('어느 프리셋이든 탭 수는 그대로다(같은 탭이 모두 남는다)', () => {

@@ -43,6 +43,10 @@ export interface PresetInput {
   readonly lastTouched: string | null
   /** 노트 탭이 하나도 없을 때 놓을 노트(마지막으로 만진·문서의 노트). 없으면 노트 칸은 비어 있다 */
   readonly fallbackNote: Tab | null
+  /** 마지막으로 만진 캔버스(없으면 null) — 「정리」에서 여러 캔버스 중 보일 것 */
+  readonly lastCanvas?: string | null
+  /** 캔버스 탭이 하나도 없을 때 「정리」가 놓을 캔버스(마지막으로 만진·첫 캔버스·새로 만든 것). 없으면 캔버스 칸은 비어 있다 */
+  readonly fallbackCanvas?: Tab | null
 }
 
 export interface PresetOutcome {
@@ -66,13 +70,16 @@ function leadWith(list: readonly Tab[], first: Tab | undefined): Tab[] {
  * - 문서 칸과 노트 칸은 같은 색이다. 비교는 두 쌍이 서로 다른 색이다.
  */
 export function applyLayoutPreset(input: PresetInput): PresetOutcome {
-  const { id, panes, channels, anchor, lastTouched, fallbackNote } = input
+  const { id, panes, channels, anchor, lastTouched, fallbackNote, lastCanvas = null, fallbackCanvas = null } = input
   const all = PANE_IDS.flatMap((pane) => panes[pane].tabs)
   const shown = PANE_IDS.map((pane) => activeTab(panes[pane])).filter((tab): tab is Tab => tab !== null)
   const anchorTab = anchor === null ? null : activeTab(panes[anchor])
   const activeDoc = anchorTab !== null && isDocumentKind(anchorTab.kind) ? anchorTab : shown.find((tab) => isDocumentKind(tab.kind))
   const docs = all.filter((tab) => isDocumentKind(tab.kind))
-  const canvases = all.filter((tab) => tab.kind === 'canvas')
+  let canvases = all.filter((tab) => tab.kind === 'canvas')
+  // 「정리」는 캔버스가 있어야 한다: 열린 캔버스 탭이 없으면 마지막으로 만진(또는 새) 캔버스를 놓는다
+  if (id === 'organize' && canvases.length === 0 && fallbackCanvas !== null) canvases = [fallbackCanvas]
+  const activeCanvas = canvases.find((tab) => tab.id === lastCanvas) ?? canvases.find((tab) => shown.some((candidate) => candidate.id === tab.id)) ?? canvases[0]
   let notes = all.filter((tab) => tab.kind === 'memoNote')
   if (notes.length === 0 && fallbackNote !== null) notes = [fallbackNote]
   const activeNote = notes.find((tab) => tab.id === lastTouched) ?? notes.find((tab) => shown.some((candidate) => candidate.id === tab.id)) ?? notes[0]
@@ -110,5 +117,5 @@ export function applyLayoutPreset(input: PresetInput): PresetOutcome {
   const noteStrip = strip([...notes, ...canvases], activeNote?.id)
   if (id === 'read') return { layout: 'cols2', panes: { ...empty, left: docStrip, right: noteStrip }, channels: channelsOut, focus: 'left' }
   if (id === 'noteLeft') return { layout: 'cols2', panes: { ...empty, left: noteStrip, right: docStrip }, channels: channelsOut, focus: 'right' }
-  return { layout: 'cols2', panes: { ...empty, left: strip([...notes, ...docs], activeNote?.id), right: strip(canvases) }, channels: channelsOut, focus: 'left' }
+  return { layout: 'cols2', panes: { ...empty, left: strip([...notes, ...docs], activeNote?.id ?? activeDoc?.id), right: strip(canvases, activeCanvas?.id) }, channels: channelsOut, focus: 'left' }
 }

@@ -44,7 +44,11 @@ export interface PaneLinkSnapshot {
   readonly activeIds: readonly string[]
 }
 
-export type LinkRole = 'document' | 'note'
+/** 창이 내놓는 것의 역할: 문서(형광펜), 메모 노트(카드), 캔버스(출처가 있는 블록) */
+export type LinkRole = 'document' | 'note' | 'canvas'
+
+/** 문서 창이 내놓는 「캔버스 블록의 출처 자리」의 id 앞머리(src:블록id). 이어진 메모(형광펜)가 없는 블록은 이 id 로 잇는다 */
+export const SOURCE_LINK_PREFIX = 'src:'
 
 export interface PaneLinkMeta {
   readonly pane: PaneId
@@ -82,16 +86,18 @@ export interface LinkPaneEntry extends PaneLinkMeta {
   readonly frame: LinkRect
 }
 
-/** 이어지는 문서 창 ↔ 노트 창 한 쌍. noteSide: 노트가 문서의 어느 쪽에 있는가 */
+/** 이어지는 문서 창 ↔ 노트(또는 캔버스) 창 한 쌍. noteSide: 노트가 문서의 어느 쪽에 있는가 */
 export interface LinkPair {
   readonly doc: PaneId
   readonly note: PaneId
+  /** 노트 쪽이 메모 노트인가 캔버스인가 */
+  readonly noteRole: 'note' | 'canvas'
   readonly noteSide: LinkSide
   readonly docId: string | null
 }
 
 /**
- * 짝 맞추기: 채널이 있고 같으며, 이웃하고, 보이는 탭이 문서와 메모 노트인 창끼리만.
+ * 짝 맞추기: 채널이 있고 같으며, 이웃하고, 보이는 탭이 문서와 메모 노트(또는 캔버스)인 창끼리만.
  * (격자 배치든 좌우 배치든 실제 칸 사각형으로 가르므로 같은 규칙이다.)
  */
 export function pairLinkedPanes(entries: readonly LinkPaneEntry[]): LinkPair[] {
@@ -99,9 +105,9 @@ export function pairLinkedPanes(entries: readonly LinkPaneEntry[]): LinkPair[] {
   for (const doc of entries) {
     if (doc.role !== 'document' || doc.channel === null) continue
     for (const note of entries) {
-      if (note.role !== 'note' || note.channel !== doc.channel || note.pane === doc.pane) continue
+      if (note.role === 'document' || note.channel !== doc.channel || note.pane === doc.pane) continue
       const noteSide = neighborSide(doc.frame, note.frame)
-      if (noteSide !== null) pairs.push({ doc: doc.pane, note: note.pane, noteSide, docId: doc.docId ?? null })
+      if (noteSide !== null) pairs.push({ doc: doc.pane, note: note.pane, noteRole: note.role, noteSide, docId: doc.docId ?? null })
     }
   }
   return pairs
@@ -109,6 +115,8 @@ export function pairLinkedPanes(entries: readonly LinkPaneEntry[]): LinkPair[] {
 
 /** 층이 그리는 선 하나(화면 좌표). 형광펜 끝 → 문서 창 가장자리 점선(lead), 거기서 카드 가까운 쪽 가장자리까지 곡선 */
 export interface LinkLine {
+  /** 층 안에서 유일한 열쇠(같은 형광펜이 노트와 캔버스 둘에 이어질 수 있다) */
+  readonly key: string
   readonly id: string
   readonly color?: string
   readonly active: boolean
@@ -147,6 +155,7 @@ export function linkLines(pair: LinkPair, doc: PaneLinkSnapshot, note: PaneLinkS
     if (!within(startX, doc.body.left, doc.body.right) || !within(mark.y, doc.body.top, doc.body.bottom)) continue
     if (!within(cardY, note.body.top, note.body.bottom)) continue
     lines.push({
+      key: `${pair.doc}>${pair.note}:${mark.id}`,
       id: mark.id,
       ...(mark.color === undefined ? {} : { color: mark.color }),
       active: activeIds.has(mark.id),
@@ -252,7 +261,7 @@ function notify(listeners: Set<() => void>): void {
 const round = (value: number) => Math.round(value * 10) / 10
 
 function lineKey(line: LinkLine): string {
-  return [line.id, line.color ?? '', line.active ? 1 : 0, line.side, round(line.startX), round(line.y), round(line.edgeX), round(line.cardX), round(line.cardY)].join(',')
+  return [line.key, line.id, line.color ?? '', line.active ? 1 : 0, line.side, round(line.startX), round(line.y), round(line.edgeX), round(line.cardX), round(line.cardY)].join(',')
 }
 
 /** 모은 창 사각형으로 짝과 선을 다시 셈한다. 바뀐 쪽만 알린다 */
@@ -263,13 +272,13 @@ function recompute(): void {
     if (snapshot !== undefined) entries.push({ ...registration.meta, frame: snapshot.frame })
   }
   const nextPairs = pairLinkedPanes(entries)
-  const nextPairsKey = nextPairs.map((pair) => `${pair.doc}>${pair.note}:${pair.noteSide}:${pair.docId ?? ''}`).join('|')
+  const nextPairsKey = nextPairs.map((pair) => `${pair.doc}>${pair.note}:${pair.noteRole}:${pair.noteSide}:${pair.docId ?? ''}`).join('|')
   if (nextPairsKey !== pairsKey) {
     pairsKey = nextPairsKey
     pairs = nextPairs
     const byNote = new Map<PaneId, string[]>()
     for (const pair of nextPairs) {
-      if (pair.docId === null) continue
+      if (pair.docId === null || pair.noteRole !== 'note') continue
       byNote.set(pair.note, [...(byNote.get(pair.note) ?? []), pair.docId])
     }
     linkedDocIds = byNote
@@ -371,6 +380,20 @@ export function useLinkedDocIds(pane: PaneId | null): readonly string[] {
     () => (pane === null ? NO_DOC_IDS : linkedDocIds.get(pane) ?? NO_DOC_IDS),
     () => NO_DOC_IDS,
   )
+}
+
+/** 짝이 바뀔 때 알린다(옛 출처 추적선이 층의 선과 겹치지 않게 다시 잰다) */
+export function subscribeLinkPairs(listener: () => void): () => void {
+  pairListeners.add(listener)
+  return () => { pairListeners.delete(listener) }
+}
+
+/**
+ * 이 캔버스 창이 docId 문서를 보는 문서 창과 이웃해 층이 선을 그리는가.
+ * 그러면 옛 출처 추적선(SourceTrace)은 같은 선을 또 그리지 않는다 — 이웃하지 않은 경우에만 옛 선이 남는다.
+ */
+export function isCanvasLinkedToDoc(canvasPane: string | null, docId: string): boolean {
+  return canvasPane !== null && pairs.some((pair) => pair.noteRole === 'canvas' && pair.note === canvasPane && pair.docId === docId)
 }
 
 /** 시험용: 등록·짝·층을 모두 비운다 */

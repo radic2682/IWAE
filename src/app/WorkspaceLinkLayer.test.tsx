@@ -18,13 +18,13 @@ afterEach(() => {
 
 describe('WorkspaceLinkLayer', () => {
   it('곡선은 문서 창 경계에서 카드 가장자리로, 점선은 형광펜 끝에서 경계로 간다', () => {
-    const line = { id: 'h', active: false, side: 'right', startX: 220, y: 120, edgeX: 400, cardX: 440, cardY: 220 } as const
+    const line = { key: 'k', id: 'h', active: false, side: 'right', startX: 220, y: 120, edgeX: 400, cardX: 440, cardY: 220 } as const
     expect(linkLinePath(line)).toEqual({
       lead: 'M 220 120 H 400',
       curve: 'M 400 120 C 420 120, 420 220, 440 220',
     })
     // 노트가 왼쪽: 같은 식이지만 왼쪽으로 간다
-    const left = { id: 'h', active: false, side: 'left', startX: 500, y: 120, edgeX: 404, cardX: 380, cardY: 220 } as const
+    const left = { key: 'k', id: 'h', active: false, side: 'left', startX: 500, y: 120, edgeX: 404, cardX: 380, cardY: 220 } as const
     expect(linkLinePath(left).curve).toBe('M 404 120 C 392 120, 392 220, 380 220')
   })
 
