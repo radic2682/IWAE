@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from 'react'
-import { CaretDown, CaretRight, Check, Code, DotsSixVertical, DotsThree, HighlighterCircle, ListBullets, ListChecks, ListNumbers, Star, Table, TextAa, TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline, Trash } from '@phosphor-icons/react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type ReactNode, type RefObject, type SetStateAction } from 'react'
+import { CaretDown, Code, DotsThree, HighlighterCircle, ListBullets, ListChecks, ListNumbers, Table, TextAa, TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { restoreInlineStyles } from '../app/runtimeStyle'
 import { useHasTopBarSlot } from '../app/topBarToolbar'
@@ -9,46 +9,7 @@ import {
   applyBlockMarkdown, applyInlineMarkdown, checkItemAt, checkItemIndex, currentBlockKind, handleMemoBackspace, handleMemoEnter, handleMemoTab,
   insideCodeBlock, looksLikeMarkdown, memoPlainText, setBlockKind, toggleCheckItem, toggleChecklist, toggleInlineCode, type MemoBlockKind,
 } from './memoEditing'
-import { useHighlightColors } from '../app/highlightColorStyle'
-import { highlightColorLabel } from '../core/highlightColors'
-import { sortMemosForList, type PersistentPdfHighlight } from './persistentHighlight'
-import type { PdfHighlightColor } from './SelectionLayer'
-import { RegionCrop } from './RegionCrop'
-import { CategoryTag } from './CategoryTag'
 import { t } from '../i18n'
-
-/** 메모 카드 열의 최대 폭과 페이지와의 간격(px) */
-export const MEMO_COLUMN_WIDTH = 380
-export const MEMO_COLUMN_GAP = 28
-/** 메모 열 맨 위 머리(검색칸)의 높이. 카드는 이 아래부터 쌓는다 */
-export const MEMO_HEADER_HEIGHT = 46
-const CARD_GAP = 8
-const ESTIMATED_CARD_HEIGHT = 64
-
-/** 메모 카드 하나가 붙을 자리: 형광펜이 있는 화면 위치(문서 좌표) */
-export interface MemoTarget {
-  readonly highlight: PersistentPdfHighlight
-  /** 형광펜 첫 줄의 위쪽 */
-  readonly top: number
-  /** 선이 시작하는 점: 형광펜 첫 줄 오른쪽 끝, 높이는 첫 줄 가운데 */
-  readonly anchorX: number
-  readonly anchorY: number
-  /** 아직 저장 안 된 새 메모(글을 쓰면 저장, 안 쓰고 나가면 사라진다) */
-  readonly draft?: boolean
-}
-
-/** 카드를 형광펜 높이에 맞춰 놓는다. 앞 카드와 겹치면 아래로 비켜 쌓는다(문서 순서 그대로) */
-export function stackMemoCards(targets: readonly MemoTarget[], heights: ReadonlyMap<string, number>): Map<string, number> {
-  const placed = new Map<string, number>()
-  let bottom = -Infinity
-  for (const target of [...targets].sort((a, b) => a.top - b.top || a.anchorX - b.anchorX)) {
-    const top = Math.max(target.top - 6, bottom + CARD_GAP)
-    placed.set(target.highlight.id, top)
-    bottom = top + (heights.get(target.highlight.id) ?? ESTIMATED_CARD_HEIGHT)
-  }
-  return placed
-}
-
 
 /** 메모 내용: 글(검색·MCP 용)과 서식 HTML(꾸밈이 없으면 빈 문자열) */
 export interface MemoContent {
@@ -327,14 +288,19 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
     observer.observe(bar)
     // 서식 줄은 내용 폭만큼만 차지하므로(옆의 검색 · 글 블록 · 펼치기 단추가 바로 이어 붙는다) 줄 폭이 아니라 도구줄의 폭 변화를 봐야 다시 넓어졌을 때 알아챈다
     const dock = bar.closest('.note-format-dock')
-    if (dock !== null) observer.observe(dock)
+    if (dock !== null) {
+      observer.observe(dock)
+      // 곁의 묶음(검색 · 글 블록 · 펼치기)도 본다: 그 묶음의 폭이 줄거나 늘어도 도구줄 폭은 그대로라서 도구줄만 보면 다시 재지 못한다
+      for (const child of Array.from(dock.children)) if (!child.contains(bar)) observer.observe(child)
+    }
     return () => observer.disconnect()
   }, [barRef])
   useLayoutEffect(() => {
     const bar = barRef.current
     if (bar === null || bar.closest('.note-format-dock') === null) return
     for (const element of Array.from(bar.querySelectorAll<HTMLElement>(':scope > [data-cluster]'))) {
-      widths.current[Number(element.dataset.cluster)] = element.offsetWidth
+      // 소수 배율에서도 어긋나지 않게 반올림된 offsetWidth 가 아니라 실제 폭으로 잰다
+      widths.current[Number(element.dataset.cluster)] = element.getBoundingClientRect().width
     }
     const capacity = formatCapacity(bar)
     const known = widths.current
@@ -362,21 +328,25 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
  * 서식 줄이 쓸 수 있는 폭(px). 줄은 내용 폭만큼만 차지해서(남는 자리는 도구줄 맨 뒤에 있다) 줄 자신의 폭은 쓸 수 있는 폭이 아니다 —
  * 도구줄 안쪽 폭에서 줄 곁의 다른 것들(검색 · 글 블록 · 펼치기 묶음과 그 여백)을 빼고, 줄의 음수 왼쪽 여백(-11px)을 돌려 더한다.
  * 도구줄 밖(박스 메모 등)의 서식 줄은 줄 폭 그대로다.
+ * 폭은 모두 `getBoundingClientRect()` 의 실제(소수) 폭이고 1px 여유를 둔다 — 소수 배율에서 반올림한 폭을 더하면 마지막 묶음이 둘째 줄로 밀려 잘렸다.
  */
 export function formatCapacity(bar: HTMLElement): number {
   const dock = bar.closest<HTMLElement>('.note-format-dock')
-  if (dock === null) return bar.clientWidth
+  if (dock === null) return bar.getBoundingClientRect().width
   const style = getComputedStyle(dock)
   const number = (value: string) => Number.parseFloat(value) || 0
   let beside = 0
   for (const child of Array.from(dock.children)) {
     if (!(child instanceof HTMLElement) || child === bar || child.contains(bar)) continue
     const own = getComputedStyle(child)
-    beside += child.offsetWidth + number(own.marginLeft) + number(own.marginRight)
+    beside += child.getBoundingClientRect().width + number(own.marginLeft) + number(own.marginRight)
   }
-  const inner = dock.clientWidth - number(style.paddingLeft) - number(style.paddingRight)
-  return inner - beside - number(getComputedStyle(bar).marginLeft)
+  const inner = dock.getBoundingClientRect().width - number(style.paddingLeft) - number(style.paddingRight)
+  return inner - beside - number(getComputedStyle(bar).marginLeft) - FORMAT_SLACK_PX
 }
+
+/** 서식 줄 용량에서 덜어 두는 여유(px): 소수 폭 · 서브픽셀 어림이 쌓여 한 줄에 안 들어가는 일이 없게 */
+const FORMAT_SLACK_PX = 1
 
 /** 「⋯」 단추가 차지하는 폭(px): 28px + 앞 여백 6px */
 const FORMAT_MORE_W = 34
@@ -624,415 +594,5 @@ export function MemoNoteView({ note, noteHtml, onEdit, onChange }: {
       }}
       dangerouslySetInnerHTML={{ __html: displayHtml }}
     />
-  )
-}
-
-/** 카드의 카테고리: 누르면 이 PDF 에서 쓰는 카테고리 중에서 고르거나 새로 만든다 */
-export function MemoCategoryPicker({ value, categories, onChange }: {
-  readonly value: string | undefined
-  readonly categories: readonly string[]
-  readonly onChange: (topic: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const rootRef = useRef<HTMLSpanElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (event: PointerEvent) => {
-      if (!(event.target instanceof Node) || rootRef.current?.contains(event.target) !== true) setOpen(false)
-    }
-    document.addEventListener('pointerdown', close, true)
-    return () => document.removeEventListener('pointerdown', close, true)
-  }, [open])
-
-  const pick = (topic: string) => {
-    setOpen(false)
-    setDraft('')
-    onChange(topic)
-  }
-
-  return (
-    <span ref={rootRef} className="pdf-memo-category">
-      <button
-        type="button"
-        className={`pdf-memo-topic${value === undefined ? ' pdf-memo-topic-empty' : ''}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={value === undefined ? t('카테고리 정하기') : t('카테고리 {name} 바꾸기', { name: value })}
-        onPointerDown={(event) => event.preventDefault()}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {value === undefined ? t('+ 카테고리') : <CategoryTag name={value} />}
-      </button>
-      {open ? (
-        <div className="pdf-memo-category-menu" role="listbox" aria-label={t('이 PDF의 카테고리')}>
-          <div className="pdf-memo-category-head">{t('이 PDF의 카테고리')}</div>
-          {categories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              role="option"
-              aria-selected={category === value}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={() => pick(category)}
-            >
-              <span className="pdf-memo-category-check">{category === value ? <Check size={12} weight="bold" aria-hidden="true" /> : null}</span>
-              <CategoryTag name={category} />
-            </button>
-          ))}
-          {value === undefined ? null : (
-            <button type="button" className="pdf-memo-category-clear" onPointerDown={(event) => event.preventDefault()} onClick={() => pick('')}>
-              {t('카테고리 빼기')}
-            </button>
-          )}
-          <input
-            aria-label={t('새 카테고리')}
-            placeholder={t('새 카테고리 (Enter)')}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              event.stopPropagation()
-              if (event.key === 'Enter' && draft.trim() !== '') {
-                event.preventDefault()
-                pick(draft.trim())
-              } else if (event.key === 'Escape') {
-                setOpen(false)
-              }
-            }}
-          />
-        </div>
-      ) : null}
-    </span>
-  )
-}
-
-/**
- * 페이지 오른쪽의 메모 카드 열과, 형광펜에서 카드로 가는 선.
- * 문서 스크롤 상자 안에 절대 위치로 얹혀 페이지와 함께 움직인다.
- */
-export function MemoColumn({
-  targets,
-  columnLeft,
-  columnWidth = MEMO_COLUMN_WIDTH,
-  pageRight,
-  height,
-  width,
-  editingId,
-  activeId,
-  categories = [],
-  query = '',
-  showInnerLink = true,
-  pageSizeOf,
-  onEdit,
-  onActivate,
-  onSave,
-  onCancelDraft,
-  onRecolor,
-  onDelete,
-  onSetTopic,
-  flow = false,
-  onCardLayout,
-  onJump,
-  onToggleCollapse,
-  onRate,
-  onReorder,
-}: {
-  readonly targets: readonly MemoTarget[]
-  /** 카드 열의 왼쪽(문서 좌표) */
-  readonly columnLeft: number
-  readonly columnWidth?: number
-  /** 페이지 오른쪽 끝(문서 좌표) */
-  readonly pageRight: number
-  readonly height: number
-  readonly width: number
-  readonly editingId: string | null
-  readonly activeId: string | null
-  /** 이 PDF 에서 쓰는 카테고리 */
-  readonly categories?: readonly string[]
-  /** 노트 검색어: 맞지 않는 카드는 흐리게 */
-  readonly query?: string
-  /** 형광펜 끝에서 페이지 끝까지의 선도 그릴까(카드가 따로 떨어진 바에 있으면 그 선은 페이지 쪽이 그린다) */
-  readonly showInnerLink?: boolean
-  /** 영역 메모의 원문을 카드 안에 그릴 때 쓰는 그 쪽의 크기(pt) */
-  readonly pageSizeOf?: (highlight: PersistentPdfHighlight) => readonly [number, number] | undefined
-  readonly onEdit: (id: string | null) => void
-  readonly onActivate: (id: string | null) => void
-  readonly onSave: (id: string, content: MemoContent) => void
-  /** 새 메모를 Esc 로 그만뒀다 */
-  readonly onCancelDraft?: () => void
-  readonly onRecolor: (id: string, color: PdfHighlightColor) => void
-  readonly onDelete: (id: string) => void
-  readonly onSetTopic?: (id: string, topic: string) => void
-  /**
-   * 목록으로 쌓기: 카드를 문서 순서대로 차례로 놓고(형광펜 높이에 맞추지 않는다) 선은 그리지 않는다.
-   * 메모 바가 PDF 와 따로 스크롤할 때 쓴다. 선은 onCardLayout 으로 받은 카드 자리로 바깥에서 그린다
-   */
-  readonly flow?: boolean
-  /** 목록으로 쌓을 때 카드마다의 자리(스크롤 상자 안 좌표) */
-  readonly onCardLayout?: (layout: ReadonlyMap<string, { top: number; height: number }>) => void
-  /** 카드의 쪽 번호를 누르면 PDF 의 그 자리로 */
-  readonly onJump?: (highlight: PersistentPdfHighlight) => void
-  /** 카드 접기·펼치기 */
-  readonly onToggleCollapse?: (id: string, collapsed: boolean) => void
-  /** 별점(1~5, 0 이면 지움) */
-  readonly onRate?: (id: string, rating: number) => void
-  /** 목록에서 손잡이로 끌어 순서를 바꿨다(바뀐 뒤 카드 id 차례) */
-  readonly onReorder?: (ids: readonly string[]) => void
-}) {
-  const colors = useHighlightColors()
-  const cardRefs = useRef(new Map<string, HTMLDivElement>())
-  const reportedLayoutRef = useRef('')
-  const [heights, setHeights] = useState<ReadonlyMap<string, number>>(new Map())
-  const tops = stackMemoCards(targets, heights)
-  const needle = query.trim().toLowerCase()
-
-  useLayoutEffect(() => {
-    let changed = false
-    const next = new Map(heights)
-    for (const target of targets) {
-      const element = cardRefs.current.get(target.highlight.id)
-      if (element === undefined) continue
-      const measured = element.offsetHeight
-      if (measured > 0 && next.get(target.highlight.id) !== measured) {
-        next.set(target.highlight.id, measured)
-        changed = true
-      }
-    }
-    if (changed) setHeights(next)
-    if (flow && onCardLayout !== undefined) {
-      const layout = new Map<string, { top: number; height: number }>()
-      for (const [id, element] of cardRefs.current) layout.set(id, { top: element.offsetTop, height: element.offsetHeight })
-      const key = [...layout].map(([id, box]) => `${id}:${box.top}:${box.height}`).join('|')
-      if (key !== reportedLayoutRef.current) {
-        reportedLayoutRef.current = key
-        onCardLayout(layout)
-      }
-    }
-  })
-  const ordered = flow ? sortMemosForList(targets, (target) => target.highlight, (target) => target.top) : targets
-  // 손잡이로 끄는 중인 카드와, 놓으면 들어갈 자리(그 앞에 끼운다. 끝이면 ordered.length)
-  const [dragging, setDragging] = useState<{ id: string; drop: number } | null>(null)
-  const dropIndexAt = (clientY: number) => {
-    const index = ordered.findIndex((target) => {
-      const rect = cardRefs.current.get(target.highlight.id)?.getBoundingClientRect()
-      return rect !== undefined && clientY < rect.top + rect.height / 2
-    })
-    return index < 0 ? ordered.length : index
-  }
-  const startReorder = (event: ReactPointerEvent<HTMLElement>, id: string) => {
-    if (event.button !== 0 || onReorder === undefined) return
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setDragging({ id, drop: dropIndexAt(event.clientY) })
-  }
-  const moveReorder = (event: ReactPointerEvent<HTMLElement>) => {
-    if (dragging === null) return
-    const drop = dropIndexAt(event.clientY)
-    if (drop !== dragging.drop) setDragging({ ...dragging, drop })
-    // 끄는 동안 목록 끝에 닿으면 굴린다
-    const scroller = event.currentTarget.closest('.pdf-memo-bar-scroll')
-    if (scroller !== null) {
-      const rect = scroller.getBoundingClientRect()
-      if (event.clientY < rect.top + 30) scroller.scrollTop -= 12
-      else if (event.clientY > rect.bottom - 30) scroller.scrollTop += 12
-    }
-  }
-  const endReorder = () => {
-    if (dragging === null) return
-    const ids = ordered.map((target) => target.highlight.id)
-    const from = ids.indexOf(dragging.id)
-    setDragging(null)
-    if (from < 0) return
-    const to = dragging.drop > from ? dragging.drop - 1 : dragging.drop
-    if (to === from) return
-    ids.splice(from, 1)
-    ids.splice(to, 0, dragging.id)
-    onReorder?.(ids)
-  }
-
-  return (
-    <>
-      {flow ? null : <svg className="pdf-memo-links" width={width} height={height} aria-hidden="true">
-        {/* 가리키는 메모의 선은 다른 선에 묻히지 않게 맨 나중(위)에 그린다 */}
-        {[...targets].sort((a, b) => Number(a.highlight.id === activeId || a.highlight.id === editingId) - Number(b.highlight.id === activeId || b.highlight.id === editingId)).map((target) => {
-          const top = tops.get(target.highlight.id)
-          if (top === undefined) return null
-          const cardY = top + 16
-          const bend = pageRight + (columnLeft - pageRight) / 2
-          const active = target.highlight.id === activeId || target.highlight.id === editingId || target.draft === true
-          return (
-            <g key={target.highlight.id} data-hl={target.highlight.color} className={`pdf-memo-link${active ? ' pdf-memo-link-active' : ''}`}>
-              {/* 페이지 안쪽(형광펜 끝 → 페이지 가장자리)은 카드를 가리킬 때만 그린다. 늘 그리면 본문 글자를 가로지른다 */}
-              {active && showInnerLink ? <path className="pdf-memo-link-inner" d={`M ${target.anchorX} ${target.anchorY} H ${pageRight}`} /> : null}
-              {active && showInnerLink ? <circle cx={target.anchorX} cy={target.anchorY} r={2.5} /> : null}
-              <path pathLength={1} d={`M ${pageRight} ${target.anchorY} C ${bend} ${target.anchorY}, ${bend} ${cardY}, ${columnLeft} ${cardY}`} />
-              {showInnerLink ? <circle className="pdf-memo-link-edge" cx={pageRight} cy={target.anchorY} r={2} /> : null}
-            </g>
-          )
-        })}
-      </svg>}
-      {ordered.map((target, orderIndex) => {
-        const { highlight } = target
-        const top = tops.get(highlight.id)
-        if (top === undefined) return null
-        const draft = target.draft === true
-        const editing = draft || highlight.id === editingId
-        const active = highlight.id === activeId || editing
-        const collapsed = highlight.collapsed === true && !editing
-        const matches = needle === ''
-          || (highlight.note ?? '').toLowerCase().includes(needle)
-          || highlight.anchor.quote.toLowerCase().includes(needle)
-          || (highlight.topic ?? '').toLowerCase().includes(needle)
-        return (
-          <div
-            key={highlight.id}
-            ref={(element) => {
-              if (element === null) cardRefs.current.delete(highlight.id)
-              else cardRefs.current.set(highlight.id, element)
-            }}
-            className={[
-              'pdf-memo-card',
-              active ? 'pdf-memo-card-active' : '',
-              editing ? 'pdf-memo-card-editing' : '',
-              draft ? 'pdf-memo-card-draft' : '',
-              matches ? '' : 'pdf-memo-card-dim',
-              flow ? 'pdf-memo-card-flow' : '',
-              collapsed ? 'pdf-memo-card-collapsed' : '',
-              dragging?.id === highlight.id ? 'pdf-memo-card-dragging' : '',
-              dragging !== null && dragging.id !== highlight.id && dragging.drop === orderIndex ? 'pdf-memo-card-drop-before' : '',
-              dragging !== null && dragging.id !== highlight.id && dragging.drop === ordered.length && orderIndex === ordered.length - 1 ? 'pdf-memo-card-drop-after' : '',
-            ].filter(Boolean).join(' ')}
-            style={flow ? undefined : { top: `${top}px`, left: `${columnLeft}px`, width: `${columnWidth}px` }}
-            data-memo-id={highlight.id}
-            data-hl={highlight.color}
-            onPointerEnter={() => onActivate(highlight.id)}
-            onPointerLeave={() => onActivate(null)}
-          >
-            <div className="pdf-memo-card-head">
-              {flow && onReorder !== undefined && !draft ? (
-                <span
-                  className="pdf-memo-grip"
-                  role="button"
-                  tabIndex={-1}
-                  aria-label={t('끌어서 순서 바꾸기')}
-                  title={t('끌어서 순서 바꾸기')}
-                  onPointerDown={(event) => startReorder(event, highlight.id)}
-                  onPointerMove={moveReorder}
-                  onPointerUp={endReorder}
-                  onPointerCancel={() => setDragging(null)}
-                >
-                  <DotsSixVertical size={14} weight="bold" aria-hidden="true" />
-                </span>
-              ) : null}
-              {onToggleCollapse !== undefined && !draft ? (
-                <button
-                  type="button"
-                  className="pdf-memo-collapse"
-                  aria-label={collapsed ? t('원문 펼치기') : t('원문 접기')}
-                  aria-expanded={!collapsed}
-                  title={collapsed ? t('원문 펼치기') : t('원문 접기')}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => onToggleCollapse(highlight.id, !collapsed)}
-                >
-                  {collapsed ? <CaretRight size={12} weight="bold" aria-hidden="true" /> : <CaretDown size={12} weight="bold" aria-hidden="true" />}
-                </button>
-              ) : null}
-              <span className="pdf-memo-dot" data-hl={highlight.color} aria-hidden="true" />
-              {onJump !== undefined && !draft ? (
-                <button type="button" className="pdf-memo-card-page pdf-memo-card-jump" title={t('PDF 의 이 자리로')} onClick={() => onJump(highlight)}>
-                  p.{highlight.anchor.page + 1}{highlight.kind === 'region' ? ` · ${t('표/그림')}` : ''}
-                </button>
-              ) : (
-                <span className="pdf-memo-card-page">p.{highlight.anchor.page + 1}{draft ? <em> · {t('새 메모')}</em> : null}{highlight.kind === 'region' ? ` · ${t('표/그림')}` : ''}</span>
-              )}
-              <MemoCategoryPicker
-                value={highlight.topic}
-                categories={categories}
-                onChange={(topic) => {
-                  onSetTopic?.(highlight.id, topic)
-                  // 쓰던 중이었으면 다시 글쓰기로 돌아간다(새 메모가 빈 채로 사라지지 않게)
-                  if (editing) {
-                    window.requestAnimationFrame(() => {
-                      cardRefs.current.get(highlight.id)?.querySelector('textarea')?.focus()
-                    })
-                  }
-                }}
-              />
-              {onRate !== undefined && !draft ? (
-                <span className={`pdf-memo-stars${highlight.rating === undefined ? ' pdf-memo-stars-empty' : ''}`} role="radiogroup" aria-label={t('별점')}>
-                  {[1, 2, 3, 4, 5].map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={highlight.rating === value}
-                      aria-label={t('별 {count}개', { count: value })}
-                      className={`pdf-memo-star${(highlight.rating ?? 0) >= value ? ' pdf-memo-star-on' : ''}`}
-                      onPointerDown={(event) => event.preventDefault()}
-                      onClick={() => onRate(highlight.id, highlight.rating === value ? 0 : value)}
-                    >
-                      <Star size={12} weight={(highlight.rating ?? 0) >= value ? 'fill' : 'regular'} aria-hidden="true" />
-                    </button>
-                  ))}
-                </span>
-              ) : null}
-              <span className="pdf-memo-card-actions">
-                {colors.map(({ id: color }) => (
-                  <button
-                    key={color}
-                    type="button"
-                    data-hl={color}
-                    className="pdf-memo-swatch"
-                    aria-label={t('{color}으로 바꾸기', { color: highlightColorLabel(colors, color) })}
-                    aria-pressed={highlight.color === color}
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => onRecolor(highlight.id, color)}
-                  />
-                ))}
-                {draft ? null : (
-                  <button
-                    type="button"
-                    className="pdf-memo-delete"
-                    aria-label={t('형광펜과 메모 지우기')}
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => onDelete(highlight.id)}
-                  >
-                    <Trash size={13} aria-hidden="true" />
-                  </button>
-                )}
-              </span>
-            </div>
-            {collapsed ? null : (() => {
-              // 카드 안에 고른 원문: 표·그림은 카드 폭에 맞춘 그림, 글은 칠한 글자 그대로
-              const pageSize = highlight.kind === 'region' ? pageSizeOf?.(highlight) ?? highlight.pageSize : undefined
-              if (highlight.kind === 'region' && pageSize !== undefined) {
-                return <div className="pdf-memo-card-source"><RegionCrop highlight={highlight} pageSize={pageSize} maxWidth={columnWidth - 24} /></div>
-              }
-              const quote = highlight.anchor.quote.replace(/\s+/gu, ' ').trim()
-              return quote === '' ? null : <div className="pdf-memo-card-quote" data-hl={highlight.color}>{quote}</div>
-            })()}
-            {editing ? (
-              <MemoEditor
-                key={highlight.id}
-                initialText={highlight.note ?? ''}
-                initialHtml={highlight.noteHtml}
-                placeholder={draft ? t('메모를 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다)') : t('메모를 쓰세요')}
-                onSave={(content) => {
-                  onSave(highlight.id, content)
-                  onEdit(null)
-                }}
-                onCancel={() => {
-                  if (draft) onCancelDraft?.()
-                  onEdit(null)
-                }}
-              />
-            ) : (
-              <MemoNoteView note={highlight.note} noteHtml={highlight.noteHtml} onEdit={() => onEdit(highlight.id)} onChange={(content) => onSave(highlight.id, content)} />
-            )}
-          </div>
-        )
-      })}
-    </>
   )
 }

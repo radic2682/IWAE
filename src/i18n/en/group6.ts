@@ -275,7 +275,6 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '소제목 지우기(블록은 남김)': 'Delete section (keep blocks)',
   // 메모만 보기 · NoteOutline
   '노트 목차': 'Note outline',
-  '표/그림': 'Table/figure',
   // PdfPins · PdfOverlayLayer · PageImage
   '{title} · {page}쪽': '{title} · p. {page}',
   '책갈피 {title} {page}쪽': 'Bookmark {title}, page {page}',

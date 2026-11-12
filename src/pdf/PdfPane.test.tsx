@@ -595,3 +595,52 @@ describe('PdfPane — 보기 옵션', () => {
   })
 })
 
+
+describe('PdfPane — 박스 메모를 쓰는 보기에는 서식 줄 자리가 있다', () => {
+  const boxMemo = {
+    id: 'bx1',
+    color: 'green',
+    note: '박스에 쓴 메모',
+    box: { x: 300, y: 100, w: 170 },
+    anchor: { docId: '0123456789ab', page: 0, coordSpace: 'pdfium-page' as const, rects: [{ x: 72, y: 110, w: 200, h: 12 }], charRange: [0, 5] as const, quote: 'quote', prefix: '', suffix: '' },
+  }
+  const mountView = (primary: boolean) => {
+    setViewport(VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
+    return render(
+      <PdfPane
+        docId="0123456789ab"
+        pageSizes={uniformSizes(3)}
+        hasText
+        primary={primary}
+        persistentHighlights={[boxMemo]}
+        onPersistentHighlightUpdated={vi.fn()}
+      />,
+    )
+  }
+
+  it('나눈 보기(primary 아님)에서 박스 메모를 고치면 그 보기에 서식 줄 자리(.pdf-box-format-slot)가 생기고 서식 줄이 거기에 그려진다', async () => {
+    const view = mountView(false)
+    expect(view.container.querySelector('.pdf-box-format-slot')).toBeNull()
+    const text = await waitFor(() => {
+      const found = view.container.querySelector<HTMLElement>('[data-box-memo="bx1"] .pdf-memo-card-text, [data-box-memo="bx1"] .pdf-memo-note-view')
+      if (found === null) throw new Error('박스 메모 글이 아직 없다')
+      return found
+    })
+    fireEvent.click(text)
+    await waitFor(() => expect(view.container.querySelector('.pdf-box-format-slot')).not.toBeNull())
+    const slot = view.container.querySelector('.pdf-box-format-slot')!
+    expect(slot.querySelector('[role="toolbar"]')).not.toBeNull()
+  })
+
+  it('첫 보기(primary)도 같다 — 쓰는 동안에만 자리가 있고, 평소(박스 모드 아님)에는 없다', async () => {
+    const view = mountView(true)
+    expect(view.container.querySelector('.pdf-box-format-slot')).toBeNull()
+    const text = await waitFor(() => {
+      const found = view.container.querySelector<HTMLElement>('[data-box-memo="bx1"] .pdf-memo-card-text, [data-box-memo="bx1"] .pdf-memo-note-view')
+      if (found === null) throw new Error('박스 메모 글이 아직 없다')
+      return found
+    })
+    fireEvent.click(text)
+    await waitFor(() => expect(view.container.querySelector('.pdf-box-format-slot')).not.toBeNull())
+  })
+})

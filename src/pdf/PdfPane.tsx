@@ -1537,7 +1537,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
       {primary && interactionMode === 'highlight' && rotation === 0 ? (
         <HighlighterStrip onDone={() => onInteractionModeChange?.('text')} />
       ) : null}
-      {primary && (interactionMode === 'box' || editingBoxId !== null || draftBox !== null) && rotation === 0 ? (
+      {/* 박스 메모를 쓰는 동안의 서식 줄 자리: 박스 모드는 만지는 첫 보기(primary)만이지만, 쓰는 박스가 있는 보기는 나눈 보기여도 이 자리가 있어야 서식 줄이 뜬다 */}
+      {((primary && interactionMode === 'box') || editingBoxId !== null || draftBox !== null) && rotation === 0 ? (
         <PdfFloatPalette
           label={t('박스 메모')}
           icon={<ChatTeardropText size={15} aria-hidden="true" />}
