@@ -294,7 +294,7 @@ describe('명령 실행: 칸', () => {
     expect((h.screen().layout as Extract<LayoutNode, { kind: 'split' }>).dir).toBe('v')
     // 차례로 돌기: 방금 even-vertical(1번) 다음은 main-vertical
     const cycled = await h.run('select-layout')
-    expect(cycled.message).toBe('main-vertical')
+    expect(cycled.message).toBe('배치: 큰 칸 + 세로')
     expect((await h.run('select-layout nope')).ok).toBe(false)
     expect((await harness().run('select-layout tiled')).ok).toBe(false)
   })

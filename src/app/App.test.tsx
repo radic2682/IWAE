@@ -1298,7 +1298,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     after({ key: '{', code: 'BracketLeft', shiftKey: true })
     after({ key: '}', code: 'BracketRight', shiftKey: true })
     after({ key: ' ', code: 'Space' })
-    await waitFor(() => expect(statusMessage()).toBe('even-horizontal'))
+    await waitFor(() => expect(statusMessage()).toBe('배치: 나란히'))
     after({ key: '!', code: 'Digit1', shiftKey: true })
     await waitFor(() => expect(screenTabs()).toHaveLength(2))
     expect(cells(container).length).toBeGreaterThan(0)

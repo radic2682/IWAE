@@ -532,6 +532,17 @@ export function resetLayoutCycle(): void {
   layoutCycle.clear()
 }
 
+/** 배치 이름 → 상태 줄에 보일 사람 말(명령 이름은 도움말에만 둔다) */
+export function relayoutMessage(kind: RelayoutKind): string {
+  switch (kind) {
+    case 'even-horizontal': return t('배치: 나란히')
+    case 'even-vertical': return t('배치: 위아래로')
+    case 'main-vertical': return t('배치: 큰 칸 + 세로')
+    case 'main-horizontal': return t('배치: 큰 칸 + 가로')
+    case 'tiled': return t('배치: 바둑판')
+  }
+}
+
 function selectLayoutBy(model: WorkspaceModel, name: string | undefined): Outcome {
   const active = activeScreenOf(model.screens)
   if (leaves(active.layout).length <= 1) return { error: t('칸이 하나뿐입니다') }
@@ -548,7 +559,7 @@ function selectLayoutBy(model: WorkspaceModel, name: string | undefined): Outcom
   }
   const next = selectLayout(workspaceOf(active), kind)
   const screens = setZoomed(withActiveWorkspace(model.screens, next), null)
-  return { model: { ...model, screens }, message: kind }
+  return { model: { ...model, screens }, message: relayoutMessage(kind) }
 }
 
 const CHANNEL_WORDS: Readonly<Record<string, PaneChannel>> = { blue: 'blue', green: 'green', orange: 'orange', none: null, off: null, 파랑: 'blue', 초록: 'green', 주황: 'orange', 없음: null }
