@@ -1,25 +1,14 @@
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type SyntheticEvent } from 'react'
-import { ArrowClockwise, Copy, TextAa, Translate, X } from '@phosphor-icons/react'
+import { useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type SyntheticEvent } from 'react'
+import { ArrowClockwise, Copy, TextAa, Translate } from '@phosphor-icons/react'
 import { announceAction } from './actionFeedback'
 import { t } from '../i18n'
 import { explainTranslationError, isTranslationNotConfigured } from '../core/translationErrors'
 import { guessLanguage, normalizeSelectionText } from '../core/translationText'
 import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCardSettingsContext, useEffectiveTargetLanguage } from '../ui/TranslationCard'
 import { TranslationLanguageBar } from '../ui/TranslationLanguageBar'
-import { isDragExempt } from '../ui/dragExempt'
 import { pickSource, pickTarget, setTranslationSource, sourceForNewText, swapPair, type LanguagePair } from '../ui/translationPair'
 import { TranslatorContext } from './translatorContext'
 import { useReaderSelection } from './readerSelectionStore'
-import {
-  PANEL_MARGIN,
-  PANEL_MIN_HEIGHT,
-  PANEL_MIN_WIDTH,
-  placePanel,
-  updateTranslatorPanel,
-  useTranslatorPanelState,
-  type PanelBox,
-  type TranslatorPanelKind,
-} from './translatorPanelState'
 import '../ui/translator-panel.css'
 
 type ResultState =
@@ -36,26 +25,14 @@ function friendlyError(message: string): string {
   return explained.kind === 'key' || explained.kind === 'quota' || explained.kind === 'region' ? explained.text : message
 }
 
-interface Gesture {
-  readonly mode: 'move' | 'resize'
-  readonly startX: number
-  readonly startY: number
-  readonly box: PanelBox
-}
-
 /**
- * 문서 칸 위에 떠 있는 번역기: 닫을 때까지 열려 있다. 머리 줄을 잡고 끌어 옮기고, 오른쪽 아래 모서리로 크기를 바꾼다.
- * 열림·자리·크기는 문서 종류(PDF · Markdown)마다 기억한다. 도구줄 단추가 열고 닫는다.
+ * 번역기 탭의 내용(설계 5): 떠 있는 칸의 탭 하나다. 옮기기 · 크기 · 접기 · 닫기는 떠 있는 칸(머리와 모서리)이 하고,
+ * 여기는 언어 줄 · 입력 · 번역 · 결과만 그린다. 예전에는 문서 칸 위에 스스로 떠 있는 창이었다.
  */
-export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }) {
+export function TranslatorPanel() {
   const service = useContext(TranslatorContext)
   const settings = useContext(TranslationCardSettingsContext)
-  const stored = useTranslatorPanelState(kind)
-  const rootRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
-  const [bounds, setBounds] = useState<{ readonly width: number; readonly height: number; readonly top: number }>({ width: 0, height: 0, top: 0 })
-  const [draft, setDraft] = useState<PanelBox | null>(null)
-  const gesture = useRef<Gesture | null>(null)
   const [input, setInput] = useState('')
   const [result, setResult] = useState<ResultState>({ status: 'idle' })
   const requestId = useRef(0)
@@ -66,26 +43,6 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
   const target = effective.target ?? ''
   const detected = guessLanguage(normalizeSelectionText(input))
   const pending = result.status === 'pending'
-
-  // 문서 칸(부모) 크기를 따라간다: 칸이 줄어도 번역기는 칸 안에 머문다
-  useLayoutEffect(() => {
-    const parent = rootRef.current?.parentElement
-    if (parent == null) return undefined
-    const toolbar = parent.parentElement?.querySelector<HTMLElement>(':scope > .pane-toolbar') ?? null
-    const measure = () => {
-      // 칸 위에 떠 있는 문서 도구줄과 겹치는 높이만큼 비켜 둔다
-      const overlap = toolbar === null ? 0 : Math.max(0, toolbar.getBoundingClientRect().bottom - parent.getBoundingClientRect().top)
-      setBounds({ width: parent.clientWidth, height: parent.clientHeight, top: Math.round(overlap) })
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(measure)
-    observer.observe(parent)
-    if (toolbar !== null) observer.observe(toolbar)
-    return () => observer.disconnect()
-  }, [])
-
-  const placed = placePanel(draft ?? stored, bounds)
 
   // fresh: 사람이 번역을 눌렀다(언어를 바꿔 다시 번역하는 것이 아님). 기억한 원문 언어가 글과 다르면 자동 감지로 돌린다
   const translateNow = useCallback(async (text: string, fresh = false) => {
@@ -164,66 +121,20 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
     inputRef.current?.focus()
   }
 
-  // 머리 줄 끌기 · 오른쪽 아래 모서리 크기 바꾸기. 칸 밖으로는 나가지 않는다
-  const begin = (mode: Gesture['mode']) => (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0 || (mode === 'move' && isDragExempt(event.target))) return
-    event.preventDefault()
-    gesture.current = { mode, startX: event.clientX, startY: event.clientY, box: placed }
-    try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* 포인터를 잡지 못해도 끌기는 된다 */ }
-  }
-  const drag = (event: ReactPointerEvent<HTMLElement>) => {
-    const g = gesture.current
-    if (g === null) return
-    const dx = event.clientX - g.startX
-    const dy = event.clientY - g.startY
-    if (g.mode === 'move') {
-      setDraft(placePanel({ x: g.box.x + dx, y: g.box.y + dy, w: g.box.w, h: g.box.h }, bounds))
-    } else {
-      const w = Math.min(Math.max(g.box.w + dx, PANEL_MIN_WIDTH), bounds.width - PANEL_MARGIN - g.box.x)
-      const h = Math.min(Math.max(g.box.h + dy, PANEL_MIN_HEIGHT), bounds.height - PANEL_MARGIN - g.box.y)
-      setDraft(placePanel({ x: g.box.x, y: g.box.y, w, h }, bounds))
-    }
-  }
-  const end = (event: ReactPointerEvent<HTMLElement>) => {
-    if (gesture.current === null) return
-    gesture.current = null
-    try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { /* 이미 놓였다 */ }
-    if (draft !== null) updateTranslatorPanel(kind, { x: draft.x, y: draft.y, w: draft.w, h: draft.h })
-    setDraft(null)
-  }
-
   // 닫히면 진행 중인 요청 결과는 버린다
   useEffect(() => () => { requestId.current += 1 }, [])
 
-  const notConfigured = result.status === 'error' && isTranslationNotConfigured(result.message)
+  const notConfigured = (result.status === 'error' && isTranslationNotConfigured(result.message)) || service === null
 
   return (
     <div
-      ref={rootRef}
       className="translator-panel"
-      role="dialog"
-      aria-modal="false"
+      role="region"
       aria-label={t('번역기')}
-      style={{ left: placed.x, top: placed.y, width: placed.w, height: placed.h }}
       onKeyDown={onPanelKey}
     >
-      <div
-        className="translator-panel-header"
-        onPointerDown={begin('move')}
-        onPointerMove={drag}
-        onPointerUp={end}
-        onPointerCancel={end}
-      >
-        <Translate size={15} aria-hidden="true" />
-        <span className="translator-panel-title">{t('번역기')}</span>
-        <span className="translator-panel-spacer" />
-        {service === null || service.providerLabel === '' ? null : <span className="translator-panel-provider">{service.providerLabel}</span>}
-        <button type="button" className="translator-panel-close" aria-label={t('번역기 닫기')} title={t('닫기')} onClick={() => updateTranslatorPanel(kind, { open: false })}>
-          <X size={14} aria-hidden="true" />
-        </button>
-      </div>
-
       <div className="translator-panel-langs">
+        {service === null || service.providerLabel === '' ? null : <span className="translator-panel-provider">{service.providerLabel}</span>}
         <TranslationLanguageBar
           source={sourceChoice}
           target={target}
@@ -278,6 +189,9 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
           <p className="translator-panel-translation" aria-label={t('번역 결과')}>{result.text}</p>
         ) : null}
         {pending ? <p className="translator-panel-status" role="status">{t('번역 중…')}</p> : null}
+        {notConfigured && result.status !== 'error' ? (
+          <p className="translator-panel-error" role="alert">{t('번역기를 아직 설정하지 않았습니다. 설정에서 번역기(키 없이 쓰는 Google 번역 포함)를 고르세요.')}</p>
+        ) : null}
         {result.status === 'error' ? (
           notConfigured
             ? <p className="translator-panel-error" role="alert">{t('번역기를 아직 설정하지 않았습니다. 설정에서 번역기(키 없이 쓰는 Google 번역 포함)를 고르세요.')}</p>
@@ -303,16 +217,6 @@ export function TranslatorPanel({ kind }: { readonly kind: TranslatorPanelKind }
           {t('복사')}
         </button>
       </div>
-
-      <div
-        className="translator-panel-resize"
-        role="separator"
-        aria-label={t('번역기 크기 바꾸기')}
-        onPointerDown={begin('resize')}
-        onPointerMove={drag}
-        onPointerUp={end}
-        onPointerCancel={end}
-      />
     </div>
   )
 }

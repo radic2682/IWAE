@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { SIDEBAR_DEFAULT, clampLeftFrac, clampSidebar } from './splitLayout'
 import { applyRatios, clampRatioForSize, layoutRects, leaves, paneCount, type LayoutNode, type UnitRect } from '../core/layoutTree'
 import { WorkspaceLinkLayer } from './WorkspaceLinkLayer'
+import { FloatLayer, type AnchorRect } from './FloatLayer'
+import type { FloatAnchor, FloatingPane } from './screens'
 import '../ui/layout-transitions.css'
 import { t } from '../i18n'
 
@@ -52,6 +54,14 @@ interface SplitPanesProps {
    * 단추를 누른 채 끌면 단추가 아니라 경계선 끌기다(크기 조정을 막지 않는다).
    */
   onSwapSplit?: (splitId: string) => void
+  /** 떠 있는 칸들(설계 5). 지금 보이는 것만 준다. 칸 영역 안, 칸들 위에 카드로 그린다 */
+  floats?: readonly FloatingPane[]
+  /** 떠 있는 칸의 머리(탭 줄 + ▁ ⇲ × 단추). 없으면 칸 머리(renderHead)를 쓴다 */
+  renderFloatHead?: (paneId: string) => React.ReactNode
+  /** 떠 있는 칸의 자리 · 크기를 끌어 바꿨다 */
+  onFloatChange?: (paneId: string, patch: Pick<FloatingPane, 'x' | 'y' | 'w' | 'h'>) => void
+  /** 떠 있는 칸을 눌렀다: 맨 위로 올린다 */
+  onFloatRaise?: (paneId: string) => void
 }
 
 const FULL: UnitRect = { x: 0, y: 0, w: 1, h: 1 }
@@ -89,6 +99,10 @@ export function SplitPanes({
   renderHead,
   statusBar,
   onSwapSplit,
+  floats = [],
+  renderFloatHead,
+  onFloatChange,
+  onFloatRaise,
 }: SplitPanesProps) {
   const [storedSidebarPx, setSidebarPx] = useState(() => clampSidebar(layout?.sidebarPx ?? SIDEBAR_DEFAULT))
   // 사용자가 사이드바 폭을 한 번도 끌어 조절하지 않았으면, 사이드바 오른쪽 선을 상단바 왼쪽 단추 묶음
@@ -287,6 +301,26 @@ export function SplitPanes({
   const multi = order.length > 1
   const rects = useMemo(() => layoutRects(shownRoot), [shownRoot])
 
+  // 칸 영역의 안쪽 크기(px): 떠 있는 칸의 자리는 붙은 곳(화면 · 칸)의 사각형에 대한 비율이라 px 로 바꾸려면 필요하다
+  const [panesSize, setPanesSize] = useState({ width: 0, height: 0 })
+  useLayoutEffect(() => {
+    const element = panesRef.current
+    if (element === null) return undefined
+    const measure = () => setPanesSize((current) => (current.width === element.clientWidth && current.height === element.clientHeight ? current : { width: element.clientWidth, height: element.clientHeight }))
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  /** 붙은 곳의 사각형. 크게 보는 중에 숨은 칸에 붙은 떠 있는 칸은 그리지 않는다(null) */
+  const anchorRect = (anchor: FloatAnchor): AnchorRect | null => {
+    if (anchor.kind === 'screen') return { left: 0, top: 0, width: panesSize.width, height: panesSize.height }
+    const unit = zoomed ? (anchor.paneId === zoomedPane ? FULL : null) : rects.panes.get(anchor.paneId) ?? null
+    if (unit === null) return null
+    return { left: unit.x * panesSize.width, top: unit.y * panesSize.height, width: unit.w * panesSize.width, height: unit.h * panesSize.height }
+  }
+
   // 모드가 바뀌는 동안만 shell-transitioning 을 붙인다. 폭이 움직이는
   // 230ms 동안 무거운 자식(PDF 캔버스)이 매 프레임 다시 그리지 않도록
   // 이 표시를 보고 판단할 수 있다.
@@ -393,6 +427,17 @@ export function SplitPanes({
               </div>
             )
           })}
+          {floats.length === 0 ? null : (
+            <FloatLayer
+              floats={floats}
+              anchorRect={anchorRect}
+              epoch={epoch}
+              renderHead={(paneId) => (renderFloatHead ?? ((id) => renderHead?.(id, -1)))(paneId)}
+              renderBody={(paneId) => renderPane(paneId, -1)}
+              onChange={(paneId, patch) => onFloatChange?.(paneId, patch)}
+              onRaise={(paneId) => onFloatRaise?.(paneId)}
+            />
+          )}
         </div>
         {libraryExpanded ? <div ref={onLibraryHost} className="library-host" /> : null}
         {/* 작업 공간 층: 문서 창과 이웃한 메모 노트 창 사이의 연결선을 모든 칸 위에 그린다(포인터는 지나간다) */}

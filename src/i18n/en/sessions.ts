@@ -41,4 +41,17 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   // 명령
   'switch-client -t 이름': 'switch-client -t name',
   '새 이름을 쓰세요: rename-session 이름': 'Give a new name: rename-session name',
+  // 떠 있는 칸(설계 5)
+  '띄우기': 'Float',
+  '접기 (머리만 남깁니다)': 'Collapse (keep the head only)',
+  '칸으로 넣기': 'Embed in layout',
+  '칸으로 넣기 (embed-pane)': 'Embed in layout (embed-pane)',
+  '떠 있는 칸 닫기': 'Close floating pane',
+  '떠 있는 칸 크기 바꾸기': 'Resize floating pane',
+  '이미 떠 있는 칸입니다': 'This pane is already floating',
+  '칸이 하나뿐이라 띄울 수 없습니다': 'The only pane cannot be floated',
+  '떠 있는 칸은 {max}개까지입니다': 'Up to {max} floating panes',
+  '떠 있는 칸이 없습니다': 'There are no floating panes',
+  '떠 있는 칸을 숨겼습니다': 'Floating panes hidden',
+  '떠 있는 칸을 보입니다': 'Floating panes shown',
 }

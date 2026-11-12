@@ -2,9 +2,6 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, type Com
 import { PaneShell } from './PaneShell'
 import { PaneToolbar, type PdfToolMode } from './PaneToolbar'
 import { PdfSearchPanel } from './PdfSearchPanel'
-import { TranslatorPanel } from './TranslatorPanel'
-import { TranslatorContext } from './translatorContext'
-import { updateTranslatorPanel, useTranslatorPanelState } from './translatorPanelState'
 import { clampZoom, stepZoom } from '../core/pdfZoom'
 import { peekInitialZoom } from './pendingViewState'
 import { usePdfSearch } from './usePdfSearch'
@@ -117,6 +114,10 @@ export interface DocumentViewProps {
   controllersRef: MutableRefObject<Partial<Record<PaneId, DocumentViewController>>>
   /** 이 패널이 마지막으로 만진 문서 패널인가. Ctrl+F 같은 단축키를 받는다 */
   shortcutTarget: boolean
+  /** 이 칸에 붙은 번역기(떠 있는 칸)가 열려 있는가. 도구줄의 번역기 단추가 눌린 모양을 보인다 */
+  translatorOpen?: boolean
+  /** 번역기 단추: 이 칸의 번역기를 열고 닫는다. 없으면 단추가 없다 */
+  onToggleTranslator?: () => void
   /** 왼쪽 바의 PDF 검색 칸(「PDF 검색」 보기일 때). 검색 칸과 결과를 여기에 그린다 */
   searchSlot?: HTMLElement | null
   jumpToPage: (page: number) => void
@@ -542,10 +543,6 @@ export function DocumentView(props: DocumentViewProps) {
   }, [canPrint, props.shortcutTarget])
 
   const isPdf = tab.kind === 'pdf'
-  // 떠 있는 번역기(번역을 켜 둔 때만): 열림·자리는 문서 종류마다 기억한다
-  const translatorService = useContext(TranslatorContext)
-  const translatorKind = tab.kind === 'markdown' ? 'markdown' : 'pdf'
-  const translatorState = useTranslatorPanelState(translatorKind)
   // 이 문서의 책갈피 핀(칸마다 같은 핀이 막대 옆에 꽂힌다)
   const docPins = useMemo(() => (docId === null ? [] : props.pins.filter((pin) => pin.docId === docId)), [docId, props.pins])
   const { onAddPin } = props
@@ -568,8 +565,8 @@ export function DocumentView(props: DocumentViewProps) {
       onCopyFile={props.onCopyFile}
       onEditPages={tab.kind === 'pdf' && docId !== null && props.onEditPages !== undefined ? () => props.onEditPages?.(docId) : undefined}
       shortcutsEnabled={props.shortcutTarget}
-      translatorOpen={translatorState.open}
-      onToggleTranslator={translatorService === null ? undefined : () => updateTranslatorPanel(translatorKind, { open: !translatorState.open })}
+      translatorOpen={props.translatorOpen === true}
+      onToggleTranslator={props.onToggleTranslator}
       cleanView={props.pdfViewPrefs.clean === true}
       onCleanViewChange={(clean) => props.onPdfViewPrefsChange({ ...props.pdfViewPrefs, clean })}
       onlyOpenNotes={tab.kind === 'pdf' ? props.pdfViewPrefs.onlyOpenNotes === true : undefined}
@@ -711,7 +708,6 @@ export function DocumentView(props: DocumentViewProps) {
         placeholder={props.placeholder}
         toolbar={toolbar}
         bottomBar={bottomBar ?? markdownBottomBar}
-        overlay={translatorService !== null && translatorState.open ? <TranslatorPanel kind={translatorKind} /> : undefined}
         renderBody={() => {
           const renderMarkdownCell = (index: number) => props.markdownSource === undefined ? null : (
               <MarkdownPane

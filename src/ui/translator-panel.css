@@ -1,22 +1,17 @@
-/* 떠 있는 번역기: 문서 칸(.pane-body) 위에 놓이는 고정 창. 번역 카드와 같은 면·둥글기·그림자 */
+/* 번역기 탭의 내용: 떠 있는 칸(floating-panes.css) 본문을 채운다. 옮기기 · 크기 · 닫기는 떠 있는 칸이 한다 */
 .translator-panel {
-  position: absolute;
-  z-index: 20;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   box-sizing: border-box;
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--divider);
-  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--text-strong);
-  box-shadow: 0 12px 32px rgb(var(--rgb-black) / .32);
   font-size: 12.5px;
   text-align: left;
 }
 
-.translator-panel-header,
 .translator-panel-langs,
 .translator-panel-actions,
 .translator-panel-footer {
@@ -26,14 +21,6 @@
   padding: 7px 10px;
 }
 
-.translator-panel-header {
-  border-bottom: 1px solid var(--divider);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  font-weight: 650;
-}
-.translator-panel-header:active { cursor: grabbing; }
 .translator-panel-spacer { flex: 1 1 auto; }
 .translator-panel-langs { flex-wrap: wrap; padding-bottom: 4px; }
 .translator-panel-actions { padding-top: 6px; padding-bottom: 6px; }
@@ -52,22 +39,10 @@
   white-space: nowrap;
 }
 
-.translator-panel-close,
 .translator-panel-button {
   font: inherit;
   color: var(--text-strong);
   cursor: pointer;
-}
-
-.translator-panel-close {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
 }
 
 .translator-panel-button {
@@ -90,7 +65,6 @@
   color: var(--accent-contrast);
 }
 
-.translator-panel-close:is(:hover, :focus-visible),
 .translator-panel-button:is(:hover, :focus-visible):not(:disabled) {
   background: var(--chrome-hover);
   outline: none;
@@ -133,15 +107,3 @@
 .translator-panel-status { font-size: 13px; font-weight: 600; }
 .translator-panel-error { color: var(--danger); font-size: 12px; font-weight: 600; line-height: 1.45; }
 
-/* 오른쪽 아래 모서리: 잡고 끌어 크기를 바꾼다 */
-.translator-panel-resize {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nwse-resize;
-  touch-action: none;
-  background: linear-gradient(135deg, transparent 0 55%, var(--divider) 55% 63%, transparent 63% 73%, var(--divider) 73% 81%, transparent 81%);
-  border-bottom-right-radius: var(--r-md);
-}

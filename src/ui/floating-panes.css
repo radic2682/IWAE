@@ -1,0 +1,60 @@
+/* 떠 있는 칸(설계 5): 칸 영역 안, 나누기 트리 칸들 위에 뜨는 카드. 움직임 없음(미끄러져 들어오지 않는다). 색은 토큰만 쓴다 */
+
+/* 트리 칸(.panes-tree > .pane-grid-cell)의 틈 여백 · 잘라 내기 · 바탕을 덮어쓴다. 자리 · 크기는 FloatLayer 가 인라인으로 넣는다 */
+.panes-tree > .pane-float.pane-grid-cell {
+  z-index: 30;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
+
+/* 카드: 트리 칸 카드와 같은 껍질에 더 센 그림자 */
+.panes-tree .pane-float .pane-card.pane-float-card {
+  position: relative;
+  border: 1px solid var(--divider-strong, var(--divider));
+  border-radius: var(--r-md);
+  background: var(--paper);
+  box-shadow: 0 18px 44px rgb(var(--rgb-black) / .34), 0 2px 8px rgb(var(--rgb-black) / .18);
+}
+.panes-tree .pane-float .pane-card.pane-float-card:has(.pane-focus-scope[data-pane-active]) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--divider)));
+}
+
+/* 머리: 잡고 끄는 자리. 단추 · 탭은 자기 일을 한다 */
+.pane-float-head { cursor: grab; touch-action: none; user-select: none; }
+.pane-float-head:active { cursor: grabbing; }
+.pane-float-head .pane-top-tab, .pane-float-head button { cursor: pointer; }
+.pane-float-grip { flex: 1 1 auto; min-width: 12px; align-self: stretch; }
+
+/* 머리의 단추들: ▁ 접기 · ⇲ 칸으로 넣기 · × 닫기 */
+.pane-float-head .pane-float-button {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-strong);
+  opacity: .7;
+}
+.pane-float-head .pane-float-button:is(:hover, :focus-visible) { background: var(--chrome-hover); opacity: 1; outline: none; }
+
+.pane-float-body[hidden] { display: none; }
+/* 접힌 칸은 머리만 남기므로 머리 아래 선도 없다 */
+.pane-float[data-collapsed] .pane-float-head { border-bottom: 0; }
+
+/* 오른쪽 아래 모서리: 잡고 끌어 크기를 바꾼다 */
+.pane-float-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(135deg, transparent 0 55%, var(--divider) 55% 63%, transparent 63% 73%, var(--divider) 73% 81%, transparent 81%);
+  border-bottom-right-radius: var(--r-md);
+}

@@ -10,7 +10,7 @@ import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { onOpenFiles, openDefaultAppsSettings, takeOpenFiles } from '../bridge/openFiles'
 import { dropZoneAt, type DropZone, type TreeDropPlace } from './dropZone'
-import { X } from '@phosphor-icons/react'
+import { ArrowLineDownRight, Minus, X } from '@phosphor-icons/react'
 import { updatePersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { SplitPanes, type FocusedPane } from './SplitPanes'
 import { NoticeStack, ErrorNotice } from './NoticeStack'
@@ -47,7 +47,10 @@ import { PaneNumbersOverlay } from './PaneNumbersOverlay'
 import { PaneHead } from './PaneHead'
 import { StatusBar } from './StatusBar'
 import { KeysHelpSheet } from './KeysHelpSheet'
-import { updateTranslatorPanel } from './translatorPanelState'
+import { TranslatorPanel } from './TranslatorPanel'
+import { finishLegacyTranslatorMigration, migrateLegacyTranslators, readLegacyTranslatorPanels, type LegacyDocPane } from './translatorPanelState'
+import { closeFloat, embedPane, floatIdsOf, floatOf, floatPane, openTranslatorFloat, patchFloat, raiseFloat, toggleTranslatorFloat, translatorFloatFor, visibleFloats, type FloatOutcome } from './floatingPanes'
+import { setFloatingLinkPanes } from './workspaceLinks'
 import { barMigrationKey, legacyBarWasOpen, migrateNoteBar } from './noteBarMigration'
 import { useMemoNotes } from './useMemoNotes'
 import { useMouseGestures } from './useMouseGestures'
@@ -713,6 +716,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [canvasEpoch, setCanvasEpoch] = useState(0)
   // 왼쪽 바 검색 보기의 범위: 지금 문서(pdf) / Vault 의 모든 문서(vault)
   const [searchScope, setSearchScope] = useState<'pdf' | 'vault'>('pdf')
+  // 떠 있는 칸(설계 5): 나누기 트리 밖의 칸. 그릴 것은 보이는 것만(숨겼거나, 크게 보는 중 숨은 칸에 붙은 것은 뺀다)
+  const activeScreenNow = activeScreenOf(screensState)
+  const floatIds = useMemo(() => floatIdsOf(activeScreenNow), [activeScreenNow])
+  const shownFloats = useMemo(
+    () => visibleFloats(activeScreenNow).filter((float) => zoomedPane === null || float.anchor.kind === 'screen' || float.anchor.paneId === zoomedPane),
+    [activeScreenNow, zoomedPane],
+  )
   // 칸 나누기 트리(layoutRoot)는 useVault 가 칸의 탭·색과 함께 갖고 세션에 저장한다(예전 세션의 배치 id 는 읽을 때 트리로 옮긴다).
   // 칸 번호(0, 1, 2 …)는 트리를 왼쪽 위부터 센 차례다
   const paneOrder = useMemo(() => leaves(layoutRoot), [layoutRoot])
@@ -1359,14 +1369,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const toggleSinglePaneRef = useRef(() => setPaneCount(paneCount >= 3 ? 1 : paneCount + 1))
   toggleSinglePaneRef.current = () => setPaneCount(paneCount >= 3 ? 1 : paneCount + 1)
   // 트리와 칸 상태가 어긋나면(칸이 닫혔는데 탭이 남음, 만지던 칸이 사라짐) 바로잡는다: 남은 탭은 마지막 칸 뒤에 합친다
-  const orphanKey = paneIdsOf(panes).filter((pane) => !paneOrder.includes(pane)).join(' ')
+  // (떠 있는 칸은 트리 밖이지만 어긋난 칸이 아니다: 칸 상태가 있고, 보이는 동안은 만지는 칸 · 새 탭을 여는 칸이 될 수 있다)
+  const orphanKey = paneIdsOf(panes).filter((pane) => !paneOrder.includes(pane) && !floatIds.includes(pane)).join(' ')
+  const floatKey = shownFloats.map((float) => float.paneId).join(' ')
   useEffect(() => {
     const last = paneOrder[paneOrder.length - 1]!
+    const usable = (pane: PaneId) => paneOrder.includes(pane) || (floatKey !== '' && floatKey.split(' ').includes(pane))
     if (orphanKey !== '') setPanes((current) => orphanKey.split(' ').reduce((next, pane) => closePaneInto(next, pane, last), current))
-    if (!paneOrder.includes(activePaneId)) setActivePaneId(paneOrder[0]!)
-    if (!paneOrder.includes(paneRouteRef.current.doc)) setPaneRoute('doc', paneOrder[0]!)
-    if (!paneOrder.includes(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
-  }, [orphanKey, paneOrder, activePaneId, setPanes, setPaneRoute, paneRouteRef])
+    if (!usable(activePaneId)) setActivePaneId(paneOrder[0]!)
+    if (!usable(paneRouteRef.current.doc)) setPaneRoute('doc', paneOrder[0]!)
+    if (!usable(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
+  }, [orphanKey, floatKey, paneOrder, activePaneId, setPanes, setPaneRoute, paneRouteRef])
   const focusPane = useCallback((pane: PaneId) => {
     setActivePaneId(pane)
     const tab = activeTab(tabsOf(panes, pane))
@@ -1731,12 +1744,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (note === undefined) { announceAction(t('열 수 있는 노트가 없습니다')); return }
       openInPane({ id: note.path, title: note.title, kind: 'canvas' }, pane)
     },
-    // 떠 있는 번역기는 문서 칸 위에 뜬다(단계 6 에서 떠 있는 칸이 된다). 열어 두면 문서를 연 칸에 나타난다
-    translator: () => {
-      const docTab = activeDocumentTab
-      updateTranslatorPanel(docTab?.kind === 'markdown' ? 'markdown' : 'pdf', { open: true })
-      if (docTab === null) announceAction(t('문서를 열면 번역기가 보입니다'))
-    },
+    // 번역기는 이 칸에 붙은 떠 있는 칸(번역기 탭)이다. 이미 있으면 닫고, 없으면 연다
+    translator: (pane: PaneId) => toggleTranslator(pane),
   }
   // ───────── 접두키 · `:` 명령줄 · 워크스페이스 명령(설계 8) ─────────
   const [commandLine, setCommandLine] = useState<{ readonly prefill: string } | null>(null)
@@ -1853,6 +1862,57 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     reloadKeys: loadKeysConf,
   }
   const commandHost = useMemo<CommandHost>(() => new Proxy({} as CommandHost, { get: (_target, key) => (commandHostRef.current as unknown as Record<PropertyKey, unknown>)[key] }), [])
+  // ───────── 떠 있는 칸 조작(칸 머리 단추 · 번역기 단추 · 끌기). 명령(float-pane …)과 같은 순수 동작을 쓴다 ─────────
+  const applyFloatOutcome = (outcome: FloatOutcome) => {
+    if ('error' in outcome) { announceAction(outcome.error); return }
+    commandHost.setModel(outcome.model)
+    if (outcome.message !== undefined) announceAction(outcome.message)
+  }
+  /** 이 칸에 붙은 번역기(번역기 탭을 담은 떠 있는 칸)를 열고 닫는다(도구줄 · 빈 칸의 「번역기」 단추) */
+  const toggleTranslator = (pane: PaneId) => applyFloatOutcome(toggleTranslatorFloat(commandModelRef.current, pane))
+  const closeFloatPane = (pane: PaneId) => applyFloatOutcome(closeFloat(commandModelRef.current, pane))
+  const embedFloatPane = (pane: PaneId) => applyFloatOutcome(embedPane(commandModelRef.current, paneSizeOf, pane))
+  const floatPaneFromHead = (pane: PaneId) => applyFloatOutcome(floatPane(commandModelRef.current, pane))
+  const collapseFloatPane = (pane: PaneId) => {
+    const float = floatOf(activeScreenOf(commandModelRef.current.screens), pane)
+    if (float !== undefined) screenOps.replace(patchFloat(commandModelRef.current.screens, pane, { collapsed: !float.collapsed }))
+  }
+  // 떠 있는 칸의 탭을 모두 옮기거나 닫으면(다른 칸으로 끌기 · 탭 닫기) 그 칸도 닫는다. 막 만든 빈 칸은 탭이 처음 들어올 때까지 둔다
+  const floatSeenWithTabs = useRef(new Set<string>())
+  useEffect(() => {
+    const seen = floatSeenWithTabs.current
+    for (const float of activeScreenNow.floats) {
+      if (tabsOf(activeScreenNow.panes, float.paneId).tabs.length > 0) seen.add(float.paneId)
+      else if (seen.has(float.paneId)) {
+        seen.delete(float.paneId)
+        applyFloatOutcome(closeFloat(commandModelRef.current, float.paneId))
+        break
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- applyFloatOutcome 는 렌더마다 새로 만들어지지만 늘 최신 모델을 읽는다
+  }, [activeScreenNow])
+  // 문서 칸과 겹치는 떠 있는 칸은 연결선을 잇지 않는다(카드 강조만): 연결선 층에 떠 있는 칸을 알린다
+  useEffect(() => { setFloatingLinkPanes(floatIds) }, [floatIds])
+  // 예전 떠 있는 번역기(문서 칸 위 고정 창)의 열림 · 자리 · 크기를 한 번 번역기 떠 있는 칸으로 옮긴다
+  const legacyTranslatorChecked = useRef(false)
+  useEffect(() => {
+    if (initializing || legacyTranslatorChecked.current) return
+    legacyTranslatorChecked.current = true
+    const legacy = readLegacyTranslatorPanels()
+    if (legacy === null) return
+    const model = commandModelRef.current
+    const active = activeScreenOf(model.screens)
+    const hosts = leaves(active.layout).flatMap((pane): LegacyDocPane[] => {
+      const tab = activeTab(tabsOf(active.panes, pane))
+      if (tab === null || (tab.kind !== 'pdf' && tab.kind !== 'markdown')) return []
+      const size = paneSizeOf(pane)
+      return [{ pane, kind: tab.kind === 'markdown' ? 'markdown' : 'pdf', width: size?.width ?? 0, height: size?.height ?? 0 }]
+    })
+    const next = migrateLegacyTranslators(model, legacy, hosts)
+    if (next !== model) commandHost.setModel(next)
+    finishLegacyTranslatorMigration()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 시작할 때 한 번
+  }, [initializing])
   /** 접두키 · 명령줄 · 명령 팔레트(:) · MCP 가 같이 쓰는 실행기. 실패·알릴 말은 상태 줄(꺼져 있으면 알림)에 보인다 */
   const runWorkspaceLine = useCallback(async (line: string): Promise<CommandResult> => {
     const result = await runCommandLine(line, commandHost)
@@ -3209,7 +3269,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     })
     return () => setPageDragHost(null)
   })
-  const renderPaneTabs = (pane: PaneId, index: number) => (
+  const renderPaneTabs = (pane: PaneId, index: number | undefined) => (
     <PaneTabsMenu
       // 색 점과 칸 번호는 칸이 하나여도 보인다(모든 칸의 머리가 같다)
       channel={channelOf(channels, pane)}
@@ -3281,10 +3341,30 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       onToggleZoom={() => toggleFocus(pane)}
       onBreak={() => breakPaneToScreen(pane)}
       onSwap={() => swapPaneWithNeighbor(pane)}
+      onFloat={SPLIT_PANES_ENABLED && !isDetachedWindow ? () => floatPaneFromHead(pane) : undefined}
       onCycleChannel={() => setChannels((current) => cyclePaneChannel(current, pane))}
       onClose={() => closePane(pane)}
     />
   )
+  /** 떠 있는 칸의 머리: 탭 줄 + 잡고 끄는 자리 + ▁ 접기 · ⇲ 칸으로 넣기 · × 닫기 */
+  const renderFloatHead = (pane: PaneId) => {
+    const collapsed = floatOf(activeScreenNow, pane)?.collapsed === true
+    return (
+      <>
+        {renderPaneTabs(pane, undefined)}
+        <span className="pane-float-grip" aria-hidden="true" />
+        <button type="button" className="pane-float-button" aria-label={collapsed ? t('펼치기') : t('접기')} title={collapsed ? t('펼치기') : t('접기 (머리만 남깁니다)')} aria-pressed={collapsed} onClick={() => collapseFloatPane(pane)}>
+          <Minus size={14} weight="bold" aria-hidden="true" />
+        </button>
+        <button type="button" className="pane-float-button" aria-label={t('칸으로 넣기')} title={t('칸으로 넣기 (embed-pane)')} onClick={() => embedFloatPane(pane)}>
+          <ArrowLineDownRight size={14} weight="bold" aria-hidden="true" />
+        </button>
+        <button type="button" className="pane-float-button" aria-label={t('떠 있는 칸 닫기')} title={t('닫기')} onClick={() => closeFloatPane(pane)}>
+          <X size={14} weight="bold" aria-hidden="true" />
+        </button>
+      </>
+    )
+  }
   /**
    * 도구줄에 보일 문서 이름. 탭은 짧은 표시 이름이라, 여기는 정식 이름(PDF 서지 제목)을
    * 진하게, 파일 이름을 흐리게 둔다. 정식 이름을 모르면 표시 이름을 쓴다.
@@ -3308,7 +3388,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             <button type="button" className="pane-empty-quick-button" onClick={() => emptyPaneActions.markdown(pane)}>{t('MD')}</button>
             {vault === null ? null : <button type="button" className="pane-empty-quick-button" onClick={() => void emptyPaneActions.note(pane)}>{t('노트')}</button>}
             {vault === null || !CANVAS_ENABLED ? null : <button type="button" className="pane-empty-quick-button" onClick={() => void emptyPaneActions.canvas(pane)}>{t('캔버스')}</button>}
-            <button type="button" className="pane-empty-quick-button" onClick={emptyPaneActions.translator}>{t('번역기')}</button>
+            <button type="button" className="pane-empty-quick-button" onClick={() => emptyPaneActions.translator(pane)}>{t('번역기')}</button>
           </>
         )}
       </span>
@@ -3320,6 +3400,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const tab = activeTab(state)
     if (tab === null) {
       return <PaneShell state={state} emptyHint="" placeholder="" emptyContent={renderEmptyPane(pane)} />
+    }
+    if (tab.kind === 'translator') {
+      return <PaneShell state={state} emptyHint="" placeholder="" renderBody={() => <TranslatorPanel />} />
     }
     if (tab.kind === 'memoNote') {
       return (
@@ -3381,6 +3464,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       <DocumentView
         key={`${sessionEpoch}:${pane}`}
         paneId={pane}
+        translatorOpen={translatorFloatFor(activeScreenNow, pane) !== undefined}
+        onToggleTranslator={translatorService === null ? undefined : () => toggleTranslator(pane)}
         state={state}
         tab={tab}
         meta={meta}
@@ -3485,7 +3570,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 「PDF 도구」 탭이 다루는 문서: 도구를 연 문서(문서 우클릭 메뉴 등), 없으면 지금 보는 PDF
   const pdfToolsDoc = (pdfToolsTarget === null ? null : openedDocs.find((doc) => doc.docId === pdfToolsTarget.docId)) ?? activePdfDoc
   const renderPane = (pane: PaneId) => (
-    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && paneCount > 1 ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
+    <div className="pane-focus-scope" data-pane-id={pane} data-pane-fresh={freshPane === pane ? '' : undefined} data-pane-active={activePaneId === pane && (paneCount > 1 || floatIds.includes(pane)) ? '' : undefined} onPointerDownCapture={() => focusPane(pane)}>
       <PaneIdContext.Provider value={pane}>
         {renderPaneBody(pane)}
       </PaneIdContext.Provider>
@@ -3777,6 +3862,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       renderPane={(pane) => renderPane(pane)}
       // 모든 칸이(하나여도) 자기 머리를 칸 맨 위에 둔다
       renderHead={(pane, index) => renderPaneHead(pane, index)}
+      floats={shownFloats}
+      renderFloatHead={renderFloatHead}
+      onFloatChange={(pane, patch) => screenOps.replace(patchFloat(commandModelRef.current.screens, pane, patch))}
+      onFloatRaise={(pane) => { const raised = raiseFloat(commandModelRef.current.screens, pane); if (raised !== commandModelRef.current.screens) screenOps.replace(raised) }}
       onSwapSplit={swapPanes}
       statusBar={statusBarOn ? (
         <StatusBar

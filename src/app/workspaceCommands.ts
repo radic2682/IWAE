@@ -6,7 +6,8 @@ import { t } from '../i18n'
 import { blankScreen, normalizeFloats, activeScreenOf, addScreen, breakPane, closeScreen, lastScreenOf, renameScreen, setZoomed, stepScreen, switchScreen, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { closePaneTree, type PaneSizer } from './tabDock'
 import { selectLayout, splitPane } from './paneLayoutOps'
-import { tabsOf } from './tabs'
+import { addFloat, closeFloat, embedPane, floatOf, floatPane, isFloatPane, openTranslatorFloat, selectableOrder, toggleFloating, type FloatOutcome } from './floatingPanes'
+import { activeTab, isDocumentKind, tabsOf } from './tabs'
 import { channelOf, pruneChannels, withChannel, type PaneChannel } from './workspaceChannels'
 import type { LayoutPresetId, ScreenTemplateId } from './layoutPresets'
 
@@ -131,10 +132,10 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { name: 'save-session', usage: 'save-session [이름]  (이름이 없으면 지금 저장)' },
   { name: 'kill-session', valueFlags: ['t'], usage: 'kill-session [-t 이름]' },
   { name: 'list-sessions', aliases: ['ls'], usage: 'list-sessions' },
-  { name: 'float-pane', soon: true, usage: 'float-pane' },
-  { name: 'embed-pane', soon: true, usage: 'embed-pane' },
-  { name: 'toggle-floating', soon: true, usage: 'toggle-floating' },
-  { name: 'display-popup', aliases: ['popup'], soon: true, usage: 'display-popup' },
+  { name: 'float-pane', usage: 'float-pane' },
+  { name: 'embed-pane', usage: 'embed-pane' },
+  { name: 'toggle-floating', usage: 'toggle-floating' },
+  { name: 'display-popup', aliases: ['popup'], usage: 'display-popup [열 이름]' },
   { name: 'new-client', soon: true, usage: 'new-client' },
   { name: 'detach', aliases: ['detach-client'], soon: true, usage: 'detach' },
 ]
@@ -371,6 +372,19 @@ function splitWindow(model: WorkspaceModel, dir: SplitDir, sizeOf?: PaneSizer): 
   return { model: { screens, activePane: result.newPane } }
 }
 
+/**
+ * 떠 있는 칸을 만지는 중이면, 나누기 트리를 바꾸는 명령(나누기 · 크게 · 자리 바꾸기 …)은 그 칸이 붙은 트리 칸(없으면 첫 칸)을 대상으로 삼는다.
+ * 떠 있는 칸 자신을 다루는 명령(select-pane · kill-pane · float-pane · embed-pane …)은 원래 모델을 쓴다.
+ */
+function treeModelOf(model: WorkspaceModel): WorkspaceModel {
+  const active = activeScreenOf(model.screens)
+  const float = floatOf(active, model.activePane)
+  if (float === undefined) return model
+  const order = leaves(active.layout)
+  const anchor = float.anchor.kind === 'pane' && order.includes(float.anchor.paneId) ? float.anchor.paneId : order[0]!
+  return { ...model, activePane: anchor }
+}
+
 function selectPaneBy(model: WorkspaceModel, flags: ParsedCommand['flags'], rects: ReadonlyMap<string, PaneRect> | null): Outcome {
   const active = activeScreenOf(model.screens)
   const order = leaves(active.layout)
@@ -384,18 +398,22 @@ function selectPaneBy(model: WorkspaceModel, flags: ParsedCommand['flags'], rect
     if (target === undefined) return { error: t('{n}번 칸이 없습니다', { n: raw }) }
   } else if (direction !== undefined) {
     if (order.length <= 1) return { error: t('칸이 하나뿐입니다') }
+    // 떠 있는 칸에서 방향을 누르면 그 칸이 붙은 트리 칸에서 센다
+    const from = treeModelOf(model).activePane
     const map = rects ?? new Map([...layoutRects(active.layout).panes].map(([id, rect]) => [id, { left: rect.x, top: rect.y, right: rect.x + rect.w, bottom: rect.y + rect.h }] as const))
-    target = neighborPane(map, model.activePane, direction)
+    target = neighborPane(map, from, direction)
     if (target === null) return { error: t('그 방향에 칸이 없습니다') }
   } else {
-    // -n(다음 칸, 기본) · -p(앞 칸): 칸 차례대로 돈다
-    if (order.length <= 1) return { error: t('칸이 하나뿐입니다') }
+    // -n(다음 칸, 기본) · -p(앞 칸): 칸 차례대로 돈다. 보이는 떠 있는 칸도 낀다(칸 번호 · -t N 은 트리의 칸만 센다)
+    const cycle = selectableOrder(active)
+    if (cycle.length <= 1) return { error: t('칸이 하나뿐입니다') }
+    const at = cycle.indexOf(model.activePane)
     const step = flags.p === true ? -1 : 1
-    target = order[(here + step + order.length) % order.length]!
+    target = cycle[((at < 0 ? here : at) + step + cycle.length) % cycle.length]!
   }
   if (target === undefined || target === null) return { error: t('칸을 찾을 수 없습니다') }
-  // 크게 보던 중이면 푼다(tmux 가 select-pane 으로 zoom 을 푸는 것과 같다)
-  const screens = active.zoomed !== null && active.zoomed !== target ? setZoomed(model.screens, null) : model.screens
+  // 크게 보던 중이면 푼다(tmux 가 select-pane 으로 zoom 을 푸는 것과 같다). 떠 있는 칸으로 가는 것은 푸는 일이 아니다
+  const screens = active.zoomed !== null && active.zoomed !== target && !isFloatPane(active, target) ? setZoomed(model.screens, null) : model.screens
   return { model: { screens, activePane: target } }
 }
 
@@ -407,11 +425,15 @@ function zoomPane(model: WorkspaceModel): Outcome {
 
 function killPane(model: WorkspaceModel): Outcome {
   const active = activeScreenOf(model.screens)
+  // 떠 있는 칸을 만지는 중이면 그 칸을 닫는다(번역기 탭은 버리고 다른 탭은 트리의 칸에 합친다)
+  if (isFloatPane(active, model.activePane)) return floatResult(closeFloat(model, model.activePane))
   const result = closePaneTree(workspaceOf(active), model.activePane)
   if (result === null) return { error: t('칸이 하나뿐입니다') }
   const screens = withActiveWorkspace(model.screens, { panes: result.panes, channels: result.channels, layout: result.layout })
   return { model: { screens, activePane: result.landed } }
 }
+
+const floatResult = (outcome: FloatOutcome): Outcome => ('error' in outcome ? outcome : { model: outcome.model, ...(outcome.message === undefined ? {} : { message: outcome.message }) })
 
 function swapPane(model: WorkspaceModel, step: 1 | -1): Outcome {
   const active = activeScreenOf(model.screens)
@@ -555,18 +577,20 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     host.setModel(outcome.model)
     return ok(outcome.message)
   }
-  const model = host.getModel()
+  // raw: 떠 있는 칸을 만지는 중이면 그 칸이 만지는 칸이다. model: 나누기 트리 동작이 보는 칸(떠 있는 칸이면 그 칸이 붙은 트리 칸)
+  const raw = host.getModel()
+  const model = treeModelOf(raw)
   const { flags } = command
   switch (command.name) {
     case 'split-window':
       return apply(splitWindow(model, flags.h === true ? 'h' : 'v', host.sizeOf))
     case 'select-pane':
-      return apply(selectPaneBy(model, flags, host.paneRects?.() ?? null))
+      return apply(selectPaneBy(raw, flags, host.paneRects?.() ?? null))
     case 'resize-pane':
       if (flags.Z !== true) return fail(t('resize-pane 은 -Z(크게/되돌리기)만 됩니다'))
       return apply(zoomPane(model))
     case 'kill-pane':
-      return apply(killPane(model))
+      return apply(killPane(raw))
     case 'swap-pane':
       return apply(swapPane(model, flags.U === true ? -1 : 1))
     case 'break-pane':
@@ -618,10 +642,35 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       const query = restText(command)
       if (query === '') return fail(t('open 이름'))
       if (host.open === undefined) return fail(t('지금은 안 됩니다'))
-      return host.open(query, model.activePane)
+      return host.open(query, raw.activePane)
     }
     case 'set-channel':
-      return apply(setChannel(model, firstArg(command)))
+      return apply(setChannel(raw, firstArg(command)))
+    case 'float-pane':
+      return apply(floatResult(floatPane(raw)))
+    case 'embed-pane':
+      return apply(floatResult(embedPane(raw, host.sizeOf)))
+    case 'toggle-floating':
+      return apply(floatResult(toggleFloating(raw)))
+    case 'display-popup': {
+      // 떠 있는 번역기(기본) 또는 열 문서 · 노트를 담은 떠 있는 칸. 문서를 보는 칸에서 부르면 그 칸에 붙는다
+      const anchor = isDocumentKind(activeTab(tabsOf(activeScreenOf(model.screens).panes, model.activePane))?.kind ?? 'memoNote') ? model.activePane : undefined
+      const query = restText(command)
+      if (query === '') return apply(floatResult(openTranslatorFloat(raw, anchor)))
+      if (host.open === undefined) return fail(t('지금은 안 됩니다'))
+      const created = addFloat(raw, anchor === undefined ? {} : { anchorPane: anchor })
+      if ('error' in created) return fail(created.error)
+      host.setModel(created.model)
+      await host.settle?.()
+      const opened = await host.open(query, created.paneId)
+      // 열지 못했거나(못 찾음) 이미 다른 칸에 열려 있어 그리로 갔으면(탭은 한 곳에만 둔다) 빈 떠 있는 칸을 남기지 않는다
+      const latest = host.getModel()
+      if (!opened.ok || (isFloatPane(activeScreenOf(latest.screens), created.paneId) && tabsOf(activeScreenOf(latest.screens).panes, created.paneId).tabs.length === 0)) {
+        const closed = closeFloat(latest, created.paneId)
+        if ('model' in closed) host.setModel(closed.model)
+      }
+      return opened
+    }
     case 'note-beside':
       if (host.noteBeside === undefined) return fail(t('지금은 안 됩니다'))
       await host.noteBeside(model.activePane)

@@ -6,31 +6,34 @@ import { TranslationCardSettingsContext } from '../ui/TranslationCard'
 import { setTranslationSource } from '../ui/translationPair'
 import { publishReaderSelection } from './readerSelectionStore'
 import { TranslatorPanel } from './TranslatorPanel'
-import { TranslatorContext, type TranslatorService } from './translatorContext'
+import { paneNode, splitLeaf } from '../core/layoutTree'
+import { activeScreenOf, blankScreen, type Screen } from './screens'
+import { tabsOf } from './tabs'
+import type { FloatModel } from './floatingPanes'
 import {
+  TRANSLATOR_MIGRATED_KEY,
   TRANSLATOR_PANEL_STORAGE_KEY,
-  getTranslatorPanelState,
+  finishLegacyTranslatorMigration,
+  migrateLegacyTranslators,
   placePanel,
-  reloadTranslatorPanelState,
-  updateTranslatorPanel,
+  readLegacyTranslatorPanels,
 } from './translatorPanelState'
+import { TranslatorContext, type TranslatorService } from './translatorContext'
 
 function Harness({ service, target = 'ko' }: { readonly service: TranslatorService; readonly target?: string }) {
   const [targetLanguage, setTargetLanguage] = useState(target)
   return (
     <TranslatorContext.Provider value={service}>
       <TranslationCardSettingsContext.Provider value={{ targetLanguage, providerLabel: 'Azure', onChangeTargetLanguage: setTargetLanguage }}>
-        <TranslatorPanel kind="pdf" />
+        <TranslatorPanel />
       </TranslationCardSettingsContext.Provider>
     </TranslatorContext.Provider>
   )
 }
 
-/** 문서 칸(.pane-body)처럼 크기가 있는 상자 안에 그린다 */
-function renderInPane(service: TranslatorService, width = 800, height = 600) {
+/** 떠 있는 칸의 본문(번역기 탭의 내용)으로 그린다 */
+function renderInPane(service: TranslatorService) {
   const host = document.createElement('div')
-  Object.defineProperty(host, 'clientWidth', { value: width, configurable: true })
-  Object.defineProperty(host, 'clientHeight', { value: height, configurable: true })
   document.body.append(host)
   const view = render(<Harness service={service} />, { container: host })
   return { ...view, host }
@@ -43,14 +46,11 @@ function makeService(): TranslatorService & { translate: ReturnType<typeof vi.fn
   }
 }
 
-const panel = () => screen.getByRole('dialog', { name: '번역기' })
-const header = () => panel().querySelector('.translator-panel-header') as HTMLElement
 const input = () => screen.getByLabelText('번역할 글') as HTMLTextAreaElement
 
 beforeEach(() => {
   window.localStorage.clear()
   setTranslationSource('auto')
-  reloadTranslatorPanelState()
   act(() => { publishReaderSelection('test', '') })
 })
 afterEach(() => {
@@ -58,7 +58,7 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('떠 있는 번역기', () => {
+describe('번역기 탭의 내용', () => {
   it('Ctrl+Enter 로 번역하고 결과를 보인다', async () => {
     const service = makeService()
     renderInPane(service)
@@ -138,61 +138,40 @@ describe('떠 있는 번역기', () => {
     expect(screen.queryByRole('button', { name: '선택한 글 넣기' })).toBeNull()
   })
 
-  it('Esc 는 창을 닫지 않고 포커스만 뺀다. ×는 닫는다', () => {
+  it('Esc 는 칸을 닫지 않고 글쓰기 칸의 포커스만 뺀다', () => {
     renderInPane(makeService())
-    updateTranslatorPanel('pdf', { open: true })
     input().focus()
     expect(document.activeElement).toBe(input())
     fireEvent.keyDown(input(), { key: 'Escape' })
     expect(document.activeElement).not.toBe(input())
-    expect(getTranslatorPanelState('pdf').open).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: '번역기 닫기' }))
-    expect(getTranslatorPanelState('pdf').open).toBe(false)
+    expect(screen.getByRole('region', { name: '번역기' })).toBeDefined()
+  })
+
+  it('스스로 떠 있지 않다: 머리 줄 · 닫기 · 크기 손잡이는 떠 있는 칸이 가진다', () => {
+    const { host } = renderInPane(makeService())
+    expect(host.querySelector('.translator-panel-header')).toBeNull()
+    expect(screen.queryByRole('button', { name: '번역기 닫기' })).toBeNull()
+    expect(screen.queryByRole('separator', { name: '번역기 크기 바꾸기' })).toBeNull()
+    const root = screen.getByRole('region', { name: '번역기' }) as HTMLElement
+    expect(root.style.left).toBe('')
+    expect(root.style.top).toBe('')
+  })
+
+  it('번역기를 설정하지 않았으면(서비스 없음) 입력 전에 안내한다', () => {
+    const view = render(
+      <TranslatorContext.Provider value={null}>
+        <TranslationCardSettingsContext.Provider value={{ targetLanguage: 'ko', providerLabel: '', onChangeTargetLanguage: () => undefined }}>
+          <TranslatorPanel />
+        </TranslationCardSettingsContext.Provider>
+      </TranslatorContext.Provider>,
+    )
+    expect(screen.getByRole('alert').textContent).toContain('번역기를 아직 설정하지 않았습니다')
+    view.unmount()
   })
 })
 
-describe('떠 있는 번역기: 자리·크기', () => {
-  it('머리 줄을 끌어 옮기고, 놓으면 자리를 기억한다. 칸 밖으로는 나가지 않는다', () => {
-    renderInPane(makeService(), 800, 600)
-    act(() => { updateTranslatorPanel('pdf', { x: 100, y: 50, w: 340, h: 380 }) })
-    fireEvent.pointerDown(header(), { button: 0, clientX: 200, clientY: 60, pointerId: 1 })
-    fireEvent.pointerMove(header(), { clientX: 260, clientY: 100, pointerId: 1 })
-    expect(panel().style.left).toBe('160px')
-    expect(panel().style.top).toBe('90px')
-    fireEvent.pointerUp(header(), { pointerId: 1 })
-    expect(getTranslatorPanelState('pdf')).toMatchObject({ x: 160, y: 90 })
-    // 칸 오른쪽 아래 끝을 넘기려 하면 여백 8px 안쪽에서 멈춘다
-    fireEvent.pointerDown(header(), { button: 0, clientX: 200, clientY: 60, pointerId: 1 })
-    fireEvent.pointerMove(header(), { clientX: 5000, clientY: 5000, pointerId: 1 })
-    fireEvent.pointerUp(header(), { pointerId: 1 })
-    expect(getTranslatorPanelState('pdf')).toMatchObject({ x: 800 - 340 - 8, y: 600 - 380 - 8 })
-    fireEvent.pointerDown(header(), { button: 0, clientX: 200, clientY: 60, pointerId: 1 })
-    fireEvent.pointerMove(header(), { clientX: -5000, clientY: -5000, pointerId: 1 })
-    fireEvent.pointerUp(header(), { pointerId: 1 })
-    expect(getTranslatorPanelState('pdf')).toMatchObject({ x: 8, y: 8 })
-  })
-
-  it('단추를 눌러서는 끌기가 시작되지 않는다', () => {
-    renderInPane(makeService())
-    act(() => { updateTranslatorPanel('pdf', { x: 100, y: 50 }) })
-    fireEvent.pointerDown(screen.getByRole('button', { name: '번역기 닫기' }), { button: 0, clientX: 200, clientY: 60, pointerId: 1 })
-    fireEvent.pointerMove(header(), { clientX: 300, clientY: 160, pointerId: 1 })
-    expect(panel().style.left).toBe('100px')
-  })
-
-  it('오른쪽 아래 모서리를 끌어 크기를 바꾼다(최소·칸 크기 안에서)', () => {
-    renderInPane(makeService(), 800, 600)
-    act(() => { updateTranslatorPanel('pdf', { x: 100, y: 50, w: 340, h: 380 }) })
-    const handle = screen.getByRole('separator', { name: '번역기 크기 바꾸기' })
-    fireEvent.pointerDown(handle, { button: 0, clientX: 440, clientY: 430, pointerId: 1 })
-    fireEvent.pointerMove(handle, { clientX: 500, clientY: 470, pointerId: 1 })
-    fireEvent.pointerUp(handle, { pointerId: 1 })
-    expect(getTranslatorPanelState('pdf')).toMatchObject({ w: 400, h: 420 })
-    fireEvent.pointerDown(handle, { button: 0, clientX: 500, clientY: 470, pointerId: 1 })
-    fireEvent.pointerMove(handle, { clientX: -9000, clientY: -9000, pointerId: 1 })
-    fireEvent.pointerUp(handle, { pointerId: 1 })
-    expect(getTranslatorPanelState('pdf')).toMatchObject({ w: 280, h: 240 })
-  })
+describe('예전 떠 있는 번역기 값 옮기기', () => {
+  const legacyAt = (state: object) => ({ getItem: (key: string) => (key === TRANSLATOR_PANEL_STORAGE_KEY ? JSON.stringify(state) : null), setItem: vi.fn(), removeItem: vi.fn() })
 
   it('칸이 작아지면 번역기도 칸 안으로 들어온다', () => {
     const box = placePanel({ x: 700, y: 500, w: 340, h: 380 }, { width: 500, height: 400 })
@@ -210,21 +189,68 @@ describe('떠 있는 번역기: 자리·크기', () => {
     expect(tall.y + tall.h).toBeLessThanOrEqual(600 - 8)
   })
 
-  it('열림·자리·크기는 문서 종류마다 저장되고, 다시 읽어도 그대로다', () => {
-    updateTranslatorPanel('pdf', { open: true, x: 120, y: 40, w: 360, h: 300 })
-    updateTranslatorPanel('markdown', { open: false })
-    expect(JSON.parse(window.localStorage.getItem(TRANSLATOR_PANEL_STORAGE_KEY) ?? '{}')).toMatchObject({
-      pdf: { open: true, x: 120, y: 40, w: 360, h: 300 },
-      markdown: { open: false },
-    })
-    act(() => { reloadTranslatorPanelState() })
-    expect(getTranslatorPanelState('pdf')).toEqual({ open: true, x: 120, y: 40, w: 360, h: 300 })
-    expect(getTranslatorPanelState('markdown').open).toBe(false)
+  it('저장된 값을 문서 종류마다 읽고, 깨진 값 · 값이 없음 · 이미 옮김은 null', () => {
+    const read = readLegacyTranslatorPanels(legacyAt({ pdf: { open: true, x: 120, y: 40, w: 360, h: 300 }, markdown: { open: false } }))
+    expect(read?.pdf).toEqual({ open: true, x: 120, y: 40, w: 360, h: 300 })
+    expect(read?.markdown.open).toBe(false)
+    expect(readLegacyTranslatorPanels({ getItem: () => '{ not json', setItem: vi.fn(), removeItem: vi.fn() })).toBeNull()
+    expect(readLegacyTranslatorPanels({ getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() })).toBeNull()
+    expect(readLegacyTranslatorPanels({ getItem: (key) => (key === TRANSLATOR_MIGRATED_KEY ? '1' : '{}'), setItem: vi.fn(), removeItem: vi.fn() })).toBeNull()
+    // 크기는 최소 크기 이상으로
+    expect(readLegacyTranslatorPanels(legacyAt({ pdf: { open: true, w: 10, h: 10 } }))?.pdf).toMatchObject({ w: 280, h: 240 })
   })
 
-  it('깨진 저장값은 기본값으로 물러난다', () => {
-    window.localStorage.setItem(TRANSLATOR_PANEL_STORAGE_KEY, '{ not json')
-    act(() => { reloadTranslatorPanelState() })
-    expect(getTranslatorPanelState('pdf')).toMatchObject({ open: false, x: null, y: null })
+  it('옮겼다고 적고 예전 값은 지운다', () => {
+    const storage = legacyAt({})
+    finishLegacyTranslatorMigration(storage)
+    expect(storage.setItem).toHaveBeenCalledWith(TRANSLATOR_MIGRATED_KEY, '1')
+    expect(storage.removeItem).toHaveBeenCalledWith(TRANSLATOR_PANEL_STORAGE_KEY)
+  })
+
+  const modelWithDocPane = (): FloatModel => {
+    const screen: Screen = { ...blankScreen('읽기'), layout: paneNode('a'), panes: { a: { tabs: [{ id: 'd1', title: 'D', kind: 'pdf' }], activeId: 'd1' } }, channels: { a: 'blue' } }
+    return { screens: { screens: [screen], activeScreen: screen.id, lastScreen: null }, activePane: 'a' }
+  }
+  const legacyState = (pdf: object, markdown: object = { open: false }) => readLegacyTranslatorPanels(legacyAt({ pdf, markdown }))!
+
+  it('열어 두었던 번역기는 같은 종류의 문서를 보는 칸에 붙은 번역기 떠 있는 칸이 되고, 자리는 칸 크기에 대한 비율이다', () => {
+    const next = migrateLegacyTranslators(modelWithDocPane(), legacyState({ open: true, x: 100, y: 50, w: 360, h: 300 }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])
+    const floats = activeScreenOf(next.screens).floats
+    expect(floats).toHaveLength(1)
+    expect(floats[0]).toMatchObject({ anchor: { kind: 'pane', paneId: 'a' }, x: 100 / 800, y: 50 / 600, w: 360, h: 300, collapsed: false })
+    expect(tabsOf(activeScreenOf(next.screens).panes, floats[0]!.paneId).tabs[0]).toMatchObject({ kind: 'translator' })
+    // 사람이 만지던 칸은 그대로다
+    expect(next.activePane).toBe('a')
+  })
+
+  it('칸이 작으면 칸 안으로 들어오게 옮기고, 칸 크기를 모르면 800×600 칸으로 본다', () => {
+    const small = migrateLegacyTranslators(modelWithDocPane(), legacyState({ open: true, x: 700, y: 500, w: 340, h: 380 }), [{ pane: 'a', kind: 'pdf', width: 500, height: 400 }])
+    const float = activeScreenOf(small.screens).floats[0]!
+    expect(float.x * 500 + float.w).toBeLessThanOrEqual(500 - 8 + 0.001)
+    const unknown = migrateLegacyTranslators(modelWithDocPane(), legacyState({ open: true, x: 100, y: 50, w: 360, h: 300 }), [{ pane: 'a', kind: 'pdf', width: 0, height: 0 }])
+    expect(activeScreenOf(unknown.screens).floats[0]).toMatchObject({ x: 100 / 800, y: 50 / 600 })
+  })
+
+  it('닫혀 있던 번역기 · 그 종류의 문서를 보는 칸이 없음 · 이미 그 칸에 번역기가 있음은 옮기지 않는다', () => {
+    const model = modelWithDocPane()
+    expect(migrateLegacyTranslators(model, legacyState({ open: false }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])).toBe(model)
+    expect(migrateLegacyTranslators(model, legacyState({ open: true }), [{ pane: 'a', kind: 'markdown', width: 800, height: 600 }])).toBe(model)
+    const once = migrateLegacyTranslators(model, legacyState({ open: true }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])
+    const twice = migrateLegacyTranslators(once, legacyState({ open: true }), [{ pane: 'a', kind: 'pdf', width: 800, height: 600 }])
+    expect(activeScreenOf(twice.screens).floats).toHaveLength(1)
+  })
+
+  it('PDF 와 Markdown 이 모두 열려 있었으면 각 종류의 칸에 하나씩 만든다', () => {
+    const screen: Screen = {
+      ...blankScreen('읽기'),
+      layout: splitLeaf(paneNode('a'), 'a', 'h', 'b'),
+      panes: { a: { tabs: [{ id: 'd1', title: 'D', kind: 'pdf' }], activeId: 'd1' }, b: { tabs: [{ id: 'm.md', title: 'M', kind: 'markdown' }], activeId: 'm.md' } },
+      channels: { a: 'blue', b: 'blue' },
+    }
+    const model: FloatModel = { screens: { screens: [screen], activeScreen: screen.id, lastScreen: null }, activePane: 'a' }
+    const next = migrateLegacyTranslators(model, legacyState({ open: true }, { open: true }), [
+      { pane: 'a', kind: 'pdf', width: 400, height: 600 }, { pane: 'b', kind: 'markdown', width: 400, height: 600 },
+    ])
+    expect(activeScreenOf(next.screens).floats.map((float) => float.anchor)).toEqual([{ kind: 'pane', paneId: 'a' }, { kind: 'pane', paneId: 'b' }])
   })
 })

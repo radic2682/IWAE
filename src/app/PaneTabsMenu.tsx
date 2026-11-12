@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
+import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, Translate, X, XSquare } from '@phosphor-icons/react'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { ChannelDot } from './ChannelDot'
 import type { PaneChannel } from './workspaceChannels'
@@ -76,6 +76,7 @@ export function shortTabTitle(title: string): string {
 function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
   if (kind === 'memoNote') return <NotePencil size={13} aria-hidden="true" className="pane-top-tab-kind" />
   if (kind === 'canvas') return <Graph size={13} aria-hidden="true" className="pane-top-tab-kind" />
+  if (kind === 'translator') return <Translate size={13} aria-hidden="true" className="pane-top-tab-kind" />
   if (kind === 'markdown') return <FileText size={13} aria-hidden="true" className="pane-top-tab-kind" />
   return <FilePdf size={13} aria-hidden="true" className="pane-top-tab-kind" />
 }

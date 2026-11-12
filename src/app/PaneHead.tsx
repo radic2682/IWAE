@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { ArrowsLeftRight, ArrowsOutSimple, ArrowSquareOut, Circle, DotsThree, Rows, SquareSplitHorizontal, X } from '@phosphor-icons/react'
+import { ArrowsLeftRight, ArrowsOutSimple, ArrowSquareOut, Circle, DotsThree, PictureInPicture, Rows, SquareSplitHorizontal, X } from '@phosphor-icons/react'
 import type { SplitDir } from '../core/layoutTree'
 import { t } from '../i18n'
 import { PopupMenu } from './PopupMenu'
@@ -25,6 +25,8 @@ export interface PaneHeadProps {
   readonly onBreak: () => void
   /** 칸 자리 바꾸기(swap-pane): 다음 칸과(맨 끝 칸이면 앞 칸과) */
   readonly onSwap: () => void
+  /** 띄우기(float-pane): 이 칸을 떼어 화면 위에 띄운다. 하나뿐인 칸은 못 한다 */
+  readonly onFloat?: () => void
   readonly onCycleChannel: () => void
   readonly onClose: () => void
   readonly channel: PaneChannel
@@ -37,7 +39,7 @@ const CHANNEL_NAME: Record<'blue' | 'green' | 'orange' | 'none', string> = {
   none: '없음',
 }
 
-export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit, onToggleZoom, onBreak, onSwap, onCycleChannel, onClose, channel }: PaneHeadProps) {
+export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit, onToggleZoom, onBreak, onSwap, onFloat, onCycleChannel, onClose, channel }: PaneHeadProps) {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const [at, setAt] = useState<{ right: number; top: number } | null>(null)
@@ -93,6 +95,9 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
           </button>
           <button type="button" role="menuitem" disabled={!multi || !splitEnabled} onClick={run(onBreak)}>
             <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('새 화면으로 떼기')}</span><kbd>!</kbd>
+          </button>
+          <button type="button" role="menuitem" disabled={!multi || onFloat === undefined} title={multi ? undefined : t('칸이 하나뿐이라 띄울 수 없습니다')} onClick={run(() => onFloat?.())}>
+            <PictureInPicture size={15} aria-hidden="true" /><span>{t('띄우기')}</span><kbd>float-pane</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi} onClick={run(onSwap)}>
             <ArrowsLeftRight size={15} aria-hidden="true" /><span>{t('칸 자리 바꾸기')}</span><kbd>{'{ }'}</kbd>

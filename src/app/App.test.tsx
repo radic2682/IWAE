@@ -1025,7 +1025,7 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     openMenu(0)
     const menu = screen.getByRole('menu', { name: '칸 메뉴' })
     expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-      '오른쪽으로 나누기%', '아래로 나누기"', '크게z', '새 화면으로 떼기!', '칸 자리 바꾸기{ }', '색 바꾸기파랑', '칸 닫기x',
+      '오른쪽으로 나누기%', '아래로 나누기"', '크게z', '새 화면으로 떼기!', '띄우기float-pane', '칸 자리 바꾸기{ }', '색 바꾸기파랑', '칸 닫기x',
     ])
     pick(/오른쪽으로 나누기/u)
     expect(cells(container)).toHaveLength(3)
@@ -1053,7 +1053,7 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
   it('칸이 하나뿐이면 칸 닫기 · 새 화면으로 떼기 · 칸 자리 바꾸기 · 크게는 쓸 수 없다', () => {
     renderApp()
     openMenu(0)
-    for (const name of [/칸 닫기/u, /새 화면으로 떼기/u, /칸 자리 바꾸기/u, /크게/u]) {
+    for (const name of [/칸 닫기/u, /새 화면으로 떼기/u, /띄우기/u, /칸 자리 바꾸기/u, /크게/u]) {
       expect((screen.getByRole('menuitem', { name }) as HTMLButtonElement).disabled).toBe(true)
     }
   })
@@ -1097,9 +1097,14 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
     fireEvent.click(within(quick).getByRole('button', { name: 'PDF' }))
     await waitFor(() => expect(pickPdfFile).toHaveBeenCalled())
+    // 번역기는 이 칸에 붙은 떠 있는 칸(번역기 탭)을 연다. 한 번 더 누르면 닫는다
     fireEvent.click(within(quick).getByRole('button', { name: '번역기' }))
-    expect(JSON.parse(localStorage.getItem('iwae:translator-panel:v1') ?? '{}').pdf.open).toBe(true)
-    expect((await screen.findAllByText('문서를 열면 번역기가 보입니다')).length).toBeGreaterThan(0)
+    const floats = () => container.querySelectorAll('.pane-float')
+    await waitFor(() => expect(floats()).toHaveLength(1))
+    expect(within(floats()[0] as HTMLElement).getByRole('region', { name: '번역기' })).toBeDefined()
+    expect(within(floats()[0] as HTMLElement).getByRole('tab', { name: '번역기' })).toBeDefined()
+    fireEvent.click(within(quick).getByRole('button', { name: '번역기' }))
+    await waitFor(() => expect(floats()).toHaveLength(0))
     fireEvent.click(within(quick).getByRole('button', { name: 'MD' }))
     expect(container.querySelector('.shell-library-expanded')).not.toBeNull()
   })
@@ -1305,10 +1310,10 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(container.querySelector('.pane-focus-scope[data-pane-active]')?.getAttribute('data-pane-id')).toBe(first))
   })
 
-  it('f · d 는 「다음 단계에서 됩니다」, s 는 세션 메뉴, ? 는 키 목록, 모르는 키는 안내', async () => {
+  it('f 는 떠 있는 칸이 없으면 알리고, d 는 「다음 단계에서 됩니다」, s 는 세션 메뉴, ? 는 키 목록, 모르는 키는 안내', async () => {
     render(<App developmentPreview />)
     after({ key: 'f', code: 'KeyF' })
-    await waitFor(() => expect(statusMessage()).toBe('다음 단계에서 됩니다'))
+    await waitFor(() => expect(statusMessage()).toBe('떠 있는 칸이 없습니다'))
     after({ key: 'd', code: 'KeyD' })
     await waitFor(() => expect(statusMessage()).toBe('다음 단계에서 됩니다'))
     after({ key: 's', code: 'KeyS' })
@@ -1414,5 +1419,173 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
     expect(reached).toBe(0)
     field.remove()
+  })
+})
+
+describe('App — 떠 있는 칸', () => {
+  beforeEach(() => { Element.prototype.scrollIntoView = vi.fn(); localStorage.removeItem('iwae:translator-panel:migrated:v1'); localStorage.removeItem('iwae:translator-panel:v1') })
+  const floats = (container: HTMLElement) => container.querySelectorAll<HTMLElement>('.pane-float')
+  const treeCells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell:not(.pane-float)')
+  const openMenu = (index: number) => fireEvent.click(screen.getAllByRole('button', { name: '칸 메뉴' })[index]!)
+  const pick = (name: RegExp) => fireEvent.click(screen.getByRole('menuitem', { name }))
+  const press = (init: KeyboardEventInit) => { act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) }) }
+  const after = (init: KeyboardEventInit) => { press({ key: ' ', code: 'Space', ctrlKey: true }); press(init) }
+  const statusMessage = () => document.querySelector('.status-bar-message')?.textContent
+  const runLine = (line: string) => {
+    after({ key: ':', code: 'Semicolon', shiftKey: true })
+    const input = screen.getByRole('textbox', { name: '명령줄' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: line } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+  }
+  const NOTE_TAB = 'Evidence Map — Sample Research Note'
+
+  it('⋯ 「띄우기」: 칸이 트리에서 빠져 떠 있는 칸이 되고(탭 그대로), 머리에 ▁ ⇲ × 단추가 있다', async () => {
+    const { container } = render(<App developmentPreview />)
+    expect(treeCells(container)).toHaveLength(2)
+    openMenu(1)
+    pick(/띄우기/u)
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    expect(treeCells(container)).toHaveLength(1)
+    const card = floats(container)[0]!
+    expect(within(card).getByRole('tab', { name: NOTE_TAB })).toBeDefined()
+    for (const name of ['접기', '칸으로 넣기', '떠 있는 칸 닫기']) expect(within(card).getByRole('button', { name })).toBeDefined()
+    expect(within(card).getByRole('separator', { name: '떠 있는 칸 크기 바꾸기' })).toBeDefined()
+    // 떠 있는 칸은 칸 번호를 받지 않는다
+    expect(card.querySelector('.pane-head-number')).toBeNull()
+  })
+
+  it('▁ 접기는 머리만 남기고, 펼치기로 되돌린다', async () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(1)
+    pick(/띄우기/u)
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    const card = () => floats(container)[0]!
+    fireEvent.click(within(card()).getByRole('button', { name: '접기' }))
+    expect(card().hasAttribute('data-collapsed')).toBe(true)
+    expect(card().querySelector('.pane-float-body')?.hasAttribute('hidden')).toBe(true)
+    expect(within(card()).queryByRole('separator', { name: '떠 있는 칸 크기 바꾸기' })).toBeNull()
+    fireEvent.click(within(card()).getByRole('button', { name: '펼치기' }))
+    expect(card().hasAttribute('data-collapsed')).toBe(false)
+  })
+
+  it('⇲ 칸으로 넣기: 떠 있는 칸이 트리로 돌아가 칸이 다시 둘이 된다', async () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(1)
+    pick(/띄우기/u)
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    fireEvent.click(within(floats(container)[0]!).getByRole('button', { name: '칸으로 넣기' }))
+    await waitFor(() => expect(floats(container)).toHaveLength(0))
+    expect(treeCells(container)).toHaveLength(2)
+    expect(screen.getByRole('tab', { name: NOTE_TAB })).toBeDefined()
+  })
+
+  it('× 닫기: 문서 탭은 칸에 합쳐져 잃지 않는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(1)
+    pick(/띄우기/u)
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    fireEvent.click(within(floats(container)[0]!).getByRole('button', { name: '떠 있는 칸 닫기' }))
+    await waitFor(() => expect(floats(container)).toHaveLength(0))
+    expect(treeCells(container)).toHaveLength(1)
+    expect(screen.getByRole('tab', { name: NOTE_TAB })).toBeDefined()
+  })
+
+  it('접두키 f: 떠 있는 칸을 모두 숨기고(그리지 않는다) 다시 누르면 보인다', async () => {
+    const { container } = render(<App developmentPreview />)
+    openMenu(1)
+    pick(/띄우기/u)
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    after({ key: 'f', code: 'KeyF' })
+    await waitFor(() => expect(floats(container)).toHaveLength(0))
+    expect(statusMessage()).toBe('떠 있는 칸을 숨겼습니다')
+    after({ key: 'f', code: 'KeyF' })
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+  })
+
+  it('떠 있는 칸의 마지막 탭을 닫으면 그 칸도 닫힌다(탭을 끌어 내도 같다). 막 만든 빈 칸은 그대로 둔다', async () => {
+    const { container } = render(<App developmentPreview />)
+    after({ key: 'w', code: 'KeyW' })
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    // 탭이 들어 있는 동안 지켜본 뒤 탭을 닫는다(가운데 클릭 = 탭 닫기)
+    const tab = within(floats(container)[0]!).getByRole('tab', { name: '번역기' })
+    fireEvent(tab, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }))
+    fireEvent.mouseDown(tab, { button: 1 })
+    fireEvent.mouseUp(tab, { button: 1 })
+    await waitFor(() => expect(floats(container)).toHaveLength(0))
+  })
+
+  it('접두키 w: 번역기 탭을 담은 떠 있는 칸을 띄우고, 한 번 더 누르면 새로 만들지 않는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    after({ key: 'w', code: 'KeyW' })
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    expect(within(floats(container)[0]!).getByRole('region', { name: '번역기' })).toBeDefined()
+    after({ key: 'w', code: 'KeyW' })
+    await new Promise((resolve) => { window.setTimeout(resolve, 60) })
+    expect(floats(container)).toHaveLength(1)
+  })
+
+  it('display-popup 이름: 열 곳을 찾아 열고, 못 찾았거나 이미 열려 있으면 빈 떠 있는 칸을 남기지 않는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    // 이미 열려 있는 노트는 그 자리에서 활성화되고(탭은 한 곳에만), 빈 떠 있는 칸은 남지 않는다
+    runLine('display-popup Evidence Map')
+    await waitFor(() => expect(statusMessage()).toContain('열었습니다'))
+    await new Promise((resolve) => { window.setTimeout(resolve, 80) })
+    expect(floats(container)).toHaveLength(0)
+    runLine('display-popup 없는이름없는이름')
+    await waitFor(() => expect(statusMessage()).toContain('찾을 수 없습니다'))
+    await new Promise((resolve) => { window.setTimeout(resolve, 80) })
+    expect(floats(container)).toHaveLength(0)
+    expect(treeCells(container)).toHaveLength(2)
+  })
+
+  it('명령: float-pane · embed-pane · toggle-floating 이 되고, 칸이 하나뿐이면 float-pane 은 막는다', async () => {
+    const { container } = render(<App developmentPreview />)
+    runLine('float-pane')
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    runLine('float-pane')
+    await waitFor(() => expect(statusMessage()).toBe('이미 떠 있는 칸입니다'))
+    runLine('toggle-floating ; toggle-floating')
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    runLine('embed-pane')
+    await waitFor(() => expect(floats(container)).toHaveLength(0))
+    expect(treeCells(container)).toHaveLength(2)
+    runLine('select-pane -t 0 ; kill-pane')
+    await waitFor(() => expect(treeCells(container)).toHaveLength(1))
+    runLine('float-pane')
+    await waitFor(() => expect(statusMessage()).toBe('칸이 하나뿐이라 띄울 수 없습니다'))
+  })
+
+  it('select-pane -n 이 보이는 떠 있는 칸까지 돌고, 칸 번호(q)에는 떠 있는 칸이 없다', async () => {
+    const { container } = render(<App developmentPreview />)
+    runLine('float-pane')
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    const floatActive = () => container.querySelector('.pane-float .pane-focus-scope[data-pane-active]') !== null
+    await waitFor(() => expect(floatActive()).toBe(true))
+    runLine('select-pane -n')
+    await waitFor(() => expect(floatActive()).toBe(false))
+    runLine('select-pane -n')
+    await waitFor(() => expect(floatActive()).toBe(true))
+    // 칸 번호 겹침은 나누기 트리의 칸만 센다(떠 있는 칸은 번호가 없다)
+    after({ key: 'q', code: 'KeyQ' })
+    expect(screen.getByTestId('pane-numbers')).toBeDefined()
+    expect(container.querySelector('.pane-float .pane-head-number')).toBeNull()
+    press({ key: 'Escape', code: 'Escape' })
+  })
+
+  it('예전 떠 있는 번역기(열림 · 자리 · 크기)는 한 번 문서 칸에 붙은 번역기 떠 있는 칸으로 옮긴다', async () => {
+    localStorage.setItem('iwae:translator-panel:v1', JSON.stringify({ pdf: { open: true, x: 100, y: 50, w: 360, h: 300 }, markdown: { open: false } }))
+    const { container } = render(<App developmentPreview />)
+    await waitFor(() => expect(floats(container)).toHaveLength(1))
+    expect(within(floats(container)[0]!).getByRole('region', { name: '번역기' })).toBeDefined()
+    expect(localStorage.getItem('iwae:translator-panel:v1')).toBeNull()
+    expect(localStorage.getItem('iwae:translator-panel:migrated:v1')).toBe('1')
+  })
+
+  it('옮겼다고 적힌 뒤에는 예전 값이 있어도 다시 옮기지 않는다', async () => {
+    localStorage.setItem('iwae:translator-panel:migrated:v1', '1')
+    localStorage.setItem('iwae:translator-panel:v1', JSON.stringify({ pdf: { open: true } }))
+    const { container } = render(<App developmentPreview />)
+    await new Promise((resolve) => { window.setTimeout(resolve, 60) })
+    expect(floats(container)).toHaveLength(0)
   })
 })

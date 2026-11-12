@@ -85,7 +85,7 @@ describe('파서', () => {
   })
 
   it('다음 단계 명령은 읽히고 soon 표시가 붙는다', () => {
-    for (const name of ['float-pane', 'embed-pane', 'toggle-floating', 'display-popup', 'new-client', 'detach']) {
+    for (const name of ['new-client', 'detach']) {
       const parsed = parseCommandLine(`${name} -t x`)
       expect(parsed.ok && parsed.commands[0]?.soon, name).toBe(true)
     }
@@ -495,7 +495,7 @@ describe('명령 실행: 앱이 하는 일', () => {
 
   it('다음 단계 명령은 「다음 단계에서 됩니다」', async () => {
     const h = harness()
-    for (const name of ['float-pane', 'embed-pane', 'toggle-floating', 'display-popup', 'new-client', 'detach']) {
+    for (const name of ['new-client', 'detach']) {
       const result = await h.run(name)
       expect(result, name).toEqual({ ok: false, message: '다음 단계에서 됩니다' })
     }
@@ -586,6 +586,148 @@ describe('명령 실행: 앱이 하는 일', () => {
       const result = await h.run('switch-client -t x ; split-window -h')
       expect(result.ok).toBe(false)
       expect(h.screen().layout.kind).toBe('pane')
+    })
+  })
+
+  describe('떠 있는 칸 명령', () => {
+    const three = async () => {
+      const h = harness()
+      await split(h)
+      await split(h)
+      return h
+    }
+    const floatsOf = (h: ReturnType<typeof harness>) => h.screen().floats
+
+    it('float-pane: 만지는 칸을 띄우고 그 칸이 만지는 칸이 된다. 하나뿐인 칸은 못 한다', async () => {
+      const lone = harness()
+      expect(await lone.run('float-pane')).toEqual({ ok: false, message: '칸이 하나뿐이라 띄울 수 없습니다' })
+      const h = await three()
+      const before = h.model().activePane
+      expect((await h.run('float-pane')).ok).toBe(true)
+      expect(floatsOf(h).map((float) => float.paneId)).toEqual([before])
+      expect(h.model().activePane).toBe(before)
+      expect(leaves(h.screen().layout)).not.toContain(before)
+      expect(await h.run('float-pane')).toEqual({ ok: false, message: '이미 떠 있는 칸입니다' })
+    })
+
+    it('embed-pane: 떠 있는 칸을 붙은 칸(없으면 만지던 칸) 오른쪽에 나누어 넣는다', async () => {
+      const h = await three()
+      const floated = h.model().activePane
+      await h.run('float-pane')
+      expect((await h.run('embed-pane')).ok).toBe(true)
+      expect(floatsOf(h)).toHaveLength(0)
+      expect(leaves(h.screen().layout)).toContain(floated)
+      expect(await h.run('embed-pane')).toEqual({ ok: false, message: '떠 있는 칸이 없습니다' })
+    })
+
+    it('toggle-floating: 숨기고 보이고, 숨긴 동안 select-pane -n 은 떠 있는 칸을 건너뛴다', async () => {
+      const h = await three()
+      await h.run('float-pane')
+      const order = () => leaves(h.screen().layout)
+      expect((await h.run('toggle-floating')).message).toBe('떠 있는 칸을 숨겼습니다')
+      expect(h.screen().floatsHidden).toBe(true)
+      expect(order()).toContain(h.model().activePane)
+      const seen = new Set<string>()
+      for (let index = 0; index < 4; index += 1) { await h.run('select-pane -n'); seen.add(h.model().activePane) }
+      expect([...seen].sort()).toEqual([...order()].sort())
+      expect((await h.run('toggle-floating')).message).toBe('떠 있는 칸을 보입니다')
+      const floatId = floatsOf(h)[0]!.paneId
+      const visited: string[] = []
+      for (let index = 0; index < order().length + 1; index += 1) { await h.run('select-pane -n'); visited.push(h.model().activePane) }
+      expect(visited).toContain(floatId)
+    })
+
+    it('select-pane -t N · 방향 이동은 트리의 칸만 센다', async () => {
+      const h = await three()
+      await h.run('float-pane')
+      const tree = leaves(h.screen().layout)
+      await h.run('select-pane -t 1')
+      expect(h.model().activePane).toBe(tree[1])
+      expect((await h.run(`select-pane -t ${tree.length}`)).ok).toBe(false)
+      // 떠 있는 칸을 만지는 중에 방향을 누르면 그 칸이 붙은 트리 칸(없으면 첫 칸)에서 센다
+      await h.run('select-pane -n')
+      await h.run('select-pane -n')
+      expect(h.model().activePane).toBeDefined()
+    })
+
+    it('kill-pane: 떠 있는 칸을 만지는 중이면 그 칸을 닫는다(트리의 칸은 그대로)', async () => {
+      const h = await three()
+      const count = leaves(h.screen().layout).length
+      await h.run('float-pane')
+      expect(leaves(h.screen().layout)).toHaveLength(count - 1)
+      expect((await h.run('kill-pane')).ok).toBe(true)
+      expect(floatsOf(h)).toHaveLength(0)
+      expect(leaves(h.screen().layout)).toHaveLength(count - 1)
+    })
+
+    it('나누기 트리를 바꾸는 명령은 떠 있는 칸을 만지는 중이어도 그 칸이 붙은 트리 칸(없으면 첫 칸)에 한다', async () => {
+      const h = await three()
+      await h.run('float-pane')
+      const before = leaves(h.screen().layout).length
+      expect((await h.run('split-window -h')).ok).toBe(true)
+      expect(leaves(h.screen().layout)).toHaveLength(before + 1)
+      expect(floatsOf(h)).toHaveLength(1)
+    })
+
+    it('display-popup: 이름이 없으면 번역기 떠 있는 칸을(같은 곳에 이미 있으면 새로 만들지 않고 보이게)', async () => {
+      const h = harness()
+      expect((await h.run('display-popup')).ok).toBe(true)
+      expect(floatsOf(h)).toHaveLength(1)
+      const popup = floatsOf(h)[0]!
+      expect(h.screen().panes[popup.paneId]!.tabs[0]).toMatchObject({ kind: 'translator' })
+      await h.run('toggle-floating')
+      expect((await h.run('popup')).ok).toBe(true)
+      expect(floatsOf(h)).toHaveLength(1)
+      expect(h.screen().floatsHidden).toBe(false)
+    })
+
+    it('display-popup 이름: 만든 떠 있는 칸에 그 이름을 열고, 열지 못하면 빈 칸을 남기지 않는다', async () => {
+      const opened = vi.fn(async (_query: string, pane: string) => {
+        opened.mockImplementationOnce
+        void pane
+        return { ok: true, message: '열었습니다' }
+      })
+      let h: ReturnType<typeof harness>
+      const open = async (query: string, pane: string) => {
+        const result = await opened(query, pane)
+        // 열린 탭이 그 떠 있는 칸에 들어간다
+        const screen = activeScreenOf(h.model().screens)
+        h.host.setModel({ ...h.model(), screens: { ...h.model().screens, screens: h.model().screens.screens.map((candidate) => (candidate.id === screen.id ? { ...screen, panes: { ...screen.panes, [pane]: { tabs: [{ id: 'n', title: query, kind: 'memoNote' as const }], activeId: 'n' } } } : candidate)) } })
+        return result
+      }
+      h = harness(oneScreen(), { open })
+      expect((await h.run('display-popup 노트 A')).ok).toBe(true)
+      expect(floatsOf(h)).toHaveLength(1)
+      expect(opened).toHaveBeenCalledWith('노트 A', floatsOf(h)[0]!.paneId)
+      expect(h.model().activePane).toBe(floatsOf(h)[0]!.paneId)
+      const failing = harness(oneScreen(), { open: async () => ({ ok: false, message: '찾을 수 없습니다' }) })
+      expect(await failing.run('display-popup 없음')).toEqual({ ok: false, message: '찾을 수 없습니다' })
+      expect(floatsOf(failing)).toHaveLength(0)
+      const noOpen = harness()
+      expect(await noOpen.run('display-popup 노트')).toEqual({ ok: false, message: '지금은 안 됩니다' })
+    })
+
+    it('display-popup 은 문서를 보는 칸에서 부르면 그 칸에 붙인다', async () => {
+      const base = oneScreen()
+      const pane = base.activePane
+      const screen = activeScreenOf(base.screens)
+      const withDoc: WorkspaceModel = { ...base, screens: { ...base.screens, screens: [{ ...screen, panes: { [pane]: { tabs: [{ id: 'd1', title: 'D', kind: 'pdf' as const }], activeId: 'd1' } } }] } }
+      const h = harness(withDoc)
+      await h.run('display-popup')
+      expect(h.screen().floats[0]!.anchor).toEqual({ kind: 'pane', paneId: pane })
+    })
+
+    it('set-channel 은 떠 있는 칸에도 된다', async () => {
+      const h = await three()
+      await h.run('float-pane')
+      const floated = h.model().activePane
+      expect((await h.run('set-channel orange')).ok).toBe(true)
+      expect(h.screen().channels[floated]).toBe('orange')
+    })
+
+    it('명령 이름 목록에 보이고 도움말에 쓴다', () => {
+      expect(commandNames()).toEqual(expect.arrayContaining(['float-pane', 'embed-pane', 'toggle-floating', 'display-popup']))
+      expect(canonicalCommandName('popup')).toBe('display-popup')
     })
   })
 

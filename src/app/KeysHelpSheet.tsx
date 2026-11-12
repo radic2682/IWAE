@@ -27,7 +27,7 @@ export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
   { keys: 'q', action: '칸 번호 보이기, 숫자로 이동', command: 'display-panes', status: 'on' },
   { keys: 'c · , · &', action: '새 화면 · 화면 이름 · 화면 닫기', command: 'new-window · rename-window · kill-window', status: 'on' },
   { keys: 'n p l · 0–9', action: '다음 · 이전 · 마지막 화면 · 번호로', command: 'next-window … select-window -t N', status: 'on' },
-  { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 떠 있는 번역기', command: 'toggle-floating · display-popup', status: 'soon' },
+  { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 떠 있는 번역기', command: 'toggle-floating · display-popup', status: 'on' },
   { keys: 's', action: '세션 목록', command: 'choose-session', status: 'on' },
   { keys: 'd', action: '이 앱 창 떼기', command: 'detach', status: 'soon' },
   { keys: ':', action: '명령줄', command: '(상태 줄이 입력칸이 됩니다)', status: 'on' },

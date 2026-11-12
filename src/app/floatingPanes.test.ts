@@ -6,7 +6,7 @@ import {
   selectableOrder, toggleFloating, toggleTranslatorFloat, translatorFloatFor, visibleFloats, type FloatModel,
 } from './floatingPanes'
 import { activeScreenOf, blankScreen, normalizeFloats, screenPaneIds, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
-import { closePaneTree } from './tabDock'
+import { closePaneTree, dockTab, moveTabToPaneAt } from './tabDock'
 import { tabsOf, type Tab } from './tabs'
 
 const doc = (id: string): Tab => ({ id, title: id, kind: 'pdf' })
@@ -272,6 +272,32 @@ describe('닫기와 붙은 칸 따라가기', () => {
     expect(activeScreenOf(raised).floats.map((float) => float.paneId)).toEqual(['c', 'b'])
     expect(raiseFloat(raised, 'b')).toBe(raised)
     expect(patchFloat(model.screens, 'zz', { x: 0.5 })).toBe(model.screens)
+  })
+})
+
+describe('탭 끌어 놓기와 떠 있는 칸', () => {
+  it('탭을 떠 있는 칸 가운데로 끌어 놓으면 그 칸 줄에 들어간다(떠 있는 칸은 트리에 끼지 않는다)', () => {
+    const model = ok(floatPane(threePanes(), 'b'))
+    const screen = screenOf(model)
+    const moved = moveTabToPaneAt(screen.panes, 'd1', 'b', 1)
+    expect(tabsOf(moved, 'b').tabs.map((tab) => tab.id)).toEqual(['d2', 'd1'])
+    expect(tabsOf(moved, 'b').activeId).toBe('d1')
+    expect(tabsOf(moved, 'a').tabs).toEqual([])
+  })
+
+  it('떠 있는 칸의 탭을 트리 칸 가장자리로 끌면 거기서 갈라져 새 칸이 되고, 떠 있는 칸의 색은 새 칸이 받는다', () => {
+    const model = ok(floatPane(threePanes(), 'b'))
+    const screen = screenOf(model)
+    const result = dockTab(workspaceOf(screen), 'd2', 'c', 'right')
+    expect(result).not.toBeNull()
+    if (result === null || 'refused' in result) throw new Error('나누지 못했다')
+    expect(leaves(result.layout)).toEqual(['a', 'c', result.newPane])
+    expect(tabsOf(result.panes, result.newPane).tabs.map((tab) => tab.id)).toEqual(['d2'])
+    expect(result.channels[result.newPane]).toBe('green')
+    // 떠 있는 칸의 칸 상태는 남는다(비면 앱이 그 칸을 닫는다)
+    expect(tabsOf(result.panes, 'b').tabs).toEqual([])
+    expect(result.sourcePane).toBe('b')
+    expect(result.collapsed).toBe(false)
   })
 })
 
