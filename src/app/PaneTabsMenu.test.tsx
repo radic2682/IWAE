@@ -142,4 +142,23 @@ describe('PaneTabsMenu — 말풍선(title)은 이름이 다 안 보이는 탭�
     expect(screen.getByRole('tab', { name: 'A very long title that is cut' }).getAttribute('title')).toBe('A very long title that is cut')
     expect(screen.getByRole('tab', { name: 'Icon only' }).getAttribute('title')).toBe('Icon only')
   })
+
+  it('× 로 닫아 탭 폭을 묶어 둔 동안에도 말풍선이 다시 잰다(줄 폭이 그대로여도 탭 폭이 바뀐다)', () => {
+    // 묶이기 전에는 이름이 다 보이고(내용 50 ≤ 이름 칸 50), 묶인 뒤(.pane-tabs-strip-frozen)에는 이름 칸이 좁아져 잘린다
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        const element = this as HTMLElement
+        return element.classList.contains('pane-top-tab-label') && element.closest('.pane-tabs-strip-frozen') !== null ? 20 : element.classList.contains('pane-top-tab-label') ? 50 : 200
+      },
+    })
+    Object.defineProperty(Element.prototype, 'scrollWidth', { configurable: true, get() { return 50 } })
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, right: 90, bottom: 28, width: 90, height: 28, x: 0, y: 0, toJSON: () => ({}) } as DOMRect)
+    render(<PaneTabsMenu state={three} label="PDF" onActivate={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByRole('tab', { name: 'Fits' }).hasAttribute('title')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Icon only 닫기' }))
+    expect(document.querySelector('.pane-tabs-strip-frozen')).not.toBeNull()
+    expect(screen.getByRole('tab', { name: 'Fits' }).getAttribute('title')).toBe('Fits')
+    rect.mockRestore()
+  })
 })

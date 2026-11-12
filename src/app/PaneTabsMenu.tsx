@@ -127,45 +127,33 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     return () => window.removeEventListener('keydown', onKey)
   }, [menuOpen])
   const stripRef = useRef<HTMLDivElement>(null)
-  // 탭이 줄에 다 들어가면 개수 단추(⌄ n)를 숨긴다. 넘칠 때만 보여 상단바를 조용하게 둔다
+  // × 로 탭을 닫으면 남은 탭의 폭을 묶어 둔다(아래 closeFromStrip)
+  const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
+  // 탭 줄을 재는 것 셋을 한 관찰자(ResizeObserver)로 한 번에 잰다:
+  //  ① 탭이 줄에 다 들어가면 개수 단추(⌄ n)를 숨긴다(넘칠 때만 보여 상단바를 조용하게 둔다)
+  //  ② 보조 글(쪽 · 폴더 · 경로)은 제목이 통째로 보이고 보조 글도 통째로 들어갈 때만 보인다. 모자라면 「·」 도 글자도 아예 감춘다(「설... · p」 처럼 잘려 보이지 않게)
+  //  ③ 이름이 잘렸거나 아이콘만 남은 탭에만 말풍선(title)을 단다: 이름이 다 보이는 탭에는 같은 이름의 말풍선이 또 뜨지 않게
+  // 탭 폭은 줄 폭이 그대로여도 바뀐다(탭 닫기로 폭을 묶어 둔 동안 · 보조 글이 켜지고 꺼질 때 · 이름 바꾸는 중): 그런 값이 바뀔 때도 다시 잰다.
   const [overflowing, setOverflowing] = useState(false)
-  useLayoutEffect(() => {
-    const strip = stripRef.current
-    if (strip === null) return
-    const measure = () => setOverflowing(hasHiddenTabs(strip))
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(strip)
-    return () => observer.disconnect()
-  }, [state.tabs.length])
-  // 보조 글(쪽 · 폴더 · 경로)은 제목이 통째로 보이고 보조 글도 통째로 들어갈 때만 보인다. 모자라면 「·」 도 글자도 아예 감춘다(「설... · p」 처럼 잘려 보이지 않게)
   const [subFits, setSubFits] = useState(true)
+  const [hiddenTitles, setHiddenTitles] = useState('')
   const subKey = secondary ?? ''
   const activeTitle = state.tabs.find((tab) => tab.id === state.activeId)?.title ?? ''
-  useLayoutEffect(() => {
-    const strip = stripRef.current
-    if (strip === null || subKey === '') return undefined
-    const check = () => setSubFits(subFitsInTitle(strip.querySelector<HTMLElement>('.pane-top-tab-active .pane-top-tab-title')))
-    check()
-    if (typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(check)
-    observer.observe(strip)
-    return () => observer.disconnect()
-  }, [subKey, activeTitle, state.activeId, state.tabs.length])
-  // 이름이 잘렸거나 아이콘만 남은 탭에만 말풍선(title)을 단다: 이름이 다 보이는 탭에는 같은 이름의 말풍선이 또 뜨지 않게
-  const [hiddenTitles, setHiddenTitles] = useState('')
-  const titlesKey = state.tabs.map((tab) => `${tab.id}${tab.title}`).join('')
+  const titlesKey = state.tabs.map((tab) => `${tab.id}${tab.title}`).join('')
   useLayoutEffect(() => {
     const strip = stripRef.current
     if (strip === null) return undefined
-    const measure = () => setHiddenTitles(tabsWithHiddenTitle(strip).join(''))
+    const measure = () => {
+      setOverflowing(hasHiddenTabs(strip))
+      if (subKey !== '') setSubFits(subFitsInTitle(strip.querySelector<HTMLElement>('.pane-top-tab-active .pane-top-tab-title')))
+      setHiddenTitles(tabsWithHiddenTitle(strip).join(''))
+    }
     measure()
     if (typeof ResizeObserver === 'undefined') return undefined
     const observer = new ResizeObserver(measure)
     observer.observe(strip)
     return () => observer.disconnect()
-  }, [titlesKey, state.activeId, subKey, subFits, renaming])
+  }, [state.tabs.length, titlesKey, state.activeId, activeTitle, subKey, subFits, renaming, frozenWidth])
   // 끌기가 시작된 때부터 놓은 뒤 따라오는 click 까지는 탭 전환이 아니다(고정 시간이 아니다: 오래 끌다 Esc 로 취소하고 탭 위에서 놓아도 click 이 막혀야 한다).
   // 놓은 뒤(pointerup) click 이 지나가도록 한 틱 미루어 풀고, 새로 누르면(pointerdown) 바로 푼다 — 창이 따로 움직여 pointerup 이 안 오는 끌기도 갇히지 않게
   const suppressClickRef = useRef(false)
@@ -228,7 +216,6 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   const firstTarget = targets[0] ?? null
   // 크롬처럼: × 로 탭을 닫으면 남은 탭의 폭을 그대로 묶어 둔다. 그러면 다음 탭의 × 가 마우스 밑으로 와서
   // 같은 자리를 연달아 눌러 여러 개를 닫을 수 있다. 마우스가 탭 줄을 벗어나면 폭을 다시 나눈다.
-  const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const closeFromStrip = (element: HTMLElement | null, id: string) => {
     const width = element?.closest<HTMLElement>('.pane-top-tab')?.getBoundingClientRect().width ?? 0
     if (width > 0) setFrozenWidth(width)

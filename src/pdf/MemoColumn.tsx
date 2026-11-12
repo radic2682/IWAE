@@ -282,20 +282,33 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
   const [moreOpen, setMoreOpen] = useState(false)
   const widths = useRef<number[]>([])
   const [tick, setTick] = useState(0)
+  // 다시 재야 할 때만 tick 을 올린다: 줄 · 도구줄 · 곁의 묶음 · 서식 묶음의 크기가 바뀌었을 때, 도구줄에 묶음이 생기거나 사라졌을 때(검색이 펼쳐지고 노트 단추가 나타날 때)
   useLayoutEffect(() => {
     const bar = barRef.current
-    if (bar === null || typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(() => setTick((value) => value + 1))
-    observer.observe(bar)
-    // 서식 줄은 내용 폭만큼만 차지하므로(옆의 검색 · 글 블록 · 펼치기 단추가 바로 이어 붙는다) 줄 폭이 아니라 도구줄의 폭 변화를 봐야 다시 넓어졌을 때 알아챈다
+    if (bar === null) return undefined
     const dock = bar.closest('.note-format-dock')
-    if (dock !== null) {
-      observer.observe(dock)
-      // 곁의 묶음(검색 · 글 블록 · 펼치기)도 본다: 그 묶음의 폭이 줄거나 늘어도 도구줄 폭은 그대로라서 도구줄만 보면 다시 재지 못한다
-      for (const child of Array.from(dock.children)) if (!child.contains(bar)) observer.observe(child)
+    const bump = () => setTick((value) => value + 1)
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(bump)
+    // 서식 줄은 내용 폭만큼만 차지하므로(옆의 검색 · 글 블록 · 펼치기 단추가 바로 이어 붙는다) 줄 폭이 아니라 도구줄의 폭 변화를 봐야 다시 넓어졌을 때 알아챈다.
+    // 곁의 묶음(검색 · 글 블록 · 펼치기)도 본다: 그 묶음의 폭이 줄거나 늘어도 도구줄 폭은 그대로라서 도구줄만 보면 다시 재지 못한다.
+    // 곁의 묶음은 처음 한 번만 보면 모자란다 — 나중에 생긴 묶음은 새로 보고(observeAll), 서식 묶음(.pdf-memo-format-bar 의 data-cluster)의 폭 변화도 본다
+    const observeAll = () => {
+      if (resize === null) return
+      resize.disconnect()
+      resize.observe(bar)
+      if (dock !== null) {
+        resize.observe(dock)
+        for (const child of Array.from(dock.children)) if (!child.contains(bar)) resize.observe(child)
+      }
+      for (const cluster of Array.from(bar.querySelectorAll(':scope > [data-cluster]'))) resize.observe(cluster)
     }
-    return () => observer.disconnect()
+    observeAll()
+    const mutation = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { observeAll(); bump() })
+    if (dock !== null) mutation?.observe(dock, { childList: true })
+    mutation?.observe(bar, { childList: true })
+    return () => { resize?.disconnect(); mutation?.disconnect() }
   }, [barRef])
+  // 재는 것은 필요할 때만: 크기 · 구성이 바뀌어 tick 이 오르거나, 보이는 묶음 수 · 전체 수가 바뀔 때(렌더마다 재지 않는다)
   useLayoutEffect(() => {
     const bar = barRef.current
     if (bar === null || bar.closest('.note-format-dock') === null) return
@@ -308,7 +321,7 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
     if (capacity <= 0 || known.length < total || known.some((width) => !(width > 0))) return
     const next = fitFormatClusters(known, capacity, FORMAT_MORE_W)
     if (next !== visible) setVisible(next)
-  })
+  }, [barRef, tick, visible, total])
   useEffect(() => {
     if (!moreOpen) return undefined
     const close = (event: Event) => {
@@ -321,7 +334,6 @@ function useFormatOverflow(barRef: RefObject<HTMLDivElement | null>, total: numb
       window.removeEventListener('keydown', close)
     }
   }, [moreOpen, barRef])
-  void tick
   return [visible, moreOpen, setMoreOpen]
 }
 
