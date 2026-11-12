@@ -25,7 +25,15 @@ export interface PointSignal {
    * 메모 노트 탭의 카드·출처를 누르면 'note', 문서의 형광펜을 누르면 'document'.
    */
   readonly origin?: 'document' | 'note'
+  /**
+   * 같은 세션의 다른 앱 창에서 온 신호(docs/design/workspace-tmux.md 7). 받은 창은 이미 보이는 칸만 반응한다 —
+   * 「미리보기 탭 · 새 칸으로 열기」 같은 결정은 보낸 창만 한다. 다시 다른 창으로 퍼뜨리지 않는다
+   */
+  readonly remote?: true
 }
+
+/** 다른 앱 창에서 온 신호의 보낸 칸. 이 창의 어떤 칸도 아니다 */
+export const REMOTE_PANE_ID = '@remote'
 
 /** 버스를 지나간 신호(차례 번호·시각이 붙는다) */
 export interface DeliveredSignal extends PointSignal {
@@ -41,6 +49,17 @@ type Listener = (signal: DeliveredSignal) => void
 const listeners = new Set<Listener>()
 let lastSignal: DeliveredSignal | null = null
 let sequence = 0
+/** 이 창에서 보낸 신호를 같은 세션의 다른 앱 창으로도 보내는 길(useSessionClients 가 끼운다) */
+let relay: ((signal: PointSignal) => void) | null = null
+
+export function setPointSignalRelay(next: ((signal: PointSignal) => void) | null): void {
+  relay = next
+}
+
+/** 다른 앱 창에서 온 신호를 이 창의 칸들에 전한다(보낸 칸은 이 창에 없다) */
+export function deliverRemotePointSignal(signal: PointSignal): DeliveredSignal {
+  return emitPointSignal({ ...signal, from: REMOTE_PANE_ID, remote: true })
+}
 
 /** 신호를 보낸다. 받는 창이 바로 처리하고, 아직 안 열린 탭은 열린 뒤 (TTL 안에) pendingPointSignal 로 받는다 */
 export function emitPointSignal(signal: PointSignal): DeliveredSignal {
@@ -48,6 +67,10 @@ export function emitPointSignal(signal: PointSignal): DeliveredSignal {
   const delivered: DeliveredSignal = { ...signal, seq: sequence, at: Date.now() }
   lastSignal = delivered
   for (const listener of [...listeners]) listener(delivered)
+  // 채널이 있는 신호는 같은 세션의 다른 앱 창에도 간다(받아서 온 신호는 다시 보내지 않는다)
+  if (signal.remote !== true && signal.channel !== null && relay !== null) {
+    try { relay(signal) } catch { /* 다른 창에 못 보내도 이 창은 처리했다 */ }
+  }
   return delivered
 }
 
@@ -66,6 +89,7 @@ export function pendingPointSignal(afterSeq: number, now = Date.now()): Delivere
 export function resetPointSignals(): void {
   listeners.clear()
   lastSignal = null
+  relay = null
 }
 
 /**

@@ -27,13 +27,21 @@ describe('window mode', () => {
   })
 
   it('reads an extra window', () => {
-    expect(parseWindowMode('?role=extra&vault=D%3A%5CNotes')).toEqual({ role: 'extra', docId: null, page: null, zoom: null, vaultRoot: 'D:\\Notes' })
+    expect(parseWindowMode('?role=extra&vault=D%3A%5CNotes')).toEqual({ role: 'extra', docId: null, page: null, zoom: null, vaultRoot: 'D:\\Notes', session: null, screen: null, client: null })
+  })
+
+  it('reads the session an app window is attached to, its screen and its letter', () => {
+    const query = windowQuery({ role: 'extra', docId: null, page: null, vaultRoot: 'D:\\Notes', session: '논문 3장', screen: 1, client: 'B' })
+    expect(parseWindowMode(`?${query}`)).toMatchObject({ role: 'extra', session: '논문 3장', screen: 1, client: 'B' })
+    // 잘못된 값은 버린다
+    expect(parseWindowMode('?role=extra&session=&screen=-1&client=bb')).toMatchObject({ session: null, screen: null, client: null })
   })
 })
 
 describe('session single writer', () => {
-  it('only the main window owns session.json', () => {
+  it('app windows may own a session, detached PDF windows and session-less legacy windows never do', () => {
     expect(ownsSession(MAIN_WINDOW)).toBe(true)
+    expect(ownsSession(parseWindowMode('?role=extra&session=a'))).toBe(true)
     expect(ownsSession(parseWindowMode('?role=detached&doc=a'))).toBe(false)
     expect(ownsSession(parseWindowMode('?role=extra'))).toBe(false)
   })
@@ -56,7 +64,11 @@ describe('session single writer', () => {
     expect(session.sidebarCollapsed).toBe(true)
   })
 
-  it('a new window starts without tabs but keeps the saved layout widths', () => {
+  it('an app window attached to a session starts from that session as saved', () => {
+    expect(sessionForWindow(parseWindowMode('?role=extra&session=a'), saved)).toBe(saved)
+  })
+
+  it('a session-less legacy window starts without tabs but keeps the saved layout widths', () => {
     const session = sessionForWindow(parseWindowMode('?role=extra'), saved)
     expect(session.pdfTabIds).toEqual([])
     expect(session.panes).toBeUndefined()

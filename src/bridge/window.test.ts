@@ -64,6 +64,26 @@ describe('창 조작', () => {
     expect(windowMocks.destroy).toHaveBeenCalledOnce()
   })
 
+  it('닫기 전 처리가 「keep」 을 돌려주면 창을 파괴하지 않는다(메인 창을 닫는 대신 숨길 때)', async () => {
+    fakeTauriInternals()
+    let listener: ((event: { preventDefault(): void }) => Promise<void>) | undefined
+    windowMocks.onCloseRequested.mockImplementation(async (next) => {
+      listener = next
+      return () => undefined
+    })
+    windowMocks.destroy.mockResolvedValue(undefined)
+    const preventDefault = vi.fn()
+    await interceptWindowClose(async () => 'keep', vi.fn())
+    await listener?.({ preventDefault })
+    expect(preventDefault).toHaveBeenCalledOnce()
+    expect(windowMocks.destroy).not.toHaveBeenCalled()
+    // 다음 닫기 요청은 평소처럼 파괴한다
+    const again = vi.fn()
+    await interceptWindowClose(async () => undefined, vi.fn())
+    await listener?.({ preventDefault: again })
+    expect(windowMocks.destroy).toHaveBeenCalledOnce()
+  })
+
   it('Tauri 밖에서는 던지지도 거부되지도 않고 조용히 지나간다', async () => {
     // 세 함수는 void 를 돌려주고 안에서 Promise 를 띄운다. 그래서 동기
     // 단언만 하면 "터지지 않았다"가 거의 공짜로 통과한다 — 실제 실패는

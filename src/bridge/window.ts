@@ -43,8 +43,11 @@ export function closeWindow(): void {
   void withWindow((w) => w.close())
 }
 
+/**
+ * 창을 닫으려 할 때 beforeClose 를 먼저 돌린다. 'keep' 을 돌려주면 창을 닫지 않는다(메인 창을 닫는 대신 숨길 때).
+ */
 export async function interceptWindowClose(
-  beforeClose: () => Promise<void>,
+  beforeClose: () => Promise<void | 'keep'>,
   onError: (cause: unknown) => void,
 ): Promise<() => void> {
   if (!isDesktop()) return () => undefined
@@ -55,7 +58,7 @@ export async function interceptWindowClose(
     if (closing) return
     event.preventDefault()
     try {
-      await beforeClose()
+      if ((await beforeClose()) === 'keep') return
       closing = true
       // destroy 로 닫으면 창 위치 플러그인이 위치를 남기지 않는다. 다음에 켤 때 같은 자리·크기로 열리게 먼저 남긴다
       try {
