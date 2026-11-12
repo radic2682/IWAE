@@ -107,3 +107,9 @@
 .translator-panel-status { font-size: 13px; font-weight: 600; }
 .translator-panel-error { color: var(--danger); font-size: 12px; font-weight: 600; line-height: 1.45; }
 
+
+/* 번역기 탭의 본문(.pane-body)은 보통 칸에서 block 이라 패널이 자기 높이만 차지하고 아래가 비었다(340×300 에서 68px).
+   번역기 탭일 때만 세로 flex 로 두어 패널이 칸을 채우고, 결과 칸이 남는 높이를 가져 머리 · 언어 줄 · 입력 · 단추 · 결과 · 복사가 빈틈없이 쌓이게 한다 */
+.pane-body:has(> .translator-panel) { display: flex; flex-direction: column; }
+/* 결과가 없을 때도 최소 2줄 높이(15px × 1.6 × 2 = 48px)를 지킨다 */
+.translator-panel-result { min-height: 48px; }
