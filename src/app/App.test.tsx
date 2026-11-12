@@ -1187,7 +1187,8 @@ describe('App — 화면 · 상태 줄', () => {
     const sheet = screen.getByRole('dialog', { name: '키와 명령' })
     // 접두키가 모두 되므로 「다음 단계」 표시는 없다
     expect(within(sheet).queryAllByText('다음 단계')).toHaveLength(0)
-    expect(within(sheet).getByText('split-window -h / -v')).toBeDefined()
+    // 명령은 띄어쓰기에서만 꺾이게 낱말마다 나뉘어 있다 — 칸 전체 글로 찾는다
+    expect([...sheet.querySelectorAll('.keys-help-command')].some((cell) => cell.textContent === 'split-window -h / -v')).toBe(true)
   })
 
   it('짧은 알림은 상태 줄이 켜져 있으면 상태 줄 가운데에 뜨고 오른쪽 아래 토스트는 없다', () => {
