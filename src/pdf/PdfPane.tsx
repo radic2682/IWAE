@@ -531,7 +531,6 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
     return { mode: otherNotePref, labels, bodies }
   }, [docId, draftMemo, memoColumnVisible, noteApi, otherNotePref, persistentHighlights])
-  // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
   // 열린 노트 표시만 보기: 열린 노트에 속하지 않은 형광펜·영역 메모는 그리지도 누르지도 못하게 거른다(보기만 — 데이터는 그대로).
   // 만드는 중인 메모·방금 만든 형광펜·깜빡이는 것·고치는 중인 것은 늘 보인다. 노트 기능이 없는 쪽(noteApi 없음)은 거르지 않는다
   const [createdHere, setCreatedHere] = useState<ReadonlySet<string>>(() => new Set())
@@ -563,6 +562,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
     return grouped
   }, [docId, draftBox, draftMemo, shownHighlights])
+  // 메모만 보기에서는 원문을 모두 펼쳐 보인다(나오면 전 상태로)
   useExpandQuotesWhileWide(memoOnly, openQuotes, setOpenQuotes, noteMemos)
   // 창을 여러 칸으로 나눴으면 노트 바는 맨 오른쪽 위 칸에만
   const noteHost = useIsNoteHostPane(scrollerRef)
@@ -863,8 +863,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     setEditingMemoId(null)
     setDraftIndex(noteCenterIndex())
     if (draftMemo?.id !== highlight.id) markFreshHighlight(highlight.id)
-    // 같은 자리를 다시 받으면(스캔 영역의 OCR 글자가 뒤늦게 온 경우) 원문 글만 바꿔 끼운다
     setCreatedHere((ids) => (ids.has(highlight.id) ? ids : new Set(ids).add(highlight.id)))
+    // 같은 자리를 다시 받으면(스캔 영역의 OCR 글자가 뒤늦게 온 경우) 원문 글만 바꿔 끼운다
     setDraftMemo((current) => current?.id === highlight.id ? (current.anchor.quote === highlight.anchor.quote ? current : { ...current, anchor: { ...current.anchor, quote: highlight.anchor.quote } }) : highlight)
   }
 
