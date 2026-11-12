@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
-import { MemoFormatSlotContext } from './MemoColumn'
+import { MemoFormatSlotContext } from './MemoEditor'
 
 const handlers = () => ({
   editingKey: null,

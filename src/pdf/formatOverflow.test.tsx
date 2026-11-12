@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import { MemoFormatBar } from './MemoColumn'
+import { MemoFormatBar } from './MemoEditor'
 
 /** 크기 관찰자 스텁: 쓰는 쪽이 어떤 요소를 지켜보는지 모은다 */
 const watched = new Set<Element>()

@@ -16,7 +16,7 @@ import {
   type MemoNoteBlock,
   type MemoTicket,
 } from '../core/memoNote'
-import type { MemoContent } from './MemoColumn'
+import type { MemoContent } from './MemoEditor'
 import type { NoteFlow, NoteFlowItem } from './NoteFlow'
 import { buildNoteFlowItems } from './noteFlowItems'
 import type { MemoNoteApi } from './memoNoteContext'

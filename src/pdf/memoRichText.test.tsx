@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import { hasMemoFormatting, inlineMarkdownToHtml, memoDisplayHtml, plainMemoTextToHtml, sanitizeMemoHtml, togglePlainCheck } from './memoRichText'
 import { looksLikeMarkdown } from './memoEditing'
-import { MemoNoteView } from './MemoColumn'
+import { MemoNoteView } from './MemoEditor'
 
 describe('글만 있는 메모를 Markdown 처럼 그리기', () => {
   it('표시가 없는 글은 예전 그대로(줄바꿈은 <br>)', () => {

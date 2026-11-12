@@ -319,7 +319,7 @@ body.note-block-dragging .note-block-tabs { display: none; }
   box-shadow: 0 0 0 1.5px var(--accent) !important;
 }
 
-/* ---------- 서식 줄은 늘 한 줄: 모자라면 뒤쪽 묶음이 「⋯」 메뉴로 간다(MemoColumn 의 useFormatOverflow) ---------- */
+/* ---------- 서식 줄은 늘 한 줄: 모자라면 뒤쪽 묶음이 「⋯」 메뉴로 간다(MemoEditor 의 useFormatOverflow) ---------- */
 .pane-doc .note-format-dock .pdf-memo-format-bar { position: relative; flex-wrap: nowrap; }
 .pane-doc .note-format-dock .pdf-memo-format-bar > .pdf-memo-format-cluster { flex: 0 0 auto; }
 .pane-doc .note-format-dock .pdf-memo-format-more { flex: 0 0 auto; margin-left: 6px; }

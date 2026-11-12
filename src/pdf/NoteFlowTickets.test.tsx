@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
-import { MemoFormatSlotContext } from './MemoColumn'
+import { MemoFormatSlotContext } from './MemoEditor'
 import { MemoNoteContext, clearBlockReveal, peekBlockReveal, type MemoNoteApi } from './memoNoteContext'
 import { buildTicketIndex } from '../core/memoTickets'
 import type { MemoNote } from '../core/memoNote'

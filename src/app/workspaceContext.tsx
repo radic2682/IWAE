@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from 'react'
 import type { MemoTicket } from '../core/memoNote'
-import type { MemoContent } from '../pdf/MemoColumn'
+import type { MemoContent } from '../pdf/MemoEditor'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../pdf/persistentHighlight'
 import type { PaneId } from './tabs'
 import { DEFAULT_CHANNELS, channelOf, type Channel, type PaneChannel, type PaneChannels } from './workspaceChannels'

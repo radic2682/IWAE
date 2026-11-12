@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { cssRules, cssSource, rulesMatching } from '../app/cssRules.testutil'
-import { formatCapacity } from './MemoColumn'
+import { formatCapacity } from './MemoEditor'
 
 /** jsdom 은 자리를 모르므로 실제(소수) 폭만 흉내 낸다 — getBoundingClientRect().width */
 function setWidth(element: HTMLElement, width: number) {

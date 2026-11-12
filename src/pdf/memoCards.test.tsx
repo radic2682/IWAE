@@ -8,7 +8,7 @@ import {
   updatePersistentPdfHighlight,
   type PersistentPdfHighlight,
 } from './persistentHighlight'
-import { MemoEditor } from './MemoColumn'
+import { MemoEditor } from './MemoEditor'
 import { memoDisplayHtml } from './memoRichText'
 import { NoteOutline, outlineEntries, outlineFits, outlineWidthFor, plainLine } from './NoteOutline'
 

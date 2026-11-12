@@ -28,7 +28,7 @@
 | 탭 끌어 붙이기 | `src/app/tabDock.ts` | 탭을 다른 창의 가장자리에 놓으면 배치를 바꿔 새 칸을 만든다(`dockTab`, `dockSplit`) |
 | 노트 바 | `src/app/noteDock.tsx` | 창 맨 오른쪽, 모든 창 바깥에 하나뿐. "만진 문서 창"(host)의 PdfPane·MarkdownPane 이 portal 로 그린다 |
 | 열린 노트 | `src/app/useMemoNotes.ts` | `openPath` 하나. 모든 노트는 메모리에 읽어 둔다(`notesOf(highlightId)` 로 형광펜 → 노트) |
-| 연결선 | `src/pdf/PdfPane.tsx`, `src/pdf/MemoColumn.tsx`, `src/app/MarkdownPane.tsx` | 형광펜 ↔ 카드 선을 문서 창이 직접 그린다. 노트 바가 오른쪽에 있다고 가정한다 |
+| 연결선 | `src/pdf/PdfPane.tsx`, `src/pdf/MemoEditor.tsx`, `src/app/MarkdownPane.tsx` | 형광펜 ↔ 카드 선을 문서 창이 직접 그린다. 노트 바가 오른쪽에 있다고 가정한다 |
 | YOLO 노트 | `CANVAS_ENABLED = false` (`src/core/features.ts`) | `.canvas` 파일, 캔버스 → PDF 추적선. 지금은 꺼 둠 |
 | MCP | `src/app/mcp/noteAdapter.ts` 등 | "열린 노트" = `openPath` 를 전제로 한다 |
 

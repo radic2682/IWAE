@@ -1,6 +1,6 @@
 /** 영어 사전 3 묶음(화면 글 → 영어). 열쇠는 코드의 한국어 문장 그대로 */
 export const GROUP_3: Readonly<Record<string, string>> = {
-  // 메모 카드 · 서식 도구 (MemoColumn)
+  // 메모 카드 · 서식 도구 (MemoEditor)
   '메모 서식': 'Memo formatting',
   '문단 모양: {kind}': 'Paragraph style: {kind}',
   '문단 모양 (제목·인용·코드 블록)': 'Paragraph style (heading, quote, code block)',

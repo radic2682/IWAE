@@ -2,7 +2,7 @@ import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { fitMenuInViewport } from '../ui/fitMenu'
 import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
-import { MemoEditor, MemoNoteView, type MemoContent } from './MemoColumn'
+import { MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
 import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
 import { cachedTranslation, translateWithCache, useTranslationCache } from '../app/translationCacheStore'
