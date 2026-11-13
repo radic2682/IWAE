@@ -72,7 +72,7 @@ export default defineConfig({
   // 5174 로 옮겼다 — 값 자체가 아니라 vite 와 tauri.conf.json 의 devUrl 이
   // 일치해야 한다는 제약이 핵심이다.
   // src-tauri/target 의 빌드 산출물은 cargo 가 잠근 채 쓰므로 감시하면 EBUSY 로 죽는다.
-  server: { port: 5174, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/specdb/**', '**/dist-release/**'] } },
+  server: { port: 5174, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/dist-release/**'] } },
   build: {
     modulePreload: {
       resolveDependencies: (_filename, dependencies, context) =>

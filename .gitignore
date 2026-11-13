@@ -27,10 +27,6 @@ Thumbs.db
 .claude/
 .superpowers/
 
-# spec db 엔진의 DB·그림·백업(로컬 데이터)
-specdb/specdb.sqlite*
-specdb/figures/
-specdb/*.bak*
 
 # 개발용(이 PC 전용) Tauri 설정 — CDP 디버그 포트, 로컬 Vault 권한
 src-tauri/tauri.debug.conf.json
