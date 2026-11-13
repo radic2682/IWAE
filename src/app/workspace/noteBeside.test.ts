@@ -75,6 +75,22 @@ describe('placeNoteTab — 옆에 노트 열기', () => {
     expect(result.channels[result.pane]).toBe('blue')
   })
 
+  it('inCurrentPane: 창이 하나면 분할 없이 그 창에 탭으로 넣고 활성으로 만든다', () => {
+    const result = placeNoteTab(input({ L: strip([pdf('D')]) }, { inCurrentPane: true }))
+    expect(result.kind).toBe('tab')
+    expect(leaves(result.layout)).toEqual(['L'])
+    expect(ids(result.panes.L)).toEqual(['D', 'N'])
+    expect(result.panes.L!.activeId).toBe('N')
+    expect(result.pane).toBe('L')
+  })
+
+  it('inCurrentPane: 이미 탭이면 그 탭으로 바꾸기만 하고, 창이 둘이면 예전 규칙(옆에 새 창)이다', () => {
+    const had = placeNoteTab(input({ L: strip([pdf('D'), note('N')], 'D') }, { inCurrentPane: true }))
+    expect(had.kind).toBe('activated')
+    const two = placeNoteTab(input({ L: strip([pdf('D')]), R: strip([pdf('E')]) }, { layout: layoutForCount(2, ['L', 'R']), inCurrentPane: true }))
+    expect(two.kind).toBe('beside')
+  })
+
   it('문서 창에 색이 없으면 비어 있는 색을 골라 두 창에 준다', () => {
     const result = placeNoteTab(input({ L: strip([pdf('D')]) }, { channels: channels({ L: null }) }))
     expect(result.kind).toBe('beside')

@@ -85,6 +85,8 @@ export interface PlaceNoteInput {
   readonly preview?: boolean
   /** 칸을 만진 차례(가장 최근이 앞, paneRecency). 같은 색 칸이 여럿이면 가장 최근에 만진 칸 하나에만 놓는다 */
   readonly mru?: readonly PaneId[]
+  /** 창이 하나뿐이면 옆에 새 창을 열지 않고 그 창에 탭으로 넣는다(왼쪽 바·노트 열기 메뉴). 「옆에 노트 열기」는 이걸 켜지 않는다 */
+  readonly inCurrentPane?: boolean
 }
 
 export interface PlaceNoteOutcome {
@@ -120,6 +122,12 @@ export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
     const held = tabsOf(panes, holder)
     if (held.activeId === tab.id) return { kind: 'visible', panes, channels: input.channels, layout, pane: holder }
     return { kind: 'activated', panes: { ...panes, [holder]: { tabs: held.tabs, activeId: tab.id } }, channels: input.channels, layout, pane: holder }
+  }
+
+  // 창이 하나뿐이면 그 창에 탭으로(분할 없이). 문서를 왼쪽 바에서 열 때와 같은 동작
+  if (input.inCurrentPane === true && visible.length === 1) {
+    const only = visible[0]!
+    return { kind: 'tab', panes: { ...panes, [only]: withTab(tabsOf(panes, only), tab) }, channels: input.channels, layout, pane: only }
   }
 
   // 색이 없는 문서 창이면 비어 있는 색을 골라 둘 다에 준다(노트 창이 같은 색이어야 연동된다)
@@ -252,16 +260,16 @@ export interface NoteBesideOpener {
   /** 「옆에 노트 열기 / 닫기」: 같은 색 창에 노트가 보이면 그 노트 창을 닫고(closed), 아니면 연다(opening) */
   readonly toggle: (anchor: PaneId) => { readonly kind: 'closed'; readonly outcome: CloseNoteOutcome } | { readonly kind: 'opening'; readonly opened: Promise<string | null> }
   /** 이미 놓인 노트 탭을 anchor 옆에 둔다(열기 메뉴·사이드바·MCP): 놓은 결과 */
-  readonly place: (anchor: PaneId, path: string, preview?: boolean) => PlaceNoteOutcome
+  readonly place: (anchor: PaneId, path: string, preview?: boolean, inCurrentPane?: boolean) => PlaceNoteOutcome
 }
 
 /** 옆에 노트 열기의 흐름: 어느 노트를 열지(고르거나 만들고) → 어디에 놓을지(placeNoteTab) → 앱에 반영 */
 export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
   let creating: Promise<string | null> | null = null
 
-  const place: NoteBesideOpener['place'] = (anchor, path, preview = false) => {
+  const place: NoteBesideOpener['place'] = (anchor, path, preview = false, inCurrentPane = false) => {
     const now = host.snapshot()
-    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab: noteTab(path), preview, ...(host.sizeOf === undefined ? {} : { sizeOf: host.sizeOf }), ...(host.mru === undefined ? {} : { mru: host.mru() }) })
+    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab: noteTab(path), preview, inCurrentPane,...(host.sizeOf === undefined ? {} : { sizeOf: host.sizeOf }), ...(host.mru === undefined ? {} : { mru: host.mru() }) })
     host.apply({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
     host.touch(path)
     return outcome

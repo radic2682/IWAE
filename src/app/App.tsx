@@ -1675,7 +1675,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const openMemoNoteTab = (path: string, from?: PaneId): PaneId => {
     const now = workspaceLatest.current
     const anchor = from ?? (activeTab(tabsOf(now.panes, now.activePaneId))?.kind === 'memoNote' ? now.activePaneId : anchorDocPane() ?? now.activePaneId)
-    const outcome = besideRef.current!.place(anchor, path)
+    const outcome = besideRef.current!.place(anchor, path, false, true)
     setActivePaneId(outcome.pane)
     setPaneRoute('note', outcome.pane)
     return outcome.pane
