@@ -38,11 +38,13 @@ function isMemoBlock(block: unknown): boolean {
 }
 
 /**
- * 형광펜이 덮은 글자. 발췌의 글자 상자(glyphs) 중 형광펜 칸 안에 가운데가 있는 것을 읽는 차례대로 잇는다.
- * 글자가 없는 곳(그림·선)이면 발췌 전체의 인용을 쓴다.
+ * 원문 줄에 보일 글. 노트 카드와 같은 글을 쓴다: 발췌에 저장된 인용(anchor.quote). 글자 상자(glyphs)로 다시 짜 맞추면 글자가 빠지거나 뒤섞인다.
+ * 저장된 인용이 없을 때만 형광펜 칸 안의 글자 상자를 읽는 차례대로 잇는다(글자는 하나도 버리지 않고 띄어쓰기만 넣는다).
  */
 export function highlightQuote(block: Extract<CanvasBlockData, { kind: 'pdfExcerpt' }>, highlight: ExcerptHighlight): string {
   const { glyphs, anchor } = block.excerpt.selection
+  const stored = anchor.quote.replace(/\s+/gu, ' ').trim()
+  if (stored !== '') return stored
   const inside = glyphs.filter((glyph) => {
     const x = glyph.x + glyph.w / 2
     const y = glyph.y + glyph.h / 2
@@ -55,7 +57,7 @@ export function highlightQuote(block: Extract<CanvasBlockData, { kind: 'pdfExcer
     const newLine = before !== undefined && glyph.y > before.y + before.h * 0.6
     return (gap > glyph.h * 0.3 || newLine ? ' ' : '') + glyph.c
   }).join('').replace(/\s+/gu, ' ').trim()
-  return text === '' ? anchor.quote.replace(/\s+/gu, ' ').trim() : text
+  return text
 }
 
 function sourceOf(excerptId: string, block: Extract<CanvasBlockData, { kind: 'pdfExcerpt' }>, highlight: ExcerptHighlight): CanvasMemoSource {

@@ -66,7 +66,8 @@ describe('canvasMemoSources', () => {
     const [first] = sources!
     expect(first!.excerptId).toBe('e1')
     expect(first!.highlight.color).toBe('yellow')
-    expect(first!.highlight.anchor.quote).toBe('ab')
+    // 노트 카드와 같은 저장된 인용(글자 상자에서 다시 짜 맞추지 않는다)
+    expect(first!.highlight.anchor.quote).toBe('whole excerpt quote')
     expect(first!.highlight.anchor.page).toBe(2)
     expect(first!.title).toBe('HTTP Semantics')
     expect(first!.jump.docId).toBe('doc-a')
@@ -90,9 +91,15 @@ describe('canvasMemoSources', () => {
 })
 
 describe('highlightQuote', () => {
-  it('글자가 없는 곳을 칠했으면 발췌 전체의 인용을 쓴다', () => {
+  it('발췌에 저장된 인용을 그대로 쓴다: 글자 상자에서 짜 맞추면 글자가 빠진다', () => {
     const block = excerpt(undefined)
-    expect(highlightQuote(block, { id: 'x', color: 'yellow', rects: [{ x: 400, y: 10, w: 5, h: 5 }] })).toBe('whole excerpt quote')
+    expect(highlightQuote(block, { id: 'x', color: 'yellow', rects: [{ x: 58, y: 98, w: 24, h: 16 }] })).toBe('whole excerpt quote')
+  })
+
+  it('저장된 인용이 없을 때만 글자 상자를 잇고, 글자는 버리지 않고 띄어쓰기만 넣는다', () => {
+    const block = excerpt(undefined)
+    const bare = { ...block, excerpt: { ...block.excerpt, selection: { ...block.excerpt.selection, anchor: { ...anchor, quote: '' } } } }
+    expect(highlightQuote(bare, { id: 'x', color: 'yellow', rects: [{ x: 58, y: 98, w: 50, h: 16 }] })).toBe('ab c')
   })
 })
 
