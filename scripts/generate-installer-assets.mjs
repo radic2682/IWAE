@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -201,18 +201,47 @@ export function decodePng(buffer) {
   return { width, height, pixels }
 }
 
+/** 스크린샷 파일이 생기고 크기가 멈출 때까지 기다린다(최대 20초) */
+async function waitForShot(path) {
+  let lastSize = -1
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const size = await stat(path).then((info) => info.size, () => -1)
+    if (size > 0 && size === lastSize) return
+    lastSize = size
+    await new Promise((done) => setTimeout(done, 250))
+  }
+  throw new Error(`스크린샷이 만들어지지 않았습니다: ${path}`)
+}
+
+/** 헤드리스 Edge 는 가끔 그림을 남기지 않고 끝난다: 새 임시 폴더로 세 번까지 다시 찍는다 */
 async function screenshot(browser, html, width, height, scale) {
+  let lastError
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await screenshotOnce(browser, html, width, height, scale)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError
+}
+
+async function screenshotOnce(browser, html, width, height, scale) {
   const directory = await mkdtemp(join(tmpdir(), 'iwae-installer-art-'))
   const output = join(directory, 'shot.png')
   try {
+    // 따로 프로필을 쓰지 않으면 이미 떠 있는 Edge 에 일을 넘기고 바로 끝나, 그림이 생기기 전에 읽게 된다
     execFileSync(browser, [
-      '--headless=new', '--disable-gpu', '--hide-scrollbars',
+      '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
+      `--user-data-dir=${join(directory, 'profile')}`,
       `--force-device-scale-factor=${scale}`, `--window-size=${width},${height}`,
       `--screenshot=${output}`, pathToFileURL(html).href,
     ], { stdio: 'ignore' })
+    await waitForShot(output)
     return decodePng(await readFile(output))
   } finally {
-    await rm(directory, { recursive: true, force: true })
+    // 헤드리스 Edge 가 끝난 직후에도 프로필 파일을 잠깐 붙들고 있다: 몇 번 다시 해 보고, 그래도 안 되면 임시 폴더라 남겨 둔다
+    await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }).catch(() => {})
   }
 }
 
