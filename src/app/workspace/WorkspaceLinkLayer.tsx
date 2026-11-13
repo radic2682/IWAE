@@ -1,20 +1,28 @@
 import { useEffect, useId, useRef, useSyncExternalStore } from 'react'
-import { getLinkLayerState, requestPaneLinks, setLinkLayerElement, subscribeLinkLayer, type LinkLine, type LinkRect } from './workspaceLinks'
+import { getLinkLayerState, requestPaneLinks, setLinkLayerElement, subscribeLinkLayer, isVerticalSide, type LinkLine, type LinkRect } from './workspaceLinks'
 import '../../ui/workspace-links.css'
 
-/** 곡선이 가로로 가는 최소 길이(px). 칸막이 틈은 좁아서(6px 안팎) 그대로 꺾으면 선이 칸 테두리를 따라 세로로 서 버린다 */
-export const LINK_MIN_RUN = 56
+/** 곡선이 가로로 가는 길이(px)의 범위. 칸막이 틈은 좁아서(6px 안팎) 그대로 꺾으면 선이 칸 테두리를 따라 세로로 서 버린다 */
+export const LINK_MIN_RUN = 72
+export const LINK_MAX_RUN = 200
 
 /**
- * 선 한 줄의 길: 형광펜 끝에서 곧게 가다가 S 곡선으로 카드 가까운 쪽 가장자리까지 간다. 한 path 라 이음매가 없다.
- * 곡선은 문서 창 가장자리에서 카드 가장자리까지가 기본이고, 그 사이가 좁으면(이웃한 칸) 문서 쪽으로 더 일찍 꺾기 시작해
- * 최소 길이를 채운다(끝점은 그대로 형광펜과 카드 가장자리). 사이에 다른 칸이 있으면 길이가 충분해 그 칸 위를 지나간다.
+ * 선 한 줄의 길(한 path 라 이음매가 없다).
+ * 가로(노트가 옆): 형광펜 끝에서 곧게 가다가 S 곡선으로 카드 가까운 쪽 가장자리까지 간다. 세로로 움직이는 구간이 칸 테두리에 붙지 않도록
+ * 곡선은 문서 쪽으로 일찍 꺾기 시작해(카드와의 높이 차의 35%, 72~200px) 세로 이동이 테두리에서 한참 안쪽에서 일어난다. 형광펜 끝은 넘지 않는다.
+ * 세로(노트가 위·아래): 형광펜에서 위·아래 가장자리 쪽으로 곧게 나가 카드의 마주 보는 변까지 수직 S 곡선으로 간다.
+ * 끝점은 항상 형광펜과 카드 가장자리다. 사이에 다른 칸이 있으면 그 위를 지나간다.
  */
 export function linkLinePath(line: LinkLine): string {
+  if (isVerticalSide(line.side)) {
+    const middle = line.y + (line.cardY - line.y) / 2
+    return `M ${line.startX} ${line.y} C ${line.startX} ${middle}, ${line.cardX} ${middle}, ${line.cardX} ${line.cardY}`
+  }
   const dir = line.cardX >= line.edgeX ? 1 : -1
   const span = Math.abs(line.cardX - line.edgeX)
+  const run = Math.min(LINK_MAX_RUN, Math.max(LINK_MIN_RUN, Math.abs(line.cardY - line.y) * 0.35))
   // 곡선 시작점: 가장자리에서 문서 안쪽으로 모자란 만큼 물러나되, 형광펜 끝을 넘지 않는다
-  const back = Math.min(Math.max(0, LINK_MIN_RUN - span), Math.max(0, dir * (line.edgeX - line.startX)))
+  const back = Math.min(Math.max(0, run - span), Math.max(0, dir * (line.edgeX - line.startX)))
   const from = line.edgeX - dir * back
   const bend = from + (line.cardX - from) / 2
   return `M ${line.startX} ${line.y} H ${from} C ${bend} ${line.y}, ${bend} ${line.cardY}, ${line.cardX} ${line.cardY}`

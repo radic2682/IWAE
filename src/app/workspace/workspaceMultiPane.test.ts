@@ -271,19 +271,19 @@ describe('이웃한 칸 — 배치 트리의 실제 사각형으로(1000×600 �
     expect(pairsOf(layoutForCount(5, ['a', 'b', 'c', 'd', 'e']), ['b'])).toEqual(['b>a:left', 'b>c:right', 'b>d:right', 'b>e:right'])
   })
 
-  it('세로 나눔(위 | 아래): 위아래는 이웃이 아니다', () => {
+  it('세로 나눔(위 | 아래): 위아래도 이어진다(세로로 나간다)', () => {
     const layout = splitLeaf(layoutForLegacyId('single', ['top']), 'top', 'v', 'bottom')
-    expect(pairsOf(layout, ['top'])).toEqual([])
+    expect(pairsOf(layout, ['top'])).toEqual(['top>bottom:down'])
   })
 
-  it('2×2 격자: 위아래로 쌓인 칸은 아니고 같은 줄 · 대각선은 이어진다', () => {
+  it('2×2 격자: 같은 줄 · 같은 열 · 대각선 모두 이어진다', () => {
     const layout = layoutForCount(4, ['a', 'b', 'c', 'd'])
     const rects = frames(layout)
     expect(neighborSide(rects.a!, rects.b!)).toBe('right')
     expect(neighborSide(rects.a!, rects.c!)).toBeNull()
     expect(neighborSide(rects.a!, rects.d!)).toBeNull()
     expect(neighborSide(rects.c!, rects.d!)).toBe('right')
-    expect(pairsOf(layout, ['a'])).toEqual(['a>b:right', 'a>d:right'])
+    expect(pairsOf(layout, ['a'])).toEqual(['a>b:right', 'a>c:down', 'a>d:right'])
   })
 
   it('왼쪽 하나 · 오른쪽 위아래 둘: 문서 하나가 오른쪽 노트 둘과 모두 이어진다', () => {

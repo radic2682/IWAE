@@ -58,7 +58,11 @@ export interface PaneLinkMeta {
   readonly docId?: string
 }
 
-export type LinkSide = 'left' | 'right'
+/** 노트가 문서 창의 어느 쪽에 있는가. left/right 는 가로 관계, up/down 은 세로 관계(위아래로 쌓인 칸) */
+export type LinkSide = 'left' | 'right' | 'up' | 'down'
+
+/** 선이 세로로 나가는가(노트가 문서 위·아래) */
+export const isVerticalSide = (side: LinkSide): boolean => side === 'up' || side === 'down'
 
 /** 두 창이 이웃으로 치는 칸막이 틈(px)과 세로로 겹쳐야 하는 길이 */
 export const LINK_PANE_GAP = 12
@@ -83,14 +87,24 @@ export function neighborSide(from: LinkRect, other: LinkRect): LinkSide | null {
 }
 
 /**
- * other 가 from 의 오른쪽·왼쪽에 있는가(떨어져 있어도 된다). 칸막이 틈 안에서 가로 범위가 겹치면(위아래로 쌓인 칸) null.
- * 선은 이 방향의 가장자리로 나가 상대 창의 마주 보는 가장자리로 들어간다. 접힌 창은 null.
+ * other 가 from 의 어느 쪽에 있는가. 가로로 떨어져 있으면 left/right, 세로로만 떨어져 있으면(위아래로 쌓인 칸) up/down.
+ * 대각선(격자 모서리)은 가로·세로 둘 다 떨어져 있으므로 중심 어긋남이 더 큰 쪽(칸 크기로 나눈 값)을 고르고 같으면 가로로 본다.
+ * 선은 이 방향의 가장자리로 나가 상대 창의 마주 보는 가장자리로 들어간다. 접힌 창과 서로 겹친 칸은 null.
  */
 export function facingSide(from: LinkRect, other: LinkRect): LinkSide | null {
   if (width(from) < LINK_MIN_PANE || width(other) < LINK_MIN_PANE || height(from) < LINK_MIN_PANE || height(other) < LINK_MIN_PANE) return null
-  if (other.left >= from.right - LINK_PANE_GAP) return 'right'
-  if (other.right <= from.left + LINK_PANE_GAP) return 'left'
-  return null
+  const sepRight = other.left >= from.right - LINK_PANE_GAP
+  const sepLeft = other.right <= from.left + LINK_PANE_GAP
+  const sepDown = other.top >= from.bottom - LINK_PANE_GAP
+  const sepUp = other.bottom <= from.top + LINK_PANE_GAP
+  const horizontal: LinkSide | null = sepRight ? 'right' : sepLeft ? 'left' : null
+  const vertical: LinkSide | null = sepDown ? 'down' : sepUp ? 'up' : null
+  if (horizontal !== null && vertical === null) return horizontal
+  if (vertical !== null && horizontal === null) return vertical
+  if (horizontal === null || vertical === null) return null
+  const dx = Math.abs((other.left + other.right) - (from.left + from.right)) / (width(from) + width(other))
+  const dy = Math.abs((other.top + other.bottom) - (from.top + from.bottom)) / (height(from) + height(other))
+  return dy > dx * 1.2 ? vertical : horizontal
 }
 
 export interface LinkPaneEntry extends PaneLinkMeta {
@@ -110,13 +124,13 @@ export interface LinkPair {
   readonly noteRole: 'note' | 'canvas'
   readonly noteSide: LinkSide
   readonly docId: string | null
-  /** 두 칸 사이의 가로 거리(px). 같은 문서가 여러 칸에 보일 때 가까운 칸을 고르는 데 쓴다 */
+  /** 두 칸 사이의 거리(px, 나가는 방향 기준). 같은 문서가 여러 칸에 보일 때 가까운 칸을 고르는 데 쓴다 */
   readonly distance: number
 }
 
 /**
  * 짝 맞추기: 채널이 있고 같으며, 보이는 탭이 문서와 메모 노트(또는 캔버스)인 창끼리 — 이웃하지 않아도 잇는다(사이에 다른 칸이 있어도 된다).
- * 좌우로 마주 볼 수 있는 칸만(위아래로 쌓인 칸은 나가는 가장자리가 없다). 격자 배치든 좌우 배치든 실제 칸 사각형으로 가른다.
+ * 위아래로 쌓인 칸도 잇는다(세로로 나간다). 격자 배치든 좌우 배치든 실제 칸 사각형으로 가른다.
  * 떠 있는 칸(floating)이 상대 칸과 겹치면 선을 잇지 않는다 — 카드 강조만 한다(설계 5). 겹치지 않는 떠 있는 칸은 보통 칸처럼 짝이 된다.
  */
 export function pairLinkedPanes(entries: readonly LinkPaneEntry[], floating: ReadonlySet<PaneId> = new Set()): LinkPair[] {
@@ -128,7 +142,7 @@ export function pairLinkedPanes(entries: readonly LinkPaneEntry[], floating: Rea
       if ((floating.has(doc.pane) || floating.has(note.pane)) && rectsOverlap(doc.frame, note.frame)) continue
       const noteSide = facingSide(doc.frame, note.frame)
       if (noteSide === null) continue
-      const distance = noteSide === 'right' ? note.frame.left - doc.frame.right : doc.frame.left - note.frame.right
+      const distance = noteSide === 'right' ? note.frame.left - doc.frame.right : noteSide === 'left' ? doc.frame.left - note.frame.right : noteSide === 'down' ? note.frame.top - doc.frame.bottom : doc.frame.top - note.frame.bottom
       pairs.push({ doc: doc.pane, note: note.pane, noteRole: note.role, noteSide, docId: doc.docId ?? null, distance: Math.max(0, distance) })
     }
   }
@@ -168,7 +182,9 @@ const within = (value: number, low: number, high: number) => value >= low && val
  * 가리키는 선(활성)은 맨 뒤에 둬 위에 그려진다.
  */
 export function linkLines(pair: LinkPair, doc: PaneLinkSnapshot, note: PaneLinkSnapshot, others: readonly LinkRect[] = []): LinkLine[] {
+  const vertical = isVerticalSide(pair.noteSide)
   const right = pair.noteSide === 'right'
+  const down = pair.noteSide === 'down'
   const cards = new Map<string, LinkItem>()
   for (const card of note.items) if (!cards.has(card.id)) cards.set(card.id, card)
   const activeIds = new Set([...doc.activeIds, ...note.activeIds])
@@ -177,17 +193,18 @@ export function linkLines(pair: LinkPair, doc: PaneLinkSnapshot, note: PaneLinkS
   for (const mark of doc.items) {
     const card = cards.get(mark.id)
     if (card === undefined) continue
-    const startX = right ? mark.rect.right : mark.rect.left
-    const cardY = card.y
-    if (!within(startX, doc.body.left, doc.body.right) || !within(mark.y, doc.body.top, doc.body.bottom)) continue
+    // 세로: 형광펜 가운데 위·아래 가장자리에서 나가 카드의 마주 보는 가장자리(노트가 위면 카드 아래 변, 아래면 위 변)로 든다
+    const startX = vertical ? (mark.rect.left + mark.rect.right) / 2 : right ? mark.rect.right : mark.rect.left
+    const startY = vertical ? (down ? mark.rect.bottom : mark.rect.top) : mark.y
+    const cardY = vertical ? (down ? card.rect.top : card.rect.bottom) : card.y
+    if (!within(startX, doc.body.left, doc.body.right) || !within(startY, doc.body.top, doc.body.bottom)) continue
     if (!within(cardY, note.body.top, note.body.bottom)) continue
-    const cardX = right ? card.rect.left : card.rect.right
-    // 곡선이 가로지르는 다른 칸(문서·노트 둘 말고): 선이 지나가는 가로 구간 안에 들고 세로 범위가 겹친다
-    const low = Math.min(edgeX, cardX)
-    const high = Math.max(edgeX, cardX)
-    const top = Math.min(mark.y, cardY)
-    const bottom = Math.max(mark.y, cardY)
-    const crossing = others.filter((frame) => frame.right - 1 > low && frame.left + 1 < high && frame.bottom > top && frame.top < bottom)
+    // 세로로 들어가는 자리는 카드 안쪽 가로 범위로 맞춘다(선이 카드 모서리에 닿지 않게)
+    const cardX = vertical ? Math.min(Math.max(startX, card.rect.left + LINK_CARD_DEPTH), card.rect.right - LINK_CARD_DEPTH) : right ? card.rect.left : card.rect.right
+    // 곡선이 가로지르는 다른 칸(문서·노트 둘 말고): 선이 지나가는 구간 안에 들고 다른 축 범위가 겹친다
+    const crossing = others.filter((frame) => vertical
+      ? frame.bottom - 1 > Math.min(startY, cardY) && frame.top + 1 < Math.max(startY, cardY) && frame.right > Math.min(startX, cardX) && frame.left < Math.max(startX, cardX)
+      : frame.right - 1 > Math.min(edgeX, cardX) && frame.left + 1 < Math.max(edgeX, cardX) && frame.bottom > Math.min(startY, cardY) && frame.top < Math.max(startY, cardY))
     lines.push({
       key: `${pair.doc}>${pair.note}:${mark.id}`,
       id: mark.id,
@@ -198,8 +215,8 @@ export function linkLines(pair: LinkPair, doc: PaneLinkSnapshot, note: PaneLinkS
       active: activeIds.has(mark.id),
       side: pair.noteSide,
       startX,
-      y: mark.y,
-      edgeX,
+      y: startY,
+      edgeX: vertical ? startX : edgeX,
       cardX,
       cardY,
     })

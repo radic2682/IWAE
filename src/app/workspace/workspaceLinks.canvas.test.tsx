@@ -32,9 +32,8 @@ describe('캔버스 창과 짝 맞추기 — 노트 창과 같은 규칙', () =>
     expect(pairLinkedPanes([entry('left', 'canvas', 'blue', docFrame), entry('right', 'document', 'blue', canvasFrame, 'a')])).toEqual([{ doc: 'right', note: 'left', noteRole: 'canvas', noteSide: 'left', docId: 'a', distance: 4 }])
   })
 
-  it('채널이 다르거나, 위아래로 나뉘었거나, 캔버스끼리면 잇지 않는다', () => {
+  it('채널이 다르거나 캔버스끼리면 잇지 않는다', () => {
     expect(pairLinkedPanes([entry('left', 'document', 'blue', docFrame), entry('right', 'canvas', 'green', canvasFrame)])).toEqual([])
-    expect(pairLinkedPanes([entry('left', 'document', 'blue', rect(0, 0, 800, 300)), entry('right', 'canvas', 'blue', rect(0, 304, 800, 600))])).toEqual([])
     expect(pairLinkedPanes([entry('left', 'canvas', 'blue', docFrame), entry('right', 'canvas', 'blue', canvasFrame)])).toEqual([])
   })
 

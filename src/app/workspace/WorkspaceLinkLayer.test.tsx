@@ -17,17 +17,24 @@ afterEach(() => {
 })
 
 describe('WorkspaceLinkLayer', () => {
-  it('한 줄: 형광펜 끝에서 문서 창 경계까지 곧게 가고 거기서 카드 가장자리까지 곡선으로 이어진다', () => {
-    const line = { key: 'k', id: 'h', active: false, side: 'right', target: 'n', distance: 4, crossing: [], startX: 220, y: 120, edgeX: 400, cardX: 440, cardY: 220 } as const
-    // 경계와 카드 사이(40px)가 최소 길이(56px)보다 좁아 16px 일찍 꺾기 시작한다
-    expect(linkLinePath(line)).toBe('M 220 120 H 384 C 412 120, 412 220, 440 220')
+  it('한 줄: 형광펜 끝에서 곧게 가다가 카드 가장자리까지 곡선으로 이어지고, 길이는 높이 차를 따라 늘어난다', () => {
+    const line = { key: 'k', id: 'h', active: false, side: 'right', target: 'n', distance: 4, crossing: [], startX: 100, y: 120, edgeX: 400, cardX: 440, cardY: 220 } as const
+    // 높이 차 100 → 35px 지만 최소 72px: 경계와 카드 사이(40px)가 모자라 32px 일찍 꺾기 시작한다
+    expect(linkLinePath(line)).toBe('M 100 120 H 368 C 404 120, 404 220, 440 220')
     // 충분히 벌어진(사이에 다른 칸이 있는) 선은 경계에서 바로 꺾는다
-    expect(linkLinePath({ ...line, edgeX: 300, cardX: 620 })).toBe('M 220 120 H 300 C 460 120, 460 220, 620 220')
+    expect(linkLinePath({ ...line, edgeX: 300, cardX: 620 })).toBe('M 100 120 H 300 C 460 120, 460 220, 620 220')
+    // 카드가 아주 멀리(높이 차 1000) 있어도 세로 이동은 가장자리에서 최대 200px 안쪽에서 일어난다
+    expect(linkLinePath({ ...line, cardY: 1120 })).toBe('M 100 120 H 240 C 340 120, 340 1120, 440 1120')
     // 형광펜 끝이 경계에 가까우면 형광펜 끝보다 앞에서 꺾지 않는다
     expect(linkLinePath({ ...line, startX: 396 })).toBe('M 396 120 H 396 C 418 120, 418 220, 440 220')
     // 노트가 왼쪽: 같은 식이지만 왼쪽으로 간다
-    const left = { key: 'k', id: 'h', active: false, side: 'left', target: 'n', distance: 4, crossing: [], startX: 500, y: 120, edgeX: 404, cardX: 380, cardY: 220 } as const
-    expect(linkLinePath(left)).toBe('M 500 120 H 436 C 408 120, 408 220, 380 220')
+    const left = { key: 'k', id: 'h', active: false, side: 'left', target: 'n', distance: 4, crossing: [], startX: 700, y: 120, edgeX: 404, cardX: 380, cardY: 220 } as const
+    expect(linkLinePath(left)).toBe('M 700 120 H 452 C 416 120, 416 220, 380 220')
+  })
+
+  it('세로(노트가 위·아래): 형광펜에서 카드의 마주 보는 변까지 수직 S 곡선', () => {
+    const down = { key: 'k', id: 'h', active: false, side: 'down', target: 'n', distance: 4, crossing: [], startX: 150, y: 134, edgeX: 150, cardX: 300, cardY: 330 } as const
+    expect(linkLinePath(down)).toBe('M 150 134 C 150 232, 300 232, 300 330')
   })
 
   it('짝이 맺히면 선을 그리고(포인터는 지나간다) 가리키는 선은 활성 클래스를 갖는다', () => {

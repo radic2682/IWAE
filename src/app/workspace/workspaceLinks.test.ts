@@ -62,19 +62,23 @@ describe('pairLinkedPanes — 짝 맞추기', () => {
     expect(pairLinkedPanes([entry('left', 'document', 'blue', doc), entry('right', 'document', 'blue', note)])).toEqual([])
     expect(pairLinkedPanes([entry('left', 'note', 'blue', doc), entry('right', 'note', 'blue', note)])).toEqual([])
   })
-  it('위아래로 나뉜 문서와 노트는 잇지 않는다', () => {
-    expect(pairLinkedPanes([entry('left', 'document', 'blue', rect(0, 0, 800, 300)), entry('right', 'note', 'blue', rect(0, 304, 800, 600))])).toEqual([])
+  it('위아래로 나뉜 문서와 노트도 잇는다: 노트가 아래면 down, 위면 up', () => {
+    expect(pairLinkedPanes([entry('top', 'document', 'blue', rect(0, 0, 800, 300), 'a'), entry('bottom', 'note', 'blue', rect(0, 304, 800, 600))])).toEqual([{ doc: 'top', note: 'bottom', noteRole: 'note', noteSide: 'down', docId: 'a', distance: 4 }])
+    expect(pairLinkedPanes([entry('top', 'note', 'blue', rect(0, 0, 800, 300)), entry('bottom', 'document', 'blue', rect(0, 304, 800, 600), 'a')])).toEqual([{ doc: 'bottom', note: 'top', noteRole: 'note', noteSide: 'up', docId: 'a', distance: 4 }])
   })
   it('좌우 셋에서 가운데에 다른 색 창이 끼어 있어도 떨어진 같은 채널 문서와 노트를 잇는다', () => {
     const cols3 = [entry('left', 'document', 'blue', rect(0, 0, 300, 600), 'a'), entry('mid', 'document', 'green', rect(304, 0, 600, 600)), entry('third', 'note', 'blue', rect(604, 0, 900, 600))]
     expect(pairLinkedPanes(cols3)).toEqual([{ doc: 'left', note: 'third', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 304 }])
   })
-  it('facingSide: 떨어져 있어도 마주 보는 쪽을 알려 주고, 위아래로 쌓인 칸·접힌 칸은 null', () => {
+  it('facingSide: 떨어져 있어도 마주 보는 쪽을 알려 주고, 위아래로 쌓인 칸은 up/down, 접힌 칸은 null', () => {
     expect(facingSide(rect(0, 0, 300, 600), rect(604, 0, 900, 600))).toBe('right')
     expect(facingSide(rect(604, 0, 900, 600), rect(0, 0, 300, 600))).toBe('left')
     // 대각선(세로 범위가 달라도 가로로 떨어져 있으면 된다)
     expect(facingSide(rect(0, 0, 400, 300), rect(404, 304, 800, 600))).toBe('right')
-    expect(facingSide(rect(0, 0, 400, 300), rect(0, 304, 400, 600))).toBeNull()
+    expect(facingSide(rect(0, 0, 400, 300), rect(0, 304, 400, 600))).toBe('down')
+    expect(facingSide(rect(0, 304, 400, 600), rect(0, 0, 400, 300))).toBe('up')
+    // 대각선: 세로 어긋남이 뚜렷이 크면 세로, 비슷하면 가로
+    expect(facingSide(rect(0, 0, 400, 300), rect(100, 304, 500, 600))).toBe('down')
     expect(facingSide(rect(0, 0, 400, 300), rect(404, 0, 404, 300))).toBeNull()
   })
   it('같은 문서가 두 칸에 보이면 카드마다 가까운 칸의 선 하나만 남는다', () => {
@@ -90,14 +94,14 @@ describe('pairLinkedPanes — 짝 맞추기', () => {
     ])
     expect(pairs.map((pair) => pair.note)).toEqual(['right', 'third'])
   })
-  it('격자 2×2: 위아래로 쌓인 칸은 잇지 않고 대각선은 잇는다', () => {
+  it('격자 2×2: 같은 줄은 가로, 같은 열은 세로, 대각선은 가로로 잇는다', () => {
     const grid = [
       entry('left', 'document', 'blue', rect(0, 0, 400, 300), 'a'),
       entry('right', 'document', 'blue', rect(404, 0, 800, 300), 'b'),
       entry('third', 'note', 'blue', rect(0, 304, 400, 600)),
       entry('fourth', 'note', 'blue', rect(404, 304, 800, 600)),
     ]
-    expect(pairLinkedPanes(grid).map((pair) => `${pair.doc}>${pair.note}:${pair.noteSide}`)).toEqual(['left>fourth:right', 'right>third:left'])
+    expect(pairLinkedPanes(grid).map((pair) => `${pair.doc}>${pair.note}:${pair.noteSide}`)).toEqual(['left>third:down', 'left>fourth:right', 'right>third:left', 'right>fourth:down'])
     // 같은 줄이면 이웃
     expect(pairLinkedPanes([entry('left', 'document', 'blue', rect(0, 0, 400, 300), 'a'), entry('right', 'note', 'blue', rect(404, 0, 800, 300))])).toHaveLength(1)
   })
@@ -190,6 +194,20 @@ describe('linkLines — 선 모양', () => {
     expect(line).toMatchObject({ side: 'right', startX: 220, edgeX: 300, cardX: 620, cardY: 218 })
     // 세로로 닿지 않는 칸은 가로지르지 않는다
     expect(line!.crossing).toEqual([middle])
+  })
+  it('노트가 아래: 형광펜 가운데 아래 변에서 나가 카드의 위 변(안쪽으로 맞춘 자리)으로 든다', () => {
+    const pair: LinkPair = { doc: 'top', note: 'bottom', noteRole: 'note', noteSide: 'down', docId: 'a', distance: 4 }
+    const docFrame = rect(0, 0, 800, 300)
+    const noteFrame = rect(0, 304, 800, 600)
+    const [line] = linkLines(pair, { frame: docFrame, body: docFrame, items: [mark('h', 100, 200, 100)], activeIds: [] }, { frame: noteFrame, body: noteFrame, items: [card('h', 20, 780, 400)], activeIds: [] })
+    expect(line).toMatchObject({ side: 'down', startX: 150, y: 114, cardX: 150, cardY: 400 })
+  })
+  it('노트가 위: 형광펜 위 변에서 나가 카드의 아래 변으로 들고, 카드 안쪽 가로 범위로 맞춘다', () => {
+    const pair: LinkPair = { doc: 'bottom', note: 'top', noteRole: 'note', noteSide: 'up', docId: 'a', distance: 4 }
+    const docFrame = rect(0, 304, 800, 600)
+    const noteFrame = rect(0, 0, 800, 300)
+    const [line] = linkLines(pair, { frame: docFrame, body: docFrame, items: [mark('h', 5, 25, 400)], activeIds: [] }, { frame: noteFrame, body: noteFrame, items: [card('h', 20, 780, 100)], activeIds: [] })
+    expect(line).toMatchObject({ side: 'up', startX: 15, y: 400, cardX: 38, cardY: 180 })
   })
   it('이웃한 노트는 가로지르는 칸이 없다', () => {
     const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 }
