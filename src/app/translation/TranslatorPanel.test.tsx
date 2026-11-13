@@ -467,3 +467,19 @@ describe('예전 값 옮기기', () => {
     })
   })
 })
+
+describe('번역기 창 — 복사 단추 자리', () => {
+  it('번역 단추와 복사 단추는 같은 줄에 있고 아래 칸(footer)은 없다', async () => {
+    renderOpen(makeService())
+    fireEvent.change(input(), { target: { value: 'hello world' } })
+    fireEvent.click(screen.getByRole('button', { name: '번역' }))
+    await screen.findByLabelText('번역 결과')
+    const translate = screen.getByRole('button', { name: '번역' })
+    const copy = screen.getByRole('button', { name: '복사' })
+    expect(copy.parentElement).toBe(translate.parentElement)
+    expect(translate.parentElement?.classList.contains('translator-panel-actions')).toBe(true)
+    // 키보드 순서: 번역 → 복사
+    expect(translate.compareDocumentPosition(copy)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(document.querySelector('.translator-panel-footer')).toBeNull()
+  })
+})

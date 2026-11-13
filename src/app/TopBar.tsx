@@ -18,7 +18,7 @@ import { Translate } from '@phosphor-icons/react'
 import { TranslatorContext } from './translation/translatorContext'
 import { toggleTranslatorWindow, useTranslatorWindow } from './translation/translatorPanelState'
 import { FilePdf, FileText, NotePencil } from '@phosphor-icons/react'
-import type { ToolbarOwner } from './topBarToolbar'
+import { useToolbarClusterOutline, type ToolbarOwner } from './topBarToolbar'
 import '../ui/screens.css'
 import { t } from '../i18n'
 
@@ -92,6 +92,8 @@ export function TopBar({
   // 앱 묶음(창 단추 앞): 번역기 단추는 어느 칸을 만지든 늘 있다(번역을 켜 둔 때만)
   const translatorService = useContext(TranslatorContext)
   const translatorWindow = useTranslatorWindow()
+  const toolbarHostRef = useRef<HTMLDivElement | null>(null)
+  useToolbarClusterOutline(toolbarHostRef, toolbarOwner !== null)
   const [sessionMenu, setSessionMenu] = useState<{ left: number; top: number } | null>(null)
   const sessionRef = useRef<HTMLButtonElement | null>(null)
   // 접두키 + s: 세션 메뉴를 연다
@@ -226,7 +228,7 @@ export function TopBar({
         )}
         {/* 지금 만지는 칸의 도구줄(MD · PDF 도구 · 노트 서식 줄). 남는 폭을 다 쓰고, 모자라면 도구줄이 스스로 「⋯」 로 접는다.
             앞의 주인 칩(색 점 · 칸 번호 · 문서 종류)은 어느 칸의 도구인지 보이고, 도구 단추 규칙은 이 자리의 자기 규칙(.topbar-toolbar-host …)이다 */}
-        <div className="topbar-toolbar-host" data-tour="toolbar" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
+        <div ref={toolbarHostRef} className="topbar-toolbar-host" data-tour="toolbar" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
           {toolbarOwner === null ? null : (
             <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 현재 선택한 칸에 적용됩니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />

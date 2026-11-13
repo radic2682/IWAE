@@ -262,18 +262,17 @@ describe('한 높이 표준 --bar-h', () => {
 
 describe('세로 구분선 1×16px 한 규칙', () => {
   const dividers = [
-    '.topbar-toolbar-host[data-owner]::before',
     '.topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right::before',
     '.topbar-toolbar-host .memo-note-tab-actions::before',
     '.topbar-app-group::after',
   ]
 
-  it('주인 칩 앞 · 오른쪽 묶음 앞 · 노트 검색 묶음 앞 · 앱 묶음 뒤 네 구분선이 모양(1×16px · --divider · 세로 가운데)을 한 규칙에서 받는다', () => {
+  it('오른쪽 묶음 앞 · 노트 검색 묶음 앞 · 앱 묶음 뒤 세 구분선이 모양(1×16px · --divider · 세로 가운데)을 한 규칙에서 받는다', () => {
     const shared = cssRules(cssSource('workspace-surface.css')).find((rule) => dividers.every((selector) => rule.selectors.includes(selector)))
     expect(shared).toBeDefined()
     expect(declarationsOf(shared!.body)).toMatchObject({ width: '1px', height: '16px', background: 'var(--divider)', position: 'absolute', top: '50%', 'margin-top': '-8px' })
-    // 앞에 두는 셋은 왼쪽, 앱 묶음 뒤의 것은 오른쪽 — 자리만 따로
-    for (const selector of dividers.slice(0, 3)) expect(ruleDecl('workspace-surface.css', selector, 'left')).toBe('0')
+    // 앞에 두는 둘은 왼쪽, 앱 묶음 뒤의 것은 오른쪽 — 자리만 따로
+    for (const selector of dividers.slice(0, 2)) expect(ruleDecl('workspace-surface.css', selector, 'left')).toBe('0')
     expect(ruleDecl('workspace-surface.css', '.topbar-app-group::after', 'right')).toBe('0')
   })
 })
@@ -745,5 +744,20 @@ describe('상단바 도구줄 · 앱 단추의 키보드 초점 고리', () => {
       expect(noRing(document.querySelector(selector)!), selector).toEqual([])
     }
     document.body.innerHTML = ''
+  })
+})
+
+describe('상단바 도구줄 묶음 테두리 · 맨 윗줄 칸 위 틈', () => {
+  it('묶음 전체를 두르는 테두리는 1px --divider 하나, 칩과 같은 둥글기, 안쪽 여백 2px(테두리 포함 3px)', () => {
+    const selector = ".topbar-toolbar-host[data-owner][style*='--cluster-w']::before"
+    expect(ruleDecl('workspace-surface.css', selector, 'border')).toBe('1px solid var(--divider)')
+    expect(ruleDecl('workspace-surface.css', selector, 'border-radius')).toBe('var(--r-md)')
+    expect(ruleDecl('workspace-surface.css', selector, 'width')).toBe('var(--cluster-w)')
+    expect(ruleDecl('workspace-surface.css', '.topbar-toolbar-host[data-owner]', 'padding-left')).toBe('3px')
+  })
+
+  it('칸 영역의 윗 테두리와 맨 윗줄 칸의 윗 안쪽 여백은 0 이고 다른 틈은 그대로', () => {
+    expect(ruleDecl('screens.css', '.panes.panes-tree', 'border-top-width')).toBe('0')
+    expect(ruleDecl('screens.css', ".panes-tree > .pane-grid-cell[data-top-edge]", 'padding-top')).toBe('0')
   })
 })

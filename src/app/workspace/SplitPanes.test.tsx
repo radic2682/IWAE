@@ -440,3 +440,18 @@ describe('SplitPanes — 칸막이 「양쪽 바꾸기」', () => {
     expect(onLayoutChange).toHaveBeenCalled()
   })
 })
+
+describe('SplitPanes — 맨 윗줄 칸 표시(위 틈 없애기)', () => {
+  it('세로로 쌓은 칸은 위쪽 칸만 data-top-edge 를 가진다', () => {
+    const tree = layoutForLegacyId('rows2', ['T', 'B'])
+    const { container } = renderPanes(false, undefined, 'split', false, tree)
+    expect(cell(container, 0).hasAttribute('data-top-edge')).toBe(true)
+    expect(cell(container, 1).hasAttribute('data-top-edge')).toBe(false)
+  })
+
+  it('가로로 나눈 두 칸은 모두 맨 윗줄이다', () => {
+    const { container } = renderPanes()
+    expect(cell(container, 0).hasAttribute('data-top-edge')).toBe(true)
+    expect(cell(container, 1).hasAttribute('data-top-edge')).toBe(true)
+  })
+})

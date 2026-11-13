@@ -70,8 +70,7 @@
 }
 
 .translator-panel-langs,
-.translator-panel-actions,
-.translator-panel-footer {
+.translator-panel-actions {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -80,8 +79,8 @@
 
 .translator-panel-spacer { flex: 1 1 auto; }
 .translator-panel-langs { flex-wrap: wrap; padding-bottom: 4px; }
-.translator-panel-actions { padding-top: 6px; padding-bottom: 6px; }
-.translator-panel-footer { border-top: 1px solid var(--divider); flex-wrap: wrap; padding-right: 24px; }
+/* 번역 · 단축키 안내는 왼쪽, 다시 · 설정 · 복사는 오른쪽 한 줄. 좁으면 줄바꿈 */
+.translator-panel-actions { flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }
 .translator-panel-hint { color: var(--text-dim); font-size: 11px; }
 
 .translator-panel-provider {

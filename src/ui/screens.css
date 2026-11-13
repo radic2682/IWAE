@@ -193,6 +193,9 @@
   background: transparent;
   overflow: visible;
 }
+/* 맨 윗줄 칸(data-top-edge)은 위 틈을 없앤다: 칸 영역의 윗면이 왼쪽 바의 가로선(상단바 아랫선)과 한 줄로 만난다. 좌 · 우 · 아래 틈과 칸 사이 틈은 그대로 */
+.panes.panes-tree { border-top-width: 0; }
+.panes-tree > .pane-grid-cell[data-top-edge] { padding-top: 0; }
 .panes-tree .pane-card {
   display: flex;
   flex-direction: column;

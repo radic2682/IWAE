@@ -101,7 +101,23 @@
 .topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right { height: 100%; gap: var(--space-1); align-items: center; }
 /* 도구줄 주인 칩(색 점 · 칸 번호 · 문서 종류 아이콘): 화면 탭 바로 뒤, 앞뒤에 구분선(1×16px)과 8px. 도구가 어느 칸 것인지 보인다.
    앱 전체 아이콘(왼쪽 바 보기 탭 · 사이드바 단추 · 창 단추)과 칸의 도구는 이 구분선 · 칩으로 갈린다. 칩 안은 아이콘 16px(regular), 점 8px, 간격 6px */
-.topbar-toolbar-host[data-owner] { padding-left: calc(var(--space-2) + 1px); margin-left: var(--space-2); }
+/* 묶음(주인 칩 + 이 칸의 도구) 전체를 두르는 테두리 하나: 1px --divider, 칩과 같은 둥글기, 안쪽 여백 2px(테두리 1 + 2 = 3px 안쪽에서 시작). 묶음 사이 구분선은 안에 남는다.
+   도구줄 자리는 접힘(⋯) 판단 때문에 남는 폭을 다 차지하므로 테두리를 자리에 못 두고, 폭은 topBarToolbar.tsx 가 재서 --cluster-w 로 준다(잴 것이 없으면 그리지 않는다).
+   앱 묶음(번역기)과 창 단추는 묶음 밖이다 */
+.topbar-toolbar-host[data-owner] { padding-left: 3px; margin-left: var(--space-2); }
+.topbar-toolbar-host[data-owner][style*='--cluster-w']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: var(--cluster-w);
+  height: calc(var(--icon-btn) + 6px);
+  margin-top: calc((var(--icon-btn) + 6px) / -2);
+  box-sizing: border-box;
+  border: 1px solid var(--divider);
+  border-radius: var(--r-md);
+  pointer-events: none;
+}
 .topbar-owner-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: var(--icon-btn); margin-right: var(--space-2); padding: 0 var(--space-2); border-radius: var(--r-md); background: color-mix(in srgb, var(--text-strong) 9%, transparent); color: var(--text-strong); font-size: 12.5px; font-variant-numeric: tabular-nums; line-height: 1; }
 .topbar-owner-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--divider-strong); }
 .topbar-owner-chip[data-channel='blue'] .topbar-owner-dot { background: var(--channel-blue); }
@@ -109,12 +125,10 @@
 .topbar-owner-chip[data-channel='orange'] .topbar-owner-dot { background: var(--channel-orange); }
 .topbar-owner-chip[data-channel='none'] .topbar-owner-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
 .topbar-owner-chip svg { width: var(--icon-size); height: var(--icon-size); }
-/* 세로 구분선 1×16px(같은 모양 한 규칙, 자리만 따로): 도구줄 주인 칩 앞 · 오른쪽 묶음 앞 · 노트 검색 묶음 앞은 왼쪽, 앱 묶음 뒤는 오른쪽 */
-.topbar-toolbar-host[data-owner]::before,
+/* 세로 구분선 1×16px(같은 모양 한 규칙, 자리만 따로): 도구줄 오른쪽 묶음 앞 · 노트 검색 묶음 앞은 왼쪽, 앱 묶음 뒤는 오른쪽 */
 .topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right::before,
 .topbar-toolbar-host .memo-note-tab-actions::before,
 .topbar-app-group::after { content: ''; position: absolute; top: 50%; width: 1px; height: 16px; margin-top: -8px; background: var(--divider); }
-.topbar-toolbar-host[data-owner]::before,
 .topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-right::before,
 .topbar-toolbar-host .memo-note-tab-actions::before { left: 0; }
 .topbar-app-group::after { right: 0; }

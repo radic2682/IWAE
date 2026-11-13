@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useLayoutEffect, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { PaneId, Tab } from './workspace/tabs'
 import type { PaneChannel } from './workspace/workspaceChannels'
@@ -63,4 +63,59 @@ export function TopBarToolbar({ children }: { readonly children: ReactNode }) {
  */
 export function eventInTopBarSlot(event: { readonly target: EventTarget }, slotElement: HTMLElement | null): boolean {
   return slotElement !== null && event.target instanceof Node && slotElement.contains(event.target)
+}
+
+/** 도구줄 묶음 테두리가 안쪽 눌림 자리에서 띄우는 거리: 테두리 1px + 안쪽 여백 2px */
+export const CLUSTER_OUTLINE_INSET_PX = 3
+
+/**
+ * 묶음(주인 칩 + 이 칸의 도구)의 바깥 오른쪽 끝을 잰다. 도구줄 자리(.topbar-toolbar-slot)는 접힘(⋯) 판단 때문에 남는 폭을 다 차지해야 해서
+ * 테두리를 자리 자체에 둘 수 없다 — 대신 칩과 자리 안 눌리는 요소(단추 · 입력)의 가장 오른쪽 끝을 재서 그 폭만큼만 테두리를 그린다.
+ * 보이지 않는(폭 0) 요소는 건너뛰고, 자리가 잘라 낸 부분은 host 오른쪽 끝에서 멈춘다. 잴 것이 없으면 null.
+ */
+export function clusterOutlineWidth(host: HTMLElement): number | null {
+  const hostRect = host.getBoundingClientRect()
+  let right = -Infinity
+  host.querySelectorAll<HTMLElement>('.topbar-owner-chip, .topbar-toolbar-slot :is(button, input, select, textarea, [role="button"])').forEach((element) => {
+    const rect = element.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) right = Math.max(right, rect.right)
+  })
+  if (!Number.isFinite(right)) return null
+  const width = Math.min(right - hostRect.left + CLUSTER_OUTLINE_INSET_PX, hostRect.width)
+  return width > 0 ? Math.round(width * 2) / 2 : null
+}
+
+/**
+ * 도구줄 묶음을 두르는 테두리 하나(CSS ::before)의 폭을 host 의 `--cluster-w` 로 알린다. 자리 안 도구가 바뀌거나(포털) 폭이 바뀔 때마다 다시 잰다.
+ * owned 가 false(주인 없음)면 변수를 지워 테두리를 그리지 않는다.
+ */
+export function useToolbarClusterOutline(hostRef: RefObject<HTMLElement | null>, owned: boolean): void {
+  useLayoutEffect(() => {
+    const host = hostRef.current
+    if (host === null) return undefined
+    if (!owned) {
+      host.style.removeProperty('--cluster-w')
+      return undefined
+    }
+    let frame = 0
+    const apply = () => {
+      frame = 0
+      const width = clusterOutlineWidth(host)
+      if (width === null) host.style.removeProperty('--cluster-w')
+      else if (host.style.getPropertyValue('--cluster-w') !== `${width}px`) host.style.setProperty('--cluster-w', `${width}px`)
+    }
+    const schedule = () => { if (frame === 0) frame = requestAnimationFrame(apply) }
+    apply()
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
+    resize?.observe(host)
+    const slot = host.querySelector('.topbar-toolbar-slot')
+    if (slot !== null) resize?.observe(slot)
+    const mutation = typeof MutationObserver === 'undefined' ? null : new MutationObserver(schedule)
+    mutation?.observe(host, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] })
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      resize?.disconnect()
+      mutation?.disconnect()
+    }
+  }, [hostRef, owned])
 }

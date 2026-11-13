@@ -423,6 +423,7 @@ export function SplitPanes({
                 key={`${epoch}:${paneId}`}
                 className={`pane pane-grid-cell${hidden ? ' pane-zoom-hidden' : ''}`}
                 data-pane-index={index}
+                data-top-edge={!hidden && rect.y <= 1e-6 ? 'true' : undefined}
                 style={style}
                 aria-hidden={hidden || undefined}
                 inert={hidden}

@@ -34,28 +34,34 @@
 }
 .whats-new-release h3 time { color: var(--text-muted); font-size: 11px; font-weight: 400; }
 
-/* 설정 → 업데이트 → 업데이트 기록 */
-.release-history { display: grid; gap: 6px; margin-top: 14px; }
-.release-history h3 { margin: 0; color: var(--text-strong); font-size: 13px; font-weight: 600; }
+/* 설정 → 업데이트 → 업데이트 기록: 설정의 다른 묶음(.settings-list)과 같은 한 겹 상자.
+   버전 줄과 펼친 글의 좌우 안쪽 여백은 16px(settings-list 줄과 같다), 펼친 글은 줄 아래에서 숨 돌릴 위 여백을 둔다 */
+.release-history { display: grid; gap: 10px; margin-top: 18px; }
+.release-history h3 { margin: 0; color: var(--text-strong); font-size: 13.5px; font-weight: 700; }
 .release-history-empty { margin: 0; color: var(--text-muted); font-size: 12px; }
-.release-history-list { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--divider); border-radius: var(--r-md, 8px); }
+.release-history-list { display: grid; margin: 0; padding: 0; overflow: hidden; list-style: none; border: 1px solid var(--divider); border-radius: var(--r-md, 8px); }
 .release-history-row + .release-history-row { border-top: 1px solid var(--divider); }
-.release-history-toggle {
+/* .update-settings button · 설정 창 단추 규칙(테두리 · 바탕 · 높이; 선택자 :is 안의 가장 센 것 기준)보다 앞서야 줄이 상자로 보이지 않는다 */
+.release-history .release-history-toggle,
+.settings-modal .settings-modal-body .release-history .release-history-list .release-history-row > button.release-history-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 10px 16px;
   border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   text-align: left;
   cursor: pointer;
 }
-.release-history-toggle:hover { background: var(--chrome-hover); }
+.release-history .release-history-toggle:hover:not(:disabled),
+.settings-modal .settings-modal-body .release-history .release-history-list .release-history-row > button.release-history-toggle:hover:not(:disabled) { background: var(--chrome-hover); }
 .release-history-toggle strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }
-.release-history-toggle time { margin-left: auto; color: var(--text-muted); font-size: 11px; }
+.release-history-toggle time { margin-left: auto; color: var(--text-muted); font-size: 11.5px; }
 .release-history-current { padding: 0 6px; border-radius: 999px; background: var(--chrome-hover); color: var(--accent); font-size: 11px; }
-.release-history-row .release-notes-body { padding: 0 12px 10px 31px; }
+.release-history-row .release-notes-body { padding: 4px 16px 16px; }

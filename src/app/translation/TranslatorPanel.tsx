@@ -225,7 +225,6 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
       >
         <Translate size={16} aria-hidden="true" />
         <span className="translator-window-title">{t('번역기')}</span>
-        <span className="translator-panel-spacer" />
         {service === null || service.providerLabel === '' ? null : <span className="translator-panel-provider">{service.providerLabel}</span>}
         <button type="button" className="translator-window-close" aria-label={t('번역기 닫기')} title={t('닫기')} onClick={() => updateTranslatorWindow({ open: false })}>
           <X size={16} aria-hidden="true" />
@@ -284,24 +283,7 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
           {t('번역')}
         </button>
         <span className="translator-panel-hint">Ctrl+Enter</span>
-      </div>
-
-      <div className="translator-panel-result" aria-live="polite">
-        {result.status === 'result' ? (
-          <p className="translator-panel-translation" aria-label={t('번역 결과')}>{result.text}</p>
-        ) : null}
-        {pending ? <p className="translator-panel-status" role="status">{t('번역 중…')}</p> : null}
-        {notConfigured && result.status !== 'error' ? (
-          <p className="translator-panel-error" role="alert">{t('번역기가 설정되지 않았습니다. 설정에서 번역기를 고르세요. 키 없이 쓰는 Google 번역도 있습니다.')}</p>
-        ) : null}
-        {result.status === 'error' ? (
-          notConfigured
-            ? <p className="translator-panel-error" role="alert">{t('번역기가 설정되지 않았습니다. 설정에서 번역기를 고르세요. 키 없이 쓰는 Google 번역도 있습니다.')}</p>
-            : <p className="translator-panel-error" role="alert">{t('번역 실패: {message}', { message: friendlyError(result.message) })}</p>
-        ) : null}
-      </div>
-
-      <div className="translator-panel-footer">
+        <span className="translator-panel-spacer" />
         {result.status === 'error' ? (
           <button type="button" className={`translator-panel-button${notConfigured ? ' translator-panel-primary' : ''}`} onClick={() => window.dispatchEvent(new Event(OPEN_TRANSLATION_SETTINGS_EVENT))}>
             {t('번역 설정 열기')}
@@ -318,6 +300,21 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
           <Copy size={13} aria-hidden="true" />
           {t('복사')}
         </button>
+      </div>
+
+      <div className="translator-panel-result" aria-live="polite">
+        {result.status === 'result' ? (
+          <p className="translator-panel-translation" aria-label={t('번역 결과')}>{result.text}</p>
+        ) : null}
+        {pending ? <p className="translator-panel-status" role="status">{t('번역 중…')}</p> : null}
+        {notConfigured && result.status !== 'error' ? (
+          <p className="translator-panel-error" role="alert">{t('번역기가 설정되지 않았습니다. 설정에서 번역기를 고르세요. 키 없이 쓰는 Google 번역도 있습니다.')}</p>
+        ) : null}
+        {result.status === 'error' ? (
+          notConfigured
+            ? <p className="translator-panel-error" role="alert">{t('번역기가 설정되지 않았습니다. 설정에서 번역기를 고르세요. 키 없이 쓰는 Google 번역도 있습니다.')}</p>
+            : <p className="translator-panel-error" role="alert">{t('번역 실패: {message}', { message: friendlyError(result.message) })}</p>
+        ) : null}
       </div>
     </div>
       <div
