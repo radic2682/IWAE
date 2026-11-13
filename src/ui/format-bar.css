@@ -100,3 +100,58 @@
 .format-bar-overflow > .format-bar-cluster + .format-bar-cluster { margin-left: 0; padding-left: 0; }
 .format-bar-overflow > .format-bar-cluster::before { display: none; }
 .format-bar-overflow > .format-bar-cluster + .format-bar-cluster { margin-left: 6px; }
+
+/* ---------- 손잡이 · 떼기 · 가운데 붙이기 ----------
+   손잡이는 줄 왼쪽 끝의 점 여섯 개(폭 20px). 누를 때 초점을 가져오지 않는다. 끌어 떼면 줄이 떠 있는 카드가 되고, 붙는 자리 위에 놓으면 다시 붙는다 */
+.format-bar-grip.format-bar-grip {
+  display: inline-grid; flex: 0 0 auto; place-items: center; box-sizing: border-box; width: 20px; min-width: 20px; height: 28px; padding: 0;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-dim); cursor: grab; touch-action: none;
+}
+.format-bar-grip.format-bar-grip svg { width: 16px; height: 16px; }
+.format-bar-grip.format-bar-grip:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--text-strong); }
+.format-bar-grip.format-bar-grip:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.format-bar-grip.format-bar-grip:active, body.format-bar-dragging .format-bar-grip.format-bar-grip { cursor: grabbing; }
+.format-bar-grip + .format-bar-cluster { margin-left: 2px; }
+/* 위 접는 자리 규칙은 줄을 -11px 밀어 첫 묶음의 왼쪽 11px(구분선 자리)를 잘라 낸다: 손잡이는 그만큼 안으로 들인다 */
+:is(.note-format-dock, [data-format-fold-host]) .format-bar:not(.format-bar-floating, .format-bar-center) > .format-bar-grip { margin-left: 11px; }
+/* 가운데: 접는 자리 안에서 남는 폭의 한가운데(앞뒤 여백이 같다) */
+:is(.note-format-dock, [data-format-fold-host], .canvas-memo-format-slot, .pdf-box-format-slot, .doc-format-strip) .format-bar.format-bar-center.format-bar-center { flex: 0 1 auto; margin-left: auto; margin-right: auto; clip-path: none; }
+/* 떼어 낸 자리의 빈 칸(붙는 자리 표시): 다시 붙이는 곳이 어디인지 보이게 얇은 점선 */
+.format-bar-anchor { display: inline-block; flex: 0 0 auto; box-sizing: border-box; width: 28px; height: 28px; border: 1px dashed var(--divider-strong); border-radius: var(--r-sm); opacity: .6; }
+[data-format-drop] { outline: 1px dashed var(--accent); outline-offset: -1px; border-radius: var(--r-sm); }
+/* 떠 있는 줄: 종이 바탕 · 1px 구분선 · 메뉴 그림자의 작은 카드. 모든 묶음을 보이고 창보다 넓으면 두 줄까지 줄바꿈한다 */
+.format-bar-float {
+  position: fixed; z-index: 900; box-sizing: border-box; max-width: calc(100vw - 16px); padding: 3px;
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper);
+  box-shadow: 0 8px 24px var(--shadow-soft); animation: motion-fade-in 120ms ease-out backwards;
+}
+.format-bar-float[data-dragging] { animation: none; cursor: grabbing; box-shadow: 0 12px 32px rgb(var(--rgb-black) / 35%), 0 2px 6px rgb(var(--rgb-black) / 15%); }
+.format-bar-float .format-bar { flex-wrap: wrap; row-gap: 2px; max-height: 62px; overflow: hidden; margin: 0; padding: 0; clip-path: none; }
+.format-bar-float .format-bar-cluster, .format-bar-float .format-bar-cluster + .format-bar-cluster { margin-left: 0; padding-left: 0; }
+.format-bar-float .format-bar-cluster::before { display: none; }
+.format-bar-float .format-bar-cluster + .format-bar-cluster { margin-left: 6px; }
+.format-bar-float .format-bar-grip + .format-bar-cluster { margin-left: 2px; }
+.format-bar-float .format-bar-cluster[data-group='dock'] { margin-left: 6px; }
+/* 놓으면 앉을 자리: 얇은 강조색 윤곽 */
+.format-bar-snap { position: fixed; z-index: 899; box-sizing: border-box; border: 1px solid var(--accent); border-radius: var(--r-md); background: color-mix(in srgb, var(--accent) 10%, transparent); pointer-events: none; }
+/* 끄는 동안 칸 안의 것은 올림에 반응하지 않는다 */
+body.format-bar-dragging :is(.pane-card, .pane-doc) * { pointer-events: none !important; }
+body.format-bar-dragging { cursor: grabbing; user-select: none; }
+@media (prefers-reduced-motion: reduce) { .format-bar-float { animation: none; } }
+
+/* ---------- 어두운 테마: 서식 줄 대비 ----------
+   쉴 때의 아이콘 · 글자는 --text-strong, 꺼진 줄도 55% 밑으로 내리지 않는다. 올림은 더 진하게, 눌림은 강조색 바탕 + 강조색 아이콘 */
+:root[data-theme='dark'] .format-bar-btn.format-bar-btn:disabled,
+:root[data-theme='dark'] .format-bar-idle .format-bar-btn.format-bar-btn:disabled { opacity: .55; }
+:root[data-theme='dark'] .format-bar-select.format-bar-select:disabled,
+:root[data-theme='dark'] .format-bar-idle .format-bar-select.format-bar-select:disabled,
+:root[data-theme='dark'] .format-bar-size-disabled,
+:root[data-theme='dark'] .format-bar-idle .format-bar-size-disabled { opacity: .55; }
+:root[data-theme='dark'] .format-bar-btn.format-bar-btn:is(:hover, :focus-visible):not(:disabled),
+:root[data-theme='dark'] .format-bar-select.format-bar-select:hover:not(:disabled),
+:root[data-theme='dark'] .format-bar-size:hover:not(.format-bar-size-disabled) { background: color-mix(in srgb, var(--text-strong) 18%, transparent); }
+:root[data-theme='dark'] .format-bar-btn.format-bar-btn.format-bar-btn-on,
+:root[data-theme='dark'] .format-bar-btn.format-bar-btn[aria-expanded='true'] { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
+:root[data-theme='dark'] .topbar-toolbar-host .topbar-toolbar-slot .format-bar-btn.format-bar-btn.format-bar-btn-on,
+:root[data-theme='dark'] .topbar-toolbar-host .topbar-toolbar-slot .format-bar-btn.format-bar-btn[aria-expanded='true'] { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
+:root[data-theme='dark'] .format-bar-grip.format-bar-grip { color: var(--text-muted); }

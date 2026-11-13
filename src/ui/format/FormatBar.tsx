@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Code, DotsThree, HighlighterCircle, ListBullets, ListChecks, ListNumbers, TextAa, TextAlignCenter, TextAlignLeft, TextAlignRight,
+  Code, DotsSixVertical, DotsThree, HighlighterCircle, PushPin, ListBullets, ListChecks, ListNumbers, TextAa, TextAlignCenter, TextAlignLeft, TextAlignRight,
   TextB, TextItalic, TextStrikethrough, TextTSlash, TextUnderline,
 } from '@phosphor-icons/react'
 import { Select, type SelectOption } from '../Select'
@@ -9,6 +9,8 @@ import { PopupMenu } from '../../app/PopupMenu'
 import { FormatSizeField, type FormatSizeConfig } from './FormatSizeField'
 import { fitMenuInViewport } from '../fitMenu'
 import { t } from '../../i18n'
+import type { FormatHostKind } from './formatBarPlace'
+import { useFormatBarPlace } from './useFormatBarPlace'
 
 /**
  * 서식 줄 하나(노트 메모 · 캔버스 글 블록 · PDF/MD 글 상자 · 박스 메모가 같이 쓴다).
@@ -71,6 +73,8 @@ export interface FormatBarProps {
   /** 쓰는 칸이 없을 때의 꺼진 서식 줄 */
   readonly disabled?: boolean
   readonly className?: string
+  /** 주인 종류(자리를 종류별로 기억한다). 안 넘기면 놓인 자리를 보고 알아낸다 */
+  readonly hostKind?: FormatHostKind
   /** 문단 모양(본문 · 제목 · 인용 …) */
   readonly block?: FormatChoiceConfig
   readonly fontFamily?: FormatChoiceConfig
@@ -393,6 +397,8 @@ const FOLD_HOST = '.note-format-dock, [data-format-fold-host]'
 const FORMAT_SLACK_PX = 1
 /** 「⋯」 단추가 차지하는 폭(px): 28px + 앞 여백 6px */
 export const FORMAT_MORE_W = 34
+/** 왼쪽 끝 손잡이가 차지하는 폭(px) */
+export const FORMAT_GRIP_W = 20
 
 /**
  * 서식 줄이 쓸 수 있는 폭(px). 줄은 내용 폭만큼만 차지해서(남는 자리는 접는 자리 맨 뒤에 있다) 줄 자신의 폭은 쓸 수 있는 폭이 아니다 —
@@ -433,7 +439,7 @@ export function fitFormatClusters(widths: readonly number[], capacity: number, m
  * 접는 자리 안의 서식 줄은 늘 한 줄이다: 폭이 모자라면 뒤쪽 묶음부터 「⋯」 메뉴로 옮긴다. 첫 묶음과 「⋯」 은 늘 줄에 있다.
  * 묶음 폭은 줄에 있을 때 재어 두고(처음엔 모두 줄에 그린다) 그 폭으로 몇 개가 들어가는지 정한다. 접는 자리 밖의 서식 줄은 건드리지 않는다.
  */
-function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number): [number, boolean, Dispatch<SetStateAction<boolean>>] {
+function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number, floating: boolean): [number, boolean, Dispatch<SetStateAction<boolean>>] {
   const [visible, setVisible] = useState(total)
   const [moreOpen, setMoreOpen] = useState(false)
   const widths = useRef<number[]>([])
@@ -469,11 +475,11 @@ function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number):
     if (host !== null) mutation?.observe(host, { childList: true })
     mutation?.observe(bar, { childList: true })
     return () => { resize?.disconnect(); mutation?.disconnect() }
-  }, [barRef])
+  }, [barRef, floating])
   // 재는 것은 필요할 때만: 크기 · 구성이 바뀌어 tick 이 오르거나, 보이는 묶음 수 · 전체 수가 바뀔 때(렌더마다 재지 않는다)
   useLayoutEffect(() => {
     const bar = barRef.current
-    if (bar === null || bar.closest(FOLD_HOST) === null) {
+    if (bar === null || floating || bar.closest(FOLD_HOST) === null) {
       if (visible !== total) setVisible(total)
       return
     }
@@ -485,9 +491,9 @@ function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number):
     const capacity = formatCapacity(bar)
     const known = widths.current
     if (capacity <= 0 || known.length < total || known.some((width) => !(width > 0))) return
-    const next = fitFormatClusters(known, capacity, FORMAT_MORE_W)
+    const next = fitFormatClusters(known, capacity - FORMAT_GRIP_W, FORMAT_MORE_W)
     if (next !== visible) setVisible(next)
-  }, [barRef, tick, visible, total])
+  }, [barRef, tick, visible, total, floating])
   return [visible, moreOpen, setMoreOpen]
 }
 
@@ -495,6 +501,10 @@ function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number):
 export function FormatBar(props: FormatBarProps) {
   const { label, disabled = false, className, shortcuts = {}, onCommand } = props
   const barRef = useRef<HTMLDivElement | null>(null)
+  const anchorRef = useRef<HTMLSpanElement | null>(null)
+  const floatRef = useRef<HTMLDivElement | null>(null)
+  const gripRef = useRef<HTMLButtonElement | null>(null)
+  const placed = useFormatBarPlace(props.hostKind, barRef, anchorRef, floatRef, gripRef)
   const moreRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const run = (action: () => void) => () => {
@@ -584,7 +594,7 @@ export function FormatBar(props: FormatBarProps) {
   ].map((cluster, index) => (
     <span key={cluster.key} className="format-bar-cluster" data-cluster={index} data-group={cluster.group}>{cluster.node}</span>
   ))
-  const [visible, moreOpen, setMoreOpen] = useFormatFold(barRef, clusters.length)
+  const [visible, moreOpen, setMoreOpen] = useFormatFold(barRef, clusters.length, placed.floating)
   const folded = visible < clusters.length
   const [panelAt, setPanelAt] = useState<CSSProperties | null>(null)
   useEffect(() => {
@@ -609,16 +619,32 @@ export function FormatBar(props: FormatBarProps) {
   useLayoutEffect(() => {
     if (moreOpen && panelRef.current !== null) fitMenuInViewport(panelRef.current)
   }, [moreOpen, panelAt, visible])
-  return (
+  const centered = placed.place.mode === 'center' && !placed.floating
+  const grip = (
+    <button
+      ref={gripRef}
+      type="button"
+      className="format-bar-grip"
+      aria-label={t('서식바 옮기기')}
+      title={t('서식바 옮기기')}
+      onPointerDown={placed.onGripPointerDown}
+      onKeyDown={placed.onGripKeyDown}
+      onClick={(event) => event.preventDefault()}
+    >
+      <DotsSixVertical size={16} weight="bold" aria-hidden="true" />
+    </button>
+  )
+  const bar = (
     <div
       ref={barRef}
-      className={`format-bar${disabled ? ' format-bar-idle' : ''}${className === undefined ? '' : ` ${className}`}`}
+      className={`format-bar${disabled ? ' format-bar-idle' : ''}${centered ? ' format-bar-center' : ''}${placed.floating ? ' format-bar-floating' : ''}${className === undefined ? '' : ` ${className}`}`}
       role="toolbar"
       aria-label={label}
       aria-disabled={disabled || undefined}
     >
+      {grip}
       {clusters.slice(0, visible)}
-      {folded ? (
+      {folded && !placed.floating ? (
         <button
           ref={moreRef}
           type="button"
@@ -637,12 +663,42 @@ export function FormatBar(props: FormatBarProps) {
           <DotsThree size={16} weight="bold" aria-hidden="true" />
         </button>
       ) : null}
-      {moreOpen && folded ? createPortal(
+      {placed.floating ? (
+        <span className="format-bar-cluster" data-group="dock">
+          <FormatButton label={t('서식바 붙이기')} onPress={() => placed.dock()}>
+            <PushPin size={16} aria-hidden="true" />
+          </FormatButton>
+        </span>
+      ) : null}
+      {moreOpen && folded && !placed.floating ? createPortal(
         <div ref={panelRef} className="format-bar format-bar-overflow" role="group" aria-label={t('서식 더 보기')} style={panelAt ?? undefined}>
           {clusters.slice(visible)}
         </div>,
         document.body,
       ) : null}
     </div>
+  )
+  if (!placed.floating) return bar
+  const snap = placed.drag?.snap ?? null
+  return (
+    <>
+      <span ref={anchorRef} className="format-bar-anchor" aria-hidden="true" />
+      {createPortal(
+        <div
+          ref={floatRef}
+          className="format-bar-float"
+          data-dragging={placed.drag === null ? undefined : ''}
+          style={{ left: placed.floatAt?.x ?? 0, top: placed.floatAt?.y ?? 0 }}
+          onPointerDown={(event) => { if (!(event.target instanceof HTMLInputElement)) event.preventDefault() }}
+        >
+          {bar}
+        </div>,
+        document.body,
+      )}
+      {snap === null ? null : createPortal(
+        <div className="format-bar-snap" style={{ left: snap.left, top: snap.top, width: snap.width, height: snap.height }} />,
+        document.body,
+      )}
+    </>
   )
 }

@@ -181,12 +181,12 @@ describe('FormatBar — 접는 자리에서 모자라면 「⋯」 로 접는다
   it('data-format-fold-host 안에서 폭이 모자라면 뒤쪽 묶음이 「⋯」 메뉴(body)로 가고, 접는 자리 밖에서는 접지 않는다', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rect(this: HTMLElement) {
-      const width = this.dataset.formatFoldHost !== undefined ? 200 : this.dataset.cluster !== undefined ? 80 : 0
+      const width = this.dataset.formatFoldHost !== undefined ? 220 : this.dataset.cluster !== undefined ? 80 : 0
       return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: 0, width, height: 0, toJSON: () => ({}) } as DOMRect
     })
     const props = { label: '서식', marks: { bold: toggle() }, align: { value: null, onChange: vi.fn() }, lists: { bullet: toggle() } } as const
     const view = render(<div data-format-fold-host=""><FormatBar {...props} /></div>)
-    // 200 - 1(여유) = 199: 「⋯」(34) + 80 + 80 = 194 → 둘만 줄에
+    // 220 - 1(여유) - 20(손잡이) = 199: 「⋯」(34) + 80 + 80 = 194 → 둘만 줄에
     const more = await screen.findByRole('button', { name: '서식 더 보기' })
     const bar = screen.getByRole('toolbar', { name: '서식' })
     expect(bar.querySelectorAll(':scope > [data-cluster]')).toHaveLength(2)
