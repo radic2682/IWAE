@@ -64,8 +64,8 @@
   display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; height: 28px; padding: 0 6px;
   border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13.5px; text-align: left; cursor: grab;
 }
-.side-recent-item .side-item-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.side-recent-date { flex: 0 0 auto; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.side-recent-item .side-item-title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-recent-date { flex: 0 0 5ch; box-sizing: content-box; min-width: 5ch; text-align: right; white-space: nowrap; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .side-recent-forget { display: grid; place-items: center; width: 22px; height: 22px; margin-right: 2px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-muted); opacity: 0; }
 .side-recent li:hover .side-recent-forget, .side-recent-forget:focus-visible { opacity: 1; }
 .side-recent-forget:hover { background: var(--chrome-active, var(--chrome-hover)); color: var(--text-strong); }
@@ -89,23 +89,6 @@
 .memo-tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-memo-category .memo-tag-dot { margin-right: 2px; }
 .pdf-memo-topic:not(.pdf-memo-topic-empty) { background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--text-strong); font-weight: 600; }
-
-/* 탐색기에서 PDF 를 끌어 문서 자리 위에 올렸을 때: 놓으면 Vault 맨 위에 복사하고 연다 */
-body.reader-drop-active .pane .pane-frame::after {
-  content: '놓으면 Vault 맨 위에 복사하고 엽니다';
-  position: absolute;
-  inset: 8px;
-  z-index: 60;
-  display: grid;
-  place-items: center;
-  border: 2px dashed var(--accent);
-  border-radius: var(--r-lg);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--text-strong);
-  font-size: 15px;
-  font-weight: 600;
-  pointer-events: none;
-}
 
 /* 오류 알림: 닫기 단추 */
 

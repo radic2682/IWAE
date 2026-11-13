@@ -10,7 +10,8 @@ import { InputSettings, SearchSettings } from './settings/BehaviorSettings'
 import { APP_COMMAND_EVENT } from '../ui/documentContextMenu'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { onOpenFiles, openDefaultAppsSettings, takeOpenFiles } from '../bridge/openFiles'
-import { dropZoneAt, type DropZone, type TreeDropPlace } from './dropZone'
+import { type DropZone, type TreeDropPlace } from './dropZone'
+import { paintExternalPaneHover, resolveExternalDrop } from './externalDrop'
 import { ArrowLineDownRight, Minus, X } from '@phosphor-icons/react'
 import { updatePersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { SplitPanes, type FocusedPane } from './workspace/SplitPanes'
@@ -641,10 +642,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (failures.length > 0) announceAction(failures.join(' · '))
     else if (converted.length > 0) announceAction(t('PowerPoint {count}개를 PDF로 바꿔 넣었습니다', { count: converted.length }))
   }
-  const [readerDropActive, setReaderDropActive] = useState(false)
-  useEffect(() => {
-    document.body.classList.toggle('reader-drop-active', readerDropActive)
-  }, [readerDropActive])
+  /** 칸 위에 놓은 PDF 를 그 칸에 여는 일(focusPane 아래에서 채운다) */
+  const openDroppedPdfsRef = useRef<(paths: readonly string[], pane: string | null) => void>(() => undefined)
   useEffect(() => {
     let disposed = false
     let unlisten: () => void = () => undefined
@@ -653,15 +652,24 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         // 테마 파일은 문서로 가져오지 않고 「추가할까요?」 를 묻는다(.json 은 설정의 테마 구역 위에서만)
         const { themePaths, rest } = partitionThemeDrop(paths, isOverThemeSection(point))
         if (themePaths.length > 0) void offerThemePaths(themePaths)
-        if (rest.length > 0) routeDropRef.current(rest, dropZoneAt(point))
+        if (rest.length === 0) return
+        const target = resolveExternalDrop(point)
+        paintExternalPaneHover(null)
+        if (target.kind === 'vault') { routeDropRef.current(rest, target.zone); return }
+        // 칸 위: PDF 는 가져오지 않고 그 칸에 연다(「최근 연 PDF」에 남는다). 그 밖(PowerPoint · Markdown …)은 예전처럼 Vault 맨 위로
+        const pdfs = rest.filter((path) => /\.pdf$/iu.test(path))
+        const others = rest.filter((path) => !/\.pdf$/iu.test(path))
+        if (pdfs.length > 0) openDroppedPdfsRef.current(pdfs, target.pane)
+        if (others.length > 0) routeDropRef.current(others, { kind: 'vault', folderPath: null })
       },
       (active, point) => {
-        const zone = active ? dropZoneAt(point) : null
-        setDocumentDropActive(zone?.kind === 'vault')
-        setDocumentDropFolder(zone?.kind === 'vault' ? zone.folderPath : null)
-        const place = zone?.kind === 'vault' ? zone.place ?? null : null
+        const target = active ? resolveExternalDrop(point) : null
+        const zone = target?.kind === 'vault' ? target.zone : null
+        setDocumentDropActive(zone !== null)
+        setDocumentDropFolder(zone?.folderPath ?? null)
+        const place = zone?.place ?? null
         setDocumentDropPlace((current) => current?.nodeId === place?.nodeId && current?.position === place?.position ? current : place)
-        setReaderDropActive(zone?.kind === 'reader')
+        paintExternalPaneHover(target?.kind === 'pane' ? target.pane : null)
       },
       setThemeDropHover,
     ).then((nextUnlisten) => {
@@ -1469,6 +1477,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     // 빈 창을 눌렀다: 다음에 여는 문서·노트가 이 창으로 온다
     for (const kind of routes) setPaneRoute(kind, pane)
   }, [panes, activePaneId, setPaneRoute, paneRouteRef])
+  openDroppedPdfsRef.current = (paths, pane) => {
+    // 놓은 칸이 다음에 여는 문서의 자리가 된다. 여러 개면 모두 탭으로 열고 첫 번째를 보여 준다
+    if (pane !== null) { setActivePaneId(pane); setPaneRoute('doc', pane) }
+    void (async () => {
+      for (const path of paths) await openExternalPdfRef.current(path)
+      if (paths.length > 1) await openExternalPdfRef.current(paths[0]!)
+    })()
+  }
   const workspaceSources = useWorkspaceSources({
     scopeId: activeNoteId,
     activeDocId: activePdfDoc?.docId ?? null,
