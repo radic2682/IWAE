@@ -14,6 +14,7 @@ import type { PdfSplitLayoutId } from '../core/pdfSplit'
 import '../ui/pdf-followup.css'
 import { t } from '../i18n'
 import { PaneIdContext } from './workspaceContext'
+import { MemoTargetChip } from './MemoTargetChip'
 import { readPaneToolbarMemory, writePaneToolbarMemory } from './paneToolbarMemory'
 import { modalDialogOpen } from '../ui/modalOpen'
 
@@ -412,6 +413,8 @@ export function PaneToolbar({
           </div>
         ) : null}
       </div>
+      {/* 도구줄 맨 끝(앱 묶음 앞): 새 메모가 갈 노트. 같은 색에 보이는 노트 칸이 없거나 칸이 좁으면 없다 */}
+      <MemoTargetChip />
     </>
   )
 }

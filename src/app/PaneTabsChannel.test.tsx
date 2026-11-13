@@ -17,7 +17,7 @@ describe('창 머리의 색 점과 미리보기 탭', () => {
     const onCycleChannel = vi.fn()
     render(<PaneTabsMenu state={state} label="PDF" channel="blue" onCycleChannel={onCycleChannel} onActivate={vi.fn()} onClose={vi.fn()} />)
 
-    const dot = screen.getByRole('button', { name: '색 채널: 파랑 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기)' })
+    const dot = screen.getByRole('button', { name: '색 채널: 파랑 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기 · 다른 칸으로 끌어 잇기)' })
     expect(dot.getAttribute('data-channel')).toBe('blue')
     fireEvent.click(dot)
     expect(onCycleChannel).toHaveBeenCalledTimes(1)

@@ -12,6 +12,7 @@ import {
   type TabsState,
 } from './tabs'
 import { CHANNELS, channelOf, type Channel, type PaneChannel, type PaneChannels } from './workspaceChannels'
+import { byRecency } from './paneRecency'
 
 /**
  * 「옆에 노트 열기」의 규칙. DOM·React 를 모르는 순수 함수만 둔다 —
@@ -82,6 +83,8 @@ export interface PlaceNoteInput {
   readonly tab: Tab
   /** 미리보기 탭으로 열기(설정 「미리보기 탭」이 켜져 있고 신호가 연 경우) */
   readonly preview?: boolean
+  /** 칸을 만진 차례(가장 최근이 앞, paneRecency). 같은 색 칸이 여럿이면 가장 최근에 만진 칸 하나에만 놓는다 */
+  readonly mru?: readonly PaneId[]
 }
 
 export interface PlaceNoteOutcome {
@@ -109,7 +112,8 @@ export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
   const withTab = (state: TabsState, target: Tab) => (preview ? openPreviewTab(state, target) : openTab(state, target))
 
   // 1. 이미 보이는 창에 탭으로 있다
-  const holder = visible.find((pane) => tabsOf(panes, pane).tabs.some((candidate) => candidate.id === tab.id))
+  // 여러 칸이 같은 탭을 갖고 있으면 가장 최근에 만진 칸에서 활성화한다(두 칸을 한꺼번에 바꾸지 않는다)
+  const holder = byRecency(visible, input.mru).find((pane) => tabsOf(panes, pane).tabs.some((candidate) => candidate.id === tab.id))
   if (holder !== undefined) {
     const held = tabsOf(panes, holder)
     if (held.activeId === tab.id) return { kind: 'visible', panes, channels: input.channels, layout, pane: holder }
@@ -123,8 +127,10 @@ export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
 
   // 2. 노트를 보이는 창(anchor 자신 → 같은 색 이웃)
   const showsNote = (pane: PaneId) => { const shown = activeTab(tabsOf(panes, pane)); return shown !== null && shown.kind === tab.kind }
+  // 최근에 만진 칸이 이긴다. 기록이 없는 칸끼리일 때만 미리보기 탭이 이미 있는 칸이 먼저다
+  const hasPreview = (pane: PaneId) => tabsOf(panes, pane).tabs.some((candidate) => candidate.preview === true)
   const peers = visible.filter((pane) => pane !== anchor && channelOf(channels, pane) === channel && showsNote(pane))
-  const host = showsNote(anchor) ? anchor : peers.find((pane) => tabsOf(panes, pane).tabs.some((candidate) => candidate.preview === true)) ?? peers[0]
+  const host = showsNote(anchor) ? anchor : byRecency([...peers.filter(hasPreview), ...peers.filter((pane) => !hasPreview(pane))], input.mru)[0]
   if (host !== undefined) {
     return { kind: 'tab', panes: { ...panes, [host]: withTab(tabsOf(panes, host), tab) }, channels, layout, pane: host }
   }
@@ -149,6 +155,8 @@ export interface CloseNoteInput {
   readonly channels: PaneChannels
   readonly layout: LayoutNode
   readonly anchor: PaneId
+  /** 칸을 만진 차례. 같은 색에 노트 창이 여럿이면 가장 최근에 만진 칸의 노트만 거둔다 */
+  readonly mru?: readonly PaneId[]
 }
 
 export interface CloseNoteOutcome {
@@ -164,10 +172,10 @@ export interface CloseNoteOutcome {
 }
 
 /** anchor 와 같은 색 창(anchor 제외)에서 지금 노트를 보이는 창들 */
-export function visibleNotePanes(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], anchor: PaneId): PaneId[] {
+export function visibleNotePanes(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], anchor: PaneId, mru?: readonly PaneId[]): PaneId[] {
   const channel = channelOf(channels, anchor)
   if (channel === null) return []
-  return visible.filter((pane) => pane !== anchor && channelOf(channels, pane) === channel && isNoteTab(activeTab(tabsOf(panes, pane))))
+  return byRecency(visible, mru).filter((pane) => pane !== anchor && channelOf(channels, pane) === channel && isNoteTab(activeTab(tabsOf(panes, pane))))
 }
 
 /**
@@ -177,7 +185,7 @@ export function visibleNotePanes(panes: PanesState, channels: PaneChannels, visi
  */
 export function closeNoteBeside(input: CloseNoteInput): CloseNoteOutcome | null {
   const { panes, channels, layout, anchor } = input
-  const pane = visibleNotePanes(panes, channels, leaves(layout), anchor)[0]
+  const pane = visibleNotePanes(panes, channels, leaves(layout), anchor, input.mru)[0]
   if (pane === undefined) return null
   const state = tabsOf(panes, pane)
   const closed = state.tabs.filter((tab) => tab.kind === 'memoNote')
@@ -208,6 +216,8 @@ export interface NoteBesideHost {
   readonly apply: (next: { readonly panes: PanesState; readonly channels: PaneChannels; readonly layout: LayoutNode }, fresh?: PaneId) => void
   /** 칸의 지금 크기(px). 모르면 null(크기는 따지지 않는다) */
   readonly sizeOf?: PaneSizer
+  /** 칸을 만진 차례(가장 최근이 앞). 같은 색 칸이 여럿일 때 하나를 고르는 기준 */
+  readonly mru?: () => readonly PaneId[]
   /** 마지막으로 만진 메모 노트 */
   readonly lastTouched: () => string | null
   readonly entries: () => readonly MemoNoteEntry[]
@@ -244,7 +254,7 @@ export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
 
   const place: NoteBesideOpener['place'] = (anchor, path, preview = false) => {
     const now = host.snapshot()
-    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab: noteTab(path), preview, ...(host.sizeOf === undefined ? {} : { sizeOf: host.sizeOf }) })
+    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab: noteTab(path), preview, ...(host.sizeOf === undefined ? {} : { sizeOf: host.sizeOf }), ...(host.mru === undefined ? {} : { mru: host.mru() }) })
     host.apply({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
     host.touch(path)
     return outcome
@@ -266,7 +276,7 @@ export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
 
   const toggle: NoteBesideOpener['toggle'] = (anchor) => {
     const now = host.snapshot()
-    const closed = closeNoteBeside({ panes: now.panes, channels: now.channels, layout: now.layout, anchor })
+    const closed = closeNoteBeside({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, ...(host.mru === undefined ? {} : { mru: host.mru() }) })
     if (closed === null) return { kind: 'opening', opened: open(anchor) }
     host.apply({ panes: closed.panes, channels: closed.channels, layout: closed.layout })
     return { kind: 'closed', outcome: closed }

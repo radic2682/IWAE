@@ -349,3 +349,23 @@
 .pane-bottom-bar :is(.pdf-bottom-page, .pdf-bottom-view) { height: var(--icon-btn); align-items: center; }
 .pane-bottom-bar .pdf-bottom-zoom { height: var(--icon-btn); }
 .pane-bottom-bar .pdf-bottom-page input { height: var(--icon-btn); box-sizing: border-box; }
+
+/* 새 메모가 갈 노트 칩(PDF · MD 도구줄 맨 끝): 흐린 작은 글, 약 160px 에서 말줄임. 폭이 모자라면 먼저 줄어든다(넘침 단계를 올리지 않는다) */
+.topbar-toolbar-host .topbar-toolbar-slot .pane-memo-target { flex: 0 1 auto; min-width: 0; max-width: 160px; margin-left: var(--space-2); font-size: 12px; line-height: var(--icon-btn); color: var(--text-muted); white-space: nowrap; }
+.pane-memo-target-text { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+/* 색 점을 끌어 다른 칸에 놓을 때: 놓을 칸의 테두리가 놓으면 될 색(끈 칸의 색)을 100% 로 미리 보인다(채널 색 규칙보다 뒤 · 더 구체적) */
+body .panes .pane-card[data-link-preview='blue'] { border-color: var(--channel-blue); }
+body .panes .pane-card[data-link-preview='green'] { border-color: var(--channel-green); }
+body .panes .pane-card[data-link-preview='orange'] { border-color: var(--channel-orange); }
+/* 끄는 선 · 점(ChannelDot 끌기): 화면 위에 얹는 SVG 한 장과 12px 점. 포인터를 받지 않는다 */
+.channel-drag-line { position: fixed; inset: 0; z-index: 9000; width: 100vw; height: 100vh; pointer-events: none; overflow: visible; }
+.channel-drag-line { color: var(--text-muted); }
+.channel-drag-line[data-channel='blue'] { color: var(--channel-blue); }
+.channel-drag-line[data-channel='green'] { color: var(--channel-green); }
+.channel-drag-line[data-channel='orange'] { color: var(--channel-orange); }
+.channel-drag-ghost { position: fixed; left: 0; top: 0; z-index: 9001; width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; pointer-events: none; background: var(--text-muted); }
+.channel-drag-ghost[data-channel='blue'] { background: var(--channel-blue); }
+.channel-drag-ghost[data-channel='green'] { background: var(--channel-green); }
+.channel-drag-ghost[data-channel='orange'] { background: var(--channel-orange); }
+.channel-drag-ghost[data-channel='none'] { background: transparent; border: 1.5px dashed var(--text-muted); }

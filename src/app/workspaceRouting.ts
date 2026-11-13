@@ -13,6 +13,7 @@ import {
   type TabKind,
 } from './tabs'
 import { channelOf, type PaneChannel, type PaneChannels } from './workspaceChannels'
+import { byRecency } from './paneRecency'
 
 /**
  * 가리키기 신호를 받아 「필요한 탭이 어느 창에 어떻게 보이는가」를 정하는 순수 함수들.
@@ -40,6 +41,11 @@ export interface ResolveInput {
   readonly preview: boolean
   /** 같은 채널에 맞는 창이 없을 때 보낸 창 옆에 새 창을 열어도 되는가 */
   readonly allowNewPane?: boolean
+  /**
+   * 칸을 만진 차례(가장 최근이 앞, paneRecency). 같은 색 칸이 여럿이면 내용을 바꿔야 할 때 가장 최근에 만진 칸 하나만 바뀐다 —
+   * 이미 탭이 있는 칸이 여럿이면 그중 최근 칸에서 활성화하고, 미리보기 탭도 최근 칸에 연다. 없으면 화면 차례가 비김 규칙이다
+   */
+  readonly mru?: readonly PaneId[]
 }
 
 export type ResolveKind =
@@ -79,7 +85,8 @@ export function resolvePointSignal(input: ResolveInput): ResolveOutcome {
   const visible = leaves(layout)
   const none: ResolveOutcome = { kind: 'none', panes, channels, layout, pane: null }
   if (channel === null) return none
-  const peers = visible.filter((pane) => pane !== from && channelOf(channels, pane) === channel)
+  // 같은 색 칸은 최근에 만진 순서로: 보이는 칸은 모두 반응하지만(받는 쪽이 스스로), 바꿀 칸은 하나만 — 맨 앞이 그 칸이다
+  const peers = byRecency(visible.filter((pane) => pane !== from && channelOf(channels, pane) === channel), input.mru)
 
   // 0. 이미 보인다(보낸 창 자신이 보고 있어도 마찬가지)
   const own = activeTab(tabsOf(panes, from))
@@ -100,8 +107,10 @@ export function resolvePointSignal(input: ResolveInput): ResolveOutcome {
     const tab = activeTab(tabsOf(panes, pane))
     return tab !== null && (need.kind === 'doc' ? isDocumentKind(tab.kind) : tab.kind === 'memoNote')
   }
-  const hosts = peers.filter(fits)
-  const host = hosts.find((pane) => tabsOf(panes, pane).tabs.some((tab) => tab.preview === true)) ?? hosts[0]
+  // 가장 최근에 만진 칸이 이긴다. 만진 기록이 없는 칸끼리일 때만 미리보기 탭이 이미 있는 칸을 먼저(탭을 늘리지 않고 갈아 끼운다)
+  const hasPreview = (pane: PaneId) => tabsOf(panes, pane).tabs.some((tab) => tab.preview === true)
+  const fitting = peers.filter(fits)
+  const host = byRecency([...fitting.filter(hasPreview), ...fitting.filter((pane) => !hasPreview(pane))], input.mru)[0]
   if (host !== undefined) {
     return { kind: 'preview', panes: openPreviewTabInPanes(panes, need.tab, host, preview), channels, layout, pane: host }
   }
@@ -183,21 +192,21 @@ export function channelPeers(channels: PaneChannels, visible: readonly PaneId[],
   return channel === null ? [] : visible.filter((other) => other !== pane && channelOf(channels, other) === channel)
 }
 
-/** channel 의 창들에서 지금 보이는(활성 탭인) 메모 노트 경로들(화면 차례) */
-export function visibleNotePathsIn(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], channel: PaneChannel): string[] {
+/** channel 의 창들에서 지금 보이는(활성 탭인) 메모 노트 경로들(mru 가 있으면 최근에 만진 칸의 노트가 먼저, 없으면 화면 차례) */
+export function visibleNotePathsIn(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], channel: PaneChannel, mru?: readonly PaneId[]): string[] {
   if (channel === null) return []
-  return visible.flatMap((pane) => {
+  return byRecency(visible, mru).flatMap((pane) => {
     const tab = activeTab(tabsOf(panes, pane))
     return channelOf(channels, pane) === channel && tab?.kind === 'memoNote' ? [tab.id] : []
   })
 }
 
 /**
- * pane(문서 창)에서 새 메모가 갈 노트: 같은 채널 창에서 지금 보이는 메모 노트 탭(첫째). 없으면 null — 문서 창이 옆에 노트를 연다.
- * 채널이 없는 창은 어느 노트 탭과도 잇지 않는다.
+ * pane(문서 창)에서 새 메모가 갈 노트: 같은 채널 창에서 지금 보이는 메모 노트 탭 중 가장 최근에 만진 칸의 것(mru 가 없으면 화면 차례 첫째).
+ * 없으면 null — 문서 창이 옆에 노트를 연다. 채널이 없는 창은 어느 노트 탭과도 잇지 않는다. 같은 색 칸이 여럿이어도 노트는 늘 하나만 고른다.
  */
-export function memoNoteTargetFor(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], pane: PaneId): string | null {
-  return visibleNotePathsIn(panes, channels, visible.filter((other) => other !== pane), channelOf(channels, pane))[0] ?? null
+export function memoNoteTargetFor(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], pane: PaneId, mru?: readonly PaneId[]): string | null {
+  return visibleNotePathsIn(panes, channels, visible.filter((other) => other !== pane), channelOf(channels, pane), mru)[0] ?? null
 }
 
 /** 탭 종류 → 노트 화면인가(메모 노트·캔버스) */
