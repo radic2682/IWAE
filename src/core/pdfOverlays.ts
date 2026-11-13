@@ -91,7 +91,7 @@ export interface PdfInk {
 
 /**
  * 도형(네모·동그라미·가리기). x, y 는 왼쪽 위, w, h 는 크기(쪽 좌표).
- * 'redact'(가리기)는 화면에서는 검은 상자로 덮어 보이고, 「민감 정보 가린 PDF 저장」을 만들 때 그 자리의 글자·그림을 정말로 지운다.
+ * 'redact'(가리기)는 화면에서는 검은 상자로 덮어 보이고, 「민감 정보를 가려서 저장」을 만들 때 그 자리의 글자·그림을 정말로 지운다.
  */
 export interface PdfShape {
   readonly id: string

@@ -315,7 +315,7 @@ const TOOL_HINT: Partial<Record<OverlayTool, string>> = {
   arrow: 'Shift: 수평·수직·45°',
   rect: 'Shift: 정사각형',
   ellipse: 'Shift: 원',
-  redact: '끌어서 가릴 곳 지정 · 「PDF 도구 → 민감 정보 가린 PDF 저장」을 만들면 그 자리 글자가 정말 지워집니다',
+  redact: '끌어서 가릴 곳 지정 · 「PDF 도구 → 민감 정보를 가려서 저장」을 만들면 그 자리 글자가 정말 지워집니다',
   eraser: '누른 채 지나가면 지움 (형광펜·박스 메모 포함)',
 }
 

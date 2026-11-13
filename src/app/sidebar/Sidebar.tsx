@@ -175,7 +175,7 @@ interface SidebarProps {
   onEditBibliography?: (docId: string) => void
   onCopyBibtex?: (docId: string) => void
   /** 스캔 PDF 에 보이지 않는 글자 층을 깐 사본을 만든다 */
-  /** PDF 도구 창(OCR·합치기·주석을 넣은 PDF 저장 …)을 연다 */
+  /** PDF 도구 창(OCR·합치기·주석 포함 PDF 저장 …)을 연다 */
   onOpenPdfTools?: (docId: string) => void
 }
 

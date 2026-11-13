@@ -14,7 +14,7 @@ describe('PdfToolsPanel', () => {
     const onPick = vi.fn()
     render(<PdfToolsPanel docTitle="문서" activeTool="flatten" onPick={onPick} />)
     expect(screen.getByRole('button', { name: '쪽 편집' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '주석을 넣은 PDF 저장' }).getAttribute('aria-current')).toBe('true')
+    expect(screen.getByRole('button', { name: '주석 포함 PDF 저장' }).getAttribute('aria-current')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: '쪽 번호 넣기' }))
     expect(onPick).toHaveBeenCalledWith('numbers')
   })
