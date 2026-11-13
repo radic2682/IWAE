@@ -4,6 +4,7 @@ import { applyRatios, clampRatioForSize, layoutRects, leaves, paneCount, type La
 import { WorkspaceLinkLayer } from './WorkspaceLinkLayer'
 import { FloatLayer, type AnchorRect } from './FloatLayer'
 import { PaneCard } from './PaneCard'
+import { canPaintDragDirectly, dividerStyle, paintSplitDrag, paneCellStyle, snapRect } from './splitDragStyles'
 import type { PaneChannel } from './workspaceChannels'
 import type { FloatAnchor, FloatingPane } from './screens'
 import '../../ui/layout-transitions.css'
@@ -76,17 +77,7 @@ interface SplitPanesProps {
 
 const FULL: UnitRect = { x: 0, y: 0, w: 1, h: 1 }
 
-/**
- * 칸 사각형(0–1 비율)을 칸 영역(px)의 정수 픽셀 자리로 맞춘다. 비율 % 를 그대로 쓰면 카드가 267.98px 처럼 소수 픽셀에 걸려
- * 테두리 · 모서리가 거칠어 보인다. 왼쪽 · 오른쪽(위 · 아래) 가장자리를 각각 반올림하므로 이웃한 두 칸은 같은 경계를 나눠 쓴다(틈 · 겹침 없음).
- * 영역 크기를 모르면(0) null — 그때는 비율(%)로 둔다.
- */
-export function snapRect(unit: UnitRect, size: { readonly width: number; readonly height: number }): { readonly left: number; readonly top: number; readonly width: number; readonly height: number } | null {
-  if (size.width <= 0 || size.height <= 0) return null
-  const left = Math.round(unit.x * size.width)
-  const top = Math.round(unit.y * size.height)
-  return { left, top, width: Math.round((unit.x + unit.w) * size.width) - left, height: Math.round((unit.y + unit.h) * size.height) - top }
-}
+export { snapRect }
 
 /**
  * 사이드바 | 칸 나누기 트리. 경계선을 드래그해 크기를 바꾼다.
@@ -184,6 +175,7 @@ export function SplitPanes({
   rootRef.current = root
   const onRootChangeRef = useRef(onRootChange)
   onRootChangeRef.current = onRootChange
+  const directPaintRef = useRef(false)
   const shownRoot = useMemo(() => (Object.keys(liveRatios).length === 0 ? root : applyRatios(root, liveRatios)), [root, liveRatios])
 
   /**
@@ -287,6 +279,11 @@ export function SplitPanes({
           if (total <= 0) return
           const ratio = clampRatioForSize(split.node, ((horizontal ? clientX : clientY) - start) / total, total)
           liveRatiosRef.current = { ...liveRatiosRef.current, [splitId]: ratio }
+          if (directPaintRef.current && element != null) {
+            // 끄는 동안 React 를 거치지 않는다: 칸 · 경계선 자리만 DOM 에 바로 쓴다(칸 본문이 프레임마다 다시 그려지지 않는다). 놓을 때 한 번 React 가 이어받는다
+            paintSplitDrag(element, applyRatios(rootRef.current, liveRatiosRef.current))
+            return
+          }
           setLiveRatios(liveRatiosRef.current)
         },
         () => {
@@ -322,6 +319,7 @@ export function SplitPanes({
   )
 
   const zoomed = focusedPane === 'zoom' && zoomedPane !== null
+  directPaintRef.current = canPaintDragDirectly(floats.length, zoomed)
   const sidebarHidden = sidebarCollapsed || focusedPane !== 'split'
   const order = leaves(shownRoot)
   const multi = order.length > 1
@@ -415,14 +413,13 @@ export function SplitPanes({
           {order.map((paneId, index) => {
             const rect = zoomed ? (paneId === zoomedPane ? FULL : null) : rects.panes.get(paneId) ?? null
             const hidden = rect === null
-            const style: CSSProperties = hidden
-              ? { left: 0, top: 0, width: 0, height: 0 }
-              : snapRect(rect, panesSize) ?? { left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }
+            const style = paneCellStyle(rect, panesSize)
             return (
               <div
                 key={`${epoch}:${paneId}`}
                 className={`pane pane-grid-cell${hidden ? ' pane-zoom-hidden' : ''}`}
                 data-pane-index={index}
+                data-pane-cell={paneId}
                 data-top-edge={!hidden && rect.y <= 1e-6 ? 'true' : undefined}
                 style={style}
                 aria-hidden={hidden || undefined}
@@ -438,14 +435,7 @@ export function SplitPanes({
           })}
           {zoomed ? null : rects.splits.map((split) => {
             const horizontal = split.dir === 'h'
-            const edge = snapRect({ x: split.x, y: split.y, w: split.w, h: split.h }, panesSize)
-            const style: CSSProperties = horizontal
-              ? edge === null
-                ? { left: `${(split.x + split.w * split.ratio) * 100}%`, top: `${split.y * 100}%`, height: `${split.h * 100}%` }
-                : { left: Math.round((split.x + split.w * split.ratio) * panesSize.width), top: edge.top, height: edge.height }
-              : edge === null
-                ? { top: `${(split.y + split.h * split.ratio) * 100}%`, left: `${split.x * 100}%`, width: `${split.w * 100}%` }
-                : { top: Math.round((split.y + split.h * split.ratio) * panesSize.height), left: edge.left, width: edge.width }
+            const style = dividerStyle(split, panesSize)
             return (
               <div
                 key={split.id}
