@@ -87,6 +87,27 @@ export function recordSeparately(run: () => void): void {
   }
 }
 
+/** 방금 남긴 묶음(없으면 null). await 뒤에 같은 동작의 나머지를 이 묶음에 이어 붙일 때 쓴다 */
+export function lastUndoGroup(): object | null {
+  return past.at(-1) ?? null
+}
+
+/** group 이 아직 되돌릴 수 있는 묶음이면 run 안에서 남기는 되돌리기를 그 묶음에 합친다(아니면 그냥 run) */
+export function resumeUndoGroup(group: object | null, run: () => void): void {
+  const target = past.find((item) => item === group)
+  if (target === undefined) {
+    run()
+    return
+  }
+  const previous = openGroup
+  openGroup = target
+  try {
+    run()
+  } finally {
+    openGroup = previous
+  }
+}
+
 /** 같은 열쇠가 이미 묶음에 있으면 처음 것의 되돌리기와 나중 것의 다시 하기를 쓴다 */
 function mergeInto(group: Group, entry: UndoEntry) {
   const index = group.entries.findIndex((item) => item.key === entry.key)

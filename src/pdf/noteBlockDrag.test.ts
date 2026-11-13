@@ -140,6 +140,30 @@ describe('ghostTextOf · createBlockGhost', () => {
     expect(document.querySelector('.note-block-ghost')).toBeNull()
   })
 
+  it('원래 카드의 바탕 · 글자색 · 모서리를 그대로 입는다(투명하면 조상의 바탕)', () => {
+    const card = cardWith('<div class="pdf-memo-card-text">본문</div>')
+    card.style.backgroundColor = 'rgb(250, 248, 240)'
+    card.style.color = 'rgb(20, 20, 20)'
+    card.style.borderRadius = '6px'
+    card.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 60, right: 300, bottom: 60, x: 0, y: 0, toJSON: () => ({}) })
+    const ghost = createBlockGhost(card, 0, 0, 1)
+    const root = document.querySelector<HTMLElement>('.note-block-ghost')!
+    expect(root.style.backgroundColor).toBe('rgb(250, 248, 240)')
+    expect(root.style.color).toBe('rgb(20, 20, 20)')
+    expect(root.style.borderRadius).toBe('6px')
+    ghost.remove()
+    const parent = document.createElement('div')
+    parent.style.backgroundColor = 'rgb(1, 2, 3)'
+    const section = document.createElement('div')
+    section.className = 'note-section'
+    parent.append(section)
+    document.body.append(parent)
+    section.getBoundingClientRect = card.getBoundingClientRect
+    const second = createBlockGhost(section, 0, 0, 1)
+    expect(document.querySelector<HTMLElement>('.note-block-ghost')!.style.backgroundColor).toBe('rgb(1, 2, 3)')
+    second.remove()
+  })
+
   it('포인터의 오른쪽 아래에 떠서 포인터 자리를 덮지 않는다', () => {
     const card = cardWith('<div class="pdf-memo-card-text">본문</div>')
     card.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 60, right: 300, bottom: 60, x: 0, y: 0, toJSON: () => ({}) })

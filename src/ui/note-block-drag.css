@@ -37,7 +37,7 @@ body.note-block-dragging.note-block-drag-copy * { cursor: copy !important; }
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  color: var(--text-strong);
+  color: inherit;
   font-size: 13px;
   line-height: 1.45;
   overflow-wrap: anywhere;

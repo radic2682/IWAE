@@ -29,6 +29,8 @@ export type NoteDropTarget =
   /** 노트 탭 알약 위: 그 노트의 맨 끝에 붙인다 */
   | { readonly kind: 'tab'; readonly path: string; readonly pill: HTMLElement }
 
+const isTransparent = (color: string) => color === '' || color === 'transparent' || /^rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/u.test(color)
+
 const visible = (element: HTMLElement) => element.getClientRects().length > 0 && element.getBoundingClientRect().width > 0
 
 /**
@@ -114,6 +116,17 @@ export function createBlockGhost(card: HTMLElement, startX: number, startY: numb
   root.className = 'note-block-ghost'
   root.setAttribute('aria-hidden', 'true')
   root.style.width = `${width}px`
+  // 어두운 테마에서도 「내가 든 그 카드」로 보이도록 원래 카드의 바탕 · 글자색 · 모서리를 그대로 쓴다.
+  // 소제목 줄처럼 바탕이 투명하면 가장 가까운 불투명한 조상의 바탕을 쓴다
+  const computed = getComputedStyle(card)
+  let background = computed.backgroundColor
+  for (let up: HTMLElement | null = card; up !== null && isTransparent(background); up = up.parentElement) background = getComputedStyle(up).backgroundColor
+  if (!isTransparent(background)) root.style.backgroundColor = background
+  if (computed.color !== '') {
+    root.style.color = computed.color
+    root.style.borderColor = `color-mix(in srgb, ${computed.color} 14%, transparent)`
+  }
+  if (computed.borderRadius !== '') root.style.borderRadius = computed.borderRadius
   const text = document.createElement('div')
   text.className = isSection ? 'note-block-ghost-text note-block-ghost-title' : 'note-block-ghost-text'
   text.textContent = ghostTextOf(card)

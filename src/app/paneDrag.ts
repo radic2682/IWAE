@@ -2,7 +2,7 @@ import { isDragExempt } from '../ui/dragExempt'
 import { t } from '../i18n'
 import { createPillGhost, type PillGhost } from './dockSession'
 import { TAB_DRAG_THRESHOLD_PX, createDockVisuals, paintDockTarget, paneHitAt, reducedMotion, resolveDockTarget, setDockDragging, type DockTarget } from './tabDrag'
-import { dockZoneBox, type DockEdge } from './tabDock'
+import { type DockEdge } from './tabDock'
 import type { PaneId } from './tabs'
 import '../ui/pane-drag.css'
 
@@ -77,26 +77,25 @@ function buildGhost(head: HTMLElement, pane: PaneId): PillGhost {
   return ghost
 }
 
-/** Phosphor ArrowsLeftRight(regular) 의 경로 — 14px 로 쓴다 */
-const SWAP_ICON = '<svg viewBox="0 0 256 256" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M213.66,181.66l-32,32a8,8,0,0,1-11.32-11.32L188.69,184H48a8,8,0,0,1,0-16H188.69l-18.35-18.34a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,213.66,181.66Zm-139.32-64a8,8,0,0,0,11.32-11.32L67.31,88H208a8,8,0,0,0,0-16H67.31L85.66,53.66A8,8,0,0,0,74.34,42.34l-32,32a8,8,0,0,0,0,11.32Z"/></svg>'
+/** Phosphor ArrowsLeftRight(regular) 의 경로 — 13px 로 쓴다 */
+const SWAP_ICON = '<svg viewBox="0 0 256 256" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M213.66,181.66l-32,32a8,8,0,0,1-11.32-11.32L188.69,184H48a8,8,0,0,1,0-16H188.69l-18.35-18.34a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,213.66,181.66Zm-139.32-64a8,8,0,0,0,11.32-11.32L67.31,88H208a8,8,0,0,0,0-16H67.31L85.66,53.66A8,8,0,0,0,74.34,42.34l-32,32a8,8,0,0,0,0,11.32Z"/></svg>'
 
-/** 가운데(맞바꾸기) 미리보기 한가운데의 이름표: 「이 칸으로 탭 옮기기」 미리보기와 똑같아 보이지 않게 한다. 한 번 만들어 두고 자리만 옮긴다 */
-function createSwapChip(): { show(box: { readonly left: number; readonly top: number; readonly width: number; readonly height: number } | null): void; remove(): void } {
-  const chip = document.createElement('div')
-  chip.className = 'pane-drag-swap-chip'
-  chip.setAttribute('aria-hidden', 'true')
-  chip.hidden = true
-  chip.innerHTML = `${SWAP_ICON}<span>${t('자리 바꾸기')}</span>`
-  document.body.append(chip)
-  return {
-    show(box) {
-      chip.hidden = box === null
-      if (box === null) return
-      chip.style.left = `${Math.round(box.left + box.width / 2)}px`
-      chip.style.top = `${Math.round(box.top + box.height / 2)}px`
-    },
-    remove: () => chip.remove(),
+/**
+ * 가운데(맞바꾸기)에 있을 때 끌리는 알약 자체에 붙는 「자리 바꾸기」 표시. 미리보기 한가운데에 따로 띄우면 포인터와 알약이 바로 그 자리라 가려진다.
+ * 구분선 + 아이콘 + 글. 가장자리 · 대상 없음이면 떼어 알약을 원래 폭으로 되돌린다
+ */
+function setSwapMark(ghost: PillGhost | null, on: boolean): void {
+  if (ghost === null) return
+  const existing = ghost.element.querySelector('.pane-drag-swap-mark')
+  if (on === (existing !== null)) return
+  if (!on) {
+    existing?.remove()
+    return
   }
+  const mark = document.createElement('span')
+  mark.className = 'pane-drag-swap-mark'
+  mark.innerHTML = `<i class="pane-drag-swap-sep"></i>${SWAP_ICON}<span>${t('자리 바꾸기')}</span>`
+  ghost.element.append(mark)
 }
 
 type Drop =
@@ -114,7 +113,6 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
   let dragging = false
   let finished = false
   let ghost: PillGhost | null = null
-  let swapChip: ReturnType<typeof createSwapChip> | null = null
   let drop: Drop = { kind: 'none' }
   let lastX = startX
   let lastY = startY
@@ -128,7 +126,8 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
     const h = getHost()
     if (hit.kind === 'none' || hit.pane === pane || !h.canTarget(hit.pane)) {
       paint({ kind: 'none' })
-      swapChip?.show(null)
+      setSwapMark(ghost, false)
+      ghost?.move(lastX, lastY)
       drop = { kind: 'none' }
       return
     }
@@ -138,12 +137,14 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
       : resolveDockTarget(hit, lastX, lastY, h.edgesFor(hit.pane))
     if (target.kind !== 'body') {
       paint({ kind: 'none' })
-      swapChip?.show(null)
+      setSwapMark(ghost, false)
+      ghost?.move(lastX, lastY)
       drop = { kind: 'none' }
       return
     }
     paint(target)
-    swapChip?.show(target.zone === 'center' ? dockZoneBox(target.box, 'center') : null)
+    setSwapMark(ghost, target.zone === 'center')
+    ghost?.move(lastX, lastY)
     drop = target.zone === 'center' ? { kind: 'swap', pane: target.pane } : { kind: 'dock', pane: target.pane, edge: target.zone }
   }
 
@@ -160,7 +161,6 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
       if (card.querySelector(`:scope > .${SOURCE_OUTLINE_CLASS}`) === null) card.appendChild(sourceOutline())
     }
     ghost = buildGhost(head, pane)
-    swapChip = createSwapChip()
     ghost.attach()
     update()
   }
@@ -187,8 +187,6 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
   }
   const cleanupVisuals = () => {
     visuals.clear(true)
-    swapChip?.remove()
-    swapChip = null
     setDockDragging(false)
     sourceCard(pane)?.removeAttribute(SOURCE_ATTR)
     document.querySelectorAll(`[${SOURCE_ATTR}]`).forEach((element) => element.removeAttribute(SOURCE_ATTR))

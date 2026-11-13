@@ -148,19 +148,19 @@ describe('startPaneDrag', () => {
     expect(host.calls).toEqual(['swap:two'])
   })
 
-  it('가운데(맞바꾸기)에서만 미리보기 한가운데에 「자리 바꾸기」 이름표가 뜬다', () => {
+  it('가운데(맞바꾸기)에서만 끌리는 알약에 「자리 바꾸기」 표시가 붙고, 따로 뜨는 이름표는 없다', () => {
     const { head, host } = build()
     start(head, host)
     fire('pointermove', 270, 150)
-    const chip = document.querySelector<HTMLElement>('.pane-drag-swap-chip')!
-    expect(chip.hidden).toBe(false)
-    expect(chip.textContent).toBe('자리 바꾸기')
-    expect(chip.style.left).toBe('300px')
-    expect(chip.style.top).toBe('220px')
-    fire('pointermove', 380, 200)
-    expect(chip.hidden).toBe(true)
-    fire('pointerup', 380, 200)
     expect(document.querySelector('.pane-drag-swap-chip')).toBeNull()
+    expect(document.querySelector('.pane-drag-swap-mark')!.textContent).toBe('자리 바꾸기')
+    expect(document.querySelectorAll('.pane-drag-swap-mark')).toHaveLength(1)
+    fire('pointermove', 380, 200)
+    expect(document.querySelector('.pane-drag-swap-mark')).toBeNull()
+    fire('pointermove', 270, 150)
+    expect(document.querySelectorAll('.pane-drag-swap-mark')).toHaveLength(1)
+    fire('pointerup', 270, 150)
+    expect(document.querySelector('.pane-drag-swap-mark')).toBeNull()
   })
 
   it('다른 칸의 머리 줄 위도 맞바꾸기다', () => {
