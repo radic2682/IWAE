@@ -7,13 +7,17 @@ import type {
   TextCanvasBlock,
   TranslationCanvasBlock,
 } from '../../core/canvasDocument'
+import type { CanvasMemoSource } from '../../core/canvasMemo'
 import { CanvasBlockShell, useCanvasBlockRuntime } from './CanvasBlockShell'
+import { CanvasMemoCard } from './CanvasMemoCard'
 import type { CanvasSide } from '../../core/canvasPorts'
 import { t } from '../../i18n'
 
 export interface TextBlockNodeData extends Record<string, unknown> {
   readonly block: TextCanvasBlock | ArrowCanvasBlock
   readonly touchingSides?: ReadonlySet<CanvasSide>
+  /** 이 글에 선으로 이어진 형광펜들. 있으면 노트 메모 카드로 그린다(NoteCanvas 가 선에서 구해 준다) */
+  readonly memoSources?: readonly CanvasMemoSource[]
 }
 
 export type TextBlockFlowNode = Node<TextBlockNodeData, 'textBlock'>
@@ -136,7 +140,12 @@ export function CanvasTextEditor({
 export function TextBlockNode({ id, data, selected }: NodeProps<TextBlockFlowNode>) {
   const runtime = useCanvasBlockRuntime()
   const { block } = data
-  const content = block.kind === 'arrow'
+  const memoSources = data.memoSources
+  const memo = block.kind === 'paragraph' && memoSources !== undefined && memoSources.length > 0 ? { block, sources: memoSources } : null
+  const isMemo = memo !== null
+  const content = memo !== null
+    ? <CanvasMemoCard id={id} block={memo.block} selected={selected} sources={memo.sources} />
+    : block.kind === 'arrow'
     ? (
       <div className="canvas-arrow-block nodrag" aria-label={t('오른쪽 화살표')}>
         <ArrowRight aria-hidden="true" weight="regular" />
@@ -149,6 +158,7 @@ export function TextBlockNode({ id, data, selected }: NodeProps<TextBlockFlowNod
       block={block}
       selected={selected}
       touchingSides={data.touchingSides}
+      className={isMemo ? 'canvas-block-memo' : undefined}
       onResizeFrame={runtime.onResizeFrame}
       onResizeCommit={runtime.onResizeCommit}
       onDelete={runtime.onDeleteBlock}

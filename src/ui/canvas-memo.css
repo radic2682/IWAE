@@ -1,0 +1,44 @@
+/*
+ * 캔버스 메모 카드: 형광펜에 이은 글 블록은 노트의 메모 카드(NoteFlow)를 그대로 쓴다. 카드의 모양은 note-ticket.css · pdf-memo.css 가 정하고,
+ * 여기서는 캔버스 쪽 껍데기(CanvasBlockShell)가 카드와 겹치지 않게 비켜 주는 것만 둔다.
+ */
+
+/* 카드가 스스로 바탕·모서리·호버 테두리를 낸다: 종이 없는 글의 점선 · 흐린 테두리는 쓰지 않는다 */
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-memo,
+.note-canvas .react-flow__node .canvas-block-shell.canvas-block-memo.canvas-block-affordances-visible {
+  border-width: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  outline: 0;
+}
+/* 선택은 카드의 선택 모양(note-block-selected 와 같은 강조색 고리)으로 */
+.note-canvas .react-flow__node.selected .canvas-block-shell.canvas-block-memo {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.canvas-memo-card { width: 100%; min-width: 0; }
+.canvas-memo-card.drag-handle { cursor: grab; }
+.canvas-memo-card.drag-handle:active { cursor: grabbing; }
+.canvas-memo-card .note-block { margin: 0; cursor: inherit; }
+.canvas-memo-card .pdf-memo-card-text, .canvas-memo-card .note-source, .canvas-memo-card .note-source-chip { cursor: pointer; }
+.canvas-memo-card .pdf-memo-editor { cursor: text; }
+/* 노트의 블록 사이 「+」 줄: 카드 한 장짜리라 필요 없다 */
+.canvas-memo-card .note-gap { display: none; }
+
+/* 위 오른쪽 모서리는 카드의 단추 탭이 쓴다: 블록 삭제 단추는 아래 오른쪽으로 */
+.canvas-block-shell.canvas-block-memo > .canvas-block-delete { top: auto; bottom: -13px; }
+
+/* 서식 줄: 노트는 상단바 도구줄 자리에 놓지만 캔버스에는 그 자리가 없다. 쓰는 동안만 캔버스 위쪽 가운데에 뜬다 */
+.canvas-memo-format-slot {
+  position: absolute;
+  z-index: 40;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  box-shadow: 0 3px 12px var(--shadow-soft);
+  border-radius: var(--r-md);
+}
+.canvas-memo-format-slot:empty { display: none; }
+.canvas-memo-format-slot .pdf-memo-format-bar { flex-wrap: nowrap; overflow-x: auto; }

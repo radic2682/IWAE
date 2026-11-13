@@ -25,6 +25,7 @@ import type { ExcerptHighlight, ExcerptHighlightColor } from '../../core/excerpt
 import type { MarkdownExcerptSelection, MarkdownSourceJumpRequest } from '../../core/markdownExcerpt'
 import { visibleCanvasPorts, type CanvasSide } from '../../core/canvasPorts'
 import { createFrameScheduler } from '../../core/frameScheduler'
+import type { MemoTicket } from '../../core/memoNote'
 import { t } from '../../i18n'
 
 export type SourceOpenRequest = SourceJumpRequest | MarkdownSourceJumpRequest
@@ -50,6 +51,20 @@ export interface CanvasBlockRuntime {
   /** 막 만든 메모 블록: 만들어지자마자 글쓰기 상태로 연다 */
   readonly autoEditBlockId?: string | null
   readonly onAutoEditStarted?: (blockId: string) => void
+  /** 메모 카드(형광펜에 이은 글 블록): 글·서식·ID·제목을 저장한다. ticket 은 새 메모에 쓰던 중 붙인 머리 */
+  readonly onMemoSave?: (blockId: string, content: { readonly text: string; readonly html: string }, ticket?: MemoTicket) => void
+  /** 막 만든 메모를 쓰지 않고 떠났다: 메모와 선을 함께 없앤다 */
+  readonly onMemoDiscard?: (blockId: string) => void
+  /** 메모 카드의 ID·제목을 바꾼다(null 이면 지운다) */
+  readonly onMemoTicket?: (blockId: string, ticket: MemoTicket | null) => void
+  /** 형광펜과 그 메모를 함께 지운다(메모에 이은 형광펜이 더 있으면 그 형광펜만 뗀다) */
+  readonly onMemoDelete?: (blockId: string, excerptId: string, highlightId: string) => void
+  /** 원문 더하기: 이 메모에 다른 형광펜을 잇는 중인 메모(그동안 형광펜을 누르면 이어진다). null 이면 그만둔다 */
+  readonly attachingMemoId?: string | null
+  readonly onMemoAttachStart?: (blockId: string | null) => void
+  readonly onAttachHighlight?: (excerptId: string, highlightId: string) => void
+  /** 더한 원문 하나를 뗀다(선만 지운다) */
+  readonly onMemoDetach?: (blockId: string, excerptId: string, highlightId: string) => void
 }
 
 const CanvasBlockRuntimeContext = createContext<CanvasBlockRuntime>({})
@@ -78,6 +93,8 @@ export interface CanvasBlockShellProps {
   /** 본문 위에 겹쳐 그리는 층(잘리지 않는다). 발췌 형광펜이 여기 들어간다 */
   readonly overlay?: ReactNode
   readonly touchingSides?: ReadonlySet<CanvasSide>
+  /** 껍데기에 더 다는 클래스(메모 카드는 종이 없는 틀 없이 카드 자신이 모양을 낸다) */
+  readonly className?: string
   readonly onResizeFrame?: (blockId: string, width: number, height: number) => void
   readonly onResizeCommit?: (blockId: string, width: number, height: number, source?: 'manual' | 'content') => void
   readonly onDelete?: (blockId: string) => void
@@ -90,6 +107,7 @@ export function CanvasBlockShell({
   children,
   sourceFooter,
   overlay,
+  className,
   touchingSides = new Set<CanvasSide>(),
   onResizeFrame,
   onResizeCommit,
@@ -224,6 +242,7 @@ export function CanvasBlockShell({
         drawing ? 'canvas-drawing-overlay' : '',
         affordancesVisible ? 'canvas-block-affordances-visible' : '',
         settling ? 'canvas-block-snap-settle' : '',
+        className ?? '',
       ].filter(Boolean).join(' ')}
       style={{
         width: `${block.width}px`,

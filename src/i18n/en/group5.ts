@@ -25,6 +25,8 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '형광펜을 칠했습니다': 'Highlighted',
   '형광펜을 지웠습니다': 'Removed highlight',
   '형광펜 메모를 만들었습니다': 'Created highlight memo',
+  '메모에서 원문을 뗐습니다': 'Removed a source from the memo',
+  '형광펜과 메모를 지웠습니다': 'Removed the highlight and memo',
   'PDF 글자 크기에 맞춰 붙였습니다': 'Pasted at PDF text size',
   '선택 영역에 글자가 없어 원본 크기로 붙였습니다': 'No text in selection, pasted at original size',
   '이미지 {count}개를 추가했습니다': 'Added {count} image(s)',

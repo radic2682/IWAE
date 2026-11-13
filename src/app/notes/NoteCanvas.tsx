@@ -126,6 +126,9 @@ import { scheduleNodeInternalsUpdate, type CanvasSide } from '../../core/canvasP
 import { t } from '../../i18n'
 import { defaultHighlightColorId, highlightColorLabel, highlightInkOf, knownHighlightColorId } from '../../core/highlightColors'
 import { useHighlightColors } from '../documents/highlightColorStyle'
+import { canvasMemoSources } from '../../core/canvasMemo'
+import { normalizeTicket, type MemoTicket } from '../../core/memoNote'
+import { MemoFormatSlotContext, type MemoContent } from '../../pdf/MemoEditor'
 import {
   highlightBounds,
   highlightHandleId,
@@ -981,6 +984,18 @@ function NoteFlow({
   const [autoEditBlockId, setAutoEditBlockId] = useState<string | null>(null)
   // 형광펜에서 만든 메모: 아무것도 안 쓰고 나가면 지운다
   const highlightNoteIds = useRef(new Set<string>())
+  // 원문 더하기: 메모 카드가 다른 형광펜을 이으려고 기다리는 중(그동안 형광펜을 누르면 그 형광펜이 이어진다). Esc 로 그만둔다
+  const [attachingMemoId, setAttachingMemoId] = useState<string | null>(null)
+  useEffect(() => {
+    if (attachingMemoId === null) return
+    const exit = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAttachingMemoId(null)
+    }
+    window.addEventListener('keydown', exit)
+    return () => window.removeEventListener('keydown', exit)
+  }, [attachingMemoId])
+  // 메모 카드의 서식 줄 자리(노트는 상단바 도구줄 자리를 쓰지만 캔버스에는 그 자리가 없다)
+  const [memoFormatSlot, setMemoFormatSlot] = useState<HTMLDivElement | null>(null)
   useEffect(() => {
     if (highlightTool === null) return
     const exit = (event: KeyboardEvent) => {
@@ -1061,7 +1076,10 @@ function NoteFlow({
     if (color === null) return { ...edge, className }
     return { ...edge, className, style: { ...edge.style, '--edge-hl-ink': highlightInkOf(highlightColors, color) } as CSSProperties }
   }), [edges, joinedEdges, nodes, highlightColors])
+  // 형광펜에 선으로 이어진 글 블록은 노트 메모 카드로 그린다(원문 = 이어진 형광펜)
+  const memoSourcesByNode = useMemo(() => canvasMemoSources(nodes, edges), [nodes, edges])
   const displayedNodes = useMemo(() => nodes.map((node) => {
+    const memoSources = memoSourcesByNode.get(node.id)
     const linkedSides = edges.flatMap((edge) => edge.source === node.id && edge.sourceHandle
       ? [edge.sourceHandle]
       : edge.target === node.id && edge.targetHandle
@@ -1111,9 +1129,10 @@ function NoteFlow({
           return []
         })),
         ...(node.type === 'pdfExcerpt' ? { linkedHighlights } : {}),
+        ...(node.type === 'textBlock' && memoSources !== undefined ? { memoSources } : {}),
       },
     } as NoteCanvasNode
-  }), [nodes, edges, joinedEdges, magnetContact, touchingSidesByNode, pointedBlockId])
+  }), [nodes, edges, joinedEdges, magnetContact, touchingSidesByNode, pointedBlockId, memoSourcesByNode])
   const edgeGeometryNodeIds = useMemo(() => nodes.map(({ id }) => id), [nodes])
   const derivedNodeState = useMemo(
     () => deriveCanvasNodeState(nodes as unknown as readonly CanvasNode[]),
@@ -1929,8 +1948,104 @@ function NoteFlow({
     announceAction(t('형광펜 메모를 만들었습니다'))
   }, [nodes, rememberCurrentDocument, setEdges, setNodes])
 
+  // ---------- 메모 카드(형광펜에 이은 글 블록): 노트의 메모 카드와 같은 저장·지우기·원문 더하기 ----------
+  const removeMemoBlock = useCallback((blockId: string) => {
+    setNodes((current) => current.filter((node) => node.id !== blockId))
+    setEdges((current) => current.filter((edge) => edge.source !== blockId && edge.target !== blockId))
+  }, [setEdges, setNodes])
+
+  /** 카드의 글·서식·ID·제목을 저장한다. 글을 비워 저장해도(Ctrl+Enter) 카드는 남는다 — 쓰지 않고 떠난 새 메모만 사라진다(onMemoDiscard) */
+  const saveMemo = useCallback((blockId: string, content: MemoContent, ticket?: MemoTicket) => {
+    highlightNoteIds.current.delete(blockId)
+    const nextTicket = ticket === undefined ? undefined : normalizeTicket(ticket)
+    const changed = nodes.some((node) => {
+      const block = node.data.block as CanvasBlockData
+      if (node.id !== blockId || block.kind !== 'paragraph') return false
+      return block.text !== content.text
+        || (block.noteHtml ?? '') !== content.html
+        || (nextTicket !== undefined && (block.ticket?.id !== nextTicket?.id || block.ticket?.title !== nextTicket?.title))
+    })
+    if (!changed) return
+    rememberCurrentDocument()
+    setNodes((current) => current.map((node) => {
+      const block = node.data.block as CanvasBlockData
+      if (node.id !== blockId || block.kind !== 'paragraph') return node
+      const { noteHtml: _html, ...rest } = block
+      const withHtml = content.html === '' ? rest : { ...rest, noteHtml: content.html }
+      const { ticket: _ticket, ...withoutTicket } = withHtml
+      const withTicket = nextTicket === undefined ? withHtml : nextTicket === null ? withoutTicket : { ...withoutTicket, ticket: nextTicket }
+      return { ...node, data: { ...node.data, block: { ...withTicket, text: content.text } } } as NoteCanvasNode
+    }))
+  }, [nodes, rememberCurrentDocument, setNodes])
+
+  const setMemoTicket = useCallback((blockId: string, ticket: MemoTicket | null) => {
+    const block = nodes.find((node) => node.id === blockId)?.data.block as CanvasBlockData | undefined
+    if (block?.kind !== 'paragraph') return
+    const next = normalizeTicket(ticket)
+    if (block.ticket?.id === next?.id && block.ticket?.title === next?.title) return
+    rememberCurrentDocument()
+    setNodes((current) => current.map((node) => {
+      const target = node.data.block as CanvasBlockData
+      if (node.id !== blockId || target.kind !== 'paragraph') return node
+      const { ticket: _ticket, ...rest } = target
+      return { ...node, data: { ...node.data, block: next === null ? rest : { ...rest, ticket: next } } } as NoteCanvasNode
+    }))
+  }, [nodes, rememberCurrentDocument, setNodes])
+
+  /** 막 만든 메모를 쓰지 않고 떠났다: 메모와 선을 함께 없앤다 */
+  const discardMemo = useCallback((blockId: string) => {
+    highlightNoteIds.current.delete(blockId)
+    removeMemoBlock(blockId)
+  }, [removeMemoBlock])
+
+  /** 「형광펜과 메모 지우기」: 형광펜을 지우고, 이 메모에 이은 형광펜이 더 없으면 메모도 지운다(있으면 메모는 남기고 그 원문만 뗀다) */
+  const deleteMemoWithHighlight = useCallback((blockId: string, excerptId: string, highlightId: string) => {
+    const sources = canvasMemoSources(nodes, edges).get(blockId) ?? []
+    const remaining = sources.filter((source) => !(source.excerptId === excerptId && source.highlightId === highlightId))
+    deleteHighlight(excerptId, highlightId)
+    if (remaining.length === 0) removeMemoBlock(blockId)
+    announceAction(t('형광펜과 메모를 지웠습니다'))
+  }, [deleteHighlight, edges, nodes, removeMemoBlock])
+
+  const attachHighlightToMemo = useCallback((excerptId: string, highlightId: string) => {
+    const memoId = attachingMemoId
+    setAttachingMemoId(null)
+    if (memoId === null) return
+    const linked = edges.some((edge) => (
+      (edge.source === excerptId && edge.target === memoId && highlightIdFromHandle(edge.sourceHandle) === highlightId)
+      || (edge.target === excerptId && edge.source === memoId && highlightIdFromHandle(edge.targetHandle) === highlightId)
+    ))
+    if (linked) return
+    rememberCurrentDocument()
+    setEdges((current) => [...current, styledEdge({
+      id: `edge-${excerptId}-${highlightId}-${memoId}`,
+      source: excerptId,
+      sourceHandle: highlightHandleId(highlightId, 'right'),
+      target: memoId,
+      targetHandle: 'left',
+    }, 'none', 'none')])
+    announceAction(t('메모에 원문을 더했습니다'))
+  }, [attachingMemoId, edges, rememberCurrentDocument, setEdges])
+
+  const detachMemoSource = useCallback((blockId: string, excerptId: string, highlightId: string) => {
+    rememberCurrentDocument()
+    setEdges((current) => current.filter((edge) => !(
+      (edge.source === excerptId && edge.target === blockId && highlightIdFromHandle(edge.sourceHandle) === highlightId)
+      || (edge.target === excerptId && edge.source === blockId && highlightIdFromHandle(edge.targetHandle) === highlightId)
+    )))
+    announceAction(t('메모에서 원문을 뗐습니다'))
+  }, [rememberCurrentDocument, setEdges])
+
   const runtime = useMemo(() => ({
     highlightTool,
+    onMemoSave: saveMemo,
+    onMemoDiscard: discardMemo,
+    onMemoTicket: setMemoTicket,
+    onMemoDelete: deleteMemoWithHighlight,
+    attachingMemoId,
+    onMemoAttachStart: setAttachingMemoId,
+    onAttachHighlight: attachHighlightToMemo,
+    onMemoDetach: detachMemoSource,
     onAddHighlight: addHighlight,
     onSetHighlightColor: recolorHighlight,
     onDeleteHighlight: deleteHighlight,
@@ -1944,7 +2059,7 @@ function NoteFlow({
     onSelectBlock: selectBlock,
     onDeleteBlock: deleteBlock,
     onSourceTraceChange: handleSourceTraceChange,
-  }), [addHighlight, autoEditBlockId, deleteBlock, deleteHighlight, handleSourceTraceChange, highlightTool, onOpenSource, onResizeCommit, onResizeFrame, onTextCommit, recolorHighlight, selectBlock, writeHighlightNote])
+  }), [addHighlight, attachHighlightToMemo, attachingMemoId, autoEditBlockId, deleteBlock, deleteHighlight, deleteMemoWithHighlight, detachMemoSource, discardMemo, saveMemo, setMemoTicket, handleSourceTraceChange, highlightTool, onOpenSource, onResizeCommit, onResizeFrame, onTextCommit, recolorHighlight, selectBlock, writeHighlightNote])
 
   const onDragOver = useCallback((event: ReactDragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -2458,6 +2573,7 @@ function NoteFlow({
         onPointerUpCapture={finishRightPan}
         onContextMenu={openPaneContextMenu}
       >
+      <MemoFormatSlotContext.Provider value={memoFormatSlot}>
       <CanvasBlockRuntimeProvider value={runtime}>
         <ReactFlow
           nodes={displayedNodes}
@@ -2658,6 +2774,8 @@ function NoteFlow({
           </>
         )}
       </CanvasBlockRuntimeProvider>
+      </MemoFormatSlotContext.Provider>
+        <div ref={setMemoFormatSlot} className="canvas-memo-format-slot" />
       </div>
     </>
   )

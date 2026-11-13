@@ -173,11 +173,16 @@ function ExcerptHighlightLayer({ id, highlights, crop, glyphs, selected, linked 
                 onClick={(event) => {
                   if (tool !== null) return
                   event.stopPropagation()
+                  // 메모 카드의 「원문 더하기」 중이면 이 형광펜을 그 메모에 잇는다
+                  if (runtime.attachingMemoId != null) {
+                    runtime.onAttachHighlight?.(id, highlight.id)
+                    return
+                  }
                   runtime.onSelectBlock?.(id)
                   setActiveId(highlight.id)
                 }}
                 onDoubleClick={(event) => {
-                  if (tool !== null) return
+                  if (tool !== null || runtime.attachingMemoId != null) return
                   event.stopPropagation()
                   setActiveId(null)
                   runtime.onWriteHighlightNote?.(id, highlight.id)

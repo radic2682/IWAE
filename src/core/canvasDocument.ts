@@ -7,6 +7,7 @@ import {
 } from './markdownExcerpt'
 import { isMarkdownCaptureBlockData, type MarkdownCaptureBlockData } from './markdownCapture'
 import { parseExcerptHighlights, type ExcerptHighlight } from './excerptHighlights'
+import { normalizeTicket, type MemoTicket } from './memoNote'
 import { t } from '../i18n'
 
 export type CanvasShapeKind = 'rectangle' | 'square' | 'ellipse' | 'diamond'
@@ -44,6 +45,10 @@ export interface CanvasBlockBase {
 export interface TextCanvasBlock extends CanvasBlockBase {
   readonly kind: 'title' | 'paragraph' | 'code'
   readonly text: string
+  /** 형광펜에 이은 메모 카드의 서식 글(굵게·색·목록 …). text 는 늘 같은 내용의 글이다. 예전 파일에는 없다 */
+  readonly noteHtml?: string
+  /** 형광펜에 이은 메모 카드의 ID·제목(노트 메모 카드와 같다). 예전 파일에는 없다 */
+  readonly ticket?: MemoTicket
 }
 
 export interface ShapeCanvasBlock extends CanvasBlockBase {
@@ -387,7 +392,24 @@ export function parseCanvasBlock(value: unknown): CanvasBlockData {
   const style = parseTextStyle(value.style)
   if (value.kind === 'title' || value.kind === 'paragraph' || value.kind === 'code') {
     if (typeof value.text !== 'string') throw new Error(t('캔버스 텍스트 블록 형식이 잘못되었습니다.'))
-    return { kind: value.kind, width: value.width, height: value.height, ...(value.manualHeight === true ? { manualHeight: true as const } : {}), style, text: value.text }
+    // 메모 카드 필드는 믿을 수 없는 입력이다: 글자와 모양이 맞는 것만 남기고 나머지는 버린다(예전 파일에는 아예 없다)
+    const noteHtml = typeof value.noteHtml === 'string' && value.noteHtml.trim() !== '' ? value.noteHtml : undefined
+    const ticket = isRecord(value.ticket)
+      ? normalizeTicket({
+        ...(typeof value.ticket.id === 'string' ? { id: value.ticket.id } : {}),
+        ...(typeof value.ticket.title === 'string' ? { title: value.ticket.title } : {}),
+      })
+      : null
+    return {
+      kind: value.kind,
+      width: value.width,
+      height: value.height,
+      ...(value.manualHeight === true ? { manualHeight: true as const } : {}),
+      style,
+      text: value.text,
+      ...(noteHtml === undefined ? {} : { noteHtml }),
+      ...(ticket === null ? {} : { ticket }),
+    }
   }
   if (SHAPE_KINDS.has(value.kind as CanvasShapeKind)) {
     return { kind: value.kind as CanvasShapeKind, width: value.width, height: value.height, style }

@@ -101,6 +101,7 @@ function NoteFlowImpl({
   attachingKey = null,
   onDeleteBlocks,
   openQuotes,
+  embedded = false,
 }: {
   /** 노트 기능(MemoNoteContext). 컨텍스트 값은 앱이 그릴 때마다 새 객체라서, 안에서는 늘 같은 ref 로 가장 새 값을 읽는다 */
   readonly noteApiRef: { readonly current: MemoNoteApi | null }
@@ -125,7 +126,8 @@ function NoteFlowImpl({
   readonly onRecolor: (highlightId: string, color: PdfHighlightColor) => void
   readonly onDeleteMemo: (highlightId: string) => void
   readonly onToggleCollapse: (highlightId: string, collapsed: boolean) => void
-  readonly onRate: (highlightId: string, rating: number) => void
+  /** 별점을 매긴다. 없으면 메뉴에 중요도 줄이 없다(별점을 담을 곳이 없는 캔버스 메모) */
+  readonly onRate?: (highlightId: string, rating: number) => void
   /** key 의 카드를 beforeKey 카드 앞으로(null 이면 맨 끝) */
   /** 블록(들)을 beforeKey 앞으로. 여럿이면 그 차례대로 한 번에 */
   readonly onMove: (key: string | readonly string[], beforeKey: string | null) => void
@@ -153,6 +155,8 @@ function NoteFlowImpl({
   readonly onDeleteBlocks?: (keys: readonly string[]) => void
   /** 원문을 펼쳐 둔 형광펜 id. 나머지는 한 줄 출처 칩으로 접혀 있다 */
   readonly openQuotes?: ReadonlySet<string>
+  /** 노트 목록이 아니라 다른 화면(캔버스) 안의 카드 한 장으로 쓴다: 끌어 차례 바꾸기·노트 사이 옮기기는 끈다(카드를 옮기는 일은 그 화면이 맡는다) */
+  readonly embedded?: boolean
 }) {
   const cardRefs = useRef(new Map<string, HTMLDivElement>())
   const reportedRef = useRef('')
@@ -521,6 +525,8 @@ function NoteFlowImpl({
   useLayoutEffect(() => { liveRef.current = live })
   // 카드 크기가 바뀌면(글을 쓰다 줄이 늘 때 등) 다음 프레임에 카드 자리를 다시 알린다
   const cardObserver = useRef<ResizeObserver | null>(null)
+  const embeddedRef = useRef(embedded)
+  embeddedRef.current = embedded
   const api = useMemo<NoteFlowApi>(() => {
     let frame = 0
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
@@ -543,7 +549,7 @@ function NoteFlowImpl({
           observer?.observe(element)
         }
       },
-      startDrag: (key, event) => liveRef.current.startBlockDrag(key)(event),
+      startDrag: (key, event) => { if (!embeddedRef.current) liveRef.current.startBlockDrag(key)(event) },
       pick: (key, event) => liveRef.current.pickBlock(key)(event),
       contextMenu: (key, event) => liveRef.current.openMenu(key)(event),
       openMenuAt: (key, x, y) => liveRef.current.setMenu({ key, x, y }),
@@ -734,6 +740,7 @@ function NoteFlowImpl({
           >
             {menuItem.kind === 'memo' ? (
               <>
+                {onRate === undefined ? null : (
                 <div className="note-menu-row note-menu-rating" role="group" aria-label={t('중요도(별점)')}>
                   <span className="note-menu-row-label">{t('중요도')}</span>
                   {[1, 2, 3, 4, 5].map((value) => (
@@ -750,6 +757,7 @@ function NoteFlowImpl({
                     </button>
                   ))}
                 </div>
+                )}
                 {onAddRef !== undefined ? (
                   <button type="button" role="menuitem" onClick={run(() => onAddRef(menuItem.key))}>{menuLabel(<LinkSimple size={15} />, t('원문 추가'))}</button>
                 ) : null}
