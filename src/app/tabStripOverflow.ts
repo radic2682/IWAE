@@ -37,7 +37,10 @@ export function subFitsInTitle(title: HTMLElement | null): boolean {
     count += 1
   }
   // 제목 · 「·」 · 보조 글 세 칸이 더해져 칸 수는 count + 3, 사이 간격은 count + 2 개
-  const need = label.scrollWidth + sep.getBoundingClientRect().width + sub.scrollWidth + others + gap * (count + 2) + padding
+  // 「·」 의 바깥 여백(음수: screens.css 의 margin 0 -2px)도 센다 — 실제로 차지하는 폭과 같게
+  const sepStyle = getComputedStyle(sep)
+  const sepMargin = (Number.parseFloat(sepStyle.marginLeft) || 0) + (Number.parseFloat(sepStyle.marginRight) || 0)
+  const need = label.scrollWidth + sep.getBoundingClientRect().width + sepMargin + sub.scrollWidth + others + gap * (count + 2) + padding
   return need <= title.clientWidth
 }
 

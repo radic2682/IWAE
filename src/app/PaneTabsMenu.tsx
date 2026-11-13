@@ -154,8 +154,12 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     if (typeof ResizeObserver === 'undefined') return undefined
     const observer = new ResizeObserver(measure)
     observer.observe(strip)
+    // 보는 탭의 제목 줄도 본다: 줄 폭이 그대로여도 넘침 단추(⌄ n)가 나타나면 이 칸이 좁아진다
+    const activeTitleEl = strip.querySelector<HTMLElement>('.pane-top-tab-active .pane-top-tab-title')
+    if (activeTitleEl !== null) observer.observe(activeTitleEl)
     return () => observer.disconnect()
-  }, [state.tabs.length, titlesKey, state.activeId, activeTitle, subKey, subFits, renaming, frozenWidth])
+    // overflowing: 넘침 단추(⌄ n)가 나타나고 사라지면 줄 폭은 그대로여도 보는 탭의 자리가 바뀐다 — 다시 재지 않으면 보조 글이 반쯤 잘린 채(「· 노.」) 남는다
+  }, [state.tabs.length, titlesKey, state.activeId, activeTitle, subKey, subFits, renaming, frozenWidth, overflowing])
   // 끌기가 시작된 때부터 놓은 뒤 따라오는 click 까지는 탭 전환이 아니다(고정 시간이 아니다: 오래 끌다 Esc 로 취소하고 탭 위에서 놓아도 click 이 막혀야 한다).
   // 놓은 뒤(pointerup) click 이 지나가도록 한 틱 미루어 풀고, 새로 누르면(pointerdown) 바로 푼다 — 창이 따로 움직여 pointerup 이 안 오는 끌기도 갇히지 않게
   const suppressClickRef = useRef(false)
