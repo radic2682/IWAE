@@ -457,7 +457,7 @@ describe('상단바 도구줄 자리 — 만지는 칸의 도구줄만', () => {
   })
 
   it('칸 안의 도구줄 띠가 없다: 문서 위 도구줄(--doc-head-h)은 0px', () => {
-    expect(css('workspace-surface.css')).toContain('.pane-doc { --doc-card-h: var(--bar-h); --doc-head-h: 0px;')
+    expect(css('workspace-surface.css')).toContain('.pane-doc { --doc-card-h: 0px; --doc-head-h: 0px;')
   })
 })
 

@@ -837,6 +837,8 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   background: var(--chrome);
   box-shadow: 0 8px 22px rgb(var(--rgb-black) / 30%);
 }
+/* 이 창은 도구 단추 규칙을 받으려고 pane-doc 를 달았는데, pane-doc 는 container-type: inline-size 라 안쪽 크기가 0 으로 쳐져 창이 14px 알약으로 쪼그라들고 단추가 밖으로 넘쳤다 */
+.pane-toolbar-more-panel.pane-doc { container-type: normal; width: max-content; max-width: calc(100vw - 16px); }
 .pane-toolbar-more-row { display: flex; align-items: center; gap: 2px; }
 .pane-toolbar-more-panel .pdf-compact-tool { width: 28px; min-width: 28px; height: 26px; }
 

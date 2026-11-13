@@ -16,6 +16,11 @@
   --pane-edge-w: 1.5px;
   --pane-edge-empty: var(--divider-strong);
 }
+/* 밝은 화면도 어두운 화면과 같은 층: 머리 = 왼쪽 바와 같은 크롬 면(--chrome), 본문은 그보다 한 단 어둡고(--workspace), 칸 사이 틈 · 바깥 여백 = 상단바 면(--tabstrip). 전엔 머리가 흰 종이(--paper)라 상단바 · 본문과 따로 놀았다 */
+:root:not([data-theme='dark']) { --pane-surface: var(--chrome); }
+/* 틈 · 바깥 테두리 · 칸 자리 칸을 모두 한 색(--tabstrip)으로: 밝은 화면에서 칸 자리 칸의 흰 바탕(--paper)과 .panes 의 진한 선 색(--divider-strong)이 창 가장자리에 흰 틈 · 회색 줄로 비쳤다 */
+.panes.panes-tree { background: var(--tabstrip, var(--workspace)); border-color: var(--tabstrip, var(--workspace)); }
+.panes-tree > .pane-grid-cell:not(.pane-float) { background: transparent; }
 
 /* ── 맨 위 줄 ──────────────────────────────────────────────────────────────
    아래 칸과의 사이에 선이 없다(바탕 색 차이만). 모든 항목이 줄 높이의 세로 가운데에 선다 */
@@ -314,7 +319,9 @@
 .pane-float-head .pane-float-button svg { width: var(--icon-size); height: var(--icon-size); }
 
 /* ── 본문: 도구줄이 상단바로 옮겨 가서 문서 위 띠가 없다 ── */
-.pane-doc { --doc-card-h: var(--bar-h); --doc-head-h: 0px; --doc-row2-top: 0px; --doc-chip-top: 0px; }
+.pane-doc { --doc-card-h: 0px; --doc-head-h: 0px; --doc-row2-top: 0px; --doc-chip-top: 0px; }
+/* 도구줄이 상단바에 있으면 서식 띠가 본문 맨 위에 붙는다(전엔 칸 안 도구줄 줄 36px 밑에 있어 빈 띠 + 떠 있는 줄로 보였다). 칸 안에 도구줄이 남는 곳(상단바 자리가 없는 시험 · 단독)만 그 줄 밑 */
+.pane-doc .pane-frame-with-toolbar { --doc-card-h: var(--bar-h); }
 .pane-doc .pane-frame:has(.doc-format-strip) { --doc-head-h: 40px; }
 .pane-doc .pdf-pane { padding-top: var(--space-2); }
 

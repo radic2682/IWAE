@@ -51,6 +51,12 @@ describe('PaneToolbar — 칸을 옮겨 만져도 칸마다 상태를 이어 받
     expect(paneToolbarMemoryKeys()).toContain('a:markdown')
   })
 
+  it('기억된 넘침 단계는 되살리지 않는다: 지금 모자라지 않으면 「⋯」 없이 다 펼쳐 시작한다', () => {
+    writePaneToolbarMemory('a', 'markdown', { ...freshPaneToolbarMemory(), overflowLevel: 3, needWidth: [900, 800, 700] })
+    render(toolbar('a'))
+    expect(screen.queryByRole('button', { name: '도구 더 보기' })).toBeNull()
+  })
+
   it('닫힌 칸의 기억은 prune 으로 버려진다', () => {
     writePaneToolbarMemory('a', 'pdf', { ...freshPaneToolbarMemory(), overflowLevel: 2, needWidth: [300, 280] })
     writePaneToolbarMemory('a', 'markdown', freshPaneToolbarMemory())

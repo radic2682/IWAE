@@ -173,9 +173,10 @@ export function PaneToolbar({
   const leftRef = useRef<HTMLDivElement | null>(null)
   const moreRef = useRef<HTMLDivElement | null>(null)
   const morePanelRef = useRef<HTMLDivElement | null>(null)
-  const [overflowLevel, setOverflowLevel] = useState(remembered.overflowLevel)
+  // 넘침 단계는 기억에서 되살리지 않는다: 좁았던 때의 단계가 남아 상단바가 넓어진 지금도 「⋯」 로 접혀 있었다. 매번 0 단계(다 펼침)에서 시작해 지금 모자랄 때만 한 단계씩 접는다
+  const [overflowLevel, setOverflowLevel] = useState(0)
   const [, setResizeTick] = useState(0)
-  const needWidthRef = useRef<number[]>(remembered.needWidth)
+  const needWidthRef = useRef<number[]>([])
   // 넘침 단계 · 그 단계를 처음 넘쳤던 너비(needWidth) · 검색 단추 상태가 바뀔 때마다 (칸, 종류)별로 적는다
   const needWidthKey = needWidthRef.current.join(',')
   useEffect(() => { writePaneToolbarMemory(paneId, kind, { overflowLevel, needWidth: needWidthRef.current, reader: toolbarState }) }, [paneId, kind, overflowLevel, needWidthKey, toolbarState])
