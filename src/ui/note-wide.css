@@ -1,45 +1,7 @@
-/* ---------- 넓은 노트: 노트 바와 같은 블록(모양도 같다)을 글 칸 폭(708px)으로 가운데에 놓고, 왼쪽 빈 곳에 목차 ---------- */
-.pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body).note-wide { position: relative; container-type: inline-size; }
-/* 목차가 있으면 (목차 + 사이 + 글 칸) 묶음을 칸 가운데에 두고, 목차는 글 칸 왼쪽 바로 옆(위 끝은 첫 블록과 같은 높이)에 붙인다.
-   폭은 모두 칸 폭에서 계산: 목차 = 18%(160~240px), 사이 28px, 양쪽 최소 16px. 좁으면 목차를 감추고 글 칸만 가운데(note-outline 이 판단) */
-.pane-doc .note-wide > :is(.pdf-memo-bar-scroll, .note-format-dock, .note-outline) {
-  --nw-col: 708px; --nw-gap: 28px;
-  --nw-out: clamp(160px, 18cqw, 240px);
-  --nw-left: max(16px, calc((100cqw - var(--nw-out) - var(--nw-gap) - var(--nw-col)) / 2));
-}
+/* ---------- 넓은 노트: 노트 바와 같은 블록(모양도 같다)을 글 칸 폭(708px)으로 가운데에 놓는다 ---------- */
+.pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body).note-wide { position: relative; }
 .pane-doc .note-wide > .pdf-memo-bar-scroll { padding-left: 12px; }
 .pane-doc .note-wide > .pdf-memo-bar-scroll > * { box-sizing: border-box; width: min(100%, 708px); align-self: center; flex-shrink: 0; }
 .pane-doc .note-wide > .note-format-dock { padding-inline: max(12px, calc((100% - 708px) / 2)); }
-.pane-doc .note-wide[data-note-outline] > .pdf-memo-bar-scroll > * { align-self: flex-start; margin-left: max(0px, calc(var(--nw-left) + var(--nw-out) + var(--nw-gap) - 12px)); }
-.pane-doc .note-wide[data-note-outline] > .note-format-dock { padding-left: calc(var(--nw-left) + var(--nw-out) + var(--nw-gap)); }
 
-/* 메모 카드는 좁은 칸과 똑같다(원문 줄 · 검색 흐림 · 펼침 · 확대 모두). 넓은 칸이 바꾸는 것은 글 칸 폭(가운데 708px)과 왼쪽 목차뿐이다 */
-
-/* 목차 */
-.note-outline {
-  position: absolute; z-index: 3; bottom: 0; left: var(--nw-left, 16px); width: var(--nw-out, 184px); box-sizing: border-box;
-  display: flex; flex-direction: column; gap: 1px;
-  padding: 26px 4px 24px 0; overflow-x: hidden; overflow-y: auto;
-  scrollbar-width: thin;
-}
-.note-outline-row { display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
-.note-outline-nested { padding-left: 22px; }
-.note-outline-section { margin-top: 6px; }
-.note-outline-toggle {
-  margin-top: 2px;
-  display: inline-grid; place-items: center; flex: 0 0 18px; width: 18px; height: 22px; padding: 0;
-  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); cursor: pointer;
-}
-.note-outline-toggle:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
-.note-outline-item {
-  display: flex; align-items: flex-start; gap: 6px; flex: 1 1 auto; min-width: 0; min-height: 26px; padding: 0 8px;
-  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong);
-  font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
-}
-.note-outline-section .note-outline-item { font-weight: 650; }
-.note-outline-item:is(:hover, :focus-visible) { background: var(--chrome-hover); outline: none; }
-.note-outline-item[aria-current='true'] { background: var(--selected-bg); color: var(--text-strong); }
-.note-outline-item .pdf-memo-dot { flex: 0 0 9px; }
-.note-outline-id { flex: 0 0 auto; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.note-outline-text { flex: 1 1 auto; min-width: 0; padding: 4px 0; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.35; }
-.note-outline-item .note-section-count { flex: 0 0 auto; }
+/* 메모 카드는 좁은 칸과 똑같다(원문 줄 · 검색 흐림 · 펼침 · 확대 모두). 넓은 칸이 바꾸는 것은 글 칸 폭(가운데 708px)뿐이다 */

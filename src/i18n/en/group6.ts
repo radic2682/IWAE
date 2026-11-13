@@ -257,8 +257,12 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '형광펜과 메모 지우기': 'Delete highlight and memo',
   '글 지우기': 'Delete text',
   '소제목 지우기(블록은 남김)': 'Delete section (keep blocks)',
-  // 메모만 보기 · NoteOutline
-  '노트 목차': 'Note outline',
+  // 노트 미니맵 · MemoNoteTabView
+  '미니맵': 'Minimap',
+  '노트 미니맵 보이기/숨기기': 'Show/hide note minimap',
+  '노트 미니맵': 'Note minimap',
+  '노트 미니맵을 켰습니다': 'Note minimap on',
+  '노트 미니맵을 껐습니다': 'Note minimap off',
   // PdfPins · PdfOverlayLayer · PageImage
   '{title} · {page}쪽': '{title} · p. {page}',
   '책갈피 {title} {page}쪽': 'Bookmark {title}, page {page}',

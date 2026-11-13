@@ -37,6 +37,7 @@ import type { PageTextIndex } from '../core/textIndex'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import { MemoNoteContext, requestTitleEdit, type MemoNoteApi } from '../pdf/memoNoteContext'
 import { MemoNoteTabView } from '../pdf/MemoNoteTabView'
+import { toggleNoteMinimap } from '../pdf/noteMinimapPref'
 import { useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './notes/useMemoNoteTabs'
 import { blocksForTarget, pickCanvasPane, visibleCanvasPanes, type PointableHighlight } from './notes/canvasWorkspace'
 import { createNoteBesideOpener, pickNotePath, placeNoteTab, type NoteBesideOpener, type NoteBesideHost } from './workspace/noteBeside'
@@ -1259,6 +1260,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       ] : []),
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
+      { id: 'note-minimap', kind: 'action', label: t('노트 미니맵 보이기/숨기기'), keywords: 'note minimap overview map toggle 노트 미니맵 개요 지도', run: () => announceAction(toggleNoteMinimap() ? t('노트 미니맵을 켰습니다') : t('노트 미니맵을 껐습니다')) },
       { id: 'goto', kind: 'action', label: t('쪽으로 이동'), shortcut: shortcutText('goTo'), keywords: 'go to page', run: act('goTo') },
       ...(isDetachedWindow ? [] : [
         { id: 'library', kind: 'action' as const, label: t('라이브러리 펼치기·접기'), shortcut: shortcutText('toggleLibrary'), keywords: 'library', run: act('toggleLibrary') },

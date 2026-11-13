@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
-import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus } from '@phosphor-icons/react'
+import { ArrowsInLineVertical, ArrowsOutLineVertical, MagnifyingGlass, Plus, SidebarSimple } from '@phosphor-icons/react'
 import { t } from '../i18n'
 import { menuGuardActive } from '../app/workspace/menuGuard'
 import { memoHighlightIds, memoNoteTitleOf, updateSection, type MemoNoteBlock, type MemoTicket } from '../core/memoNote'
@@ -14,11 +14,15 @@ import { LINK_CARD_DEPTH, registerPaneLinks, requestPaneLinks, useLinkedDocIds, 
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from './MemoEditor'
 import { MemoNoteContext, revealNoteBlock, useMemoNoteApi } from './memoNoteContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
-import { NoteOutline } from './NoteOutline'
+import { NoteMinimap } from './NoteMinimap'
+import { MINIMAP_MIN_PANE } from './noteMinimapGeometry'
+import { setNoteMinimap, useNoteMinimap } from './noteMinimapPref'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from './persistentHighlight'
 import { useNoteFlowController } from './useNoteFlowController'
 import '../ui/pdf-memo.css'
 import '../ui/memo-note-tab.css'
+import '../ui/note-wide.css'
+import '../ui/note-minimap.css'
 
 /** 이 폭(px) 아래면 노트 바처럼 카드 목록, 이상이면 「메모만 보기」처럼 문서로 읽히는 모양 */
 export const MEMO_NOTE_WIDE_MIN = 460
@@ -74,7 +78,7 @@ export function centerBlockIndex(scroller: HTMLElement | null, blocks: readonly 
 /**
  * 메모 노트를 창의 탭으로 보인다(노트 바 없이 노트만). 노트 바와 같은 저장소·같은 카드(NoteFlow)를 쓰므로
  * 같은 노트를 노트 바와 탭에서 함께 보고 어느 쪽에서 고쳐도 하나로 합쳐진다.
- * 폭이 좁으면 노트 바의 카드 목록, 넓으면 문서처럼(글 칸 가운데 + 목차) — 따로 켜는 모드는 없다.
+ * 폭이 좁으면 노트 바의 카드 목록, 넓으면 문서처럼(글 칸 가운데) — 따로 켜는 모드는 없다.
  * 검색·글 블록 넣기·펼치기 단추는 창 머리가 아니라 이 안의 도구줄에 둔다.
  */
 export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdated, onHighlightRemoved, onJump, onEdited }: MemoNoteTabViewProps) {
@@ -82,6 +86,10 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   const rootRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const wide = useMinWidth(rootRef, MEMO_NOTE_WIDE_MIN)
+  // 미니맵: 앱 전체에서 켜고 끈다(기본 꺼짐, 자동으로 나오지 않는다). 창이 너무 좁으면 켜 두어도 감춘다
+  const minimapOn = useNoteMinimap()
+  const minimapRoom = useMinWidth(rootRef, MINIMAP_MIN_PANE)
+  const showMinimap = minimapOn && minimapRoom
   // 카드 목록 모양에서는 이 창 안에서 Ctrl+휠로 확대·축소한다(설정에 기억되는 「오른쪽 바」 배율). 문서처럼 읽는 넓은 모양에서는 쓰지 않는다
   const barZoom = useBarZoom('right')
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
@@ -311,6 +319,18 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
         <MagnifyingGlass size={15} aria-hidden="true" />
       </button>
       {flow.note === null ? null : (
+        <button
+          type="button"
+          className="pdf-memo-header-button"
+          aria-label={t('미니맵')}
+          title={t('미니맵')}
+          aria-pressed={minimapOn}
+          onClick={() => setNoteMinimap(!minimapOn)}
+        >
+          <SidebarSimple size={15} aria-hidden="true" style={{ transform: 'scaleX(-1)' }} />
+        </button>
+      )}
+      {flow.note === null ? null : (
         <button type="button" className="pdf-memo-header-button" aria-label={t('글 블록 넣기')} title={t('글 블록 넣기')} onClick={flow.appendText}>
           <Plus size={15} weight="bold" aria-hidden="true" />
         </button>
@@ -385,7 +405,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
             <p>{t('노트를 불러올 수 없습니다')}</p>
           </div>
         ) : (
-          <div className={`markdown-memo-bar-body${wide ? ' note-wide' : ''}`}>
+          <div className={`markdown-memo-bar-body${wide ? ' note-wide' : ''}${showMinimap ? ' has-minimap' : ''}`}>
             {hasTopBarSlot ? <TopBarToolbar>{dock}</TopBarToolbar> : dock}
             <div
               ref={scrollRef}
@@ -435,9 +455,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
                 </MemoFormatSlotContext.Provider>
               </MemoNoteContext.Provider>
             </div>
-            {wide ? (
-              <NoteOutline items={items} query={query} scrollerRef={scrollRef} onToggleSection={(key, collapsed) => updateNote((note) => updateSection(note, key, { collapsed }))} />
-            ) : null}
+            {showMinimap ? <NoteMinimap scrollerRef={scrollRef} query={query} /> : null}
           </div>
         )}
       </section>

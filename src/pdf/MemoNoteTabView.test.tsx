@@ -188,3 +188,44 @@ describe('MemoNoteTabView', () => {
     expect(container.querySelectorAll('.pdf-memo-card-dim').length).toBeGreaterThan(0)
   })
 })
+
+describe('MemoNoteTabView 미니맵', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('기본은 꺼짐: 넓은 노트도 자동으로 나오지 않고, 목차 칸도 없다', () => {
+    size.width = 1200
+    const { container } = render(<Harness spies={makeSpies()} />)
+    expect(container.querySelector('[data-note-minimap]')).toBeNull()
+    expect(container.querySelector('.note-outline')).toBeNull()
+    expect(screen.getByRole('button', { name: '미니맵' }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('단추로 켜고 끄며 선택을 기억한다', () => {
+    size.width = 600
+    const { container, unmount } = render(<Harness spies={makeSpies()} />)
+    fireEvent.click(screen.getByRole('button', { name: '미니맵' }))
+    expect(container.querySelector('[data-note-minimap]')).not.toBeNull()
+    expect(container.querySelector('.has-minimap')).not.toBeNull()
+    expect(screen.getByRole('button', { name: '미니맵' }).getAttribute('aria-pressed')).toBe('true')
+    expect(window.localStorage.getItem('iwae:note-minimap:v1')).toBe('1')
+    unmount()
+    // 다시 열어도(다른 노트 창도) 켜져 있다
+    const again = render(<Harness spies={makeSpies()} />)
+    expect(again.container.querySelector('[data-note-minimap]')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '미니맵' }))
+    expect(again.container.querySelector('[data-note-minimap]')).toBeNull()
+    expect(window.localStorage.getItem('iwae:note-minimap:v1')).toBe('0')
+  })
+
+  it('좁은 창(360px 미만)에서는 켜 두어도 감추고, 넓어지면 다시 나온다', () => {
+    window.localStorage.setItem('iwae:note-minimap:v1', '1')
+    size.width = 359
+    const { container } = render(<Harness spies={makeSpies()} />)
+    expect(container.querySelector('[data-note-minimap]')).toBeNull()
+    expect(screen.getByRole('button', { name: '미니맵' }).getAttribute('aria-pressed')).toBe('true')
+    resizeTo(360)
+    expect(container.querySelector('[data-note-minimap]')).not.toBeNull()
+    resizeTo(300)
+    expect(container.querySelector('[data-note-minimap]')).toBeNull()
+  })
+})

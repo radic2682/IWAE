@@ -1,0 +1,34 @@
+/* ---------- 노트 미니맵: 노트 오른쪽 끝의 좁은 띠(VS Code 미니맵처럼 막대 윤곽만) ---------- */
+/* 켜면 스크롤 칸이 띠 폭만큼 좁아진다(.pdf-memo-bar 의 zoom 이 칸 안쪽에만 걸리므로 폭을 배율로 나눈다) */
+.pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body).has-minimap { position: relative; }
+.pane-doc .has-minimap > .pdf-memo-bar-scroll { margin-right: calc(72px / var(--bar-zoom, 1)); }
+.pane-doc .has-minimap > .note-format-dock { padding-right: 12px; }
+
+.note-minimap {
+  position: absolute; z-index: 6; right: 0; bottom: 0; box-sizing: border-box;
+  overflow: hidden; cursor: pointer; user-select: none; touch-action: none;
+  border-left: 1px solid var(--divider);
+  --mm-bar: color-mix(in srgb, var(--text-strong) 16%, transparent);
+}
+.note-minimap-bar {
+  position: absolute; left: 8px; right: 8px; box-sizing: border-box; border-radius: 2px;
+  background: var(--mm-bar); pointer-events: none;
+}
+.note-minimap-bar[data-kind='text'] { right: 20px; background: color-mix(in srgb, var(--text-strong) 11%, transparent); }
+.note-minimap-bar[data-kind='section'] { background: color-mix(in srgb, var(--text-strong) 38%, transparent); border-radius: 3px; }
+.note-minimap-bar[data-kind='memo'][data-hl] { background: color-mix(in srgb, var(--hlc-dot) 26%, var(--mm-bar)); }
+.note-minimap-dot {
+  position: absolute; left: 2px; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: var(--hlc-dot);
+}
+/* 노트 검색 중: 맞는 블록은 강조선, 안 맞는 블록은 흐리게 */
+.note-minimap-bar[data-hit] { box-shadow: 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 38%, var(--mm-bar)); }
+.note-minimap-bar[data-dim] { opacity: 0.35; }
+
+/* 지금 보이는 부분 */
+.note-minimap-box {
+  position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; cursor: grab;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-block: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.note-minimap:hover .note-minimap-box { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+body.note-minimap-dragging, body.note-minimap-dragging * { cursor: grabbing !important; user-select: none; }
