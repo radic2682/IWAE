@@ -24,6 +24,10 @@ export interface MemoNoteApi {
   readonly noteAt: (path: string) => MemoNote | null
   /** path 노트를 고친다(저장은 알아서; updateOpen 과 같은 길). 목록에 없는 노트는 무시 */
   readonly updateNoteAt: (path: string, change: (note: MemoNote) => MemoNote) => void
+  /** 저장 충돌을 풀기 전이라 파일에 쓰지 않고 붙들고 있는 노트인가(블록을 옮겨 넣으면 디스크에 닿지 않아 잃을 수 있다) */
+  readonly isNoteHeld?: (path: string) => boolean
+  /** 쓰기를 기다리는 노트를 지금 파일에 쓰고 쓴 것이 확인되면 true(충돌 · 오류면 false). 없으면 기다릴 것이 없다고 본다 */
+  readonly flushNote?: (path: string) => Promise<boolean>
   /** 노트를 창의 탭으로 연다(문서 창 옆에, 이미 노트를 보이는 창이 있으면 그 창의 탭으로). 없으면 노트 열기 메뉴를 보이지 않는다 */
   readonly openInTab?: (path: string) => void
   /** 노트 이름을 바꾼다(새 경로). 없으면 이름 바꾸기를 보이지 않는다 */

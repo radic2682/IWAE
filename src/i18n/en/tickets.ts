@@ -23,4 +23,5 @@ export const TICKETS: Readonly<Record<string, string>> = {
   '링크': 'Link',
   '이미 이 노트에 있는 메모입니다': 'This memo is already in this note',
   '블록을 옮기지 못했습니다': 'Could not move the block',
+  '이 노트는 저장 충돌을 풀어야 옮길 수 있습니다': 'Resolve this note\'s save conflict before moving blocks into it',
 }

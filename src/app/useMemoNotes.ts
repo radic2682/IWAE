@@ -658,6 +658,17 @@ export function useMemoNotes(
       open(path)
     }
   }, [open, putNote])
+  const isNoteHeld = useCallback((path: string): boolean => heldRef.current.has(path), [])
+  /** 이 노트의 쓰기 대기를 지금 끝낸다. 충돌로 붙들려 있거나 저장이 안 되면 false(블록을 옮길 때 받는 노트가 디스크에 닿았는지 확인하는 데 쓴다) */
+  const flushNote = useCallback(async (path: string): Promise<boolean> => {
+    if (heldRef.current.has(path)) return false
+    try {
+      await flushPending([path])
+    } catch {
+      return false
+    }
+    return !heldRef.current.has(path)
+  }, [flushPending])
   /** path 노트의 지금 내용(그리기용: 노트가 바뀌면 이 함수도 새로 만들어져 다시 그린다). 목록에 없으면 null */
   const noteAt = useCallback((path: string): MemoNote | null => notes.get(path) ?? null, [notes])
   const updateOpen = useCallback((change: (note: MemoNote) => MemoNote) => {
@@ -750,6 +761,8 @@ export function useMemoNotes(
     updateOpen,
     noteAt,
     updateNoteAt,
+    isNoteHeld,
+    flushNote,
     notesOf,
     rename,
     trash,

@@ -8,7 +8,7 @@
 import { paneHitAt } from '../app/tabDrag'
 import { anchorGhostBelowRight } from '../app/ghostPlace'
 import { announceAction } from '../app/actionFeedback'
-import { recordSeparately } from '../app/undoStack'
+import { lastUndoGroup, recordSeparately, resumeUndoGroup } from '../app/undoStack'
 import { t } from '../i18n'
 import { carriedBlocks, linkBlocksInto, moveBlocksBetweenNotes, removeBlocksById, type BlocksIntoResult } from '../core/memoNote'
 import { revealNoteBlock, type MemoNoteApi } from './memoNoteContext'
@@ -181,18 +181,25 @@ export interface TransferInput {
 }
 
 /**
- * 블록을 다른 노트에 옮기거나(링크·복사) 한다. 받는 노트를 먼저 쓰고 성공했을 때만 원래 노트에서 지운다 —
- * 실패하면 알리고 원래 노트는 건드리지 않는다. 노트 두 개를 고쳐도 되돌리기는 한 번(recordSeparately)이다.
+ * 블록을 다른 노트에 옮기거나(링크·복사) 한다. 받는 노트를 먼저 쓰고, 그 노트가 파일에 쓰였다는 것까지 확인한 뒤에만 원래 노트에서 지운다 —
+ * updateNoteAt 은 메모리만 바꾸고 저장은 잠시 뒤로 미루며, 저장 충돌로 붙들린 노트는 아예 디스크에 쓰지 않으므로 「바뀌었다」만으로는 안전하지 않다.
+ * 그래서 충돌로 붙들린 노트로 옮기기는 거절하고(링크 · 복사는 아무것도 지우지 않으니 된다), 옮기기는 받는 노트의 저장을 기다린 뒤 지운다.
+ * 실패하면 알리고 원래 노트는 건드리지 않는다(받는 노트에 사본만 남을 수 있다 — 잃는 것보다 낫다). 되돌리기는 한 번(recordSeparately + 이어 붙이기)이다.
  * 돌려주는 값: 받는 노트에 들어간 블록들(없으면 빈 배열)
  */
-export function transferBlocks(input: TransferInput): readonly string[] {
+export async function transferBlocks(input: TransferInput): Promise<readonly string[]> {
   const { api, sourcePath, target, keys, beforeId, link, snapSection } = input
   const sourceNote = api.noteAt(sourcePath)
   if (sourceNote === null || api.noteAt(target.path) === null) {
     announceAction(t('블록을 옮기지 못했습니다'))
     return []
   }
+  if (!link && api.isNoteHeld?.(target.path) === true) {
+    announceAction(t('이 노트는 저장 충돌을 풀어야 옮길 수 있습니다'))
+    return []
+  }
   const box: { result: (BlocksIntoResult & { readonly movedIds?: readonly string[] }) | null } = { result: null }
+  let group: object | null = null
   try {
     recordSeparately(() => {
       api.updateNoteAt(target.path, (current) => {
@@ -202,13 +209,8 @@ export function transferBlocks(input: TransferInput): readonly string[] {
         box.result = result
         return result.target
       })
-      const done = box.result
-      // 받는 노트를 쓴 것이 확인된 뒤에만 원래 노트에서 뺀다
-      if (!link && done !== null && 'movedIds' in done && done.movedIds !== undefined && done.movedIds.length > 0) {
-        const movedIds = done.movedIds
-        api.updateNoteAt(sourcePath, (current) => removeBlocksById(current, movedIds))
-      }
     })
+    group = lastUndoGroup()
   } catch {
     announceAction(t('블록을 옮기지 못했습니다'))
     return []
@@ -217,6 +219,21 @@ export function transferBlocks(input: TransferInput): readonly string[] {
   if (result === null) {
     announceAction(t('블록을 옮기지 못했습니다'))
     return []
+  }
+  const movedIds = !link && 'movedIds' in result && result.movedIds !== undefined ? result.movedIds : []
+  if (movedIds.length > 0) {
+    // 받는 노트가 파일에 쓰인 것이 확인된 뒤에만 원래 노트에서 뺀다
+    const saved = api.flushNote === undefined ? true : await api.flushNote(target.path).catch(() => false)
+    if (!saved) {
+      announceAction(t('블록을 옮기지 못했습니다'))
+      return result.added.map((block) => block.id)
+    }
+    try {
+      resumeUndoGroup(group, () => { api.updateNoteAt(sourcePath, (current) => removeBlocksById(current, movedIds)) })
+    } catch {
+      announceAction(t('블록을 옮기지 못했습니다'))
+      return []
+    }
   }
   if (result.skipped > 0) announceAction(t('이미 이 노트에 있는 메모입니다'))
   const first = result.added[0]
@@ -334,7 +351,7 @@ export function startBlockDragSession(input: BlockDragSessionInput): BlockDragSe
     const api_ = api()
     if (at === null) return link
     if (api_ === null || sourcePath === null) return true
-    transferBlocks({ api: api_, sourcePath, target: at, keys, beforeId: at.kind === 'tab' ? null : beforeId, link, snapSection })
+    void transferBlocks({ api: api_, sourcePath, target: at, keys, beforeId: at.kind === 'tab' ? null : beforeId, link, snapSection })
     return true
   }
 

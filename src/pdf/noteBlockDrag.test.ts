@@ -49,18 +49,18 @@ describe('dropBeforeIdAt', () => {
 })
 
 describe('transferBlocks', () => {
-  it('moves into the target and removes from the source', () => {
+  it('moves into the target and removes from the source', async () => {
     const { api, notes } = fakeApi({ S: note(memo('a', 'h1'), text('b')), T: note(text('x')) })
-    const added = transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })
+    const added = await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })
     expect(added).toEqual(['a'])
     expect(notes.get('T')!.blocks.map((block) => block.id)).toEqual(['x', 'a'])
     expect(notes.get('S')!.blocks.map((block) => block.id)).toEqual(['b'])
     // 탭 위에 놓은 것은 그 노트를 열지 않는다
     expect((api.openInTab as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
   })
-  it('link leaves the source alone and adds a new block', () => {
+  it('link leaves the source alone and adds a new block', async () => {
     const { api, notes } = fakeApi({ S: note(memo('a', 'h1')), T: note() })
-    const added = transferBlocks({ api, sourcePath: 'S', target: target('T', 'body'), keys: ['a'], beforeId: null, link: true, snapSection: false })
+    const added = await transferBlocks({ api, sourcePath: 'S', target: target('T', 'body'), keys: ['a'], beforeId: null, link: true, snapSection: false })
     expect(added).toHaveLength(1)
     expect(added[0]).not.toBe('a')
     expect(notes.get('S')!.blocks.map((block) => block.id)).toEqual(['a'])
@@ -68,28 +68,28 @@ describe('transferBlocks', () => {
     // 보이는 노트에 놓으면 그 블록으로 간다
     expect((api.openInTab as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('T')
   })
-  it('does not touch the source when the target write fails', () => {
+  it('does not touch the source when the target write fails', async () => {
     const { api, notes } = fakeApi({ S: note(text('a')), T: note() }, true)
     const events: string[] = []
     const listen = (event: Event) => events.push((event as CustomEvent<string>).detail)
     window.addEventListener('iwae:action-feedback', listen)
-    expect(transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })).toEqual([])
+    expect(await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })).toEqual([])
     window.removeEventListener('iwae:action-feedback', listen)
     expect(notes.get('S')!.blocks.map((block) => block.id)).toEqual(['a'])
     expect(events).toHaveLength(1)
   })
-  it('announces and keeps the source when the target already has the memo', () => {
+  it('announces and keeps the source when the target already has the memo', async () => {
     const { api, notes } = fakeApi({ S: note(memo('a', 'h1')), T: note(memo('x', 'h1')) })
     const events: string[] = []
     const listen = (event: Event) => events.push((event as CustomEvent<string>).detail)
     window.addEventListener('iwae:action-feedback', listen)
-    expect(transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })).toEqual([])
+    expect(await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })).toEqual([])
     window.removeEventListener('iwae:action-feedback', listen)
     expect(events).toHaveLength(1)
     expect(notes.get('S')!.blocks).toHaveLength(1)
     expect(notes.get('T')!.blocks).toHaveLength(1)
   })
-  it('writes the target first, then the source', () => {
+  it('writes the target first, then the source', async () => {
     // 쓰는 차례: 받는 노트가 먼저, 원래 노트가 나중
     const notes = new Map<string, MemoNote>([['S', note(text('a'))], ['T', note()]])
     const calls: string[] = []
@@ -100,8 +100,38 @@ describe('transferBlocks', () => {
       open: vi.fn(),
       openPath: null,
     } as unknown as MemoNoteApi
-    transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })
+    await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })
     expect(calls).toEqual(['T', 'S'])
+  })
+  it('refuses a MOVE into a held (conflicted) note but still allows a link', async () => {
+    const { api, notes } = fakeApi({ S: note(text('a')), T: note() })
+    ;(api as { isNoteHeld?: (path: string) => boolean }).isNoteHeld = (path) => path === 'T'
+    const events: string[] = []
+    const listen = (event: Event) => events.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:action-feedback', listen)
+    expect(await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })).toEqual([])
+    window.removeEventListener('iwae:action-feedback', listen)
+    expect(events).toEqual(['이 노트는 저장 충돌을 풀어야 옮길 수 있습니다'])
+    expect(notes.get('T')!.blocks).toHaveLength(0)
+    expect(notes.get('S')!.blocks).toHaveLength(1)
+    expect(await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: true, snapSection: false })).toHaveLength(1)
+  })
+  it('removes from the source only after the target save is confirmed', async () => {
+    const { api, notes } = fakeApi({ S: note(text('a')), T: note() })
+    let release: (ok: boolean) => void = () => undefined
+    ;(api as { flushNote?: (path: string) => Promise<boolean> }).flushNote = () => new Promise<boolean>((resolve) => { release = resolve })
+    const pending = transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })
+    expect(notes.get('T')!.blocks).toHaveLength(1)
+    expect(notes.get('S')!.blocks).toHaveLength(1)
+    release(true)
+    await pending
+    expect(notes.get('S')!.blocks).toHaveLength(0)
+  })
+  it('keeps the source when the target save does not go through', async () => {
+    const { api, notes } = fakeApi({ S: note(text('a')), T: note() })
+    ;(api as { flushNote?: (path: string) => Promise<boolean> }).flushNote = async () => false
+    await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })
+    expect(notes.get('S')!.blocks).toHaveLength(1)
   })
 })
 
