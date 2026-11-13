@@ -86,7 +86,7 @@ function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
 export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber, secondary = null, renderTabExtra, onRenameTab, canRenameTab }: PaneTabsMenuProps) {
   const channelDot = onCycleChannel === undefined ? null : (
     <>
-      <ChannelDot channel={channel} onCycle={onCycleChannel} />
+      <ChannelDot channel={channel} onCycle={onCycleChannel} pane={paneId} />
       {paneNumber === undefined ? null : <span className="pane-head-number" title={t('칸 {n}', { n: paneNumber })}>{paneNumber}</span>}
     </>
   )
@@ -189,7 +189,8 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     dock: onDockTab,
     dockEdges,
     dragWindow: dragWindow === true && state.tabs.length === 1 && tab.kind === 'pdf',
-    tearOff: onTearOffTab === undefined || tab.kind !== 'pdf' ? undefined : (id, info) => onTearOffTab(id, info),
+    // PDF 는 떼어 낸 PDF 창으로, 메모 노트 · Markdown 은 새 화면을 보는 새 앱 창으로 떼어 낸다(캔버스는 아직 안 된다)
+    tearOff: onTearOffTab === undefined || tab.kind === 'canvas' ? undefined : (id, info) => onTearOffTab(id, info),
     onDragged: armClickSuppress,
   })
   // 탭 우클릭 메뉴: 어느 탭에서, 화면 어디에 열렸나

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translationCacheStore'
 import { isMarkdownPath } from '../core/markdownPath'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
@@ -40,7 +40,8 @@ import { useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './useMemoNoteTabs'
 import { blocksForTarget, pickCanvasPane, visibleCanvasPanes, type PointableHighlight } from './canvasWorkspace'
 import { createNoteBesideOpener, pickNotePath, placeNoteTab, type NoteBesideOpener, type NoteBesideHost } from './noteBeside'
 import { applyLayoutPreset, availableScreenTemplates, buildTemplateScreen, templateScreenName, type LayoutPresetId, type ScreenTemplateId } from './layoutPresets'
-import { activeScreenOf, allScreenPaneIds, workspaceOf } from './screens'
+import { activeScreenOf, allScreenPaneIds, newScreenId, workspaceOf } from './screens'
+import { attachTabToPane, tearTabToScreen } from './tabTearOff'
 import { pickByName, runCommandLine, type CommandHost, type CommandResult, type PaneRect, type WorkspaceModel } from './workspaceCommands'
 import { usePrefixMode } from './usePrefixMode'
 import { summarizeWorkspace, type McpWorkspaceState } from './mcp/workspaceCommand'
@@ -50,7 +51,10 @@ import { EmptyPane, type EmptyPaneRecent } from './EmptyPane'
 import { PrefixChip } from './PrefixChip'
 import { prunePaneToolbarMemory } from './paneToolbarMemory'
 import { TopBarToolbarContext, eventInTopBarSlot, toolbarOwnerOf } from './topBarToolbar'
-import { reactingPanes } from './paneReaction'
+import { flashReaction, reactingPanes } from './paneReaction'
+import { touchMru } from './paneRecency'
+import { setChannelDragHost } from './channelDrag'
+import { resolveChannelLink } from './channelLink'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { TranslatorPanel } from './TranslatorPanel'
 import { finishLegacyTranslatorMigration, readLegacyTranslatorPanels, toggleTranslatorWindow, translatorWindowFromLegacy, openTranslatorWindow, updateTranslatorWindow, useTranslatorWindow } from './translatorPanelState'
@@ -127,9 +131,11 @@ import {
 import { pdfBookmarkId } from '../core/pdfBookmarks'
 import { PaneTabsMenu } from './PaneTabsMenu'
 import { NoteHeadMenu } from './NoteHeadMenu'
-import { closePaneTree, collapseEmptyPane, dockTab, dragDockEdges, dropTabAt, moveTabToPaneAt, type DockEdge, type TabDropTarget } from './tabDock'
+import { closePaneTree, collapseEmptyPane, dockTab, dragDockEdges, dropTabAt, moveTabToPaneAt, type DockEdge, type TabDropTarget, type TreeWorkspace } from './tabDock'
 import type { SidebarDropItem, SidebarPaneDrop } from './dockSession'
 import { moveTabToNewPane, setPaneCountTree, splitPane, swapSplitSides } from './paneLayoutOps'
+import { movePaneToEdge, paneMoveEdges, swapPanes as swapPanesIn } from './paneMove'
+import { isPaneDragPress, startPaneDrag } from './paneDrag'
 import { MAX_PANES, leaves, swapLeaves, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
 import { channelOf, cyclePaneChannel, type Channel, type PaneChannel, type PaneChannels } from './workspaceChannels'
 import { setAppPref, useAppPrefs } from './appPrefs'
@@ -226,10 +232,10 @@ import { createOllamaTranslationProvider } from '../bridge/translation'
 import { runAfterCanvasFlush } from './canvasClose'
 import { buildEvidenceHtml, createCanvasRasterizer, saveHtmlFile } from './exportEvidence'
 import { closeWindow, currentWindowLabel, interceptWindowClose, isDesktop } from '../bridge/window'
-import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, sendReattach, sendTabDrop, type ReattachRequest } from '../bridge/windows'
+import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabAttach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, sendReattach, sendTabAttach, sendTabDrop, type ReattachRequest, type TabAttachRequest, type TabDragReleased } from '../bridge/windows'
 import { clearExternalTabHover, holdTabFlip, insertionIndexInPane, showExternalTabHover, tabZoneRects, type TearOffInfo } from './tabDrag'
 import { currentWindowMode, ownsSession, windowQuery } from '../core/windowMode'
-import { closePlan, detachPlan, findClient, newClientPlan } from '../core/clients'
+import { closePlan, detachPlan, findClient, newClientPlan, nextClientLetter } from '../core/clients'
 import { hideThisWindow, openClientWindow, showAppWindow } from '../bridge/clients'
 import { findSessionName } from '../core/sessionNames'
 import { queueInitialZoom } from './pendingViewState'
@@ -253,6 +259,9 @@ const NOTE_EMPTY = '사이드바에서 노트를 여세요'
 /** 떼어 낸 새 창에서 첫 탭이 놓이는 자리(창 왼쪽 위에서, CSS 픽셀). 탭을 끌어 떼어 낼 때 마우스가 그 탭 위에 오게 한다 */
 const DETACHED_TAB_LEFT = 54
 const DETACHED_TAB_TOP = 5
+/** 노트 · Markdown 탭을 떼어 연 새 앱 창에서 마우스가 놓일 자리(창 왼쪽 위에서, CSS 픽셀): 기본 사이드바(280px) 오른쪽 칸 머리의 첫 탭쯤 */
+const TORN_CLIENT_GRAB_X = 360
+const TORN_CLIENT_GRAB_Y = 64
 /** 탭 메뉴 「새 오른쪽 패널로 옮기기」가 가리키는 칸(아직 없다) */
 const NEW_PANE_TARGET = '__new-pane__'
 
@@ -1570,6 +1579,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const pinPaneTab = useCallback((tabId: string) => setPanes((current) => pinTabInPanes(current, tabId)), [setPanes])
   const workspaceLatest = useRef({ panes, channels, layout: layoutRoot, previewTabsEnabled, docPaneId, activePaneId })
   workspaceLatest.current = { panes, channels, layout: layoutRoot, previewTabsEnabled, docPaneId, activePaneId }
+  // 칸을 만진 차례(MRU, 가장 최근이 앞). 같은 색 칸이 셋 이상일 때 바꿀 칸 · 새 메모가 갈 노트를 하나로 정한다. 저장하지 않는다(paneRecency)
+  const paneMruRef = useRef<readonly PaneId[]>([])
+  paneMruRef.current = touchMru(paneMruRef.current, activePaneId)
+  const paneMru = paneMruRef.current
   const memoNotesRef = useRef(memoNotes)
   memoNotesRef.current = memoNotes
 
@@ -1600,6 +1613,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     snapshot: () => ({ panes: workspaceLatest.current.panes, channels: workspaceLatest.current.channels, layout: workspaceLatest.current.layout }),
     apply: applyWorkspace,
     sizeOf: paneSizeOf,
+    mru: () => paneMruRef.current,
     lastTouched: () => memoNotesRef.current.openPath,
     entries: () => memoNotesRef.current.entries,
     docOwner: noteDocOwner,
@@ -1613,6 +1627,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   besideRef.current ??= createNoteBesideOpener({
     snapshot: () => besideHostRef.current!.snapshot(),
     apply: (next, fresh) => besideHostRef.current!.apply(next, fresh),
+    mru: () => paneMruRef.current,
     lastTouched: () => besideHostRef.current!.lastTouched(),
     entries: () => besideHostRef.current!.entries(),
     docOwner: (docId) => besideHostRef.current!.docOwner(docId),
@@ -1651,7 +1666,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setPaneRoute('note', anchor)
       return anchor
     }
-    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab, sizeOf: paneSizeOf })
+    const outcome = placeNoteTab({ panes: now.panes, channels: now.channels, layout: now.layout, anchor, tab, sizeOf: paneSizeOf, mru: paneMruRef.current })
     applyWorkspace({ panes: outcome.panes, channels: outcome.channels, layout: outcome.layout }, outcome.kind === 'beside' ? outcome.pane : undefined)
     setActivePaneId(outcome.pane)
     setPaneRoute('note', outcome.pane)
@@ -1674,7 +1689,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setPaneRoute('doc', landed)
   }
   /** 노트를 보이는 같은 색 창이 있는가(상단바 단추의 눌림 표시) */
-  const noteBesideShown = docPaneId !== null && visibleNotePathsIn(panes, channels, paneOrder, channelOf(channels, docPaneId)).length > 0
+  const noteBesideShown = docPaneId !== null && visibleNotePathsIn(panes, channels, paneOrder, channelOf(channels, docPaneId), paneMru).length > 0
   /** 이름 붙은 배치: 지금 탭들을 그 모양으로 다시 놓는다(탭은 닫지 않는다) */
   // 마지막으로 만진 캔버스: 캔버스 탭이 보이는 창에 포커스가 가면 그 캔버스(「정리」가 고른다)
   const lastCanvasRef = useRef<string | null>(null)
@@ -2066,14 +2081,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     return {
       channels,
       reactionPanesFor: (pane, target) => reactionRef.current(pane, target),
-      memoNoteTargetFor: (pane) => (pane === null ? null : memoNoteTargetFor(panes, channels, visible, pane)),
-      visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channelOf(channels, pane))),
+      memoNoteTargetFor: (pane) => (pane === null ? null : memoNoteTargetFor(panes, channels, visible, pane, paneMru)),
+      memoNoteTitleOf,
+      visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channelOf(channels, pane), paneMru)),
       pinTab: pinPaneTab,
       openNoteBeside: (pane, notePath) => openNoteBesideRef.current(pane, notePath),
       revealMemo: (pane, memoId) => revealMemoBesideRef.current(pane, memoId),
       canvasShowsMemo: (pane, memoId) => pane !== null && canvasShowsMemoRef.current(channelOf(channels, pane), memoId, pane),
     }
-  }, [channels, paneOrder, panes, pinPaneTab])
+  }, [channels, paneOrder, panes, paneMru, pinPaneTab])
   /** 신호가 보여 줄 문서 탭: 이미 어느 창에 열린 문서·열린 PDF·라이브러리 PDF·Markdown. 알 수 없으면 null */
   const signalDocTab = (docId: string): Tab | null => {
     const existing = allPaneTabs(workspaceLatest.current.panes).find((tab) => isDocumentKind(tab.kind) && tabDocId(tab) === docId)
@@ -2107,7 +2123,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const memo = target.kind === 'memo' ? pdfHighlights.highlights.find((highlight) => highlight.id === target.memoId) : undefined
     // 문서의 형광펜을 눌렀는데 같은 색 창에 보이는 캔버스가 그 메모의 블록을 갖고 있고 보이는 노트는 없다: 노트를 새로 열지 않는다(캔버스가 그 블록을 보인다)
     if (target.kind === 'memo' && !fromNote && target.notePath === undefined
-      && visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, leaves(workspaceLatest.current.layout), signal.channel).length === 0
+      && visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, leaves(workspaceLatest.current.layout), signal.channel, paneMruRef.current).length === 0
       && canvasShowsMemoRef.current(signal.channel, target.memoId, signal.from)) return
     const need = target.kind === 'memo'
       ? needForMemo({
@@ -2115,7 +2131,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         notePath: target.notePath,
         fromNote,
         notesOf: memoNotes.notesOf,
-        visibleNotes: visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, leaves(workspaceLatest.current.layout), signal.channel),
+        visibleNotes: visibleNotePathsIn(workspaceLatest.current.panes, workspaceLatest.current.channels, leaves(workspaceLatest.current.layout), signal.channel, paneMruRef.current),
         docIdOf: () => memo?.anchor.docId ?? null,
         docTab: signalDocTab,
         noteTab: (path) => ({ id: path, title: memoNoteTitleOf(path), kind: 'memoNote' }),
@@ -2142,6 +2158,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       need,
       preview: now.previewTabsEnabled,
       allowNewPane: SPLIT_PANES_ENABLED && focusedPane === 'split',
+      mru: paneMruRef.current,
     })
     if (outcome.kind === 'none') { fallback(); return }
     // 칸이 가득이면 가장 오른쪽 창에 탭으로 들어가고(rightmost) 색이 바뀔 수 있다. 새 창은 자라듯 나타난다
@@ -2151,9 +2168,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       // Markdown 은 쪽이 없다: 글자 범위가 있으면 그 자리로 간다
       if (target.range !== undefined) setMarkdownJumpRequest({ kind: 'markdown', path: target.docId, startOffset: target.range[0], endOffset: target.range[1], quote: '' })
     } else if (target.kind === 'place' && outcome.pane !== null) {
-      const controller = docControllersRef.current[outcome.pane]
-      if (controller?.docId === target.docId) controller.requestPage(target.page)
-      else pendingDocPageRef.current = { docId: target.docId, page: target.page }
+      // 같은 색 칸 중 이 문서를 보이는 칸은 모두 그 쪽으로 간다(내용을 바꾼 칸은 하나지만 반응은 모두)
+      const showing = new Set<PaneId>([outcome.pane])
+      for (const pane of leaves(outcome.layout)) {
+        const shown = activeTab(tabsOf(outcome.panes, pane))
+        if (channelOf(outcome.channels, pane) === signal.channel && shown !== null && need.matches(shown)) showing.add(pane)
+      }
+      for (const pane of showing) {
+        const controller = docControllersRef.current[pane]
+        if (controller?.docId === target.docId) controller.requestPage(target.page)
+      }
+      // 방금 연 탭(아직 컨트롤러가 없다)은 열리면 꺼내 쓰도록 맡겨 둔다
+      if (docControllersRef.current[outcome.pane]?.docId !== target.docId) pendingDocPageRef.current = { docId: target.docId, page: target.page }
     }
   }
   useEffect(() => subscribePointSignal((signal) => { void routePointSignalRef.current(signal) }), [])
@@ -3085,8 +3111,46 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    * 떼어 낸 창에서 탭이 하나뿐이면 창 자신이 따라간다. 놓은 자리가 다른 창의 탭 줄이면 그 창에 붙는다(아래 onTabDragReleased)
    */
   const tearRef = useRef<{ label: string; mode: 'new' | 'self'; docId: string; page: number; zoom: DocZoom | null } | null>(null)
+  /** 노트 · Markdown 탭을 떼어 연 새 앱 창(마우스를 따라오는 중). 놓으면 onTabDragReleased 가 이 창과 이어 준다 */
+  const tornTabRef = useRef<{ label: string; tabId: string } | null>(null)
+  /**
+   * 메모 노트 · Markdown 탭을 창 밖으로 끌어냈다(tmux 의 break-pane 처럼): 탭을 같은 세션의 새 화면(칸 하나)에 담고, 그 화면을 보는
+   * 새 앱 창을 열어 마우스를 따라오게 한다. 이 창은 보던 화면 그대로고, 원래 칸은 비어도 닫지 않는다(하나뿐인 칸의 마지막 탭이면 빈 칸이 남는다).
+   * 새 창은 `screenid=` 로 새 화면을 가리킨다(번호가 아니라 id — 새 화면이 세션 파일에 쓰이기 전에도 소유자 창의 상태로 찾는다)
+   */
+  const tearOffToNewClient = async (tab: Tab): Promise<boolean> => {
+    if (vault === null || isDetachedWindow) return false
+    const state = commandModelRef.current.screens
+    const screenName = t('화면 {n}', { n: state.screens.length })
+    const screenId = newScreenId(state.screens.map((screen) => screen.id))
+    if (tearTabToScreen(state, tab.id, screenName, screenId) === null) return false
+    const ratio = window.devicePixelRatio || 1
+    try {
+      const began = await beginTabDrag({
+        mode: 'new',
+        kind: 'extra',
+        query: windowQuery({ role: 'extra', docId: null, page: null, vaultRoot: vault.root, session: sessionName, screenId, client: nextClientLetter(clients.registry) }),
+        grabX: Math.round(TORN_CLIENT_GRAB_X * ratio),
+        grabY: Math.round(TORN_CLIENT_GRAB_Y * ratio),
+      })
+      if (began === null) return false
+      // 창이 만들어지는 사이에 상태가 바뀌었을 수 있어, 떼어 내기는 지금 상태에서 같은 화면 id 로 다시 계산한다
+      const torn = tearTabToScreen(commandModelRef.current.screens, tab.id, screenName, screenId)
+      if (torn === null) {
+        await destroyAppWindow(began.label)
+        return false
+      }
+      screenOps.replace(torn.screens)
+      tornTabRef.current = { label: began.label, tabId: tab.id }
+      return true
+    } catch (cause) {
+      announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
+      return false
+    }
+  }
   const tearOffTab = async (id: string, info: TearOffInfo): Promise<boolean> => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
+    if (tab !== undefined && (tab.kind === 'memoNote' || tab.kind === 'markdown')) return tearOffToNewClient(tab)
     if (tab === undefined || tab.kind !== 'pdf' || vault === null) return false
     const docId = tabDocId(tab)
     const { page, zoom } = viewOfDoc(docId, id)
@@ -3120,10 +3184,57 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return false
     }
   }
+  /**
+   * 떼어 낸 노트 · Markdown 앱 창을 놓았다. 같은 세션의 다른 앱 창의 탭 줄 위였으면 그 창에 탭을 붙이고(그 창이 새 화면에서 탭을 가져가고,
+   * 비는 새 화면은 닫는다) 이 떼어 낸 창은 닫는다. 빈 곳이거나 다른 세션의 창이면 창은 놓인 자리에 그대로 둔다. 이 끌기의 일이었으면 true
+   */
+  const tornReleaseRef = useRef<(event: TabDragReleased) => boolean>(() => false)
+  tornReleaseRef.current = (event) => {
+    const torn = tornTabRef.current
+    if (torn === null || torn.label !== event.dragged) return false
+    tornTabRef.current = null
+    const target = event.target
+    if (target === null || event.pane === null) return true
+    const targetClient = findClient(clients.registry, target)
+    if (targetClient !== null && targetClient.session !== sessionName) return true
+    const request = { tabId: torn.tabId, pane: event.pane, x: event.x }
+    void (async () => {
+      try {
+        if (target === currentWindowLabel()) acceptTabAttachRef.current({ ...request, source: torn.label })
+        else await sendTabAttach(target, request)
+        await destroyAppWindow(torn.label)
+      } catch (cause) {
+        announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
+      }
+    })()
+    return true
+  }
+  /** 다른 앱 창에서 떼어 낸 탭이 이 창의 탭 줄에 놓였다: 새 화면에 있던 탭을 놓은 자리로 가져온다(탭 줄이 벌려 둔 자리에 들어간다) */
+  const acceptTabAttachRef = useRef<(request: TabAttachRequest) => void>(() => undefined)
+  acceptTabAttachRef.current = (request) => {
+    const next = attachTabToPane(commandModelRef.current.screens, request.tabId, request.pane, insertionIndexInPane(request.pane, request.x))
+    clearExternalTabHover(true)
+    if (next === null) return
+    holdTabFlip()
+    screenOps.replace(next)
+    setActivePaneId(request.pane)
+    void focusThisWindow()
+  }
+  useEffect(() => {
+    if (isDetachedWindow) return undefined
+    let disposed = false
+    let stop: (() => void) | undefined
+    void onTabAttach((request) => acceptTabAttachRef.current(request)).then((unlisten) => {
+      if (disposed) unlisten()
+      else stop = unlisten
+    })
+    return () => { disposed = true; stop?.() }
+  }, [])
   useEffect(() => {
     let disposed = false
     let stop: (() => void) | undefined
     void onTabDragReleased((event) => {
+      if (tornReleaseRef.current(event)) return
       const drag = tearRef.current
       if (drag === null || drag.label !== event.dragged) return
       tearRef.current = null
@@ -3212,8 +3323,40 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (leaves(result.layout).length !== leaves(now.layout).length) notifyPaneResizeSoon()
   }
   const sidebarPaneDrop: SidebarPaneDrop = { edgesFor: sidebarDockEdgesFor, open: (item, target) => { void openSidebarItemAt(item, target) } }
+  /**
+   * 칸 머리(빈자리 · 칸 번호)를 잡고 칸 통째로 끌기. 칸이 둘 이상이고 한 면에 다 보일 때만(하나뿐이거나 크게 보는 중이면 끌 곳이 없다).
+   * 놓으면 가장자리 = 그 칸의 그쪽에 나누어 넣기, 가운데 = 자리 맞바꾸기. 끝난 칸이 만지는 칸이 된다
+   */
+  const onPaneHeadPointerDown = (event: ReactPointerEvent<HTMLElement>, pane: PaneId) => {
+    if (!SPLIT_PANES_ENABLED || isDetachedWindow || focusedPane !== 'split' || libraryExpanded || paneCount < 2) return
+    if (event.button !== 0 || !isPaneDragPress(event.target)) return
+    const head = event.currentTarget
+    const latest = () => workspaceLatest.current
+    const finish = (next: TreeWorkspace) => {
+      applyWorkspace(next)
+      setActivePaneId(pane)
+      notifyPaneResizeSoon()
+    }
+    startPaneDrag(event, head, () => ({
+      pane,
+      canTarget: (target) => target !== pane && leaves(latest().layout).includes(target),
+      edgesFor: (target) => paneMoveEdges(latest().layout, pane, target, paneSizeOf),
+      dock: (target, edge) => {
+        const now = latest()
+        const result = movePaneToEdge({ panes: now.panes, channels: now.channels, layout: now.layout }, pane, target, edge, paneSizeOf)
+        if (result === null) return
+        if ('refused' in result) { announceRefusal(result.refused); return }
+        finish(result)
+      },
+      swap: (target) => {
+        const now = latest()
+        const result = swapPanesIn({ panes: now.panes, channels: now.channels, layout: now.layout }, pane, target)
+        if (result !== null) finish(result)
+      },
+    }))
+  }
   /** 탭을 패널의 edge 쪽을 갈라 새 패널에 넣는다 */
-  const dockPaneTab = (id: string, target: PaneId, edge: DockEdge) => {
+  const dockPaneTab =(id: string, target: PaneId, edge: DockEdge) => {
     const result = dockTab({ panes, channels, layout: layoutRoot }, id, target, edge, paneSizeOf)
     if (result === null) return
     if ('refused' in result) {
@@ -3437,6 +3580,22 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       announce: announceAction,
     })
     return () => setPageDragHost(null)
+  })
+  // 색 점 끌기(channelDrag): 보이는 칸(트리 칸 + 보이는 떠 있는 칸)끼리 잇는다. 규칙은 channelLink.ts
+  useEffect(() => {
+    const visiblePanes = () => [...leaves(workspaceLatest.current.layout), ...shownFloats.map((float) => float.paneId)]
+    setChannelDragHost({
+      channelOf: (pane) => channelOf(workspaceLatest.current.channels, pane),
+      previewChannel: (source, target) => resolveChannelLink(workspaceLatest.current.channels, visiblePanes(), source, target)?.channel ?? null,
+      link: (source, target) => {
+        const link = resolveChannelLink(workspaceLatest.current.channels, visiblePanes(), source, target)
+        if (link === null) return
+        setChannels((current) => resolveChannelLink(current, visiblePanes(), source, target)?.channels ?? current)
+        // 이어진 것이 보이도록 두 칸의 테두리를 신호와 같은 모양으로 잠깐 켠다(알림 글은 없다)
+        for (const pane of link.panes) flashReaction(pane, link.channel)
+      },
+    })
+    return () => setChannelDragHost(null)
   })
   const renderPaneTabs = (pane: PaneId, index: number | undefined) => (
     <PaneTabsMenu
@@ -4037,6 +4196,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       renderPane={(pane) => renderPane(pane)}
       // 모든 칸이(하나여도) 자기 머리를 칸 맨 위에 둔다
       renderHead={(pane, index) => renderPaneHead(pane, index)}
+      onHeadPointerDown={onPaneHeadPointerDown}
       paneChannel={(pane) => channelOf(channels, pane)}
       onFocusPane={focusPane}
       paneEmpty={(pane) => tabsOf(panes, pane).tabs.length === 0}

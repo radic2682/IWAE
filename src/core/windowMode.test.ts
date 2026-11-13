@@ -27,7 +27,7 @@ describe('window mode', () => {
   })
 
   it('reads an extra window', () => {
-    expect(parseWindowMode('?role=extra&vault=D%3A%5CNotes')).toEqual({ role: 'extra', docId: null, page: null, zoom: null, vaultRoot: 'D:\\Notes', session: null, screen: null, client: null })
+    expect(parseWindowMode('?role=extra&vault=D%3A%5CNotes')).toEqual({ role: 'extra', docId: null, page: null, zoom: null, vaultRoot: 'D:\\Notes', session: null, screen: null, screenId: null, client: null })
   })
 
   it('reads the session an app window is attached to, its screen and its letter', () => {
@@ -35,6 +35,12 @@ describe('window mode', () => {
     expect(parseWindowMode(`?${query}`)).toMatchObject({ role: 'extra', session: '논문 3장', screen: 1, client: 'B' })
     // 잘못된 값은 버린다
     expect(parseWindowMode('?role=extra&session=&screen=-1&client=bb')).toMatchObject({ session: null, screen: null, client: null })
+  })
+
+  it('reads the screen id of a torn-off tab\'s new screen and drops malformed ids', () => {
+    const query = windowQuery({ role: 'extra', docId: null, page: null, vaultRoot: null, session: '기본', screenId: 'w7', client: 'C' })
+    expect(parseWindowMode(`?${query}`)).toMatchObject({ role: 'extra', session: '기본', screenId: 'w7', client: 'C' })
+    expect(parseWindowMode('?role=extra&screenid=a%20b%2Fc')).toMatchObject({ screenId: null })
   })
 })
 

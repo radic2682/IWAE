@@ -99,6 +99,8 @@ export async function onTabZonesRequest(handler: () => void): Promise<() => void
 export interface BeginTabDragArgs {
   /** new: docId 의 PDF 를 떼어 낸 새 창이 마우스를 따라간다 · self: 이 창이 통째로 따라간다 */
   readonly mode: 'new' | 'self'
+  /** new: 새 창의 종류. 기본은 PDF 를 떼어 낸 창('detached'), 'extra' 는 세션에 붙는 새 앱 창(노트 · Markdown 탭을 새 화면에 담아 떼어 낼 때) */
+  readonly kind?: 'detached' | 'extra'
   readonly docId?: string
   readonly query?: string
   /** new: 새 창 안에서 마우스가 놓일 자리(왼쪽 위에서, 물리 픽셀) */
@@ -180,4 +182,29 @@ export async function sendTabDrop(target: string, request: Omit<ReattachRequest,
   if (!isDesktop()) return
   const { emitTo } = await import('@tauri-apps/api/event')
   await emitTo(target, 'iwae:reattach', { ...request, source: currentWindowLabel() })
+}
+
+// ── 노트 · Markdown 탭을 새 화면에 담아 떼어 낸 앱 창 ──────────────────────────────
+
+/** 떼어 낸 앱 창을 다른 앱 창의 탭 줄에 놓았다: 그 창에 탭을 붙여 달라는 부탁 */
+export interface TabAttachRequest {
+  /** 붙일 탭의 id(노트 경로 · Markdown 경로) */
+  readonly tabId: string
+  /** 놓은 자리의 칸과 대상 창 안 x 좌표(CSS 픽셀) */
+  readonly pane: string
+  readonly x: number
+  /** 보낸 창 label */
+  readonly source: string
+}
+
+export async function sendTabAttach(target: string, request: Omit<TabAttachRequest, 'source'>): Promise<void> {
+  if (!isDesktop()) return
+  const { emitTo } = await import('@tauri-apps/api/event')
+  await emitTo(target, 'iwae:tab-attach', { ...request, source: currentWindowLabel() })
+}
+
+export async function onTabAttach(handler: (request: TabAttachRequest) => void): Promise<() => void> {
+  if (!isDesktop()) return () => undefined
+  const { listen } = await import('@tauri-apps/api/event')
+  return listen<TabAttachRequest>('iwae:tab-attach', (event) => handler(event.payload))
 }

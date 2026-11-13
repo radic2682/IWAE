@@ -28,6 +28,11 @@ export interface WindowMode {
   readonly session?: string | null
   /** extra: 처음에 보일 화면 번호(0부터) */
   readonly screen?: number | null
+  /**
+   * extra: 처음에 보일 화면의 id(번호보다 우선한다). 탭을 떼어 새 화면 · 새 창을 한꺼번에 만들 때, 새 화면이 아직 세션 파일에 없어도
+   * 소유자 창이 보내 주는 상태에 그 화면이 오면 그리로 간다
+   */
+  readonly screenId?: string | null
   /** extra: 앱 창 이름(B · C …). 메인 창은 늘 A */
   readonly client?: string | null
 }
@@ -56,14 +61,16 @@ export function parseWindowMode(search: string): WindowMode {
   }
 }
 
-function extraParams(params: URLSearchParams): Pick<WindowMode, 'session' | 'screen' | 'client'> {
+function extraParams(params: URLSearchParams): Pick<WindowMode, 'session' | 'screen' | 'screenId' | 'client'> {
   const session = params.get('session')
+  const screenId = params.get('screenid')
   const screenValue = params.get('screen')
   const screen = screenValue === null || screenValue === '' ? null : Number(screenValue)
   const client = params.get('client')
   return {
     session: session === null || session === '' ? null : session,
     screen: screen !== null && Number.isInteger(screen) && screen >= 0 ? screen : null,
+    screenId: screenId !== null && /^[A-Za-z0-9_-]{1,40}$/u.test(screenId) ? screenId : null,
     client: client !== null && /^[A-Z]$/u.test(client) ? client : null,
   }
 }
@@ -81,6 +88,7 @@ export function windowQuery(mode: Omit<WindowMode, 'zoom'> & { readonly zoom?: D
   if (mode.vaultRoot !== null) params.set('vault', mode.vaultRoot)
   if (mode.session !== undefined && mode.session !== null) params.set('session', mode.session)
   if (mode.screen !== undefined && mode.screen !== null) params.set('screen', String(mode.screen))
+  if (mode.screenId !== undefined && mode.screenId !== null) params.set('screenid', mode.screenId)
   if (mode.client !== undefined && mode.client !== null) params.set('client', mode.client)
   return params.toString()
 }

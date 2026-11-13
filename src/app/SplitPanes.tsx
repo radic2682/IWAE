@@ -49,6 +49,8 @@ interface SplitPanesProps {
   renderPane: (paneId: string, index: number) => React.ReactNode
   /** 칸 머리(색 점 · 번호 · 탭 줄 · ⋯ 메뉴). 칸이 하나여도 늘 칸 맨 위에 놓인다 */
   renderHead?: (paneId: string, index: number) => React.ReactNode
+  /** 트리 칸 머리를 눌렀다(칸 통째로 끌기의 시작 후보. 떠 있는 칸의 머리는 따로 끈다) */
+  onHeadPointerDown?: (event: React.PointerEvent<HTMLElement>, paneId: string) => void
   /** 칸의 색 채널(카드 테두리의 색). 없으면 `--divider` · `--accent` 테두리 */
   paneChannel?: (paneId: string) => PaneChannel
   /** 칸 카드 어디든(머리의 빈 곳 포함) 눌렀다: 그 칸을 만지는 칸으로 삼는다 */
@@ -117,6 +119,7 @@ export function SplitPanes({
   onRootChange,
   renderPane,
   renderHead,
+  onHeadPointerDown,
   paneChannel,
   paneEmpty,
   onFocusPane,
@@ -426,7 +429,7 @@ export function SplitPanes({
               >
                 {/* 칸 하나 = 둥근 카드 하나(머리 + 본문). 칸 사이 틈은 CSS 가 낸다 */}
                 <PaneCard paneId={paneId} channel={paneChannel?.(paneId) ?? null} active={cardActive(paneId)} empty={paneEmpty?.(paneId) ?? false} onFocusPane={onFocusPane}>
-                  {renderHead !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head={paneId}>{renderHead(paneId, index)}</div> : null}
+                  {renderHead !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head={paneId} onPointerDown={onHeadPointerDown === undefined ? undefined : (event) => onHeadPointerDown(event, paneId)}>{renderHead(paneId, index)}</div> : null}
                   <div className="pane-grid-body">{renderPane(paneId, index)}</div>
                 </PaneCard>
               </div>

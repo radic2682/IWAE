@@ -220,6 +220,8 @@ pub struct TabDragState {
 pub struct BeginTabDrag {
     /// "new": doc_id 의 PDF 를 떼어 낸 새 창을 끌고 간다 · "self": 이 창을 통째로 끌고 간다
     pub mode: String,
+    /// new: 끌고 갈 새 창의 종류. "detached"(기본, PDF 를 떼어 낸 창) · "extra"(세션에 붙는 새 앱 창: 노트 · Markdown 탭을 새 화면에 담아 떼어 낸 것)
+    pub kind: Option<String>,
     pub doc_id: Option<String>,
     pub query: Option<String>,
     /// new: 새 창 안에서 마우스가 놓일 자리(왼쪽 위에서, 물리 픽셀)
@@ -348,6 +350,15 @@ pub fn report_tab_zones(window: tauri::WebviewWindow, state: State<'_, TabDragSt
     }
 }
 
+/// 탭을 끌어 새로 여는 창의 종류. 안 정하면 PDF 를 떼어 낸 창이다
+fn drag_window_kind(kind: Option<&str>) -> Result<&'static str, String> {
+    match kind {
+        None | Some("detached") => Ok("detached"),
+        Some("extra") => Ok("extra"),
+        Some(other) => Err(format!("unknown drag window kind: {other}")),
+    }
+}
+
 /// 탭 끌기를 시작한다: 끄는 창(새로 떼어 낸 창이거나 이 창 자신)이 마우스를 따라 움직이고,
 /// 마우스를 놓으면 `iwae:tab-drag-released` 를 이 창에 보낸다
 #[tauri::command]
@@ -376,9 +387,15 @@ pub async fn begin_tab_drag(
 
     let (dragged, grab) = match args.mode.as_str() {
         "new" => {
-            let doc = args.doc_id.clone().ok_or_else(|| "doc_id is required".to_string())?;
             let query = args.query.clone().unwrap_or_default();
-            let (created, label, existing) = build_app_window(&app, "detached", Some(doc), &query, false)?;
+            let (created, label, existing) = match drag_window_kind(args.kind.as_deref())? {
+                // 새 앱 창은 문서가 없다: 주소의 session · screen 이 보일 화면을 정한다
+                "extra" => build_app_window(&app, "extra", None, &query, false)?,
+                kind => {
+                    let doc = args.doc_id.clone().ok_or_else(|| "doc_id is required".to_string())?;
+                    build_app_window(&app, kind, Some(doc), &query, false)?
+                }
+            };
             if existing {
                 focus(&created);
                 return Ok(BeginTabDragResult { label, existing: true });
@@ -541,6 +558,14 @@ mod tests {
         assert!(!is_app_client_label("detached-0123abcd"));
         assert!(!is_app_client_label("mainframe"));
         assert!(!is_app_client_label(""));
+    }
+
+    #[test]
+    fn dragged_window_kind_defaults_to_a_detached_pdf_window() {
+        assert_eq!(drag_window_kind(None), Ok("detached"));
+        assert_eq!(drag_window_kind(Some("detached")), Ok("detached"));
+        assert_eq!(drag_window_kind(Some("extra")), Ok("extra"));
+        assert!(drag_window_kind(Some("main")).is_err());
     }
 
     #[test]

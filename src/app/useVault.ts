@@ -492,6 +492,8 @@ export function useVault(options: UseVaultOptions = {}) {
   const { panes, channels, layout: paneLayout } = workspace
   const screensStateRef = useRef(screensState)
   screensStateRef.current = screensState
+  /** 이 창이 아직 찾지 못한 「처음에 보일 화면」 id(세션 파일에 아직 없는 새 화면): 소유자가 보내 주는 상태에 오면 그리로 가고 비운다 */
+  const wantedScreenRef = useRef<string | null>(windowMode.role === 'extra' ? windowMode.screenId ?? null : null)
   const setWorkspace = useCallback((update: SetStateAction<TreeWorkspace>) => {
     setScreensState((current) => {
       const now = workspaceOf(activeScreenOf(current))
@@ -698,9 +700,15 @@ export function useVault(options: UseVaultOptions = {}) {
       ))
       setOpenedDocs(documents)
       // 새 앱 창은 연 창이 정해 준 화면에서 시작한다
-      const startScreens = windowMode.role === 'extra' && windowMode.screen !== undefined && windowMode.screen !== null
-        ? switchScreenAt(restoredSession.screens, windowMode.screen)
-        : restoredSession.screens
+      // 화면 id 가 우선이다(탭을 떼어 새 화면과 새 창을 같이 만들 때): 파일에 아직 없으면 소유자가 보내 주는 상태에서 찾는다(applyRemoteSession)
+      const wantedScreenId = windowMode.role === 'extra' ? windowMode.screenId ?? null : null
+      const hasWantedScreen = wantedScreenId !== null && restoredSession.screens.screens.some((screen) => screen.id === wantedScreenId)
+      if (hasWantedScreen) wantedScreenRef.current = null
+      const startScreens = hasWantedScreen
+        ? switchScreen(restoredSession.screens, wantedScreenId)
+        : windowMode.role === 'extra' && windowMode.screen !== undefined && windowMode.screen !== null
+          ? switchScreenAt(restoredSession.screens, windowMode.screen)
+          : restoredSession.screens
       const restoredOrder = leaves(activeScreenOf(startScreens).layout)
       paneRouteRef.current = { doc: restoredOrder[0]!, note: restoredOrder[1] ?? restoredOrder[0]! }
       setScreensState(startScreens)
@@ -990,7 +998,14 @@ export function useVault(options: UseVaultOptions = {}) {
       remote = restored.screens
     }
     dormantTabsRef.current = { ...dormantTabsRef.current, ...dormantTabsOf(screensFromSession(session, null, t('읽기')), dormantIds) }
-    setScreensState((current) => mergeRemoteScreens(current, remote))
+    // 새 창이 보기로 한 화면(떼어 낸 탭의 새 화면)이 처음으로 도착했으면 그리로 간다(한 번만)
+    const wantedScreenId = wantedScreenRef.current
+    const arrived = wantedScreenId !== null && remote.screens.some((screen) => screen.id === wantedScreenId)
+    if (arrived) wantedScreenRef.current = null
+    setScreensState((current) => {
+      const merged = mergeRemoteScreens(current, remote)
+      return arrived ? switchScreen(merged, wantedScreenId) : merged
+    })
     // 상태가 화면에 닿을 때까지(엔진이 그 사이의 변화를 「우리가 만든 것」으로 세지 않게)
     await new Promise<void>((resolve) => { window.setTimeout(resolve, 60) })
   }, [])
