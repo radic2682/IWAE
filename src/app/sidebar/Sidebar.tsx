@@ -1,6 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { fitMenuInViewport } from '../../ui/fitMenu'
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
+import { LEFT_BAR_BASE } from '../../core/barZoom'
 import { startInternalDrag } from '../../core/internalDrag'
 import { createPillGhost, startDockSession, type DockSession, type SidebarDropItem, type SidebarPaneDrop } from '../workspace/dockSession'
 import { setDockDragging, setDockDropOk } from '../workspace/tabDrag'
@@ -1681,7 +1682,8 @@ export function Sidebar({
     <nav
       ref={sidebarRef}
       className="sidebar-inner"
-      style={{ '--bar-zoom': leftZoom } as CSSProperties}
+      // 표시 100% = 실제 90%(LEFT_BAR_BASE)
+      style={{ '--bar-zoom': leftZoom * LEFT_BAR_BASE } as CSSProperties}
       onKeyDown={(event) => {
         // 메뉴·이름 바꾸기가 열려 있을 때의 Escape 는 그것만 닫는다.
         // 라이브러리 모드를 접는 앱 단축키까지 가면 정리하던 화면이 사라진다.

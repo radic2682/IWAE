@@ -6,6 +6,16 @@ export const BAR_ZOOM_MIN = 0.8
 export const BAR_ZOOM_MAX = 1.5
 export const BAR_ZOOM_STEP = 0.1
 export const BAR_ZOOM_DEFAULT = 1
+/**
+ * 왼쪽 바의 「100%」가 실제로 그리는 배율. 사용자가 90% 크기를 기본으로 두고 그것을 100% 로 보이게 하자고 했다(2026-11-13).
+ * 저장 · 표시 값(leftBarZoom)은 그대로 80~150% 이고, 그릴 때만 이 값을 곱한다
+ */
+export const LEFT_BAR_BASE = 0.9
+
+/** 예전(기준 1) 에 저장된 왼쪽 바 배율을 새 기준(0.9 = 100%) 으로 옮긴다: 같은 크기로 보이게 나눈다 */
+export function migrateLeftBarZoom(oldZoom: unknown): number {
+  return typeof oldZoom === 'number' && Number.isFinite(oldZoom) ? clampBarZoom(oldZoom / LEFT_BAR_BASE) : BAR_ZOOM_DEFAULT
+}
 
 /** 80%~150% 안으로, 소수 둘째 자리까지. 숫자가 아니면 100% */
 export function clampBarZoom(value: unknown): number {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BAR_ZOOM_MAX, BAR_ZOOM_MIN, clampBarZoom, stepBarZoom, wheelZoomSteps } from './barZoom'
+import { BAR_ZOOM_MAX, BAR_ZOOM_MIN, LEFT_BAR_BASE, clampBarZoom, migrateLeftBarZoom, stepBarZoom, wheelZoomSteps } from './barZoom'
 
 describe('barZoom', () => {
   it('80%~150% 안으로 맞추고, 숫자가 아니면 100%', () => {
@@ -32,5 +32,11 @@ describe('barZoom', () => {
     expect(wheelZoomSteps(0, -30)).toEqual({ steps: 0, rest: -30 })
     expect(wheelZoomSteps(-30, -80)).toEqual({ steps: 1, rest: -10 })
     expect(wheelZoomSteps(0, -250)).toEqual({ steps: 2, rest: -50 })
+  })
+  it('왼쪽 바는 실제 90% 를 100% 로 보인다: 예전 값은 같은 크기가 되게 나눠 옮긴다', () => {
+    expect(LEFT_BAR_BASE).toBe(0.9)
+    expect(migrateLeftBarZoom(0.9)).toBe(1)
+    expect(migrateLeftBarZoom(1)).toBe(1.11)
+    expect(migrateLeftBarZoom('x')).toBe(1)
   })
 })

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { BAR_ZOOM_DEFAULT, clampBarZoom } from '../core/barZoom'
+import { BAR_ZOOM_DEFAULT, clampBarZoom, migrateLeftBarZoom } from '../core/barZoom'
 import { sanitizeOverrides, setShortcutOverrides } from '../core/shortcutRegistry'
 import { DEFAULT_HIGHLIGHT_COLORS, parseHighlightColors, type HighlightColorDef } from '../core/highlightColors'
 
@@ -44,13 +44,15 @@ export interface AppPrefs extends AppFlagPrefs {
 const DEFAULT_FLAGS: AppFlagPrefs = { singleKeyShortcuts: true, mouseGestures: true, autoIndex: true, ocr: true, previewTabs: true, prefixKeyAsked: false }
 export const DEFAULT_APP_PREFS: AppPrefs = { ...DEFAULT_FLAGS, leftBarZoom: BAR_ZOOM_DEFAULT, rightBarZoom: BAR_ZOOM_DEFAULT, libraryZoom: BAR_ZOOM_DEFAULT, libraryView: 'list', highlightColors: DEFAULT_HIGHLIGHT_COLORS, otherNoteHighlights: 'dim', shortcuts: {} }
 const KEY = 'iwae:app-prefs:v1'
+/** 저장할 때 함께 쓰는 표시: 왼쪽 바 배율이 새 기준(0.9 = 100%) 의 값이다. 없으면 예전 값이라 옮긴다 */
+const LEFT_BAR_SCALE_VERSION = 2
 
 /** 저장된 JSON 에서 읽는다. 모르는 값·잘못된 값은 기본값, 확대는 80~150% 로 바로잡는다 */
 export function parseAppPrefs(text: string | null): AppPrefs {
   try {
-    const saved = JSON.parse(text ?? '{}') as Partial<Record<keyof AppPrefs, unknown>>
+    const saved = JSON.parse(text ?? '{}') as Partial<Record<keyof AppPrefs | 'leftBarZoomScale', unknown>>
     const flags = Object.fromEntries(Object.entries(DEFAULT_FLAGS).map(([key, base]) => [key, typeof saved[key as keyof AppFlagPrefs] === 'boolean' ? saved[key as keyof AppFlagPrefs] : base])) as unknown as AppFlagPrefs
-    return { ...flags, leftBarZoom: clampBarZoom(saved.leftBarZoom), rightBarZoom: clampBarZoom(saved.rightBarZoom), libraryZoom: clampBarZoom(saved.libraryZoom), libraryView: saved.libraryView === 'grid' ? 'grid' : 'list', highlightColors: parseHighlightColors(saved.highlightColors), otherNoteHighlights: saved.otherNoteHighlights === 'normal' || saved.otherNoteHighlights === 'hide' ? saved.otherNoteHighlights : 'dim', shortcuts: sanitizeOverrides(saved.shortcuts) }
+    return { ...flags, leftBarZoom: saved.leftBarZoomScale === LEFT_BAR_SCALE_VERSION ? clampBarZoom(saved.leftBarZoom) : migrateLeftBarZoom(saved.leftBarZoom), rightBarZoom: clampBarZoom(saved.rightBarZoom), libraryZoom: clampBarZoom(saved.libraryZoom), libraryView: saved.libraryView === 'grid' ? 'grid' : 'list', highlightColors: parseHighlightColors(saved.highlightColors), otherNoteHighlights: saved.otherNoteHighlights === 'normal' || saved.otherNoteHighlights === 'hide' ? saved.otherNoteHighlights : 'dim', shortcuts: sanitizeOverrides(saved.shortcuts) }
   } catch {
     return { ...DEFAULT_APP_PREFS }
   }
@@ -75,7 +77,7 @@ export function getAppPrefs(): AppPrefs {
 export function setAppPref<K extends keyof AppPrefs>(key: K, value: AppPrefs[K]): void {
   prefs = { ...prefs, [key]: key === 'leftBarZoom' || key === 'rightBarZoom' || key === 'libraryZoom' ? clampBarZoom(value) : value }
   setShortcutOverrides(prefs.shortcuts)
-  try { window.localStorage.setItem(KEY, JSON.stringify(prefs)) } catch { /* 이번 실행만 */ }
+  try { window.localStorage.setItem(KEY, JSON.stringify({ ...prefs, leftBarZoomScale: LEFT_BAR_SCALE_VERSION })) } catch { /* 이번 실행만 */ }
   for (const listener of listeners) listener()
 }
 

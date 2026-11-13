@@ -5,7 +5,10 @@ import { DEFAULT_APP_PREFS, getAppPrefs, parseAppPrefs, setAppPref } from './app
 describe('appPrefs — 바 확대', () => {
   it('예전 저장값(확대 없음)은 100% 로 읽고, 잘못된 값은 바로잡는다', () => {
     expect(parseAppPrefs('{"ocr":false}')).toEqual({ ...DEFAULT_APP_PREFS, ocr: false })
-    expect(parseAppPrefs('{"leftBarZoom":1.3,"rightBarZoom":0.5}')).toMatchObject({ leftBarZoom: 1.3, rightBarZoom: 0.8 })
+    expect(parseAppPrefs('{"leftBarZoom":1.3,"leftBarZoomScale":2,"rightBarZoom":0.5}')).toMatchObject({ leftBarZoom: 1.3, rightBarZoom: 0.8 })
+    // 예전 기준(1 = 100%) 의 왼쪽 바 값은 새 기준(0.9 = 100%) 으로 옮긴다: 예전 90% 는 이제 100% 로 보인다
+    expect(parseAppPrefs('{"leftBarZoom":0.9}').leftBarZoom).toBe(1)
+    expect(parseAppPrefs('{}').leftBarZoom).toBe(1)
     expect(parseAppPrefs('{"leftBarZoom":"big","rightBarZoom":99}')).toMatchObject({ leftBarZoom: 1, rightBarZoom: 1.5 })
     expect(parseAppPrefs('깨진 글')).toEqual(DEFAULT_APP_PREFS)
     expect(parseAppPrefs(null)).toEqual(DEFAULT_APP_PREFS)
