@@ -749,9 +749,12 @@ describe('상단바 도구줄 · 앱 단추의 키보드 초점 고리', () => {
 })
 
 describe('상단바 도구줄 묶음 테두리 · 맨 윗줄 칸 위 틈', () => {
-  it('묶음 전체를 두르는 테두리는 1px --divider 하나, 칩과 같은 둥글기, 안쪽 여백 2px(테두리 포함 3px)', () => {
+  it('묶음 전체는 선 없는 옅은 바탕 하나(30px, 위아래 3px 숨), 칩과 같은 둥글기', () => {
     const selector = ".topbar-toolbar-host[data-owner][style*='--cluster-w']::before"
-    expect(ruleDecl('workspace-surface.css', selector, 'border')).toBe('1px solid var(--divider)')
+    // 선 상자(34px)는 36px 줄에서 위아래 1px 만 남아 답답했다(2026-11-13): 선을 없애고 바탕만 둔다
+    expect(ruleDecl('workspace-surface.css', selector, 'border')).toBeUndefined()
+    expect(ruleDecl('workspace-surface.css', selector, 'background')).toBe('color-mix(in srgb, var(--text-strong) 6%, transparent)')
+    expect(ruleDecl('workspace-surface.css', selector, 'height')).toBe('calc(var(--icon-btn) + 2px)')
     expect(ruleDecl('workspace-surface.css', selector, 'border-radius')).toBe('var(--r-md)')
     expect(ruleDecl('workspace-surface.css', selector, 'width')).toBe('var(--cluster-w)')
     expect(ruleDecl('workspace-surface.css', '.topbar-toolbar-host[data-owner]', 'padding-left')).toBe('3px')
