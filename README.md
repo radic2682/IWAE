@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.1.19" src="https://img.shields.io/badge/version-0.1.19-2563eb">
+  <img alt="Version 0.2.2" src="https://img.shields.io/badge/version-0.2.2-2563eb">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca">
   <img alt="Platform: Windows (macOS coming soon)" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20soon-0078d4">
@@ -31,7 +31,7 @@ Most PDF readers open one file at a time and leave the organizing to your file m
 
 - **Your folder is the library.** Open any folder (a **Vault**) and its PDFs and Markdown files appear as they are on disk. Nothing is imported or locked in.
 - **Highlight, and the memo is already there.** Select a sentence and a memo opens in the note, joined to the highlight by a line. Click the memo later and the PDF jumps back to that sentence.
-- **Read side by side.** tmux-style panes (prefix key `Ctrl+B`), screens and sessions, dragging tabs and panes, and tabs you can pull out into a new app window. A note is a tab too, so it sits in a pane beside the document.
+- **Read side by side.** tmux-style panes (prefix key: `Ctrl+Space` recommended, `Ctrl+B` default), screens and sessions, dragging tabs and panes, and tabs you can pull out into a new app window. A note is a tab too, so it sits in a pane beside the document.
 - **Yours, and local.** Everything is stored in your Vault folder. Only text you choose to translate with a cloud service, or an external AI you connect yourself, ever leaves your PC.
 
 <p align="center">
@@ -40,13 +40,13 @@ Most PDF readers open one file at a time and leave the organizing to your file m
 
 ## Quick start
 
-1. [Install IWAE](#install) and open it. Choose **Start with an example** to get a Vault with example documents, or **Open my folder** to use your own (an empty folder gets the example too).
-2. Open **IWAE User Guide** in the left bar. It is a tutorial PDF. Every chapter has a “Try it” box that you do on the same PDF: highlight a sentence, capture a figure, translate a paragraph.
-3. Open the **Tour of IWAE** note under “Notes” and click a memo card. The PDF jumps to the sentence it was written for. Then add a memo of your own.
-4. Run **Getting started** from the command palette (`Ctrl+K`) for a short walk through the left bar, panes and color channels. After an update, **What's new tour** shows what changed.
+1. [Install IWAE](#install) and open it. Choose **Start with an example** to get a Vault with example documents, or **Open my folder** to use your own (an empty folder gets the example too). On the first run IWAE also asks for a prefix key. `Ctrl+Space` is recommended and preselected; choose **Later** to keep the default, `Ctrl+B`.
+2. The example opens for you: **IWAE User Guide**, a tutorial PDF, and the **Tour of IWAE** note sit side by side on the same color channel. Click a memo card in the note and the PDF jumps to the sentence it was written for.
+3. A short tour starts on the first run. It follows the real loop: highlight, memo card, color channel, region capture, format bar, panes, prefix key, search, menu and translator. Run **Getting started** again from the command palette (`Ctrl+K`) any time. After an update, **What's new tour** shows what changed.
+4. Every chapter of the guide has a “Try it” box that you do on the same PDF: highlight a sentence, capture a figure, translate a paragraph. Then add a memo of your own.
 
 <p align="center">
-  <img src="docs/images/tour.gif" width="900" alt="The Getting started tour: a welcome card, then the left bar, a pane head and the color channel dot highlighted one by one">
+  <img src="docs/images/tour.gif" width="900" alt="The Getting started tour on the first run: the User Guide and the example note side by side, then a welcome card, the highlighted sentence, its memo card, the color channel dot and region capture explained one by one">
 </p>
 
 The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public/sample-vault/iwae-manual.pdf)) is 12 pages and starts with a one-page summary.
@@ -73,11 +73,11 @@ Right-click a document, choose **Group with another file as versions…**, and p
 
 ### Read side by side
 
-- Every document gets a tab, and tabs live in **panes**. Panes split the tmux way: press the prefix key (`Ctrl+B` by default), then `%` or `"` to split, arrow keys to move, `z` to zoom and `x` to close. The “⋯” menu in a pane head and the command palette (`Ctrl+K`) do the same.
-- A **screen** is a set of panes (templates: Reading, Note left, Compare). A **session** saves several screens under a name. **Floating panes** sit over the screen.
-- Drag tabs like browser tabs: reorder, move to another pane, **drop on a pane edge to split**, **drag out into a new app window**. Dragging a pane head swaps or moves panes.
+- Every document gets a tab, and tabs live in **panes**. Panes split the tmux way: press the prefix key (`Ctrl+Space` recommended, `Ctrl+B` default), then `%` or `"` to split, arrow keys to move, `z` to zoom and `x` to close. The “⋯” menu in a pane head and the command palette (`Ctrl+K`) do the same. The pane head also has zoom and close buttons.
+- A **screen** is a set of panes (templates: Reading, Note left, Compare). The ＋ in the screen tabs makes a blank screen at once; right-click it for the templates. A **session** saves several screens under a name. **Floating panes** sit over the screen.
+- Drag tabs like browser tabs: reorder, move to another pane, **drop on a pane edge to split**, **drag out into a new app window**. Dragging a pane head swaps or moves panes. A PDF dropped from outside the app opens in the pane under the cursor instead of being imported.
 - While the prefix key is pending, a chip in the top row shows it. Prefix then `?` opens the key list, and `c` makes a new screen, which gets its own tab in the top row.
-- The color dot in a pane head is its **color channel**. Panes with the same color are linked, so a highlight in a document pane and its memo in the neighboring note pane are joined by a line.
+- The color dot in a pane head is its **color channel**. Panes with the same color are linked, so a highlight in a document pane and its memo in a note pane are joined by a line. The line also reaches panes that are not side by side (stacked, diagonal or further away); far lines stay faint until you point at the memo or its highlight.
 - **New window** (`Ctrl+Shift+N`) is a second app window on the same session. Changes sync live and are merged, never overwritten.
 - Single page, two- or three-page spreads, continuous scroll, fit width, fit page, rotation, dark-mode color inversion.
 - Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump and go back with the mouse back button.
@@ -92,7 +92,7 @@ Right-click a document, choose **Group with another file as versions…**, and p
 
 ### Highlight, memo, and jump back
 
-Select text and a memo opens in the note. The memo is linked to its highlight by a connector line that crosses panes and takes the highlight's color. Click the memo and the PDF returns to the spot.
+Select text and a memo opens in the note. The memo is linked to its highlight by a connector line that crosses panes and takes the highlight's color. Click the memo and the PDF returns to the spot. Opening a note from the left bar when only one pane is shown puts it as a tab in that pane.
 
 <p align="center">
   <img src="docs/images/memo.gif" width="900" alt="Selecting a sentence in a PDF, writing a memo for it in the note pane, scrolling away, then clicking the memo to jump back to the highlighted sentence">
@@ -101,7 +101,7 @@ Select text and a memo opens in the note. The memo is linked to its highlight by
 | Tool | What it does |
 | --- | --- |
 | Select text | Highlight text and open a memo for it in the note. |
-| Region capture | Box a table or figure and add it to the note as an image, resizable afterwards. |
+| Region capture | Box a table or figure and add it to the note as an image, resizable afterwards. With no note open it shows a notice instead of opening one. |
 | Highlight | Paint passages in your own named colors (up to eight) without writing a memo. |
 | Box memo | Attach a memo box in the page margin, connected by a line. |
 | Text box, pen, line, arrow, shapes, eraser | Write and draw directly on the page. The eraser also removes highlights and box memos. |
@@ -114,7 +114,7 @@ Box a chart or table to add it to the note as an image, with your description:
 
 ### Notes that stay linked
 
-A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. A note is a tab like any other, so it opens in its own pane, scrolls on its own and has its own zoom. Drag memo blocks onto another note pane to move them, or hold `Alt` when you drop to link them. `Ctrl+Shift+M` opens or closes a note beside the document.
+A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. A note is a tab like any other, so it opens in its own pane, scrolls on its own and has its own zoom. Drag memo blocks onto another note pane to move them, or hold `Alt` when you drop to link them. `Ctrl+Shift+M` opens or closes a note beside the document. Memos, Markdown and PDF text boxes, and canvas text share one **format bar**; the grip on its left floats it, docks it back or centres it.
 
 <p align="center">
   <img src="docs/images/memo-drag.gif" width="900" alt="Two note panes side by side: dragging a memo card into the other note with a drop line, then Alt-dragging another card to link it, marked with a link badge">
@@ -125,7 +125,8 @@ A note is built from blocks, and one note can mix memos from several PDFs and Ma
 - **Section** groups the blocks under it; collapse it or drag it as one unit. **Text** is free writing with bold, lists, tables and code.
 - Select several blocks (Ctrl+click or Shift+click) and drag them together.
 - **A note per PDF:** each PDF can have its own notes, listed under it in the left bar, with a note switcher in the note tab title.
-- **Wide note view:** drag the note pane wide and it becomes a wide column with an outline, for organizing and polishing.
+- **Wide note view:** drag the note pane wide and the cards are centered in a wide column. Region pictures in cards stop at a sensible size instead of growing with the pane.
+- **Minimap:** turn on a VS Code style minimap from the note to see the whole note and jump around. It is off by default.
 
 <p align="center">
   <img src="docs/images/ticket.gif" width="900" alt="Adding the ID SLEEP-01 and a title to a memo, then giving the next memo the suggested ID SLEEP-02 and a title">
@@ -143,7 +144,7 @@ A note is built from blocks, and one note can mix memos from several PDFs and Ma
   <img src="docs/images/search.gif" width="900" alt="Searching the whole Vault for the word canopy and opening the first result at the matching passage">
 </p>
 
-The left bar, the note pane and the library each zoom separately with Ctrl+wheel (80 to 150%).
+The left bar, the note pane and the library each zoom separately with Ctrl+wheel (80 to 150%, 100% is the default).
 
 ### PDF tools
 
@@ -220,7 +221,7 @@ On macOS use `⌘` instead of `Ctrl`. The full list is in **Settings → Shortcu
 | Keys | Action |
 | --- | --- |
 | `Ctrl+Shift+P` / `Ctrl+K` | Command palette (commands, PDF tools and documents) |
-| `Ctrl+B` | Prefix key. Next key: `%` `"` split, arrows move, `z` zoom, `x` close, `c` new screen, `n` `p` switch screens, `f` floating panes, `w` translator, `?` key list |
+| Prefix key (`Ctrl+Space` recommended, `Ctrl+B` default) | Next key: `%` `"` split, arrows move, `z` zoom, `x` close, `c` new screen, `n` `p` switch screens, `f` floating panes, `w` translator, `?` key list |
 | `Ctrl+Shift+N` | New window |
 | `Ctrl+,` | Settings |
 | `Ctrl+F` / `Ctrl+Shift+F` | Find in this document / search all documents |
