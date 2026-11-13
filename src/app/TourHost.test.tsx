@@ -136,8 +136,18 @@ describe('TourOverlay', () => {
     render(<TourOverlay tour={onboarding} prefixText="Ctrl+A" onFinish={vi.fn()} />)
     for (let index = 0; index < 6; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
     const caps = [...document.querySelectorAll('#tour-card-body kbd.tour-keycap')].map((element) => element.textContent)
-    expect(caps).toEqual(['Ctrl+A', 'Ctrl+A'])
+    expect(caps).toEqual(['Ctrl+A', '%', 'Ctrl+A', '?'])
     expect(document.getElementById('tour-card-body')?.textContent).not.toContain('{prefix}')
+  })
+
+  it('번역기 단계의 둘째 문장은 번역이 꺼져 있을 때만 설정을 안내한다', () => {
+    const { unmount } = render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
+    for (let index = 0; index < 8; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    expect(document.getElementById('tour-card-body')?.textContent).toContain('설정에서 번역을 켜면')
+    unmount()
+    render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" translationOn onFinish={vi.fn()} />)
+    for (let index = 0; index < 8; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    expect(document.getElementById('tour-card-body')?.textContent).toContain('이 단추로 번역기를 엽니다')
   })
 
   it('Tab 은 카드 안에서만 돈다', () => {

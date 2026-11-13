@@ -40,20 +40,21 @@ export function resolveTourTarget(name: string, root: ParentNode = document): HT
   return ordered.find((element) => element.closest('[inert]') === null && rectVisible(toRect(element.getBoundingClientRect()), viewport)) ?? null
 }
 
-/** 본문의 `{prefix}` 자리를 지금 접두키 키캡으로 바꿔 그린다 */
+/** 본문의 `{prefix}`(지금 접두키)와 `{k:키}` 자리를 키캡으로 바꿔 그린다. 조사는 키캡 바로 뒤에 붙는다 */
 function renderBody(body: string, prefixText: string): ReactNode {
-  const parts = t(body).split('{prefix}')
-  return parts.map((part, index) => (
-    <Fragment key={index}>
-      {index > 0 ? <kbd className="keycap tour-keycap">{prefixText}</kbd> : null}
-      {part}
-    </Fragment>
-  ))
+  const parts = t(body).split(/(\{prefix\}|\{k:[^}]+\})/u)
+  return parts.map((part, index) => {
+    if (part === '{prefix}') return <kbd key={index} className="keycap tour-keycap">{prefixText}</kbd>
+    if (part.startsWith('{k:')) return <kbd key={index} className="keycap tour-keycap">{part.slice(3, -1)}</kbd>
+    return <Fragment key={index}>{part}</Fragment>
+  })
 }
 
 interface TourOverlayProps {
   readonly tour: Tour
   readonly prefixText: string
+  /** 번역이 켜져 있는가(번역기 단계의 글이 달라진다) */
+  readonly translationOn?: boolean
   /** 끝까지 봤거나(마치기) 건너뛰었다(Esc · ×) */
   readonly onFinish: () => void
 }
@@ -63,7 +64,7 @@ interface TourOverlayProps {
  * 안내만 한다: 어두운 곳도 뚫린 곳도 클릭을 통과시키지 않는다(둘러보다가 사용자 배치가 바뀌면 안 된다).
  * Esc 는 건너뛰기, → · Enter 는 다음, ← 는 이전.
  */
-export function TourOverlay({ tour, prefixText, onFinish }: TourOverlayProps) {
+export function TourOverlay({ tour, prefixText, translationOn = false, onFinish }: TourOverlayProps) {
   const [index, setIndex] = useState(0)
   const [target, setTarget] = useState<TourRect | null>(null)
   const [cardSize, setCardSize] = useState<{ width: number; height: number }>(GUESS_CARD)
@@ -189,7 +190,7 @@ export function TourOverlay({ tour, prefixText, onFinish }: TourOverlayProps) {
           <X size={14} weight="bold" aria-hidden="true" />
         </button>
         <h2 id="tour-card-title" className="tour-title">{t(step.title)}</h2>
-        <p id="tour-card-body" className="tour-body">{renderBody(step.body, prefixText)}</p>
+        <p id="tour-card-body" className="tour-body">{renderBody(translationOn && step.bodyWhenTranslationOn !== undefined ? step.bodyWhenTranslationOn : step.body, prefixText)}</p>
         <div className="tour-foot">
           <span className="tour-count">{index + 1} / {total}</span>
           <div className="tour-actions">
@@ -211,6 +212,7 @@ interface TourHostProps {
   readonly version: string
   /** 지금 접두키 표기 */
   readonly prefixText: string
+  readonly translationOn?: boolean
   /** 「새 버전」 창이 보일지 가늠하는 노트(시험에서 바꾼다) */
   readonly notes?: readonly ReleaseNote[]
 }
@@ -222,7 +224,7 @@ interface TourHostProps {
  * - 직접: 팔레트·메뉴가 requestTour 로 부른다. 본 적이 있어도 열린다.
  * 마치거나 건너뛰면 본 것으로 적는다.
  */
-export function TourHost({ enabled, version, prefixText, notes = BUNDLED_RELEASE_NOTES }: TourHostProps) {
+export function TourHost({ enabled, version, prefixText, translationOn = false, notes = BUNDLED_RELEASE_NOTES }: TourHostProps) {
   const [queue, setQueue] = useState<readonly string[] | null>(null)
   const [manualId, setManualId] = useState<string | null>(null)
   const intent = useSyncExternalStore(subscribeTourIntent, tourIntent, tourIntent)
@@ -259,5 +261,5 @@ export function TourHost({ enabled, version, prefixText, notes = BUNDLED_RELEASE
   }, [activeId, manualId])
 
   if (tour === undefined) return null
-  return <TourOverlay key={tour.id} tour={tour} prefixText={prefixText} onFinish={finish} />
+  return <TourOverlay key={tour.id} tour={tour} prefixText={prefixText} translationOn={translationOn} onFinish={finish} />
 }

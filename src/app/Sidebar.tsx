@@ -1681,7 +1681,6 @@ export function Sidebar({
     <nav
       ref={sidebarRef}
       className="sidebar-inner"
-      data-tour="sidebar-docs"
       style={{ '--bar-zoom': leftZoom } as CSSProperties}
       onKeyDown={(event) => {
         // 메뉴·이름 바꾸기가 열려 있을 때의 Escape 는 그것만 닫는다.
@@ -1768,7 +1767,7 @@ export function Sidebar({
         ) : null}
         {(
         <>
-        <section className={`side-section side-documents-section${sectionDropClass('documents')}`} aria-labelledby="side-documents-heading" {...sectionDropProps('documents')}>
+        <section className={`side-section side-documents-section${sectionDropClass('documents')}`} data-tour="sidebar-docs" aria-labelledby="side-documents-heading" {...sectionDropProps('documents')}>
           <div className="side-head-row side-documents-head">
             <h2 id="side-documents-heading" className="side-head"><Books className="side-section-icon" size={15} aria-hidden="true" />{t('문서')}</h2>
             {headActions}

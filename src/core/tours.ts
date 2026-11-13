@@ -14,6 +14,8 @@ export interface TourStep {
   readonly target?: string
   readonly title: string
   readonly body: string
+  /** 번역이 이미 켜져 있으면 본문 대신 이 글을 보인다 */
+  readonly bodyWhenTranslationOn?: string
   readonly placement?: TourPlacement
 }
 
@@ -41,9 +43,9 @@ export const TOURS: readonly Tour[] = [
       { id: 'pane-head', target: 'pane-head', title: '칸', body: '칸마다 색 점, 번호, 탭 줄이 있습니다. 머리를 끌어 칸을 옮기거나 자리를 바꿉니다.', placement: 'bottom' },
       { id: 'toolbar', target: 'toolbar', title: '도구줄', body: '선택한 칸의 도구가 맨 위 줄에 나옵니다.', placement: 'bottom' },
       { id: 'channel-dot', target: 'channel-dot', title: '색 채널', body: '같은 색 칸끼리 연동됩니다. 글을 칠하면 같은 색 노트 칸에 메모가 생기고 선으로 이어집니다.', placement: 'bottom' },
-      { id: 'screen-tabs', target: 'screen-tabs', title: '화면과 접두키', body: '{prefix}를 누른 다음 %를 누르면 칸을 좌우로 나눕니다. {prefix} 다음 ?를 누르면 키 목록이 나옵니다.', placement: 'bottom' },
-      { id: 'app-menu', target: 'app-menu', title: '명령 팔레트', body: 'Ctrl+K로 모든 명령을 찾습니다. 이 안내는 명령 팔레트의 「처음 사용 안내」로 다시 볼 수 있습니다.', placement: 'bottom' },
-      { id: 'translator', target: 'translator', title: '번역기', body: '고른 글을 번역합니다. 설정에서 번역을 켜면 쓸 수 있습니다.', placement: 'bottom' },
+      { id: 'screen-tabs', target: 'screen-tabs', title: '화면과 접두키', body: '{prefix}를 누른 다음 {k:%}를 누르면 칸을 좌우로 나눕니다. {prefix} 다음 {k:?}를 누르면 키 목록이 나옵니다.', placement: 'bottom' },
+      { id: 'app-menu', target: 'app-menu', title: '메뉴와 명령 팔레트', body: '로고 메뉴와 명령 팔레트({k:Ctrl+K})에서 모든 명령을 찾습니다. 이 안내도 여기서 다시 볼 수 있습니다.', placement: 'bottom' },
+      { id: 'translator', target: 'translator', title: '번역기', body: '고른 글을 번역합니다. 설정에서 번역을 켜면 쓸 수 있습니다.', bodyWhenTranslationOn: '고른 글을 번역합니다. 글을 고른 뒤 이 단추로 번역기를 엽니다.', placement: 'bottom' },
     ],
   },
   {
@@ -56,8 +58,8 @@ export const TOURS: readonly Tour[] = [
       { id: 'toolbar', target: 'toolbar', title: '도구줄이 맨 위로', body: '아래 상태 줄이 없어지고, 선택한 칸의 도구가 맨 위 줄에 나옵니다.', placement: 'bottom' },
       { id: 'pane-head', target: 'pane-head', title: '칸 끌기', body: '칸 머리를 끌어 옮기거나 자리를 바꿉니다. 탭을 창 밖으로 끌면 새 창으로 분리됩니다.', placement: 'bottom' },
       { id: 'channel-dot', target: 'channel-dot', title: '색 점 잇기', body: '색 점을 다른 칸으로 끌면 두 칸이 같은 색으로 이어집니다.', placement: 'bottom' },
-      { id: 'screen-tabs', target: 'screen-tabs', title: '화면과 접두키', body: '{prefix} 다음 %, "로 칸을 나누고 c로 새 화면을 만듭니다. {prefix} 다음 ?로 키 목록을 봅니다.', placement: 'bottom' },
-      { id: 'note-pane', target: 'note-pane', title: '메모 옮기기', body: '메모를 다른 노트로 끌어 옮깁니다. Alt를 누른 채 놓으면 링크가 생깁니다.', placement: 'left' },
+      { id: 'screen-tabs', target: 'screen-tabs', title: '화면과 접두키', body: '{prefix} 다음 {k:%}, {k:"}로 칸을 나누고 {k:c}로 새 화면을 만듭니다. {prefix} 다음 {k:?}로 키 목록을 봅니다.', placement: 'bottom' },
+      { id: 'note-pane', target: 'note-pane', title: '메모 옮기기', body: '메모를 다른 노트로 끌어 옮깁니다. {k:Alt}를 누른 채 놓으면 링크가 생깁니다.', placement: 'left' },
       { id: 'translator', target: 'translator', title: '번역기 창', body: '번역기는 탭이 아니라 앱 위에 뜨는 창입니다. 맨 위 줄 단추로 엽니다.', placement: 'bottom' },
     ],
   },

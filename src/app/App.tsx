@@ -4521,7 +4521,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} onShowHistory={() => { setAboutOpen(false); openUpdateHistory(packageMetadata.version) }} /> : null}
     <WhatsNewHost enabled={isMainWindow && !initializing} version={packageMetadata.version} onShowHistory={openUpdateHistory} />
-    <TourHost enabled={isMainWindow && !initializing && vault !== null} version={packageMetadata.version} prefixText={prefixHint} />
+    <TourHost enabled={isMainWindow && !initializing && vault !== null} version={packageMetadata.version} prefixText={prefixHint} translationOn={translation.settings.enabled} />
     <PrefixKeyHost
       enabled={isMainWindow && !initializing && keysConfPrefix !== null && keysConfPrefix.root === (vault?.root ?? null) && !keysConfPrefix.sets}
       onChooseCustom={() => { setSettingsSection('input'); setSettingsOpen(true) }}
