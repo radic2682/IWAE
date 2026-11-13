@@ -21,11 +21,15 @@ interface Choice {
 }
 
 const CHOICES: readonly Choice[] = [
-  { value: PREFIX_DEFAULT_PRESET, key: 'Ctrl+B', title: '기본 (tmux와 같음)', note: '메모를 쓸 때 Ctrl+B는 굵게입니다. 접두키를 Ctrl+B로 쓰면 편집기 안에서는 Ctrl+B를 두 번 눌러야 굵게가 됩니다.' },
-  { value: 'Ctrl+Space', key: 'Ctrl+Space', note: '서식 단축키와 겹치지 않음. 일부 PC 에서는 입력기 전환과 겹칠 수 있음' },
-  { value: 'Ctrl+A', key: 'Ctrl+A', note: 'screen 방식. 편집기에서 전체 선택은 Ctrl+A 두 번' },
+  // 추천은 Ctrl+Space(사용자 요청 2026-11-13): 메모의 굵게(Ctrl+B)와 겹치지 않는다. 창이 뜨면 미리 골라져 있다
+  { value: 'Ctrl+Space', key: 'Ctrl+Space', title: '추천', note: '서식 단축키와 겹치지 않습니다. 일부 PC에서는 입력기 전환과 겹칠 수 있습니다.' },
+  { value: PREFIX_DEFAULT_PRESET, key: 'Ctrl+B', title: 'tmux와 같음', note: '메모를 쓸 때 Ctrl+B는 굵게입니다. 접두키를 Ctrl+B로 쓰면 편집기 안에서는 Ctrl+B를 두 번 눌러야 굵게가 됩니다.' },
+  { value: 'Ctrl+A', key: 'Ctrl+A', note: 'screen과 같은 방식입니다. 편집기 안에서 전체 선택은 Ctrl+A를 두 번 누릅니다.' },
   { value: CUSTOM, key: '', title: '직접 정하기…' },
 ]
+
+/** 창이 뜰 때 미리 골라 두는 키(추천) */
+const RECOMMENDED_PREFIX = 'Ctrl+Space'
 
 interface PrefixKeyHostProps {
   /** 메인 창이고 시작이 끝났으며 keys.conf 가 접두키를 정하지 않았다고 알아낸 뒤에만 true */
@@ -41,7 +45,7 @@ interface PrefixKeyHostProps {
  */
 export function PrefixKeyHost({ enabled, onChooseCustom }: PrefixKeyHostProps) {
   const { shortcuts, prefixKeyAsked } = useAppPrefs()
-  const [picked, setPicked] = useState(PREFIX_DEFAULT_PRESET)
+  const [picked, setPicked] = useState(RECOMMENDED_PREFIX)
   const wanted = enabled && !prefixKeyAsked && shortcuts[PREFIX_KEY_ID] === undefined
   const turn = useStartupDialog(PREFIX_DIALOG_ID, wanted, PREFIX_DIALOG_PRIORITY)
   if (!turn) return null
