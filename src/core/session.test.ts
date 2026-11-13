@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { PanesState, TabsState } from '../app/tabs'
-import { channelOf } from '../app/workspaceChannels'
+import type { PanesState, TabsState } from '../app/workspace/tabs'
+import { channelOf } from '../app/workspace/workspaceChannels'
 import { layoutForLegacyId, leaves, paneNode, shapeOf } from './layoutTree'
 import { PDF_SPLIT_LAYOUTS, type PdfSplitLayoutId } from './pdfSplit'
 import { captureSession, dormantTabsOf, emptySession, parseSession, readLegacyLayoutId, screensFromSession, singlePaneWorkspace, withoutTranslatorFloats, withoutTranslatorTreeTabs, workspaceFromSession } from './session'

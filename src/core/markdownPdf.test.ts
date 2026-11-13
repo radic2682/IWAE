@@ -42,7 +42,7 @@ describe('Markdown → PDF HTML', () => {
   })
 })
 
-import { markdownHeadings } from '../app/MarkdownOutline'
+import { markdownHeadings } from '../app/documents/MarkdownOutline'
 describe('Markdown 목차', () => {
   it('제목만, 코드 블록 안의 # 은 빼고', () => {
     expect(markdownHeadings('# A\n\ntext\n```\n# not\n```\n## B **bold**\n### C ###')).toEqual([
@@ -51,7 +51,7 @@ describe('Markdown 목차', () => {
   })
 })
 
-import { markdownSectionPreviews } from '../app/MarkdownOutline'
+import { markdownSectionPreviews } from '../app/documents/MarkdownOutline'
 describe('Markdown 절 미리보기', () => {
   it('h1–h3 절마다 제목과 첫 줄들(표 구분선·기호는 뺀다)', () => {
     const sections = markdownSectionPreviews('# A\n\nfirst **line**\n\n| a | b |\n|---|---|\n| 1 | 2 |\n## B\n- item\n#### deep\ntext')

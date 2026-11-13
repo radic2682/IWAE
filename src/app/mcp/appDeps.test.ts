@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { PdfBookmark } from '../../core/pdfBookmarks'
 import type { VaultSearchRecord } from '../../core/vaultSearch'
 import { layoutForCount, layoutForLegacyId, leaves } from '../../core/layoutTree'
-import { emptyTabs, type PanesState } from '../tabs'
-import type { Screen } from '../screens'
+import { emptyTabs, type PanesState } from '../workspace/tabs'
+import type { Screen } from '../workspace/screens'
 import { buildMcpAppDeps, paneIndexOfRef, type McpAppInput } from './appDeps'
 
 vi.mock('../../bridge/pdf', async () => {

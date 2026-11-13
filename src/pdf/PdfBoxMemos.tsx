@@ -5,7 +5,7 @@ import { BOX_MAX_WIDTH, BOX_MIN_WIDTH, boxConnector, clampBox, type MemoBox } fr
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
 import { t } from '../i18n'
-import { useHighlightColors } from '../app/highlightColorStyle'
+import { useHighlightColors } from '../app/documents/highlightColorStyle'
 import { highlightColorLabel } from '../core/highlightColors'
 import '../ui/pdf-box-memo.css'
 import '../ui/context-menu.css'

@@ -22,7 +22,7 @@ import {
 } from './persistentHighlight'
 import { t } from '../i18n'
 import { isFreshHighlight } from './freshHighlight'
-import { menuGuardActive } from '../app/menuGuard'
+import { menuGuardActive } from '../app/workspace/menuGuard'
 
 export type { PdfHighlightColor } from './persistentHighlight'
 

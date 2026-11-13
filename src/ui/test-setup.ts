@@ -57,5 +57,5 @@ afterEach(() => {
 })
 
 // 사이드바 폴더는 앱에서 접힌 것이 기본이지만, 테스트는 안쪽 문서를 바로 찾을 수 있게 펼쳐 둔다
-import { sidebarDefaults } from '../app/sidebarDefaults'
+import { sidebarDefaults } from '../app/sidebar/sidebarDefaults'
 sidebarDefaults.expandAll = true

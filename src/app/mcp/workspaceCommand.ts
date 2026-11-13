@@ -1,9 +1,9 @@
 import { leaves } from '../../core/layoutTree'
-import { activeScreenOf } from '../screens'
-import { isFloatPane } from '../floatingPanes'
-import { tabsOf } from '../tabs'
-import { channelOf } from '../workspaceChannels'
-import type { WorkspaceModel } from '../workspaceCommands'
+import { activeScreenOf } from '../workspace/screens'
+import { isFloatPane } from '../workspace/floatingPanes'
+import { tabsOf } from '../workspace/tabs'
+import { channelOf } from '../workspace/workspaceChannels'
+import type { WorkspaceModel } from '../workspace/workspaceCommands'
 import { op, type McpAppDeps, type OpContext, type OpDef } from './types'
 
 /** 명령을 실행한 뒤의 화면 · 칸 요약(app_state 보다 짧다) */

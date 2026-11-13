@@ -31,8 +31,8 @@ function safeUrl(value: string): boolean {
   const normalized = value.trim().toLocaleLowerCase()
   return normalized.startsWith('#')
     || normalized.startsWith('/')
-    || normalized.startsWith('./')
-    || normalized.startsWith('../')
+    || normalized.startsWith('.')
+    || normalized.startsWith('..')
     || normalized.startsWith('iwae-asset:')
     || normalized.startsWith('data:image/')
 }

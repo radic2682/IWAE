@@ -1,9 +1,9 @@
-import { allPaneTabs, tabsOf, type PanesState } from '../app/tabs'
-import { channelOf, parseChannel, type PaneChannel, type PaneChannels } from '../app/workspaceChannels'
+import { allPaneTabs, tabsOf, type PanesState } from '../app/workspace/tabs'
+import { channelOf, parseChannel, type PaneChannel, type PaneChannels } from '../app/workspace/workspaceChannels'
 import { layoutForLegacyId, leaves, legacyPaneCount, newPaneId, paneNode, parseLayoutTree, removeLeaf, renamePane, reservePaneIds, type LayoutNode } from './layoutTree'
-import { newScreenId, reserveScreenIds, screenPaneIds, type FloatAnchor, type FloatingPane, type ScreensState } from '../app/screens'
+import { newScreenId, reserveScreenIds, screenPaneIds, type FloatAnchor, type FloatingPane, type ScreensState } from '../app/workspace/screens'
 import { isPdfSplitLayoutId, type PdfSplitLayoutId } from './pdfSplit'
-import { isLegacyTranslatorTabId, type LegacyTranslatorFloat } from '../app/translatorPanelState'
+import { isLegacyTranslatorTabId, type LegacyTranslatorFloat } from '../app/translation/translatorPanelState'
 
 /** 칸 하나가 저장하는 것: 탭 id 들(차례대로), 보던 탭, 색 채널 */
 export interface PaneSnapshot {

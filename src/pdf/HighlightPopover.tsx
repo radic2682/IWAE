@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NotePencil, Trash } from '@phosphor-icons/react'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { HIGHLIGHT_NOTE_LIMIT } from './persistentHighlight'
-import { useHighlightColors } from '../app/highlightColorStyle'
+import { useHighlightColors } from '../app/documents/highlightColorStyle'
 import { highlightColorLabel } from '../core/highlightColors'
 import '../ui/highlight-popover.css'
 

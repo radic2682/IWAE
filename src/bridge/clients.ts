@@ -5,7 +5,7 @@
 import { isDesktop } from './window'
 import { openAppWindow } from './windows'
 import { windowQuery } from '../core/windowMode'
-import type { ClientTransport } from '../app/sessionSync'
+import type { ClientTransport } from '../app/workspace/sessionSync'
 
 /** Tauri 이벤트로 앱 창끼리 이야기하는 길. 데스크톱이 아니면(브라우저 · 시험) null — 혼자라서 알릴 상대가 없다 */
 export function tauriClientTransport(): ClientTransport | null {

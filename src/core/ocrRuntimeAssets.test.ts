@@ -20,7 +20,7 @@ describe('OCR runtime assets', () => {
 
   it.each([
     ['/', '/ocr-runtime/'],
-    ['./', './ocr-runtime/'],
+    ['.', './ocr-runtime/'],
     ['/iwae/', '/iwae/ocr-runtime/'],
   ])('resolves the OCR WASM base beneath %s', (baseUrl, expected) => {
     expect(ocrWasmBaseUrl(baseUrl)).toBe(expected)

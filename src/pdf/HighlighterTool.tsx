@@ -1,6 +1,6 @@
 import { Eraser, Highlighter } from '@phosphor-icons/react'
 import { t } from '../i18n'
-import { useHighlightColors } from '../app/highlightColorStyle'
+import { useHighlightColors } from '../app/documents/highlightColorStyle'
 import { highlightColorLabel } from '../core/highlightColors'
 import { useHighlightTool } from './highlightToolStore'
 import { DocFormatStrip, StripSep, StripToggle } from './PdfOverlayPalette'

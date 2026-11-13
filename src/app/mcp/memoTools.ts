@@ -1,5 +1,5 @@
 import { defaultHighlightColorId, highlightColorIdFromInput } from '../../core/highlightColors'
-import { getHighlightColors } from '../highlightColorStyle'
+import { getHighlightColors } from '../documents/highlightColorStyle'
 import { pageTextIndex } from '../../bridge/pdf'
 import { buildAnchor } from '../../core/anchor'
 import { BOX_DEFAULT_WIDTH, clampBox, placeBoxMemo } from '../../core/boxMemo'

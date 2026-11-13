@@ -7,10 +7,10 @@ import type { VaultSearchRecord } from '../../core/vaultSearch'
 import type { LibraryDoc } from '../../core/vaultTree'
 import type { PersistentPdfHighlight } from '../../pdf/persistentHighlight'
 import { leaves, MAX_PANES, type LayoutNode } from '../../core/layoutTree'
-import { otherPane, tabDocId, tabsOf, type PaneId, type PanesState, type Tab } from '../tabs'
-import { channelOf, type PaneChannels } from '../workspaceChannels'
+import { otherPane, tabDocId, tabsOf, type PaneId, type PanesState, type Tab } from '../workspace/tabs'
+import { channelOf, type PaneChannels } from '../workspace/workspaceChannels'
 import type { McpAppDeps, McpBookmarkPatch, McpFloatState, McpLibraryDoc, McpPaneState, McpScreenState, PaneRef } from './types'
-import type { Screen } from '../screens'
+import type { Screen } from '../workspace/screens'
 
 /** 예전 칸 이름 → 칸 번호(왼쪽 위부터 0) */
 const LEGACY_PANE_INDEX: Readonly<Record<string, number>> = { left: 0, right: 1, third: 2, fourth: 3 }

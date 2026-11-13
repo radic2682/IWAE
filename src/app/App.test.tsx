@@ -12,9 +12,9 @@ import { getOverlayTool, setOverlayTool } from '../pdf/overlayToolStore'
 import { SelectionActions } from '../pdf/SelectionActions'
 import { CANVAS_ENABLED, SPLIT_PANES_ENABLED } from '../core/features'
 import { getAppPrefs, setAppPref } from './appPrefs'
-import { getTranslatorWindow, reloadTranslatorWindow, updateTranslatorWindow } from './translatorPanelState'
+import { getTranslatorWindow, reloadTranslatorWindow, updateTranslatorWindow } from './translation/translatorPanelState'
 import { announceAction } from './actionFeedback'
-import { freshPaneToolbarMemory, paneToolbarMemoryKeys, readPaneToolbarMemory, resetPaneToolbarMemory, writePaneToolbarMemory } from './paneToolbarMemory'
+import { freshPaneToolbarMemory, paneToolbarMemoryKeys, readPaneToolbarMemory, resetPaneToolbarMemory, writePaneToolbarMemory } from './workspace/paneToolbarMemory'
 import * as windowBridge from '../bridge/window'
 import { setWindowModeForTest } from '../core/windowMode'
 
@@ -30,7 +30,7 @@ const evidenceMocks = vi.hoisted(() => ({
   save: vi.fn(async (name: string) => name),
 }))
 
-vi.mock('./exportEvidence', () => ({
+vi.mock('./documents/exportEvidence', () => ({
   buildEvidenceHtml: evidenceMocks.build,
   createCanvasRasterizer: () => ({ page: async () => ({ page: null, crops: {} }) }),
   saveHtmlFile: evidenceMocks.save,

@@ -5,8 +5,8 @@
  * 놓을 자리는 마우스 밑 요소가 아니라 칸의 자리(paneHitAt)로 정한다 — 끄는 동안 칸 안 내용은 마우스를 받지 않는다(note-block-drag.css).
  */
 
-import { paneHitAt } from '../app/tabDrag'
-import { anchorGhostBelowRight } from '../app/ghostPlace'
+import { paneHitAt } from '../app/workspace/tabDrag'
+import { anchorGhostBelowRight } from '../app/workspace/ghostPlace'
 import { announceAction } from '../app/actionFeedback'
 import { lastUndoGroup, recordSeparately, resumeUndoGroup } from '../app/undoStack'
 import { t } from '../i18n'

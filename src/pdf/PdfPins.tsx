@@ -6,7 +6,7 @@ import '../ui/pdf-pins.css'
 import { t } from '../i18n'
 
 const LazyEmojiPicker = lazy(async () => {
-  const module = await import('../app/EmojiPicker')
+  const module = await import('../app/sidebar/EmojiPicker')
   return { default: module.EmojiPicker }
 })
 

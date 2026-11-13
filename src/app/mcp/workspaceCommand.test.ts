@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { leaves } from '../../core/layoutTree'
-import { addFloat } from '../floatingPanes'
-import { blankScreen, type Screen } from '../screens'
-import { runCommandLine, type CommandHost, type WorkspaceModel } from '../workspaceCommands'
+import { addFloat } from '../workspace/floatingPanes'
+import { blankScreen, type Screen } from '../workspace/screens'
+import { runCommandLine, type CommandHost, type WorkspaceModel } from '../workspace/workspaceCommands'
 import { fakeApp, makeEnv } from './testHarness'
 import { summarizeWorkspace, type McpWorkspaceState } from './workspaceCommand'
 

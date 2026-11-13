@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { CommandPalette, matchCatalogEntry, type PaletteCommand } from './CommandPalette'
-import { commandCatalog } from './workspaceCommands'
+import { commandCatalog } from './workspace/workspaceCommands'
 
 const command = (id: string, label: string, run = vi.fn()): PaletteCommand => ({ id, kind: 'action', label, run })
 

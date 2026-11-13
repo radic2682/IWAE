@@ -84,7 +84,7 @@ export const THEME_FILES: Readonly<Record<string, string>> = {
   "형광펜 색은 {max}개까지만 씁니다.": "Only the first {max} highlight colors are used.",
   "색 {n}": "Color {n}",
   "형광펜 색이 하나도 올바르지 않아 건너뛰었습니다.": "Skipped highlight colors: none of them were valid.",
-  "IWAE 테마 파일이 아닙니다. \"format\": \"{format}\"이 있어야 합니다.": "This is not an IWAE theme file. It needs \"format\": \"{format}\".",
+  "IWAE 테마 파일이 아닙니다. \"format\": \"{format}\"이 있어야 합니다.": "This is not an IWAE theme file. It needs \"format\": \"{format}\"../en",
   "파일 버전(\"version\")이 없습니다. 이 앱은 버전 {supported} 파일을 읽습니다.": "The file version (\"version\") is missing. This app reads version {supported} files.",
   "지원하지 않는 테마 파일 버전입니다(버전 {found}). 이 앱은 버전 {supported} 파일을 읽습니다.": "Unsupported theme file version ({found}). This app reads version {supported} files.",
   "{where} 색 묶음({key})이 없습니다.": "The {where} color set ({key}) is missing.",

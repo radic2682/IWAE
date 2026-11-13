@@ -144,7 +144,7 @@ const noteRead = (args: Record<string, unknown>, ctx: OpContext) => {
 /** 노트 폴더 안으로만: 「..」·절대 경로를 거절하고, 노트 폴더 밖이면 그 아래로 둔다 */
 function safeFolder(folder: string): string {
   const parts = folder.replaceAll('\\', '/').split('/').map((part) => part.trim()).filter((part) => part !== '')
-  if (parts.some((part) => part === '..' || part === '.' || /^[A-Za-z]:$/u.test(part))) throw new Error('folder가 올바르지 않습니다(노트 폴더 안의 하위 폴더 이름만).')
+  if (parts.some((part) => part === '..' || part === './' || /^[A-Za-z]:$/u.test(part))) throw new Error('folder가 올바르지 않습니다(노트 폴더 안의 하위 폴더 이름만).')
   const root = memoNotesFolder()
   const rest = parts[0] === root ? parts.slice(1) : parts
   return [root, ...rest].join('/')

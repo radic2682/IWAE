@@ -6,9 +6,9 @@ import { MemoNoteContext, type MemoNoteApi } from './memoNoteContext'
 import { MemoNoteTabView } from './MemoNoteTabView'
 import type { MemoNote } from '../core/memoNote'
 import type { PersistentPdfHighlight } from './persistentHighlight'
-import { PaneIdContext, WorkspaceContext, setRoutedMemoDraft, type WorkspaceLink } from '../app/workspaceContext'
-import { DEFAULT_CHANNELS } from '../app/workspaceChannels'
-import { resetPointSignals, subscribePointSignal, type DeliveredSignal } from '../app/workspaceSignal'
+import { PaneIdContext, WorkspaceContext, setRoutedMemoDraft, type WorkspaceLink } from '../app/workspace/workspaceContext'
+import { DEFAULT_CHANNELS } from '../app/workspace/workspaceChannels'
+import { resetPointSignals, subscribePointSignal, type DeliveredSignal } from '../app/workspace/workspaceSignal'
 import {
   currentLinkPairs,
   flushPaneLinks,
@@ -17,7 +17,7 @@ import {
   resetPaneLinks,
   type LinkItem,
   type PaneLinkSnapshot,
-} from '../app/workspaceLinks'
+} from '../app/workspace/workspaceLinks'
 
 const PATH = '노트/전원.iwnote'
 const highlight = (id: string, docId = 'doc-a', page = 2): PersistentPdfHighlight => ({

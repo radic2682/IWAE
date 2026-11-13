@@ -1,5 +1,5 @@
 import { RELAYOUT_KINDS } from '../core/layoutTree'
-import { canonicalCommandName, commandNames } from './workspaceCommands'
+import { canonicalCommandName, commandNames } from './workspace/workspaceCommands'
 
 /**
  * 명령줄(`:`)의 기록과 탭 완성. DOM 을 모르는 순수 함수와 localStorage 읽기·쓰기만 둔다.

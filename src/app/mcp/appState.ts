@@ -1,6 +1,6 @@
 import { memoNoteTitleOf } from '../../core/memoNote'
 import type { LayoutNode } from '../../core/layoutTree'
-import { isDocumentKind } from '../tabs'
+import { isDocumentKind } from '../workspace/tabs'
 import { aiChangeCount, aiChanges, aiUndo } from './aiChangeLog'
 import { op, type McpFloatState, type McpPaneState, type McpTab, type OpContext, type OpDef } from './types'
 

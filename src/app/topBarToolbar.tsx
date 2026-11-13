@@ -1,8 +1,8 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import type { PaneId, Tab } from './tabs'
-import type { PaneChannel } from './workspaceChannels'
-import { PaneIdContext } from './workspaceContext'
+import type { PaneId, Tab } from './workspace/tabs'
+import type { PaneChannel } from './workspace/workspaceChannels'
+import { PaneIdContext } from './workspace/workspaceContext'
 
 /**
  * 상단바의 도구줄 자리(화면 탭과 창 단추 사이). 지금 만지는 칸(떠 있는 칸 포함)의 도구줄만 여기에 그려진다 —

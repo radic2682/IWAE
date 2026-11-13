@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type SyntheticEvent } from 'react'
 import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import { announceAction } from '../app/actionFeedback'
-import { publishReaderSelection } from '../app/readerSelectionStore'
+import { publishReaderSelection } from '../app/documents/readerSelectionStore'
 import { t } from '../i18n'
 
 import { OPEN_TRANSLATION_SETTINGS_EVENT, TranslationCard, useEffectiveTargetLanguage } from '../ui/TranslationCard'

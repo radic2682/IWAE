@@ -2,8 +2,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { TopBar } from './TopBar'
-import { TranslatorContext } from './translatorContext'
-import { getTranslatorWindow, reloadTranslatorWindow } from './translatorPanelState'
+import { TranslatorContext } from './translation/translatorContext'
+import { getTranslatorWindow, reloadTranslatorWindow } from './translation/translatorPanelState'
 
 const props = { sidebarCollapsed: false, onToggleSidebar: vi.fn(), sidebarMode: 'library' as const, onSidebarModeChange: vi.fn(), sidebarPx: 240 }
 
