@@ -319,6 +319,7 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '화면 이름': 'Screen name',
   '{name} (화면 {index}), 두 번 눌러 이름 바꾸기, 끌어서 순서 바꾸기': '{name} (screen {index}), double-click to rename, drag to reorder',
   '새 화면': 'New screen',
+  '새 화면. 우클릭하면 템플릿에서 만듭니다': 'New screen. Right-click to start from a template',
   '{name} 화면 메뉴': '{name} screen menu',
   '세션': 'Session',
   '키와 명령 보기': 'Show keys and commands',

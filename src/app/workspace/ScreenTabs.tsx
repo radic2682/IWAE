@@ -177,11 +177,12 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
         type="button"
         className="screen-tab-new"
         aria-label={t('새 화면')}
-        aria-haspopup="menu"
-        aria-expanded={menu?.kind === 'new'}
-        title={t('새 화면')}
+        title={t('새 화면. 우클릭하면 템플릿에서 만듭니다')}
         data-tauri-drag-region="false"
-        onClick={() => {
+        // 누르면 바로 빈 화면(사용자 요청 2026-11-13: 「새 화면 누르면 그냥 빈 화면으로」). 템플릿은 우클릭 메뉴와 명령 팔레트에 남는다
+        onClick={() => { setMenu(null); onNew('blank') }}
+        onContextMenu={(event) => {
+          event.preventDefault()
           if (menu?.kind === 'new') { setMenu(null); return }
           const box = plusRef.current?.getBoundingClientRect()
           setMenu({ kind: 'new', left: box?.left ?? 0, top: (box?.bottom ?? 0) + 4 })

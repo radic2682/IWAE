@@ -270,10 +270,18 @@ describe('TopBar', () => {
       expect(screens.onReorder).toHaveBeenCalledWith('w2', 2)
     })
 
-    it('「＋」는 템플릿 목록을 펼치고 고른 템플릿으로 새 화면을 만든다', () => {
+    it('「＋」를 누르면 메뉴 없이 바로 빈 화면을 만든다', () => {
       const screens = screensProp()
       render(<TopBar {...props} screens={screens} />)
       fireEvent.click(screen.getByRole('button', { name: '새 화면' }))
+      expect(screen.queryByRole('menu', { name: '새 화면' })).toBeNull()
+      expect(screens.onNew).toHaveBeenCalledWith('blank')
+    })
+
+    it('「＋」를 우클릭하면 템플릿 목록을 펼치고 고른 템플릿으로 새 화면을 만든다', () => {
+      const screens = screensProp()
+      render(<TopBar {...props} screens={screens} />)
+      fireEvent.contextMenu(screen.getByRole('button', { name: '새 화면' }))
       const menu = screen.getByRole('menu', { name: '새 화면' })
       expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['읽기문서 · 노트', '비교문서 둘 · 노트 둘', '빈 화면빈 칸 하나'])
       // 머리 글은 「새 화면」 하나(「새 화면 ▸ 템플릿」 이 아니다)

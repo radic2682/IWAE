@@ -1092,14 +1092,14 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     }
   })
 
-  it('크게: 그 칸만 화면에 남고 머리에 「Z」가 붙는다. 다시 누르면 되돌린다', () => {
+  it('크게: 그 칸만 화면에 남고 머리의 확대 단추가 눌린 모양이 된다. 다시 누르면 되돌린다', () => {
     const { container } = render(<App developmentPreview />)
     openMenu(0)
     pick(/확대/u)
     expect(container.querySelectorAll('.pane-zoom-hidden')).toHaveLength(1)
     expect((cells(container)[0] as HTMLElement).classList.contains('pane-zoom-hidden')).toBe(false)
     const mark = screen.getByRole('button', { name: '원래 크기로' })
-    expect(mark.textContent).toBe('Z')
+    expect(mark.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(mark)
     expect(container.querySelectorAll('.pane-zoom-hidden')).toHaveLength(0)
     expect(screen.queryByRole('button', { name: '원래 크기로' })).toBeNull()
@@ -1143,7 +1143,9 @@ describe('App — 화면 탭 · 알림(아래 상태 줄은 없다)', () => {
   const cells = (container: HTMLElement) => container.querySelectorAll('.pane-grid-cell')
   const screenTabs = () => screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)
   const newScreen = async (name: RegExp) => {
-    fireEvent.click(screen.getByRole('button', { name: '새 화면' }))
+    // ＋ 를 누르면 바로 빈 화면, 템플릿은 우클릭 메뉴에서
+    if (name.test('빈 화면')) { fireEvent.click(screen.getByRole('button', { name: '새 화면' })); return }
+    fireEvent.contextMenu(screen.getByRole('button', { name: '새 화면' }))
     fireEvent.click(within(screen.getByRole('menu', { name: '새 화면' })).getByRole('menuitem', { name }))
   }
 
