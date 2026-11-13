@@ -685,7 +685,8 @@ describe('D2 · 탭 닫기 × 와 좁은 탭', () => {
     expect(narrow.flatMap((rule) => rule.selectors).filter((selector) => selector.includes('pane-top-tab-active') && !selector.includes(':not(.pane-top-tab-active)'))).toEqual([])
     const active = container.querySelector('[data-tab-id="a"]')!
     const inactive = container.querySelector('[data-tab-id="b"]')!
-    const minWidth = /min-width:\s*(\d+)px/u.exec(rulesMatching(active, allRules).filter((rule) => rule.selectors.some((selector) => selector.includes('.pane-top-tab-active'))).map((rule) => rule.body).join(';'))
+    // 보는 탭의 최소 폭은 min(128px, 100%): 탭 줄이 그보다 좁으면 줄 폭에 맞춰 줄어 닫기(×)가 잘리지 않는다
+    const minWidth = /min-width:\s*(?:min\()?(\d+)px/u.exec(rulesMatching(active, allRules).filter((rule) => rule.selectors.some((selector) => selector.includes('.pane-top-tab-active'))).map((rule) => rule.body).join(';'))
     expect(Number(minWidth?.[1])).toBeGreaterThan(76)
     // 안 보이는 탭: 이름 감춤 · 알약 바탕 · 올리면 진하게, 최소 폭 40px · 높이 28px
     const labelRule = narrow.find((rule) => rule.selectors.includes('.pane-head .pane-top-tab-label'))

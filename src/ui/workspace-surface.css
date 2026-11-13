@@ -292,7 +292,7 @@
 }
 .pane-head .pane-top-tab:hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); color: var(--text-strong); }
 /* 보는 탭은 이름이 보이도록 줄지 않는다(128px 까지; 좁은 줄에서 줄어드는 것은 안 보이는 탭들이다) */
-.pane-head .pane-top-tab-active { z-index: 2; flex-shrink: 0; min-width: 128px; background: color-mix(in srgb, var(--text-strong) 16%, transparent); color: var(--text-strong); }
+.pane-head .pane-top-tab-active { z-index: 2; flex-shrink: 0; min-width: min(128px, 100%); background: color-mix(in srgb, var(--text-strong) 16%, transparent); color: var(--text-strong); }
 /* 만지지 않는 칸의 고른 탭은 바탕도 글자도 한 단계 흐리게(단축키가 어느 칸에 듣는지) */
 .pane-head .pane-tabs-menu:not(.pane-tabs-focused) .pane-top-tab-active { background: color-mix(in srgb, var(--text-strong) 9%, transparent); color: var(--text-muted); }
 .pane-head .pane-top-tab:not([data-dragging])::before,
