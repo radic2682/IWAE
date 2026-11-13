@@ -496,3 +496,120 @@ export function memoNoteOwner(
 export function docNoteTitle(docLabel: string, taken: readonly string[]): string {
   return uniqueNoteTitle(t('{title} 노트', { title: docLabel === '' ? t('PDF') : docLabel }), taken)
 }
+
+// ---------- 노트 사이 블록 옮기기 · 링크하기 ----------
+
+/** 노트가 가리키는 형광펜 모두(메모 블록의 첫 원문 + 더한 원문) */
+function noteHighlightIds(note: MemoNote): Set<string> {
+  return new Set(note.blocks.flatMap((block) => memoHighlightIds(block)))
+}
+
+/**
+ * keys 의 블록을 문서 차례대로(소제목이면 묶인 블록까지, 겹치면 한 번만). 끌기가 실제로 들고 가는 블록들이다.
+ * 노트에 없는 key 는 건너뛴다.
+ */
+export function carriedBlocks(note: MemoNote, keys: readonly string[]): MemoNoteBlock[] {
+  const wanted = new Set<string>()
+  for (const key of keys) {
+    const range = sectionRange(note, key)
+    if (range === null) wanted.add(key)
+    else for (const block of note.blocks.slice(range[0], range[1])) wanted.add(block.id)
+  }
+  return note.blocks.filter((block) => wanted.has(block.id))
+}
+
+/**
+ * 들고 가는 블록에 소제목이 들어 있으면(snapSection) 다른 묶음 한가운데로 들어가지 않게
+ * beforeId 이후 첫 소제목 앞(없으면 맨 끝)으로 놓을 자리를 당긴다 — 같은 노트 안 순서 바꾸기와 같은 규칙
+ */
+export function snapBeforeId(note: MemoNote, beforeId: string | null, snapSection: boolean): string | null {
+  if (!snapSection || beforeId === null) return beforeId
+  const at = note.blocks.findIndex((block) => block.id === beforeId)
+  if (at < 0) return null
+  return note.blocks.slice(at).find((block) => block.kind === 'section')?.id ?? null
+}
+
+/** beforeId 블록 앞(null 이거나 없는 id 면 맨 끝)에 blocks 를 한꺼번에 끼운다 */
+function insertBlocksBefore(note: MemoNote, blocks: readonly MemoNoteBlock[], beforeId: string | null): MemoNote {
+  if (blocks.length === 0) return note
+  const found = beforeId === null ? -1 : note.blocks.findIndex((block) => block.id === beforeId)
+  const at = found < 0 ? note.blocks.length : found
+  return { ...note, blocks: [...note.blocks.slice(0, at), ...blocks, ...note.blocks.slice(at)] }
+}
+
+export interface BlocksIntoResult {
+  readonly target: MemoNote
+  /** target 에 들어간 블록(옮기기는 원래 id 그대로, 링크·복사는 새 id) */
+  readonly added: readonly MemoNoteBlock[]
+  /** 이 노트에 이미 있는 메모라 건너뛴 메모 블록 수 */
+  readonly skipped: number
+}
+
+/**
+ * blocks 를 target 에 넣되, target 이 이미 가리키는 형광펜의 메모 블록은 건너뛴다
+ * (한 노트에 같은 형광펜 블록이 둘 생기지 않게 — insertBlock 과 같은 규칙).
+ * make 가 블록을 바꿔 준다(링크·복사는 새 id).
+ */
+function addBlocksInto(target: MemoNote, blocks: readonly MemoNoteBlock[], beforeId: string | null, make: (block: MemoNoteBlock) => MemoNoteBlock): BlocksIntoResult {
+  const have = noteHighlightIds(target)
+  const added: MemoNoteBlock[] = []
+  let skipped = 0
+  for (const block of blocks) {
+    const ids = memoHighlightIds(block)
+    if (ids.some((id) => have.has(id))) {
+      skipped += 1
+      continue
+    }
+    for (const id of ids) have.add(id)
+    added.push(make(block))
+  }
+  return { target: insertBlocksBefore(target, added, beforeId), added, skipped }
+}
+
+/**
+ * source 의 keys 블록(소제목은 묶음째)을 target 의 beforeId 앞으로 옮긴다. target 에 이미 있는 메모는 옮기지 않고 source 에 남긴다.
+ * 돌려주는 movedIds 가 source 에서 지울 블록이다 — 호출하는 쪽이 target 을 먼저 쓰고, 성공했을 때만 source 에서 지운다.
+ */
+export function moveBlocksBetweenNotes(
+  source: MemoNote,
+  target: MemoNote,
+  keys: readonly string[],
+  beforeId: string | null,
+  snapSection = false,
+): BlocksIntoResult & { readonly movedIds: readonly string[] } {
+  const carried = carriedBlocks(source, keys)
+  const result = addBlocksInto(target, carried, snapBeforeId(target, beforeId, snapSection), (block) => block)
+  return { ...result, movedIds: result.added.map((block) => block.id) }
+}
+
+/** 지울 블록 id 들을 뺀다(없으면 그대로) */
+export function removeBlocksById(note: MemoNote, ids: readonly string[]): MemoNote {
+  if (ids.length === 0) return note
+  const gone = new Set(ids)
+  return { ...note, blocks: note.blocks.filter((block) => !gone.has(block.id)) }
+}
+
+/**
+ * 블록 하나의 새 id 사본. 메모 블록은 같은 형광펜(첫 원문 + 더한 원문)을 가리키는 새 블록이라 메모 글은 형광펜의 것을 함께 보고,
+ * 읽는 모양이 같도록 ID·제목(ticket)도 그대로 베낀다. 글·소제목은 내용을 그대로 베낀다(접힘은 펼친 채로)
+ */
+export function copyBlock(block: MemoNoteBlock): MemoNoteBlock {
+  const id = newBlockId()
+  if (block.kind === 'memo') return { id, kind: 'memo', highlightId: block.highlightId, ...(block.ticket === undefined ? {} : { ticket: { ...block.ticket } }), ...(block.refs === undefined ? {} : { refs: [...block.refs] }) }
+  if (block.kind === 'text') return { id, kind: 'text', text: block.text, ...(block.html === undefined ? {} : { html: block.html }) }
+  return { id, kind: 'section', title: block.title }
+}
+
+/**
+ * source 의 keys 블록(소제목은 묶음째)을 target 의 beforeId 앞에 새 블록으로 더한다. source 는 그대로.
+ * 메모는 같은 형광펜을 가리키는 링크(이미 target 에 있으면 건너뜀), 글·소제목은 복사본이다.
+ */
+export function linkBlocksInto(
+  source: MemoNote,
+  target: MemoNote,
+  keys: readonly string[],
+  beforeId: string | null,
+  snapSection = false,
+): BlocksIntoResult {
+  return addBlocksInto(target, carriedBlocks(source, keys), snapBeforeId(target, beforeId, snapSection), copyBlock)
+}

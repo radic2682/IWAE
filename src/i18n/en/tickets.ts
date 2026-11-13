@@ -20,4 +20,7 @@ export const TICKETS: Readonly<Record<string, string>> = {
   '{id} 가 있는 곳': 'Where {id} appears',
   '서로 다른 메모 {count}개가 같은 ID를 쓰고 있습니다. 한쪽 ID를 바꿔 주세요.': '{count} different memos use the same ID. Change one of the IDs.',
   '(원문 없음)': '(no quote)',
+  '링크': 'Link',
+  '이미 이 노트에 있는 메모입니다': 'This memo is already in this note',
+  '블록을 옮기지 못했습니다': 'Could not move the block',
 }

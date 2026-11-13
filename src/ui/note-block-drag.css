@@ -1,0 +1,90 @@
+/* 메모 블록 끌기(NoteFlow · noteBlockDrag.ts): 따라오는 카드 복사본, Alt 이름표, 받는 칸 표시.
+   놓을 자리 줄은 원래 노트의 것(whale-theme.css 의 pdf-memo-card-drop-*)을 그대로 쓴다 */
+
+/* 끄는 동안 칸 안 내용은 마우스를 받지 않는다(올려 둔 카드가 들뜨지 않게). 칸 머리의 탭 알약은 받는다 — 노트 탭 위에 머물러 열고, 탭 위에 놓는다.
+   놓을 자리는 마우스 밑 요소가 아니라 칸의 자리(paneHitAt)로 정한다 */
+body.note-block-dragging .pane-grid-body * { pointer-events: none !important; }
+
+/* Alt 로 링크 · 복사하는 동안, 받을 노트 위에서만 복사 커서 */
+body.note-block-dragging.note-block-drag-copy,
+body.note-block-dragging.note-block-drag-copy * { cursor: copy !important; }
+
+/* 받는 칸: 놓을 자리 줄 말고는 은은한 안쪽 테두리만(탭 끌기의 구역 미리보기보다 약하다) */
+.note-block-drop-pane {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: -2px;
+}
+
+/* 따라오는 카드: 탭 끌기의 들린 탭(tab-drag.css)과 같은 그림자 · 테두리 선. 크기를 키우거나 돌리지 않는다 */
+.note-block-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  box-sizing: border-box;
+  border: 1px solid var(--divider);
+  opacity: 0.95;
+  pointer-events: none;
+  box-shadow: 0 12px 28px var(--shadow-floating), 0 2px 6px var(--shadow-soft);
+  will-change: transform;
+}
+/* 세 줄쯤만 보이고 아래는 옅어진다 */
+.note-block-ghost-clip {
+  max-height: 68px;
+  overflow: hidden;
+  border-radius: inherit;
+  -webkit-mask-image: linear-gradient(to bottom, var(--text-strong) calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to bottom, var(--text-strong) calc(100% - 22px), transparent);
+}
+/* 카드를 둘러싼 노트 칸 껍질은 모양 규칙만 빌려 오고 자리는 잡지 않는다 */
+.note-block-ghost .note-block-ghost-wrap {
+  position: static !important;
+  display: block !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.note-block-ghost-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+.note-block-ghost-mode {
+  position: absolute;
+  left: 6px;
+  bottom: -9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 9px;
+  border: 1px solid var(--divider);
+  background: var(--paper);
+  color: var(--text-strong);
+  font-size: 11px;
+  line-height: 18px;
+  transition: opacity 120ms ease-out;
+}
+.note-block-ghost-mode[hidden] { display: none; }
+.note-block-ghost-mode-dim { opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) { .note-block-ghost-mode { transition: none; } }

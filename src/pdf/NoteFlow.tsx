@@ -12,6 +12,7 @@ import { fadeIn, reducedMotion, slideFrom } from '../app/motion'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { insertBlock, memoBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
 import { ticketGroupOf, type TicketChoice, type TicketGroup, type TicketIndex, type TicketPlace } from '../core/memoTickets'
+import { startBlockDragSession, type BlockDragSession } from './noteBlockDrag'
 import { clearBlockReveal, onBlockRevealRequest, peekBlockReveal, revealNoteBlock, useMemoNoteApi, type MemoNoteApi } from './memoNoteContext'
 import { usePaneChannel, useWorkspaceLink } from '../app/workspaceContext'
 import { placementRevealMode } from '../app/workspaceRouting'
@@ -216,15 +217,38 @@ function NoteFlowImpl({
     const startX = event.clientX
     const startY = event.clientY
     const scroller = event.currentTarget.closest('.pdf-memo-bar-scroll')
+    const card = event.currentTarget
     let started = false
+    // 다른 노트 위로 가는 끌기(손에 붙는 모양 · 노트 사이 옮기기 · Alt 링크 · 탭 위에 머물러 열기)는 noteBlockDrag 가 맡는다
+    let session: BlockDragSession | null = null
     const move = (moveEvent: PointerEvent) => {
       if (!started) {
         if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 5) return
         started = true
         window.getSelection()?.removeAllRanges()
         document.body.classList.add('note-block-dragging')
+        const picked = selectedRef.current
+        const carryKeys = picked.size > 1 && picked.has(key) ? items.filter((item) => picked.has(item.key) && item.key !== 'draft').map((item) => item.key) : [key]
+        session = startBlockDragSession({
+          card,
+          startX,
+          startY,
+          keys: carryKeys,
+          sourcePath: openPath,
+          snapSection: carryKeys.length === 1 && items.find((item) => item.key === key)?.kind === 'section',
+          api: () => noteApiRef.current,
+          onCancel: cancel,
+        })
       }
       moveEvent.preventDefault()
+      if (session?.update(moveEvent).crossing === true) {
+        // 다른 노트 위: 이 노트의 놓을 자리 줄은 지운다(받는 노트가 자기 줄을 그린다)
+        if (draggingRef.current?.drop !== -1) {
+          draggingRef.current = { key, drop: -1 }
+          setDragging(draggingRef.current)
+        }
+        return
+      }
       const next = { key, drop: dropIndexAt(moveEvent.clientY) }
       if (draggingRef.current?.drop !== next.drop) {
         draggingRef.current = next
@@ -236,17 +260,30 @@ function NoteFlowImpl({
         else if (moveEvent.clientY > rect.bottom - 30) scroller.scrollTop += 12
       }
     }
-    const finish = () => {
+    const cleanup = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)
       document.body.classList.remove('note-block-dragging')
-      const state = draggingRef.current
+      session?.dispose()
+      session = null
       draggingRef.current = null
       setDragging(null)
+    }
+    // Esc: 아무것도 바꾸지 않고 끌기를 그만둔다
+    const cancel = () => {
+      cleanup()
+      if (started) window.addEventListener('click', (clickEvent) => clickEvent.stopPropagation(), { capture: true, once: true })
+    }
+    function finish(upEvent: PointerEvent) {
+      const state = draggingRef.current
+      // 다른 노트에 놓았으면(또는 Alt 인데 놓을 노트가 없어 그만두면) 여기서 끝난다. pointercancel 은 놓은 것이 아니다
+      const handled = started && upEvent.type === 'pointerup' && (session?.drop() ?? false)
+      cleanup()
       if (!started || state === null) return
       // 끈 뒤에 따라오는 click(고치기 열기·원문 접기)은 삼킨다
       window.addEventListener('click', (clickEvent) => clickEvent.stopPropagation(), { capture: true, once: true })
+      if (handled || upEvent.type === 'pointercancel') return
       const moving = items.find((item) => item.key === state.key)
       if (moving === undefined) return
       // 여러 블록을 골라 둔 채 그중 하나를 끌면 고른 블록을 모두(문서 차례대로) 그 자리로 옮긴다

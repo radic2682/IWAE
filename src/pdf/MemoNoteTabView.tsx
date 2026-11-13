@@ -392,6 +392,8 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
             <div
               ref={scrollRef}
               className="pdf-memo-bar-scroll"
+              // 다른 노트에서 끌어 온 블록이 놓일 노트를 칸 안에서 알아보는 표시(noteBlockDrag)
+              data-note-path={path}
               // 메뉴 항목을 막 고른 자리면 호버를 비켜 가고(menuGuard), 포인터가 진짜 움직이면 그때 올려 둔 카드를 켠다
               onPointerOver={(event) => {
                 if (!(event.target instanceof Element)) return
