@@ -1,7 +1,7 @@
 import { isDragExempt } from '../ui/dragExempt'
 import { t } from '../i18n'
 import { createPillGhost, type PillGhost } from './dockSession'
-import { TAB_DRAG_THRESHOLD_PX, createDockVisuals, paintDockTarget, paneCardOf, paneHitAt, reducedMotion, resolveDockTarget, setDockDragging, type DockTarget } from './tabDrag'
+import { GHOST_PAD_X, TAB_DRAG_THRESHOLD_PX, createDockVisuals, paintDockTarget, paneCardOf, paneHitAt, reducedMotion, resolveDockTarget, setDockDragging, type DockTarget } from './tabDrag'
 import { armClickSuppress } from '../ui/clickSuppress'
 import { type DockEdge } from './tabDock'
 import type { PaneId } from './tabs'
@@ -87,16 +87,40 @@ const SWAP_ICON = '<svg viewBox="0 0 256 256" width="13" height="13" fill="curre
  */
 function setSwapMark(ghost: PillGhost | null, on: boolean): void {
   if (ghost === null) return
-  const existing = ghost.element.querySelector('.pane-drag-swap-mark')
+  const root = ghost.element
+  const pill = root.querySelector<HTMLElement>('.pane-top-tab')
+  const body = root.querySelector<HTMLElement>('.pane-top-tab-title')
+  if (pill === null || body === null) return
+  const existing = body.querySelector('.pane-drag-swap-mark')
   if (on === (existing !== null)) return
   if (!on) {
     existing?.remove()
+    // 처음 폭으로(createPillGhost 가 정한 알약 폭 · 껍질 폭)
+    pill.style.maxWidth = ''
+    body.querySelector<HTMLElement>('.pane-top-tab-label')?.style.removeProperty('flex-shrink')
+    pill.style.width = pill.dataset.baseWidth ?? pill.style.width
+    root.style.width = root.dataset.baseWidth ?? root.style.width
     return
   }
+  pill.dataset.baseWidth ??= pill.style.width
+  root.dataset.baseWidth ??= root.style.width
   const mark = document.createElement('span')
   mark.className = 'pane-drag-swap-mark'
   mark.innerHTML = `<i class="pane-drag-swap-sep"></i>${SWAP_ICON}<span>${t('자리 바꾸기')}</span>`
-  ghost.element.append(mark)
+  // 알약 안(제목 뒤)에 붙이고 알약 · 껍질을 글 폭만큼 넓힌다 — 알약 밖에 붙이면 정한 폭에 잘려 바탕 밖으로 삐져나왔다
+  body.append(mark)
+  // 탭 줄의 보는 탭 폭 상한(240px)을 풀어야 제목이 줄지 않고 표시만큼 넓어진다
+  pill.style.maxWidth = 'none'
+  pill.style.width = 'max-content'
+  // 제목은 overflow hidden · min-width 0 이라 그대로 두면 표시에 밀려 0 까지 준다
+  const label = body.querySelector<HTMLElement>('.pane-top-tab-label')
+  if (label !== null) label.style.flexShrink = '0'
+  // 제목 줄은 overflow hidden 이라 max-content 가 글 폭을 다 세지 않는다: 제목 줄의 scrollWidth + 알약의 안쪽 여백 · 다른 칸으로 잰다
+  const width = Math.ceil(body.scrollWidth + (pill.getBoundingClientRect().width - body.getBoundingClientRect().width))
+  if (width > 0) {
+    pill.style.width = `${width}px`
+    root.style.width = `${width + GHOST_PAD_X}px`
+  }
 }
 
 type Drop =
