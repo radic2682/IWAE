@@ -81,9 +81,10 @@ describe('아래 상태 줄 · 「⌘ 명령」 단추 · 접두키 칩', () => 
     expect(css('whale-theme.css')).toContain('border-radius: var(--r-md) var(--r-md) 0 0;')
   })
 
-  it('맨 위 줄 아래에 경계선이 없다', () => {
+  it('맨 위 줄 아래에 1px --divider 가로선이 있다(칸 윗면은 그 아래 y=36)', () => {
     const surface = css('workspace-surface.css')
-    expect(rule(surface, '.topbar')).toContain('border-bottom: 0;')
+    expect(rule(surface, '.topbar')).toContain('border-bottom: 1px solid var(--divider);')
+    expect(rule(surface, '.pane-bottom-bar')).toContain('border-top: 1px solid var(--divider);')
   })
 })
 
@@ -191,9 +192,9 @@ describe('만지는 칸 · 채널 가장자리 · 빈 칸 (PaneCard)', () => {
     expect(card.dataset.channel).toBe('orange')
   })
 
-  it('CSS: 칸 테두리는 층이 아니라 하나다 — 1.5px, 채널 색 35%(쉼) → 100%(만짐 · 반응), 채널 없음은 --divider → --accent. ::before 띠 · ::after 윤곽은 없다', () => {
+  it('CSS: 칸 테두리는 층이 아니라 하나다 — 2px, 채널 색 35%(쉼) → 100%(만짐 · 반응), 채널 없음은 --divider → --accent. ::before 띠 · ::after 윤곽은 없다', () => {
     const surface = css('workspace-surface.css')
-    expect(surface).toContain('--pane-edge-w: 1.5px;')
+    expect(surface).toContain('--pane-edge-w: 2px;')
     expect(rule(surface, '.panes-tree .pane-card')).toContain('border: var(--pane-edge-w) solid var(--pane-c);')
     expect(surface).toContain('.pane-card { --pane-c: var(--divider); --pane-c-strong: var(--accent); }')
     for (const channel of ['blue', 'green', 'orange']) {
@@ -247,7 +248,7 @@ describe('한 높이 표준 --bar-h', () => {
 
   it('사이드바 보기 탭은 탭 모양(whale-theme)을 그대로 두고 이 파일은 건드리지 않는다. 막대 안 아이콘 단추는 28px · 16px 이다', () => {
     const surface = css('workspace-surface.css')
-    expect(surface).toContain('.pane-head .pane-head-more { width: var(--icon-btn); height: var(--icon-btn); margin: 0; }')
+    expect(surface).toContain('.pane-head .pane-head-more { width: var(--icon-btn); height: var(--icon-btn); margin: 0; color: var(--text-muted); }')
     expect(surface).toContain('.pane-head .pane-head-more svg { width: var(--icon-size); height: var(--icon-size); }')
     expect(surface).toContain('.winbtn { width: var(--icon-btn); height: var(--icon-btn); }')
     expect(surface).toContain('.pane-bottom-bar button svg { width: var(--icon-size); height: var(--icon-size); }')

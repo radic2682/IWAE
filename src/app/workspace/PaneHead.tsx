@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { ArrowsLeftRight, ArrowsOutSimple, ArrowSquareOut, Circle, DotsThree, PictureInPicture, Rows, SquareSplitHorizontal, X } from '@phosphor-icons/react'
+import { ArrowsLeftRight, ArrowsInSimple, ArrowsOutSimple, ArrowSquareOut, Circle, DotsThree, PictureInPicture, Rows, SquareSplitHorizontal, X } from '@phosphor-icons/react'
 import type { SplitDir } from '../../core/layoutTree'
 import { t } from '../../i18n'
 import { PopupMenu } from '../PopupMenu'
@@ -64,8 +64,16 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
       {tabs}
       {/* 칸별 상태 표시 자리(비어 있다). 단계 4 이후에 채운다 */}
       <span className="pane-head-status" data-slot="status" aria-hidden="true" />
-      {zoomed ? (
-        <button type="button" className="pane-head-zoom" aria-label={t('원래 크기로')} title={t('크게 보는 중, 눌러서 원래 크기로')} onClick={onToggleZoom}>Z</button>
+      {/* 자주 쓰는 칸 동작은 메뉴 밖으로 꺼내 둔다(메뉴에도 그대로 있다). 칸이 하나뿐이면 메뉴가 끄는 경우와 같이 숨긴다. 좁은 머리(300px 미만)에서는 CSS 가 숨긴다 */}
+      {multi || zoomed ? (
+        <button type="button" className="pane-head-act pane-head-zoom" aria-pressed={zoomed} aria-label={zoomed ? t('원래 크기로') : t('이 칸 확대')} title={`${zoomed ? t('원래 크기로') : t('이 칸 확대')} (${hint('z')})`} onClick={onToggleZoom}>
+          {zoomed ? <ArrowsInSimple size={16} aria-hidden="true" /> : <ArrowsOutSimple size={16} aria-hidden="true" />}
+        </button>
+      ) : null}
+      {multi ? (
+        <button type="button" className="pane-head-act pane-head-close" aria-label={t('칸 닫기')} title={`${t('칸 닫기')} (${hint('x')})`} onClick={onClose}>
+          <X size={16} aria-hidden="true" />
+        </button>
       ) : null}
       <button
         ref={buttonRef}

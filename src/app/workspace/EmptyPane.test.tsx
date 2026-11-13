@@ -95,7 +95,7 @@ describe('EmptyPane 스타일', () => {
 
   it('빈 칸은 자리(slot)다: 바탕 · 실선 · 채널 가장자리 없이 6/5 점선 윤곽 하나(1.5px, 카드와 같은 둥글기), 만지면 강조색 70%', () => {
     const surface = read('workspace-surface.css')
-    expect(surface).toMatch(/--pane-edge-w: 1\.5px;/u)
+    expect(surface).toMatch(/--pane-edge-w: 2px;/u)
     expect(surface).toMatch(/--pane-edge-empty: var\(--divider-strong\);/u)
     // 같은 .pane-card 규칙(둥글기 --r-md · 두께 --pane-edge-w)에서 선 모양과 색만 바꾼다
     expect(ruleDecl('workspace-surface.css', '.panes-tree .pane-card', 'border')).toBe('var(--pane-edge-w) solid var(--pane-c)')

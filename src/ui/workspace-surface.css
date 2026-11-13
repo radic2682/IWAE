@@ -2,7 +2,7 @@
    색은 모두 토큰, 움직임은 두지 않는다(켜고 끄기만).
 
    - 칸 하나 = 카드 하나(.pane-card), 두 톤: 머리(탭 줄)는 --paper(--pane-surface), 본문은 --workspace(--pane-body)로 머리 아래 4px 를 띄우고 카드 가장자리까지 채운다. 안에 선도 띠도 없다.
-     만지는 칸은 카드 테두리가 강조색 1.5px, 다른 칸은 옅은 테두리. 빈 칸의 점선 윤곽(.pane-slot-outline)도 이 파일에 있다(empty-pane.css 는 빈 칸 안의 글 · 목록).
+     만지는 칸은 카드 테두리가 강조색 2px, 다른 칸은 옅은 테두리. 빈 칸의 점선 윤곽(.pane-slot-outline)도 이 파일에 있다(empty-pane.css 는 빈 칸 안의 글 · 목록).
    - 칸의 테두리 하나가 채널 색이다(층을 쌓지 않는다): 쉬는 칸은 채널 색 35%, 만지는 칸 · 반응하는 칸(마우스를 올린 동안 · 신호가 방금 움직인 0.6초)은 100%.
      채널 없음은 쉴 때 --divider, 만질 때 --accent. 머리의 색 점은 바꾸는 단추로 그대로 있다.
    - 높이 표준 --bar-h(36px): 상단바 · 칸 탭 줄 · PDF/MD 아래 막대. 그 안의 단추는 모두 --icon-btn(28px) 누르는 자리 + --icon-size(16px) 아이콘, 세로 가운데.
@@ -13,7 +13,7 @@
   /* 칸의 틀(카드 바탕 + 머리)은 한 색(--pane-surface). 본문(문서 책상 · 노트 바닥 · 아래 막대)은 머리 아래 4px 를 두고 카드 가장자리까지 채우는 면(--pane-body)이다 */
   --pane-surface: var(--paper);
   --pane-body: var(--workspace);
-  --pane-edge-w: 1.5px;
+  --pane-edge-w: 2px;
   --pane-edge-empty: var(--divider-strong);
 }
 /* 밝은 화면도 어두운 화면과 같은 층: 머리 = 왼쪽 바와 같은 크롬 면(--chrome), 본문은 그보다 한 단 어둡고(--workspace), 칸 사이 틈 · 바깥 여백 = 상단바 면(--tabstrip). 전엔 머리가 흰 종이(--paper)라 상단바 · 본문과 따로 놀았다 */
@@ -23,8 +23,8 @@
 .panes-tree > .pane-grid-cell:not(.pane-float) { background: transparent; }
 
 /* ── 맨 위 줄 ──────────────────────────────────────────────────────────────
-   아래 칸과의 사이에 선이 없다(바탕 색 차이만). 모든 항목이 줄 높이의 세로 가운데에 선다 */
-.topbar { height: var(--bar-h); box-sizing: border-box; align-items: center; border-bottom: 0; }
+   아래에 1px 가로선(--divider)이 전체 폭(왼쪽 바 위 포함)에 걸쳐 있다(2026-11-13 다시 둠: 한때 없앴다). 모든 항목이 줄 높이의 세로 가운데에 선다 */
+.topbar { height: var(--bar-h); box-sizing: border-box; align-items: center; border-bottom: 1px solid var(--divider); }
 .topbar-leftcluster-actions { align-items: center; gap: var(--space-1); padding: 0 var(--space-2) 0 var(--space-2); }
 .topbar .topbar-leftcluster-actions { align-items: center; }
 .topbar .topbar-leftcluster-actions > .topbar-app-menu,
@@ -213,7 +213,7 @@
 /* 만진 칸은 .pane-card-active 하나가 정한다(떠 있는 칸 카드도 같은 규칙) */
 
 /* 빈 칸(탭 없음)은 카드가 아니라 자리(slot): 바탕 없음(작업 바탕이 비친다) · 실선 없음 · 채널 가장자리 없음. 점선 윤곽 하나만 —
-   1.5px, 점선 6px / 틈 5px, 카드와 같은 둥글기, 흐린 토큰(--pane-edge-empty = --divider-strong). 만지는 칸이면 같은 윤곽이 강조색 70%. 반응 표시도 윤곽 하나만.
+   2px, 점선 6px / 틈 5px, 카드와 같은 둥글기, 흐린 토큰(--pane-edge-empty = --divider-strong). 만지는 칸이면 같은 윤곽이 강조색 70%. 반응 표시도 윤곽 하나만.
    CSS 의 border-style: dashed 는 둥근 모서리에서 점이 고르지 않아 SVG 둥근 사각형 선으로 그린다(PaneCard). 머리(점 · 번호 · ⋯)는 그대로 자리 바탕 위에 있다 */
 .panes-tree .pane-card[data-empty] { border-color: transparent; background: transparent; }
 .panes-tree .pane-card[data-empty] :is(.pane-grid-tabs.topbar-panetab-zone.pane-head, .pane-grid-body, .pane-placeholder-card) { background: transparent; }
@@ -322,8 +322,16 @@
 .pane-head .pane-tabs-overflow { align-self: center; flex: 0 0 auto; width: auto; min-width: var(--icon-btn); height: var(--icon-btn); margin: 0; }
 /* 오른쪽 끝: 칸 상태 자리 · 「크게」 표시 · ⋯ 메뉴. 모두 세로 가운데, ⋯ 는 28px 누르는 자리 · 16px 아이콘 */
 .pane-head .pane-head-status { align-self: center; margin-left: 0; }
-.pane-head .pane-head-zoom { height: 20px; margin: 0; }
-.pane-head .pane-head-more { width: var(--icon-btn); height: var(--icon-btn); margin: 0; }
+/* 머리에 꺼내 둔 칸 동작(확대 · 닫기): ⋯ 와 같은 28px 누르는 자리 · 16px 아이콘 · 흐린 글자색. 닫기 ×는 탭 ×(원형 20px, 알약 안)와 달리 칸 단위라 앞에 틈을 둔다 */
+.pane-head .pane-head-act { width: var(--icon-btn); height: var(--icon-btn); margin: 0; color: var(--text-muted); }
+.pane-head .pane-head-act svg { width: var(--icon-size); height: var(--icon-size); }
+.pane-head .pane-head-act:is(:hover, :focus-visible) { background: var(--chrome-hover); color: var(--text-strong); outline: none; }
+.pane-head .pane-head-act[aria-pressed='true'] { background: var(--selected-bg); color: var(--text-strong); }
+.pane-head .pane-head-close { margin-left: var(--space-1); }
+.panes-tree .pane-head { container: pane-head / inline-size; }
+@container pane-head (max-width: 299px) { .pane-head .pane-head-act { display: none; } }
+.pane-head .pane-head-more { width: var(--icon-btn); height: var(--icon-btn); margin: 0; color: var(--text-muted); }
+.pane-head .pane-head-more:is(:hover, :focus-visible) { color: var(--text-strong); }
 .pane-head .pane-head-more svg { width: var(--icon-size); height: var(--icon-size); }
 /* 떠 있는 칸의 머리 단추도 같은 크기 */
 .pane-float-head .pane-float-button { width: var(--icon-btn); height: var(--icon-btn); }
@@ -358,6 +366,7 @@
   border-radius: 0;
   background: var(--pane-body);
   box-shadow: none;
+  border-top: 1px solid var(--divider);
   backdrop-filter: none;
   transform: none;
 }

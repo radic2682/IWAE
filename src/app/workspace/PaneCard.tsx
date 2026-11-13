@@ -48,7 +48,7 @@ function focusOnPress(event: ReactPointerEvent<HTMLElement>, paneId: string, onF
 
 /**
  * 칸 하나의 면(둥근 카드). 두 톤이다: 머리(탭 줄)는 `--paper`(`--pane-surface`), 본문은 `--workspace`(`--pane-body`)로 머리 아래 4px 를 띄우고 카드 가장자리까지 채운다. 안에 테두리 선 · 띠는 없다.
- * - 카드 테두리 하나가 채널 색이다(`data-channel`, 층을 쌓지 않는다): 쉬는 칸은 채널 색 35%, 만지는 칸(`.pane-card-active`) · 반응하는 칸은 100%. 채널이 없으면(`none`) 쉴 때 `--divider`, 만질 때 `--accent`. 두께는 모두 1.5px.
+ * - 카드 테두리 하나가 채널 색이다(`data-channel`, 층을 쌓지 않는다): 쉬는 칸은 채널 색 35%, 만지는 칸(`.pane-card-active`) · 반응하는 칸은 100%. 채널이 없으면(`none`) 쉴 때 `--divider`, 만질 때 `--accent`. 두께는 모두 2px.
  *   머리의 색 점은 바꾸는 단추로 그대로 있다.
  * - 탭이 하나도 없는 빈 칸(empty)은 카드가 아니라 자리(slot)다: 바탕 · 실선 · 채널 색 없이 점선 윤곽 하나만(`data-empty` + SVG 윤곽, 규칙은 workspace-surface.css 의 `.pane-slot-outline`;
  *   점선이 모서리에서도 고르게 이어지도록 CSS border-style 이 아니라 둥근 사각형 선으로 그린다). 만지는 칸이면 같은 윤곽이 강조색이다.

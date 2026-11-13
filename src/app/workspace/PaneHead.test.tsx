@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { PaneHead } from './PaneHead'
 
 afterEach(cleanup)
@@ -38,5 +40,36 @@ describe('PaneHead ⋯ 메뉴의 말과 힌트', () => {
     expect(value.textContent).toBe('초록')
     expect(value.dataset.channel).toBe('green')
     expect(value.querySelector('.menu-value-dot')).not.toBeNull()
+  })
+})
+
+describe('PaneHead 에 꺼내 둔 확대 · 닫기 단추', () => {
+  const mount = (props: Partial<Parameters<typeof PaneHead>[0]> = {}) => {
+    const fns = { onToggleZoom: vi.fn(), onClose: vi.fn() }
+    render(<PaneHead tabs={null} paneCount={2} zoomed={false} onSplit={vi.fn()} onBreak={vi.fn()} onSwap={vi.fn()} onCycleChannel={vi.fn()} channel="blue" {...fns} {...props} />)
+    return fns
+  }
+  it('메뉴와 같은 동작을 부르고, 말풍선에 접두키 힌트가 있다', () => {
+    const fns = mount()
+    const zoom = screen.getByRole('button', { name: '이 칸 확대' })
+    const close = screen.getByRole('button', { name: '칸 닫기' })
+    expect(zoom.title).toBe('이 칸 확대 (Ctrl+B z)')
+    expect(close.title).toBe('칸 닫기 (Ctrl+B x)')
+    fireEvent.click(zoom); fireEvent.click(close)
+    expect(fns.onToggleZoom).toHaveBeenCalledTimes(1)
+    expect(fns.onClose).toHaveBeenCalledTimes(1)
+  })
+  it('크게 보는 중이면 「원래 크기로」 가 눌린 모양', () => {
+    mount({ zoomed: true })
+    expect(screen.getByRole('button', { name: '원래 크기로' }).getAttribute('aria-pressed')).toBe('true')
+  })
+  it('칸이 하나면 숨긴다(닫기 · 확대 모두)', () => {
+    mount({ paneCount: 1 })
+    expect(screen.queryByRole('button', { name: '칸 닫기' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '이 칸 확대' })).toBeNull()
+  })
+  it('좁은 머리(300px 미만)에서는 CSS 가 숨긴다', () => {
+    const css = readFileSync(join(__dirname, '../../ui/workspace-surface.css'), 'utf8')
+    expect(css).toContain('@container pane-head (max-width: 299px) { .pane-head .pane-head-act { display: none; } }')
   })
 })
