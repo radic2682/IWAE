@@ -278,3 +278,16 @@ describe('placeNoteTab — 캔버스 탭', () => {
     expect(result.panes.R!.activeId).toBe('C2')
   })
 })
+
+describe('placeNoteTab — 이미 보이는 칸이 먼저', () => {
+  it('가장 최근에 만진 칸이 그 노트를 배경 탭으로만 가졌어도, 그 노트를 보이는 다른 칸이 있으면 그 칸을 쓴다', () => {
+    const panes: PanesState = {
+      L: strip([pdf('d'), note('n')], 'd'), // 원래 칸: 노트가 배경 탭
+      R: strip([note('n')], 'n'), // 받는 칸: 노트가 보인다
+    }
+    const out = placeNoteTab({ panes, channels: channels(), layout: cols2(), anchor: 'L', tab: note('n'), mru: ['L', 'R'] })
+    expect(out.kind).toBe('visible')
+    expect(out.pane).toBe('R')
+    expect(out.panes.L?.activeId).toBe('d')
+  })
+})

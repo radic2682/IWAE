@@ -66,7 +66,7 @@ describe('transferBlocks', () => {
     expect(notes.get('S')!.blocks.map((block) => block.id)).toEqual(['a'])
     expect(notes.get('T')!.blocks[0]).toMatchObject({ kind: 'memo', highlightId: 'h1' })
     // 보이는 노트에 놓으면 그 블록으로 간다
-    expect((api.openInTab as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('T')
+    expect((api.openInTab as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
   })
   it('does not touch the source when the target write fails', async () => {
     const { api, notes } = fakeApi({ S: note(text('a')), T: note() }, true)

@@ -66,11 +66,16 @@ let pendingReveal: (BlockReveal & { readonly at: number }) | null = null
 const REVEAL_EXPIRES_MS = 5000
 const revealListeners = new Set<() => void>()
 
-/** path 노트의 blockId 블록을 보인다. 노트가 이미 열려 있으면 바로, 아니면 열린 뒤에 */
-export function revealNoteBlock(api: Pick<MemoNoteApi, 'open' | 'openPath' | 'openInTab'>, path: string, blockId: string): void {
+/**
+ * path 노트의 blockId 블록을 보인다. 노트가 이미 열려 있으면 바로, 아니면 열린 뒤에.
+ * visible 이면 그 노트가 이미 어느 칸에 보이는 것이니 탭을 열거나 칸을 바꾸지 않고 스크롤 요청만 남긴다
+ */
+export function revealNoteBlock(api: Pick<MemoNoteApi, 'open' | 'openPath' | 'openInTab'>, path: string, blockId: string, options: { readonly visible?: boolean } = {}): void {
   pendingReveal = { path, blockId, at: Date.now() }
-  if (api.openInTab !== undefined) api.openInTab(path)
-  else if (api.openPath !== path) api.open(path)
+  if (options.visible !== true) {
+    if (api.openInTab !== undefined) api.openInTab(path)
+    else if (api.openPath !== path) api.open(path)
+  }
   for (const listener of revealListeners) listener()
 }
 

@@ -113,7 +113,9 @@ export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
 
   // 1. 이미 보이는 창에 탭으로 있다
   // 여러 칸이 같은 탭을 갖고 있으면 가장 최근에 만진 칸에서 활성화한다(두 칸을 한꺼번에 바꾸지 않는다)
-  const holder = byRecency(visible, input.mru).find((pane) => tabsOf(panes, pane).tabs.some((candidate) => candidate.id === tab.id))
+  // 이미 그 탭을 보이는 칸이 있으면 그 칸이 먼저다(배경 탭으로만 가진 칸을 바꾸면 다른 칸에 보이는 노트를 이 칸에도 끌어오게 된다 — 노트 사이 옮기기 뒤 원래 칸이 받는 노트로 바뀌던 것)
+  const holders = byRecency(visible, input.mru).filter((pane) => tabsOf(panes, pane).tabs.some((candidate) => candidate.id === tab.id))
+  const holder = holders.find((pane) => tabsOf(panes, pane).activeId === tab.id) ?? holders[0]
   if (holder !== undefined) {
     const held = tabsOf(panes, holder)
     if (held.activeId === tab.id) return { kind: 'visible', panes, channels: input.channels, layout, pane: holder }

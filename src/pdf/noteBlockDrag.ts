@@ -256,7 +256,7 @@ export async function transferBlocks(input: TransferInput): Promise<readonly str
   if (result.skipped > 0) announceAction(t('이미 이 노트에 있는 메모입니다'))
   const first = result.added[0]
   // 탭 위에 놓은 것은 그 노트를 열어 보이지 않는다(보이는 노트에 놓았을 때만 그 블록으로 스크롤한다)
-  if (first !== undefined && target.kind === 'body') revealNoteBlock(api, target.path, first.id)
+  if (first !== undefined && target.kind === 'body') revealNoteBlock(api, target.path, first.id, { visible: true })
   return result.added.map((block) => block.id)
 }
 
