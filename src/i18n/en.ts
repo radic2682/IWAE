@@ -18,6 +18,7 @@ import { RELEASE_NOTES } from './en/releaseNotes'
 import { THEME_FILES } from './en/themeFiles'
 import { WORKSPACE_COMMANDS } from './en/workspaceCommands'
 import { TICKETS } from './en/tickets'
+import { TOURS } from './en/tours'
 
 export const EN: Readonly<Record<string, string>> = {
   ...SHORTCUTS,
@@ -35,5 +36,6 @@ export const EN: Readonly<Record<string, string>> = {
   ...THEME_FILES,
   ...SUPPORT,
   ...RELEASE_NOTES,
+  ...TOURS,
   ...COMMON,
 }
