@@ -4,11 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ChannelDot } from './ChannelDot'
 import { MemoTargetChip } from './MemoTargetChip'
 import { setChannelDragHost } from './channelDrag'
+import { paneReactionOf, resetPaneReaction } from './paneReaction'
 import { NO_WORKSPACE_LINK, PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
 
 afterEach(() => {
   cleanup()
   setChannelDragHost(null)
+  resetPaneReaction()
   vi.restoreAllMocks()
   document.body.innerHTML = ''
 })
@@ -28,7 +30,22 @@ describe('MemoTargetChip — 새 메모가 갈 노트', () => {
     chip(link({ memoNoteTargetFor: () => '노트/회의/긴 이름의 노트.iwnote', memoNoteTitleOf: () => '긴 이름의 노트' }))
     const element = document.querySelector<HTMLElement>('[data-memo-target]')!
     expect(element.textContent).toBe('→ 긴 이름의 노트')
-    expect(element.getAttribute('title')).toBe('긴 이름의 노트')
+    expect(element.getAttribute('title')).toBe('새 메모가 갈 노트: 긴 이름의 노트')
+    expect(element.tagName).toBe('BUTTON')
+    // 앞 도구와 떨어진 묶음: 구분선이 칩 바로 앞에 온다
+    expect(element.previousElementSibling?.classList.contains('pane-toolbar-divider')).toBe(true)
+  })
+
+  it('칩을 누르면 그 노트가 있는 칸이 채널 색 윤곽으로 깜빡인다', () => {
+    chip(link({
+      channels: { doc: 'blue', note: 'blue' },
+      memoNoteTargetFor: () => 'A.iwnote',
+      memoNoteTargetPaneFor: () => 'note',
+    }))
+    expect(paneReactionOf('note')).toBeNull()
+    fireEvent.click(document.querySelector('[data-memo-target]')!)
+    expect(paneReactionOf('note')).toBe('blue')
+    expect(paneReactionOf('doc')).toBeNull()
   })
 
   it('이름 풀이가 없으면 경로 끝 이름을 쓴다', () => {

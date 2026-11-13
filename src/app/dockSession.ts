@@ -2,7 +2,8 @@ import { insertionIndexAt, type DockEdge } from './tabDock'
 import type { TabDropTarget } from './tabDock'
 import type { PaneId } from './tabs'
 import type { LibraryDoc, VaultMarkdownNode } from '../core/vaultTree'
-import { buildGhostShell, createDockVisuals, layoutBox, paintDockTarget, paneHitAt, resolveDockTarget, setDockDragging, setDockDropOk, tabsIn } from './tabDrag'
+import { GHOST_EDGE_MARGIN, clampGhostPos } from './ghostPlace'
+import { GHOST_PAD_X, GHOST_PAD_Y, buildGhostShell, createDockVisuals, layoutBox, paintDockTarget, paneHitAt, resolveDockTarget, setDockDragging, setDockDropOk, tabsIn } from './tabDrag'
 
 /**
  * 왼쪽 바(문서 · 노트 줄)에서 칸으로 끌어 놓기. 탭 끌기와 같은 구역 판정 · 미리보기 · 탭 줄 틈(tabDrag)을 쓴다 —
@@ -107,7 +108,9 @@ export function createPillGhost(icon: Element | null, title: string): PillGhost 
       root.classList.add('tab-drag-ghost-lifted')
     },
     move(x, y) {
-      root.style.transform = `translate3d(${x - root.offsetWidth / 2}px, ${y - root.offsetHeight / 2}px, 0)`
+      // 껍질의 투명 여백(좌우 20 · 위아래 4)을 뺀 보이는 알약이 창 가장자리 8px 안에 들도록 민다
+      const at = clampGhostPos(x - root.offsetWidth / 2, y - root.offsetHeight / 2, root.offsetWidth, root.offsetHeight, window.innerWidth, window.innerHeight, GHOST_EDGE_MARGIN - GHOST_PAD_X / 2, GHOST_EDGE_MARGIN - GHOST_PAD_Y / 2)
+      root.style.transform = `translate3d(${at.x}px, ${at.y}px, 0)`
     },
     remove() { root.remove() },
   }

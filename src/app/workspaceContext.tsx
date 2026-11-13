@@ -18,6 +18,8 @@ export interface WorkspaceLink {
   readonly channels: PaneChannels
   /** pane 과 같은 채널 창에서 지금 보이는 메모 노트 탭(새 메모가 갈 곳). 없으면 null */
   readonly memoNoteTargetFor: (pane: PaneId | null) => string | null
+  /** memoNoteTargetFor 의 노트가 보이는 칸(칩을 눌러 어느 칸인지 깜빡여 알린다) */
+  readonly memoNoteTargetPaneFor?: (pane: PaneId | null) => PaneId | null
   /** 노트 경로 → 보이는 이름(도구줄의 「→ 노트 이름」 칩) */
   readonly memoNoteTitleOf?: (path: string) => string
   /** pane 과 같은 채널 창에서 지금 보이는 메모 노트 경로들(「열린 노트 표시만 보기」) */

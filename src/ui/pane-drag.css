@@ -28,3 +28,23 @@
 @media (prefers-reduced-motion: reduce) {
   .pane-card[data-pane-dragging] { transition: none; }
 }
+/* 가운데(맞바꾸기) 미리보기 한가운데 이름표: 「칸 안으로 탭 옮기기」 미리보기(같은 가운데 구역)와 구분한다. 메뉴와 같은 그림자 */
+.pane-drag-swap-chip {
+  position: fixed;
+  z-index: 9002;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  color: var(--text-strong);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 24px var(--shadow-floating), 0 2px 6px var(--shadow-soft);
+  pointer-events: none;
+}
+.pane-drag-swap-chip[hidden] { display: none; }

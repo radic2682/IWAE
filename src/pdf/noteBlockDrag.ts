@@ -6,6 +6,7 @@
  */
 
 import { paneHitAt } from '../app/tabDrag'
+import { anchorGhostBelowRight } from '../app/ghostPlace'
 import { announceAction } from '../app/actionFeedback'
 import { recordSeparately } from '../app/undoStack'
 import { t } from '../i18n'
@@ -88,44 +89,35 @@ export interface BlockGhost {
   readonly remove: () => void
 }
 
-/** 카드의 작은 복사본이 잡은 자리를 그대로 두고 따라온다. 카드 스타일이 걸리도록 카드를 둘러싼 껍질의 클래스를 그대로 입힌다 */
+/** 끌기 ghost 에 보일 글: 소제목은 제목, 글 블록 · 메모 블록은 본문(내 글), 내 글이 없는 형광펜은 원문 인용(그림이면 「표·그림」) */
+export function ghostTextOf(card: HTMLElement): string {
+  const pick = (selector: string) => card.querySelector<HTMLElement>(selector)?.textContent?.replace(/\s+/gu, ' ').trim() ?? ''
+  const section = pick('.note-section-title')
+  if (section !== '') return section
+  const own = pick('.pdf-memo-card-text')
+  if (own !== '') return own
+  const quote = pick('.note-source-quote') || pick('.note-source-chip-text')
+  if (quote !== '') return quote
+  return card.querySelector('.note-source-region') !== null ? t('표·그림') : ''
+}
+
+/**
+ * 손에 붙어 따라오는 작은 카드: 불투명한 카드 바탕에 블록의 글만 두 줄로(말줄임). 출처 줄 · 탭 · 단추는 복사하지 않는다.
+ * 포인터의 오른쪽 아래에 떠서 포인터 밑(놓을 자리 줄 · 탭 알약)을 가리지 않는다. 링크·복사 이름표는 카드 밖 왼쪽 아래 모서리에 걸친다.
+ */
 export function createBlockGhost(card: HTMLElement, startX: number, startY: number, count: number): BlockGhost {
   const rect = card.getBoundingClientRect()
   const width = Math.max(80, Math.min(GHOST_MAX_WIDTH, rect.width))
-  const grabX = Math.min(Math.max(startX - rect.left, 8), width - 8)
-  const grabY = Math.min(Math.max(startY - rect.top, 8), 40)
-  const computed = getComputedStyle(card)
-  const background = computed.backgroundColor === 'rgba(0, 0, 0, 0)' || computed.backgroundColor === 'transparent' ? 'var(--paper)' : computed.backgroundColor
-
-  const clone = card.cloneNode(true) as HTMLElement
-  for (const element of [clone, ...Array.from(clone.querySelectorAll<HTMLElement>('*'))]) {
-    for (const name of ['id', 'data-note-block', 'data-memo-id', 'tabindex', 'contenteditable']) element.removeAttribute(name)
-  }
-  clone.classList.remove('pdf-memo-card-dragging', 'pdf-memo-card-drop-before', 'pdf-memo-card-drop-after', 'note-block-selected', 'note-block-ghost-line')
-  clone.querySelectorAll('.note-block-tabs, .note-gap').forEach((element) => element.remove())
-  clone.style.cssText = 'position:relative;inset:auto;margin:0;width:100%;opacity:1;transform:none;box-shadow:none;'
-
-  // 카드가 노트 칸 안에서만 맞는 규칙을 받도록 칸 안 껍질(.pane-doc › 본문 › 스크롤) 클래스를 입힌 빈 껍질 안에 둔다
-  const scroller = card.closest<HTMLElement>('.pdf-memo-bar-scroll')
-  let inner: HTMLElement = clone
-  for (const source of [scroller, scroller?.parentElement ?? null, card.closest<HTMLElement>('.pane-doc')]) {
-    if (source === null || source === undefined) continue
-    const wrap = document.createElement('div')
-    wrap.className = `${source.className} note-block-ghost-wrap`
-    wrap.append(inner)
-    inner = wrap
-  }
+  const isSection = card.classList.contains('note-section')
 
   const root = document.createElement('div')
   root.className = 'note-block-ghost'
   root.setAttribute('aria-hidden', 'true')
   root.style.width = `${width}px`
-  root.style.borderRadius = computed.borderRadius
-  root.style.background = background
-  const clip = document.createElement('div')
-  clip.className = 'note-block-ghost-clip'
-  clip.append(inner)
-  root.append(clip)
+  const text = document.createElement('div')
+  text.className = isSection ? 'note-block-ghost-text note-block-ghost-title' : 'note-block-ghost-text'
+  text.textContent = ghostTextOf(card)
+  root.append(text)
 
   if (count > 1) {
     const badge = document.createElement('span')
@@ -138,9 +130,12 @@ export function createBlockGhost(card: HTMLElement, startX: number, startY: numb
   mode.hidden = true
   root.append(mode)
 
-  const place = (x: number, y: number) => { root.style.transform = `translate(${Math.round(x - grabX)}px, ${Math.round(y - grabY)}px)` }
-  place(startX, startY)
+  const place = (x: number, y: number) => {
+    const at = anchorGhostBelowRight(x, y, root.offsetWidth || width, root.offsetHeight || 40, window.innerWidth, window.innerHeight)
+    root.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`
+  }
   document.body.append(root)
+  place(startX, startY)
   let shown: 'link' | 'copy' | null = null
   return {
     move: place,

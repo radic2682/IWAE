@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MemoNote, MemoNoteBlock } from '../core/memoNote'
 import type { MemoNoteApi } from './memoNoteContext'
-import { dropBeforeIdAt, transferBlocks, type NoteDropTarget } from './noteBlockDrag'
+import { createBlockGhost, ghostTextOf, dropBeforeIdAt, transferBlocks, type NoteDropTarget } from './noteBlockDrag'
 
 const memo = (id: string, highlightId: string): MemoNoteBlock => ({ id, kind: 'memo', highlightId })
 const text = (id: string): MemoNoteBlock => ({ id, kind: 'text', text: id })
@@ -102,5 +102,52 @@ describe('transferBlocks', () => {
     } as unknown as MemoNoteApi
     transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })
     expect(calls).toEqual(['T', 'S'])
+  })
+})
+
+describe('ghostTextOf · createBlockGhost', () => {
+  const cardWith = (html: string, cls = 'pdf-memo-card') => {
+    const card = document.createElement('div')
+    card.className = cls
+    card.innerHTML = html
+    document.body.append(card)
+    return card
+  }
+
+  it('소제목은 제목만, 메모 · 글은 내 글만(출처 · 단추 글은 빼고), 내 글이 없으면 원문 인용', () => {
+    expect(ghostTextOf(cardWith('<button>접기</button><span class="note-section-title">  개요 </span><span class="note-section-count">3</span>', 'note-section'))).toBe('개요')
+    expect(ghostTextOf(cardWith('<div class="note-ticket-id">REQ-1</div><div class="pdf-memo-card-text">내  글 둘째 줄</div><div class="note-source-quote">인용</div><button>메뉴</button>'))).toBe('내 글 둘째 줄')
+    expect(ghostTextOf(cardWith('<span class="note-source-quote">원문   인용</span><span class="note-source-page">p.3</span>'))).toBe('원문 인용')
+  })
+
+  it('복사본은 글 하나뿐이다: 출처 줄 · 탭 · 단추 없이 불투명한 카드이고, 이름표는 카드 안 글을 가리지 않게 따로 붙는다', () => {
+    const card = cardWith('<div class="pdf-memo-card-text">본문</div><div class="note-block-tabs">탭</div><div class="note-source-chip">출처</div><button>단추</button>')
+    card.getBoundingClientRect = () => ({ left: 0, top: 0, width: 500, height: 90, right: 500, bottom: 90, x: 0, y: 0, toJSON: () => ({}) })
+    const ghost = createBlockGhost(card, 100, 100, 3)
+    const root = document.querySelector<HTMLElement>('.note-block-ghost')!
+    expect(root.style.width).toBe('280px')
+    expect(root.textContent).toContain('본문')
+    expect(root.textContent).not.toContain('출처')
+    expect(root.textContent).not.toContain('단추')
+    expect(root.querySelector('.note-block-ghost-text')?.textContent).toBe('본문')
+    expect(root.querySelector('.note-block-ghost-count')?.textContent).toBe('3')
+    ghost.setBadge('link', false)
+    const mode = root.querySelector<HTMLElement>('.note-block-ghost-mode')!
+    expect(mode.hidden).toBe(false)
+    ghost.setBadge('copy', true)
+    expect(mode.classList.contains('note-block-ghost-mode-dim')).toBe(true)
+    ghost.remove()
+    expect(document.querySelector('.note-block-ghost')).toBeNull()
+  })
+
+  it('포인터의 오른쪽 아래에 떠서 포인터 자리를 덮지 않는다', () => {
+    const card = cardWith('<div class="pdf-memo-card-text">본문</div>')
+    card.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 60, right: 300, bottom: 60, x: 0, y: 0, toJSON: () => ({}) })
+    const ghost = createBlockGhost(card, 200, 150, 1)
+    const root = document.querySelector<HTMLElement>('.note-block-ghost')!
+    expect(root.style.transform).toBe('translate(214px, 166px)')
+    ghost.move(300, 300)
+    expect(root.style.transform).toBe('translate(314px, 316px)')
+    ghost.remove()
   })
 })

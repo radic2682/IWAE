@@ -339,4 +339,6 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '미리보기 탭': 'Preview tab',
   '번역이 꺼져 있습니다. 설정에서 켜 주세요': 'Translation is turned off. Turn it on in settings',
   '캔버스 열기': 'Open canvas',
+  '자리 바꾸기': 'Swap places',
+  '새 메모가 갈 노트: {name}': 'Note for new memos: {name}',
 }

@@ -3,7 +3,7 @@ import { emitPointSignal, paneReceives, pendingPointSignal, POINT_SIGNAL_TTL_MS,
 import { MAX_PANES, layoutForCount, layoutForLegacyId, leaves, paneNode, shapeOf } from '../core/layoutTree'
 import { type PaneId, type PanesState, type Tab } from './tabs'
 import { DEFAULT_CHANNELS, type PaneChannels } from './workspaceChannels'
-import { memoNoteTargetFor, needForMemo, needForPlace, placementRevealMode, resolvePointSignal, visibleNotePathsIn, type ResolveInput } from './workspaceRouting'
+import { memoNoteTargetFor, memoNoteTargetPaneFor, needForMemo, needForPlace, placementRevealMode, resolvePointSignal, visibleNotePathsIn, type ResolveInput } from './workspaceRouting'
 
 const pdf = (id: string): Tab => ({ id, title: id, kind: 'pdf' })
 const note = (id: string): Tab => ({ id, title: id, kind: 'memoNote' })
@@ -239,6 +239,12 @@ describe('같은 채널에 보이는 노트', () => {
   const panes: PanesState = { left: pane([pdf('doc')]), right: pane([note('N'), note('M')], 'M'), third: pane([note('P')]) }
   const channels: PaneChannels = { left: 'blue', right: 'blue', third: 'green' }
   const visible: PaneId[] = ['left', 'right', 'third']
+
+  it('새 메모가 갈 노트가 보이는 칸: memoNoteTargetFor 와 같은 칸을 돌려준다', () => {
+    expect(memoNoteTargetPaneFor(panes, channels, visible, 'left')).toBe('right')
+    expect(memoNoteTargetPaneFor(panes, { ...channels, left: 'green' }, visible, 'left')).toBe('third')
+    expect(memoNoteTargetPaneFor(panes, { ...channels, left: null }, visible, 'left')).toBeNull()
+  })
 
   it('보이는(활성 탭인) 같은 채널의 메모 노트만 센다', () => {
     expect(visibleNotePathsIn(panes, channels, visible, 'blue')).toEqual(['M'])

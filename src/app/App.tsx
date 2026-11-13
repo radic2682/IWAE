@@ -141,7 +141,7 @@ import { channelOf, cyclePaneChannel, type Channel, type PaneChannel, type PaneC
 import { setAppPref, useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspaceContext'
 import { emitPointSignal, subscribePointSignal, type DeliveredSignal, type PointTarget } from './workspaceSignal'
-import { activeKindOf, isNoteSurface, memoNoteTargetFor, needForMemo, needForPlace, resolvePointSignal, visibleNotePathsIn } from './workspaceRouting'
+import { activeKindOf, isNoteSurface, memoNoteTargetFor, memoNoteTargetPaneFor,needForMemo, needForPlace, resolvePointSignal, visibleNotePathsIn } from './workspaceRouting'
 import { TopBar, type SidebarMode } from './TopBar'
 import { OutlinePanel, ThumbnailPanel } from './SidePanels'
 import { MarkdownOutline, MarkdownSectionPreview } from './MarkdownOutline'
@@ -2082,6 +2082,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       channels,
       reactionPanesFor: (pane, target) => reactionRef.current(pane, target),
       memoNoteTargetFor: (pane) => (pane === null ? null : memoNoteTargetFor(panes, channels, visible, pane, paneMru)),
+      memoNoteTargetPaneFor: (pane) => (pane === null ? null : memoNoteTargetPaneFor(panes, channels, visible, pane, paneMru)),
       memoNoteTitleOf,
       visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channelOf(channels, pane), paneMru)),
       pinTab: pinPaneTab,

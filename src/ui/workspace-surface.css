@@ -351,7 +351,9 @@
 .pane-bottom-bar .pdf-bottom-page input { height: var(--icon-btn); box-sizing: border-box; }
 
 /* 새 메모가 갈 노트 칩(PDF · MD 도구줄 맨 끝): 흐린 작은 글, 약 160px 에서 말줄임. 폭이 모자라면 먼저 줄어든다(넘침 단계를 올리지 않는다) */
-.topbar-toolbar-host .topbar-toolbar-slot .pane-memo-target { flex: 0 1 auto; min-width: 0; max-width: 160px; margin-left: var(--space-2); font-size: 12px; line-height: var(--icon-btn); color: var(--text-muted); white-space: nowrap; }
+.topbar-toolbar-host .topbar-toolbar-slot .pane-memo-target { flex: 0 1 auto; min-width: 0; max-width: 160px; margin: 0 0 0 var(--space-1); padding: 0 var(--space-1); border: 0; border-radius: var(--r-sm); background: transparent; font: inherit; font-size: 12px; line-height: var(--icon-btn); color: var(--text-muted); white-space: nowrap; cursor: pointer; }
+.topbar-toolbar-host .topbar-toolbar-slot .pane-memo-target:hover { color: var(--text-strong); }
+.topbar-toolbar-host .topbar-toolbar-slot .pane-memo-target:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; color: var(--text-strong); }
 .pane-memo-target-text { display: block; overflow: hidden; text-overflow: ellipsis; }
 
 /* 색 점을 끌어 다른 칸에 놓을 때: 놓을 칸의 테두리가 놓으면 될 색(끈 칸의 색)을 100% 로 미리 보인다(채널 색 규칙보다 뒤 · 더 구체적) */

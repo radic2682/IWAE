@@ -15,54 +15,47 @@ body.note-block-dragging.note-block-drag-copy * { cursor: copy !important; }
   outline-offset: -2px;
 }
 
-/* 따라오는 카드: 탭 끌기의 들린 탭(tab-drag.css)과 같은 그림자 · 테두리 선. 크기를 키우거나 돌리지 않는다 */
+/* 따라오는 카드: 불투명한 카드 바탕에 글 두 줄. 탭 끌기의 들린 탭(tab-drag.css)과 같은 그림자 · 테두리 선. 크기를 키우거나 돌리지 않는다 */
 .note-block-ghost {
   position: fixed;
   top: 0;
   left: 0;
   z-index: 2147483000;
   box-sizing: border-box;
+  padding: 10px 12px;
   border: 1px solid var(--divider);
-  opacity: 0.95;
+  border-radius: var(--r-md, 8px);
+  background: var(--paper);
+  opacity: 1;
   pointer-events: none;
   box-shadow: 0 12px 28px var(--shadow-floating), 0 2px 6px var(--shadow-soft);
   will-change: transform;
 }
-/* 세 줄쯤만 보이고 아래는 옅어진다 */
-.note-block-ghost-clip {
-  max-height: 68px;
+.note-block-ghost-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  border-radius: inherit;
-  -webkit-mask-image: linear-gradient(to bottom, var(--text-strong) calc(100% - 22px), transparent);
-  mask-image: linear-gradient(to bottom, var(--text-strong) calc(100% - 22px), transparent);
+  color: var(--text-strong);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
-/* 카드를 둘러싼 노트 칸 껍질은 모양 규칙만 빌려 오고 자리는 잡지 않는다 */
-.note-block-ghost .note-block-ghost-wrap {
-  position: static !important;
-  display: block !important;
-  inset: auto !important;
-  width: 100% !important;
-  height: auto !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: visible !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  transform: none !important;
-}
+.note-block-ghost-title { font-weight: 600; }
+/* 모서리에 걸친 이름표: 글을 가리지 않는다 */
 .note-block-ghost-count {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: 0;
+  right: 0;
+  transform: translate(40%, -40%);
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
   box-sizing: border-box;
   border-radius: 9px;
   background: var(--accent);
-  color: var(--accent-contrast);
+  color: var(--page-white);
   font-size: 11px;
   font-weight: 600;
   line-height: 18px;
@@ -70,19 +63,19 @@ body.note-block-dragging.note-block-drag-copy * { cursor: copy !important; }
 }
 .note-block-ghost-mode {
   position: absolute;
-  left: 6px;
-  bottom: -9px;
+  left: 10px;
+  bottom: 0;
+  transform: translateY(50%);
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 18px;
-  padding: 0 7px;
-  border-radius: 9px;
-  border: 1px solid var(--divider);
-  background: var(--paper);
-  color: var(--text-strong);
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--paper);
+  background: var(--accent);
+  color: var(--page-white);
   font-size: 11px;
-  line-height: 18px;
+  line-height: 14px;
   transition: opacity 120ms ease-out;
 }
 .note-block-ghost-mode[hidden] { display: none; }

@@ -1,6 +1,7 @@
 import { flushSync } from 'react-dom'
 import { dockZoneAt, dockZoneBox, insertionIndexAt, type Box, type DockEdge, type DockZone } from './tabDock'
 import type { PaneId, Tab } from './tabs'
+import { GHOST_EDGE_MARGIN, clampGhostPos } from './ghostPlace'
 import { EASE_SPRING_FIRM, SPRING_FIRM_MS, springSoft } from './motion'
 
 /**
@@ -286,8 +287,8 @@ function updateGapHint(strip: HTMLElement, index: number | null, tabWidth: numbe
 }
 
 /** 들린 탭 껍질이 탭 둘레에 두르는 여백(px): 좌우 20 씩, 위아래 4 씩(tab-drag.css 의 padding 0 20px 과 같다) */
-const GHOST_PAD_X = 40
-const GHOST_PAD_Y = 8
+export const GHOST_PAD_X = 40
+export const GHOST_PAD_Y = 8
 
 /**
  * 들린 탭의 껍질: 탭 하나(tab)를 탭 줄 모양(.pane-tabs-menu > .pane-tabs-strip)으로 감싼다. 탭 끌기(ghostFor)와 왼쪽 바 끌기(createPillGhost)가 같이 쓴다.
@@ -424,8 +425,10 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
 
   const placeGhost = () => {
     if (ghost === null) return
-    ghostX = lastX - grabX - insetX
-    ghostY = lastY - grabY - insetY
+    // 보이는 탭이 창 가장자리 8px 안에 들도록 껍질(투명 여백 포함)을 민다
+    const clamped = clampGhostPos(lastX - grabX - insetX, lastY - grabY - insetY, ghost.offsetWidth, ghost.offsetHeight, window.innerWidth, window.innerHeight, GHOST_EDGE_MARGIN - insetX, GHOST_EDGE_MARGIN - insetY)
+    ghostX = clamped.x
+    ghostY = clamped.y
     ghost.style.transform = `translate3d(${ghostX}px, ${ghostY}px, 0)`
   }
 

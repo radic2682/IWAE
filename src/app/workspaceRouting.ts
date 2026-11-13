@@ -209,6 +209,13 @@ export function memoNoteTargetFor(panes: PanesState, channels: PaneChannels, vis
   return visibleNotePathsIn(panes, channels, visible.filter((other) => other !== pane), channelOf(channels, pane), mru)[0] ?? null
 }
 
+/** memoNoteTargetFor 가 고른 노트가 보이는 칸(칩을 누르면 그 칸이 깜빡인다). 없으면 null */
+export function memoNoteTargetPaneFor(panes: PanesState, channels: PaneChannels, visible: readonly PaneId[], pane: PaneId, mru?: readonly PaneId[]): PaneId | null {
+  const channel = channelOf(channels, pane)
+  if (channel === null) return null
+  return byRecency(visible.filter((other) => other !== pane), mru).find((other) => channelOf(channels, other) === channel && activeTab(tabsOf(panes, other))?.kind === 'memoNote') ?? null
+}
+
 /** 탭 종류 → 노트 화면인가(메모 노트·캔버스) */
 export function isNoteSurface(kind: TabKind | null | undefined): boolean {
   return kind === 'memoNote' || kind === 'canvas'

@@ -1,6 +1,7 @@
 import { useContext, useLayoutEffect, useState } from 'react'
 import { t } from '../i18n'
-import { PaneIdContext, useWorkspaceLink } from './workspaceContext'
+import { PaneIdContext, usePaneChannel, useWorkspaceLink } from './workspaceContext'
+import { flashReaction } from './paneReaction'
 
 /** 칸 너비가 이보다 좁으면 칩을 숨긴다(좁은 칸의 도구줄을 밀지 않는다) */
 export const MEMO_TARGET_CHIP_MIN_PANE_PX = 420
@@ -29,14 +30,24 @@ function usePaneNarrow(pane: string | null, min: number): boolean {
  */
 export function MemoTargetChip() {
   const pane = useContext(PaneIdContext)
+  const { channel } = usePaneChannel()
   const workspace = useWorkspaceLink()
   const narrow = usePaneNarrow(pane, MEMO_TARGET_CHIP_MIN_PANE_PX)
   const path = pane === null ? null : workspace.memoNoteTargetFor(pane)
   if (path === null || narrow) return null
   const name = workspace.memoNoteTitleOf?.(path) ?? path.split(/[\/]/u).at(-1)?.replace(/\.iwnote$/iu, '') ?? path
+  const onClick = () => {
+    // 어느 칸의 노트인지 눈으로 알린다: 신호가 칸을 움직였을 때와 같은 채널 색 윤곽(0.6초)
+    const target = workspace.memoNoteTargetPaneFor?.(pane) ?? null
+    if (target !== null) flashReaction(target, channel)
+  }
   return (
-    <span className="pane-memo-target" title={name} data-memo-target="">
-      <span className="pane-memo-target-text">{t('→ {name}', { name })}</span>
-    </span>
+    <>
+      {/* 도구 묶음 사이의 구분선: 칩이 앞 도구와 떨어진 묶음으로 읽히게 한다 */}
+      <span className="pane-toolbar-divider" aria-hidden="true" />
+      <button type="button" className="pane-memo-target" title={t('새 메모가 갈 노트: {name}', { name })} data-memo-target="" onClick={onClick}>
+        <span className="pane-memo-target-text">{t('→ {name}', { name })}</span>
+      </button>
+    </>
   )
 }
