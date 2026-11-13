@@ -46,7 +46,10 @@ interface PaneTabsMenuProps {
   onDockTab?: (id: string, target: PaneId, edge: DockEdge) => void
   /** 그 패널에서 나눌 수 있는 가장자리들 */
   dockEdges?: (target: PaneId, id: string) => readonly DockEdge[]
-  /** 창 밖으로 끌어낸 탭을 새 창으로 떼어 낸다. true 면 이어 받았다 */
+  /** 작업 영역 맨 바깥 edge 쪽에 새 줄이 차지할 몫(없으면 null = 못 놓는다)과, 놓았을 때 그 줄을 만들어 탭을 옮기는 일 */
+  rootDockShare?: (id: string, edge: DockEdge) => number | null
+  onDockRoot?: (id: string, edge: DockEdge) => void
+  /** 창 밖에서 놓은 탭을 새 창으로 떼어 낸다. true 면 이어 받았다 */
   onTearOffTab?: (id: string, info: TearOffInfo) => Promise<boolean> | boolean
   /** 이 창에 탭이 이것뿐인 떼어 낸 창: 탭을 끌면 창 전체가 따라간다 */
   dragWindow?: boolean
@@ -84,7 +87,7 @@ function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
 }
 
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber, secondary = null, renderTabExtra, onRenameTab, canRenameTab }: PaneTabsMenuProps) {
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, rootDockShare, onDockRoot, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber, secondary = null, renderTabExtra, onRenameTab, canRenameTab }: PaneTabsMenuProps) {
   const channelDot = onCycleChannel === undefined ? null : (
     <>
       <ChannelDot channel={channel} onCycle={onCycleChannel} pane={paneId} />
@@ -187,7 +190,8 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     moveAt: onMoveTabAt ?? (onMoveTab === undefined ? undefined : (id, pane) => onMoveTab(id, pane)),
     dock: onDockTab,
     dockEdges,
-    dragWindow: dragWindow === true && state.tabs.length === 1 && tab.kind === 'pdf',
+    ...(rootDockShare === undefined || onDockRoot === undefined ? {} : { rootDockShare, dockRoot: onDockRoot }),
+    dragWindow: dragWindow === true && state.tabs.length === 1 && tab.kind !== 'canvas',
     // PDF 는 떼어 낸 PDF 창으로, 메모 노트 · Markdown 은 새 화면을 보는 새 앱 창으로 떼어 낸다(캔버스는 아직 안 된다)
     tearOff: onTearOffTab === undefined || tab.kind === 'canvas' ? undefined : (id, info) => onTearOffTab(id, info),
     onDragged: armTabClickSuppress,

@@ -36,6 +36,25 @@ body.pane-tab-dragging :is(.sidebar, .topbar) * { pointer-events: none !importan
   will-change: transform;
   transition: none;
 }
+/* 창 밖에서 놓으면 새 창이 된다는 이름표: 들린 탭 아래에 붙는다. 평소에는 투명하고 창 밖에서만 120ms 로 나타난다(크기 변화 없음) */
+.tab-drag-ghost .tab-drag-ghost-badge {
+  position: absolute;
+  left: 20px;
+  top: calc(100% + 4px);
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  pointer-events: none;
+}
+.tab-drag-ghost.tab-drag-ghost-tearing .tab-drag-ghost-badge { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .tab-drag-ghost .tab-drag-ghost-badge { transition: none; } }
+
 /* 들린 껍질은 자리만 잡아 준다: 머리 바탕 · 선 · 여백이 따라와 사각형이 같이 뜨지 않게(탭 하나만 들린다) */
 .tab-drag-ghost,
 .tab-drag-ghost.topbar-panetab-zone,

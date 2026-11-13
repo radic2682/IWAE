@@ -81,6 +81,8 @@ export interface TabZoneRect {
   readonly top: number
   readonly width: number
   readonly height: number
+  /** 이 창의 CSS 픽셀 하나가 물리 픽셀 몇 개인가(devicePixelRatio) — 놓은 자리를 CSS 좌표로 바꾸는 데 쓴다 */
+  readonly ratio?: number
 }
 
 export async function reportTabZones(zones: readonly TabZoneRect[]): Promise<void> {
@@ -108,6 +110,8 @@ export interface BeginTabDragArgs {
   readonly grabY?: number
   /** 'js': 마우스 자리·놓음을 웹뷰가 알려 준다(시험·버튼을 못 읽는 환경). 기본은 운영체제에서 읽는다 */
   readonly source?: 'os' | 'js'
+  /** 마우스 버튼이 이미 떼어졌다(창 밖에서 놓아 떼어 내는 길): 창을 만들어 놓은 자리에 놓고, 다른 창의 탭 줄 자리가 올 때까지 잠깐 기다린 뒤 바로 놓음 알림을 보낸다 */
+  readonly alreadyReleased?: boolean
   readonly x?: number
   readonly y?: number
 }

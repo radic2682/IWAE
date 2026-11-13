@@ -199,6 +199,9 @@ pub struct TabZone {
     pub top: f64,
     pub width: f64,
     pub height: f64,
+    /// 이 창의 CSS 픽셀 하나가 물리 픽셀 몇 개인가(devicePixelRatio: 화면 배율 × 웹뷰 확대). 없으면 창의 화면 배율로 본다 —
+    /// 웹뷰를 확대해 두면 둘이 달라서, 놓은 자리를 CSS 좌표로 바꿀 때 이 값을 써야 탭 줄에서 맞는 자리가 나온다
+    pub ratio: Option<f64>,
 }
 
 struct DragFeed {
@@ -229,6 +232,9 @@ pub struct BeginTabDrag {
     pub grab_y: Option<f64>,
     /// "js": 좌표·놓음을 웹뷰가 알려 준다
     pub source: Option<String>,
+    /// 마우스 버튼이 이미 떼어졌다(창 밖에서 놓아 떼어 내는 길): 창을 놓은 자리에 두고, 다른 창이 탭 줄 자리를 알려 줄 때까지
+    /// 잠깐 기다린 뒤 바로 놓음 알림을 보낸다
+    pub already_released: Option<bool>,
     pub x: Option<f64>,
     pub y: Option<f64>,
 }
@@ -337,9 +343,27 @@ fn tab_zone_at(app: &AppHandle, zones: &HashMap<String, Vec<TabZone>>, dragged: 
         return list
             .iter()
             .find(|zone| x >= ox + zone.left && x < ox + zone.left + zone.width && y >= oy + zone.top && y < oy + zone.top + zone.height)
-            .map(|zone| (label.clone(), zone.pane.clone(), (x - ox) / scale, (y - oy) / scale));
+            .map(|zone| {
+                let css = zone.ratio.filter(|ratio| *ratio > 0.1).unwrap_or(scale);
+                (label.clone(), zone.pane.clone(), (x - ox) / css, (y - oy) / css)
+            });
     }
     None
+}
+
+/// 탭 줄 자리를 아직 못 받은 창(dragged 와 숨은 · 접힌 창은 뺀다)의 label. 끌기가 시작될 때 보낸 요청이 창이 아직 뜨는 중이거나
+/// 느려서 놓쳤을 수 있어, 끄는 동안 이 창들에는 요청을 다시 보낸다
+fn windows_missing_zones(app: &AppHandle, zones: &HashMap<String, Vec<TabZone>>, dragged: &str) -> Vec<String> {
+    app.webview_windows()
+        .into_iter()
+        .filter(|(label, window)| {
+            label != dragged
+                && !zones.contains_key(label)
+                && !window.is_minimized().unwrap_or(false)
+                && window.is_visible().unwrap_or(true)
+        })
+        .map(|(label, _)| label)
+        .collect()
 }
 
 /// 각 창이 자기 탭 줄 자리를 알려 준다(창 안쪽 왼쪽 위 기준, 물리 픽셀). 끌기가 시작될 때 모든 창에 요청한다
@@ -424,7 +448,8 @@ pub async fn begin_tab_drag(
         }
     }
 
-    let feed = Arc::new(Mutex::new(DragFeed { pos: Some(start), released: false, cancelled: false, js }));
+    let already_released = args.already_released.unwrap_or(false);
+    let feed = Arc::new(Mutex::new(DragFeed { pos: Some(start), released: already_released, cancelled: false, js }));
     if let Ok(mut slot) = state.feed.lock() {
         *slot = Some(feed.clone());
     }
@@ -434,8 +459,36 @@ pub async fn begin_tab_drag(
     std::thread::spawn(move || {
         let mut hovered: Option<String> = None;
         let mut last_sent: Option<(String, i64, i64)> = None;
+        let mut last_request = std::time::Instant::now();
+        if already_released {
+            // 놓은 자리에서 바로 판정하면 다른 창이 아직 탭 줄 자리를 못 알려 빈 곳으로 본다: 알려 올 때까지(최대 0.7초) 기다린다.
+            // 최소 80ms 는 쉬어, 부른 쪽이 끌기 정보를 기록한 뒤에 놓음 알림이 가게 한다
+            let began = std::time::Instant::now();
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                let waited = began.elapsed();
+                let missing = thread_app
+                    .try_state::<TabDragState>()
+                    .and_then(|state| state.zones.lock().ok().map(|zones| windows_missing_zones(&thread_app, &zones, &label).len()))
+                    .unwrap_or(0);
+                if (missing == 0 && waited >= std::time::Duration::from_millis(80)) || waited >= std::time::Duration::from_millis(700) {
+                    break;
+                }
+            }
+        }
         loop {
             std::thread::sleep(std::time::Duration::from_millis(8));
+            // 아직 자리를 못 받은 창에는 다시 묻는다(0.25초에 한 번)
+            if last_request.elapsed() >= std::time::Duration::from_millis(250) {
+                last_request = std::time::Instant::now();
+                let missing = thread_app
+                    .try_state::<TabDragState>()
+                    .and_then(|state| state.zones.lock().ok().map(|zones| windows_missing_zones(&thread_app, &zones, &label)))
+                    .unwrap_or_default();
+                for other in missing {
+                    let _ = thread_app.emit_to(other.as_str(), TAB_ZONES_REQUEST_EVENT, ());
+                }
+            }
             let (pos, released, cancelled) = match feed.lock() {
                 Ok(feed) => {
                     let pos = if feed.js { feed.pos } else { thread_app.cursor_position().ok().map(|p| (p.x, p.y)) };

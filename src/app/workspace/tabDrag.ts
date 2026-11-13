@@ -3,6 +3,8 @@ import { dockZoneAt, dockZoneBox, insertionIndexAt, type Box, type DockEdge, typ
 import type { PaneId, Tab } from './tabs'
 import { GHOST_EDGE_MARGIN, clampGhostPos } from './ghostPlace'
 import { EASE_SPRING_FIRM, SPRING_FIRM_MS, springSoft } from '../motion'
+import { rootDockBox, workspaceEdgeAt } from './workspaceEdge'
+import { t } from '../../i18n'
 
 /**
  * 탭 끌기(크롬·엣지처럼). 포인터 이벤트로 직접 한다 — Tauri 창은 HTML 끌어놓기를 파일 끌어놓기로 가로채 쓸 수 없다.
@@ -11,7 +13,9 @@ import { EASE_SPRING_FIRM, SPRING_FIRM_MS, springSoft } from '../motion'
  *   같은 줄 안에서는 이웃 탭이 미끄러져 비키며 놓일 자리를 보인다(순서는 끄는 동안 바로 바뀐다).
  * - 다른 패널의 탭 줄 위에서는 그 줄의 탭들이 벌어져 끼워 넣을 자리를 보인다.
  * - 패널 본문 위에서는 가장자리 띠에 반투명 구역 미리보기(좌·우·상·하 절반, 가운데는 그 패널 전체)가 나타난다.
- * - 창 밖으로 나가면(탭이 PDF 일 때) 호스트가 새 창으로 떼어 낸다.
+ * - 칸 트리 전체의 맨 바깥 띠(24px)에서는 트리 뿌리를 감싸는 새 줄(키 전체 · 폭 전체) 미리보기가 나타난다.
+ * - 창 밖으로 나가면 들린 탭에 「새 창」 이름표만 붙고(칸 미리보기는 걷힌다), 창 밖에서 **놓을 때** 호스트가 새 창으로 떼어 낸다.
+ *   나갔다 돌아오면 아무 일도 없다.
  * - 놓으면 들린 탭이 놓일 자리로 내려앉고, Escape 는 제자리로 돌려보낸다.
  *
  * 끄는 중의 표시는 React 가 그리는 className 이 아니라 data 속성(data-dragging·data-collapsed·data-landing)으로 건다 —
@@ -20,9 +24,9 @@ import { EASE_SPRING_FIRM, SPRING_FIRM_MS, springSoft } from '../motion'
 
 /** 끌기로 볼 만큼 움직였는지. 이보다 짧으면 클릭이다 */
 export const TAB_DRAG_THRESHOLD_PX = 6
-/** 창 밖으로 이만큼 나가면 새 창으로 떼어 낸다 */
+/** 창 밖으로 이만큼 나가면 「새 창」 미리보기가 뜬다(놓으면 떼어 낸다) */
 export const TEAR_OFF_MARGIN_PX = 28
-/** 창 가장자리 1px 에 이 시간 머물러도(최대화 창에서 화면 끝에 닿았을 때) 떼어 낸다 */
+/** 창 가장자리 1px 에 이 시간 머물러도(최대화 창에서 화면 끝에 닿았을 때) 같은 미리보기가 뜬다 — 놓아야 떼어 낸다. 가장자리가 칸 · 작업 영역 놓을 자리일 때는 뜨지 않는다 */
 const TEAR_OFF_EDGE_DWELL_MS = 360
 const SETTLE_MS = 300
 
@@ -38,8 +42,12 @@ export interface TabDragHost {
   dock?(id: string, pane: PaneId, edge: DockEdge): void
   /** 그 패널에서 나눌 수 있는 가장자리들. 없으면 나누기 구역을 안 보인다 */
   dockEdges?(pane: PaneId, id: string): readonly DockEdge[]
+  /** 작업 영역 맨 바깥 edge 쪽에 새 줄을 더할 때 새 줄이 차지할 몫(트리에 대한 비율). null 이면 그 쪽은 놓을 수 없다(칸 상한 · 너무 작음 · 나누기가 꺼짐) */
+  rootDockShare?(id: string, edge: DockEdge): number | null
+  /** 작업 영역 맨 바깥 edge 쪽에 새 줄을 만들어 탭을 옮긴다 */
+  dockRoot?(id: string, edge: DockEdge): void
   /**
-   * 창 밖으로 나갔다: 새 창으로 떼어 내고 true 를 돌려주면 끌기는 거기서 끝난다(뒤는 창 쪽이 이어 받는다).
+   * 창 밖에서 놓았다(dragWindow 는 끌기 시작 때): 새 창으로 떼어 내고 true 를 돌려주면 끌기는 거기서 끝난다(뒤는 창 쪽이 이어 받는다).
    * 이 탭을 떼어 낼 수 없으면 아예 안 둔다
    */
   tearOff?(id: string, info: TearOffInfo): Promise<boolean> | boolean
@@ -63,6 +71,8 @@ export interface TearOffInfo {
   readonly grabY: number
   readonly width: number
   readonly height: number
+  /** 마우스 버튼이 이미 떼어졌다(창 밖에서 놓아 떼어 내는 길): 새 창은 놓은 자리에 놓이고 바로 놓음 알림을 보낸다 */
+  readonly released?: boolean
 }
 
 export type Hit =
@@ -77,6 +87,15 @@ type Drop =
   | { readonly kind: 'reorder' }
   | { readonly kind: 'move'; readonly pane: PaneId; readonly index: number }
   | { readonly kind: 'dock'; readonly pane: PaneId; readonly edge: DockEdge }
+  | { readonly kind: 'root'; readonly edge: DockEdge }
+
+/** 칸 트리(.panes-tree)의 화면 상자. 없거나 0 이면 null */
+export function paneTreeBox(): DOMRect | null {
+  const element = document.querySelector<HTMLElement>('.panes.panes-tree')
+  if (element === null) return null
+  const box = element.getBoundingClientRect()
+  return box.width > 0 && box.height > 0 ? box : null
+}
 
 let flipSuppressed = false
 /** 놓아서 상태를 바꾸는 순간에는 탭 줄이 스스로 미끄러지지 않는다(이미 손이 만든 자리에 있으니) */
@@ -327,6 +346,8 @@ function ghostFor(tabElement: HTMLElement, rect: DOMRect): HTMLElement {
   return buildGhostShell(tabElement.closest<HTMLElement>('.topbar-panetab-zone, .pane-grid-tabs')?.className ?? '', clone, rect.width, rect.height)
 }
 
+const ALL_ROOT_EDGES: readonly DockEdge[] = ['left', 'right', 'top', 'bottom']
+
 const INSET = 1
 
 /** 끄는 동안의 표시 한 벌: 구역 미리보기 · 탭 줄 틈(점선 칸) · 탭 줄 구역 표시. 탭 끌기와 왼쪽 바 끌기가 같이 쓴다 */
@@ -420,6 +441,11 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
   let lastY = startY
   let holeCollapsed = false
   let edgeTimer: number | null = null
+  /** 가장자리에 머물러 「새 창」 미리보기가 켜졌다(가장자리를 벗어나면 꺼진다) */
+  let edgeDwelled = false
+  /** 「새 창」 미리보기 중: 놓으면 새 창으로 떼어 낸다. 칸 미리보기 · 놓을 자리는 없다 */
+  let tearPreview = false
+  let badge: HTMLElement | null = null
   let tearing = false
   // 껍질 안에서 탭이 놓인 자리(껍질 왼쪽 위에서). 탭의 왼쪽 위가 손에서 grab 만큼 떨어지게 껍질을 둔다
   let insetX = 20
@@ -464,6 +490,22 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     if (!dragging) return
     const h = getHost()
     placeGhost()
+    // 창 밖(「새 창」 미리보기)에서는 안쪽 놓을 자리가 없다
+    if (tearPreview) return
+    // 작업 영역 맨 바깥 띠: 칸의 가장자리 · 탭 줄보다 먼저 본다(트리 전체를 감싸는 새 줄)
+    const treeBox = h.dockRoot === undefined ? null : paneTreeBox()
+    if (treeBox !== null && h.rootDockShare !== undefined) {
+      const allowed = ALL_ROOT_EDGES.filter((edge) => h.rootDockShare?.(tabId, edge) != null)
+      const edge = workspaceEdgeAt(treeBox, lastX, lastY, allowed)
+      const share = edge === null ? null : h.rootDockShare(tabId, edge)
+      if (edge !== null && share != null) {
+        collapseHole(false)
+        paintDockTarget(visuals, { kind: 'none' }, null)
+        visuals.showPreview(rootDockBox(treeBox, edge, share))
+        drop = { kind: 'root', edge }
+        return
+      }
+    }
     const target = resolveDockTarget(paneHitAt(lastX, lastY), lastX, lastY, (pane) => h.dockEdges?.(pane, tabId) ?? [])
     if (target.kind === 'strip') {
       if (target.pane === sourcePane) {
@@ -498,6 +540,18 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     drop = { kind: 'none' }
   }
 
+  /** 「새 창」 미리보기를 켜고 끈다: 켜면 안쪽 놓을 자리 표시를 걷고, 들린 탭에 이름표를 보인다. 끄면 다음 update 가 놓을 자리를 다시 그린다 */
+  const setTearPreview = (on: boolean) => {
+    if (on === tearPreview) return
+    tearPreview = on
+    ghost?.classList.toggle('tab-drag-ghost-tearing', on)
+    if (on) {
+      collapseHole(false)
+      paintDockTarget(visuals, { kind: 'none' }, null)
+      drop = { kind: 'none' }
+    }
+  }
+
   // 끄는 동안은 올라가는 탭·단추의 설명 말풍선이 뜨지 않게 한다
   const swallowHover = (hoverEvent: Event) => hoverEvent.stopPropagation()
   const beginDrag = () => {
@@ -506,6 +560,13 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     document.body.classList.add('pane-tab-dragging')
     tabElement.dataset.dragging = ''
     ghost = ghostFor(tabElement, startRect)
+    if (getHost().tearOff !== undefined) {
+      // 창 밖에서 놓으면 새 창이 된다는 표시: 평소에는 투명하고, 창 밖에서만 120ms 로 나타난다
+      badge = document.createElement('span')
+      badge.className = 'tab-drag-ghost-badge'
+      badge.textContent = t('새 창')
+      ghost.append(badge)
+    }
     document.body.append(ghost)
     const cloneBox = ghost.querySelector<HTMLElement>('.pane-top-tab')?.getBoundingClientRect()
     const rootBox = ghost.getBoundingClientRect()
@@ -529,7 +590,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     const fromX = ghostX
     const fromY = ghostY
     const begin = performance.now()
-    element.classList.remove('tab-drag-ghost-lifted')
+    element.classList.remove('tab-drag-ghost-lifted', 'tab-drag-ghost-tearing')
     element.classList.add('tab-drag-ghost-settling')
     const tick = (now: number) => {
       const t = Math.min(1, (now - begin) / SETTLE_MS)
@@ -593,12 +654,18 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     lastX = upEvent.clientX
     lastY = upEvent.clientY
     if (!dragging) { finished = true; cleanupListeners(); return }
+    evaluateTear()
     update()
+    // 창 밖에서 놓았다(「새 창」 미리보기 중): 그 자리에서 새 창으로 떼어 낸다
+    if (tearPreview && getHost().tearOff !== undefined) {
+      void commitTear(upEvent.screenX, upEvent.screenY)
+      return
+    }
     finished = true
     cleanupListeners()
     const h = getHost()
     const chosen = drop
-    cleanupVisuals(chosen.kind === 'move' || chosen.kind === 'dock')
+    cleanupVisuals(chosen.kind === 'move' || chosen.kind === 'dock' || chosen.kind === 'root')
     if (chosen.kind === 'none') {
       holeCollapsed = true
       collapseHole(false)
@@ -614,6 +681,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     try {
       flushSync(() => {
         if (chosen.kind === 'move') h.moveAt?.(tabId, chosen.pane, chosen.index)
+        else if (chosen.kind === 'root') h.dockRoot?.(tabId, chosen.edge)
         else h.dock?.(tabId, chosen.pane, chosen.edge)
       })
     } finally {
@@ -653,6 +721,60 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     tearing = false
   }
 
+  /**
+   * 포인터 자리로 「새 창」 미리보기를 켜고 끈다. 창 밖(TEAR_OFF_MARGIN_PX 넘게)이거나, 가장자리에 360ms 머물렀으면 켜진다 —
+   * 켜졌다고 창이 열리지는 않는다(놓아야 열린다). 나갔다 돌아오면 꺼진다.
+   */
+  const evaluateTear = () => {
+    if (getHost().tearOff === undefined) return
+    const outside = lastX < -TEAR_OFF_MARGIN_PX || lastY < -TEAR_OFF_MARGIN_PX
+      || lastX > window.innerWidth + TEAR_OFF_MARGIN_PX || lastY > window.innerHeight + TEAR_OFF_MARGIN_PX
+    // 왼쪽 바가 보이면 창 왼쪽 가장자리는 왼쪽 바 위다: 거기 머무는 것은 가장자리로 치지 않는다
+    const leftIsSidebar = document.querySelector('.sidebar:not([inert])') !== null
+    const atEdge = (lastX <= 0 && !leftIsSidebar) || lastY <= 0 || lastX >= window.innerWidth - 1 || lastY >= window.innerHeight - 1
+    const dwelling = atEdge && !outside
+    if (!atEdge) edgeDwelled = false
+    if (dwelling && !edgeDwelled && drop.kind === 'none') {
+      if (edgeTimer === null) {
+        edgeTimer = window.setTimeout(() => {
+          edgeTimer = null
+          // 그 사이 가장자리가 놓을 자리(칸 · 작업 영역 띠)가 됐으면 그쪽이 먼저다
+          if (finished || drop.kind !== 'none') return
+          edgeDwelled = true
+          setTearPreview(true)
+        }, TEAR_OFF_EDGE_DWELL_MS)
+      }
+    } else if (!dwelling && edgeTimer !== null) {
+      window.clearTimeout(edgeTimer)
+      edgeTimer = null
+    }
+    setTearPreview(outside || edgeDwelled)
+  }
+
+  /** 창 밖에서 놓았다: 그 자리에서 새 창으로 떼어 낸다. 못 떼면(false) 들린 탭이 제자리로 돌아간다 */
+  const commitTear = async (screenX: number, screenY: number) => {
+    const h = getHost()
+    finished = true
+    cleanupListeners()
+    cleanupVisuals()
+    let handled = false
+    try {
+      handled = h.tearOff === undefined ? false : await h.tearOff(tabId, { id: tabId, ...(h.sourcePane === undefined ? {} : { pane: h.sourcePane }), screenX, screenY, grabX, grabY, width: startRect.width, height: startRect.height, released: true })
+    } catch {
+      handled = false
+    }
+    if (handled) {
+      // 새 창이 이어 받았다: 들린 탭을 지우고 구멍은 탭이 닫히면서 사라진다
+      ghost?.remove()
+      ghost = null
+      reveal()
+      return
+    }
+    holeCollapsed = true
+    collapseHole(false)
+    settle(() => sourceTab()?.getBoundingClientRect() ?? null, reveal)
+  }
+
   const onMove = (moveEvent: PointerEvent) => {
     lastX = moveEvent.clientX
     lastY = moveEvent.clientY
@@ -668,21 +790,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
       beginDrag()
     }
     if (tearing) return
-    const h = getHost()
-    if (h.tearOff !== undefined) {
-      const outside = lastX < -TEAR_OFF_MARGIN_PX || lastY < -TEAR_OFF_MARGIN_PX
-        || lastX > window.innerWidth + TEAR_OFF_MARGIN_PX || lastY > window.innerHeight + TEAR_OFF_MARGIN_PX
-      // 왼쪽 바가 보이면 창 왼쪽 가장자리는 왼쪽 바 위다: 거기 머문다고 새 창으로 떼어 내지 않는다(창 밖으로 나가야 떼어 낸다)
-      const leftIsSidebar = document.querySelector('.sidebar:not([inert])') !== null
-      const atEdge = (lastX <= 0 && !leftIsSidebar) || lastY <= 0 || lastX >= window.innerWidth - 1 || lastY >= window.innerHeight - 1
-      if (atEdge && !outside) {
-        if (edgeTimer === null) edgeTimer = window.setTimeout(() => { edgeTimer = null; void tear(moveEvent.screenX, moveEvent.screenY) }, TEAR_OFF_EDGE_DWELL_MS)
-      } else if (edgeTimer !== null) {
-        window.clearTimeout(edgeTimer)
-        edgeTimer = null
-      }
-      if (outside) { void tear(moveEvent.screenX, moveEvent.screenY); return }
-    }
+    evaluateTear()
     update()
   }
 
@@ -706,16 +814,16 @@ export function tabZoneOfPane(pane: string): HTMLElement | null {
 }
 
 /** 모든 탭 줄 구역의 자리(창 안쪽 왼쪽 위에서, 물리 픽셀). 다른 창이 끄는 탭을 어느 줄에 놓는지 가리려고 Rust 에 알린다 */
-export function tabZoneRects(): { pane: string; left: number; top: number; width: number; height: number }[] {
+export function tabZoneRects(): { pane: string; left: number; top: number; width: number; height: number; ratio: number }[] {
   const ratio = window.devicePixelRatio || 1
-  const out: { pane: string; left: number; top: number; width: number; height: number }[] = []
+  const out: { pane: string; left: number; top: number; width: number; height: number; ratio: number }[] = []
   for (const zone of Array.from(document.querySelectorAll<HTMLElement>('.topbar-panetab-zone[data-pane-id], .pane-grid-tabs'))) {
     const pane = paneOfZone(zone)
     const box = zone.getBoundingClientRect()
     if (pane === null || box.width <= 0 || box.height <= 0) continue
     // 숨은 구역(문서 검색·라이브러리 모드로 가려진 것)은 뺀다
     if (getComputedStyle(zone).opacity === '0') continue
-    out.push({ pane, left: Math.round(box.left * ratio), top: Math.round(box.top * ratio), width: Math.round(box.width * ratio), height: Math.round(box.height * ratio) })
+    out.push({ pane, left: Math.round(box.left * ratio), top: Math.round(box.top * ratio), width: Math.round(box.width * ratio), height: Math.round(box.height * ratio), ratio })
   }
   return out
 }

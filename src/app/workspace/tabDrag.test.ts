@@ -185,36 +185,151 @@ describe('탭 끌기', () => {
     expect(document.body.classList.contains('pane-tab-dragging')).toBe(false)
   })
 
-  it('창 밖으로 충분히 나가면 떼어 낸다', async () => {
+  const tearing = () => document.querySelector('.tab-drag-ghost')?.classList.contains('tab-drag-ghost-tearing') === true
+
+  it('창 밖으로 충분히 나가도 놓기 전에는 창을 열지 않고 「새 창」 이름표만 보인다', async () => {
     const fixture = build()
     start(fixture)
     fire('pointermove', 100, 100)
-    fire('pointermove', -10, 100) // 여백(28px) 안쪽: 아직
-    expect(fixture.host.calls).toEqual([])
+    fire('pointermove', -10, 100) // 여백(28px) 안쪽: 아직 미리보기도 아니다
+    expect(tearing()).toBe(false)
     fire('pointermove', -60, 100)
     await Promise.resolve()
+    expect(fixture.host.calls).toEqual([])
+    expect(tearing()).toBe(true)
+    expect(document.querySelector('.tab-drag-ghost-badge')?.textContent).toBe('새 창')
+    // 칸 미리보기는 걷혀 있다
+    expect(document.querySelector('.tab-dock-preview-on')).toBeNull()
+  })
+
+  it('창 밖에서 놓으면 그때 떼어 낸다(놓은 자리에서 버튼이 이미 떼어졌다고 알린다)', async () => {
+    const infos: unknown[] = []
+    const fixture = build({ tearOff: (id, info) => { fixture.host.calls.push(`tear:${id}`); infos.push(info); return true } })
+    start(fixture)
+    fire('pointermove', 100, 100)
+    fire('pointermove', -60, 100)
+    fire('pointerup', -60, 100)
+    await Promise.resolve()
+    await Promise.resolve()
     expect(fixture.host.calls).toEqual(['tear:a'])
+    expect(infos[0]).toMatchObject({ id: 'a', screenX: -60, screenY: 100, released: true })
     expect(document.querySelector('.tab-drag-ghost')).toBeNull()
   })
 
-  it('왼쪽 바가 보일 때 창 왼쪽 가장자리에 머무는 것으로는 떼어 내지 않는다(왼쪽 바 위에 놓으려는 것이다)', () => {
+  it('나갔다 창 안으로 돌아와 놓으면 아무 창도 열리지 않는다', async () => {
+    const fixture = build()
+    start(fixture)
+    fire('pointermove', 100, 100)
+    fire('pointermove', -60, 100)
+    expect(tearing()).toBe(true)
+    fire('pointermove', 300, 240)
+    expect(tearing()).toBe(false)
+    fire('pointerup', 300, 240)
+    await Promise.resolve()
+    expect(fixture.host.calls).toEqual([`move:a:right:${Number.MAX_SAFE_INTEGER}`])
+  })
+
+  it('창 밖에서 Esc 로 그만두면 창이 열리지 않는다', async () => {
+    const fixture = build()
+    start(fixture)
+    fire('pointermove', 100, 100)
+    fire('pointermove', -60, 100)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    fire('pointerup', -60, 100)
+    await Promise.resolve()
+    expect(fixture.host.calls).toEqual([])
+  })
+
+  it('떼어 내지 못하면(false) 들린 탭이 제자리로 돌아간다', async () => {
+    const fixture = build({ tearOff: () => false })
+    start(fixture)
+    fire('pointermove', 100, 100)
+    fire('pointermove', -60, 100)
+    fire('pointerup', -60, 100)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(document.querySelector('.tab-drag-ghost')).toBeNull()
+    expect(fixture.tabEl.dataset.dragging).toBeUndefined()
+  })
+
+  it('왼쪽 바가 보일 때 창 왼쪽 가장자리에 머무는 것으로는 미리보기도 뜨지 않는다(왼쪽 바 위에 놓으려는 것이다)', async () => {
     vi.useFakeTimers()
     try {
-      const fixture = build()
+      // 놓을 칸이 없는 호스트(moveAt 없음)라 가장자리가 놓을 자리가 아니다 — 칸 · 작업 영역 띠가 놓을 자리인 가장자리에서는 그쪽이 먼저라 미리보기가 안 뜬다
+      const fixture = build({ moveAt: undefined })
       start(fixture)
       fire('pointermove', 100, 100)
       fire('pointermove', 0, 100)
       vi.advanceTimersByTime(1000)
-      expect(fixture.host.calls).toEqual([])
-      // 왼쪽 바가 접혀 있으면(inert) 가장자리 머무름은 예전처럼 떼어 낸다
+      expect(tearing()).toBe(false)
+      // 왼쪽 바가 접혀 있으면(inert) 가장자리 머무름이 같은 「새 창」 미리보기를 켠다 — 그래도 놓기 전에는 열리지 않는다
       document.querySelector('.sidebar')!.setAttribute('inert', '')
       fire('pointermove', 5, 100)
       fire('pointermove', 0, 100)
       vi.advanceTimersByTime(1000)
+      expect(tearing()).toBe(true)
+      expect(fixture.host.calls).toEqual([])
+      fire('pointerup', 0, 100)
+      await Promise.resolve()
       expect(fixture.host.calls).toEqual(['tear:a'])
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  describe('작업 영역 바깥 띠', () => {
+    const withTree = (overrides: Partial<TabDragHost> = {}): Fixture => {
+      const fixture: Fixture = build({
+        rootDockShare: (_id, edge) => (edge === 'bottom' ? null : 0.25),
+        dockRoot: (id, edge) => fixture.host.calls.push(`root:${id}:${edge}`),
+        ...overrides,
+      })
+      rects.set(document.querySelector('.panes-tree')!, box(0, 0, 400, 440))
+      return fixture
+    }
+    const previewBox = () => {
+      const element = document.querySelector<HTMLElement>('.tab-dock-preview-on')
+      return element === null ? null : { left: element.style.left, top: element.style.top, width: element.style.width, height: element.style.height }
+    }
+
+    it('맨 오른쪽 띠 위에서는 키 전체의 새 줄 미리보기가 뜨고, 놓으면 그 쪽 바깥에 새 줄이 생긴다', () => {
+      const fixture = withTree()
+      start(fixture)
+      fire('pointermove', 100, 100)
+      fire('pointermove', 390, 200)
+      // 트리 폭 400 의 1/4 = 100 폭, 높이는 트리 전체(440). 미리보기는 1px 안쪽으로 그려진다
+      expect(previewBox()).toEqual({ left: '301px', top: '1px', width: '98px', height: '438px' })
+      fire('pointerup', 390, 200)
+      expect(fixture.host.calls).toEqual(['root:a:right'])
+    })
+
+    it('못 놓는 쪽(몫이 null)은 미리보기가 없고 칸의 가장자리 판정으로 돌아간다', () => {
+      const fixture = withTree()
+      start(fixture)
+      fire('pointermove', 100, 100)
+      fire('pointermove', 200, 436)
+      fire('pointerup', 200, 436)
+      expect(fixture.host.calls.some((call) => call.startsWith('root:'))).toBe(false)
+    })
+
+    it('띠 안쪽(칸 가운데)은 예전처럼 칸 판정이다', () => {
+      const fixture = withTree()
+      start(fixture)
+      fire('pointermove', 100, 100)
+      fire('pointermove', 300, 240)
+      fire('pointerup', 300, 240)
+      expect(fixture.host.calls).toEqual([`move:a:right:${Number.MAX_SAFE_INTEGER}`])
+    })
+
+    it('호스트가 바깥 띠를 모르면(dockRoot 없음) 아무 일도 없다', () => {
+      const fixture = build()
+      rects.set(document.querySelector('.panes-tree')!, box(0, 0, 400, 440))
+      start(fixture)
+      fire('pointermove', 100, 100)
+      fire('pointermove', 395, 200)
+      fire('pointerup', 395, 200)
+      expect(fixture.host.calls.some((call) => call.startsWith('root:'))).toBe(false)
+    })
   })
 
   it('창 밖으로 나가도 떼어 낼 수 없는 탭(tearOff 없음)은 그냥 따라다닌다', () => {
