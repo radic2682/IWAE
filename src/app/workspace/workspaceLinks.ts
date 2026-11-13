@@ -82,6 +82,17 @@ export function neighborSide(from: LinkRect, other: LinkRect): LinkSide | null {
   return null
 }
 
+/**
+ * other 가 from 의 오른쪽·왼쪽에 있는가(떨어져 있어도 된다). 칸막이 틈 안에서 가로 범위가 겹치면(위아래로 쌓인 칸) null.
+ * 선은 이 방향의 가장자리로 나가 상대 창의 마주 보는 가장자리로 들어간다. 접힌 창은 null.
+ */
+export function facingSide(from: LinkRect, other: LinkRect): LinkSide | null {
+  if (width(from) < LINK_MIN_PANE || width(other) < LINK_MIN_PANE || height(from) < LINK_MIN_PANE || height(other) < LINK_MIN_PANE) return null
+  if (other.left >= from.right - LINK_PANE_GAP) return 'right'
+  if (other.right <= from.left + LINK_PANE_GAP) return 'left'
+  return null
+}
+
 export interface LinkPaneEntry extends PaneLinkMeta {
   readonly frame: LinkRect
 }
@@ -99,11 +110,13 @@ export interface LinkPair {
   readonly noteRole: 'note' | 'canvas'
   readonly noteSide: LinkSide
   readonly docId: string | null
+  /** 두 칸 사이의 가로 거리(px). 같은 문서가 여러 칸에 보일 때 가까운 칸을 고르는 데 쓴다 */
+  readonly distance: number
 }
 
 /**
- * 짝 맞추기: 채널이 있고 같으며, 이웃하고, 보이는 탭이 문서와 메모 노트(또는 캔버스)인 창끼리만.
- * (격자 배치든 좌우 배치든 실제 칸 사각형으로 가르므로 같은 규칙이다.)
+ * 짝 맞추기: 채널이 있고 같으며, 보이는 탭이 문서와 메모 노트(또는 캔버스)인 창끼리 — 이웃하지 않아도 잇는다(사이에 다른 칸이 있어도 된다).
+ * 좌우로 마주 볼 수 있는 칸만(위아래로 쌓인 칸은 나가는 가장자리가 없다). 격자 배치든 좌우 배치든 실제 칸 사각형으로 가른다.
  * 떠 있는 칸(floating)이 상대 칸과 겹치면 선을 잇지 않는다 — 카드 강조만 한다(설계 5). 겹치지 않는 떠 있는 칸은 보통 칸처럼 짝이 된다.
  */
 export function pairLinkedPanes(entries: readonly LinkPaneEntry[], floating: ReadonlySet<PaneId> = new Set()): LinkPair[] {
@@ -113,14 +126,16 @@ export function pairLinkedPanes(entries: readonly LinkPaneEntry[], floating: Rea
     for (const note of entries) {
       if (note.role === 'document' || note.channel !== doc.channel || note.pane === doc.pane) continue
       if ((floating.has(doc.pane) || floating.has(note.pane)) && rectsOverlap(doc.frame, note.frame)) continue
-      const noteSide = neighborSide(doc.frame, note.frame)
-      if (noteSide !== null) pairs.push({ doc: doc.pane, note: note.pane, noteRole: note.role, noteSide, docId: doc.docId ?? null })
+      const noteSide = facingSide(doc.frame, note.frame)
+      if (noteSide === null) continue
+      const distance = noteSide === 'right' ? note.frame.left - doc.frame.right : doc.frame.left - note.frame.right
+      pairs.push({ doc: doc.pane, note: note.pane, noteRole: note.role, noteSide, docId: doc.docId ?? null, distance: Math.max(0, distance) })
     }
   }
   return pairs
 }
 
-/** 층이 그리는 선 하나(화면 좌표). 형광펜 끝 → 문서 창 가장자리 점선(lead), 거기서 카드 가까운 쪽 가장자리까지 곡선 */
+/** 층이 그리는 선 하나(화면 좌표). 형광펜 끝 → 문서 창 가장자리까지 곧게, 거기서 카드 가까운 쪽 가장자리까지 곡선(한 줄) */
 export interface LinkLine {
   /** 층 안에서 유일한 열쇠(같은 형광펜이 노트와 캔버스 둘에 이어질 수 있다) */
   readonly key: string
@@ -128,6 +143,11 @@ export interface LinkLine {
   readonly color?: string
   readonly active: boolean
   readonly side: LinkSide
+  /** 선이 들어가는 노트(캔버스) 창. 같은 카드로 가는 선이 둘 이상이면 가까운 문서 칸 것만 남기는 데 쓴다 */
+  readonly target: PaneId
+  readonly distance: number
+  /** 곡선이 지나가는 다른 칸들의 사각형(이 부분은 흐리게 그린다) */
+  readonly crossing: readonly LinkRect[]
   /** 형광펜에서 나오는 점 */
   readonly startX: number
   readonly y: number
@@ -147,7 +167,7 @@ const within = (value: number, low: number, high: number) => value >= low && val
  * 노트가 오른쪽이면 형광펜의 오른쪽 끝에서 오른쪽으로, 왼쪽이면 왼쪽 끝에서 왼쪽으로 간다.
  * 가리키는 선(활성)은 맨 뒤에 둬 위에 그려진다.
  */
-export function linkLines(pair: LinkPair, doc: PaneLinkSnapshot, note: PaneLinkSnapshot): LinkLine[] {
+export function linkLines(pair: LinkPair, doc: PaneLinkSnapshot, note: PaneLinkSnapshot, others: readonly LinkRect[] = []): LinkLine[] {
   const right = pair.noteSide === 'right'
   const cards = new Map<string, LinkItem>()
   for (const card of note.items) if (!cards.has(card.id)) cards.set(card.id, card)
@@ -161,20 +181,44 @@ export function linkLines(pair: LinkPair, doc: PaneLinkSnapshot, note: PaneLinkS
     const cardY = card.y
     if (!within(startX, doc.body.left, doc.body.right) || !within(mark.y, doc.body.top, doc.body.bottom)) continue
     if (!within(cardY, note.body.top, note.body.bottom)) continue
+    const cardX = right ? card.rect.left : card.rect.right
+    // 곡선이 가로지르는 다른 칸(문서·노트 둘 말고): 선이 지나가는 가로 구간 안에 들고 세로 범위가 겹친다
+    const low = Math.min(edgeX, cardX)
+    const high = Math.max(edgeX, cardX)
+    const top = Math.min(mark.y, cardY)
+    const bottom = Math.max(mark.y, cardY)
+    const crossing = others.filter((frame) => frame.right - 1 > low && frame.left + 1 < high && frame.bottom > top && frame.top < bottom)
     lines.push({
       key: `${pair.doc}>${pair.note}:${mark.id}`,
       id: mark.id,
+      target: pair.note,
+      distance: pair.distance,
+      crossing,
       ...(mark.color === undefined ? {} : { color: mark.color }),
       active: activeIds.has(mark.id),
       side: pair.noteSide,
       startX,
       y: mark.y,
       edgeX,
-      cardX: right ? card.rect.left : card.rect.right,
+      cardX,
       cardY,
     })
   }
   return lines.sort((a, b) => Number(a.active) - Number(b.active))
+}
+
+/**
+ * 같은 노트 창의 같은 카드로 가는 선이 둘 이상이면(같은 문서가 여러 칸에 보인다) 가까운 문서 칸의 선 하나만 남긴다.
+ * 가까운 칸에서 형광펜이 화면 밖이면 그 선이 없으므로 먼 칸의 것이 남는다. 순서는 그대로.
+ */
+export function dedupeLinkLines(lines: readonly LinkLine[]): LinkLine[] {
+  const best = new Map<string, LinkLine>()
+  for (const line of lines) {
+    const slot = `${line.target}|${line.id}`
+    const held = best.get(slot)
+    if (held === undefined || line.distance < held.distance) best.set(slot, line)
+  }
+  return lines.filter((line) => best.get(`${line.target}|${line.id}`) === line)
 }
 
 /**
@@ -243,9 +287,11 @@ export interface LinkLayerState {
   readonly originX: number
   readonly originY: number
   readonly lines: readonly LinkLine[]
+  /** 선을 그려도 되는 곳(칸 영역). 사이드바·상단바 위로는 그리지 않는다. 모르면 null */
+  readonly clip: LinkRect | null
 }
 
-const EMPTY_LAYER: LinkLayerState = { originX: 0, originY: 0, lines: [] }
+const EMPTY_LAYER: LinkLayerState = { originX: 0, originY: 0, lines: [], clip: null }
 const NO_DOC_IDS: readonly string[] = []
 
 const registry = new Map<PaneId, Registration>()
@@ -269,8 +315,30 @@ function notify(listeners: Set<() => void>): void {
 
 const round = (value: number) => Math.round(value * 10) / 10
 
+const rectKey = (rect: LinkRect) => [rect.left, rect.top, rect.right, rect.bottom].map(round).join(' ')
+
 function lineKey(line: LinkLine): string {
-  return [line.key, line.id, line.color ?? '', line.active ? 1 : 0, line.side, round(line.startX), round(line.y), round(line.edgeX), round(line.cardX), round(line.cardY)].join(',')
+  return [line.key, line.id, line.color ?? '', line.active ? 1 : 0, line.side, round(line.startX), round(line.y), round(line.edgeX), round(line.cardX), round(line.cardY), line.crossing.map(rectKey).join(';')].join(',')
+}
+
+/** 층과 같은 부모 안의 칸(카드) 사각형들. 선이 지나가는 가운데 칸을 알아내는 데 쓴다 */
+function readPaneFrames(): Map<PaneId, LinkRect> {
+  const frames = new Map<PaneId, LinkRect>()
+  const scope = layerElement?.parentElement
+  if (scope === null || scope === undefined) return frames
+  for (const card of scope.querySelectorAll<HTMLElement>('[data-card-pane]')) {
+    const rect = card.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) frames.set(card.dataset.cardPane as PaneId, { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom })
+  }
+  return frames
+}
+
+/** 칸 영역(.panes). 사이드바·상단바는 이 밖이라 선이 넘어가지 않는다 */
+function readPaneArea(): LinkRect | null {
+  const area = layerElement?.parentElement?.querySelector('.panes')
+  if (area === null || area === undefined) return null
+  const rect = area.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0 ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom } : null
 }
 
 /** 모은 창 사각형으로 짝과 선을 다시 셈한다. 바뀐 쪽만 알린다 */
@@ -281,7 +349,7 @@ function recompute(): void {
     if (snapshot !== undefined) entries.push({ ...registration.meta, frame: snapshot.frame })
   }
   const nextPairs = pairLinkedPanes(entries, floatingPanes)
-  const nextPairsKey = nextPairs.map((pair) => `${pair.doc}>${pair.note}:${pair.noteRole}:${pair.noteSide}:${pair.docId ?? ''}`).join('|')
+  const nextPairsKey = nextPairs.map((pair) => `${pair.doc}>${pair.note}:${pair.noteRole}:${pair.noteSide}:${pair.docId ?? ''}:${round(pair.distance)}`).join('|')
   if (nextPairsKey !== pairsKey) {
     pairsKey = nextPairsKey
     pairs = nextPairs
@@ -293,19 +361,23 @@ function recompute(): void {
     linkedDocIds = byNote
     notify(pairListeners)
   }
-  const lines = nextPairs.flatMap((pair) => {
+  // 칸 사각형·칸 영역·층의 자리는 그릴 선이 있을 때만 읽는다(선이 없으면 위치를 잴 일이 없다)
+  const frames = nextPairs.length === 0 ? new Map<PaneId, LinkRect>() : readPaneFrames()
+  const lines = dedupeLinkLines(nextPairs.flatMap((pair) => {
     const doc = snapshots.get(pair.doc)
     const note = snapshots.get(pair.note)
-    return doc === undefined || note === undefined ? [] : linkLines(pair, doc, note)
-  })
-  // 층의 자리는 그릴 선이 있을 때만 읽는다(선이 없으면 위치를 잴 일이 없다)
+    if (doc === undefined || note === undefined) return []
+    const others = [...frames].filter(([pane]) => pane !== pair.doc && pane !== pair.note).map(([, frame]) => frame)
+    return linkLines(pair, doc, note, others)
+  })).sort((a, b) => Number(a.active) - Number(b.active))
   const box = lines.length === 0 ? undefined : layerElement?.getBoundingClientRect()
   const originX = box?.left ?? 0
   const originY = box?.top ?? 0
-  const nextLayerKey = `${round(originX)},${round(originY)}|${lines.map(lineKey).join('|')}`
+  const clip = lines.length === 0 ? null : readPaneArea()
+  const nextLayerKey = `${round(originX)},${round(originY)}|${clip === null ? '' : rectKey(clip)}|${lines.map(lineKey).join('|')}`
   if (nextLayerKey !== layerKey) {
     layerKey = nextLayerKey
-    layerState = lines.length === 0 && originX === 0 && originY === 0 ? EMPTY_LAYER : { originX, originY, lines }
+    layerState = lines.length === 0 && originX === 0 && originY === 0 ? EMPTY_LAYER : { originX, originY, lines, clip }
     notify(layerListeners)
   }
 }

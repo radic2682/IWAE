@@ -1,4 +1,4 @@
-/* 작업 공간 연결선 층: 문서 창의 형광펜 ↔ 이웃한 메모 노트 창의 카드. 모든 창 위, 팝업·메뉴(z-index 120~) 아래 */
+/* 작업 공간 연결선 층: 같은 색 문서 창의 형광펜 ↔ 메모 노트 창의 카드(이웃하지 않아도). 모든 창 위, 팝업·메뉴(z-index 120~) 아래 */
 .workspace-link-layer {
   position: absolute;
   inset: 0;
@@ -15,12 +15,12 @@
 .workspace-link path { fill: none; stroke: var(--workspace-link-color); stroke-linecap: round; }
 .workspace-link circle { fill: var(--workspace-link-color); opacity: .9; }
 
-/* 형광펜 끝 → 창 경계: 노트 바와 같은 점선 */
-.workspace-link .workspace-link-lead { stroke-width: 1.6px; stroke-dasharray: 3 3; opacity: .7; }
-/* 경계 → 카드: 가리키지 않는 것은 점선으로 옅게 */
-.workspace-link .workspace-link-curve { stroke-width: 1.6px; stroke-dasharray: 5 4; opacity: .75; }
+/* 한 줄 실선: 형광펜 끝에서 카드 가장자리까지. 점은 형광펜 쪽 하나뿐이다 */
+.workspace-link .workspace-link-line { stroke-width: 1.6px; opacity: .7; }
+/* 가운데 칸 위를 지나가는 구간은 45% 로 흐리게(그 칸의 글이 읽히게) */
+.workspace-link .workspace-link-pass { opacity: calc(.7 * .45); }
 
-/* 가리키는(활성·쓰는 중) 메모: 실선으로 조금 굵게 */
-.workspace-link-active .workspace-link-lead { stroke-width: 2.4px; opacity: 1; }
-.workspace-link-active .workspace-link-curve { stroke-width: 2.4px; stroke-dasharray: none; opacity: 1; }
+/* 가리키는(활성·쓰는 중) 메모: 조금 굵게, 또렷하게 */
+.workspace-link-active .workspace-link-line { stroke-width: 2.4px; opacity: 1; }
+.workspace-link-active .workspace-link-pass { opacity: .45; }
 .workspace-link-active circle { opacity: 1; }

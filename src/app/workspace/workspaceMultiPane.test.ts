@@ -263,12 +263,12 @@ describe('이웃한 칸 — 배치 트리의 실제 사각형으로(1000×600 �
     expect(pairsOf(layoutForCount(3, ['l', 'm', 'r']), ['m'])).toEqual(['m>l:left', 'm>r:right'])
   })
 
-  it('가로 셋(문서 | 노트 | 노트): 떨어진 노트에는 선이 없다', () => {
-    expect(pairsOf(layoutForCount(3, ['a', 'b', 'c']), ['a'])).toEqual(['a>b:right'])
+  it('가로 셋(문서 | 노트 | 노트): 떨어진 노트에도 선이 간다', () => {
+    expect(pairsOf(layoutForCount(3, ['a', 'b', 'c']), ['a'])).toEqual(['a>b:right', 'a>c:right'])
   })
 
-  it('가로 넷: 문서가 둘째면 첫째 · 셋째와만, 넷째는 이웃이 아니다', () => {
-    expect(pairsOf(layoutForCount(5, ['a', 'b', 'c', 'd', 'e']), ['b'])).toEqual(['b>a:left', 'b>c:right'])
+  it('가로 다섯: 문서가 둘째면 모든 노트와 이어진다(떨어진 노트도)', () => {
+    expect(pairsOf(layoutForCount(5, ['a', 'b', 'c', 'd', 'e']), ['b'])).toEqual(['b>a:left', 'b>c:right', 'b>d:right', 'b>e:right'])
   })
 
   it('세로 나눔(위 | 아래): 위아래는 이웃이 아니다', () => {
@@ -276,14 +276,14 @@ describe('이웃한 칸 — 배치 트리의 실제 사각형으로(1000×600 �
     expect(pairsOf(layout, ['top'])).toEqual([])
   })
 
-  it('2×2 격자: 같은 줄 이웃만, 위아래 · 대각선은 아니다', () => {
+  it('2×2 격자: 위아래로 쌓인 칸은 아니고 같은 줄 · 대각선은 이어진다', () => {
     const layout = layoutForCount(4, ['a', 'b', 'c', 'd'])
     const rects = frames(layout)
     expect(neighborSide(rects.a!, rects.b!)).toBe('right')
     expect(neighborSide(rects.a!, rects.c!)).toBeNull()
     expect(neighborSide(rects.a!, rects.d!)).toBeNull()
     expect(neighborSide(rects.c!, rects.d!)).toBe('right')
-    expect(pairsOf(layout, ['a'])).toEqual(['a>b:right'])
+    expect(pairsOf(layout, ['a'])).toEqual(['a>b:right', 'a>d:right'])
   })
 
   it('왼쪽 하나 · 오른쪽 위아래 둘: 문서 하나가 오른쪽 노트 둘과 모두 이어진다', () => {
@@ -304,8 +304,8 @@ describe('이웃한 칸 — 배치 트리의 실제 사각형으로(1000×600 �
     expect(pairsOf(layoutForCount(3, ['d1', 'n', 'd2']), ['d1', 'd2'])).toEqual(['d1>n:right', 'd2>n:left'])
   })
 
-  it('같은 색 문서 넷 · 노트 하나(일렬): 노트 옆의 문서만 이어지고 먼 문서는 선이 없다', () => {
-    // 한 줄: d1 | d2 | n | d3 | x — n 의 이웃은 d2, d3 뿐
-    expect(pairsOf(layoutForCount(5, ['d1', 'd2', 'n', 'd3', 'x']), ['d1', 'd2', 'd3', 'x'])).toEqual(['d2>n:right', 'd3>n:left'])
+  it('같은 색 문서 넷 · 노트 하나(일렬): 먼 문서도 이어진다', () => {
+    // 한 줄: d1 | d2 | n | d3 | x — 모두 n 과 이어진다
+    expect(pairsOf(layoutForCount(5, ['d1', 'd2', 'n', 'd3', 'x']), ['d1', 'd2', 'd3', 'x'])).toEqual(['d1>n:right', 'd2>n:right', 'd3>n:left', 'x>n:left'])
   })
 })

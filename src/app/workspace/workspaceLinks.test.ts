@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   currentLinkPairs,
+  dedupeLinkLines,
+  facingSide,
   flushPaneLinks,
   getLinkLayerState,
   linkLines,
@@ -12,6 +14,7 @@ import {
   setFloatingLinkPanes,
   visibleSlice,
   type LinkItem,
+  type LinkLine,
   type LinkPaneEntry,
   type LinkPair,
   type LinkRect,
@@ -48,8 +51,8 @@ describe('pairLinkedPanes — 짝 맞추기', () => {
   const note = rect(404, 0, 800, 600)
 
   it('같은 채널의 이웃한 문서와 노트를 잇고, 노트가 어느 쪽인지 알려 준다', () => {
-    expect(pairLinkedPanes([entry('left', 'document', 'blue', doc, 'a'), entry('right', 'note', 'blue', note)])).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }])
-    expect(pairLinkedPanes([entry('left', 'note', 'blue', doc), entry('right', 'document', 'blue', note, 'a')])).toEqual([{ doc: 'right', note: 'left', noteRole: 'note', noteSide: 'left', docId: 'a' }])
+    expect(pairLinkedPanes([entry('left', 'document', 'blue', doc, 'a'), entry('right', 'note', 'blue', note)])).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 }])
+    expect(pairLinkedPanes([entry('left', 'note', 'blue', doc), entry('right', 'document', 'blue', note, 'a')])).toEqual([{ doc: 'right', note: 'left', noteRole: 'note', noteSide: 'left', docId: 'a', distance: 4 }])
   })
   it('채널이 다르거나 없으면 잇지 않는다', () => {
     expect(pairLinkedPanes([entry('left', 'document', 'blue', doc), entry('right', 'note', 'green', note)])).toEqual([])
@@ -62,9 +65,22 @@ describe('pairLinkedPanes — 짝 맞추기', () => {
   it('위아래로 나뉜 문서와 노트는 잇지 않는다', () => {
     expect(pairLinkedPanes([entry('left', 'document', 'blue', rect(0, 0, 800, 300)), entry('right', 'note', 'blue', rect(0, 304, 800, 600))])).toEqual([])
   })
-  it('좌우 셋에서 가운데에 끼어 떨어진 같은 채널 창은 잇지 않는다', () => {
-    const cols3 = [entry('left', 'document', 'blue', rect(0, 0, 300, 600)), entry('right', 'document', 'green', rect(304, 0, 600, 600)), entry('third', 'note', 'blue', rect(604, 0, 900, 600))]
-    expect(pairLinkedPanes(cols3)).toEqual([])
+  it('좌우 셋에서 가운데에 다른 색 창이 끼어 있어도 떨어진 같은 채널 문서와 노트를 잇는다', () => {
+    const cols3 = [entry('left', 'document', 'blue', rect(0, 0, 300, 600), 'a'), entry('mid', 'document', 'green', rect(304, 0, 600, 600)), entry('third', 'note', 'blue', rect(604, 0, 900, 600))]
+    expect(pairLinkedPanes(cols3)).toEqual([{ doc: 'left', note: 'third', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 304 }])
+  })
+  it('facingSide: 떨어져 있어도 마주 보는 쪽을 알려 주고, 위아래로 쌓인 칸·접힌 칸은 null', () => {
+    expect(facingSide(rect(0, 0, 300, 600), rect(604, 0, 900, 600))).toBe('right')
+    expect(facingSide(rect(604, 0, 900, 600), rect(0, 0, 300, 600))).toBe('left')
+    // 대각선(세로 범위가 달라도 가로로 떨어져 있으면 된다)
+    expect(facingSide(rect(0, 0, 400, 300), rect(404, 304, 800, 600))).toBe('right')
+    expect(facingSide(rect(0, 0, 400, 300), rect(0, 304, 400, 600))).toBeNull()
+    expect(facingSide(rect(0, 0, 400, 300), rect(404, 0, 404, 300))).toBeNull()
+  })
+  it('같은 문서가 두 칸에 보이면 카드마다 가까운 칸의 선 하나만 남는다', () => {
+    const mk = (target: string, distance: number, id = 'h'): LinkLine => ({ key: `${target}:${distance}:${id}`, id, active: false, side: 'right', target, distance, crossing: [], startX: 0, y: 0, edgeX: 0, cardX: 0, cardY: 0 })
+    const kept = dedupeLinkLines([mk('n', 300), mk('n', 4), mk('n', 4, 'other'), mk('m', 300)])
+    expect(kept.map((line) => line.key)).toEqual(['n:4:h', 'n:4:other', 'm:300:h'])
   })
   it('격자: 왼쪽 하나 · 오른쪽 둘 — 오른쪽 위·아래 노트가 모두 왼쪽 문서와 이웃이다', () => {
     const pairs = pairLinkedPanes([
@@ -74,14 +90,14 @@ describe('pairLinkedPanes — 짝 맞추기', () => {
     ])
     expect(pairs.map((pair) => pair.note)).toEqual(['right', 'third'])
   })
-  it('격자 2×2: 같은 줄 이웃만 잇고 위아래·대각선은 잇지 않는다', () => {
+  it('격자 2×2: 위아래로 쌓인 칸은 잇지 않고 대각선은 잇는다', () => {
     const grid = [
       entry('left', 'document', 'blue', rect(0, 0, 400, 300), 'a'),
       entry('right', 'document', 'blue', rect(404, 0, 800, 300), 'b'),
       entry('third', 'note', 'blue', rect(0, 304, 400, 600)),
       entry('fourth', 'note', 'blue', rect(404, 304, 800, 600)),
     ]
-    expect(pairLinkedPanes(grid)).toEqual([])
+    expect(pairLinkedPanes(grid).map((pair) => `${pair.doc}>${pair.note}:${pair.noteSide}`)).toEqual(['left>fourth:right', 'right>third:left'])
     // 같은 줄이면 이웃
     expect(pairLinkedPanes([entry('left', 'document', 'blue', rect(0, 0, 400, 300), 'a'), entry('right', 'note', 'blue', rect(404, 0, 800, 300))])).toHaveLength(1)
   })
@@ -113,7 +129,7 @@ describe('떠 있는 칸의 연결선(설계 5)', () => {
   it('겹치지 않는 떠 있는 칸은 보통 칸처럼 짝이 된다', () => {
     const beside = entry('float', 'note', 'blue', rect(404, 50, 804, 450))
     expect(pairLinkedPanes([entry('left', 'document', 'blue', docFrame, 'a'), beside], new Set(['float']))).toEqual([
-      { doc: 'left', note: 'float', noteRole: 'note', noteSide: 'right', docId: 'a' },
+      { doc: 'left', note: 'float', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 },
     ])
   })
 
@@ -144,28 +160,41 @@ describe('linkLines — 선 모양', () => {
   const note = (items: LinkItem[], frame = rect(404, 0, 800, 600), activeIds: string[] = []): PaneLinkSnapshot => ({ frame, body: frame, items, activeIds })
 
   it('노트가 오른쪽이면 형광펜의 오른쪽 끝에서 문서 창 오른쪽 가장자리까지 가서 카드 왼쪽 가장자리로 든다', () => {
-    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 }
     const [line] = linkLines(pair, doc([mark('h', 100, 220, 120)]), note([card('h', 420, 780, 200)]))
     expect(line).toMatchObject({ id: 'h', side: 'right', startX: 220, y: 120, edgeX: 400, cardX: 420, cardY: 218, active: false })
   })
   it('노트가 왼쪽이면 형광펜의 왼쪽 끝에서 왼쪽으로 가서 카드 오른쪽 가장자리로 든다', () => {
-    const pair: LinkPair = { doc: 'right', note: 'left', noteRole: 'note', noteSide: 'left', docId: 'a' }
+    const pair: LinkPair = { doc: 'right', note: 'left', noteRole: 'note', noteSide: 'left', docId: 'a', distance: 4 }
     const [line] = linkLines(pair, doc([mark('h', 500, 620, 120)], rect(404, 0, 800, 600)), note([card('h', 20, 380, 200)], rect(0, 0, 400, 600)))
     expect(line).toMatchObject({ side: 'left', startX: 500, edgeX: 404, cardX: 380, cardY: 218 })
   })
   it('보이는 형광펜과 보이는 카드가 둘 다 있는 것만, 각 몸통 안에 걸친 것만 그린다', () => {
-    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 }
     const lines = linkLines(pair,
       doc([mark('both', 100, 200, 100), mark('noCard', 100, 200, 150), mark('outside', 100, 200, 700), mark('cardBelow', 100, 200, 160)]),
       note([card('both', 420, 780, 90), card('outside', 420, 780, 90), card('cardBelow', 420, 780, 590)]))
     expect(lines.map((line) => line.id)).toEqual(['both'])
   })
   it('가리키는 선(문서 쪽이든 노트 쪽이든)은 활성이고 맨 뒤에 놓여 위에 그려진다', () => {
-    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 }
     const lines = linkLines(pair,
       doc([mark('x', 100, 200, 100), mark('y', 100, 200, 140), mark('z', 100, 200, 180)]),
       note([card('x', 420, 780, 90), card('y', 420, 780, 130), card('z', 420, 780, 170)], rect(404, 0, 800, 600), ['x']))
     expect(lines.map((line) => [line.id, line.active])).toEqual([['y', false], ['z', false], ['x', true]])
+  })
+  it('떨어진 노트: 문서 창의 마주 보는 가장자리에서 나가 가운데 칸을 가로지르고, 가로지르는 칸을 알려 준다', () => {
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 304 }
+    const middle = rect(304, 0, 600, 600)
+    const [line] = linkLines(pair, doc([mark('h', 100, 220, 120)], rect(0, 0, 300, 600)), note([card('h', 620, 880, 200)], rect(604, 0, 900, 600)), [middle, rect(304, 700, 600, 900)])
+    expect(line).toMatchObject({ side: 'right', startX: 220, edgeX: 300, cardX: 620, cardY: 218 })
+    // 세로로 닿지 않는 칸은 가로지르지 않는다
+    expect(line!.crossing).toEqual([middle])
+  })
+  it('이웃한 노트는 가로지르는 칸이 없다', () => {
+    const pair: LinkPair = { doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 }
+    const [line] = linkLines(pair, doc([mark('h', 100, 220, 120)]), note([card('h', 420, 780, 200)]))
+    expect(line!.crossing).toEqual([])
   })
 })
 
@@ -202,8 +231,24 @@ describe('등록 — 탭이 바뀌거나 닫히면 거둔다', () => {
   it('문서와 노트가 같은 채널로 이웃하면 짝이 맺히고 선이 나온다', () => {
     registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(docFrame, [markItem]))
     registerPaneLinks({ pane: 'right', role: 'note', channel: 'blue' }, () => snapshot(noteFrame, [cardItem]))
-    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a' }])
+    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'a', distance: 4 }])
     expect(getLinkLayerState().lines.map((line) => line.id)).toEqual(['h'])
+  })
+  it('사이에 다른 칸이 있어도 이어지고, 같은 문서를 보이는 두 칸 중 가까운 칸의 선 하나만 그린다', () => {
+    // 문서 칸 둘(같은 문서) | 노트: 두 칸 모두 같은 형광펜 id 를 가진다
+    registerPaneLinks({ pane: 'far', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(rect(0, 0, 300, 600), [markItem]))
+    registerPaneLinks({ pane: 'near', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(rect(304, 0, 600, 600), [{ ...markItem, rect: rect(400, 100, 500, 114) }]))
+    registerPaneLinks({ pane: 'right', role: 'note', channel: 'blue' }, () => snapshot(rect(604, 0, 900, 600), [cardItem]))
+    expect(currentLinkPairs().map((pair) => pair.doc)).toEqual(['far', 'near'])
+    const lines = getLinkLayerState().lines
+    expect(lines).toHaveLength(1)
+    expect(lines[0]!.key).toBe('near>right:h')
+  })
+  it('가까운 칸에서 형광펜이 화면 밖이면 먼 칸의 선이 남는다', () => {
+    registerPaneLinks({ pane: 'far', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(rect(0, 0, 300, 600), [markItem]))
+    registerPaneLinks({ pane: 'near', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(rect(304, 0, 600, 600), []))
+    registerPaneLinks({ pane: 'right', role: 'note', channel: 'blue' }, () => snapshot(rect(604, 0, 900, 600), [cardItem]))
+    expect(getLinkLayerState().lines.map((line) => line.key)).toEqual(['far>right:h'])
   })
   it('노트 탭을 닫으면(거두면) 짝과 선이 사라진다', () => {
     registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'a' }, () => snapshot(docFrame, [markItem]))

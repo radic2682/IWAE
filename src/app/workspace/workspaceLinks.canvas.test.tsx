@@ -28,8 +28,8 @@ describe('캔버스 창과 짝 맞추기 — 노트 창과 같은 규칙', () =>
   const mark = (id: string, top: number): LinkItem => ({ id, color: 'yellow', rect: rect(100, top, 200, top + 14), y: top })
 
   it('같은 채널의 이웃한 문서와 캔버스를 잇고, 캔버스 쪽임을 알려 준다', () => {
-    expect(pairLinkedPanes([entry('left', 'document', 'blue', docFrame, 'a'), entry('right', 'canvas', 'blue', canvasFrame)])).toEqual([{ doc: 'left', note: 'right', noteRole: 'canvas', noteSide: 'right', docId: 'a' }])
-    expect(pairLinkedPanes([entry('left', 'canvas', 'blue', docFrame), entry('right', 'document', 'blue', canvasFrame, 'a')])).toEqual([{ doc: 'right', note: 'left', noteRole: 'canvas', noteSide: 'left', docId: 'a' }])
+    expect(pairLinkedPanes([entry('left', 'document', 'blue', docFrame, 'a'), entry('right', 'canvas', 'blue', canvasFrame)])).toEqual([{ doc: 'left', note: 'right', noteRole: 'canvas', noteSide: 'right', docId: 'a', distance: 4 }])
+    expect(pairLinkedPanes([entry('left', 'canvas', 'blue', docFrame), entry('right', 'document', 'blue', canvasFrame, 'a')])).toEqual([{ doc: 'right', note: 'left', noteRole: 'canvas', noteSide: 'left', docId: 'a', distance: 4 }])
   })
 
   it('채널이 다르거나, 위아래로 나뉘었거나, 캔버스끼리면 잇지 않는다', () => {
