@@ -49,6 +49,7 @@ export function AppMenu({ groups }: { readonly groups: AppMenuGroups }) {
       <button
         ref={buttonRef}
         type="button"
+        data-tour="app-menu"
         className={`topbar-app-menu${open !== null ? ' topbar-app-menu-open' : ''}`}
         aria-label={t('IWAE 메뉴')}
         title={t('IWAE 메뉴')}

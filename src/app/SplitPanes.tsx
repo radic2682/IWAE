@@ -429,7 +429,7 @@ export function SplitPanes({
               >
                 {/* 칸 하나 = 둥근 카드 하나(머리 + 본문). 칸 사이 틈은 CSS 가 낸다 */}
                 <PaneCard paneId={paneId} channel={paneChannel?.(paneId) ?? null} active={cardActive(paneId)} empty={paneEmpty?.(paneId) ?? false} onFocusPane={onFocusPane}>
-                  {renderHead !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone pane-head" data-pane-head={paneId} onPointerDown={onHeadPointerDown === undefined ? undefined : (event) => onHeadPointerDown(event, paneId)}>{renderHead(paneId, index)}</div> : null}
+                  {renderHead !== undefined ? <div className="pane-grid-tabs topbar-panetab-zone pane-head" data-tour="pane-head" data-pane-head={paneId} onPointerDown={onHeadPointerDown === undefined ? undefined : (event) => onHeadPointerDown(event, paneId)}>{renderHead(paneId, index)}</div> : null}
                   <div className="pane-grid-body">{renderPane(paneId, index)}</div>
                 </PaneCard>
               </div>

@@ -1,0 +1,263 @@
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { X } from '@phosphor-icons/react'
+import { BUNDLED_RELEASE_NOTES, planWhatsNew, type ReleaseNote } from '../core/releaseNotes'
+import { holeRect, placeCard, rectVisible, type TourRect } from '../core/tourPlacement'
+import { tourById, type Tour } from '../core/tours'
+import { t } from '../i18n'
+import { useFocusTrap } from '../ui/useFocusTrap'
+import { useStartupDialog } from './startupDialogs'
+import { installSnapshot, markToursSeen, onTourRequest, planStartupTours, subscribeTourIntent, tourIntent } from './tourState'
+import '../ui/tour.css'
+import '../ui/shortcuts.css'
+
+/** 시작 대화상자 줄의 이름과 차례: 「새 버전」(10), 접두키 고르기(50) 다음. 접두키를 고른 뒤라야 안내 글의 접두키가 맞다 */
+export const TOUR_DIALOG_ID = 'tour'
+const TOUR_PRIORITY = 60
+/** 크기를 재기 전 카드 크기 짐작(CSS 의 폭과 같다) */
+const GUESS_CARD = { width: 320, height: 180 } as const
+/** 목표가 사라지거나 옮겨 간 것을 놓치지 않으려는 다시 재기 간격 */
+const REMEASURE_MS = 400
+
+function toRect(box: DOMRect): TourRect {
+  return { left: box.left, top: box.top, width: box.width, height: box.height }
+}
+
+function sameRect(a: TourRect | null, b: TourRect | null): boolean {
+  if (a === null || b === null) return a === b
+  return a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
+}
+
+/**
+ * `data-tour` 값으로 목표를 찾는다. 같은 값이 여럿(칸마다 머리가 있다)이면 만지는 칸(`.pane-card-active`)의 것을 먼저,
+ * 그다음 첫 번째로 보이는 것(크기가 있고 창 안)을 쓴다. 보이는 것이 없으면 null.
+ */
+export function resolveTourTarget(name: string, root: ParentNode = document): HTMLElement | null {
+  const viewport = { width: window.innerWidth, height: window.innerHeight }
+  const all = [...root.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)]
+  const active = all.filter((element) => element.closest('.pane-card-active') !== null)
+  const ordered = [...active, ...all.filter((element) => !active.includes(element))]
+  return ordered.find((element) => element.closest('[inert]') === null && rectVisible(toRect(element.getBoundingClientRect()), viewport)) ?? null
+}
+
+/** 본문의 `{prefix}` 자리를 지금 접두키 키캡으로 바꿔 그린다 */
+function renderBody(body: string, prefixText: string): ReactNode {
+  const parts = t(body).split('{prefix}')
+  return parts.map((part, index) => (
+    <Fragment key={index}>
+      {index > 0 ? <kbd className="keycap tour-keycap">{prefixText}</kbd> : null}
+      {part}
+    </Fragment>
+  ))
+}
+
+interface TourOverlayProps {
+  readonly tour: Tour
+  readonly prefixText: string
+  /** 끝까지 봤거나(마치기) 건너뛰었다(Esc · ×) */
+  readonly onFinish: () => void
+}
+
+/**
+ * 말풍선 둘러보기 화면. 목표 둘레만 뚫어 놓고 나머지를 어둡게 하며 옆에 카드를 둔다.
+ * 안내만 한다: 어두운 곳도 뚫린 곳도 클릭을 통과시키지 않는다(둘러보다가 사용자 배치가 바뀌면 안 된다).
+ * Esc 는 건너뛰기, → · Enter 는 다음, ← 는 이전.
+ */
+export function TourOverlay({ tour, prefixText, onFinish }: TourOverlayProps) {
+  const [index, setIndex] = useState(0)
+  const [target, setTarget] = useState<TourRect | null>(null)
+  const [cardSize, setCardSize] = useState<{ width: number; height: number }>(GUESS_CARD)
+  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const primaryRef = useRef<HTMLButtonElement | null>(null)
+  const lastTarget = useRef<TourRect | null>(null)
+  const step = tour.steps[Math.min(index, tour.steps.length - 1)]!
+  const last = index >= tour.steps.length - 1
+  useFocusTrap(cardRef)
+
+  // 목표 재기: 단계가 바뀔 때, 창 크기·스크롤이 바뀔 때, 목표 크기가 바뀔 때, 그리고 가끔(목표가 사라지면 가운데 카드로)
+  useLayoutEffect(() => {
+    let element: HTMLElement | null = null
+    let observer: ResizeObserver | null = null
+    const measure = () => {
+      const found = step.target === undefined ? null : resolveTourTarget(step.target)
+      if (found !== element) {
+        observer?.disconnect()
+        element = found
+        if (found !== null && typeof ResizeObserver !== 'undefined') {
+          observer = new ResizeObserver(measure)
+          observer.observe(found)
+        }
+      }
+      const rect = found === null ? null : toRect(found.getBoundingClientRect())
+      setTarget((previous) => (sameRect(previous, rect) ? previous : rect))
+      setViewport((previous) => (previous.width === window.innerWidth && previous.height === window.innerHeight ? previous : { width: window.innerWidth, height: window.innerHeight }))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    const timer = window.setInterval(measure, REMEASURE_MS)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+      window.clearInterval(timer)
+      observer?.disconnect()
+    }
+  }, [step.target])
+
+  // 카드 크기: 글 길이에 따라 달라지므로 재서 자리 계산에 쓴다
+  useLayoutEffect(() => {
+    const card = cardRef.current
+    if (card === null) return undefined
+    const measure = () => {
+      const width = card.offsetWidth
+      const height = card.offsetHeight
+      if (width === 0 || height === 0) return
+      setCardSize((previous) => (previous.width === width && previous.height === height ? previous : { width, height }))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [index])
+
+  // 단계가 바뀔 때 주 단추로 초점(Enter 로 계속 넘길 수 있게)
+  useEffect(() => { primaryRef.current?.focus({ preventScroll: true }) }, [index])
+
+  const next = useCallback(() => {
+    if (last) onFinish()
+    else setIndex((current) => current + 1)
+  }, [last, onFinish])
+  const previous = useCallback(() => setIndex((current) => Math.max(0, current - 1)), [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) return
+      const eat = () => { event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation() }
+      if (event.key === 'Escape') { eat(); onFinish(); return }
+      if (event.ctrlKey || event.metaKey || event.altKey) return
+      if (event.key === 'ArrowRight') { eat(); next() }
+      else if (event.key === 'ArrowLeft') { eat(); previous() }
+      // 단추에 초점이 있으면 Enter 는 그 단추가 처리한다(이전 단추에서 Enter 는 이전)
+      else if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) { eat(); next() }
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [next, onFinish, previous])
+
+  if (target !== null) lastTarget.current = target
+  const hole = lastTarget.current === null ? null : holeRect(lastTarget.current)
+  const place = placeCard(target, cardSize, viewport, step.placement)
+  const total = tour.steps.length
+  const swallow = (event: { stopPropagation: () => void }) => event.stopPropagation()
+
+  return createPortal(
+    <div
+      className="tour-layer"
+      onPointerDown={swallow}
+      onClick={swallow}
+      onDoubleClick={swallow}
+      onContextMenu={(event) => { event.preventDefault(); event.stopPropagation() }}
+      onWheel={swallow}
+      onMouseDown={(event) => {
+        event.stopPropagation()
+        // 어두운 곳을 눌러도 초점이 카드에서 빠져나가지 않게
+        if (!(event.target as HTMLElement).closest('.tour-card')) event.preventDefault()
+      }}
+    >
+      <div className="tour-dim" data-on={target === null ? '' : undefined} />
+      {hole === null ? null : (
+        <div
+          className="tour-hole"
+          data-on={target === null ? undefined : ''}
+          style={{ width: hole.width, height: hole.height, transform: `translate(${hole.left}px, ${hole.top}px)` }}
+        />
+      )}
+      <div
+        ref={cardRef}
+        className="tour-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tour-card-title"
+        aria-describedby="tour-card-body"
+        data-side={place.side ?? 'center'}
+        data-parity={index % 2}
+        style={{ left: place.left, top: place.top, '--tour-arrow': `${place.arrow}px` } as CSSProperties}
+      >
+        <button type="button" className="tour-close" aria-label={t('안내 닫기')} onClick={onFinish}>
+          <X size={14} weight="bold" aria-hidden="true" />
+        </button>
+        <h2 id="tour-card-title" className="tour-title">{t(step.title)}</h2>
+        <p id="tour-card-body" className="tour-body">{renderBody(step.body, prefixText)}</p>
+        <div className="tour-foot">
+          <span className="tour-count">{index + 1} / {total}</span>
+          <div className="tour-actions">
+            {index > 0 ? <button type="button" className="tour-button" onClick={previous}>{t('이전')}</button> : null}
+            <button ref={primaryRef} type="button" className="tour-button tour-button-primary" onClick={next}>{last ? t('마치기') : t('다음')}</button>
+          </div>
+        </div>
+        {place.side === null ? null : <span className="tour-arrow" aria-hidden="true" />}
+        <div className="tour-sr" role="status" aria-live="polite">{`${index + 1} / ${total}, ${t(step.title)}`}</div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+interface TourHostProps {
+  /** 메인 창이고 시작이 끝났고 Vault 가 열려 칸이 그려졌을 때만 true */
+  readonly enabled: boolean
+  readonly version: string
+  /** 지금 접두키 표기 */
+  readonly prefixText: string
+  /** 「새 버전」 창이 보일지 가늠하는 노트(시험에서 바꾼다) */
+  readonly notes?: readonly ReleaseNote[]
+}
+
+/**
+ * 둘러보기를 언제 띄울지 정한다.
+ * - 저절로: enabled 가 처음 true 가 될 때 한 번 판단한다(처음 설치 → 처음 사용 안내, 업데이트 → 새 기능). 시작 대화상자 줄에 서서 「새 버전」·접두키 창과 겹치지 않는다.
+ *   「새 버전」 창이 같이 뜨는 업데이트에서는 거기서 「새 기능 둘러보기」를 눌러야 시작한다. 「나중에」면 안 보이고 본 것으로 친다(재촉하지 않는다).
+ * - 직접: 팔레트·메뉴가 requestTour 로 부른다. 본 적이 있어도 열린다.
+ * 마치거나 건너뛰면 본 것으로 적는다.
+ */
+export function TourHost({ enabled, version, prefixText, notes = BUNDLED_RELEASE_NOTES }: TourHostProps) {
+  const [queue, setQueue] = useState<readonly string[] | null>(null)
+  const [manualId, setManualId] = useState<string | null>(null)
+  const intent = useSyncExternalStore(subscribeTourIntent, tourIntent, tourIntent)
+
+  useEffect(() => {
+    if (!enabled || queue !== null) return
+    const plan = planStartupTours(version)
+    markToursSeen(plan.markSeen)
+    setQueue(plan.run)
+  }, [enabled, queue, version])
+
+  useEffect(() => onTourRequest((id) => { if (tourById(id) !== undefined) setManualId(id) }), [])
+
+  // 「새 버전」 창이 같이 뜨는 업데이트인가(그 창이 둘러보기를 시작할지 미룰지 정한다)
+  const dialogPlanned = planWhatsNew(installSnapshot().lastSeenVersion, version, notes).kind === 'show'
+
+  // 「나중에」: 쌓인 안내를 본 것으로 치고 비운다
+  useEffect(() => {
+    if (intent !== 'declined' || queue === null || queue.length === 0) return
+    markToursSeen(queue)
+    setQueue([])
+  }, [intent, queue])
+
+  const wanted = enabled && queue !== null && queue.length > 0 && (!dialogPlanned || intent === 'accepted')
+  const turn = useStartupDialog(TOUR_DIALOG_ID, wanted, TOUR_PRIORITY)
+  const activeId = manualId ?? (turn && queue !== null ? queue[0] ?? null : null)
+  const tour = activeId === null ? undefined : tourById(activeId)
+
+  const finish = useCallback(() => {
+    if (activeId === null) return
+    markToursSeen([activeId])
+    if (manualId !== null) setManualId(null)
+    else setQueue((current) => (current === null ? current : current.filter((id) => id !== activeId)))
+  }, [activeId, manualId])
+
+  if (tour === undefined) return null
+  return <TourOverlay key={tour.id} tour={tour} prefixText={prefixText} onFinish={finish} />
+}

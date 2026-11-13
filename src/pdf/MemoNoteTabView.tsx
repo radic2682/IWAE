@@ -333,7 +333,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   )
 
   return (
-    <div ref={rootRef} className={`pane-doc memo-note-tab${wide ? ' memo-note-tab-wide' : ''}`} data-memo-note-tab={path} data-layout={wide ? 'wide' : 'narrow'}>
+    <div ref={rootRef} className={`pane-doc memo-note-tab${wide ? ' memo-note-tab-wide' : ''}`} data-tour="note-pane" data-memo-note-tab={path} data-layout={wide ? 'wide' : 'narrow'}>
       <section ref={setBarEl} className="pdf-memo-bar memo-note-tab-bar" aria-label={t('메모 노트')} style={{ '--bar-zoom': wide ? 1 : barZoom } as CSSProperties}>
         {searchOpen ? (
           <div className="memo-note-tab-searchrow">

@@ -156,7 +156,7 @@ export function TopBar({
 
         {sidebarCollapsed || !sidebarVisible ? null : (
           // 사이드바 보기는 사이드바 바로 위에 탭으로 단다. 고른 탭이 아래 사이드바와 이어진다
-          <div className="topbar-nav topbar-side-tabs" role="radiogroup" aria-label={t('사이드바 보기')}>
+          <div className="topbar-nav topbar-side-tabs" data-tour="sidebar-tabs" role="radiogroup" aria-label={t('사이드바 보기')}>
             <button type="button" className={`topbar-navbtn${sidebarMode === 'library' ? ' topbar-navbtn-active' : ''}`} aria-label={t('탐색기')} title={t('탐색기')} role="radio" aria-checked={sidebarMode === 'library'} onClick={() => onSidebarModeChange('library')}>
               <TreeStructure size={15} weight="regular" aria-hidden="true" />
             </button>
@@ -226,7 +226,7 @@ export function TopBar({
         )}
         {/* 지금 만지는 칸의 도구줄(MD · PDF 도구 · 노트 서식 줄). 남는 폭을 다 쓰고, 모자라면 도구줄이 스스로 「⋯」 로 접는다.
             앞의 주인 칩(색 점 · 칸 번호 · 문서 종류)은 어느 칸의 도구인지 보이고, 도구 단추 규칙은 이 자리의 자기 규칙(.topbar-toolbar-host …)이다 */}
-        <div className="topbar-toolbar-host" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
+        <div className="topbar-toolbar-host" data-tour="toolbar" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
           {toolbarOwner === null ? null : (
             <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 현재 선택한 칸에 적용됩니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />
@@ -241,6 +241,7 @@ export function TopBar({
           <div className="topbar-app-group" role="group" aria-label={t('앱')}>
             <button
               type="button"
+              data-tour="translator"
               className={`topbar-app-btn${translatorWindow.open ? ' topbar-app-btn-active' : ''}`}
               aria-label={t('번역기')}
               title={t('번역기 띄우기')}

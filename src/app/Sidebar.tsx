@@ -1681,6 +1681,7 @@ export function Sidebar({
     <nav
       ref={sidebarRef}
       className="sidebar-inner"
+      data-tour="sidebar-docs"
       style={{ '--bar-zoom': leftZoom } as CSSProperties}
       onKeyDown={(event) => {
         // 메뉴·이름 바꾸기가 열려 있을 때의 Escape 는 그것만 닫는다.

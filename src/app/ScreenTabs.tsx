@@ -101,7 +101,7 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
   const menuTab = menu?.kind === 'tab' ? screens.find((screen) => screen.id === menu.id) : undefined
 
   return (
-    <div className="topbar-screens" data-tauri-drag-region="false">
+    <div className="topbar-screens" data-tour="screen-tabs" data-tauri-drag-region="false">
       <div ref={listRef} className="screen-tabs" role="tablist" aria-label={t('화면')}>
         {screens.map((screen, index) => {
           const active = screen.id === activeId

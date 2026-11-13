@@ -23,6 +23,7 @@ export function ChannelDot({ channel, onCycle, pane }: { readonly channel: PaneC
     <button
       type="button"
       className="pane-channel-dot"
+      data-tour="channel-dot"
       data-channel={channel ?? 'none'}
       aria-label={title}
       title={title}
