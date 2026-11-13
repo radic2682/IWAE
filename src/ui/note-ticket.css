@@ -336,3 +336,11 @@ body.note-block-dragging .note-block-tabs { display: none; }
 .pane-doc .note-format-dock .pdf-memo-format-overflow .pdf-memo-format-cluster::before { display: none; }
 /* 「⋯」 메뉴가 열려 있는 동안 도구줄을 노트 블록(z-index 2~3)과 목차 위로 올린다 */
 .pane-doc .note-format-dock:has(.pdf-memo-format-overflow) { z-index: 30; }
+
+/* ---------- 밝은 테마: 메모 카드는 판(#ececec) 위의 흰 종이 ----------
+   카드 바탕이 종이색의 4% 어둡기라 판 색과 거의 같아 카드가 사라졌다. 어두운 테마처럼 종이 그대로(흰색)로 두고,
+   그 위의 칩 · 원문 줄은 흰 카드에서도 보이게 종이보다 살짝 어둡게 한다. 사용자 테마가 정한 --memo-card 가 있으면 그것이 우선이다 */
+:root:not([data-theme='dark']) .note-block.pdf-memo-card-flow:is(.note-text-card, :not(.note-text-card)) {
+  --memo-card-bg: var(--memo-card, var(--paper));
+  --memo-chip-bg: color-mix(in srgb, var(--ink) 6%, var(--paper));
+}

@@ -24,3 +24,16 @@
 .workspace-link-active .workspace-link-line { stroke-width: 2.4px; opacity: 1; }
 .workspace-link-active .workspace-link-pass { opacity: .45; }
 .workspace-link-active circle { opacity: 1; }
+
+/* 이웃하지 않은 칸으로 가는 선(사이에 다른 칸이 있는 선)은 평소엔 아주 옅고 가늘게: 여러 칸을 이은 뒤에도 화면이 어수선하지 않게.
+   그 메모 카드·형광펜을 가리키면(활성 = 호버·포커스·편집 중) 또렷해진다. 이웃한 칸 선은 그대로다 */
+.workspace-link-far .workspace-link-line { stroke-width: 1.1px; opacity: .28; }
+.workspace-link-far .workspace-link-pass { opacity: .14; }
+.workspace-link-far circle { opacity: .35; }
+.workspace-link-far.workspace-link-active .workspace-link-line { stroke-width: 2.4px; opacity: 1; }
+.workspace-link-far.workspace-link-active .workspace-link-pass { opacity: .45; }
+.workspace-link-far.workspace-link-active circle { opacity: 1; }
+.workspace-link-far :is(.workspace-link-line, circle) { transition: opacity 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .workspace-link-far :is(.workspace-link-line, circle) { transition: none; }
+}

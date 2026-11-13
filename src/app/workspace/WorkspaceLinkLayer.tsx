@@ -82,7 +82,7 @@ export function WorkspaceLinkLayer() {
           const d = linkLinePath(line)
           const crossed = line.crossing.length > 0
           return (
-            <g key={line.key} className={`workspace-link${line.active ? ' workspace-link-active' : ''}`} data-hl={line.color} data-side={line.side}>
+            <g key={line.key} className={`workspace-link${line.active ? ' workspace-link-active' : ''}${crossed ? ' workspace-link-far' : ''}`} data-hl={line.color} data-side={line.side}>
               <path className="workspace-link-line" d={d} mask={crossed ? `url(#wl-out-${uid}-${index})` : undefined} />
               {crossed ? <path className="workspace-link-line workspace-link-pass" d={d} clipPath={`url(#wl-in-${uid}-${index})`} /> : null}
               <circle className="workspace-link-dot" cx={line.startX} cy={line.y} r={line.active ? 3 : 2.2} />
