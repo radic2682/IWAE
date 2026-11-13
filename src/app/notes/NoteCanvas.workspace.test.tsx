@@ -187,7 +187,7 @@ describe('NoteCanvas — 연결선 층에 보이는 블록을 내놓는다', () 
     })
     registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'doc' }, () => docSnapshot(box(0, 0, 400, 600)))
     flushPaneLinks()
-    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteRole: 'canvas', noteSide: 'right', docId: 'doc' }])
+    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteRole: 'canvas', noteSide: 'right', docId: 'doc', distance: 4 }])
     // viewport(10, 20, ×2): 블록 왼쪽 가장자리는 404 + 10 + 20 × 2 = 454. 선은 문서 창 가장자리(400)를 지나 거기로 든다
     const line = getLinkLayerState().lines.find((candidate) => candidate.id === `src:${target.id}`)
     expect(line).toMatchObject({ side: 'right', startX: 300, y: 205, edgeX: 400, cardX: 454 })

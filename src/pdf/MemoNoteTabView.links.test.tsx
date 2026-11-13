@@ -128,7 +128,7 @@ describe('MemoNoteTabView — 연결선 재료 내놓기', () => {
   it('노트 탭이 보이는 동안 등록되고, 탭이 바뀌어(언마운트) 사라지면 거둔다', () => {
     registerPaneLinks({ pane: 'left', role: 'document', channel: 'blue', docId: 'doc-a' }, () => docSnapshot([mark('h0', 20)]))
     const { unmount } = render(<Harness count={2}><MemoNoteTabView path={PATH} highlights={[highlight('h0'), highlight('h1')]} onJump={vi.fn()} /></Harness>)
-    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'doc-a' }])
+    expect(currentLinkPairs()).toEqual([{ doc: 'left', note: 'right', noteRole: 'note', noteSide: 'right', docId: 'doc-a', distance: 4 }])
     unmount()
     expect(currentLinkPairs()).toEqual([])
     expect(getLinkLayerState().lines).toEqual([])
