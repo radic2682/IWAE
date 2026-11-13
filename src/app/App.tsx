@@ -224,6 +224,9 @@ import { errorText } from '../core/errorText'
 import { UpdateSettings } from './UpdateSettings'
 import { WhatsNewHost } from './WhatsNewDialog'
 import { PrefixKeyHost } from './PrefixKeyDialog'
+import { TourHost } from './TourHost'
+import { requestTour } from './tourState'
+import { latestFeatureTour, ONBOARDING_TOUR_ID } from '../core/tours'
 import { useUpdater } from './useUpdater'
 import packageMetadata from '../../package.json'
 import developmentMarkdown from '../fixtures/development-note.md?raw'
@@ -1241,6 +1244,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
       { id: 'translator', kind: 'action', label: translatorWindow.open && translation.settings.enabled ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open && translationEnabledRef.current) toggleTranslatorWindow(); else if (!openTranslator()) announceAction(t('번역이 꺼져 있습니다. 설정에서 켜세요')) } },
       { id: 'keys-help', kind: 'action', label: t('키와 명령 보기'), shortcut: `${prefixHint} ?`, keywords: 'keys help shortcuts commands list-keys 키 명령 도움말', run: () => setKeysHelpOpen(true) },
+      ...(isMainWindow ? [
+        { id: 'tour-onboarding', kind: 'action' as const, label: t('처음 사용 안내'), keywords: 'tour onboarding tutorial guide intro 튜토리얼 안내 처음 둘러보기', run: () => requestTour(ONBOARDING_TOUR_ID) },
+        ...(latestFeatureTour() === undefined ? [] : [{ id: 'tour-whats-new', kind: 'action' as const, label: t('새 기능 둘러보기'), keywords: 'tour whats new features tutorial 새 기능 둘러보기 튜토리얼', run: () => requestTour(latestFeatureTour()!.id) }]),
+      ] : []),
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
       { id: 'goto', kind: 'action', label: t('쪽으로 이동'), shortcut: shortcutText('goTo'), keywords: 'go to page', run: act('goTo') },
@@ -4243,6 +4250,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             [
               { id: 'command-palette', label: t('명령 팔레트'), hint: paletteHint, onSelect: () => { setPaletteInitial(''); setPaletteOpen(true) } },
               { id: 'keys-help', label: t('키와 명령 보기'), hint: `${prefixHint} ?`, onSelect: () => setKeysHelpOpen(true) },
+              ...(isMainWindow ? [{ id: 'tour-onboarding', label: t('처음 사용 안내'), onSelect: () => requestTour(ONBOARDING_TOUR_ID) }] : []),
+              ...(isMainWindow && latestFeatureTour() !== undefined ? [{ id: 'tour-whats-new', label: t('새 기능 둘러보기'), onSelect: () => requestTour(latestFeatureTour()!.id) }] : []),
             ],
             [{
               id: 'theme',
@@ -4512,6 +4521,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} onShowHistory={() => { setAboutOpen(false); openUpdateHistory(packageMetadata.version) }} /> : null}
     <WhatsNewHost enabled={isMainWindow && !initializing} version={packageMetadata.version} onShowHistory={openUpdateHistory} />
+    <TourHost enabled={isMainWindow && !initializing && vault !== null} version={packageMetadata.version} prefixText={prefixHint} />
     <PrefixKeyHost
       enabled={isMainWindow && !initializing && keysConfPrefix !== null && keysConfPrefix.root === (vault?.root ?? null) && !keysConfPrefix.sets}
       onChooseCustom={() => { setSettingsSection('input'); setSettingsOpen(true) }}

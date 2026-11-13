@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { BUNDLED_RELEASE_NOTES, planWhatsNew, type ReleaseNote } from '../core/releaseNotes'
+import { tourById } from '../core/tours'
 import { t } from '../i18n'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ReleaseNotesBody, releaseDateLabel } from './ReleaseNotesView'
 import { useStartupDialog } from './startupDialogs'
+import { markToursSeen, planStartupTours, setTourIntent } from './tourState'
 
 /** 마지막으로 보여 준 버전. 새 버전 안내를 한 번만 띄우는 데 쓴다 */
 export const LAST_SEEN_VERSION_KEY = 'iwae:last-seen-version:v1'
@@ -36,31 +38,43 @@ interface WhatsNewHostProps {
 export function WhatsNewHost({ enabled, version, notes = BUNDLED_RELEASE_NOTES, onShowHistory }: WhatsNewHostProps) {
   const [pending, setPending] = useState<readonly ReleaseNote[] | null>(null)
   const [decided, setDecided] = useState(false)
+  // 이 업데이트에서 처음 보일 새 기능 둘러보기(있으면 확인 단추가 「새 기능 둘러보기」가 된다)
+  const [tourIds, setTourIds] = useState<readonly string[]>([])
 
   useEffect(() => {
     if (!enabled || decided) return
     setDecided(true)
     const plan = planWhatsNew(readLastSeen(), version, notes)
-    if (plan.kind === 'show') setPending(plan.notes)
+    if (plan.kind === 'show') {
+      setTourIds(planStartupTours(version).run.filter((id) => tourById(id)?.kind === 'feature'))
+      setPending(plan.notes)
+    }
     else if (plan.kind === 'store') writeLastSeen(version)
   }, [decided, enabled, notes, version])
 
   const turn = useStartupDialog(WHATS_NEW_DIALOG_ID, pending !== null, WHATS_NEW_PRIORITY)
   if (!turn || pending === null) return null
 
-  const close = (showHistory: boolean) => {
+  const tours = tourIds.length > 0
+  // 둘러보기는 「새 기능 둘러보기」를 눌렀을 때만 시작한다. 그 밖(나중에 · Esc · 지난 기록 보기)은 본 것으로 쳐서 다시 재촉하지 않는다(메뉴에서 언제든 연다)
+  const close = (showHistory: boolean, takeTour = false) => {
     writeLastSeen(version)
     setPending(null)
+    if (tours) {
+      if (!takeTour) markToursSeen(tourIds)
+      setTourIntent(takeTour ? 'accepted' : 'declined')
+    }
     if (showHistory) onShowHistory(version)
   }
   const stacked = pending.length > 1
   return (
     <ConfirmDialog
       title={t('새 버전 v{version}', { version })}
-      confirmLabel={t('확인')}
-      hideCancel
+      confirmLabel={tours ? t('새 기능 둘러보기') : t('확인')}
+      cancelLabel={t('나중에')}
+      hideCancel={!tours}
       extra={{ label: t('지난 기록 보기'), onClick: () => close(true) }}
-      onConfirm={() => close(false)}
+      onConfirm={() => close(false, true)}
       onCancel={() => close(false)}
     >
       <div className="whats-new-body">
