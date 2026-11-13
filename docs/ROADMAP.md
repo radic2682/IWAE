@@ -4,9 +4,9 @@ English first, 한국어는 아래에 있습니다.
 
 This is a direction, not a promise. Order and scope change with feedback, and nothing here has a date. IWAE stays **local-first**: features that need an account or a server of ours will not be added. Want to influence it? Start a [Discussion](https://github.com/radic2682/IWAE/discussions) or comment on an issue.
 
-Status: **In progress** is being built now. **Next** is planned and understood. **Idea** is worth exploring but not committed.
+Status: **Shipped** is already in a release. **Next** is planned and understood. **Idea** is worth exploring but not committed.
 
-## In progress
+## Shipped (v0.1.11)
 
 | Item | What it is |
 | --- | --- |
@@ -50,9 +50,9 @@ Status: **In progress** is being built now. **Next** is planned and understood. 
 
 방향을 적은 것이고 약속이 아닙니다. 의견에 따라 순서와 범위가 바뀌며, 날짜는 없습니다. IWAE 는 **로컬 우선**이라 계정이나 우리 서버가 필요한 기능은 넣지 않습니다. 의견은 [Discussions](https://github.com/radic2682/IWAE/discussions)나 이슈에 남겨 주세요.
 
-**진행 중**은 지금 만드는 것, **다음**은 하기로 정하고 내용도 이해한 것, **아이디어**는 해 볼 만하지만 확정이 아닌 것입니다.
+**출시됨**은 이미 릴리스에 들어간 것, **다음**은 하기로 정하고 내용도 이해한 것, **아이디어**는 해 볼 만하지만 확정이 아닌 것입니다.
 
-## 진행 중
+## 출시됨 (v0.1.11)
 
 | 항목 | 내용 |
 | --- | --- |

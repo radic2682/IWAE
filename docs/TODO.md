@@ -2,7 +2,7 @@
 
 - [ ] 라이브러리 펼치기: 왼쪽 바 모양·펼치기 단추 자리를 유지한 채 넓어지게
 - [ ] 노트 펼치기(메모만 보기) 재설계: 다른 화면과 같은 모양으로
-- [ ] PDF 화면 나누기: 노트에서 먼 칸(사이에 다른 칸)의 형광펜 연결선을 어떻게 이을지
+- [x] PDF 화면 나누기: 노트에서 먼 칸(사이에 다른 칸)의 형광펜 연결선 → 이웃 칸 규칙(DOM 위치로 이웃 판단) + 「→ 문서 이름」 칩으로 해결(`docs/design/workspace-tmux.md`)
 
 ## PDF 편집 기능 (Stirling-PDF 도구 목록 대비, 2026-11-09 → 2026-11-10 대부분 완료)
 
@@ -14,7 +14,7 @@
 
 ## 나중에 할 것 (사용자 요청, 2026-11-11)
 
-- [ ] 메모 블록을 끌어 다른 노트로 옮기기·복사하기: 노트 탭이나 왼쪽 바의 노트 위로 끌어 놓으면 그 노트에 들어간다(쪽 편집의 쪽 끌기와 같은 동작). 같은 형광펜을 가리키는 카드로 넣는다.
+- [x] 메모 블록을 끌어 다른 노트로 옮기기·복사하기(완료 11-13, Alt = 링크·복사, `docs/design/workspace-tmux.md` 단계 8 손질 6차): 노트 탭이나 왼쪽 바의 노트 위로 끌어 놓으면 그 노트에 들어간다(쪽 편집의 쪽 끌기와 같은 동작). 같은 형광펜을 가리키는 카드로 넣는다.
 - [ ] 메모에 댓글·대댓글: 노트를 여러 개(A·B·C) 돌려 쓰는 대신 노트 하나 안에서 메모마다 댓글 줄기를 달 수 있게. 일반 PDF 뷰어의 주석 답글처럼. (친구 피드백, 2026-11-11)
 - [ ] 다른 노트·메모 참조 링크: Notion 의 페이지 링크처럼 노트 글 안에 다른 노트(또는 그 안의 메모, 메모 ID 활용)를 가리키는 링크를 넣고, 누르면 그곳으로 간다. (친구 피드백, 2026-11-11)
 
@@ -35,7 +35,7 @@
 
 양호: MCP 서버는 `127.0.0.1` 한정·무작위 64자 토큰(상수 시간 비교)·`Origin` 거절·1MB 상한·기본 꺼짐. CSP 에 원격 스크립트·인라인 스크립트·프레임 없음. Markdown 은 DOMPurify, 메모 HTML 은 자체 소독, 바깥 링크는 `http(s)`/`mailto` 만 확인 창을 거쳐 시스템 브라우저로. 백업 복원은 `..`·절대 경로 거름. 업데이트는 minisign 서명. 번역 주소는 로컬 한정(Ollama)·외부는 https. 딥링크 없음.
 
-- [x] (낮음) 저장된 캔버스의 Markdown 발췌 스냅샷을 그릴 때 다시 소독하도록 고침(`src/app/MarkdownExcerptNode.tsx`, 시험 추가). 공유·동기화된 Vault 의 손댄 파일 방어.
+- [x] (낮음) 저장된 캔버스의 Markdown 발췌 스냅샷을 그릴 때 다시 소독하도록 고침(`src/app/documents/MarkdownExcerptNode.tsx`, 시험 추가). 공유·동기화된 Vault 의 손댄 파일 방어.
 - [x] (중간) Rust 커맨드가 Tauri fs 범위(scope)를 우회함: `atomic_write_text`(`src-tauri/src/storage.rs:498`), `pdf_open`(`pdf/mod.rs:31`), `copy_file_to_clipboard`(`clipboard_files.rs:28`), `office_to_pdf` 의 target(`office.rs:71`), `markdown_to_pdf`·`vault_move_dir`·`github_*`·`vault_backup_*` 가 받은 경로를 그대로 씀. 웹뷰가 뚫리면 PC 의 임의 파일을 읽고 쓸 수 있는 통로. CSP 가 막아 주고 있어 지금은 이론상 위험. 제안: 공통 `ensure_allowed(app, path)`(`app.fs_scope().is_allowed`)를 만들어 위 커맨드 진입점에서 검사. → 완료(11-11): `src-tauri/src/fs_scope.rs` 의 `ensure_allowed(app, path)` 를 경로를 받는 커맨드 진입점마다 부름(`..`·상대 경로 거절 + 앱 fs 범위 검사). 시험 `tests/fs_scope.rs`.
 - [x] (중간) 릴리스 무결성: PDFium 을 `releases/latest` 에서 내려받아 검증 없이 번들(`scripts/fetch-pdfium.mjs:13`, `.github/workflows/ci.yml:64`, `release.yml:32`). 제안: 태그(`chromium/NNNN`)와 SHA-256 을 고정하고 받은 뒤 해시 확인. PDFium 의 LICENSE·third-party 고지(tgz 안)도 설치 파일에 같이 넣기. → 완료(11-11): `chromium/8086`(157.0.8086.0, 지금 번들한 dll 과 SHA-256 일치)에 고정하고 묶음마다 SHA-256 확인(`scripts/fetch-pdfium.mjs`), CI·릴리스 워크플로가 이 스크립트를 부름. PDFium 라이선스 묶음 `src-tauri/licenses/pdfium-licenses.txt` 를 resources 에 넣음(`--licenses` 로 다시 만듦).
 - [x] (낮음) `src-tauri/src/office.rs:21` PowerPoint 를 COM 으로 열 때 `$app.AutomationSecurity = 3`(매크로 끔)을 설정. 출처가 불분명한 `.ppt` 의 매크로 방지. → 완료(11-11): 열기 전에 `AutomationSecurity = 3`, 끝나면 사용자 값으로 되돌림. (Word 변환 코드는 없음)
@@ -70,14 +70,14 @@
 - [ ] **GitHub 설정** — Discussions 켜기(카테고리 Q&A·Ideas, 이슈 양식 `config.yml` 이 가리킴), Private vulnerability reporting 켜기, 라벨 `bug`·`enhancement` 만들기, 기본 브랜치 보호, Actions 권한을 읽기 전용으로.
 - [ ] **저장소 공개 전환** — 위 이력 정리를 마친 뒤.
 
-### 지금 다른 작업자가 구현 중 (진행 중)
+### 구현 완료 (v0.1.11 에 들어감)
 
-- [ ] 주석 가져오기(annotation import)
-- [ ] Markdown 내보내기
-- [ ] Zotero 가져오기
-- [ ] 번역 설정·DeepL
-- [ ] 문제 보고
-- [ ] 큰 PDF 성능
-- [ ] 단축키 바꾸기
-- [ ] 키보드 접근
-- [ ] i18n 완전성 시험(한국어 문구에 영어 짝이 있는지)
+- [x] 주석 가져오기(annotation import)
+- [x] Markdown 내보내기
+- [x] Zotero 가져오기
+- [x] 번역 설정·DeepL
+- [x] 문제 보고
+- [x] 큰 PDF 성능
+- [x] 단축키 바꾸기
+- [x] 키보드 접근
+- [x] i18n 완전성 시험(한국어 문구에 영어 짝이 있는지)

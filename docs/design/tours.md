@@ -1,7 +1,7 @@
 # 안내 둘러보기 (처음 사용 안내 · 새 기능 둘러보기)
 
 앱 처음 설치 때는 「처음 사용 안내」, 업데이트로 새 기능이 들어온 버전에서는 그 버전의 「새 기능 둘러보기」를 한 번 보인다.
-둘 다 같은 말풍선 엔진(`src/app/TourHost.tsx` + `src/ui/tour.css`)을 쓴다.
+둘 다 같은 말풍선 엔진(`src/app/onboarding/TourHost.tsx` + `src/ui/tour.css`)을 쓴다.
 
 ## 구성
 
@@ -9,9 +9,9 @@
 | --- | --- |
 | `src/core/tours.ts` | 둘러보기 자료(`TOURS`)와 순수 규칙 `planTours` |
 | `src/core/tourPlacement.ts` | 구멍 네모와 카드 자리 계산(순수) |
-| `src/app/tourState.ts` | 본 목록(localStorage `iwae:tours-seen:v1`), 시작 순간의 설치 흔적, 직접 열기 신호 |
-| `src/app/TourHost.tsx` | 언제 띄울지(시작 대화상자 줄) + 화면(`TourOverlay`) |
-| `src/app/WhatsNewDialog.tsx` | 새 기능 안내가 있으면 확인 단추가 「새 기능 둘러보기」, 보조 단추가 「나중에」 |
+| `src/app/onboarding/tourState.ts` | 본 목록(localStorage `iwae:tours-seen:v1`), 시작 순간의 설치 흔적, 직접 열기 신호 |
+| `src/app/onboarding/TourHost.tsx` | 언제 띄울지(시작 대화상자 줄) + 화면(`TourOverlay`) |
+| `src/app/onboarding/WhatsNewDialog.tsx` | 새 기능 안내가 있으면 확인 단추가 「새 기능 둘러보기」, 보조 단추가 「나중에」 |
 
 ## 언제 뜨는가
 

@@ -88,7 +88,7 @@ async function main() {
       console.log(`${out} (${statSync(out).size} bytes)`)
       return
     }
-    const outDir = fileURLToPath(new URL('../src-tauri/binaries/', import.meta.url))
+    const outDir = fileURLToPath(new URL('../src-tauri/binaries', import.meta.url))
     mkdirSync(outDir, { recursive: true })
     const target = join(outDir, asset.name)
     copyFileSync(join(work, asset.inside), target)
