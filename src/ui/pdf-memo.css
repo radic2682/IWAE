@@ -437,64 +437,8 @@
 
 /* ---------- 메모 서식 ---------- */
 .pdf-memo-editor-wrap { display: grid; gap: 4px; margin-top: 4px; }
-
-.pdf-memo-format-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1px;
-  padding: 2px;
-  border: 1px solid var(--divider);
-  border-radius: var(--r-md);
-  background: var(--paper);
-}
-
-.pdf-memo-format-button {
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-strong);
-  cursor: pointer;
-}
-
-.pdf-memo-format-button:hover { background: var(--chrome-hover); }
-.pdf-memo-format-divider { width: 1px; height: 16px; margin: 0 3px; background: var(--divider); }
-.pdf-memo-format-group { position: relative; display: inline-flex; }
-
-.pdf-memo-format-palette {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 4px);
-  left: 0;
-  display: flex;
-  gap: 4px;
-  padding: 5px;
-  border: 1px solid var(--divider);
-  border-radius: var(--r-md);
-  background: var(--paper);
-  box-shadow: 0 6px 18px var(--shadow-soft);
-}
-
-.pdf-memo-format-swatch {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 1px solid var(--divider);
-  border-radius: var(--r-sm);
-  background: var(--paper);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.pdf-memo-format-swatch:hover { border-color: var(--accent); }
-.pdf-memo-format-swatch-back[style*='transparent'] { background-image: linear-gradient(135deg, transparent 45%, var(--danger) 45% 55%, transparent 55%) !important; }
+/* 서식 줄은 공용(format-bar.css). 노트 칸 밖(상단바 자리 없이 단독)에 그릴 때만 메모 위에 테두리 상자로 */
+.pdf-memo-editor-wrap > .format-bar { padding: 2px; border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper); }
 
 .pdf-memo-editor {
   min-height: 48px;
@@ -780,31 +724,6 @@
   text-decoration-color: color-mix(in srgb, var(--text-strong) 55%, transparent);
 }
 
-/* 서식 도구: 문단 모양 고르개 */
-.pdf-memo-format-button.pdf-memo-format-block {
-  display: inline-flex; gap: 3px; width: auto; min-width: 54px; padding: 0 6px 0 8px;
-  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
-}
-.pdf-memo-format-menu {
-  position: absolute; z-index: 41; top: calc(100% + 4px); left: 0;
-  display: grid; min-width: 196px; padding: 4px;
-  border: 1px solid var(--divider); border-radius: var(--r-md);
-  background: var(--paper); box-shadow: 0 8px 24px var(--shadow-soft);
-}
-.pdf-memo-format-menu-item {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
-  min-height: 30px; padding: 4px 9px;
-  border: 0; border-radius: var(--r-sm); background: transparent;
-  color: var(--text-strong); font: inherit; font-family: var(--font-ui); font-size: 13px; text-align: left; cursor: pointer;
-}
-.pdf-memo-format-menu-item:hover { background: var(--chrome-hover); }
-.pdf-memo-format-menu-item[aria-checked='true'] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.pdf-memo-format-menu-hint { padding: 0 5px; border-radius: var(--r-xs); background: var(--field); color: var(--text-strong); font-family: var(--font-ui); font-size: 10.5px; line-height: 18px; white-space: nowrap; }
-.pdf-memo-format-menu-h2 .pdf-memo-format-menu-name { font-size: 16px; font-weight: 750; }
-.pdf-memo-format-menu-h3 .pdf-memo-format-menu-name { font-size: 14.5px; font-weight: 750; }
-.pdf-memo-format-menu-h4 .pdf-memo-format-menu-name { font-weight: 750; }
-.pdf-memo-format-menu-pre .pdf-memo-format-menu-name { font-size: 12.5px; }
-
 /* ---------- 메모·노트 글의 표 ---------- */
 :is(.pdf-memo-card-text, .pdf-memo-editor) table {
   display: block;
@@ -826,8 +745,6 @@
 :is(.pdf-memo-card-text, .pdf-memo-editor) :is(th, td)[align="center"] { text-align: center; }
 :is(.pdf-memo-card-text, .pdf-memo-editor) :is(th, td)[align="right"] { text-align: right; }
 .pdf-memo-editor td:focus-within, .pdf-memo-editor th:focus-within { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -2px; }
-.pdf-memo-format-table-menu .pdf-memo-format-menu-item:disabled { opacity: .45; cursor: default; }
-
 /* 메모 바 머리 단추도 앱의 다른 아이콘 단추처럼: 테두리 없이, 마우스를 올리면 바탕만 칠한다 */
 .pdf-memo-bar .pdf-memo-header .pdf-memo-header-button {
   min-width: 28px;

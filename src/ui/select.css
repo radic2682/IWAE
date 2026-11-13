@@ -26,3 +26,7 @@
 .app-select-option-active { background: var(--chrome-hover); }
 .app-select-option[aria-selected='true'] { font-weight: 600; }
 .app-select-check { display: inline-grid; place-items: center; flex: 0 0 16px; color: var(--accent); }
+/* 덧말(단축 안내 · 크기 미리보기): 이름 오른쪽 끝에 흐리게, 한 줄로 */
+.app-select-option-label { flex: 1 1 auto; }
+.app-select-option-hint { display: inline-flex; flex: 0 0 auto; align-items: center; margin-left: 14px; color: var(--text-dim); font-size: 11px; font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.app-select-placeholder { color: var(--text-dim); }

@@ -29,11 +29,11 @@ describe('NoteToolbar', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('combobox', { name: '블록 유형' }))
-    const list = screen.getByRole('listbox', { name: '블록 유형' })
+    fireEvent.click(screen.getByRole('combobox', { name: '문단 모양' }))
+    const list = screen.getByRole('listbox', { name: '문단 모양' })
     expect(within(list).getByRole('option', { name: /본문/ }).getAttribute('aria-selected')).toBe('true')
     fireEvent.click(within(list).getByRole('option', { name: /제목 3/ }))
-    expect(screen.queryByRole('listbox', { name: '블록 유형' })).toBeNull()
+    expect(screen.queryByRole('listbox', { name: '문단 모양' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '굵게' }))
     fireEvent.click(screen.getByRole('button', { name: '번호 목록' }))
 
@@ -122,7 +122,7 @@ describe('NoteToolbar', () => {
     expect(screen.queryByRole('button', { name: '제목 블록' })).toBeNull()
   })
 
-  it('글자색과 강조색을 스와치 팝오버에서 선택하고 바깥 클릭으로 닫는다', () => {
+  it('글자색과 글자 배경색을 스와치 팝오버에서 선택하고 바깥 클릭으로 닫는다', () => {
     const onCommand = vi.fn()
     render(
       <NoteToolbar
@@ -151,10 +151,10 @@ describe('NoteToolbar', () => {
     fireEvent.click(screen.getByRole('button', { name: '글자색 파랑' }))
     expect(onCommand).toHaveBeenCalledWith({ type: 'setColor', color: '#1d4ed8' })
 
-    fireEvent.click(screen.getByRole('button', { name: '강조색 선택' }))
-    expect(screen.getByRole('dialog', { name: '강조색 팔레트' })).toBeTruthy()
-    fireEvent.mouseDown(document.body)
-    expect(screen.queryByRole('dialog', { name: '강조색 팔레트' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '글자 배경색 선택' }))
+    expect(screen.getByRole('dialog', { name: '글자 배경색 팔레트' })).toBeTruthy()
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByRole('dialog', { name: '글자 배경색 팔레트' })).toBeNull()
   })
 
   it('새 색상 팝오버를 열면 이전 팝오버를 닫는다', () => {

@@ -162,7 +162,7 @@ describe('NoteFlow — 소제목', () => {
         <NoteFlow {...handlers()} items={[{ kind: 'text', key: 't1', text: '글' }]} editingKey="t1" />
       </MemoFormatSlotContext.Provider>,
     )
-    expect(container.querySelector('.pdf-memo-format-bar')).toBeNull()
+    expect(container.querySelector('.format-bar')).toBeNull()
     expect(slot.querySelector('[role="toolbar"][aria-label="메모 서식"]')).not.toBeNull()
     slot.remove()
   })

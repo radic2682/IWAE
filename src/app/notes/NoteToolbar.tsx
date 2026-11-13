@@ -6,28 +6,15 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowsLeftRight,
-  CaretDown,
-  Check,
-  Code,
   GearSix,
   Highlighter,
   Image,
-  ListBullets,
-  ListNumbers,
   PaintBucket,
   Minus,
   Square,
   TextT,
-  TextAUnderline,
-  TextAlignCenter,
-  TextAlignLeft,
-  TextAlignRight,
-  TextB,
-  TextItalic,
-  TextStrikethrough,
-  TextUnderline,
 } from '@phosphor-icons/react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { BlockFormatCommand } from '../../core/blockFormatting'
 import { textBlockLevelFontSize } from '../../core/canvasDocument'
@@ -40,6 +27,8 @@ import type {
 import type { UserBlockPreset } from '../../core/blockPresets'
 import { scrollHorizontalStrip } from '../horizontalScroll'
 import { useExclusivePopover } from '../useExclusivePopover'
+import { FormatBar, FormatColorButton, type FormatSwatch } from '../../ui/format/FormatBar'
+import { Select, type SelectOption } from '../../ui/Select'
 import { t } from '../../i18n'
 
 interface NoteToolbarProps {
@@ -77,159 +66,29 @@ interface NoteToolbarProps {
   readonly onExportWithEvidence?: () => void
 }
 
-const TEXT_COLORS = [
+const swatches = (pairs: readonly (readonly [string, string])[]): readonly FormatSwatch[] => pairs.map(([name, value]) => ({ name, value }))
+
+const TEXT_COLORS = swatches([
   ['검정', '#1f2328'], ['회색', '#59636e'], ['갈색', '#7c4a2d'], ['빨강', '#b42318'], ['주황', '#b54708'], ['초록', '#067647'], ['파랑', '#1d4ed8'],
   ['연한 검정', '#454c54'], ['연한 회색', '#89929c'], ['연한 갈색', '#a15c38'], ['연한 빨강', '#d92d20'], ['연한 주황', '#e04f16'], ['연한 초록', '#099250'], ['연한 파랑', '#3b82f6'],
   ['진한 검정', '#111418'], ['진한 회색', '#343a40'], ['진한 갈색', '#5d3624'], ['진한 빨강', '#912018'], ['진한 주황', '#93370d'], ['진한 초록', '#05603a'], ['보라', '#6938ef'],
-] as const
+])
 
-const HIGHLIGHT_COLORS = [
+const HIGHLIGHT_COLORS = swatches([
   ['노랑', '#fff2a8'], ['라임', '#d8f999'], ['민트', '#a6f4c5'], ['하늘', '#b9e6fe'], ['파랑', '#c7d7fe'], ['보라', '#ddd6fe'], ['분홍', '#fbcfe8'],
   ['진한 노랑', '#fde272'], ['진한 라임', '#bef264'], ['진한 민트', '#6ce9a6'], ['진한 하늘', '#7cd4fd'], ['진한 파랑', '#a4bcfd'], ['진한 보라', '#c3b5fd'], ['진한 분홍', '#f9a8d4'],
   ['옅은 노랑', '#fffaeb'], ['옅은 라임', '#f2fce7'], ['옅은 민트', '#ecfdf3'], ['옅은 하늘', '#f0f9ff'], ['옅은 파랑', '#eef4ff'], ['옅은 보라', '#f4f3ff'], ['옅은 분홍', '#fdf2fa'],
-] as const
+])
 
-const BLOCK_COLORS = [
+const BLOCK_COLORS = swatches([
   ['흰색', '#ffffff'], ['노랑', '#fff2a8'], ['민트', '#d1fae5'], ['하늘', '#e0f2fe'], ['보라', '#ede9fe'], ['분홍', '#fce7f3'], ['회색', '#f3f4f6'],
-] as const
+])
 
-const BORDER_COLORS = [
+const BORDER_COLORS = swatches([
   ['회색', '#c9ced6'], ['검정', '#1f2328'], ['빨강', '#b42318'], ['주황', '#b54708'], ['초록', '#067647'], ['파랑', '#1d4ed8'], ['보라', '#6938ef'],
-] as const
+])
 
-const COLOR_POPOVER_WIDTH = 244
-const COLOR_POPOVER_GUTTER = 8
-
-interface ColorSwatchPickerProps {
-  readonly popoverId: string
-  readonly open: boolean
-  readonly label: string
-  readonly value: string
-  readonly colors: readonly (readonly [string, string])[]
-  readonly disabled: boolean
-  readonly icon: 'text' | 'highlight' | 'background' | 'border'
-  readonly onSelect: (color: string) => void
-  readonly onClear: () => void
-  readonly onToggle: () => void
-  readonly onClose: () => void
-}
-
-interface ToolbarSelectOption<T extends string | number> {
-  readonly value: T
-  readonly label: string
-  /** 목록에서 이름 옆(오른쪽)에 보이는 미리보기 */
-  readonly preview?: ReactNode
-}
-
-/**
- * 도구줄의 드롭다운. 운영체제 기본 select 대신 색 팔레트와 같은 모양의 목록을 띄운다.
- * 위아래 화살표로 고르고 Enter 로 정한다. Esc·바깥 누르기로 닫힌다(useExclusivePopover).
- */
-function ToolbarSelect<T extends string | number>({ popoverId, open, label, value, placeholder, options, disabled, className, onSelect, onToggle, onClose }: {
-  readonly popoverId: string
-  readonly open: boolean
-  readonly label: string
-  readonly value: T | undefined
-  readonly placeholder?: string
-  readonly options: readonly ToolbarSelectOption<T>[]
-  readonly disabled?: boolean
-  readonly className?: string
-  readonly onSelect: (value: T) => void
-  readonly onToggle: () => void
-  readonly onClose: () => void
-}) {
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
-  const current = options.find((option) => option.value === value)
-  const rect = triggerRef.current?.getBoundingClientRect()
-
-  useEffect(() => {
-    if (!open) return
-    const list = listRef.current
-    const selected = list?.querySelector<HTMLButtonElement>('[aria-selected="true"]') ?? list?.querySelector<HTMLButtonElement>('[role="option"]')
-    selected?.focus()
-  }, [open])
-
-  const moveFocus = (step: number) => {
-    const items = [...(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])]
-    const index = items.findIndex((item) => item === document.activeElement)
-    items[(index + step + items.length) % items.length]?.focus()
-  }
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        role="combobox"
-        className={['note-select-trigger', className ?? ''].filter(Boolean).join(' ')}
-        data-exclusive-popover={popoverId}
-        aria-label={label}
-        title={label}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={onToggle}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' && !open) {
-            event.preventDefault()
-            onToggle()
-          }
-        }}
-      >
-        <span className={current === undefined ? 'note-select-value note-select-placeholder' : 'note-select-value'}>{current === undefined ? placeholder ?? '' : t(current.label)}</span>
-        <CaretDown size={11} weight="bold" aria-hidden="true" />
-      </button>
-      {open && createPortal(
-        <div
-          ref={listRef}
-          className="note-select-menu"
-          data-exclusive-popover={popoverId}
-          role="listbox"
-          aria-label={label}
-          style={{
-            left: Math.max(COLOR_POPOVER_GUTTER, Math.min(rect?.left ?? COLOR_POPOVER_GUTTER, window.innerWidth - 220 - COLOR_POPOVER_GUTTER)),
-            top: (rect?.bottom ?? 0) + 5,
-            minWidth: Math.max(rect?.width ?? 0, 120),
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              event.preventDefault()
-              moveFocus(1)
-            } else if (event.key === 'ArrowUp') {
-              event.preventDefault()
-              moveFocus(-1)
-            } else if (event.key === 'Tab') {
-              onClose()
-            }
-          }}
-        >
-          {options.map((option) => (
-            <button
-              key={String(option.value)}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              className="note-select-option"
-              onClick={() => {
-                onSelect(option.value)
-                onClose()
-                triggerRef.current?.focus()
-              }}
-            >
-              <span className="note-select-check" aria-hidden="true">{option.value === value ? <Check size={12} weight="bold" /> : null}</span>
-              <span className="note-select-label">{t(option.label)}</span>
-              {option.preview === undefined ? null : <span className="note-select-preview" aria-hidden="true">{option.preview}</span>}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </>
-  )
-}
-
-const LEVEL_OPTIONS: readonly ToolbarSelectOption<TextBlockLevel>[] = ([
+const LEVELS: readonly { value: TextBlockLevel; label: string }[] = [
   { value: 'paragraph', label: '본문' },
   { value: 'h1', label: '제목 1' },
   { value: 'h2', label: '제목 2' },
@@ -237,83 +96,15 @@ const LEVEL_OPTIONS: readonly ToolbarSelectOption<TextBlockLevel>[] = ([
   { value: 'h4', label: '제목 4' },
   { value: 'h5', label: '제목 5' },
   { value: 'h6', label: '제목 6' },
-] as const satisfies readonly { value: TextBlockLevel; label: string }[]).map((option) => ({
-  ...option,
-  preview: <span className="note-select-size">{textBlockLevelFontSize(option.value)}</span>,
-}))
+]
 
-function ColorSwatchPicker({ popoverId, open, label, value, colors, disabled, icon, onSelect, onClear, onToggle, onClose }: ColorSwatchPickerProps) {
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const triggerRect = triggerRef.current?.getBoundingClientRect()
-  const popoverLeft = Math.max(
-    COLOR_POPOVER_GUTTER,
-    Math.min(
-      triggerRect?.left ?? COLOR_POPOVER_GUTTER,
-      window.innerWidth - COLOR_POPOVER_WIDTH - COLOR_POPOVER_GUTTER,
-    ),
-  )
+/** 캔버스 글 블록의 글자 크기(px): 범위와 자주 쓰는 크기 */
+const CANVAS_SIZE_MIN = 8
+const CANVAS_SIZE_MAX = 96
+const CANVAS_SIZES: readonly number[] = [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 96]
 
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="note-color-trigger"
-        data-exclusive-popover={popoverId}
-        aria-label={t('{label} 선택', { label })}
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={onToggle}
-      >
-        {icon === 'text' ? <TextAUnderline size={18} aria-hidden="true" /> : null}
-        {icon === 'highlight' ? <Highlighter size={18} aria-hidden="true" /> : null}
-        {icon === 'background' ? <PaintBucket size={18} aria-hidden="true" /> : null}
-        {icon === 'border' ? <Square size={18} aria-hidden="true" /> : null}
-        <span className="note-color-current" style={{ backgroundColor: value }} aria-hidden="true" />
-      </button>
-      {open && createPortal(
-        <div
-          className="note-color-popover"
-          data-exclusive-popover={popoverId}
-          role="dialog"
-          aria-label={t('{label} 팔레트', { label })}
-          style={{ left: popoverLeft, top: (triggerRect?.bottom ?? 0) + 5 }}
-        >
-          <div className="note-color-swatches">
-            {colors.map(([name, color]) => (
-              <button
-                key={color}
-                type="button"
-                aria-label={`${label} ${t(name)}`}
-                aria-pressed={value.toLowerCase() === color.toLowerCase()}
-                className="note-color-swatch"
-                style={{ backgroundColor: color }}
-                onClick={() => {
-                  onSelect(color)
-                  onClose()
-                }}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            className="note-color-clear"
-            onClick={() => {
-              onClear()
-              onClose()
-            }}
-          >
-            {icon === 'text' ? t('기본 글자색') : null}
-            {icon === 'highlight' ? t('강조 없음') : null}
-            {icon === 'background' ? t('블록 배경 없음') : null}
-            {icon === 'border' ? t('기본 테두리색') : null}
-          </button>
-        </div>,
-        document.body,
-      )}
-    </>
-  )
-}
+/** 테두리 두께 선택지(px). 0 = 테두리 없음. 목록에 실제 두께의 선을 보인다 */
+const BORDER_WIDTHS: readonly number[] = [0, 1, 2, 3, 4, 6, 8]
 
 function NoteOptions({ open, onToggle, matchPdfTextSize, onMatchPdfTextSizeChange }: { open: boolean; onToggle: () => void; matchPdfTextSize: boolean; onMatchPdfTextSizeChange: (enabled: boolean) => void }) {
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -352,13 +143,10 @@ function NoteOptions({ open, onToggle, matchPdfTextSize, onMatchPdfTextSizeChang
   </>
 }
 
-/** 테두리 두께 선택지(px). 0 = 테두리 없음. 목록에 실제 두께의 선을 보인다 */
-const BORDER_WIDTH_OPTIONS: readonly ToolbarSelectOption<number>[] = [0, 1, 2, 3, 4, 6, 8].map((width) => ({
-  value: width,
-  label: width === 0 ? '없음' : `${width}px`,
-  preview: <span className="note-select-line" style={{ height: Math.max(width, 0), opacity: width === 0 ? 0 : 1 }} />,
-}))
-
+/**
+ * 캔버스 도구줄(두 줄). 첫 줄의 글 서식은 노트 · 글 상자와 같은 서식 줄(FormatBar)이다: 문단 모양 · 크기 · 글자 모양 · 정렬 · 목록 · 색,
+ * 덧붙인 묶음으로 블록 배경색. 명령은 고른 글 블록 전체에 걸린다(BlockFormatCommand). 둘째 줄은 블록 테두리 · 블록 넣기 · 연결선 · 옵션.
+ */
 export function NoteToolbar({
   selectionStyle,
   canFormat,
@@ -386,85 +174,79 @@ export function NoteToolbar({
 }: NoteToolbarProps) {
   const style = selectionStyle
   const popover = useExclusivePopover()
+  const levelOptions: readonly SelectOption[] = LEVELS.map((level) => ({
+    value: level.value,
+    label: t(level.label),
+    hint: textBlockLevelFontSize(level.value),
+  }))
+  const borderWidthOptions: readonly SelectOption[] = BORDER_WIDTHS.map((width) => ({
+    value: String(width),
+    label: width === 0 ? t('없음') : `${width}px`,
+    hint: <span className="note-select-line" style={{ height: Math.max(width, 0), opacity: width === 0 ? 0 : 1 }} />,
+  }))
   return (
     <div className="note-toolbar" role="toolbar" aria-label={t('노트 편집 도구')}>
       <div className="note-toolbar-primary">
-      <div className="note-toolbar-controls" onWheel={scrollHorizontalStrip}>
+      <div className="note-toolbar-controls" data-format-fold-host="" onWheel={scrollHorizontalStrip}>
       <button type="button" aria-label={t('실행 취소')} disabled={!canUndo} onClick={onUndo}><ArrowCounterClockwise size={17} aria-hidden="true" /></button>
       <button type="button" aria-label={t('다시 실행')} disabled={!canRedo} onClick={onRedo}><ArrowClockwise size={17} aria-hidden="true" /></button>
       <span className="note-toolbar-divider" />
-      <ToolbarSelect
-        popoverId="block-level"
-        open={popover.openId === 'block-level'}
-        label={t('블록 유형')}
-        className="note-select-level"
-        value={style?.level ?? 'paragraph'}
-        options={LEVEL_OPTIONS}
+      <FormatBar
+        label={t('글 블록 서식')}
+        className="canvas-format-bar"
         disabled={!canFormat}
-        onSelect={(level) => onCommand({ type: 'setLevel', level })}
-        onToggle={() => popover.toggle('block-level')}
-        onClose={popover.close}
-      />
-      <input
-        className="note-font-size"
-        aria-label={t('글자 크기')}
-        type="number"
-        min={8}
-        max={96}
-        value={style?.fontSize ?? 16}
-        disabled={!canFormat}
-        onChange={(event) => onCommand({ type: 'setFontSize', fontSize: Number(event.target.value) })}
-      />
-      <span className="note-toolbar-divider" />
-      <button type="button" aria-label={t('굵게')} aria-pressed={style?.bold ?? false} disabled={!canFormat} onClick={() => onCommand({ type: 'toggleBold' })}><TextB size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('기울임')} aria-pressed={style?.italic ?? false} disabled={!canFormat} onClick={() => onCommand({ type: 'toggleItalic' })}><TextItalic size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('밑줄')} aria-pressed={style?.underline ?? false} disabled={!canFormat} onClick={() => onCommand({ type: 'toggleUnderline' })}><TextUnderline size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('취소선')} aria-pressed={style?.strike ?? false} disabled={!canFormat} onClick={() => onCommand({ type: 'toggleStrike' })}><TextStrikethrough size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('인라인 코드')} aria-pressed={style?.code ?? false} disabled={!canFormat} onClick={() => onCommand({ type: 'toggleCode' })}><Code size={17} aria-hidden="true" /></button>
-      <span className="note-toolbar-divider" />
-      <button type="button" aria-label={t('왼쪽 정렬')} aria-pressed={style?.align === 'left'} disabled={!canFormat} onClick={() => onCommand({ type: 'setAlign', align: 'left' })}><TextAlignLeft size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('가운데 정렬')} aria-pressed={style?.align === 'center'} disabled={!canFormat} onClick={() => onCommand({ type: 'setAlign', align: 'center' })}><TextAlignCenter size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('오른쪽 정렬')} aria-pressed={style?.align === 'right'} disabled={!canFormat} onClick={() => onCommand({ type: 'setAlign', align: 'right' })}><TextAlignRight size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('글머리 목록')} aria-pressed={style?.list === 'bullet'} disabled={!canFormat} onClick={() => onCommand({ type: 'toggleList', list: 'bullet' })}><ListBullets size={17} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('번호 목록')} aria-pressed={style?.list === 'number'} disabled={!canFormat} onClick={() => onCommand({ type: 'toggleList', list: 'number' })}><ListNumbers size={17} aria-hidden="true" /></button>
-      <ColorSwatchPicker
-        popoverId="text-color"
-        open={popover.openId === 'text-color'}
-        label={t('글자색')}
-        value={style?.color ?? '#1f2328'}
-        colors={TEXT_COLORS}
-        disabled={!canFormat}
-        icon="text"
-        onSelect={(color) => onCommand({ type: 'setColor', color })}
-        onClear={() => onCommand({ type: 'setColor', color: '#1f2328' })}
-        onToggle={() => popover.toggle('text-color')}
-        onClose={popover.close}
-      />
-      <ColorSwatchPicker
-        popoverId="text-highlight"
-        open={popover.openId === 'text-highlight'}
-        label={t('강조색')}
-        value={style?.highlight ?? 'transparent'}
-        colors={HIGHLIGHT_COLORS}
-        disabled={!canFormat}
-        icon="highlight"
-        onSelect={(highlight) => onCommand({ type: 'setHighlight', highlight })}
-        onClear={() => onCommand({ type: 'setHighlight', highlight: 'transparent' })}
-        onToggle={() => popover.toggle('text-highlight')}
-        onClose={popover.close}
-      />
-      <ColorSwatchPicker
-        popoverId="block-background"
-        open={popover.openId === 'block-background'}
-        label={t('블록 배경색')}
-        value={style?.background ?? 'transparent'}
-        colors={BLOCK_COLORS}
-        disabled={!canStyleBlock}
-        icon="background"
-        onSelect={onSetBlockBackground}
-        onClear={() => onSetBlockBackground('transparent')}
-        onToggle={() => popover.toggle('block-background')}
-        onClose={popover.close}
+        block={{ value: style?.level ?? 'paragraph', options: levelOptions, onChange: (level) => onCommand({ type: 'setLevel', level: level as TextBlockLevel }) }}
+        fontSize={{
+          value: style?.fontSize ?? 16,
+          onChange: (fontSize) => onCommand({ type: 'setFontSize', fontSize }),
+          min: CANVAS_SIZE_MIN,
+          max: CANVAS_SIZE_MAX,
+          step: 1,
+          unit: 'px',
+          presets: CANVAS_SIZES,
+          title: t('글자 크기 (px), ↑↓로 1씩'),
+        }}
+        marks={{
+          bold: { active: style?.bold ?? false, onToggle: () => onCommand({ type: 'toggleBold' }) },
+          italic: { active: style?.italic ?? false, onToggle: () => onCommand({ type: 'toggleItalic' }) },
+          underline: { active: style?.underline ?? false, onToggle: () => onCommand({ type: 'toggleUnderline' }) },
+          strike: { active: style?.strike ?? false, onToggle: () => onCommand({ type: 'toggleStrike' }) },
+          code: { active: style?.code ?? false, onToggle: () => onCommand({ type: 'toggleCode' }) },
+        }}
+        align={{ value: style?.align ?? null, onChange: (align) => onCommand({ type: 'setAlign', align }) }}
+        lists={{
+          bullet: { active: style?.list === 'bullet', onToggle: () => onCommand({ type: 'toggleList', list: 'bullet' }) },
+          number: { active: style?.list === 'number', onToggle: () => onCommand({ type: 'toggleList', list: 'number' }) },
+        }}
+        textColor={{
+          value: style?.color ?? '#1f2328',
+          colors: TEXT_COLORS,
+          onChange: (color) => onCommand({ type: 'setColor', color }),
+          clear: { label: t('기본 글자색'), onClear: () => onCommand({ type: 'setColor', color: '#1f2328' }) },
+        }}
+        highlight={{
+          value: style?.highlight ?? 'transparent',
+          colors: HIGHLIGHT_COLORS,
+          onChange: (highlight) => onCommand({ type: 'setHighlight', highlight }),
+          clear: { label: t('글자 배경 없음'), onClear: () => onCommand({ type: 'setHighlight', highlight: 'transparent' }) },
+        }}
+        shortcuts={{ bold: 'Ctrl+B', italic: 'Ctrl+I', underline: 'Ctrl+U' }}
+        extras={[{
+          key: 'block-background',
+          node: (
+            <FormatColorButton
+              label={t('블록 배경색')}
+              icon={<PaintBucket size={16} aria-hidden="true" />}
+              disabled={!canStyleBlock}
+              config={{
+                value: style?.background ?? 'transparent',
+                colors: BLOCK_COLORS,
+                onChange: onSetBlockBackground,
+                clear: { label: t('블록 배경 없음'), onClear: () => onSetBlockBackground('transparent') },
+              }}
+            />
+          ),
+        }]}
       />
       </div>
       {onExportWithEvidence !== undefined ? (
@@ -474,32 +256,27 @@ export function NoteToolbar({
       </div>
       <div className="note-toolbar-secondary">
       <div className="note-toolbar-secondary-controls" onWheel={scrollHorizontalStrip}>
-      <ColorSwatchPicker
-        popoverId="block-border"
-        open={popover.openId === 'block-border'}
+      <FormatColorButton
         label={t('블록 테두리색')}
-        value={style?.borderColor ?? '#c9ced6'}
-        colors={BORDER_COLORS}
+        icon={<Square size={16} aria-hidden="true" />}
         disabled={!canStyleBlock}
-        icon="border"
-        onSelect={onSetBlockBorderColor}
-        onClear={() => onSetBlockBorderColor('#c9ced6')}
-        onToggle={() => popover.toggle('block-border')}
-        onClose={popover.close}
+        config={{
+          value: style?.borderColor ?? '#c9ced6',
+          colors: BORDER_COLORS,
+          onChange: onSetBlockBorderColor,
+          clear: { label: t('기본 테두리색'), onClear: () => onSetBlockBorderColor('#c9ced6') },
+        }}
       />
       {onSetBlockBorderWidth !== undefined ? (
-        <ToolbarSelect
-          popoverId="block-border-width"
-          open={popover.openId === 'block-border-width'}
-          label={t('테두리 두께')}
-          className="note-select-border-width"
-          value={style?.borderWidth}
+        <Select
+          className="format-bar-select note-select-border-width"
+          ariaLabel={t('테두리 두께')}
+          title={t('테두리 두께')}
+          value={style?.borderWidth === undefined ? '' : String(style.borderWidth)}
           placeholder={t('두께')}
-          options={BORDER_WIDTH_OPTIONS}
+          options={borderWidthOptions}
           disabled={!canStyleBlock}
-          onSelect={onSetBlockBorderWidth}
-          onToggle={() => popover.toggle('block-border-width')}
-          onClose={popover.close}
+          onChange={(value) => onSetBlockBorderWidth(Number(value))}
         />
       ) : null}
       <span className="note-toolbar-divider" />

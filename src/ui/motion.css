@@ -41,14 +41,14 @@
    누르는 순간 빠르게(70ms) 눌리고, 뗄 때 넘침 없이 ease-out 으로 돌아온다. 개별 속성 scale 을 쓰므로 transform 을 쓰는 단추와
    겹치지 않고, 색 전환은 기존 값(120ms)을 그대로 이어 간다. */
 :is(.motion-press, .topbar-navbtn, .topbar-app-menu, .sidebar-toggle, .side-top-action, .side-vault-btn, .side-settings-btn, .toolbar-tool-btn,
-  .bottombar-btn, .pane-top-tab-close, .pdf-memo-header-button, .pdf-memo-format-button, .note-section-toggle, .note-tab-btn, .note-gap-add,
+  .bottombar-btn, .pane-top-tab-close, .pdf-memo-header-button, .format-bar-btn, .note-section-toggle, .note-tab-btn, .note-gap-add,
   .side-doc-target-btn, .side-search-scope-option, .pdf-tools-item, .app-select, .vault-menu-item, .library-view-switch > *) {
   transition-property: scale, background-color, color, border-color, box-shadow, opacity;
   transition-duration: var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast);
   transition-timing-function: var(--ease-out), ease, ease, ease, ease, ease;
 }
 :is(.motion-press, .topbar-navbtn, .topbar-app-menu, .sidebar-toggle, .side-top-action, .side-vault-btn, .side-settings-btn, .toolbar-tool-btn,
-  .bottombar-btn, .pane-top-tab-close, .pdf-memo-header-button, .pdf-memo-format-button, .note-section-toggle, .note-tab-btn, .note-gap-add,
+  .bottombar-btn, .pane-top-tab-close, .pdf-memo-header-button, .format-bar-btn, .note-section-toggle, .note-tab-btn, .note-gap-add,
   .side-doc-target-btn, .side-search-scope-option, .pdf-tools-item, .app-select, .vault-menu-item, .library-view-switch > *):active:not(:disabled) {
   scale: var(--press-scale);
   transition-duration: 70ms, var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast);
@@ -59,9 +59,9 @@
 
 /* ================= 떠오르는 메뉴·팝오버 =================
    움직임 없이 제자리에서 흐려지며 나타난다(120ms). 기준점 설정은 남겨 둔다 */
-:is(.app-context-menu, .app-select-list, .pdf-box-menu, .note-options-popover, .note-select-menu, .canvas-block-background-menu,
+:is(.app-context-menu, .app-select-list, .pdf-box-menu, .note-options-popover, .canvas-block-background-menu,
   .canvas-create-menu, .pdf-bottom-more-menu, .pdf-split-menu, .pane-github-menu, .version-menu, .pane-tabs-popover, .note-switch-menu,
-  .pdf-memo-category-menu, .pdf-memo-format-menu, .pdf-memo-format-palette, .app-menu, .pdf-view-menu-panel, .highlight-popover,
+  .pdf-memo-category-menu, .format-bar-palette, .format-bar-overflow, .app-menu, .pdf-view-menu-panel, .highlight-popover,
   .crossref-preview, .emoji-picker, .excerpt-highlight-menu) {
   animation: motion-fade-in var(--motion-fast) ease-out backwards;
   transform-origin: top left;

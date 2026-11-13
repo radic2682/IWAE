@@ -8,6 +8,8 @@
 @import './sidebar-followup.css';
 @import './canvas-followup.css';
 @import './canvas-paper.css';
+/* 공용 서식 줄의 바탕 모양: 자리마다 다른 것(노트 맨 위 · 상단바 · 띠)은 뒤의 파일이 덮는다 */
+@import './format-bar.css';
 @import './pdf-memo.css';
 @import './whale-theme.css';
 /* 한 면 · 한 높이(--bar-h) · 8px 격자: 앞선 파일들의 옛 머리 띠 · 도구줄 띠 · 크롬 탭 규칙을 덮는다 */

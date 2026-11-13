@@ -456,7 +456,7 @@ describe('NoteCanvas', () => {
     expect(screen.getByRole('application', { name: 'OPTIONS 캔버스' })).toBeDefined()
     expect(screen.getByText('OPTIONS')).toBeDefined()
     expect(screen.getByRole('toolbar', { name: '노트 편집 도구' })).toBeDefined()
-    expect(screen.getByRole('combobox', { name: '블록 유형' })).toBeDefined()
+    expect(screen.getByRole('combobox', { name: '문단 모양' })).toBeDefined()
     expect(screen.getByRole('button', { name: '굵게' })).toBeDefined()
     expect(screen.getByRole('button', { name: '번호 목록' })).toBeDefined()
     expect(screen.getByRole('button', { name: '캔버스 화면 맞춤' })).toBeDefined()
@@ -966,7 +966,7 @@ describe('NoteCanvas', () => {
 
     await waitFor(() => {
       expect((screen.getByRole('button', { name: '굵게' }) as HTMLButtonElement).disabled).toBe(false)
-      expect((screen.getByRole('combobox', { name: '블록 유형' }) as HTMLSelectElement).disabled).toBe(false)
+      expect((screen.getByRole('combobox', { name: '문단 모양' }) as HTMLSelectElement).disabled).toBe(false)
     })
   })
 

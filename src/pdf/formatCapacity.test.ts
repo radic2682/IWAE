@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { cssRules, cssSource, rulesMatching } from '../app/cssRules.testutil'
-import { formatCapacity } from './MemoEditor'
+import { formatCapacity } from '../ui/format/FormatBar'
 
 /** jsdom 은 자리를 모르므로 실제(소수) 폭만 흉내 낸다 — getBoundingClientRect().width */
 function setWidth(element: HTMLElement, width: number) {
@@ -53,8 +53,8 @@ describe('formatCapacity — 서식 줄이 쓸 수 있는 폭', () => {
   })
 
   it('상단바 도구줄 안의 서식 줄은 줄을 바꾸지 않는다(flex-wrap: nowrap) — 넘치는 묶음은 「⋯」 로 간다', () => {
-    document.body.innerHTML = '<div class="topbar-toolbar-host"><div class="topbar-toolbar-slot"><div class="note-format-dock"><div class="note-format-slot"><div class="pdf-memo-format-bar"></div></div></div></div></div>'
-    const bar = document.querySelector('.pdf-memo-format-bar')!
+    document.body.innerHTML = '<div class="topbar-toolbar-host"><div class="topbar-toolbar-slot"><div class="note-format-dock"><div class="note-format-slot"><div class="format-bar"></div></div></div></div></div>'
+    const bar = document.querySelector('.format-bar')!
     const rules = readdirSync(join(__dirname, '../ui')).filter((name) => name.endsWith('.css')).flatMap((name) => cssRules(cssSource(name)))
     const wraps = rulesMatching(bar, rules).flatMap((rule) => [...rule.body.matchAll(/flex-wrap:\s*([a-z-]+)/gu)].map((match) => match[1]))
     expect(wraps.at(-1)).toBe('nowrap')

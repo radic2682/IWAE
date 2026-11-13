@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, ArrowUpRight, ArrowsHorizontal, BoundingBox, CaretDown, Circle, Eraser, Eyedropper, LineSegment, PaintBucket, PencilSimple, Rectangle, Square, TextAa, TextB, Trash, X } from '@phosphor-icons/react'
+import { ArrowRight, ArrowUpRight, ArrowsHorizontal, BoundingBox, Circle, Eraser, Eyedropper, LineSegment, PaintBucket, PencilSimple, Rectangle, Square, TextAa, Trash, X } from '@phosphor-icons/react'
 import { dashOf, dashPatch, isOverlayColor, isTextFill, LINE_WIDTHS, normalizeTextSize, OVERLAY_COLORS, TEXT_SIZE_MAX, TEXT_SIZE_MIN, TEXT_SIZE_STEP, TEXT_SIZES, type OverlayColor, type OverlayDash, type OverlayPatch, type PdfOverlay } from '../core/pdfOverlays'
 import type { OverlayStyle, OverlayTool } from './PdfOverlayLayer'
 import { OVERLAY_FONTS, overlayFontLabel } from '../core/overlayFonts'
 import { setFormatSampling, useFormatSampling, type ToolStyle } from './overlayToolStore'
-import { Select } from '../ui/Select'
+import { FormatBar, FormatButton, type FormatSwatch } from '../ui/format/FormatBar'
 import { t } from '../i18n'
 import '../ui/pdf-overlay.css'
 
@@ -184,97 +184,6 @@ export function StripHeads({ value, onChange }: { readonly value: Heads; readonl
   )
 }
 
-/** 글자 크기 칸: 4~144 pt 아무 값이나(0.5 단위) 쓰고, ↑↓ 로 한 칸(Shift 는 5)씩, ▾ 로 자주 쓰는 크기를 고른다 */
-export function StripSizeField({ value, onChange }: { readonly value: number; readonly onChange: (size: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const [open, setOpen] = useState(false)
-  const [place, setPlace] = useState<{ left: number; top: number; width: number } | null>(null)
-  const wrapRef = useRef<HTMLSpanElement | null>(null)
-  const listRef = useRef<HTMLDivElement | null>(null)
-  const listId = useId()
-  const show = (size: number) => (Number.isInteger(size) ? String(size) : size.toFixed(1))
-  const commit = (text: string) => {
-    const parsed = Number(text.trim().replace(',', '.'))
-    setDraft(null)
-    if (!Number.isFinite(parsed) || parsed <= 0) return
-    const next = normalizeTextSize(parsed)
-    if (next !== value) onChange(next)
-  }
-  const stepBy = (event: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-      event.preventDefault()
-      const typed = draft === null ? Number.NaN : Number(draft.replace(',', '.'))
-      const base = Number.isFinite(typed) ? typed : value
-      const delta = (event.shiftKey ? 10 : 1) * TEXT_SIZE_STEP * (event.key === 'ArrowUp' ? 1 : -1)
-      const next = normalizeTextSize(base + delta)
-      setDraft(null)
-      if (next !== value) onChange(next)
-    } else if (event.key === 'Enter') {
-      event.preventDefault()
-      commit(event.currentTarget.value)
-      event.currentTarget.select()
-    } else if (event.key === 'Escape') {
-      if (open) { event.preventDefault(); event.stopPropagation(); setOpen(false) } else setDraft(null)
-    }
-  }
-  useLayoutEffect(() => {
-    if (!open) return
-    const rect = wrapRef.current?.getBoundingClientRect()
-    if (rect !== undefined) setPlace({ left: rect.left, top: rect.bottom + 4, width: rect.width })
-  }, [open])
-  useEffect(() => {
-    if (!open) return undefined
-    const close = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (wrapRef.current?.contains(target) || listRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    const away = (event: Event) => { if (!listRef.current?.contains(event.target as Node)) setOpen(false) }
-    window.addEventListener('pointerdown', close, true)
-    window.addEventListener('scroll', away, true)
-    window.addEventListener('resize', away)
-    return () => {
-      window.removeEventListener('pointerdown', close, true)
-      window.removeEventListener('scroll', away, true)
-      window.removeEventListener('resize', away)
-    }
-  }, [open])
-  return (
-    <span ref={wrapRef} className={`doc-strip-size${open ? ' doc-strip-size-open' : ''}`}>
-      <input
-        type="text"
-        inputMode="decimal"
-        role="spinbutton"
-        aria-label={t('글자 크기')}
-        aria-valuemin={TEXT_SIZE_MIN}
-        aria-valuemax={TEXT_SIZE_MAX}
-        aria-valuenow={value}
-        title={t('글자 크기 (pt), ↑↓로 0.5씩')}
-        data-undo-passthrough={draft === null ? 'true' : undefined}
-        value={draft ?? show(value)}
-        onChange={(event) => setDraft(event.currentTarget.value)}
-        onFocus={(event) => event.currentTarget.select()}
-        onBlur={(event) => { if (draft !== null) commit(event.currentTarget.value) }}
-        onKeyDown={stepBy}
-      />
-      <span className="doc-strip-size-unit" aria-hidden="true">pt</span>
-      <button type="button" className="doc-strip-size-caret" aria-label={t('자주 쓰는 크기')} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined} onClick={() => setOpen((on) => !on)}>
-        <CaretDown size={12} weight="bold" aria-hidden="true" />
-      </button>
-      {open && place !== null ? createPortal(
-        <div ref={listRef} id={listId} role="listbox" aria-label={t('자주 쓰는 크기')} className="app-select-list doc-strip-size-list" style={{ left: place.left, top: place.top, minWidth: place.width }}>
-          {TEXT_SIZES.map((size) => (
-            <div key={size} role="option" aria-selected={size === value} className="app-select-option" onPointerDown={(event) => event.preventDefault()} onClick={() => { setOpen(false); if (size !== value) onChange(size) }}>
-              <span className="app-select-option-label">{show(size)} pt</span>
-            </div>
-          ))}
-        </div>,
-        document.body,
-      ) : null}
-    </span>
-  )
-}
-
 /** 색 하나를 직접 고르는 작은 동그라미(테두리색). value 가 없으면 fallback 색 */
 export function StripColorDot({ value, label, onChange, fallback }: { readonly value: string | null; readonly label: string; readonly onChange: (color: OverlayColor) => void; readonly fallback?: string }) {
   const set = value !== null && isOverlayColor(value)
@@ -332,14 +241,19 @@ interface PdfOverlayPaletteProps {
   readonly onDone: () => void
 }
 
-const FILLS: readonly { value: 'none' | 'white' | 'yellow'; label: string; swatch: string }[] = [
-  { value: 'none', label: '바탕 없음', swatch: 'transparent' },
-  { value: 'white', label: '흰 바탕(아래 글 가리기)', swatch: '#ffffff' },
-  { value: 'yellow', label: '노란 바탕', swatch: '#fff3a8' },
+/** 글 상자 바탕: 없음(팔레트의 「바탕 없음」) · 흰 바탕 · 노란 바탕 · 직접 고른 색 */
+const TEXT_FILLS: readonly FormatSwatch[] = [
+  { name: '흰 바탕(아래 글 가리기)', value: 'white', swatch: '#ffffff' },
+  { name: '노란 바탕', value: 'yellow', swatch: '#fff3a8' },
 ]
+
+/** 글 상자 글자색: 덮개 색 일곱(이름은 색 값) */
+const TEXT_COLORS: readonly FormatSwatch[] = OVERLAY_COLORS.map((color) => ({ name: color, value: color }))
 
 /**
  * 편집 도구의 서식 띠. 무엇을 고른 채면 서식이 그것에 바로 걸리고, 아무것도 안 고르면 그 도구로 새로 만들 것의 서식(도구마다 기억)이다.
+ * 글 상자의 글 서식(글꼴 · 크기 · 굵게 · 글자색 · 바탕색)은 노트 · 캔버스와 같은 서식 줄(FormatBar)이고, 테두리 · 서식 가져오기는 그 줄의 덧붙인 묶음이다.
+ * 선 · 도형 · 펜의 서식(색 · 굵기 · 선 모양 · 화살촉 · 칠하기)은 그리기에만 있는 것이라 띠 고유의 단추로 둔다.
  */
 export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null, onUpdateSelected, onRemoveSelected, onDone }: PdfOverlayPaletteProps) {
   const info = overlayToolInfo(tool)
@@ -355,7 +269,6 @@ export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null,
   const textSize = selected?.kind === 'text' ? selected.size : style.textSize
   const bold = selected?.kind === 'text' ? selected.bold === true : style.bold
   const textFill: string = selected?.kind === 'text' ? selected.fill ?? 'none' : style.textFill
-  const customFill = isOverlayColor(textFill) ? textFill : null
   const border = selected?.kind === 'text' ? selected.border === true : style.border
   const borderColor = selected?.kind === 'text' ? selected.borderColor ?? '' : style.textBorderColor
   const font = selected?.kind === 'text' ? selected.font ?? '' : style.textFont
@@ -393,43 +306,56 @@ export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null,
       onClose={onDone}
       hint={sampling && target === 'text' ? t('서식을 가져올 글 상자나 PDF 글자를 누르세요. Esc로 취소') : selected === null && TOOL_HINT[tool] !== undefined ? t(TOOL_HINT[tool]!) : undefined}
     >
-      {target === null ? null : (
+      {target === null ? null : target === 'text' ? (
+        <FormatBar
+          label={t('글 상자 서식')}
+          className="doc-strip-format"
+          fontFamily={{ value: font, options: fontOptions, onChange: (value) => set({ textFont: value }, { font: value === '' ? undefined : value }) }}
+          fontSize={{
+            value: textSize,
+            onChange: (size) => set({ textSize: size }, { size }),
+            min: TEXT_SIZE_MIN,
+            max: TEXT_SIZE_MAX,
+            step: TEXT_SIZE_STEP,
+            unit: 'pt',
+            presets: TEXT_SIZES,
+            normalize: normalizeTextSize,
+            title: t('글자 크기 (pt), ↑↓로 0.5씩'),
+          }}
+          marks={{ bold: { active: bold, onToggle: () => set({ bold: !bold }, { bold: !bold }) } }}
+          textColor={{ value: color, colors: TEXT_COLORS, custom: true, onChange: (next) => { if (isOverlayColor(next)) set({ color: next }, { color: next }) } }}
+          highlight={{
+            label: t('바탕색'),
+            icon: <PaintBucket size={16} aria-hidden="true" />,
+            value: textFill === 'none' ? undefined : textFill,
+            colors: TEXT_FILLS,
+            custom: true,
+            clear: { label: t('바탕 없음'), onClear: () => set({ textFill: 'none' }, { fill: undefined }) },
+            onChange: (next) => { if (isTextFill(next)) set({ textFill: next }, { fill: next }) },
+          }}
+          extras={[
+            {
+              key: 'border',
+              node: (
+                <>
+                  <FormatButton label={t('테두리')} active={border} onPress={() => set({ border: !border }, { border: !border })}><BoundingBox size={16} aria-hidden="true" /></FormatButton>
+                  {border ? (
+                    <StripColorDot value={borderColor === '' ? null : borderColor} fallback={color} label={t('테두리 색 직접 고르기')} onChange={(next) => set({ textBorderColor: next }, { borderColor: next })} />
+                  ) : null}
+                </>
+              ),
+            },
+            {
+              key: 'sample',
+              node: <FormatButton label={t('서식 가져오기')} active={sampling} onPress={() => setFormatSampling(!sampling)}><Eyedropper size={16} weight={sampling ? 'bold' : 'regular'} aria-hidden="true" /></FormatButton>,
+            },
+          ]}
+        />
+      ) : (
         <>
           <StripSwatches value={color} onChange={(next) => set({ color: next }, { color: next })} />
           <StripSep />
-          {target === 'text' ? (
-            <>
-              <Select
-                className="doc-strip-select doc-strip-font"
-                ariaLabel={t('글꼴')}
-                value={font}
-                options={fontOptions}
-                onChange={(value) => set({ textFont: value }, { font: value === '' ? undefined : value })}
-              />
-              <StripSizeField value={textSize} onChange={(size) => set({ textSize: size }, { size })} />
-              <StripToggle on={bold} label={t('굵게')} onChange={(next) => set({ bold: next }, { bold: next })}><TextB size={15} weight="bold" aria-hidden="true" /></StripToggle>
-              <StripSep />
-              <span className="doc-strip-seg" role="group" aria-label={t('바탕')}>
-                {FILLS.map((item) => (
-                  <button key={item.value} type="button" className={`doc-strip-opt${textFill === item.value ? ' doc-strip-opt-on' : ''}`} aria-label={t(item.label)} aria-pressed={textFill === item.value} title={t(item.label)} onClick={() => set({ textFill: item.value }, { fill: item.value === 'none' ? undefined : item.value })}>
-                    {item.value === 'none' ? <span className="doc-strip-fill-none">{t('없음')}</span> : <span className="doc-strip-fill" style={{ background: item.swatch }} />}
-                  </button>
-                ))}
-                <label className={`doc-strip-opt doc-strip-opt-color${customFill !== null ? ' doc-strip-opt-on' : ''}`} title={t('바탕색 직접 고르기')}>
-                  <span className={`doc-strip-fill${customFill === null ? ' doc-strip-fill-rainbow' : ''}`} style={customFill === null ? undefined : { background: customFill }} />
-                  <input type="color" aria-label={t('바탕색 직접 고르기')} value={customFill ?? '#ffffff'} onChange={(event) => { const next = event.currentTarget.value.toLowerCase(); if (isTextFill(next)) set({ textFill: next }, { fill: next }) }} />
-                </label>
-              </span>
-              <StripToggle on={border} label={t('테두리')} onChange={(next) => set({ border: next }, { border: next })}><BoundingBox size={15} aria-hidden="true" /></StripToggle>
-              {border ? (
-                <StripColorDot value={borderColor === '' ? null : borderColor} fallback={color} label={t('테두리 색 직접 고르기')} onChange={(next) => set({ textBorderColor: next }, { borderColor: next })} />
-              ) : null}
-              <StripSep />
-              <StripToggle on={sampling} label={t('서식 가져오기')} onChange={(next) => setFormatSampling(next)}><Eyedropper size={15} weight={sampling ? 'bold' : 'regular'} aria-hidden="true" /></StripToggle>
-            </>
-          ) : (
-            <StripWidths value={lineWidth} onChange={(width) => set({ lineWidth: width }, { width })} />
-          )}
+          <StripWidths value={lineWidth} onChange={(width) => set({ lineWidth: width }, { width })} />
           {target === 'line' || target === 'shape' ? (
             <>
               <StripSep />

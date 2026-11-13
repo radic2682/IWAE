@@ -41,4 +41,4 @@
   border-radius: var(--r-md);
 }
 .canvas-memo-format-slot:empty { display: none; }
-.canvas-memo-format-slot .pdf-memo-format-bar { flex-wrap: nowrap; overflow-x: auto; }
+.canvas-memo-format-slot .format-bar { flex-wrap: nowrap; padding: 2px; border-radius: var(--r-md); background: var(--paper); }

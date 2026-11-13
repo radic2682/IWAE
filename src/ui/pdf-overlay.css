@@ -91,9 +91,8 @@
 .pdf-box-palette-label { flex: 0 0 auto; padding: 0 2px; font-weight: 700; }
 .pdf-box-palette-hint { flex: 0 0 auto; padding: 0 4px; }
 .pdf-box-format-slot { display: flex; align-items: center; min-width: 0; }
-/* 박스 메모 서식 단추를 도구창 높이에 맞춘다 */
-.pdf-box-format-slot .pdf-memo-format-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.pdf-box-format-slot .pdf-memo-format-button { min-width: 28px; height: 28px; border-radius: var(--r-sm); }
+/* 박스 메모 서식 줄(공용 FormatBar)은 띠 안에서 한 줄 */
+.pdf-box-format-slot .format-bar { flex-wrap: nowrap; }
 .pdf-overlay-layer-edit[data-overlay-tool='eraser'],
 .pdf-overlay-layer-edit[data-overlay-tool='eraser'] * { cursor: cell !important; }
 
@@ -151,29 +150,8 @@
 .doc-strip-line { display: block; width: 16px; height: 2px; border-radius: 2px; background: currentColor; }
 .doc-strip-line-dash { background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 8px); }
 .doc-strip-line-dot { height: 2.5px; background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 50% / 4px 3px repeat-x; }
-.doc-strip-fill { display: block; width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(var(--rgb-black) / 25%); }
-.doc-strip-fill-none { font-size: 11px; font-weight: 650; }
-.doc-format-strip .doc-strip-select { flex: 0 0 auto; width: 86px; height: 28px; }
-.doc-format-strip .doc-strip-font { width: 128px; }
-/* 글자 크기 칸: 숫자를 직접 쓰고 ▾ 로 자주 쓰는 크기를 고른다 */
-.doc-strip-size {
-  display: inline-flex; flex: 0 0 auto; align-items: center; height: 28px; box-sizing: border-box; padding: 0 2px 0 8px;
-  border: 1px solid var(--divider-strong, var(--divider)); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong);
-}
-.doc-strip-size:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--divider))); }
-.doc-strip-size:focus-within, .doc-strip-size-open { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
-.doc-strip-size input {
-  width: 30px; min-width: 0; padding: 0; border: 0; outline: none; background: transparent; color: inherit;
-  font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; text-align: right;
-}
-.doc-strip-size-unit { padding: 0 2px 0 3px; font-size: 12px; }
-.doc-strip-size-caret { display: grid; place-items: center; width: 20px; height: 22px; padding: 0; border: 0; border-radius: var(--r-xs); background: transparent; color: inherit; cursor: pointer; }
-.doc-strip-size-caret:hover { background: var(--chrome-hover); }
-.doc-strip-size-list { max-height: 280px; }
-.doc-strip-opt-color { position: relative; cursor: pointer; }
-.doc-strip-opt-color input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.doc-strip-fill-rainbow { background: var(--swatch-rainbow); }
-.doc-format-strip .doc-strip-select button { height: 28px; }
+/* 글 상자 서식 줄(공용 FormatBar)도 띠 안에서 한 줄 */
+.doc-format-strip .doc-strip-format { flex-wrap: nowrap; }
 .doc-strip-hint { flex: 0 0 auto; margin-left: auto; padding-left: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
 /* 자리가 모자라면 안내는 감춘다(겹치거나 찌그러지지 않게). 폭은 재야 하니 자리에 둔 채 보이지만 않게 */
 .doc-strip-hint-off { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; }

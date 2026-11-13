@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { CaretDown, Check } from '@phosphor-icons/react'
 import './select.css'
@@ -6,13 +6,17 @@ import './select.css'
 export interface SelectOption {
   readonly value: string
   readonly label: string
+  /** 목록에서 이름 오른쪽에 흐리게 보이는 덧말(단축 안내 · 크기 미리보기) */
+  readonly hint?: ReactNode
+  /** 목록 항목에 붙일 클래스(제목 크기 미리보기 등) */
+  readonly className?: string
 }
 
 /**
  * 앱 모양의 드롭다운(운영체제 기본 목록 대신): 둥근 단추를 누르면 그 아래에 같은 폭의 목록이 뜬다.
  * 키보드: ↑↓·Home·End 로 고르고 Enter·Space 로 정한다. Escape·바깥 누르기로 닫는다.
  */
-export function Select({ value, options, onChange, ariaLabel, disabled = false, className, id }: {
+export function Select({ value, options, onChange, ariaLabel, disabled = false, className, id, title, placeholder, keepFocus = false }: {
   readonly value: string
   readonly options: readonly SelectOption[]
   readonly onChange: (value: string) => void
@@ -20,6 +24,14 @@ export function Select({ value, options, onChange, ariaLabel, disabled = false, 
   readonly disabled?: boolean
   readonly className?: string
   readonly id?: string
+  readonly title?: string
+  /** 고른 값이 목록에 없을 때 단추에 흐리게 보이는 글 */
+  readonly placeholder?: string
+  /**
+   * 누를 때 초점을 가져오지 않는다(서식 줄: 글 쓰는 칸의 고른 글 · 커서를 지킨다). 단추를 눌러도 초점이 옮겨 가지 않고,
+   * 고른 뒤에도 단추로 초점을 돌려보내지 않는다. Tab 으로 단추에 온 경우의 키보드 조작은 그대로다.
+   */
+  readonly keepFocus?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
@@ -66,7 +78,7 @@ export function Select({ value, options, onChange, ariaLabel, disabled = false, 
   const choose = (index: number) => {
     const option = options[index]
     setOpen(false)
-    buttonRef.current?.focus()
+    if (!keepFocus || document.activeElement === buttonRef.current) buttonRef.current?.focus()
     if (option !== undefined && option.value !== value) onChange(option.value)
   }
   const openList = () => {
@@ -102,15 +114,17 @@ export function Select({ value, options, onChange, ariaLabel, disabled = false, 
         type="button"
         role="combobox"
         aria-label={ariaLabel}
+        title={title}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         disabled={disabled}
         className={`app-select${open ? ' app-select-open' : ''}${className === undefined ? '' : ` ${className}`}`}
+        onPointerDown={keepFocus ? (event) => event.preventDefault() : undefined}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
       >
-        <span className="app-select-label">{selected?.label ?? ''}</span>
+        <span className={`app-select-label${selected === undefined && placeholder !== undefined ? ' app-select-placeholder' : ''}`}>{selected?.label ?? placeholder ?? ''}</span>
         <CaretDown size={13} weight="bold" aria-hidden="true" className="app-select-caret" />
       </button>
       {open && place !== null ? createPortal(
@@ -127,13 +141,14 @@ export function Select({ value, options, onChange, ariaLabel, disabled = false, 
               key={option.value}
               role="option"
               aria-selected={option.value === value}
-              className={`app-select-option${index === active ? ' app-select-option-active' : ''}`}
+              className={`app-select-option${index === active ? ' app-select-option-active' : ''}${option.className === undefined ? '' : ` ${option.className}`}`}
               onPointerEnter={() => setActive(index)}
               onPointerDown={(event) => event.preventDefault()}
               onClick={() => choose(index)}
             >
               <span className="app-select-check" aria-hidden="true">{option.value === value ? <Check size={14} weight="bold" /> : null}</span>
               <span className="app-select-option-label">{option.label}</span>
+              {option.hint === undefined ? null : <span className="app-select-option-hint">{option.hint}</span>}
             </div>
           ))}
         </div>,

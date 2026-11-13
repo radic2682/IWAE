@@ -753,11 +753,7 @@ body.note-block-dragging .note-gap { pointer-events: none; }
   background: var(--paper);
 }
 .pane-doc .note-format-slot { display: contents; }
-.pane-doc .note-format-dock .pdf-memo-format-bar {
-  /* 글자색·배경색 고르개가 아래로 펼쳐지므로 잘라 내지(overflow) 않는다 */
-  flex-wrap: wrap; padding: 0; border: 0; background: transparent;
-}
-.pane-doc .note-format-dock .pdf-memo-format-bar-idle .pdf-memo-format-button:disabled { opacity: .35; cursor: default; }
+.pane-doc .note-format-dock .format-bar { flex-wrap: wrap; padding: 0; border: 0; background: transparent; }
 
 /* ---------- 왼쪽 바 PDF 검색: 최근 검색(30개까지, 줄마다 하나) ---------- */
 .pdf-search-recent-docked { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 4px; min-height: 0; overflow: hidden; padding: 2px 0; }

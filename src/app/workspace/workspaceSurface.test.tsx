@@ -652,8 +652,8 @@ describe('D1 · 노트 서식 줄과 노트 단추 묶음은 한 덩어리로 �
     expect(ruleDecl('workspace-surface.css', '.topbar-toolbar-host .memo-note-tab-actions::before', 'width')).toBe('1px')
     expect(ruleDecl('workspace-surface.css', '.topbar-toolbar-host .memo-note-tab-actions::before', 'height')).toBe('16px')
     // 서식 줄은 내용 폭만큼만(남는 자리를 먹지 않는다), 도구줄이 남는 자리를 갖는다
-    expect(surface).toMatch(/\.topbar-toolbar-host \.note-format-dock \.pdf-memo-format-bar \{[^}]*flex: 0 1 auto;/u)
-    expect(surface).toContain('.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 0 1 auto; min-width: 0; }')
+    expect(surface).toMatch(/\.topbar-toolbar-host \.note-format-dock \.format-bar \{[^}]*flex: 0 1 auto;/u)
+    expect(surface).toContain('.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .format-bar) { flex: 0 1 auto; min-width: 0; }')
   })
 
   it('접두키 칩 글은 점 셋(...)이 아니라 말줄임표 한 글자(…)다', () => {
@@ -739,9 +739,9 @@ describe('상단바 도구줄 · 앱 단추의 키보드 초점 고리', () => {
 
   it('도구 단추 · 노트 도구 단추 · 앱 단추에 :focus-visible 일 때 outline 을 없애는 규칙이 없다(focus-ring.css 의 강조색 고리가 그대로 보인다)', () => {
     document.body.innerHTML = `<div class="topbar"><div class="topbar-session-row">
-      <div class="topbar-toolbar-host"><div class="pane-toolbar topbar-toolbar-slot"><button class="toolbar-tool-btn pdf-compact-tool" aria-label="도구">t</button><div class="memo-note-tab-actions"><button class="pdf-memo-header-button" aria-label="검색">s</button></div><button class="pdf-memo-format-button" aria-label="굵게">b</button></div></div>
+      <div class="topbar-toolbar-host"><div class="pane-toolbar topbar-toolbar-slot"><button class="toolbar-tool-btn pdf-compact-tool" aria-label="도구">t</button><div class="memo-note-tab-actions"><button class="pdf-memo-header-button" aria-label="검색">s</button></div><button class="format-bar-btn" aria-label="굵게">b</button></div></div>
       <div class="topbar-app-group"><button class="topbar-app-btn" aria-label="번역기">x</button></div></div></div>`
-    for (const selector of ['.toolbar-tool-btn', '.pdf-memo-header-button', '.pdf-memo-format-button', '.topbar-app-btn']) {
+    for (const selector of ['.toolbar-tool-btn', '.pdf-memo-header-button', '.format-bar-btn', '.topbar-app-btn']) {
       expect(noRing(document.querySelector(selector)!), selector).toEqual([])
     }
     document.body.innerHTML = ''

@@ -175,25 +175,16 @@ body.note-block-dragging .note-block-tabs { display: none; }
 /* 손잡이를 없앴으니 노트 좌우 여백은 12px 로 같게(오른쪽 = 2px + 얇은 스크롤 막대 자리 10px) */
 .pane-doc { --note-side-gap-right: 2px; }
 
-/* ---------- 서식 도구 막대: 묶음(문단 · 글자 · 색 · 목록)마다 끊어 줄을 바꾼다 ----------
-   구분선은 묶음 왼쪽에 그리고, 줄의 첫 묶음 것은 막대 왼쪽 밖으로 밀어 잘라 낸다(줄 끝에 선만 남지 않게) */
-.pdf-memo-format-cluster { position: relative; display: inline-flex; align-items: center; gap: 2px; }
-.pdf-memo-format-cluster + .pdf-memo-format-cluster { margin-left: 5px; padding-left: 6px; }
-.pdf-memo-format-cluster + .pdf-memo-format-cluster::before {
-  content: ''; position: absolute; top: 6px; bottom: 6px; left: 0; width: 1px; background: var(--divider);
-}
-.pane-doc .note-format-dock .pdf-memo-format-bar {
+/* ---------- 노트 맨 위의 서식 줄(공용 format-bar.css): 묶음 구분선은 묶음 왼쪽에 그리고, 줄의 첫 묶음 것은 막대 왼쪽 밖으로 밀어 잘라 낸다 ---------- */
+.pane-doc .note-format-dock .format-bar {
   row-gap: 2px; column-gap: 0;
   margin-left: -11px;
   clip-path: inset(-1000px -1000px -1000px 11px);
 }
-.pane-doc .note-format-dock .pdf-memo-format-cluster { margin-left: 0; padding-left: 11px; }
-.pane-doc .note-format-dock .pdf-memo-format-cluster::before {
+.pane-doc .note-format-dock .format-bar-cluster { margin-left: 0; padding-left: 11px; }
+.pane-doc .note-format-dock .format-bar-cluster::before {
   content: ''; position: absolute; top: 7px; bottom: 7px; left: 5px; width: 1px; background: var(--divider);
 }
-.pane-doc .note-format-dock .pdf-memo-format-button { width: 28px; height: 28px; border-radius: var(--r-sm); }
-.pane-doc .note-format-dock .pdf-memo-format-button.pdf-memo-format-block { width: auto; gap: 4px; padding: 0 6px 0 8px; font-size: 13px; font-weight: 600; }
-.pane-doc .note-format-dock .pdf-memo-format-bar-idle .pdf-memo-format-button:disabled { opacity: .45; }
 .pane-doc .note-format-dock { min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
 
 /* ---------- 블록 단추(+ ID · + 제목 · 메모 쓰기 · …)는 블록 위 테두리에 걸쳐 바깥으로 띄운다(글을 가리지 않게) ---------- */
@@ -297,7 +288,6 @@ body.note-block-dragging .note-block-tabs { display: none; }
     left: anchor(left); right: anchor(right); bottom: anchor(top);
   }
   .pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .pdf-memo-bar-scroll { z-index: 5; }
-  .pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body) > .note-format-dock:has(.pdf-memo-format-menu, .pdf-memo-format-palette) { z-index: 12; }
 }
 
 /* ---------- 글 블록도 메모 카드와 같은 종이 카드: 같은 바탕 · 모서리 · 안쪽 여백, 테두리 없음 ----------
@@ -320,22 +310,8 @@ body.note-block-dragging .note-block-tabs { display: none; }
   box-shadow: 0 0 0 1.5px var(--accent) !important;
 }
 
-/* ---------- 서식 줄은 늘 한 줄: 모자라면 뒤쪽 묶음이 「⋯」 메뉴로 간다(MemoEditor 의 useFormatOverflow) ---------- */
-.pane-doc .note-format-dock .pdf-memo-format-bar { position: relative; flex-wrap: nowrap; }
-.pane-doc .note-format-dock .pdf-memo-format-bar > .pdf-memo-format-cluster { flex: 0 0 auto; }
-.pane-doc .note-format-dock .pdf-memo-format-more { flex: 0 0 auto; margin-left: 6px; }
-.pane-doc .note-format-dock .pdf-memo-format-more[aria-expanded='true'] { background: var(--chrome-hover); }
-.pane-doc .note-format-dock .pdf-memo-format-overflow {
-  position: absolute; z-index: 41; top: calc(100% + 4px); left: 11px; max-width: calc(100% - 11px);
-  display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; padding: 4px;
-  border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper); box-shadow: 0 8px 24px var(--shadow-soft);
-}
-/* 메뉴 안에서는 묶음 사이 선 · 왼쪽 여백(줄 밖으로 밀어 자르던 것)을 쓰지 않는다: 묶음은 줄바꿈으로만 나뉜다 */
-.pane-doc .note-format-dock .pdf-memo-format-overflow .pdf-memo-format-cluster,
-.pane-doc .note-format-dock .pdf-memo-format-overflow .pdf-memo-format-cluster + .pdf-memo-format-cluster { margin-left: 0; padding-left: 0; }
-.pane-doc .note-format-dock .pdf-memo-format-overflow .pdf-memo-format-cluster::before { display: none; }
-/* 「⋯」 메뉴가 열려 있는 동안 도구줄을 노트 블록(z-index 2~3)과 목차 위로 올린다 */
-.pane-doc .note-format-dock:has(.pdf-memo-format-overflow) { z-index: 30; }
+/* ---------- 서식 줄은 늘 한 줄: 모자라면 뒤쪽 묶음이 「⋯」 메뉴로 간다(FormatBar 의 접기, 메뉴는 body 에 뜬다) ---------- */
+.pane-doc .note-format-dock .format-bar { position: relative; flex-wrap: nowrap; }
 
 /* ---------- 밝은 테마: 메모 카드는 판(#ececec) 위의 흰 종이 ----------
    카드 바탕이 종이색의 4% 어둡기라 판 색과 거의 같아 카드가 사라졌다. 어두운 테마처럼 종이 그대로(흰색)로 두고,

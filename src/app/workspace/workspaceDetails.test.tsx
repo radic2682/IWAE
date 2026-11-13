@@ -9,7 +9,7 @@ import { fitEmptyPane } from './EmptyPane'
 import { hasHiddenTabs, subFitsInTitle } from './tabStripOverflow'
 import { floatBoxOnScreen, floatOutgrowsAnchor } from './floatingPanes'
 import { relayoutMessage } from './workspaceCommands'
-import { fitFormatClusters } from '../../pdf/MemoEditor'
+import { fitFormatClusters } from '../../ui/format/FormatBar'
 import { KeysHelpSheet } from './KeysHelpSheet'
 import { cssRules, cssSource, declarationsOf, ruleDecl } from '../cssRules.testutil'
 

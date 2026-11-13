@@ -147,7 +147,7 @@
 .topbar-app-btn-active, .topbar-app-btn[aria-pressed='true'] { background: var(--selected-bg); }
 
 /* 도구 단추: 28px 누르는 자리 · 16px 아이콘 · 가운데. 테두리 없이, 마우스를 올리거나 눌렸을 때만 바탕 */
-.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .pdf-memo-format-button, .pdf-highlighter-btn, .pdf-floating-control-trigger) {
+.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .format-bar-btn, .pdf-highlighter-btn, .pdf-floating-control-trigger) {
   box-sizing: border-box;
   min-width: var(--icon-btn);
   height: var(--icon-btn);
@@ -158,10 +158,10 @@
   backdrop-filter: none;
 }
 .topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .pdf-floating-control-trigger):not(.pane-version-chip) { width: var(--icon-btn); padding: 0; }
-.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .pdf-memo-format-button, .pdf-floating-control-trigger):is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); }
-.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button)[aria-pressed='true'],
-.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn-active, .reader-tool-button-active) { background: var(--selected-bg); color: var(--text-strong); border-color: transparent; }
-.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .pdf-memo-format-button, .pdf-floating-control-trigger) svg { width: var(--icon-size); height: var(--icon-size); }
+.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .format-bar-btn, .pdf-floating-control-trigger):is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); }
+.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .format-bar-btn)[aria-pressed='true'],
+.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn-active, .reader-tool-button-active, .format-bar-btn-on, .format-bar-btn[aria-expanded='true']) { background: var(--selected-bg); color: var(--text-strong); border-color: transparent; }
+.topbar-toolbar-host .topbar-toolbar-slot :is(.toolbar-tool-btn, .pdf-compact-tool, .reader-tool-button, .pdf-memo-header-button, .format-bar-btn, .pdf-floating-control-trigger) svg { width: var(--icon-size); height: var(--icon-size); }
 .topbar-toolbar-host .topbar-toolbar-slot .pane-draw-split { display: inline-flex; align-items: center; height: var(--icon-btn); }
 .topbar-toolbar-host .topbar-toolbar-slot .pane-draw-caret.pane-draw-caret { width: 16px; min-width: 16px; }
 .topbar-toolbar-host .topbar-toolbar-slot .pane-draw-caret svg { width: 10px; height: 10px; }
@@ -169,16 +169,16 @@
 .topbar-toolbar-host .topbar-toolbar-slot .reader-toolbar,
 .topbar-toolbar-host .topbar-toolbar-slot .pdf-inline-tools,
 .topbar-toolbar-host .topbar-toolbar-slot .pdf-mode-toggle-row { gap: var(--space-1); min-height: 0; align-items: center; }
-/* 노트 서식 줄: 칸 안 맨 위 줄이 아니라 상단바 한 줄. 칸 안 규칙(.pane-doc .note-format-dock …)을 빌려 오지 않고 여기서 모두 정한다.
+/* 노트 서식 줄(공용 FormatBar): 칸 안 맨 위 줄이 아니라 상단바 한 줄. 칸 안 규칙(.pane-doc .note-format-dock …)을 빌려 오지 않고 여기서 모두 정한다.
    줄 안의 띠(위 접착 · 아래 선 · 바탕 · 높이)는 없다 */
 .topbar-toolbar-host .note-format-dock { display: flex; flex: 1 1 auto; align-items: center; gap: 0; min-width: 0; min-height: 0; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
 .topbar-toolbar-host .note-format-slot { display: contents; }
-.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .pdf-memo-format-bar) { flex: 0 1 auto; min-width: 0; }
+.topbar-toolbar-host .note-format-dock > :is(.note-format-slot, .format-bar) { flex: 0 1 auto; min-width: 0; }
 .topbar-toolbar-host .note-format-dock > .note-format-slot:empty { flex: 0 0 0; }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-bar {
+.topbar-toolbar-host .note-format-dock .format-bar {
   position: relative;
   flex: 0 1 auto;
-  /* 한 줄뿐: 넘치는 묶음은 줄을 바꾸지 않고 「⋯」 메뉴로 간다(useFormatOverflow) — 소수 배율에서 둘째 줄로 밀려 잘리지 않게 */
+  /* 한 줄뿐: 넘치는 묶음은 줄을 바꾸지 않고 「⋯」 메뉴로 간다(FormatBar 의 접기) — 소수 배율에서 둘째 줄로 밀려 잘리지 않게 */
   flex-wrap: nowrap;
   align-items: center;
   column-gap: 0;
@@ -188,14 +188,8 @@
   background: transparent;
   clip-path: inset(-1000px -1000px -1000px 11px);
 }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-bar > .pdf-memo-format-cluster { flex: 0 0 auto; }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-cluster { margin-left: 0; padding-left: 11px; }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-cluster::before { content: ''; position: absolute; top: 7px; bottom: 7px; left: 5px; width: 1px; background: var(--divider); }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-button { width: var(--icon-btn); height: var(--icon-btn); border-radius: var(--r-sm); }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-button.pdf-memo-format-block { width: auto; gap: 4px; padding: 0 6px 0 8px; font-size: 13px; font-weight: 600; }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-bar-idle .pdf-memo-format-button:disabled { opacity: 0.35; cursor: default; }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-more { flex: 0 0 auto; margin-left: 6px; }
-.topbar-toolbar-host .note-format-dock .pdf-memo-format-more[aria-expanded='true'] { background: var(--chrome-hover); }
+.topbar-toolbar-host .note-format-dock .format-bar-cluster { margin-left: 0; padding-left: 11px; }
+.topbar-toolbar-host .note-format-dock .format-bar-cluster::before { content: ''; position: absolute; top: 7px; bottom: 7px; left: 5px; width: 1px; background: var(--divider); }
 /* 검색 · 글 블록 넣기 · 펼치기: 서식 단추 바로 뒤에 구분선을 두고 이어 붙는다(남는 자리는 이 묶음 뒤에 있다) */
 .topbar-toolbar-host .memo-note-tab-actions { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: var(--space-1); height: 100%; margin-left: var(--space-2); padding-left: calc(var(--space-2) + 1px); }
 .topbar-toolbar-host .memo-note-tab-actions .pdf-memo-header-button { min-width: var(--icon-btn); width: var(--icon-btn); height: var(--icon-btn); padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); }

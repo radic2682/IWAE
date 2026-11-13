@@ -1,0 +1,101 @@
+/* ---------- 공용 서식 줄(src/ui/format/FormatBar.tsx): 노트 메모 · 캔버스 글 블록 · 글 상자 · 박스 메모가 같은 모양 ----------
+   단추 28px · 아이콘 16px · 묶음 사이 1px 구분선 · 눌림은 상단바 도구 단추와 같은 바탕(--selected-bg).
+   자리마다 다른 것(상단바 한 줄 · 노트 맨 위 · 띠 · 캔버스 위)은 그 자리 파일(workspace-surface · note-ticket · pdf-overlay · canvas-memo)이 정한다.
+   단추 규칙은 두 번 쓴 클래스(.format-bar-btn.format-bar-btn)로 무게를 올려, 캔버스 도구줄의 `.note-toolbar button` 같은 넓은 규칙에 지지 않는다 */
+.format-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0; min-width: 0; color: var(--text-strong); }
+.format-bar-cluster { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; }
+.format-bar-cluster + .format-bar-cluster { margin-left: 5px; padding-left: 6px; }
+.format-bar-cluster + .format-bar-cluster::before { content: ''; position: absolute; top: 6px; bottom: 6px; left: 0; width: 1px; background: var(--divider); }
+
+.format-bar-btn.format-bar-btn {
+  position: relative; display: inline-grid; flex: 0 0 auto; place-items: center; box-sizing: border-box;
+  width: 28px; min-width: 28px; height: 28px; padding: 0;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-strong); font: inherit; cursor: pointer;
+}
+.format-bar-btn.format-bar-btn svg { width: 16px; height: 16px; }
+.format-bar-btn.format-bar-btn:is(:hover, :focus-visible):not(:disabled) { background: var(--chrome-hover); }
+.format-bar-btn.format-bar-btn-on,
+.format-bar-btn.format-bar-btn[aria-expanded='true'] { background: var(--selected-bg); color: var(--text-strong); }
+.format-bar-btn.format-bar-btn:disabled { opacity: .45; cursor: default; }
+.format-bar-idle .format-bar-btn.format-bar-btn:disabled { opacity: .35; }
+/* 색 단추: 아이콘 밑에 지금 색 막대 */
+.format-bar-color-current {
+  position: absolute; right: 7px; bottom: 4px; left: 7px; height: 3px; border-radius: var(--r-full);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-strong) 18%, transparent);
+}
+.format-bar .format-bar-more { margin-left: 6px; }
+
+/* 드롭다운(문단 모양 · 글꼴 · 테두리 두께): 앱 드롭다운(Select)을 도구줄 높이(28px)로, 테두리 없이 */
+.format-bar-select.format-bar-select {
+  flex: 0 0 auto; width: auto; height: 28px; gap: 4px; padding: 0 6px 0 8px;
+  border-color: transparent; background: transparent; color: var(--text-strong); font-size: 13px; font-weight: 600;
+}
+.format-bar-select.format-bar-select:hover:not(:disabled) { border-color: transparent; background: var(--chrome-hover); }
+.format-bar-select.format-bar-select:is(.app-select-open, :focus-visible) { border-color: var(--accent); background: transparent; }
+.format-bar-select.format-bar-select:disabled { opacity: .45; }
+.format-bar-idle .format-bar-select.format-bar-select:disabled { opacity: .35; }
+.format-bar-select .app-select-caret { width: 11px; height: 11px; }
+.format-bar-block.format-bar-block { min-width: 64px; }
+.format-bar-font.format-bar-font { width: 128px; font-weight: 500; }
+/* 문단 모양 목록: 제목은 그 크기로 미리 보인다 */
+.format-bar-block-h2 .app-select-option-label { font-size: 16px; font-weight: 750; }
+.format-bar-block-h3 .app-select-option-label { font-size: 14.5px; font-weight: 750; }
+.format-bar-block-h4 .app-select-option-label { font-weight: 750; }
+.format-bar-block-pre .app-select-option-label { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 12.5px; }
+
+/* 글자 크기 칸: 숫자를 직접 쓰고 ▾ 로 자주 쓰는 크기를 고른다 */
+.format-bar-size {
+  display: inline-flex; flex: 0 0 auto; align-items: center; box-sizing: border-box; height: 28px; padding: 0 2px 0 8px;
+  border: 1px solid var(--divider-strong, var(--divider)); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong);
+}
+.format-bar-size:hover:not(.format-bar-size-disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--divider))); }
+.format-bar-size:focus-within, .format-bar-size-open { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.format-bar-size-disabled { opacity: .45; }
+.format-bar-idle .format-bar-size-disabled { opacity: .35; }
+.format-bar-size input {
+  width: 30px; min-width: 0; height: auto; padding: 0; border: 0; outline: none; background: transparent; color: inherit;
+  font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; text-align: right;
+}
+.format-bar-size-unit { padding: 0 2px 0 3px; font-size: 12px; }
+.format-bar-size .format-bar-size-caret {
+  display: grid; place-items: center; width: 20px; height: 22px; padding: 0;
+  border: 0; border-radius: var(--r-xs); background: transparent; color: inherit; cursor: pointer;
+}
+.format-bar-size .format-bar-size-caret:hover:not(:disabled) { background: var(--chrome-hover); }
+.format-bar-size .format-bar-size-caret:disabled { cursor: default; }
+.format-bar-size-list { max-height: 280px; }
+
+/* 색 팔레트: body 에 뜬다(도구줄이 잘라 내지 않게). 한 줄에 일곱 칸까지 */
+.format-bar-palette {
+  position: fixed; z-index: 1000; box-sizing: border-box; padding: 8px;
+  border: 1px solid var(--divider-strong); border-radius: var(--r-md); background: var(--paper);
+  box-shadow: 0 12px 32px rgb(var(--rgb-black) / 35%), 0 2px 6px rgb(var(--rgb-black) / 15%);
+}
+.format-bar-swatches { display: grid; grid-template-columns: repeat(auto-fill, 28px); gap: 5px; }
+.format-bar-swatch {
+  position: relative; width: 28px; height: 28px; padding: 0; box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--text-strong) 16%, transparent); border-radius: var(--r-sm); cursor: pointer;
+}
+.format-bar-swatch:is(:hover, :focus-visible), .format-bar-swatch[aria-pressed='true'] {
+  border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); outline: none;
+}
+.format-bar-swatch-none { background-image: linear-gradient(135deg, transparent 45%, var(--danger) 45% 55%, transparent 55%) !important; }
+.format-bar-swatch-custom { overflow: hidden; background: var(--swatch-rainbow); }
+.format-bar-swatch-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.format-bar-color-clear {
+  width: 100%; height: 30px; margin-top: 8px; border: 1px solid var(--divider); border-radius: var(--r-sm);
+  background: var(--paper); color: var(--text-strong); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.format-bar-color-clear:hover { background: var(--chrome-hover); }
+
+/* 「⋯」 메뉴: 줄에 들어가지 못한 묶음. body 에 뜬다 */
+.format-bar-overflow {
+  position: fixed; z-index: 1000; box-sizing: border-box; max-width: min(440px, calc(100vw - 16px));
+  gap: 2px 0; padding: 4px;
+  border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--paper); box-shadow: 0 8px 24px var(--shadow-soft);
+}
+/* 메뉴 안에서는 묶음 사이 선 · 여백을 쓰지 않는다: 묶음은 줄바꿈으로만 나뉜다 */
+.format-bar-overflow > .format-bar-cluster,
+.format-bar-overflow > .format-bar-cluster + .format-bar-cluster { margin-left: 0; padding-left: 0; }
+.format-bar-overflow > .format-bar-cluster::before { display: none; }
+.format-bar-overflow > .format-bar-cluster + .format-bar-cluster { margin-left: 6px; }

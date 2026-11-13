@@ -13,7 +13,6 @@ export const GROUP_1: Readonly<Record<string, string>> = {
   '노트 편집 도구': 'Note editing tools',
   '실행 취소': 'Undo',
   '다시 실행': 'Redo',
-  '블록 유형': 'Block type',
   '글자 크기': 'Font size',
   '굵게': 'Bold',
   '기울임': 'Italic',

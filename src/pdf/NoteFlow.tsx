@@ -215,7 +215,7 @@ function NoteFlowImpl({
   const selectedRef = useRef<ReadonlySet<string>>(new Set())
   const startBlockDrag = (key: string) => (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0 || key === 'draft') return
-    if ((event.target as Element).closest('button, input, textarea, select, a, [contenteditable="true"], .pdf-memo-editor, .pdf-memo-format-bar') !== null) return
+    if ((event.target as Element).closest('button, input, textarea, select, a, [contenteditable="true"], .pdf-memo-editor, .format-bar') !== null) return
     const startX = event.clientX
     const startY = event.clientY
     const scroller = event.currentTarget.closest('.pdf-memo-bar-scroll')

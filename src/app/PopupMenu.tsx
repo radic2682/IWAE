@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
  * 단추 곁에 뜨는 작은 메뉴(칸 ⋯ 메뉴 · 화면 탭 우클릭 · 새 화면 ＋ · 세션 이름). 탭 우클릭 메뉴(.pane-tab-context)와 같은 모양이다.
  * 바깥을 누르거나 Esc · 창이 초점을 잃으면 닫히고, ↑↓·Home·End 로 항목을 고른다. 열리면 첫 항목에 초점이 간다.
  */
-export function PopupMenu({ label, left, right, top, onClose, anchorRef, children }: {
+export function PopupMenu({ label, left, right, top, onClose, anchorRef, autoFocus = true, children }: {
   readonly label: string
   /** 왼쪽 끝(px) — right 와 둘 중 하나 */
   readonly left?: number
@@ -14,6 +14,8 @@ export function PopupMenu({ label, left, right, top, onClose, anchorRef, childre
   readonly onClose: (restoreFocus: boolean) => void
   /** 이 메뉴를 연 단추(그 위를 누르는 것은 바깥 누름이 아니다) */
   readonly anchorRef?: RefObject<HTMLElement | null>
+  /** 열릴 때 첫 항목에 초점을 줄까. 서식 줄의 메뉴는 false: 글 쓰는 칸의 초점(고른 글 · 커서)을 빼앗지 않는다 */
+  readonly autoFocus?: boolean
   readonly children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -37,7 +39,7 @@ export function PopupMenu({ label, left, right, top, onClose, anchorRef, childre
     <div
       ref={(element) => {
         ref.current = element
-        if (element !== null && !element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]:not(:disabled)')?.focus({ preventScroll: true })
+        if (autoFocus && element !== null && !element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]:not(:disabled)')?.focus({ preventScroll: true })
       }}
       className="pane-tab-context popup-menu"
       role="menu"
