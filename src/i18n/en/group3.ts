@@ -56,6 +56,7 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '별점': 'Rating',
   '별 {count}개': '{count} stars',
   '형광펜과 메모 지우기': 'Delete highlight and memo',
+  '이 노트에서만 빼기': 'Remove from this note only',
 
   // 노트 목록 (MemoNotesSection)
   '새 노트 폴더 이름': 'New note folder name',

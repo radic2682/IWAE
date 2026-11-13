@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
 import { MemoFormatSlotContext } from './MemoEditor'
+import { MemoNoteContext, type MemoNoteApi } from './memoNoteContext'
 
 const handlers = () => ({
   editingKey: null,
@@ -282,5 +283,33 @@ describe('NoteFlow — 티켓 · 여러 원문 · 여러 블록 고르기', () =
     fireEvent.click(screen.getByRole('button', { name: '지우기' }))
     fireEvent.click(screen.getByRole('button', { name: '지우기' }))
     expect(onDeleteBlocks).toHaveBeenCalledWith(['t1', 't2', 't3'])
+  })
+})
+
+describe('NoteFlow — 이 노트에서만 빼기', () => {
+  const highlight = {
+    id: 'h1', color: 'green' as const, note: '쓴 메모',
+    anchor: { docId: 'd', page: 1, coordSpace: 'pdfium-page' as const, rects: [{ x: 1, y: 1, w: 1, h: 1 }], charRange: [0, 1] as const, quote: '원문', prefix: '', suffix: '' },
+  }
+  const open = (owners: readonly string[]) => {
+    const updateNoteAt = vi.fn()
+    const api = { notesOf: () => owners, updateNoteAt, openPath: 'A' } as unknown as MemoNoteApi
+    const props = handlers()
+    const { container } = render(<MemoNoteContext.Provider value={api}><NoteFlow {...props} items={[{ kind: 'memo', key: 'b1', highlight }]} /></MemoNoteContext.Provider>)
+    fireEvent.contextMenu(container.querySelector('.pdf-memo-card-flow')!)
+    return { updateNoteAt, props }
+  }
+  it('다른 노트도 같은 형광펜을 담고 있으면 이 노트의 블록만 빼는 항목이 나온다(형광펜은 그대로)', () => {
+    const { updateNoteAt, props } = open(['A', 'B'])
+    fireEvent.click(screen.getByRole('menuitem', { name: '이 노트에서만 빼기' }))
+    expect(updateNoteAt).toHaveBeenCalledTimes(1)
+    const change = updateNoteAt.mock.calls[0]![1] as (note: { version: 1; blocks: { id: string; kind: 'memo'; highlightId: string }[] }) => { blocks: unknown[] }
+    expect(change({ version: 1, blocks: [{ id: 'b1', kind: 'memo', highlightId: 'h1' }, { id: 'x', kind: 'memo', highlightId: 'h1' }] }).blocks).toEqual([{ id: 'x', kind: 'memo', highlightId: 'h1' }])
+    expect(props.onDeleteMemo).not.toHaveBeenCalled()
+  })
+  it('이 노트에만 있는 형광펜에는 그 항목이 없다', () => {
+    open(['A'])
+    expect(screen.queryByRole('menuitem', { name: '이 노트에서만 빼기' })).toBeNull()
+    expect(screen.getByRole('menuitem', { name: '형광펜과 메모 지우기' })).not.toBeNull()
   })
 })

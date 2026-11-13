@@ -1,7 +1,7 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { fitMenuInViewport } from '../ui/fitMenu'
 import { createPortal } from 'react-dom'
-import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, MinusCircle, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
 import { MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
 import { isMarkdownPath } from '../core/markdownPath'
 import { RegionCrop } from './RegionCrop'
@@ -10,7 +10,7 @@ import { cachedTranslation, translateWithCache, useTranslationCache } from '../a
 import { t } from '../i18n'
 import { fadeIn, reducedMotion, slideFrom } from '../app/motion'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
-import { insertBlock, memoBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
+import { insertBlock, memoBlock, removeBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
 import { ticketGroupOf, type TicketChoice, type TicketGroup, type TicketIndex, type TicketPlace } from '../core/memoTickets'
 import { armClickSuppress } from '../ui/clickSuppress'
 import { edgeScroll, firstBelowMidpoint, startBlockDragSession, type BlockDragSession } from './noteBlockDrag'
@@ -784,6 +784,10 @@ function NoteFlowImpl({
               <button type="button" role="menuitem" onClick={run(() => onInsertText(menuItem.key))}>{menuLabel(<TextAlignLeft size={15} />, t('아래에 글 넣기'))}</button>
             ) : null}
             <hr />
+            {menuItem.kind === 'memo' && openPath !== null && noteApi?.notesOf(menuItem.highlight.id).some((path) => path !== openPath) === true ? (
+              // 같은 형광펜을 다른 노트도 담고 있으면(Alt 링크) 이 노트에서만 뺄 수 있다: 형광펜은 그대로, 다른 노트의 블록도 그대로
+              <button type="button" role="menuitem" onClick={run(() => noteApi.updateNoteAt(openPath, (note) => removeBlock(note, menuItem.key)))}>{menuLabel(<MinusCircle size={15} />, t('이 노트에서만 빼기'))}</button>
+            ) : null}
             {menuItem.kind === 'memo' ? (
               <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onDeleteMemo(menuItem.highlight.id))}>{menuLabel(<Trash size={15} />, t('형광펜과 메모 지우기'))}</button>
             ) : menuItem.kind === 'text' ? (
