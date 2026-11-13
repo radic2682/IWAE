@@ -20,7 +20,7 @@
 <p align="center"><a href="README.ko.md">한국어</a></p>
 
 <p align="center">
-  <img src="docs/images/hero.gif" width="900" alt="Highlighting a sentence in a paper to get a memo, clicking a memo to jump back, dragging a tab to split a pane so connector lines cross panes, and switching to the light theme and back">
+  <img src="docs/images/hero.gif" width="900" alt="Selecting a sentence in a paper to get a memo in the note pane, scrolling away and clicking the memo to jump back, splitting the pane with Ctrl+B % to open a second paper, and switching to the light theme and back">
 </p>
 
 > **Status:** alpha. Reading, memos, notes and storage work well, but the interface and file formats may still change.
@@ -35,7 +35,7 @@ Most PDF readers open one file at a time and leave the organizing to your file m
 - **Yours, and local.** Everything is stored in your Vault folder. Only text you choose to translate with a cloud service, or an external AI you connect yourself, ever leaves your PC.
 
 <p align="center">
-  <img src="docs/images/split-view.png" width="900" alt="IWAE with a folder tree on the left, two papers side by side and a note whose connector lines cross both panes">
+  <img src="docs/images/split-view.png" width="900" alt="IWAE with a folder tree on the left, two papers side by side in panes and a note pane on the right whose memos are joined to the highlights by connector lines">
 </p>
 
 ## Quick start
@@ -43,6 +43,11 @@ Most PDF readers open one file at a time and leave the organizing to your file m
 1. [Install IWAE](#install) and open it. Choose **Start with an example** to get a Vault with example documents, or **Open my folder** to use your own (an empty folder gets the example too).
 2. Open **IWAE User Guide** in the left bar. It is a tutorial PDF. Every chapter has a “Try it” box that you do on the same PDF: highlight a sentence, capture a figure, translate a paragraph.
 3. Open the **Tour of IWAE** note under “Notes” and click a memo card. The PDF jumps to the sentence it was written for. Then add a memo of your own.
+4. Run **Getting started** from the command palette (`Ctrl+K`) for a short walk through the left bar, panes and color channels. After an update, **What's new tour** shows what changed.
+
+<p align="center">
+  <img src="docs/images/tour.gif" width="900" alt="The Getting started tour: a welcome card, then the left bar, a pane head and the color channel dot highlighted one by one">
+</p>
 
 The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public/sample-vault/iwae-manual.pdf)) is 12 pages and starts with a one-page summary.
 
@@ -60,20 +65,29 @@ The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public
   <img src="docs/images/library.gif" width="900" alt="Expanding the library, switching between cards and a table, filtering to recently opened documents, and opening a paper from its card">
 </p>
 
-<!-- MEDIA TODO: docs/images/versions.gif -->
+Right-click a document, choose **Group with another file as versions…**, and pick the other file. A version chip then appears in the top row to switch versions, and **PDF tools → Compare text with another version** lists what changed line by line.
+
+<p align="center">
+  <img src="docs/images/versions.gif" width="900" alt="Grouping a PDF and its revised copy as versions, switching versions from the top row, and comparing the text of the two versions in PDF tools">
+</p>
 
 ### Read side by side
 
 - Every document gets a tab, and tabs live in **panes**. Panes split the tmux way: press the prefix key (`Ctrl+B` by default), then `%` or `"` to split, arrow keys to move, `z` to zoom and `x` to close. The “⋯” menu in a pane head and the command palette (`Ctrl+K`) do the same.
 - A **screen** is a set of panes (templates: Reading, Note left, Compare). A **session** saves several screens under a name. **Floating panes** sit over the screen.
 - Drag tabs like browser tabs: reorder, move to another pane, **drop on a pane edge to split**, **drag out into a new app window**. Dragging a pane head swaps or moves panes.
+- While the prefix key is pending, a chip in the top row shows it. Prefix then `?` opens the key list, and `c` makes a new screen, which gets its own tab in the top row.
 - The color dot in a pane head is its **color channel**. Panes with the same color are linked, so a highlight in a document pane and its memo in the neighboring note pane are joined by a line.
 - **New window** (`Ctrl+Shift+N`) is a second app window on the same session. Changes sync live and are merged, never overwritten.
 - Single page, two- or three-page spreads, continuous scroll, fit width, fit page, rotation, dark-mode color inversion.
 - Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump and go back with the mouse back button.
 
 <p align="center">
-  <img src="docs/images/tab-drag.gif" width="900" alt="Reordering tabs, dragging a tab to a pane edge to split the view, and moving tabs between panes while the note stays open">
+  <img src="docs/images/tab-drag.gif" width="900" alt="Reordering tabs, dragging a tab to a pane edge to split the view, moving a tab into another pane's tab strip, and docking one to the bottom edge">
+</p>
+
+<p align="center">
+  <img src="docs/images/workspace.gif" width="900" alt="Splitting a pane with Ctrl+B and a double quote, opening a paper in the new pane, creating a new screen with Ctrl+B c, going back with Ctrl+B p, dragging a pane head to swap two panes, and opening the key list with Ctrl+B ?">
 </p>
 
 ### Highlight, memo, and jump back
@@ -81,7 +95,7 @@ The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public
 Select text and a memo opens in the note. The memo is linked to its highlight by a connector line that crosses panes and takes the highlight's color. Click the memo and the PDF returns to the spot.
 
 <p align="center">
-  <img src="docs/images/memo.gif" width="900" alt="Selecting a sentence in a PDF, writing a memo for it in the note, scrolling away, then clicking the memo to jump back to the highlighted sentence">
+  <img src="docs/images/memo.gif" width="900" alt="Selecting a sentence in a PDF, writing a memo for it in the note pane, scrolling away, then clicking the memo to jump back to the highlighted sentence">
 </p>
 
 | Tool | What it does |
@@ -100,7 +114,11 @@ Box a chart or table to add it to the note as an image, with your description:
 
 ### Notes that stay linked
 
-A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. A note is a tab like any other, so it opens in its own pane, scrolls on its own and has its own zoom. Drag memo blocks onto another note to move them, or hold `Alt` when you drop to link them. `Ctrl+Shift+M` opens or closes a note beside the document.
+A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. A note is a tab like any other, so it opens in its own pane, scrolls on its own and has its own zoom. Drag memo blocks onto another note pane to move them, or hold `Alt` when you drop to link them. `Ctrl+Shift+M` opens or closes a note beside the document.
+
+<p align="center">
+  <img src="docs/images/memo-drag.gif" width="900" alt="Two note panes side by side: dragging a memo card into the other note with a drop line, then Alt-dragging another card to link it, marked with a link badge">
+</p>
 
 - **Memo:** your comment with its sources underneath; click a source to jump to it. A memo can hold several sources, including captured regions.
 - **ID and title (tickets):** give any memo a free-form ID such as `REQ-01` and a title, which is handy for tracking requirements. IWAE suggests the next number and warns about an ID already used in the note. Type an ID at the start of a memo and it turns into the ID badge.
