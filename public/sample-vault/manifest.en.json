@@ -5,20 +5,20 @@
     "title": "Tour of IWAE",
     "blocks": [
       { "kind": "section", "title": "Getting started" },
-      { "kind": "text", "markdown": "An example note made while reading the guide. Click a **memo card** to jump to that sentence in the PDF, and drag a block by its left handle to reorder it. Follow the “Try it” boxes in the guide and add memos of your own." },
+      { "kind": "text", "markdown": "An example note made while reading the guide. Click a **memo card** to jump to that sentence in the PDF. Drag a block by its left handle to reorder it or move it to another note. Follow the “Try it” boxes in the guide and add memos of your own." },
       { "kind": "memo", "page": 3, "quote": "A Vault is a plain folder, so you can copy or back it up with your file manager.", "note": "Copying the whole Vault folder is a backup. App records live in `.iwae`." },
-      { "kind": "memo", "page": 4, "quote": "Drag a tab to the edge of a pane and a new pane is created on that side.", "note": "Tabs reorder, move between panes, split at an edge, or detach into a window, all by dragging. Drag a detached window's tab back onto a tab bar to reattach it." },
+      { "kind": "memo", "page": 4, "quote": "Drag a tab to the edge of a pane and a new pane appears on that side.", "note": "Drag tabs to reorder them, move them between panes, split at an edge or detach them into a new app window. Dragging a pane head swaps panes." },
       { "kind": "section", "title": "Marking and capturing" },
-      { "kind": "memo", "page": 5, "quote": "A highlighted sentence is linked to its memo card by a thin line.", "note": "The line has the highlight's color. When a document pane and a note pane sit next to each other with the same color, the line joins the two." },
+      { "kind": "memo", "page": 5, "quote": "A highlighted sentence is linked to its memo card by a thin line.", "note": "The line has the highlight's color. When a document pane and a note pane sit next to each other with the same color channel, the line joins the two." },
       { "kind": "memo", "page": 6, "quote": "A captured box can be resized by dragging its edges and corners.", "note": "If a captured table got cut off, drag the box to fit it again." },
       { "kind": "section", "title": "Working with notes" },
-      { "kind": "memo", "page": 7, "quote": "Drag the handle on the left to change the order of blocks.", "note": "Dragging a section moves the blocks under it too." },
+      { "kind": "memo", "page": 7, "quote": "Drag the handle on the left to change the order of blocks.", "note": "Dragging a section moves the blocks under it too. Drop blocks on another note to move them there, or hold Alt to link them." },
       { "kind": "section", "title": "Requirements (ticket examples)" },
       { "kind": "text", "markdown": "Memos can carry an **ID** and a title. Hover a memo to see + ID and + Title at the top right, or start the memo with something like `REQ-04 ` to turn it into an ID." },
       { "kind": "memo", "page": 7, "quote": "Saved notes must still be there after the app restarts.", "note": "Write a note, restart the app and check. Note files live in `Notes/*.iwnote`.", "ticket": "REQ-01 Notes survive a restart" },
       { "kind": "memo", "page": 7, "quote": "Highlights must point to the same text after pages are reordered.", "note": "Reorder pages with Edit pages, then click this memo and check it lands on the same sentence.", "ticket": "REQ-03 Highlights follow moved pages" },
       { "kind": "section", "title": "PDF tools and translation" },
-      { "kind": "memo", "page": 9, "quote": "only writes a file that is actually smaller.", "note": "Compress only replaces the file when the result is smaller, so a PDF never grows." },
+      { "kind": "memo", "page": 9, "quote": "only writes a file that is smaller.", "note": "Compress only replaces the file when the result is smaller, so a PDF never grows." },
       { "kind": "memo", "page": 10, "quote": "Cloud API keys are stored in this PC's credential store.", "note": "Enter a key once and it stays after a restart. Use local (Ollama) translation for sensitive documents." }
     ]
   }

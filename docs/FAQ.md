@@ -16,7 +16,7 @@ Yes. IWAE is open source under the MIT license (see [LICENSE](../LICENSE)). Bund
 Windows 10/11 (x64) and macOS 12 or newer. Linux is not supported yet. macOS builds are produced separately from Windows builds, so a release can briefly exist for Windows only.
 
 **Is it stable?**
-It is alpha. Day-to-day reading, memos, notes and saving work well, and saving is atomic with a journal, but screens and file formats can still change between versions. Keep the automatic Vault backup on (Settings) and read the release notes before updating.
+It is alpha. Day-to-day reading, memos, notes and saving work well, and saving uses a temporary file and a journal, but screens and file formats can still change between versions. Keep the automatic Vault backup on (Settings) and read the release notes before updating.
 
 ## Your files and privacy
 
@@ -32,7 +32,7 @@ Yes, it is an ordinary folder. Changes made in two windows are merged, and confl
 **What leaves my computer?**
 Only what you turn on yourself:
 
-- Text you select for translation, when you chose a cloud provider (OpenAI, Anthropic, Gemini, Azure Translator, DeepL). Local translation with Ollama stays on your PC.
+- Text you select for translation, when you chose a cloud provider (Google Translate, Azure Translator, DeepL, OpenAI, Anthropic, Gemini). Local translation with Ollama stays on your PC.
 - The update check in release builds.
 - Requests from an external AI agent, only if you enable the local MCP server in Settings. It is off by default and listens on `127.0.0.1` only.
 
@@ -50,7 +50,7 @@ Deleted files go to the Vault's trash first, and earlier states of notes and ann
 ## Using it
 
 **How do I try it without my own files?**
-On first start choose **Start with an example**. It creates a sample Vault with a hands-on tutorial PDF called "IWAE User Guide".
+On first start choose **Start with an example**. It creates a sample Vault with a tutorial PDF called "IWAE User Guide".
 
 **Can I use IWAE as my default PDF reader?**
 Yes. Choose IWAE in Windows "Default apps" (the app has a shortcut to that page) or "Open With" on macOS. A PDF opened from outside the Vault can be copied into the Vault.
@@ -59,19 +59,22 @@ Yes. Choose IWAE in Windows "Default apps" (the app has a shortcut to that page)
 Use the OCR tool in the left bar's PDF tools to add a text layer. OCR runs locally with bundled PaddleOCR models; it is not perfect on low-quality scans.
 
 **A PDF is password-protected.**
-IWAE asks for the password when you open it. The "unlocked copy" tool can save a copy without the password.
+IWAE asks for the password when you open it. The "Unlocked copy" tool can save a copy without the password.
 
 **Very large PDFs feel slow.**
 Performance work for large files is in progress (see the [roadmap](ROADMAP.md)). If a particular file is slow, please open a bug report and include the page count and file size, not the file itself.
 
+**How do I split panes or make a new screen?**
+Press the prefix key (`Ctrl+B` by default), release it, then press `%` or `"` to split. The "⋯" menu in a pane head does the same. "New screen" in the top row creates a screen from the Reading, Note left or Compare template.
+
 **How does translation work?**
-Select text and press translate. The result appears next to the text and never replaces the original. Pick a local model through Ollama, or a cloud provider with your own API key (Settings → Translation). Repeated translations are cached in the Vault.
+Select text and press translate. A result card appears and the original is never replaced. The translator button in the top row (prefix key, then `w`) opens a panel for text you type yourself. Pick a local model through Ollama, or a cloud provider with your own API key (Settings → Translation). Repeated translations are stored in the Vault and reused.
 
 **Can AI read my notes?**
 IWAE has no built-in chat. If you enable the MCP server, an external agent such as Claude Code that you connect yourself can search the Vault, read pages and add memos. It cannot modify your PDF files. See the README section "Working with AI agents".
 
 **Where are the keyboard shortcuts?**
-Settings → Shortcuts & mouse, and the table in the README. `Ctrl+Shift+P` opens the command palette.
+Settings → Shortcuts & mouse, and the table in the README. `Ctrl+Shift+P` (or `Ctrl+K`) opens the command palette. Press the prefix key (`Ctrl+B` by default), then `?`, for the pane and screen commands.
 
 ## Troubleshooting
 
@@ -83,9 +86,6 @@ The app is not notarized yet. Open System Settings → Privacy & Security and cl
 
 **The window is blank or PDFs do not render on Windows.**
 IWAE needs Microsoft Edge WebView2 (preinstalled on current Windows 10/11) and the bundled `pdfium.dll` next to the executable. Reinstall with the setup `.exe`; antivirus software that quarantined `pdfium.dll` is a known cause.
-
-**Markdown to PDF fails.**
-Markdown views are rendered through Microsoft Edge or Google Chrome. Install one of them.
 
 **PowerPoint import says PowerPoint is missing.**
 `.ppt`/`.pptx` conversion uses PowerPoint installed on the same Windows PC. Convert to PDF elsewhere and drop the PDF in.

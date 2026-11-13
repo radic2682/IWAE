@@ -20,7 +20,7 @@
 <p align="center"><a href="README.ko.md">한국어</a></p>
 
 <p align="center">
-  <img src="docs/images/hero.gif" width="900" alt="Highlighting a sentence in a paper to get a memo, clicking a memo to jump back, dragging a tab to split the view so connector lines cross panes, and switching to the light theme and back">
+  <img src="docs/images/hero.gif" width="900" alt="Highlighting a sentence in a paper to get a memo, clicking a memo to jump back, dragging a tab to split a pane so connector lines cross panes, and switching to the light theme and back">
 </p>
 
 > **Status:** alpha. Reading, memos, notes and storage work well, but the interface and file formats may still change.
@@ -30,8 +30,8 @@
 Most PDF readers open one file at a time and leave the organizing to your file manager. Reference managers organize well, but they want metadata and keep your files in their own library. IWAE sits in between.
 
 - **Your folder is the library.** Open any folder (a **Vault**) and its PDFs and Markdown files appear as they are on disk. Nothing is imported or locked in.
-- **Highlight, and the memo is already there.** Select a sentence and a memo opens in the note beside the document, joined to the highlight by a line. Click the memo later and the PDF jumps back to that exact sentence.
-- **Read side by side.** Tabs, nine split layouts, windows you can pull a tab out into, and a note pane that stays beside the document while you read (“Open note beside”, plus presets: Reading, Note left, Compare, Organize).
+- **Highlight, and the memo is already there.** Select a sentence and a memo opens in the note, joined to the highlight by a line. Click the memo later and the PDF jumps back to that sentence.
+- **Read side by side.** tmux-style panes (prefix key `Ctrl+B`), screens and sessions, dragging tabs and panes, and tabs you can pull out into a new app window. A note is a tab too, so it sits in a pane beside the document.
 - **Yours, and local.** Everything is stored in your Vault folder. Only text you choose to translate with a cloud service, or an external AI you connect yourself, ever leaves your PC.
 
 <p align="center">
@@ -40,11 +40,11 @@ Most PDF readers open one file at a time and leave the organizing to your file m
 
 ## Quick start
 
-1. [Install IWAE](#install) and open it. Choose **Start with an example** to get a ready-made Vault in your Documents folder, or **Open my folder** to use your own (an empty folder gets the example too).
-2. Open **IWAE User Guide** in the left bar. It is a hands-on tutorial PDF: every chapter ends with a “Try it” box that you do on that same PDF (highlight this sentence, capture this figure, translate this paragraph).
+1. [Install IWAE](#install) and open it. Choose **Start with an example** to get a Vault with example documents, or **Open my folder** to use your own (an empty folder gets the example too).
+2. Open **IWAE User Guide** in the left bar. It is a tutorial PDF. Every chapter has a “Try it” box that you do on the same PDF: highlight a sentence, capture a figure, translate a paragraph.
 3. Open the **Tour of IWAE** note under “Notes” and click a memo card. The PDF jumps to the sentence it was written for. Then add a memo of your own.
 
-The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public/sample-vault/iwae-manual.pdf)) is 12 pages and starts with a one-page overview.
+The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public/sample-vault/iwae-manual.pdf)) is 12 pages and starts with a one-page summary.
 
 ## Features
 
@@ -64,9 +64,11 @@ The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public
 
 ### Read side by side
 
-- Tabs for every document. Drag them like browser tabs: reorder, move to another pane, **dock to a pane edge to split**, **drag out to detach a window**, drag back onto a tab bar to reattach.
-- Nine split layouts for panes (two or three columns, two rows, 2×2 and mixed layouts), and a separate split that shows different pages of the same PDF.
-- **New window** (`Ctrl+Shift+N`) for a second full window on the same Vault. Changes sync live and are merged, never overwritten.
+- Every document gets a tab, and tabs live in **panes**. Panes split the tmux way: press the prefix key (`Ctrl+B` by default), then `%` or `"` to split, arrow keys to move, `z` to zoom and `x` to close. The “⋯” menu in a pane head and the command palette (`Ctrl+K`) do the same.
+- A **screen** is a set of panes (templates: Reading, Note left, Compare). A **session** saves several screens under a name. **Floating panes** sit over the screen.
+- Drag tabs like browser tabs: reorder, move to another pane, **drop on a pane edge to split**, **drag out into a new app window**. Dragging a pane head swaps or moves panes.
+- The color dot in a pane head is its **color channel**. Panes with the same color are linked, so a highlight in a document pane and its memo in the neighboring note pane are joined by a line.
+- **New window** (`Ctrl+Shift+N`) is a second app window on the same session. Changes sync live and are merged, never overwritten.
 - Single page, two- or three-page spreads, continuous scroll, fit width, fit page, rotation, dark-mode color inversion.
 - Hover a link or a reference such as `Table 5` or `Section 3.2` to preview it; click to jump and go back with the mouse back button.
 
@@ -76,7 +78,7 @@ The guide ([PDF](public/sample-vault/iwae-manual.en.pdf), [한국어 PDF](public
 
 ### Highlight, memo, and jump back
 
-Select text and a memo opens in the note right away. The memo is linked to its highlight by a connector line that crosses panes and takes the highlight's color. Click the memo and the PDF returns to the spot.
+Select text and a memo opens in the note. The memo is linked to its highlight by a connector line that crosses panes and takes the highlight's color. Click the memo and the PDF returns to the spot.
 
 <p align="center">
   <img src="docs/images/memo.gif" width="900" alt="Selecting a sentence in a PDF, writing a memo for it in the note, scrolling away, then clicking the memo to jump back to the highlighted sentence">
@@ -98,13 +100,13 @@ Box a chart or table to add it to the note as an image, with your description:
 
 ### Notes that stay linked
 
-A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. The note opens in its own pane beside the document (a tab like any other, so it can sit on the left, be stacked, or be used in several panes), scrolls on its own, and has its own zoom.
+A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. A note is a tab like any other, so it opens in its own pane, scrolls on its own and has its own zoom. Drag memo blocks onto another note to move them, or hold `Alt` when you drop to link them. `Ctrl+Shift+M` opens or closes a note beside the document.
 
 - **Memo:** your comment with its sources underneath; click a source to jump to it. A memo can hold several sources, including captured regions.
 - **ID and title (tickets):** give any memo a free-form ID such as `REQ-01` and a title, which is handy for tracking requirements. IWAE suggests the next number and warns about an ID already used in the note. Type an ID at the start of a memo and it turns into the ID badge.
 - **Section** groups the blocks under it; collapse it or drag it as one unit. **Text** is free writing with bold, lists, tables and code.
 - Select several blocks (Ctrl+click or Shift+click) and drag them together.
-- **A note per PDF:** each PDF can have its own notes, listed under it in the left bar, with a note switcher in the note title.
+- **A note per PDF:** each PDF can have its own notes, listed under it in the left bar, with a note switcher in the note tab title.
 - **Wide note view:** drag the note pane wide and it becomes a wide column with an outline, for organizing and polishing.
 
 <p align="center">
@@ -143,15 +145,15 @@ Everything runs on your PC. Most tools can apply to the original or write a copy
 
 ### Translation
 
-Translate a selection without replacing the original text. Each source line in a note also has a small translate button that shows the translation right under it.
+Translate a selection without replacing the original text. Each source line in a note also has a small translate button that shows the translation under it. The **translator** is a panel over the app window. Open or close it with the translator button in the top row or the prefix key followed by `w`.
 
 <p align="center">
   <img src="docs/images/translate.gif" width="900" alt="Translating a selected sentence into Korean, then pressing the translate button on a memo to show the translation under its source">
 </p>
 
 - **Local:** Ollama on your own PC. Nothing leaves the machine.
-- **Cloud:** OpenAI, Anthropic, Gemini, Azure Translator or DeepL. The selected text is sent to the service you choose. API keys are kept in the operating system's credential store.
-- **Translation cache:** a text translated once into the same language is reused instantly, without another request. Turn it off or clear it in **Settings → Translation**. Translations stay in the Vault's `.iwae` folder.
+- **Cloud:** Google Translate (no key), Azure Translator, DeepL, OpenAI, Anthropic or Gemini. The selected text is sent to the service you choose. API keys are kept in the operating system's credential store.
+- **Translation cache:** a text translated once into the same language is reused from storage, without another request. Turn it off or clear it in **Settings → Translation**. Translations stay in the Vault's `.iwae` folder.
 
 ### Markdown
 
@@ -199,13 +201,15 @@ On macOS use `⌘` instead of `Ctrl`. The full list is in **Settings → Shortcu
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl+Shift+P` | Command palette (commands, PDF tools and documents) |
+| `Ctrl+Shift+P` / `Ctrl+K` | Command palette (commands, PDF tools and documents) |
+| `Ctrl+B` | Prefix key. Next key: `%` `"` split, arrows move, `z` zoom, `x` close, `c` new screen, `n` `p` switch screens, `f` floating panes, `w` translator, `?` key list |
 | `Ctrl+Shift+N` | New window |
 | `Ctrl+,` | Settings |
 | `Ctrl+F` / `Ctrl+Shift+F` | Find in this document / search all documents |
 | `Ctrl+Shift+L` | Expand or collapse the library |
 | `Ctrl+Tab` / `Ctrl+W` | Next tab / close tab |
-| `Ctrl+\` | Change the split view |
+| `Ctrl+Shift+M` | Open or close a note beside the document |
+| `Ctrl+\` | Change the number of panes (1, 2, 3) |
 | `Ctrl+G` | Go to page |
 | `Alt+←` / `Alt+→` | Back / forward through document jumps (also the mouse back and forward buttons) |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
@@ -218,7 +222,7 @@ On macOS use `⌘` instead of `Ctrl`. The full list is in **Settings → Shortcu
 your-vault/
 ├── *.pdf, *.md       your documents, left as they are
 ├── Notes/*.iwnote     notes (Korean vaults use 노트/)
-└── .iwae/            highlights, bookmarks, indexes, translation cache, history, trash
+└── .iwae/            highlights, bookmarks, indexes, translation cache, sessions, history, trash
 ```
 
 - IWAE is local-first. Documents, highlights, notes, search indexes and the translation cache live in your Vault folder. Copy, back up or sync it with any tool.

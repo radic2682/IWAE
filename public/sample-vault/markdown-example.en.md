@@ -4,7 +4,7 @@ IWAE reads and marks up **Markdown** documents as well as PDFs. You can select t
 
 ## Try it
 
-1. Drag over the sentence below. A highlight is painted and a memo opens in the note beside it.
+1. Drag over the sentence below. A highlight is painted and a memo opens in the note. If no note is visible, press Ctrl+Shift+M to open one beside the document.
 2. Write a memo, scroll away, then click the memo card. This document returns to that sentence.
 
 > Memos you add to a Markdown document go into the same note as memos from PDFs.
