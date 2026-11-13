@@ -27,10 +27,10 @@ describe('첫 실행 「접두키 고르기」 창', () => {
   it('접두키를 고른 적이 없으면 뜨고, Ctrl+B 가 미리 골라져 있으며 안내가 보인다', () => {
     render(<PrefixKeyHost enabled onChooseCustom={vi.fn()} />)
     expect(dialog()).not.toBeNull()
-    expect(screen.getByText('칸 나누기·화면 바꾸기 같은 작업 공간 명령은 접두키를 누른 뒤 한 글자로 합니다 (tmux 방식).')).toBeDefined()
+    expect(screen.getByText('칸 나누기나 화면 바꾸기 같은 작업 공간 명령은 접두키를 누른 뒤 한 글자로 실행합니다(tmux 방식).')).toBeDefined()
     expect(screen.getByText('설정 → 단축키에서 언제든 바꿀 수 있습니다')).toBeDefined()
     expect(screen.getByText('기본 (tmux와 같음)')).toBeDefined()
-    expect(screen.getByText(/메모를 쓸 때 Ctrl\+B 는 굵게입니다/u)).toBeDefined()
+    expect(screen.getByText(/메모를 쓸 때 Ctrl\+B는 굵게입니다/u)).toBeDefined()
     const radios = screen.getAllByRole('radio') as HTMLInputElement[]
     expect(radios.map((radio) => radio.value)).toEqual(['Ctrl+B', 'Ctrl+Space', 'Ctrl+A', 'custom'])
     expect(radios.map((radio) => radio.checked)).toEqual([true, false, false, false])

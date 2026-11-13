@@ -197,7 +197,7 @@ export function ThemeEditorDialog({ initial, isNew, initialMode, takenNames, onS
         }}
       >
         <header className="ut-head">
-          <h2 id="ut-title">{isNew ? t('새 테마 만들기') : t('내 테마 고치기')}{draft.name.trim() !== '' ? ` — ${draft.name.trim()}` : ''}</h2>
+          <h2 id="ut-title">{isNew ? t('새 테마 만들기') : t('내 테마 고치기')}{draft.name.trim() !== '' ? `: ${draft.name.trim()}` : ''}</h2>
           <div className="ut-seg" role="radiogroup" aria-label={t('밝기')}>
             {(['light', 'dark'] as const).map((value) => (
               <button key={value} type="button" role="radio" aria-checked={mode === value} className={mode === value ? 'ut-seg-on' : undefined} onClick={() => setMode(value)}>
@@ -223,8 +223,8 @@ export function ThemeEditorDialog({ initial, isNew, initialMode, takenNames, onS
                 />
               </label>
               <div className="ut-meta-base">
-                <span>{t('바탕으로 한 구성')}</span>
-                <Select value={draft.base} options={baseOptions} ariaLabel={t('바탕으로 한 구성')} onChange={(value) => setDraft((current) => ({ ...current, base: value as BasePaletteId }))} />
+                <span>{t('기반 구성')}</span>
+                <Select value={draft.base} options={baseOptions} ariaLabel={t('기반 구성')} onChange={(value) => setDraft((current) => ({ ...current, base: value as BasePaletteId }))} />
               </div>
             </div>
             {nameTaken ? <p className="ut-note">{t('같은 이름이 이미 있어 저장할 때 번호가 붙습니다.')}</p> : null}
@@ -243,7 +243,7 @@ export function ThemeEditorDialog({ initial, isNew, initialMode, takenNames, onS
 
             <div className="ut-checks" aria-live="polite">
               {failing.length === 0 ? (
-                <span className="ut-check ut-check-ok"><CheckCircle size={14} weight="fill" aria-hidden="true" />{t('글자·구분선·강조색 대비가 모두 충분합니다')}</span>
+                <span className="ut-check ut-check-ok"><CheckCircle size={14} weight="fill" aria-hidden="true" />{t('글자, 구분선, 강조색 대비가 모두 충분합니다')}</span>
               ) : failing.map((check) => (
                 <span key={check.id} className="ut-check ut-check-warn">
                   <Warning size={14} weight="fill" aria-hidden="true" />
@@ -255,7 +255,7 @@ export function ThemeEditorDialog({ initial, isNew, initialMode, takenNames, onS
           </div>
 
           <div className="ut-preview-pane">
-            <p className="ut-preview-caption">{t('미리보기 — 고칠 때마다 바로 바뀝니다')}</p>
+            <p className="ut-preview-caption">{t('미리보기: 고치면 바로 반영됩니다')}</p>
             <ThemePreview theme={draft} mode={mode} />
           </div>
         </div>
@@ -278,7 +278,7 @@ export function ThemeEditorDialog({ initial, isNew, initialMode, takenNames, onS
               if (file !== undefined) void importFile(file)
             }}
           />
-          <button type="button" className="ut-btn" title={t('지금 보는 밝기의 색을 바탕 구성의 값으로 되돌립니다')} onClick={resetToBase}>{t('바탕 구성대로 되돌리기')}</button>
+          <button type="button" className="ut-btn" title={t('지금 밝기의 색을 기반 구성 값으로 되돌립니다')} onClick={resetToBase}>{t('기반 구성으로 되돌리기')}</button>
           <span className="ut-foot-gap" />
           <button type="button" className="ut-btn" onClick={onCancel}>{t('취소')}</button>
           <button type="button" className="ut-btn ut-btn-primary" disabled={nameEmpty} onClick={save}>{t('저장')}</button>

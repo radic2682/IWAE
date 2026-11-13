@@ -28,7 +28,7 @@ installErrorBuffer()
 installHighlightColorStyle()
 
 const root = document.getElementById('root')
-if (!root) throw new Error('#root 가 없다 — index.html 이 바뀌었는지 확인할 것')
+if (!root) throw new Error('#root가 없다 — index.html이 바뀌었는지 확인할 것')
 // 여는 장면은 언어를 기다리지 않고 바로 띄운다(글이 없다). 앱(과 Vault 열기)이 뒤에서 준비되는 동안 덮고 있다가 사라진다
 const splashRoot = document.createElement('div')
 document.body.appendChild(splashRoot)

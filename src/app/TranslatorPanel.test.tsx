@@ -285,7 +285,7 @@ describe('번역기 창의 내용', () => {
         </TranslationCardSettingsContext.Provider>
       </TranslatorContext.Provider>,
     )
-    expect(screen.getByRole('alert').textContent).toContain('번역기를 아직 설정하지 않았습니다')
+    expect(screen.getByRole('alert').textContent).toContain('번역기가 설정되지 않았습니다')
   })
 })
 

@@ -110,7 +110,7 @@ describe('PaneToolbar', () => {
   it('Markdown 도 깨끗이 보기(눈 단추)를 PDF 와 같이 쓴다', () => {
     const onCleanViewChange = vi.fn()
     render(<PaneToolbar kind="markdown" mode="text" onModeChange={vi.fn()} cleanView={false} onCleanViewChange={onCleanViewChange} />)
-    fireEvent.click(screen.getByRole('button', { name: '표시 모두 감추기' }))
+    fireEvent.click(screen.getByRole('button', { name: '표시 모두 숨기기' }))
     expect(onCleanViewChange).toHaveBeenCalledWith(true)
   })
 
@@ -239,17 +239,17 @@ describe('PaneToolbar', () => {
           onFitWidth={vi.fn()} onFitPage={vi.fn()}
         />,
       )
-      expect(screen.queryByRole('button', { name: '첫 페이지' })).toBeNull()
+      expect(screen.queryByRole('button', { name: '첫 쪽' })).toBeNull()
       // 쪽 번호는 늘 막대에 남는다. 배율 입력 · 확대/축소는 320px 칸에서도 잘리지 않게 맨 마지막으로 메뉴에 들어간다
-      expect(screen.getByRole('textbox', { name: '페이지' })).toBeTruthy()
+      expect(screen.getByRole('textbox', { name: '쪽' })).toBeTruthy()
       expect(screen.queryByRole('button', { name: '확대' })).toBeNull()
       expect(screen.queryByRole('spinbutton', { name: '배율 직접 입력' })).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: '더 보기' }))
       expect(screen.getByRole('menuitem', { name: /확대/ })).toBeTruthy()
       expect(screen.getByRole('menuitem', { name: /축소/ })).toBeTruthy()
-      fireEvent.click(screen.getByRole('menuitem', { name: /첫 페이지/ }))
+      fireEvent.click(screen.getByRole('menuitem', { name: /첫 쪽/ }))
       expect(onPageChange).toHaveBeenCalledWith(1)
-      expect(screen.queryByRole('menu', { name: '접어 둔 단추' })).toBeNull()
+      expect(screen.queryByRole('menu', { name: '접힌 단추' })).toBeNull()
     } finally {
       for (const key of Object.keys(widths)) Reflect.deleteProperty(HTMLElement.prototype, key)
     }
@@ -285,7 +285,7 @@ describe('PaneToolbar — GitHub 와 이어진 Markdown', () => {
   it('받을 것 수를 배지로 보이고, 메뉴에서 최신으로 받기를 부른다', () => {
     const onAction = vi.fn()
     render(<PaneToolbar kind="markdown" mode="text" onModeChange={vi.fn()} github={{ name: 'docs', behind: 3, onAction }} />)
-    fireEvent.click(screen.getByRole('button', { name: 'GitHub: 받을 것 3개' }))
+    fireEvent.click(screen.getByRole('button', { name: 'GitHub: 받을 변경 3개' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '최신으로 받기 (3)' }))
     expect(onAction).toHaveBeenCalledWith('pull')
   })

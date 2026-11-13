@@ -738,7 +738,7 @@ export function useVault(options: UseVaultOptions = {}) {
           ...Object.fromEntries(records.filter((record) => record !== null)),
         }))
       })
-      // 설정 「Vault 를 열 때 모든 PDF 색인」을 끄면 미리 읽지 않는다(「색인 다시 만들기」로 따로 만든다)
+      // 설정 「Vault를 열 때 모든 PDF 색인」을 끄면 미리 읽지 않는다(「색인 다시 만들기」로 따로 만든다)
       // 색인은 메인 창이 만든다(다른 창은 저장된 색인을 쓴다 — 여러 창이 같은 캐시를 쓰면 서로 덮는다)
       const indexNow = windowMode.role === 'main' && (getAppPrefs().autoIndex || forceIndexRef.current)
       forceIndexRef.current = false
@@ -1063,7 +1063,7 @@ export function useVault(options: UseVaultOptions = {}) {
     }
     const guard = (): { readonly handle: VaultHandle } | Outcome => {
       const handle = sessionSnapshotRef.current.vault
-      if (handle === null) return failResult(t('Vault 를 연 뒤에 쓸 수 있습니다'))
+      if (handle === null) return failResult(t('Vault를 연 뒤에 쓸 수 있습니다'))
       if (!isAppClient(windowMode)) return failResult(t('세션은 앱 창에서만 바꿀 수 있습니다'))
       return { handle }
     }
@@ -1342,7 +1342,7 @@ export function useVault(options: UseVaultOptions = {}) {
 
   const renameEntry = useCallback(async (id: string, displayName: string) => {
     const trimmedName = displayName.trim()
-    if (trimmedName === '') throw new Error(t('표시 이름을 입력해 주세요.'))
+    if (trimmedName === '') throw new Error(t('표시 이름을 입력하세요.'))
     if (vault === null) {
       if (!injected) throw new Error(t('Vault가 열려 있지 않습니다.'))
       setInjectedLibrary((current) => current.map((entry) => (
@@ -1401,7 +1401,7 @@ export function useVault(options: UseVaultOptions = {}) {
   ): Promise<PdfDocMeta> => {
     if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const entry = entries.find((candidate) => candidate.docId === docId)
-    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 는 편집할 수 없습니다.'))
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF는 편집할 수 없습니다.'))
     const backup = await backupPathFor(entry.title)
     const meta = await editPdfPages(docId, entry.path, backup, plan)
     await commitReplacedDocument(docId, meta)
@@ -1425,10 +1425,10 @@ export function useVault(options: UseVaultOptions = {}) {
   const applyDocumentTool = useCallback(async (docId: string, op: PdfToolOp): Promise<PdfToolResult> => {
     if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const entry = entries.find((candidate) => candidate.docId === docId)
-    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 는 편집할 수 없습니다.'))
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF는 편집할 수 없습니다.'))
     const backup = await backupPathFor(entry.title)
     const result = await runPdfTool(docId, op, { kind: 'inPlace', path: entry.path, backup })
-    if (result === null || result.meta === null) throw new Error(t('PDF 를 고치지 못했습니다'))
+    if (result === null || result.meta === null) throw new Error(t('PDF를 수정하지 못했습니다'))
     await commitReplacedDocument(docId, result.meta)
     return result
   }, [backupPathFor, commitReplacedDocument, entries, vault])
@@ -1440,7 +1440,7 @@ export function useVault(options: UseVaultOptions = {}) {
   const writeDocumentToolCopy = useCallback(async (docId: string, op: PdfToolOp, suffix: string, subfolder?: string, onReport?: (report: PdfToolResult['report']) => void): Promise<string> => {
     if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const entry = entries.find((candidate) => candidate.docId === docId)
-    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 입니다.'))
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF입니다.'))
     const { dirname, join } = await import('@tauri-apps/api/path')
     const { exists } = await import('@tauri-apps/plugin-fs')
     const parent = await dirname(entry.path)
@@ -1449,7 +1449,7 @@ export function useVault(options: UseVaultOptions = {}) {
     let path = await join(folder, `${base}.pdf`)
     for (let n = 2; await exists(path); n += 1) path = await join(folder, `${base} (${n}).pdf`)
     const result = await runPdfTool(docId, op, { kind: 'newFile', path })
-    if (result === null) throw new Error(t('새 PDF 를 만들지 못했습니다'))
+    if (result === null) throw new Error(t('새 PDF를 만들지 못했습니다'))
     onReport?.(result.report)
     await refreshVaultFilesRef.current(vault)
     return result.path
@@ -1459,7 +1459,7 @@ export function useVault(options: UseVaultOptions = {}) {
   const writeDocumentMarkdown = useCallback(async (docId: string, markdown: string): Promise<string> => {
     if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const entry = entries.find((candidate) => candidate.docId === docId)
-    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF 입니다.'))
+    if (entry === undefined) throw new Error(t('Vault 목록에 없는 PDF입니다.'))
     const { dirname, join } = await import('@tauri-apps/api/path')
     const { exists, writeTextFile } = await import('@tauri-apps/plugin-fs')
     const folder = await dirname(entry.path)
@@ -1551,7 +1551,7 @@ export function useVault(options: UseVaultOptions = {}) {
   const importDroppedDocuments = useCallback(async (paths: readonly string[]) => {
     const { accepted, rejected } = partitionDroppedDocumentPaths(paths)
     if (vault === null) {
-      setError(t('파일을 가져오려면 먼저 Vault를 열어 주세요.'))
+      setError(t('파일을 가져오려면 먼저 Vault를 여세요.'))
       return { imported: 0, rejected: rejected.length, failed: accepted.length }
     }
 
@@ -1619,7 +1619,7 @@ export function useVault(options: UseVaultOptions = {}) {
     place?: { readonly nodeId: string; readonly position: 'before' | 'after' | 'inside' },
   ) => {
     if (vault === null) {
-      setError(t('파일을 가져오려면 먼저 Vault를 열어 주세요.'))
+      setError(t('파일을 가져오려면 먼저 Vault를 여세요.'))
       return [] as string[]
     }
     setError(null)
@@ -1964,7 +1964,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const meta = await openPdf(pdfPath, indexId)
       return { ...meta, title }
     } catch (err) {
-      setError(t('Markdown 을 리더 화면으로 열지 못해 간단 보기로 엽니다: {error}', { error: errorText(err) }))
+      setError(t('Markdown을 읽기 보기로 열지 못해 간단 보기로 엽니다: {error}', { error: errorText(err) }))
       return null
     }
   }, [])
@@ -2098,9 +2098,9 @@ export function useVault(options: UseVaultOptions = {}) {
    * 바깥 AI 가 캔버스에 발췌를 넣을 때 쪽 크기·글자 상자를 얻으려고 쓴다.
    */
   const loadPdfById = useCallback(async (docId: string): Promise<{ meta: PdfDocMeta; title: string }> => {
-    if (vault === null) throw new Error(t('열린 Vault 가 없습니다.'))
+    if (vault === null) throw new Error(t('열린 Vault가 없습니다.'))
     const entry = vaultIndex.find((candidate) => candidate.id === docId && candidate.kind === 'pdf')
-    if (entry === undefined) throw new Error(t('그 PDF 를 찾지 못했습니다: {docId}', { docId }))
+    if (entry === undefined) throw new Error(t('PDF를 찾지 못했습니다: {docId}', { docId }))
     const known = entries.find((doc) => doc.docId === entry.id)?.path
     let path = entry.path
     if (entry.storage === 'vault') {

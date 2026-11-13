@@ -106,7 +106,7 @@ export function PdfSearchPanel({
     <section className="pdf-search-panel pdf-search-panel-compact" aria-label={t('PDF 검색 결과')}>
       <header className="pdf-search-panel-header">
         <span className="pdf-search-progress" aria-label={t('PDF 검색 진행률')}>
-          {t('{completed} / {total} 페이지', { completed: search.progress.completed, total: search.progress.total })}
+          {t('{completed} / {total}쪽', { completed: search.progress.completed, total: search.progress.total })}
         </span>
       </header>
 
@@ -128,7 +128,7 @@ export function PdfSearchPanel({
 
       {search.status === 'error' ? (
         <div className="pdf-search-state pdf-search-state-error" role="alert">
-          {t('PDF 검색 중 오류가 발생했습니다')}
+          {t('PDF를 검색하지 못했습니다')}
         </div>
       ) : null}
 
@@ -145,14 +145,14 @@ export function PdfSearchPanel({
                 <button
                   type="button"
                   className={`pdf-search-result-row${active ? ' pdf-search-result-row-active' : ''}`}
-                  aria-label={t('{page}페이지 {quote}', { page: match.page + 1, quote: match.quote })}
+                  aria-label={t('{page}쪽 {quote}', { page: match.page + 1, quote: match.quote })}
                   aria-current={active ? 'true' : undefined}
                   onClick={() => {
                     search.select(index)
                     onSelectMatch(match)
                   }}
                 >
-                  <span className="pdf-search-result-page">{t('{page}페이지', { page: match.page + 1 })}</span>
+                  <span className="pdf-search-result-page">{t('{page}쪽', { page: match.page + 1 })}</span>
                   <span className="pdf-search-result-snippet">
                     <span>{match.before}</span>
                     <mark>{match.quote}</mark>
@@ -487,7 +487,7 @@ function DockedSearchResults({
       </header>
 
       {search.status === 'error' ? (
-        <div className="pdf-search-state pdf-search-state-error" role="alert">{t('PDF 검색 중 오류가 발생했습니다')}</div>
+        <div className="pdf-search-state pdf-search-state-error" role="alert">{t('PDF를 검색하지 못했습니다')}</div>
       ) : null}
       {search.status === 'complete' && search.matches.length === 0 ? (
         <div className="pdf-search-state">{t('검색 결과가 없습니다')}</div>
@@ -531,7 +531,7 @@ function DockedSearchResults({
                         <button
                           type="button"
                           className={`pdf-search-result-row${active ? ' pdf-search-result-row-active' : ''}`}
-                          aria-label={t('{page}페이지 {quote}', { page: match.page + 1, quote: match.quote })}
+                          aria-label={t('{page}쪽 {quote}', { page: match.page + 1, quote: match.quote })}
                           aria-current={active ? 'true' : undefined}
                           onClick={() => {
                             search.select(index)

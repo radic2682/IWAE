@@ -56,7 +56,7 @@ describe('UpdateSettings', () => {
     expect(base.download).toHaveBeenCalledOnce()
 
     rerender(<UpdateSettings currentVersion="0.1.11" state={{ ...available, status: 'ready' }} />)
-    fireEvent.click(screen.getByRole('button', { name: '재시작하여 설치' }))
+    fireEvent.click(screen.getByRole('button', { name: '다시 시작해 설치' }))
     expect(base.install).toHaveBeenCalledOnce()
 
     rerender(<UpdateSettings currentVersion="0.1.11" state={{ ...base, status: 'error', error: 'net' }} />)

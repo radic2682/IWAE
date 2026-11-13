@@ -100,7 +100,7 @@ export async function importZoteroLibrary(path: string, deps: ZoteroImportDeps):
   return { items: candidates.length, pdfs, existing, bibliography, highlights, memos, missingFiles, failed }
 }
 
-const itemNoteTexts = (item: ZoteroItem): string[] => item.notes.map((note) => `${t('Zotero 노트')} — ${note.replace(/\s+/gu, ' ').trim()}`)
+const itemNoteTexts = (item: ZoteroItem): string[] => item.notes.map((note) => `${t('Zotero 노트')}: ${note.replace(/\s+/gu, ' ').trim()}`)
 
 /** 사람이 읽을 한 줄 결과 */
 export function zoteroReportLine(report: ZoteroImportReport): string {
@@ -112,5 +112,5 @@ export function zoteroReportLine(report: ZoteroImportReport): string {
   if (report.memos > 0) parts.push(t('글 메모 {count}개', { count: report.memos }))
   if (report.missingFiles > 0) parts.push(t('파일 없는 첨부 {count}개 건너뜀', { count: report.missingFiles }))
   if (report.failed.length > 0) parts.push(t('실패 {count}개', { count: report.failed.length }))
-  return t('Zotero 에서 가져왔습니다: {summary}', { summary: parts.join(', ') })
+  return t('Zotero에서 가져왔습니다: {summary}', { summary: parts.join(', ') })
 }

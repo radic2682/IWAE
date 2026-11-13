@@ -177,21 +177,21 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
         {/* 묶음 사이 선: 읽던 자리 오가기 | 쪽 넘기기 | (배경) | 맞춤 | 배율 */}
         {(onBack !== undefined || onForward !== undefined) && shown('history') ? <span className="bottombar-divider" /> : null}
         {shown('edge') ? (
-          <button type="button" data-collapse="edge" className="bottombar-btn pdf-bottom-edge" aria-label={t('첫 페이지')} title={t('첫 페이지 (Home)')} disabled={page <= 1} onClick={() => onPageChange(1)}>
+          <button type="button" data-collapse="edge" className="bottombar-btn pdf-bottom-edge" aria-label={t('첫 쪽')} title={t('첫 쪽 (Home)')} disabled={page <= 1} onClick={() => onPageChange(1)}>
             <CaretDoubleLeft size={16} aria-hidden="true" />
           </button>
         ) : null}
         {shown('pageStep') ? (
-          <button type="button" data-collapse="pageStep" className="bottombar-btn" aria-label={t('이전 페이지')} title={t('이전 페이지')} disabled={page <= 1} onClick={() => onPageChange(Math.max(page - 1, 1))}>
+          <button type="button" data-collapse="pageStep" className="bottombar-btn" aria-label={t('이전 쪽')} title={t('이전 쪽')} disabled={page <= 1} onClick={() => onPageChange(Math.max(page - 1, 1))}>
             <CaretLeft size={16} aria-hidden="true" />
           </button>
         ) : null}
         <input
-          aria-label={t('페이지')}
+          aria-label={t('쪽')}
           className="bottombar-goto"
           type="text"
           inputMode="text"
-          title={t('쪽·절·표 번호로 이동 (Ctrl+G)')}
+          title={t('쪽, 절, 표 번호로 이동 (Ctrl+G)')}
           placeholder={t('쪽·5.1.3·Table 52')}
           value={pageInput}
           onFocus={(event) => event.currentTarget.select()}
@@ -209,12 +209,12 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
         />
         <span>/ {pageCount}</span>
         {shown('pageStep') ? (
-          <button type="button" data-collapse="pageStep" className="bottombar-btn" aria-label={t('다음 페이지')} title={t('다음 페이지')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(Math.min(page + 1, pageCount))}>
+          <button type="button" data-collapse="pageStep" className="bottombar-btn" aria-label={t('다음 쪽')} title={t('다음 쪽')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(Math.min(page + 1, pageCount))}>
             <CaretRight size={16} aria-hidden="true" />
           </button>
         ) : null}
         {shown('edge') ? (
-          <button type="button" data-collapse="edge" className="bottombar-btn pdf-bottom-edge" aria-label={t('마지막 페이지')} title={t('마지막 페이지 (End)')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(pageCount)}>
+          <button type="button" data-collapse="edge" className="bottombar-btn pdf-bottom-edge" aria-label={t('마지막 쪽')} title={t('마지막 쪽 (End)')} disabled={pageCount === 0 || page >= pageCount} onClick={() => onPageChange(pageCount)}>
             <CaretDoubleRight size={16} aria-hidden="true" />
           </button>
         ) : null}
@@ -265,7 +265,7 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
       {moreOpen !== null && collapsed.size > 0 ? createPortal(
         <>
           <div className="pdf-bottom-more-backdrop" onPointerDown={() => setMoreOpen(null)} />
-          <div className="pdf-bottom-more-menu" role="menu" aria-label={t('접어 둔 단추')} style={{ right: moreOpen.right, bottom: moreOpen.bottom }}>
+          <div className="pdf-bottom-more-menu" role="menu" aria-label={t('접힌 단추')} style={{ right: moreOpen.right, bottom: moreOpen.bottom }}>
             {collapsed.has('history') ? (
               <>
                 {onBack !== undefined ? <button type="button" role="menuitem" disabled={!canGoBack} onClick={runMore(onBack)}><ArrowLeft size={16} aria-hidden="true" />{t('뒤로')} <kbd>Alt+←</kbd></button> : null}
@@ -274,8 +274,8 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
             ) : null}
             {collapsed.has('edge') ? (
               <>
-                <button type="button" role="menuitem" disabled={page <= 1} onClick={runMore(() => onPageChange(1))}><CaretDoubleLeft size={16} aria-hidden="true" />{t('첫 페이지')} <kbd>Home</kbd></button>
-                <button type="button" role="menuitem" disabled={pageCount === 0 || page >= pageCount} onClick={runMore(() => onPageChange(pageCount))}><CaretDoubleRight size={16} aria-hidden="true" />{t('마지막 페이지')} <kbd>End</kbd></button>
+                <button type="button" role="menuitem" disabled={page <= 1} onClick={runMore(() => onPageChange(1))}><CaretDoubleLeft size={16} aria-hidden="true" />{t('첫 쪽')} <kbd>Home</kbd></button>
+                <button type="button" role="menuitem" disabled={pageCount === 0 || page >= pageCount} onClick={runMore(() => onPageChange(pageCount))}><CaretDoubleRight size={16} aria-hidden="true" />{t('마지막 쪽')} <kbd>End</kbd></button>
               </>
             ) : null}
             {collapsed.has('fit') || collapsed.has('fitExtra') ? <hr /> : null}
@@ -293,8 +293,8 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
             ) : null}
             {collapsed.has('pageStep') ? (
               <>
-                <button type="button" role="menuitem" disabled={page <= 1} onClick={runMore(() => onPageChange(Math.max(page - 1, 1)))}><CaretLeft size={16} aria-hidden="true" />{t('이전 페이지')}</button>
-                <button type="button" role="menuitem" disabled={pageCount === 0 || page >= pageCount} onClick={runMore(() => onPageChange(Math.min(page + 1, pageCount)))}><CaretRight size={16} aria-hidden="true" />{t('다음 페이지')}</button>
+                <button type="button" role="menuitem" disabled={page <= 1} onClick={runMore(() => onPageChange(Math.max(page - 1, 1)))}><CaretLeft size={16} aria-hidden="true" />{t('이전 쪽')}</button>
+                <button type="button" role="menuitem" disabled={pageCount === 0 || page >= pageCount} onClick={runMore(() => onPageChange(Math.min(page + 1, pageCount)))}><CaretRight size={16} aria-hidden="true" />{t('다음 쪽')}</button>
               </>
             ) : null}
             {collapsed.has('zoomStep') ? (

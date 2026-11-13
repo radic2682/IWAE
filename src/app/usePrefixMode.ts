@@ -117,7 +117,7 @@ export function usePrefixMode(options: PrefixModeOptions): { readonly phase: Pre
         const token = prefixTokenOf(event)
         const line = token === null ? null : prefixBindingFor(token, current.bindings)
         if (token === null || line === null) {
-          current.announce(t('모르는 키: {key} — ? 로 목록', { key: token === null ? event.key : prefixTokenLabel(token) }))
+          current.announce(t('알 수 없는 키: {key}. ?를 누르면 목록이 나옵니다', { key: token === null ? event.key : prefixTokenLabel(token) }))
           return
         }
         current.run(line)

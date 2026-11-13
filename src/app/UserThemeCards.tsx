@@ -166,8 +166,8 @@ export function UserThemeCards({ resolvedTheme, palette, onFallback, vaultRoot =
       </button>
       <div className="theme-file-tools">
         <button type="button" className="theme-file-tool" onClick={() => fileInput.current?.click()}><FileArrowDown size={14} aria-hidden="true" />{t('테마 파일 불러오기')}</button>
-        <button type="button" className="theme-file-tool" onClick={() => void saveTemplate()} title={t('지금 색으로 채운 테마 파일을 저장합니다. 고쳐서 다시 불러오세요')}><DownloadSimple size={14} aria-hidden="true" />{t('템플릿 저장')}</button>
-        <button type="button" className="theme-file-tool" disabled={vaultRoot === null} onClick={() => void openFolder()} title={vaultRoot === null ? t('Vault 를 먼저 열어 주세요') : t('이 Vault 의 .iwae/themes 폴더. 테마 파일을 넣으면 저절로 나타납니다')}><FolderOpen size={14} aria-hidden="true" />{t('테마 폴더 열기')}</button>
+        <button type="button" className="theme-file-tool" onClick={() => void saveTemplate()} title={t('현재 색으로 채운 테마 파일을 저장합니다. 고친 뒤 다시 불러오세요')}><DownloadSimple size={14} aria-hidden="true" />{t('템플릿 저장')}</button>
+        <button type="button" className="theme-file-tool" disabled={vaultRoot === null} onClick={() => void openFolder()} title={vaultRoot === null ? t('먼저 Vault를 여세요') : t('이 Vault의 .iwae/themes 폴더입니다. 테마 파일을 넣으면 목록에 나타납니다')}><FolderOpen size={14} aria-hidden="true" />{t('테마 폴더 열기')}</button>
         <p className="theme-file-hint">{t('.iwtheme 파일을 이 창에 끌어 놓아도 됩니다.')}</p>
         <input
           ref={fileInput}
@@ -239,7 +239,7 @@ export function UserThemeCards({ resolvedTheme, palette, onFallback, vaultRoot =
             setDeleting(null)
           }}
         >
-          <p><strong>{deleting.name}</strong> {t('테마를 지웁니다. 되돌릴 수 없어요. 쓰던 테마라면 기본(웨일)으로 돌아갑니다.')}</p>
+          <p><strong>{deleting.name}</strong> {t('테마를 지웁니다. 되돌릴 수 없습니다. 사용 중인 테마라면 기본(웨일)으로 돌아갑니다.')}</p>
         </ConfirmDialog>
       ) : null}
     </>

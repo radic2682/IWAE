@@ -28,7 +28,7 @@ async function ratioOf(ctx: OpContext, docId: string, page: number, y: unknown):
 }
 
 async function checkPage(ctx: OpContext, docId: string, page: number): Promise<number> {
-  const { meta } = await ctx.deps.loadPdfById(docId).catch(() => { throw new Error(`doc_id not found: ${docId}. list_documents 로 doc_id 를 확인하세요.`) })
+  const { meta } = await ctx.deps.loadPdfById(docId).catch(() => { throw new Error(`doc_id not found: ${docId}. list_documents로 doc_id를 확인하세요.`) })
   if (!Number.isInteger(page) || page < 1 || page > meta.pageCount) throw new Error(`쪽 번호가 범위를 벗어났습니다(page out of range 1–${meta.pageCount}).`)
   return page - 1
 }
@@ -41,7 +41,7 @@ const bookmarkList = (args: Record<string, unknown>, ctx: OpContext) => {
 
 const bookmarkAdd = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
-  if (typeof args.doc_id !== 'string' || typeof args.page !== 'number' || typeof args.title !== 'string') throw new Error('doc_id, page, title 이 필요합니다.')
+  if (typeof args.doc_id !== 'string' || typeof args.page !== 'number' || typeof args.title !== 'string') throw new Error('doc_id, page, title 값이 필요합니다.')
   const docId = args.doc_id
   const title = args.title
   const page = await checkPage(ctx, docId, args.page)
@@ -62,10 +62,10 @@ const bookmarkAdd = async (args: Record<string, unknown>, ctx: OpContext) => {
 
 const bookmarkUpdate = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
-  if (typeof args.id !== 'string') throw new Error('id 가 필요합니다.')
+  if (typeof args.id !== 'string') throw new Error('id가 필요합니다.')
   const id = args.id
   const before = app.bookmarks.find((item) => item.id === id)
-  if (before === undefined) throw new Error(`bookmark not found: ${id}. bookmark_list 로 id 를 확인하세요.`)
+  if (before === undefined) throw new Error(`bookmark not found: ${id}. bookmark_list로 id를 확인하세요.`)
   const page = typeof args.page === 'number' ? await checkPage(ctx, before.docId, args.page) : undefined
   const y = await ratioOf(ctx, before.docId, page ?? before.page, args.y)
   const patch = {

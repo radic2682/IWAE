@@ -111,7 +111,7 @@ describe('transferBlocks', () => {
     window.addEventListener('iwae:action-feedback', listen)
     expect(await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: false, snapSection: false })).toEqual([])
     window.removeEventListener('iwae:action-feedback', listen)
-    expect(events).toEqual(['이 노트는 저장 충돌을 풀어야 옮길 수 있습니다'])
+    expect(events).toEqual(['이 노트는 저장 충돌을 해결해야 옮길 수 있습니다'])
     expect(notes.get('T')!.blocks).toHaveLength(0)
     expect(notes.get('S')!.blocks).toHaveLength(1)
     expect(await transferBlocks({ api, sourcePath: 'S', target: target('T'), keys: ['a'], beforeId: null, link: true, snapSection: false })).toHaveLength(1)

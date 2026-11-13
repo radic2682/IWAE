@@ -22,11 +22,11 @@ export function ScanBadge({ docId }: { readonly docId: string }) {
     <button
       type="button"
       className="pdf-scan pdf-scan-action"
-      title={t('스캔 쪽을 이 PC 에서 읽어 보이지 않는 글자를 입힙니다. 글자 고르기·검색·형광펜이 됩니다(원본은 백업).')}
+      title={t('스캔 쪽을 이 PC에서 읽어 보이지 않는 글자로 입힙니다. 글자 선택, 검색, 형광펜을 쓸 수 있고 원본은 백업됩니다.')}
       onClick={() => runAppCommand('ocrDocument', { docId })}
     >
       <span>{t('스캔본 · 텍스트 없음')}</span>
-      <span className="pdf-scan-cta"><TextT size={12} weight="bold" aria-hidden="true" />{t('OCR 하기')}</span>
+      <span className="pdf-scan-cta"><TextT size={12} weight="bold" aria-hidden="true" />{t('OCR 실행')}</span>
     </button>
   )
 }

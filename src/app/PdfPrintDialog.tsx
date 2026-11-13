@@ -82,7 +82,7 @@ export function PdfPrintDialog({ pageCount, page, docId, pageSizes, onPrint, onC
                   <img src={pageImageUrl(docId, firstPage, 480)} alt="" />
                 </div>
               </div>
-              <figcaption>{pages === null ? t('쪽 번호를 확인해 주세요') : `${pages.length > 1 ? t('{page}쪽 외 {more}쪽', { page: firstPage + 1, more: pages.length - 1 }) : t('{page}쪽', { page: firstPage + 1 })} · ${options.paper} ${orientation === 'landscape' ? t('가로') : t('세로')} · ${t('여백 {mm}mm', { mm: options.marginMm })}`}</figcaption>
+              <figcaption>{pages === null ? t('쪽 번호를 확인하세요') : `${pages.length > 1 ? t('{page}쪽 외 {more}쪽', { page: firstPage + 1, more: pages.length - 1 }) : t('{page}쪽', { page: firstPage + 1 })} · ${options.paper} ${orientation === 'landscape' ? t('가로') : t('세로')} · ${t('여백 {mm}mm', { mm: options.marginMm })}`}</figcaption>
             </figure>
           )}
           <div className="pdf-print-options">
@@ -104,7 +104,7 @@ export function PdfPrintDialog({ pageCount, page, docId, pageSizes, onPrint, onC
                   onChange={(event) => setRangeText(event.target.value)}
                 />
               ) : null}
-              {scope === 'range' && ranged === null ? <p className="pdf-print-error" role="alert">{t('쪽 번호를 1-5, 8 처럼 적어 주세요')}</p> : null}
+              {scope === 'range' && ranged === null ? <p className="pdf-print-error" role="alert">{t('쪽 번호를 1-5, 8처럼 입력하세요')}</p> : null}
             </div>
             <div className="pdf-print-field">
               <span className="pdf-print-label" id="pdf-print-paper-label">{t('용지')}</span>
@@ -123,7 +123,7 @@ export function PdfPrintDialog({ pageCount, page, docId, pageSizes, onPrint, onC
               </div>
             </div>
             <div className="pdf-print-field">
-              <span className="pdf-print-label" id="pdf-print-margin-label">{t('여백 (위·아래·왼쪽·오른쪽 같게)')}</span>
+              <span className="pdf-print-label" id="pdf-print-margin-label">{t('여백 (네 방향 같게)')}</span>
               <div className="pdf-print-segments" role="radiogroup" aria-labelledby="pdf-print-margin-label">
                 {MARGIN_PRESETS.map((preset) => (
                   <button key={preset.mm} type="button" role="radio" aria-checked={options.marginMm === preset.mm} onClick={() => setOption({ marginMm: preset.mm })}>{t(preset.label)}</button>

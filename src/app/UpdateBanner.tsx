@@ -47,8 +47,8 @@ export function UpdateBanner({ state, hidden = false }: UpdateBannerProps) {
             </button>
           )}
           {state.status === 'ready' && (
-            <button type="button" className="notice-primary" aria-label={t('재시작하여 설치')} onClick={() => void state.install()}>
-              {t('재시작하여 설치')}
+            <button type="button" className="notice-primary" aria-label={t('다시 시작해 설치')} onClick={() => void state.install()}>
+              {t('다시 시작해 설치')}
             </button>
           )}
         </div>

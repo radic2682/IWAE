@@ -136,7 +136,7 @@ describe('Sidebar', () => {
 
   it('운영체제 문서 드래그 중에는 전체 높이 드롭 대상을 한 번만 보여준다', async () => {
     await renderSidebar({ documentDropActive: true })
-    expect(screen.getAllByText('놓으면 Vault 에 복사 · 줄 사이에 놓으면 그 자리, 폴더 위면 그 폴더 안')).toHaveLength(1)
+    expect(screen.getAllByText('놓으면 Vault에 복사합니다. 줄 사이면 그 위치에, 폴더 위면 폴더 안에 넣습니다')).toHaveLength(1)
   })
 
   it('PDF 문서와 노트를 이름 있는 별도 구역으로 보여준다', async () => {
@@ -185,7 +185,7 @@ describe('Sidebar — 문서 추가', () => {
     const onAddDoc = vi.fn()
     await renderSidebar({ onAddDoc })
     fireEvent.click(screen.getByRole('button', { name: '문서 추가' }))
-    fireEvent.click(screen.getByRole('button', { name: /원본 위치 참조/ }))
+    fireEvent.click(screen.getByRole('button', { name: /원본 위치를 참조/ }))
     expect(onAddDoc).toHaveBeenCalledWith({ kind: 'reference' })
   })
 
@@ -257,12 +257,12 @@ describe('Sidebar — 문서 추가', () => {
     fireEvent.click(screen.getByRole('button', { name: '문서 추가' }))
     // 지금 폴더(A)가 미리 골라져 있다
     expect(screen.getByRole('radio', { name: /A/ }).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: /파일 골라 복사/ }))
+    fireEvent.click(screen.getByRole('button', { name: /파일을 골라 복사/ }))
     expect(onAddDoc).toHaveBeenLastCalledWith({ kind: 'copy-another-folder', folderPath: 'A' })
 
     fireEvent.click(screen.getByRole('button', { name: '문서 추가' }))
     fireEvent.click(screen.getByRole('radio', { name: 'B' }))
-    fireEvent.click(screen.getByRole('button', { name: /파일 골라 복사/ }))
+    fireEvent.click(screen.getByRole('button', { name: /파일을 골라 복사/ }))
     expect(onAddDoc).toHaveBeenLastCalledWith({ kind: 'copy-another-folder', folderPath: 'B' })
   })
 })
@@ -899,7 +899,7 @@ describe('Sidebar — 폴더 작업', () => {
     const again = screen.getByRole('textbox', { name: 'HTTP 폴더 이름' })
     fireEvent.change(again, { target: { value: '   ' } })
     fireEvent.keyDown(again, { key: 'Enter' })
-    expect(screen.getByRole('alert').textContent).toContain('폴더 이름을 입력해 주세요')
+    expect(screen.getByRole('alert').textContent).toContain('폴더 이름을 입력하세요')
   })
 
   it('앱에서는 폴더가 접힌 채로 시작하고, 펼친 폴더는 다시 열어도 기억한다', async () => {

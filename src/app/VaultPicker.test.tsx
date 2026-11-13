@@ -43,7 +43,7 @@ describe('VaultPicker', () => {
     expect(screen.getByRole('heading', { name: '시작하기' })).toBeDefined()
     expect(screen.getByRole('button', { name: /예시로 시작하기/ })).toBeDefined()
     expect(screen.getByRole('button', { name: /내 폴더 열기/ })).toBeDefined()
-    expect(screen.getByText(/원본 문서는 옮기거나 고치지 않고/)).toBeDefined()
+    expect(screen.getByText(/원본 문서는 옮기거나 고치지 않으며/)).toBeDefined()
     expect(screen.getByText('버전 1.2.3')).toBeDefined()
     expect(container.querySelector('.startup-titlebar')?.getAttribute('data-tauri-drag-region')).toBe('deep')
     fireEvent.click(screen.getByRole('button', { name: '최소화' }))
@@ -62,7 +62,7 @@ describe('VaultPicker', () => {
     expect(screen.getByRole('radio', { name: '한국어' })).toBeDefined()
     expect(screen.getByRole('radio', { name: 'English' })).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: '다음' }))
-    expect(screen.getByRole('heading', { name: '어떤 화면이 편하세요?' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: '화면 구성을 고르세요' })).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: '건너뛰기' }))
     expect(screen.getByRole('heading', { name: '시작하기' })).toBeDefined()
     expect(localStorage.getItem('iwae:onboarded:v1')).toBe('1')
@@ -86,7 +86,7 @@ describe('VaultPicker', () => {
     render(<VaultPicker onOpened={vi.fn()} />)
 
     expect(await screen.findByText('Research')).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: 'Research 를 목록에서 빼기' }))
+    fireEvent.click(screen.getByRole('button', { name: '목록에서 빼기: Research' }))
     expect(screen.queryByText('Research')).toBeNull()
     expect(forgetVault).toHaveBeenCalledWith('D:/Research')
   })
@@ -147,7 +147,7 @@ describe('VaultPicker', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'C:/Vault' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('C:/Vault 폴더를 한 번 더 골라 주세요')
+    expect(alert.textContent).toContain('C:/Vault 폴더를 한 번 더 선택하세요')
     expect(alert.textContent).not.toContain('forbidden')
   })
 

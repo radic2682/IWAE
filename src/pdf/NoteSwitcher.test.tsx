@@ -94,13 +94,13 @@ describe('노트 열기 목록 — 메뉴', () => {
     const onTrashCurrent = vi.fn()
     const { menu, onClose } = renderMenu(makeApi(), { onTrashCurrent })
     const items = within(menu).getAllByRole('menuitem')
-    expect(items.at(-1)?.textContent).toBe('이 노트 휴지통으로 이동…')
+    expect(items.at(-1)?.textContent).toBe('이 노트를 휴지통으로 이동…')
     fireEvent.click(items.at(-1)!)
     expect(onTrashCurrent).toHaveBeenCalledTimes(1)
     expect(onClose).toHaveBeenCalled()
     cleanup()
     renderMenu(makeApi())
-    expect(screen.queryByRole('menuitem', { name: '이 노트 휴지통으로 이동…' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '이 노트를 휴지통으로 이동…' })).toBeNull()
   })
 
   it('옛 「이 노트를 탭으로 열기」 항목은 없다(노트는 늘 탭이다)', () => {

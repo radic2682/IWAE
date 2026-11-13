@@ -174,15 +174,15 @@ describe('TranslationSettings', () => {
   it('자동인데 받은 모델이 없으면 추천 모델 받기를 바로 보여준다', () => {
     const pullModel = vi.fn()
     const { rerender } = render(<TranslationSettings state={readyState({ pullModel, models: [], selectedModel: null })} />)
-    expect(screen.getByText(/아직 받은 번역 모델이 없습니다/)).toBeDefined()
-    expect(screen.getByText(/받은 모델이 없어 아직 고르지 못함/)).toBeDefined()
+    expect(screen.getByText(/받은 번역 모델이 없습니다/)).toBeDefined()
+    expect(screen.getByText(/받은 모델이 없어 선택할 수 없음/)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: '추천 모델(4B) 받기' }))
     expect(pullModel).toHaveBeenCalledWith('translategemma:4b')
 
     rerender(<TranslationSettings state={readyState({
       pullModel, models: [], selectedModel: null, pullingModel: 'translategemma:4b', pullProgress: null,
     })} />)
-    expect(screen.getByText(/TranslateGemma 4B을 받고 있습니다/)).toBeDefined()
+    expect(screen.getByText(/TranslateGemma 4B 모델을 받고 있습니다/)).toBeDefined()
   })
 
   it('오프라인이면 Ollama 실행과 주소 확인 방법을 안내한다', () => {
@@ -292,7 +292,7 @@ describe('TranslationSettings', () => {
     expect(await screen.findByText('안녕하세요. 연결 시험입니다.')).toBeDefined()
     expect(screen.getByText('420ms · m1')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: '연결 확인' }))
-    expect(await screen.findByText(/API key 가 맞지 않습니다/)).toBeDefined()
+    expect(await screen.findByText(/API key가 맞지 않습니다/)).toBeDefined()
   })
 })
 

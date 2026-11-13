@@ -213,7 +213,7 @@ export async function transferBlocks(input: TransferInput): Promise<readonly str
     return []
   }
   if (!link && api.isNoteHeld?.(target.path) === true) {
-    announceAction(t('이 노트는 저장 충돌을 풀어야 옮길 수 있습니다'))
+    announceAction(t('이 노트는 저장 충돌을 해결해야 옮길 수 있습니다'))
     return []
   }
   const box: { result: (BlocksIntoResult & { readonly movedIds?: readonly string[] }) | null } = { result: null }

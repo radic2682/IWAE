@@ -14,7 +14,7 @@ function needApp(ctx: OpContext): McpAppDeps {
 
 function docOf(app: McpAppDeps, docId: string): McpLibraryDoc {
   const doc = app.docs.find((item) => item.docId === docId)
-  if (doc === undefined) throw new Error(`doc_id not found: ${docId}. list_documents 로 doc_id 를 확인하세요.`)
+  if (doc === undefined) throw new Error(`doc_id not found: ${docId}. list_documents로 doc_id를 확인하세요.`)
   return doc
 }
 
@@ -23,9 +23,9 @@ const byDateDesc = (a: string | null, b: string | null) => (b ?? '').localeCompa
 const libraryList = (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
   const collection = typeof args.collection === 'string' ? args.collection : 'all'
-  if (!['all', 'favorites', 'recent', 'folder'].includes(collection)) throw new Error('collection 은 all, favorites, recent, folder 중 하나입니다.')
+  if (!['all', 'favorites', 'recent', 'folder'].includes(collection)) throw new Error('collection은 all, favorites, recent, folder 중 하나입니다.')
   const folder = typeof args.folder === 'string' ? args.folder.replaceAll('\\', '/').replace(/^\/+|\/+$/gu, '') : ''
-  if (collection === 'folder' && folder === '') throw new Error('collection:"folder" 에는 folder 가 필요합니다.')
+  if (collection === 'folder' && folder === '') throw new Error('collection:"folder" 에는 folder가 필요합니다.')
   const query = typeof args.query === 'string' ? args.query.trim().toLowerCase() : ''
   let docs = app.docs.filter((doc) => args.kind === undefined || doc.kind === args.kind)
   if (collection === 'favorites') docs = docs.filter((doc) => doc.favorite)
@@ -38,7 +38,7 @@ const libraryList = (args: Record<string, unknown>, ctx: OpContext) => {
   else if (sort === 'recent') sorted.sort((a, b) => byDateDesc(a.lastOpenedAt, b.lastOpenedAt))
   else if (sort === 'added') sorted.sort((a, b) => byDateDesc(a.addedAt, b.addedAt))
   else if (sort === 'pages') sorted.sort((a, b) => (b.pageCount ?? 0) - (a.pageCount ?? 0))
-  else throw new Error('sort 는 title, recent, added, pages 중 하나입니다.')
+  else throw new Error('sort는 title, recent, added, pages 중 하나입니다.')
   return {
     items: sorted.slice(0, LIST_CAP).map((doc) => ({
       doc_id: doc.docId,
@@ -55,7 +55,7 @@ const libraryList = (args: Record<string, unknown>, ctx: OpContext) => {
 
 const librarySetFavorite = (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
-  if (!Array.isArray(args.doc_ids) || typeof args.favorite !== 'boolean') throw new Error('doc_ids 배열과 favorite 이 필요합니다.')
+  if (!Array.isArray(args.doc_ids) || typeof args.favorite !== 'boolean') throw new Error('doc_ids 배열과 favorite이 필요합니다.')
   const favorite = args.favorite
   const updated: { doc_id: string; favorite: boolean }[] = []
   for (const id of (args.doc_ids as unknown[]).filter((value): value is string => typeof value === 'string')) {
@@ -96,10 +96,10 @@ const docFlags = (_args: Record<string, unknown>, ctx: OpContext) => {
 
 const docInfo = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
-  if (typeof args.doc_id !== 'string') throw new Error('doc_id 가 필요합니다.')
+  if (typeof args.doc_id !== 'string') throw new Error('doc_id가 필요합니다.')
   const docId = args.doc_id
   const doc = docOf(app, docId)
-  const { meta, title } = await ctx.deps.loadPdfById(docId).catch(() => { throw new Error(`PDF 를 열 수 없습니다(doc_id: ${docId}). Markdown 문서는 doc_info 를 지원하지 않습니다.`) })
+  const { meta, title } = await ctx.deps.loadPdfById(docId).catch(() => { throw new Error(`PDF를 열 수 없습니다(doc_id: ${docId}). Markdown 문서는 doc_info를 지원하지 않습니다.`) })
   const [metadata, outline] = await Promise.all([pdfMetadata(docId).catch(() => ({})), pdfOutline(docId).catch(() => [])])
   return {
     doc_id: docId,
@@ -118,7 +118,7 @@ const docInfo = async (args: Record<string, unknown>, ctx: OpContext) => {
 
 const docOutline = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
-  if (typeof args.doc_id !== 'string') throw new Error('doc_id 가 필요합니다.')
+  if (typeof args.doc_id !== 'string') throw new Error('doc_id가 필요합니다.')
   docOf(app, args.doc_id)
   const outline = await pdfOutline(args.doc_id).catch(() => [])
   return { items: outline.map((entry) => ({ title: entry.title, page: entry.page === null ? null : entry.page + 1, level: entry.depth + 1 })) }
@@ -126,7 +126,7 @@ const docOutline = async (args: Record<string, unknown>, ctx: OpContext) => {
 
 const ocrStatus = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
-  if (typeof args.doc_id !== 'string') throw new Error('doc_id 가 필요합니다.')
+  if (typeof args.doc_id !== 'string') throw new Error('doc_id가 필요합니다.')
   const doc = docOf(app, args.doc_id)
   let scanned = doc.scanned
   if (scanned === null) scanned = !(await ctx.deps.loadPdfById(args.doc_id).catch(() => null))?.meta.hasText

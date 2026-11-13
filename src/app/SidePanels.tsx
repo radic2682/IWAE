@@ -113,7 +113,7 @@ const ThumbnailItem = memo(function ThumbnailItem({ activeDoc, page, current, vi
           <img
             className="thumb-img"
             src={pageImageUrl(activeDoc.docId, page, renderWidth)}
-            alt={t('{page} 페이지', { page: page + 1 })}
+            alt={t('{page}쪽', { page: page + 1 })}
             decoding="async"
             draggable={false}
           />
@@ -200,7 +200,7 @@ export function ThumbnailPanel({ activeDoc, currentPage, onSelectPage, viewportP
   }, [currentPage, activeDoc?.docId, columns])
 
   if (activeDoc === null) {
-    return <div className="side-panel-empty">{t('열린 PDF 가 없습니다')}</div>
+    return <div className="side-panel-empty">{t('열린 PDF가 없습니다')}</div>
   }
 
   // .sidebar 자체가 overflow:hidden 이다(Sidebar.tsx 의 vault 바닥 줄이
@@ -318,7 +318,7 @@ export function OutlinePanel({ activeDoc, currentPage, onSelectPage, bookmarks =
   }, [highlighted])
 
   if (activeDoc === null) {
-    return <div className="side-panel-empty">{t('열린 PDF 가 없습니다')}</div>
+    return <div className="side-panel-empty">{t('열린 PDF가 없습니다')}</div>
   }
 
   const expandable = structure.hasChildren.some(Boolean)
@@ -405,7 +405,7 @@ export function OutlinePanel({ activeDoc, currentPage, onSelectPage, bookmarks =
           <h2 id="bookmark-section-title" className="side-panel-section-title">{t('책갈피')}</h2>
         </div>
         {documentBookmarks.length === 0 ? (
-          <div className="side-panel-empty side-panel-empty-inline">{t('꽂은 책갈피가 없습니다')}</div>
+          <div className="side-panel-empty side-panel-empty-inline">{t('책갈피가 없습니다')}</div>
         ) : (
           <div className="outline-list bookmark-list">
             {documentBookmarks.map((bookmark) => {

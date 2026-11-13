@@ -112,10 +112,10 @@ interface BuiltMemo {
 /** 메모 하나를 형광펜으로 만든다: 글이면 그 글자 범위, 표·그림이면 그 네모, style:'box' 면 쪽 위에 뜨는 박스 */
 async function buildHighlight(input: MemoInput, ctx: OpContext): Promise<BuiltMemo> {
   const { deps } = ctx
-  if (typeof input.doc_id !== 'string' || typeof input.page !== 'number') throw new Error('doc_id 와 page(1부터)가 필요합니다.')
+  if (typeof input.doc_id !== 'string' || typeof input.page !== 'number') throw new Error('doc_id와 page(1부터)가 필요합니다.')
   if (typeof input.note !== 'string' || input.note.trim() === '') throw new Error('note(메모 내용)가 필요합니다.')
   const style = input.style === 'box' ? 'box' : 'card'
-  if (style === 'box' && input.kind === 'region') throw new Error('style:"box" 는 글 메모에만 됩니다(region 은 card).')
+  if (style === 'box' && input.kind === 'region') throw new Error('style:"box"는 글 메모에만 됩니다(region은 card).')
   const { meta } = await deps.loadPdfById(input.doc_id)
   const page = Math.floor(input.page) - 1
   if (page < 0 || page >= meta.pageCount) throw new Error(`쪽 번호가 범위를 벗어났습니다(1–${meta.pageCount}).`)
@@ -141,7 +141,7 @@ async function buildHighlight(input: MemoInput, ctx: OpContext): Promise<BuiltMe
             pageSize,
           })
         : undefined
-    if (rect === undefined) throw new Error('표·그림(region) 메모에는 rect 또는 from_text 가 필요합니다.')
+    if (rect === undefined) throw new Error('표·그림(region) 메모에는 rect 또는 from_text가 필요합니다.')
     const selection = createRegionExcerptSelection({ docId: meta.docId, page, rect, index, pageSize })
     highlight = createPersistentPdfHighlight(selection.anchor, color, { ...extras, kind: 'region', pageSize })
   } else {
@@ -395,7 +395,7 @@ const memoDelete = (args: Record<string, unknown>, ctx: OpContext) => {
 const memoMoveToNote = async (args: Record<string, unknown>, ctx: OpContext) => {
   if (!Array.isArray(args.ids)) throw new Error('ids 배열이 필요합니다.')
   const title = safeNoteTitle(cleanTitle(typeof args.note_title === 'string' ? args.note_title : ''))
-  if (typeof args.note_title !== 'string' || cleanTitle(args.note_title) === '') throw new Error('note_title 이 필요합니다.')
+  if (typeof args.note_title !== 'string' || cleanTitle(args.note_title) === '') throw new Error('note_title 값이 필요합니다.')
   const position = parsePosition(args.position)
   const all = currentHighlights(ctx.deps)
   const skipped: { id: string; reason: string }[] = []

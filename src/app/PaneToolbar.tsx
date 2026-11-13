@@ -302,7 +302,7 @@ export function PaneToolbar({
           type="button"
           className="toolbar-tool-btn pdf-compact-tool pane-version-chip"
           aria-label={t('버전 고르기: 지금 {label}', { label: versionLabel })}
-          title={t('버전 고르기 (이 탭만 바뀜)')}
+          title={t('버전 고르기: 이 탭만 바뀝니다')}
           aria-haspopup="menu"
           onClick={(event) => onOpenVersions(event.currentTarget.getBoundingClientRect())}
         >
@@ -450,7 +450,7 @@ function GithubToolbarButton({ github }: { readonly github: NonNullable<PaneTool
         ref={buttonRef}
         type="button"
         className={`toolbar-tool-btn pdf-compact-tool pane-github${github.behind > 0 ? ' pane-github-behind' : ''}`}
-        aria-label={github.behind > 0 ? t('GitHub: 받을 것 {count}개', { count: github.behind }) : t('GitHub')}
+        aria-label={github.behind > 0 ? t('GitHub: 받을 변경 {count}개', { count: github.behind }) : t('GitHub')}
         title={t('GitHub · {name}', { name: github.name })}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -465,7 +465,7 @@ function GithubToolbarButton({ github }: { readonly github: NonNullable<PaneTool
           <button type="button" role="menuitem" onClick={run('pull')}><DownloadSimple size={15} aria-hidden="true" /><span>{github.behind > 0 ? t('최신으로 받기 ({count})', { count: github.behind }) : t('최신으로 받기')}</span></button>
           <button type="button" role="menuitem" onClick={run('versions')}><ClockCounterClockwise size={15} aria-hidden="true" /><span>{t('버전 보기')}</span></button>
           <div className="pane-github-sep" role="separator" />
-          <button type="button" role="menuitem" onClick={run('open')}><ArrowSquareOut size={15} aria-hidden="true" /><span>{t('GitHub 에서 열기')}</span></button>
+          <button type="button" role="menuitem" onClick={run('open')}><ArrowSquareOut size={15} aria-hidden="true" /><span>{t('GitHub에서 열기')}</span></button>
         </div>,
         document.body,
       ) : null}

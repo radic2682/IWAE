@@ -41,7 +41,7 @@ export async function exportNotesAsMarkdown(
   scope: MarkdownExportScope,
   options: { readonly folder?: string; readonly now?: Date } = {},
 ): Promise<MarkdownExportResult | null> {
-  if (!isDesktop()) throw new Error(t('Markdown 내보내기는 데스크톱(Tauri) 안에서만 됩니다.'))
+  if (!isDesktop()) throw new Error(t('Markdown 내보내기는 데스크톱 앱에서만 됩니다.'))
   const folder = options.folder ?? await pickVaultFolder()
   if (folder === null) return null
 

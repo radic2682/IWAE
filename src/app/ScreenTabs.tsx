@@ -148,7 +148,7 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
                   className="screen-tab-button"
                   aria-selected={active}
                   tabIndex={active ? 0 : -1}
-                  title={t('{name} (화면 {index}) · 두 번 눌러 이름 바꾸기, 끌어서 순서 바꾸기', { name: screen.name, index })}
+                  title={t('{name} (화면 {index}), 두 번 눌러 이름 바꾸기, 끌어서 순서 바꾸기', { name: screen.name, index })}
                   onClick={() => { if (!suppressClick.current) onSelect(screen.id) }}
                   onDoubleClick={() => setEditing(screen.id)}
                   onKeyDown={(event) => {

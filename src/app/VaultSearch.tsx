@@ -141,13 +141,13 @@ export function VaultSearch({ records, onOpen, onFavoriteChange, indexingProgres
                 <button
                   type="button"
                   className="vault-search-result-main"
-                  aria-label={`${hit.record.displayName}${hit.page === null ? '' : ` ${t('{page}페이지', { page: hit.page + 1 })}`}`}
+                  aria-label={`${hit.record.displayName}${hit.page === null ? '' : ` ${t('{page}쪽', { page: hit.page + 1 })}`}`}
                   onClick={() => openResult(hit)}
                 >
                   {hit.record.kind === 'pdf' ? <FilePdf size={15} /> : hit.record.kind === 'markdown' ? <FileMd size={15} /> : <File size={15} />}
                   <span>
                     <strong>{hit.record.displayName}</strong>
-                    <small>{hit.page === null ? hit.record.folder || t('Vault 루트') : t('{page}페이지', { page: hit.page + 1 })}</small>
+                    <small>{hit.page === null ? hit.record.folder || t('Vault 루트') : t('{page}쪽', { page: hit.page + 1 })}</small>
                     {hit.page !== null && <small className="vault-search-snippet">{hit.snippet}</small>}
                   </span>
                   {hit.record.missing && <em>{t('찾을 수 없음')}</em>}

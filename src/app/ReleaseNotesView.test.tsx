@@ -59,6 +59,6 @@ describe('ReleaseHistory', () => {
 
   it('묶인 노트가 없으면 안내만 보인다', () => {
     render(<ReleaseHistory currentVersion="0.1.19" notes={[]} />)
-    expect(screen.getByText('묶인 업데이트 기록이 없습니다.')).not.toBeNull()
+    expect(screen.getByText('업데이트 기록이 없습니다.')).not.toBeNull()
   })
 })

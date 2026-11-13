@@ -107,7 +107,7 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
           aria-label={t('문단 모양: {kind}', { kind: t(BLOCK_LABEL[blockKind]) })}
           aria-haspopup="menu"
           aria-expanded={palette === 'block'}
-          title={t('문단 모양 (제목·인용·코드 블록)')}
+          title={t('문단 모양 (제목, 인용, 코드 블록)')}
           disabled={disabled}
           onPointerDown={(event) => event.preventDefault()}
           onClick={() => setPalette((current) => current === 'block' ? null : 'block')}
@@ -156,11 +156,11 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
       </span>
       </span>,
       <span key="text" className="pdf-memo-format-cluster" data-cluster="1">
-      {button(t('굵게 (Ctrl+B · **글**)'), <TextB size={15} weight="bold" aria-hidden="true" />, () => run('bold'))}
-      {button(t('기울임 (Ctrl+I · *글*)'), <TextItalic size={15} aria-hidden="true" />, () => run('italic'))}
+      {button(t('굵게 (Ctrl+B, **글**)'), <TextB size={15} weight="bold" aria-hidden="true" />, () => run('bold'))}
+      {button(t('기울임 (Ctrl+I, *글*)'), <TextItalic size={15} aria-hidden="true" />, () => run('italic'))}
       {button(t('밑줄 (Ctrl+U)'), <TextUnderline size={15} aria-hidden="true" />, () => run('underline'))}
       {button(t('취소선 (~~글~~)'), <TextStrikethrough size={15} aria-hidden="true" />, () => run('strikeThrough'))}
-      {button(t('코드 (Ctrl+E · `글`)'), <Code size={15} weight="bold" aria-hidden="true" />, withEditor(toggleInlineCode))}
+      {button(t('코드 (Ctrl+E, `글`)'), <Code size={15} weight="bold" aria-hidden="true" />, withEditor(toggleInlineCode))}
       </span>,
       <span key="color" className="pdf-memo-format-cluster" data-cluster="2">
       <span className="pdf-memo-format-group">
@@ -211,9 +211,9 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
       </span>
       </span>,
       <span key="list" className="pdf-memo-format-cluster" data-cluster="3">
-      {button(t('글머리 목록 (- 띄어쓰기)'), <ListBullets size={15} aria-hidden="true" />, () => run('insertUnorderedList'))}
-      {button(t('번호 목록 (1. 띄어쓰기)'), <ListNumbers size={15} aria-hidden="true" />, () => run('insertOrderedList'))}
-      {button(t('할 일 목록 ([ ] 띄어쓰기)'), <ListChecks size={15} aria-hidden="true" />, withEditor(toggleChecklist))}
+      {button(t('글머리 목록 (- 입력 후 스페이스)'), <ListBullets size={15} aria-hidden="true" />, () => run('insertUnorderedList'))}
+      {button(t('번호 목록 (1. 입력 후 스페이스)'), <ListNumbers size={15} aria-hidden="true" />, () => run('insertOrderedList'))}
+      {button(t('할 일 목록 ([ ] 입력 후 스페이스)'), <ListChecks size={15} aria-hidden="true" />, withEditor(toggleChecklist))}
       <span className="pdf-memo-format-group">
         {button(t('표'), <Table size={15} aria-hidden="true" />, () => setPalette((current) => current === 'table' ? null : 'table'))}
         {palette === 'table' ? (

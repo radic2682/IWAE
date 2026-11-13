@@ -125,7 +125,7 @@ describe('번역 카드: 언어 줄', () => {
     render(<Harness original="1234 ... !!!" target="ko" onRetranslate={vi.fn()} />)
     const swap = screen.getByRole('button', { name: '원문과 번역 언어 바꾸기' }) as HTMLButtonElement
     expect(swap.disabled).toBe(true)
-    expect(swap.title).toContain('어림할 수 없어')
+    expect(swap.title).toContain('알 수 없어')
   })
 
   it('원문 언어를 고르면 다시 번역하고, 고른 언어를 기억한다', async () => {

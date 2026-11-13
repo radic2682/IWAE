@@ -263,7 +263,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
       <span className="pane-tabs-empty-row" role="group" aria-label={t('열린 {label} 없음', { label })}>
         {channelDot}
         {onClosePane === undefined ? null : (
-          <button type="button" className="pane-close-button" aria-label={t('이 창 닫기')} title={t('이 창 닫기')} onClick={onClosePane}>
+          <button type="button" className="pane-close-button" aria-label={t('이 칸 닫기')} title={t('이 칸 닫기')} onClick={onClosePane}>
             <X size={14} aria-hidden="true" />
           </button>
         )}
@@ -345,7 +345,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                 role="tab"
                 aria-selected={active}
                 tabIndex={active || (state.activeId === null && tab === state.tabs[0]) ? 0 : -1}
-                title={hiddenTitles.has(tab.id) ? (canRenameTab?.(tab) === true ? t('{title} · 두 번 눌러 이름 바꾸기', { title: tab.title }) : tab.title) : undefined}
+                title={hiddenTitles.has(tab.id) ? (canRenameTab?.(tab) === true ? t('{title}, 두 번 눌러 이름 바꾸기', { title: tab.title }) : tab.title) : undefined}
                 onDoubleClick={onRenameTab !== undefined && canRenameTab?.(tab) === true ? () => setRenaming(tab.id) : undefined}
                 onKeyDown={(event) => {
                   // 탭 줄 방향키: ←→ 이웃 탭(자동으로 보이게), Home·End 처음·끝
@@ -435,11 +435,11 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                   <button
                     type="button"
                     className="pane-tabs-close"
-                    aria-label={t('{title} 한 군데 더 열기', { title: tab.title })}
-                    title={t('같은 PDF 를 한 군데 더 열기')}
+                    aria-label={t('{title} 하나 더 열기', { title: tab.title })}
+                    title={t('같은 PDF 하나 더 열기')}
                     onClick={() => {
                       onDuplicateTab(tab.id)
-                      announceAction(t('같은 PDF 를 한 군데 더 열었습니다'))
+                      announceAction(t('같은 PDF를 하나 더 열었습니다'))
                       setMenuOpen(false)
                     }}
                   >
@@ -540,7 +540,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
             <div className="pane-tab-context-sep" role="separator" />
             {tab.kind === 'pdf' && onDetachTab !== undefined ? (
               <button type="button" role="menuitem" onClick={run(() => onDetachTab(tab.id))}>
-                <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('창으로 떼어 내기')}</span>
+                <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('창으로 분리')}</span>
               </button>
             ) : null}
             {onReattach === undefined ? null : (
@@ -550,7 +550,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
             )}
             {tab.kind === 'pdf' && onEditPages !== undefined ? (
               <button type="button" role="menuitem" onClick={run(() => onEditPages(tab.id))}>
-                <Files size={15} aria-hidden="true" /><span>{t('쪽 편집 (순서·회전·끼워 넣기)…')}</span>
+                <Files size={15} aria-hidden="true" /><span>{t('쪽 편집…')}</span>
               </button>
             ) : null}
             <button

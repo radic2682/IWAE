@@ -267,7 +267,7 @@ export function TicketBadge({ group, current, highlightOf, onReveal }: {
       {anchor === null ? null : createPortal(
         <>
           <div className="note-menu-backdrop" onPointerDown={() => setAnchor(null)} onContextMenu={(event) => { event.preventDefault(); setAnchor(null) }} />
-          <div className="note-ticket-places" role="dialog" aria-label={t('{id} 가 있는 곳', { id: group.id })} ref={(element) => placeNear(element, anchor)}>
+          <div className="note-ticket-places" role="dialog" aria-label={t('{id} 위치', { id: group.id })} ref={(element) => placeNear(element, anchor)}>
             <div className="note-ticket-places-head">
               <span className="note-ticket-id">{group.id}</span>
               <span>{t('{count}곳', { count })}</span>
@@ -275,7 +275,7 @@ export function TicketBadge({ group, current, highlightOf, onReveal }: {
             {group.conflict ? (
               <p className="note-ticket-places-warn" role="status">
                 <WarningCircle size={14} weight="fill" aria-hidden="true" />
-                {t('서로 다른 메모 {count}개가 같은 ID를 쓰고 있습니다. 한쪽 ID를 바꿔 주세요.', { count: group.highlightIds.length })}
+                {t('서로 다른 메모 {count}개가 같은 ID를 쓰고 있습니다. 한쪽 ID를 바꾸세요.', { count: group.highlightIds.length })}
               </p>
             ) : null}
             {group.conflict ? (

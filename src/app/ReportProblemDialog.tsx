@@ -90,7 +90,7 @@ export function ReportProblemDialog({ version, vaultRoot, onClose }: ReportProbl
   const recopyCapture = async () => {
     try {
       await copyCaptureToClipboard()
-      setMessage(t('사진을 클립보드에 복사했습니다. 이슈 본문에 Ctrl+V 로 붙여 넣으세요.'))
+      setMessage(t('캡처를 클립보드에 복사했습니다. 이슈 본문에 Ctrl+V로 붙여 넣으세요.'))
     } catch {
       setMessage(t('클립보드에 복사하지 못했습니다.'))
     }
@@ -114,7 +114,7 @@ export function ReportProblemDialog({ version, vaultRoot, onClose }: ReportProbl
       try {
         await copyText(report.body)
         setMessage(plan === 'copy-text-then-recopy-image'
-          ? t('기록이 길어 본문을 클립보드에 복사했습니다. 이슈에 먼저 붙여 넣고, 사진은 「클립보드에 복사」를 다시 눌러 붙이세요.')
+          ? t('기록이 길어 본문을 클립보드에 복사했습니다. 이슈에 먼저 붙여 넣고, 캡처는 「클립보드에 복사」를 다시 눌러 붙이세요.')
           : t('기록이 길어 클립보드에 복사했습니다. 열린 이슈 본문에 붙여 넣으세요.'))
       } catch {
         setMessage(t('기록이 길어 주소에 담지 못했습니다. 「파일로 저장」으로 저장해 이슈에 첨부하세요.'))
@@ -158,7 +158,7 @@ export function ReportProblemDialog({ version, vaultRoot, onClose }: ReportProbl
           <span className="side-dialog-icon"><Bug size={18} aria-hidden="true" /></span>
           <div className="side-dialog-titles">
             <h2>{t('문제 보고')}</h2>
-            <p>{t('아무것도 자동으로 보내지 않습니다. 아래 내용을 확인하고 직접 내세요.')}</p>
+            <p>{t('자동으로 보내지 않습니다. 아래 내용을 확인한 뒤 직접 제출하세요.')}</p>
           </div>
           <button type="button" className="side-dialog-close" aria-label={t('닫기')} onClick={onClose}>
             <X size={14} aria-hidden="true" />
@@ -172,7 +172,7 @@ export function ReportProblemDialog({ version, vaultRoot, onClose }: ReportProbl
               className="report-description"
               rows={3}
               value={description}
-              placeholder={t('예: PDF 를 열면 멈춥니다. 어떻게 하면 생기는지 적어 주세요.')}
+              placeholder={t('예: PDF를 열면 멈춥니다. 어떻게 하면 생기는지 적으세요.')}
               onChange={(event) => setDescription(event.currentTarget.value)}
             />
           </label>
@@ -188,7 +188,7 @@ export function ReportProblemDialog({ version, vaultRoot, onClose }: ReportProbl
             {includeLogs ? <li>{t('최근 앱 기록 {count}줄 · 화면 오류 {errors}건', { count: logLines === null ? 0 : shownLines, errors: errors.length })}</li> : null}
           </ul>
           <p className="report-note">
-            {t('문서 내용·키·토큰은 담지 않습니다. 폴더 경로와 파일 이름은 <path>, <file> 같은 자리표시자로 바뀝니다.')}
+            {t('문서 내용, 키, 토큰은 담지 않습니다. 폴더 경로와 파일 이름은 <path>, <file> 같은 표시로 바뀝니다.')}
           </p>
 
           {canCapture ? (
@@ -202,20 +202,20 @@ export function ReportProblemDialog({ version, vaultRoot, onClose }: ReportProbl
               </div>
               {capture === null ? null : (
                 <div className="report-capture-result">
-                  <img className="report-capture-thumb" src={capture.url} alt={t('캡처한 화면 미리 보기')} />
+                  <img className="report-capture-thumb" src={capture.url} alt={t('캡처 미리보기')} />
                   <div className="report-capture-actions">
                     <button type="button" className="side-dialog-secondary" onClick={() => { void recopyCapture() }}>{t('클립보드에 복사')}</button>
                     <button type="button" className="side-dialog-secondary" onClick={() => { void saveCapture() }}>{t('PNG로 저장')}</button>
                   </div>
                 </div>
               )}
-              <p className="report-note">{t('GitHub 이슈 본문에 Ctrl+V 로 붙여 넣으면 사진이 첨부됩니다.')}</p>
+              <p className="report-note">{t('GitHub 이슈 본문에 Ctrl+V로 붙여 넣으면 캡처가 첨부됩니다.')}</p>
               <p className="report-note">{t('캡처에는 열어 둔 문서 내용이 보일 수 있습니다. 붙여 넣기 전에는 어디로도 보내지 않습니다.')}</p>
             </section>
           ) : null}
 
-          <div className="report-preview-head">{t('보내질 내용 미리 보기')}</div>
-          <pre className="report-preview" tabIndex={0} aria-label={t('보내질 내용 미리 보기')}>{report.body}</pre>
+          <div className="report-preview-head">{t('보낼 내용 미리보기')}</div>
+          <pre className="report-preview" tabIndex={0} aria-label={t('보낼 내용 미리보기')}>{report.body}</pre>
 
           {message === null ? null : <p className="report-message" role="status">{message}</p>}
         </div>

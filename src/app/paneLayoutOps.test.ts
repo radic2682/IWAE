@@ -72,7 +72,7 @@ describe('splitPane (split-window)', () => {
   })
 })
 
-describe('moveTabToNewPane — 「새 오른쪽 패널로 옮기기」', () => {
+describe('moveTabToNewPane — 「새 오른쪽 칸으로 이동」', () => {
   it('탭을 새 칸에 옮긴다(하나뿐인 탭도: 원래 칸은 빈 채 남는다). 미리보기는 고정된다', () => {
     const input: TreeWorkspace = { ...cols2(), panes: { a: { tabs: [{ ...tab('p'), preview: true }], activeId: 'p' }, b: state('b1') } }
     const result = moveTabToNewPane(input, 'p', 'a', 'right')

@@ -23,8 +23,8 @@ const translationStatus = (_args: Record<string, unknown>, ctx: OpContext) => {
 
 const translateText = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
-  if (typeof args.text !== 'string' || args.text.trim() === '') throw new Error('text 가 필요합니다.')
-  if (args.text.length > TEXT_LIMIT) throw new Error(`text 는 ${TEXT_LIMIT}자 이하여야 합니다.`)
+  if (typeof args.text !== 'string' || args.text.trim() === '') throw new Error('text가 필요합니다.')
+  if (args.text.length > TEXT_LIMIT) throw new Error(`text는 ${TEXT_LIMIT}자 이하여야 합니다.`)
   if (!app.translation.enabled) throw new Error('translation is turned off in the app settings (번역이 꺼져 있습니다).')
   if (isExternal(app) && args.allow_external !== true) {
     throw new Error(`The translation provider is external (${app.translation.externalProvider}): the text would leave this computer. Refused. Only the user may approve this: ask them, then call again with allow_external:true.`)

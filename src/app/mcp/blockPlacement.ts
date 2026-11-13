@@ -29,14 +29,14 @@ export function resolveIndex(note: MemoNote, position: BlockPosition | undefined
   if (position === undefined || position.to_end === true) return length
   const find = (id: string, what: string): number => {
     const at = note.blocks.findIndex((block) => block.id === id)
-    if (at < 0) throw new Error(`${what} 블록을 찾지 못했습니다(block not found): ${id}. note_read 로 블록 id 를 확인하세요.`)
+    if (at < 0) throw new Error(`${what} 블록을 찾지 못했습니다(block not found): ${id}. note_read로 블록 id를 확인하세요.`)
     return at
   }
   if (position.before !== undefined) return find(position.before, 'before')
   if (position.after !== undefined) return find(position.after, 'after') + 1
   if (position.section_id !== undefined) {
     const range = sectionRange(note, position.section_id)
-    if (range === null) throw new Error(`section_id 가 소제목이 아닙니다(not a section): ${position.section_id}`)
+    if (range === null) throw new Error(`section_id가 소제목이 아닙니다(not a section): ${position.section_id}`)
     return range[1]
   }
   if (position.index !== undefined) return Math.min(Math.max(position.index, 0), length)

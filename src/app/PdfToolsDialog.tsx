@@ -48,7 +48,7 @@ export interface PdfToolActions {
   readonly compare: (otherDocId: string) => Promise<{ hunks: readonly DiffHunk[]; truncated: boolean }>
   /** 방금 만든 파일 열기 */
   readonly openPath: (path: string) => void
-  /** 그 문서의 그 쪽으로 가기 */
+  /** 그 문서의 그 쪽으로 이동 */
   readonly jump: (docId: string, page: number) => void
   /** 가리기 도구를 켠다(도구 창은 닫는다) */
   readonly startRedactTool: () => void
@@ -81,7 +81,7 @@ export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools:
     { id: 'compare', label: '다른 버전과 글자 비교', icon: <GitDiff size={16} /> },
   ] },
   { title: '주석', tools: [
-    { id: 'importMarks', label: 'PDF 안의 기존 주석 가져오기', icon: <Highlighter size={16} /> },
+    { id: 'importMarks', label: 'PDF의 기존 주석 가져오기', icon: <Highlighter size={16} /> },
     { id: 'flatten', label: '주석을 넣은 PDF 저장', icon: <Stamp size={16} /> },
     { id: 'redact', label: '민감 정보 가린 PDF 저장', icon: <EyeSlash size={16} /> },
   ] },
@@ -102,8 +102,8 @@ export const PDF_TOOL_GROUPS: readonly { readonly title: string; readonly tools:
   ] },
   { title: '내보내기', tools: [
     { id: 'images', label: '쪽을 PNG 이미지로', icon: <FileImage size={16} /> },
-    { id: 'markdown', label: '본문을 Markdown 으로', icon: <FileText size={16} /> },
-    { id: 'notesMarkdown', label: '노트를 Markdown 으로', icon: <Export size={16} /> },
+    { id: 'markdown', label: '본문을 Markdown으로', icon: <FileText size={16} /> },
+    { id: 'notesMarkdown', label: '노트를 Markdown으로', icon: <Export size={16} /> },
     { id: 'unlock', label: '암호 해제한 PDF 저장', icon: <LockOpen size={16} /> },
   ] },
 ]
@@ -134,7 +134,7 @@ export function PdfToolForm(props: PdfToolFormProps) {
   const busy = status.kind === 'busy' || job !== undefined
 
   return (
-    <div className="pdf-tools-form" role="region" aria-label={t('PDF 도구 — {title}', { title: props.title })}>
+    <div className="pdf-tools-form" role="region" aria-label={t('PDF 도구: {title}', { title: props.title })}>
       <ToolPane key={tool} tool={tool} props={props} busy={busy} run={run} setTool={props.onToolChange} />
       {job !== undefined ? (
         <div className="pdf-tools-status" role="status">
@@ -185,7 +185,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
   const applyOrCopy = (output: 'inPlace' | 'copy', op: PdfToolOp, suffix: string, doing: string) => run(doing, async () => {
     if (output === 'inPlace') return actions.applyInPlace(op)
     const path = await actions.saveCopy(op, suffix)
-    return { text: t('새 PDF 를 만들었습니다: {name}', { name: path.split(/[\\/]/u).at(-1) ?? path }), path }
+    return { text: t('새 PDF를 만들었습니다: {name}', { name: path.split(/[\\/]/u).at(-1) ?? path }), path }
   })
 
   // ---- 도구마다 ----
@@ -215,9 +215,9 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
     case 'ocr':
       return (
         <>
-          <Note>{t('글자 층이 없는 쪽(스캔 쪽)을 이 PC 에서 읽어 보이지 않는 글자를 입힙니다. 겉모습은 그대로이고, 글자 고르기·검색·형광펜·번역이 됩니다. 이미 글자가 있는 쪽은 건드리지 않습니다.')}</Note>
-          <Note>{t('원본에 적용합니다. 덮기 전 원본은 .iwae/history/pdf-edits 에 남습니다.')}</Note>
-          {props.hasText ? <Note>{t('이 PDF 는 앞쪽에 글자가 있습니다. 글자 없는 쪽이 섞여 있으면 그 쪽만 읽습니다.')}</Note> : null}
+          <Note>{t('글자 층이 없는 스캔 쪽을 이 PC에서 읽어 보이지 않는 글자로 입힙니다. 겉모습은 그대로이고 글자 선택, 검색, 형광펜, 번역을 쓸 수 있습니다. 글자가 있는 쪽은 건드리지 않습니다.')}</Note>
+          <Note>{t('원본에 적용합니다. 덮어쓰기 전 원본은 .iwae/history/pdf-edits에 남습니다.')}</Note>
+          {props.hasText ? <Note>{t('이 PDF는 앞쪽에 글자가 있습니다. 글자 없는 쪽이 섞여 있으면 그 쪽만 읽습니다.')}</Note> : null}
           {primary(t('OCR 시작'), () => void run(t('OCR 준비 중…'), actions.ocr))}
         </>
       )
@@ -225,7 +225,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       const other = props.otherPdfs.find((pdf) => pdf.docId === compareWith)
       return (
         <>
-          <Note>{t('두 버전의 글을 줄 단위로 비교해 바뀐·더한·지운 곳을 보입니다. 줄을 누르면 그 쪽으로 갑니다.')}</Note>
+          <Note>{t('두 버전의 글을 줄 단위로 비교해 바뀐 곳, 더한 곳, 지운 곳을 보여 줍니다. 줄을 누르면 그 쪽으로 이동합니다.')}</Note>
           <div className="pdf-tools-field">
             <span>{t('비교할 버전')}</span>
             <Select
@@ -267,7 +267,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
     case 'importMarks':
       return (
         <>
-          <Note>{t('다른 프로그램(Acrobat, Preview, Zotero 등)이 이 PDF 안에 남긴 형광펜·밑줄·붙임 쪽지를 내 형광펜으로 가져옵니다. 색은 가장 가까운 형광펜 색으로 바뀌고, 팝업 메모는 메모가 됩니다. 이미 가져온 표시는 건너뜁니다. PDF 파일은 바꾸지 않습니다.')}</Note>
+          <Note>{t('다른 프로그램(Acrobat, Preview, Zotero 등)이 PDF에 남긴 형광펜, 밑줄, 붙임 쪽지를 형광펜으로 가져옵니다. 색은 가장 가까운 형광펜 색으로 바뀌고 팝업 메모는 메모가 됩니다. 이미 가져온 표시는 건너뛰며 PDF 파일은 바뀌지 않습니다.')}</Note>
           {primary(t('표시 가져오기'), () => void run(t('표시를 읽는 중…'), actions.importMarks))}
         </>
       )
@@ -282,7 +282,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       const total = rows.reduce((sum, [key, , count]) => sum + (choice[key] ? count : 0), 0)
       return (
         <>
-          <Note>{t('IWAE 에서 단 표시를 PDF 안에 넣은 사본을 만듭니다. 다른 PDF 프로그램에서도 그대로 보여 공유할 때 씁니다. 원본은 그대로입니다.')}</Note>
+          <Note>{t('IWAE에서 단 표시를 PDF에 넣은 사본을 만듭니다. 다른 PDF 프로그램에서도 보이므로 공유할 때 씁니다. 원본은 바뀌지 않습니다.')}</Note>
           <div className="pdf-tools-checks">
             {rows.map(([key, label, count]) => (
               <label key={key} className="pdf-tools-check">
@@ -299,7 +299,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
     case 'redact':
       return (
         <>
-          <Note>{t('가리기 상자로 덮은 곳의 글자·그림을 정말로 지운 사본을 만듭니다. 가린 쪽은 그림 한 장이 되어 숨은 글자가 남지 않습니다(그 쪽은 글자 고르기가 안 됩니다). 원본은 그대로입니다.')}</Note>
+          <Note>{t('가리기 상자로 덮은 곳의 글자와 그림을 지운 사본을 만듭니다. 가린 쪽은 그림 한 장이 되어 숨은 글자가 남지 않으며, 그 쪽에서는 글자를 선택할 수 없습니다. 원본은 바뀌지 않습니다.')}</Note>
           <div className="pdf-tools-checks">
             <div className="pdf-tools-check"><span>{t('가리기 상자')}</span><b>{props.marks.redactions}</b></div>
           </div>
@@ -314,7 +314,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       const pages = parsePageRanges(range, pageCount)
       return (
         <>
-          <Note>{t('고른 쪽만 담은 새 PDF 를 원본 옆에 만듭니다. 쓴 순서대로 담습니다(예: 1-3, 7, 10-).')}</Note>
+          <Note>{t('고른 쪽만 담은 새 PDF를 원본 옆에 만듭니다. 쪽은 입력한 순서대로 담깁니다(예: 1-3, 7, 10-).')}</Note>
           <label className="pdf-tools-field">
             <span>{t('쪽 (전체 {count}쪽)', { count: pageCount })}</span>
             <input value={range} placeholder="1-3, 7, 10-" onChange={(event) => setRange(event.target.value)} />
@@ -331,8 +331,8 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
     case 'split':
       return (
         <>
-          <Note>{t('목차 맨 위 단계(장)마다 PDF 를 하나씩 만들어 원본 옆 「{title} 나눔」 폴더에 둡니다.', { title: props.title })}</Note>
-          {chapters.length === 0 ? <Note>{t('이 PDF 에는 나눌 목차가 없습니다. 「쪽 추출」을 쓰세요.')}</Note> : (
+          <Note>{t('목차의 맨 위 단계(장)마다 PDF를 하나씩 만들어 원본 옆 「{title} 나눔」 폴더에 둡니다.', { title: props.title })}</Note>
+          {chapters.length === 0 ? <Note>{t('이 PDF에는 나눌 목차가 없습니다. 「쪽 추출」을 쓰세요.')}</Note> : (
             <ol className="pdf-tools-chapters">
               {chapters.map((chapter, index) => (
                 <li key={index}><span>{chapter.title}</span><b>{chapter.from + 1}–{chapter.to + 1}</b></li>
@@ -345,15 +345,15 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
               const pages = Array.from({ length: chapter.to - chapter.from + 1 }, (_, at) => chapter.from + at)
               await actions.saveCopy({ kind: 'extract', pages }, `${String(index + 1).padStart(2, '0')} ${chapter.title}`, folder)
             }
-            return t('{count}개 PDF 를 「{folder}」 폴더에 만들었습니다', { count: chapters.length, folder })
+            return t('PDF {count}개를 「{folder}」 폴더에 만들었습니다', { count: chapters.length, folder })
           }), chapters.length === 0)}
         </>
       )
     case 'merge':
       return (
         <>
-          <Note>{t('이 PDF 뒤에 고른 PDF 들을 고른 순서대로 붙인 새 PDF 를 원본 옆에 만듭니다.')}</Note>
-          {props.otherPdfs.length === 0 ? <Note>{t('합칠 수 있는 다른 PDF 가 없습니다.')}</Note> : (
+          <Note>{t('이 PDF 뒤에 고른 PDF를 고른 순서대로 붙인 새 PDF를 원본 옆에 만듭니다.')}</Note>
+          {props.otherPdfs.length === 0 ? <Note>{t('합칠 수 있는 다른 PDF가 없습니다.')}</Note> : (
           <>
           <label className="pdf-tools-field pdf-tools-search">
             <MagnifyingGlass size={13} aria-hidden="true" />
@@ -381,7 +381,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
     case 'blanks':
       return (
         <>
-          <Note>{t('거의 흰 쪽을 찾아 뺍니다. 쪽 편집과 같아서 형광펜·메모·노트 출처가 남은 쪽을 따라 옮겨지고, 덮기 전 원본은 남습니다.')}</Note>
+          <Note>{t('거의 흰 쪽을 찾아 뺍니다. 쪽 편집과 같아서 형광펜, 메모, 노트 출처는 남은 쪽을 따라 옮겨지고 덮어쓰기 전 원본은 남습니다.')}</Note>
           {blanks === null ? primary(t('빈 쪽 찾기'), () => void run(t('쪽을 살피는 중…'), async () => {
             const found = await actions.findBlankPages()
             setBlanks(found)
@@ -396,9 +396,9 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
     case 'orient':
       return (
         <>
-          <Note>{t('글자 없는 스캔 쪽을 이 PC 에서 0·90·180·270도로 돌려 읽어 보고, 옆으로 눕거나 거꾸로 선 쪽을 똑바로 돌립니다. 확실하지 않은 쪽은 그대로 둡니다. 쪽 편집과 같아서 형광펜·메모·노트 출처가 따라 옮겨지고, 덮기 전 원본은 .iwae/history/pdf-edits 에 남습니다.')}</Note>
-          {props.hasText ? <Note>{t('이 PDF 는 앞쪽에 글자가 있습니다. 글자 없는 쪽만 살핍니다.')}</Note> : null}
-          {primary(t('방향 살펴 바로잡기'), () => void run(t('방향을 살피는 중…'), actions.fixOrientation))}
+          <Note>{t('글자 없는 스캔 쪽을 이 PC에서 0, 90, 180, 270도로 돌려 읽어 보고 옆으로 눕거나 거꾸로 선 쪽을 바로잡습니다. 확실하지 않은 쪽은 건드리지 않습니다. 쪽 편집과 같아서 형광펜, 메모, 노트 출처는 따라 옮겨지고 덮어쓰기 전 원본은 .iwae/history/pdf-edits에 남습니다.')}</Note>
+          {props.hasText ? <Note>{t('이 PDF는 앞쪽에 글자가 있습니다. 글자 없는 쪽만 살핍니다.')}</Note> : null}
+          {primary(t('방향 바로잡기'), () => void run(t('방향을 확인하는 중…'), actions.fixOrientation))}
         </>
       )
     case 'numbers':
@@ -486,7 +486,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
     case 'crop':
       return (
         <>
-          <Note>{t('모든 쪽의 가장자리를 잘라 냅니다(보이는 쪽 기준, mm). 잘린 부분은 숨겨질 뿐 지워지지는 않습니다.')}</Note>
+          <Note>{t('모든 쪽의 가장자리를 자릅니다(보이는 쪽 기준, mm). 잘린 부분은 숨겨질 뿐 지워지지 않습니다.')}</Note>
           <div className="pdf-tools-grid pdf-tools-grid-2">
             {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
               <label key={side} className="pdf-tools-field">
@@ -508,7 +508,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       }
       return (
         <>
-          <Note>{t('A4 한 장에 여러 쪽을 줄여 담은 새 PDF 를 만듭니다(인쇄·훑어보기용).')}</Note>
+          <Note>{t('A4 한 장에 여러 쪽을 줄여 담은 새 PDF를 만듭니다(인쇄, 훑어보기용).')}</Note>
           <div className="pdf-tools-seg" role="radiogroup" aria-label={t('한 장에')}>
             {[2, 4, 6, 9].map((count) => (
               <button key={count} type="button" role="radio" aria-checked={nup === count} className={nup === count ? 'on' : ''} onClick={() => setNup(count)}>{t('{count}쪽', { count })}</button>
@@ -522,7 +522,7 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
       const levels = { normal: { maxDpi: 150, quality: 80 }, small: { maxDpi: 96, quality: 65 } } as const
       return (
         <>
-          <Note>{t('쪽에 놓인 크기보다 해상도가 높은 그림(스캔·사진)을 줄여 파일 크기를 낮춘 사본을 원본 옆에 만듭니다. 글자와 도형은 그대로이고, 원본은 건드리지 않습니다. 줄어드는 그림이 없으면 사본을 만들지 않습니다.')}</Note>
+          <Note>{t('쪽에 표시되는 크기보다 해상도가 높은 그림(스캔, 사진)을 줄여 파일 크기를 낮춘 사본을 원본 옆에 만듭니다. 글자와 도형, 원본은 바뀌지 않습니다. 줄일 그림이 없으면 사본을 만들지 않습니다.')}</Note>
           <div className="pdf-tools-seg" role="radiogroup" aria-label={t('압축 정도')}>
             <button type="button" role="radio" aria-checked={shrink === 'normal'} className={shrink === 'normal' ? 'on' : ''} onClick={() => setShrink('normal')}>{t('보통 (150 dpi)')}</button>
             <button type="button" role="radio" aria-checked={shrink === 'small'} className={shrink === 'small' ? 'on' : ''} onClick={() => setShrink('small')}>{t('작게 (96 dpi)')}</button>
@@ -547,31 +547,31 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
               <button key={value} type="button" role="radio" aria-checked={dpi === value} className={dpi === value ? 'on' : ''} onClick={() => setDpi(value)}>{value} dpi</button>
             ))}
           </div>
-          {primary(t('폴더 골라 저장'), () => void run(t('그리는 중…'), () => actions.exportImages(dpi)))}
+          {primary(t('폴더를 골라 저장'), () => void run(t('그리는 중…'), () => actions.exportImages(dpi)))}
         </>
       )
     case 'markdown':
       return (
         <>
-          <Note>{t('PDF 의 글을 쪽마다 머리글을 붙여 Markdown 파일로 원본 옆에 저장합니다. AI 에게 건네거나 고쳐 쓸 때 씁니다.')}</Note>
+          <Note>{t('PDF의 글을 쪽마다 머리글을 붙여 Markdown 파일로 원본 옆에 저장합니다. AI에게 넘기거나 고쳐 쓸 때 씁니다.')}</Note>
           {primary(t('Markdown 만들기'), () => void run(t('글을 모으는 중…'), actions.exportMarkdown))}
         </>
       )
     case 'notesMarkdown':
       return (
         <>
-          <Note>{t('메모 노트를 Obsidian·Notion 에서 읽는 Markdown 으로 내보냅니다. 노트마다 파일 하나이고, 소제목·티켓 ID·원문 인용·쪽·번역이 들어가며 영역 메모의 그림은 파일 옆 폴더에 저장됩니다. 폴더는 직접 고릅니다.')}</Note>
+          <Note>{t('메모 노트를 Obsidian, Notion에서 읽을 수 있는 Markdown으로 내보냅니다. 노트마다 파일 하나가 만들어지며 소제목, 티켓 ID, 원문 인용, 쪽, 번역이 들어갑니다. 영역 메모의 그림은 파일 옆 폴더에 저장되고, 폴더는 직접 고릅니다.')}</Note>
           <div className="pdf-tools-actions">
-            <button type="button" className="pdf-tools-primary" disabled={busy} onClick={() => void run(t('내보내는 중…'), () => actions.exportNotesMarkdown('doc'))}>{t('이 PDF 의 노트')}</button>
-            <button type="button" className="pdf-tools-secondary" disabled={busy} onClick={() => void run(t('내보내는 중…'), () => actions.exportNotesMarkdown('vault'))}>{t('Vault 의 모든 노트')}</button>
+            <button type="button" className="pdf-tools-primary" disabled={busy} onClick={() => void run(t('내보내는 중…'), () => actions.exportNotesMarkdown('doc'))}>{t('이 PDF의 노트')}</button>
+            <button type="button" className="pdf-tools-secondary" disabled={busy} onClick={() => void run(t('내보내는 중…'), () => actions.exportNotesMarkdown('vault'))}>{t('Vault의 모든 노트')}</button>
           </div>
         </>
       )
     case 'unlock':
       return (
         <>
-          <Note>{t('암호로 연 PDF 를 암호 없이 열리는 사본으로 저장합니다(쪽은 그대로, 목차는 빠질 수 있습니다).')}</Note>
-          {props.passwordProtected ? primary(t('암호 푼 사본 만들기'), () => void applyOrCopy('copy', { kind: 'unlock' }, t('(암호 없음)'), t('사본을 만드는 중…'))) : <Note>{t('이 PDF 는 암호가 없습니다.')}</Note>}
+          <Note>{t('암호로 연 PDF를 암호 없이 열리는 사본으로 저장합니다. 쪽은 그대로이고 목차는 빠질 수 있습니다.')}</Note>
+          {props.passwordProtected ? primary(t('암호 푼 사본 만들기'), () => void applyOrCopy('copy', { kind: 'unlock' }, t('(암호 없음)'), t('사본을 만드는 중…'))) : <Note>{t('이 PDF는 암호가 없습니다.')}</Note>}
           {!props.passwordProtected ? <div className="pdf-tools-actions"><button type="button" className="pdf-tools-secondary" onClick={() => setTool('flatten')}>{t('다른 도구 보기')}</button></div> : null}
         </>
       )

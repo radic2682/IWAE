@@ -29,7 +29,7 @@ function UpdateResult({ state }: { readonly state: UseUpdaterResult }) {
     return (
       <div className="update-result update-result-error" role="alert">
         <WarningCircle size={16} weight="fill" aria-hidden="true" />
-        <span>{t('업데이트를 확인하지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.')}</span>
+        <span>{t('업데이트를 확인하지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도하세요.')}</span>
       </div>
     )
   }
@@ -57,8 +57,8 @@ function UpdateResult({ state }: { readonly state: UseUpdaterResult }) {
           </button>
         )}
         {status === 'ready' && (
-          <button type="button" className="update-result-primary" aria-label={t('재시작하여 설치')} onClick={() => void state.install()}>
-            {t('재시작하여 설치')}
+          <button type="button" className="update-result-primary" aria-label={t('다시 시작해 설치')} onClick={() => void state.install()}>
+            {t('다시 시작해 설치')}
           </button>
         )}
         {status === 'installing' && <span>{t('설치 준비 중…')}</span>}
@@ -80,7 +80,7 @@ export function UpdateSettings({ currentVersion, state, historyFocusVersion = nu
 
       <div className="settings-list">
         <label className="settings-toggle-row">
-          <span><strong>{t('업데이트 자동 확인')}</strong><small>{t('작업 공간을 열 때와, 켜 둔 동안 6시간마다 백그라운드에서 확인합니다.')}</small></span>
+          <span><strong>{t('업데이트 자동 확인')}</strong><small>{t('작업 공간을 열 때와 실행 중 6시간마다 확인합니다.')}</small></span>
           <input
             type="checkbox"
             aria-label={t('업데이트 자동 확인')}
@@ -89,7 +89,7 @@ export function UpdateSettings({ currentVersion, state, historyFocusVersion = nu
           />
         </label>
         <label className="settings-toggle-row">
-          <span><strong>{t('업데이트 자동 다운로드')}</strong><small>{t('새 버전을 발견하면 설치 파일만 미리 내려받습니다.')}</small></span>
+          <span><strong>{t('업데이트 자동 다운로드')}</strong><small>{t('새 버전이 있으면 설치 파일을 미리 내려받습니다.')}</small></span>
           <input
             type="checkbox"
             aria-label={t('업데이트 자동 다운로드')}

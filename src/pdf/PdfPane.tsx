@@ -1542,7 +1542,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
         <PdfFloatPalette
           label={t('박스 메모')}
           icon={<ChatTeardropText size={15} aria-hidden="true" />}
-          hint={editingBoxId === null && draftBox === null ? t('글을 끌면 박스가 생깁니다') : undefined}
+          hint={editingBoxId === null && draftBox === null ? t('끌어서 박스 만들기') : undefined}
           onDone={() => {
             // 쓰던 박스가 있으면 저장하고 모드를 끝낸다
             const active = document.activeElement

@@ -108,7 +108,7 @@ interface CommandSpec {
 export const COMMAND_SPECS: readonly CommandSpec[] = [
   { name: 'split-window', aliases: ['splitw'], boolFlags: ['h', 'v'], summary: '칸을 나눕니다 (-h 가로 · -v 세로)', usage: 'split-window [-h|-v]' },
   { name: 'select-pane', aliases: ['selectp'], boolFlags: ['L', 'R', 'U', 'D', 'n', 'p'], valueFlags: ['t'], summary: '다른 칸을 만집니다', usage: 'select-pane -L|-R|-U|-D|-t N' },
-  { name: 'resize-pane', aliases: ['resizep'], boolFlags: ['Z'], summary: '이 칸만 크게 · 원래 크기로', usage: 'resize-pane -Z' },
+  { name: 'resize-pane', aliases: ['resizep'], boolFlags: ['Z'], summary: '이 칸 확대 · 원래 크기로', usage: 'resize-pane -Z' },
   { name: 'kill-pane', aliases: ['killp'], summary: '이 칸을 닫습니다', usage: 'kill-pane' },
   { name: 'swap-pane', aliases: ['swapp'], boolFlags: ['U', 'D'], summary: '칸 자리를 바꿉니다', usage: 'swap-pane -U|-D' },
   { name: 'break-pane', aliases: ['breakp'], summary: '이 칸을 새 화면으로 뗍니다', usage: 'break-pane' },
@@ -250,7 +250,7 @@ export function parseCommandLine(line: string): ParseResult {
   for (const words of groups) {
     const [word, ...rest] = words as [string, ...string[]]
     const spec = SPEC_BY_WORD.get(word)
-    if (spec === undefined) return { ok: false, message: t('모르는 명령: {name} — ? 로 목록', { name: word }) }
+    if (spec === undefined) return { ok: false, message: t('알 수 없는 명령: {name}. ?를 입력하면 목록이 나옵니다', { name: word }) }
     const flags: Record<string, string | true> = {}
     const args: string[] = []
     for (let index = 0; index < rest.length; index += 1) {
@@ -261,14 +261,14 @@ export function parseCommandLine(line: string): ParseResult {
         if (spec.valueFlags?.includes(letter) === true) {
           const attached = token.slice(2)
           const value = attached !== '' ? attached : rest[index + 1]
-          if (value === undefined) return { ok: false, message: t('{name}: -{flag} 에 값이 필요합니다', { name: spec.name, flag: letter }) }
+          if (value === undefined) return { ok: false, message: t('{name}: -{flag}에 값이 필요합니다', { name: spec.name, flag: letter }) }
           flags[letter] = value
           if (attached === '') index += 1
           continue
         }
         if (spec.boolFlags?.includes(letter) === true && token.length === 2) { flags[letter] = true; continue }
         if (spec.soon === true) continue
-        return { ok: false, message: t('{name}: 모르는 옵션 {flag}', { name: spec.name, flag: token }) }
+        return { ok: false, message: t('{name}: 알 수 없는 옵션 {flag}', { name: spec.name, flag: token }) }
       }
       args.push(token)
     }
@@ -530,7 +530,7 @@ function stepWindow(model: WorkspaceModel, step: 1 | -1): Outcome {
 
 function lastWindow(model: WorkspaceModel): Outcome {
   const next = lastScreenOf(model.screens)
-  if (next === model.screens) return { error: t('바로 앞에 보던 화면이 없습니다') }
+  if (next === model.screens) return { error: t('이전에 보던 화면이 없습니다') }
   return { model: viewing(next) }
 }
 
@@ -573,7 +573,7 @@ function selectLayoutBy(model: WorkspaceModel, name: string | undefined): Outcom
     kind = RELAYOUT_KINDS[next]!
   } else {
     const parsed = parseRelayoutKind(name)
-    if (parsed === null) return { error: t('모르는 배치: {name} — {list}', { name, list: RELAYOUT_KINDS.join(' · ') }) }
+    if (parsed === null) return { error: t('알 수 없는 배치: {name}. 사용 가능: {list}', { name, list: RELAYOUT_KINDS.join(' · ') }) }
     layoutCycle.set(active.id, RELAYOUT_KINDS.indexOf(parsed))
     kind = parsed
   }
@@ -606,7 +606,7 @@ function resolveTemplate(host: CommandHost, query: string): NamedTemplate | null
 }
 
 async function runOne(command: ParsedCommand, host: CommandHost): Promise<CommandResult> {
-  if (command.soon) return fail(t('다음 단계에서 됩니다'))
+  if (command.soon) return fail(t('아직 지원하지 않습니다'))
   const apply = (outcome: Outcome): CommandResult => {
     if ('error' in outcome) return fail(outcome.error)
     host.setModel(outcome.model)
@@ -622,7 +622,7 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     case 'select-pane':
       return apply(selectPaneBy(raw, flags, host.paneRects?.() ?? null))
     case 'resize-pane':
-      if (flags.Z !== true) return fail(t('resize-pane 은 -Z(크게/원래 크기로)만 됩니다'))
+      if (flags.Z !== true) return fail(t('resize-pane은 -Z(크게/원래 크기로)만 지원합니다'))
       return apply(zoomPane(model))
     case 'kill-pane':
       return apply(killPane(raw))
@@ -639,7 +639,7 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       const name = flags.n === undefined ? undefined : String(flags.n).trim() || undefined
       if (flags.t !== undefined) {
         const template = resolveTemplate(host, String(flags.t))
-        if (template === null) return fail(t('모르는 템플릿: {name}', { name: String(flags.t) }))
+        if (template === null) return fail(t('알 수 없는 템플릿: {name}', { name: String(flags.t) }))
         if (template.id !== 'blank') {
           if (host.newWindowFromTemplate === undefined) return fail(t('지금은 템플릿으로 새 화면을 만들 수 없습니다'))
           await host.newWindowFromTemplate(template.id, name, model.activePane)
@@ -666,17 +666,17 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     case 'select-layout':
       return apply(selectLayoutBy(model, firstArg(command)))
     case 'display-panes':
-      if (host.displayPanes === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.displayPanes === undefined) return fail(t('지금은 사용할 수 없습니다'))
       host.displayPanes()
       return ok()
     case 'list-keys':
-      if (host.listKeys === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.listKeys === undefined) return fail(t('지금은 사용할 수 없습니다'))
       host.listKeys()
       return ok()
     case 'open': {
       const query = restText(command)
       if (query === '') return fail(t('open 이름'))
-      if (host.open === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.open === undefined) return fail(t('지금은 사용할 수 없습니다'))
       return host.open(query, raw.activePane)
     }
     case 'set-channel':
@@ -692,10 +692,10 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       const anchor = isDocumentKind(activeTab(tabsOf(activeScreenOf(model.screens).panes, model.activePane))?.kind ?? 'memoNote') ? model.activePane : undefined
       const query = restText(command)
       if (query === '') {
-        if (host.openTranslator === undefined) return fail(t('지금은 안 됩니다'))
-        return host.openTranslator() ? ok() : fail(t('번역이 꺼져 있습니다. 설정에서 켜 주세요'))
+        if (host.openTranslator === undefined) return fail(t('지금은 사용할 수 없습니다'))
+        return host.openTranslator() ? ok() : fail(t('번역이 꺼져 있습니다. 설정에서 켜세요'))
       }
-      if (host.open === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.open === undefined) return fail(t('지금은 사용할 수 없습니다'))
       const created = addFloat(raw, anchor === undefined ? {} : { anchorPane: anchor })
       if ('error' in created) return fail(created.error)
       host.setModel(created.model)
@@ -710,24 +710,24 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       return opened
     }
     case 'note-beside':
-      if (host.noteBeside === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.noteBeside === undefined) return fail(t('지금은 사용할 수 없습니다'))
       await host.noteBeside(model.activePane)
       return ok()
     case 'apply-template': {
       const query = restText(command)
       if (query === '') return fail(t('apply-template 이름'))
       const template = resolveTemplate(host, query)
-      if (template === null || template.id === 'blank') return fail(t('모르는 템플릿: {name}', { name: query }))
-      if (host.applyTemplate === undefined) return fail(t('지금은 안 됩니다'))
+      if (template === null || template.id === 'blank') return fail(t('알 수 없는 템플릿: {name}', { name: query }))
+      if (host.applyTemplate === undefined) return fail(t('지금은 사용할 수 없습니다'))
       await host.applyTemplate(template.id, model.activePane)
       return ok()
     }
     case 'command-prompt':
-      if (host.promptCommand === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.promptCommand === undefined) return fail(t('지금은 사용할 수 없습니다'))
       host.promptCommand(restText(command))
       return ok()
     case 'rename-prompt': {
-      if (host.promptCommand === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.promptCommand === undefined) return fail(t('지금은 사용할 수 없습니다'))
       host.promptCommand(`rename-window ${activeScreenOf(model.screens).name}`)
       return ok()
     }
@@ -737,50 +737,50 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
       host.confirmKillWindow()
       return ok()
     case 'source-file':
-      if (host.reloadKeys === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.reloadKeys === undefined) return fail(t('지금은 사용할 수 없습니다'))
       return host.reloadKeys()
     case 'new-session': {
-      if (host.newSession === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.newSession === undefined) return fail(t('지금은 사용할 수 없습니다'))
       const name = (flags.s === undefined ? restText(command) : String(flags.s)).trim()
       return host.newSession(name === '' ? undefined : name)
     }
     case 'switch-client': {
-      if (host.switchSession === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.switchSession === undefined) return fail(t('지금은 사용할 수 없습니다'))
       const name = (flags.t === undefined ? restText(command) : String(flags.t)).trim()
       if (name === '') return fail(t('switch-client -t 이름'))
       return host.switchSession(name)
     }
     case 'rename-session': {
-      if (host.renameSession === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.renameSession === undefined) return fail(t('지금은 사용할 수 없습니다'))
       const name = restText(command)
       if (name === '') return fail(t('새 이름을 쓰세요: rename-session 이름'))
       return host.renameSession(name)
     }
     case 'save-session': {
-      if (host.saveSession === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.saveSession === undefined) return fail(t('지금은 사용할 수 없습니다'))
       const name = restText(command)
       return host.saveSession(name === '' ? undefined : name)
     }
     case 'kill-session': {
-      if (host.killSession === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.killSession === undefined) return fail(t('지금은 사용할 수 없습니다'))
       const name = (flags.t === undefined ? restText(command) : String(flags.t)).trim()
       return host.killSession(name === '' ? undefined : name)
     }
     case 'new-client': {
-      if (host.newClient === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.newClient === undefined) return fail(t('지금은 사용할 수 없습니다'))
       const name = (flags.t === undefined ? restText(command) : String(flags.t)).trim()
       return host.newClient(name === '' ? undefined : name)
     }
     case 'detach':
-      if (host.detach === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.detach === undefined) return fail(t('지금은 사용할 수 없습니다'))
       return host.detach()
     case 'list-sessions':
     case 'choose-session':
-      if (host.showSessionMenu === undefined) return fail(t('지금은 안 됩니다'))
+      if (host.showSessionMenu === undefined) return fail(t('지금은 사용할 수 없습니다'))
       host.showSessionMenu()
       return ok()
     default:
-      return fail(t('모르는 명령: {name} — ? 로 목록', { name: command.word }))
+      return fail(t('알 수 없는 명령: {name}. ?를 입력하면 목록이 나옵니다', { name: command.word }))
   }
 }
 

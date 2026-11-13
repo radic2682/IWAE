@@ -292,11 +292,11 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
         ) : null}
         {pending ? <p className="translator-panel-status" role="status">{t('번역 중…')}</p> : null}
         {notConfigured && result.status !== 'error' ? (
-          <p className="translator-panel-error" role="alert">{t('번역기를 아직 설정하지 않았습니다. 설정에서 번역기(키 없이 쓰는 Google 번역 포함)를 고르세요.')}</p>
+          <p className="translator-panel-error" role="alert">{t('번역기가 설정되지 않았습니다. 설정에서 번역기를 고르세요. 키 없이 쓰는 Google 번역도 있습니다.')}</p>
         ) : null}
         {result.status === 'error' ? (
           notConfigured
-            ? <p className="translator-panel-error" role="alert">{t('번역기를 아직 설정하지 않았습니다. 설정에서 번역기(키 없이 쓰는 Google 번역 포함)를 고르세요.')}</p>
+            ? <p className="translator-panel-error" role="alert">{t('번역기가 설정되지 않았습니다. 설정에서 번역기를 고르세요. 키 없이 쓰는 Google 번역도 있습니다.')}</p>
             : <p className="translator-panel-error" role="alert">{t('번역 실패: {message}', { message: friendlyError(result.message) })}</p>
         ) : null}
       </div>

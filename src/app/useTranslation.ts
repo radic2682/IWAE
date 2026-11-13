@@ -155,7 +155,7 @@ export function useTranslation({ provider, storage }: UseTranslationOptions): Tr
         const externalModel = settings.externalModel !== '' ? settings.externalModel : settings.externalProvider === 'deepl' ? 'DeepL' : keyless ? 'Google' : ''
         const configured = externalModel !== '' && provider.translateExternal !== undefined
         const hasKey = keyless || externalApiKey.trim() !== ''
-        const message = !configured ? t('외부 API endpoint와 모델을 설정하세요.') : !hasKey ? t('API key 를 넣으세요.') : undefined
+        const message = !configured ? t('외부 API endpoint와 모델을 설정하세요.') : !hasKey ? t('API key를 입력하세요.') : undefined
         setStatus({
           available: configured && hasKey,
           version: t(externalProviderInfo(settings.externalProvider).label),

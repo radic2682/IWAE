@@ -115,7 +115,7 @@ export function FolderNameDialog({ mode, initialName = '', parentPath, parentCho
     }
     const trimmed = check.name
     if (trimmed === '') {
-      setError(t('폴더 이름을 입력해 주세요.'))
+      setError(t('폴더 이름을 입력하세요.'))
       return
     }
     if (mode === 'rename' && trimmed === initialName) {
@@ -140,7 +140,7 @@ export function FolderNameDialog({ mode, initialName = '', parentPath, parentCho
       label={title}
       icon={<FolderSimple size={16} weight="duotone" />}
       title={title}
-      subtitle={creating ? t('Vault 안에 실제 폴더를 만듭니다') : t('위치: {location}', { location: locationLabel(parentPath) })}
+      subtitle={creating ? t('Vault 안에 폴더를 만듭니다') : t('위치: {location}', { location: locationLabel(parentPath) })}
       busy={busy}
       onClose={onClose}
     >
@@ -179,7 +179,7 @@ export function FolderNameDialog({ mode, initialName = '', parentPath, parentCho
           )
         ) : null}
         {error === null && adjusted ? (
-          <p className="side-dialog-hint">{t('끝의 마침표·공백은 Windows 에서 쓸 수 없어 ‘{name}’(으)로 만듭니다.', { name: check.name })}</p>
+          <p className="side-dialog-hint">{t('끝의 마침표와 공백은 Windows에서 쓸 수 없어 「{name}」 폴더로 만듭니다.', { name: check.name })}</p>
         ) : (
           <p className="side-dialog-error" role={(error ?? check.problem) === null ? undefined : 'alert'}>{error ?? check.problem ?? ''}</p>
         )}
@@ -239,7 +239,7 @@ export function DeleteEntryDialog({ kind = 'document', name, path, onConfirm, on
       label={kind === 'note' ? t('노트 삭제') : t('문서 삭제')}
       icon={<Trash size={16} weight="duotone" />}
       tone="danger"
-      title={kind === 'note' ? t('‘{name}’ 노트를 휴지통으로 옮길까요?', { name }) : t('‘{name}’ 문서를 휴지통으로 옮길까요?', { name })}
+      title={kind === 'note' ? t('「{name}」 노트를 휴지통으로 옮길까요?', { name }) : t('「{name}」 문서를 휴지통으로 옮길까요?', { name })}
       subtitle={t('위치: {location}', { location: locationLabel(path) })}
       busy={busy}
       onClose={onClose}
@@ -247,8 +247,8 @@ export function DeleteEntryDialog({ kind = 'document', name, path, onConfirm, on
       <div className="side-dialog-body">
         <p className="side-dialog-message">
           {kind === 'note'
-            ? t('노트 파일은 지워지지 않고 Vault 의 .iwae/trash/notes 폴더로 옮겨집니다.')
-            : t('파일은 지워지지 않고 Vault 휴지통으로 옮겨지며, 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
+            ? t('노트 파일은 지워지지 않고 Vault의 .iwae/trash/notes 폴더로 옮겨집니다.')
+            : t('파일은 지워지지 않고 Vault 휴지통으로 옮겨집니다. 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
         </p>
         <p className="side-dialog-error" role={error === null ? undefined : 'alert'}>{error ?? ''}</p>
         <footer className="side-dialog-foot">
@@ -301,7 +301,7 @@ export function DeleteFolderDialog({ name, path, documentCount, folderCount, doc
       label={t('폴더 삭제')}
       icon={<Trash size={16} weight="duotone" />}
       tone="danger"
-      title={t('‘{name}’ 폴더를 삭제할까요?', { name })}
+      title={t('「{name}」 폴더를 삭제할까요?', { name })}
       subtitle={t('위치: {location}', { location: locationLabel(path) })}
       busy={busy}
       onClose={onClose}
@@ -311,7 +311,7 @@ export function DeleteFolderDialog({ name, path, documentCount, folderCount, doc
           {contents === ''
             ? t('빈 폴더입니다.')
             : pick({ ko: <>안에 있는 <strong>{contents}</strong>가 함께 삭제됩니다.</>, en: <>The <strong>{contents}</strong> inside will be deleted too.</> })}
-          {' '}{t('파일은 지워지지 않고 Vault 휴지통으로 옮겨지며, 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
+          {' '}{t('파일은 지워지지 않고 Vault 휴지통으로 옮겨집니다. 설정 › 데이터 및 복구에서 되돌릴 수 있습니다.')}
         </p>
         <NameList names={documentNames} />
         <p className="side-dialog-error" role={error === null ? undefined : 'alert'}>{error ?? ''}</p>
@@ -392,12 +392,12 @@ export function AddPdfDialog({ currentFolder, folderChoices, onChoose, onClose }
       <div className="side-dialog-foot side-add-foot">
         <button type="button" className="side-dialog-link" onClick={() => choose({ kind: 'reference' })}>
           <LinkSimple size={13} aria-hidden="true" />
-          {t('복사하지 않고 원본 위치 참조')}
+          {t('복사하지 않고 원본 위치를 참조')}
         </button>
         <button type="button" className="side-dialog-secondary" onClick={onClose}>{t('취소')}</button>
         <button type="button" className="side-dialog-primary" onClick={() => choose({ kind: 'copy-another-folder', folderPath: target })}>
           <Copy size={14} aria-hidden="true" />
-          {t('파일 골라 복사')}
+          {t('파일을 골라 복사')}
         </button>
       </div>
     </DialogFrame>

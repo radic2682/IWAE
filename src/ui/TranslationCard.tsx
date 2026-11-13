@@ -236,7 +236,7 @@ export function TranslationCard({ original, state, ariaLabel, onClose, onRetry, 
         {pending ? <p className="translation-card-pending" role="status">{t('번역 중…')}</p> : null}
         {state.status === 'error' ? (
           isTranslationNotConfigured(state.message)
-            ? <p className="translation-card-error translation-card-setup" role="alert">{t('번역기를 아직 설정하지 않았습니다. 설정에서 번역기(키 없이 쓰는 Google 번역 포함)를 고르세요.')}</p>
+            ? <p className="translation-card-error translation-card-setup" role="alert">{t('번역기가 설정되지 않았습니다. 설정에서 번역기를 고르세요. 키 없이 쓰는 Google 번역도 있습니다.')}</p>
             : <p className="translation-card-error" role="alert">{t('번역 실패: {message}', { message: friendlyCardError(state.message) })}</p>
         ) : null}
       </div>

@@ -250,7 +250,7 @@ describe('NoteFlow — 티켓 · 여러 원문 · 여러 블록 고르기', () =
     const items: NoteFlowItem[] = [{ kind: 'memo', key: 'b1', highlight: h1, extraHighlights: [h2] }]
     const { container } = render(<NoteFlow {...handlers()} items={items} onRemoveRef={onRemoveRef} />)
     expect(container.querySelectorAll('.note-source-chip')).toHaveLength(2)
-    const removes = screen.getAllByRole('button', { name: '이 원문 떼기' })
+    const removes = screen.getAllByRole('button', { name: '이 원문 분리' })
     expect(removes).toHaveLength(1)
     fireEvent.click(removes[0]!)
     expect(onRemoveRef).toHaveBeenCalledWith('b1', 'h2')

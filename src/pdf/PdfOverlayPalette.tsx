@@ -249,7 +249,7 @@ export function StripSizeField({ value, onChange }: { readonly value: number; re
         aria-valuemin={TEXT_SIZE_MIN}
         aria-valuemax={TEXT_SIZE_MAX}
         aria-valuenow={value}
-        title={t('글자 크기 (pt) · ↑↓ 로 0.5씩')}
+        title={t('글자 크기 (pt), ↑↓로 0.5씩')}
         data-undo-passthrough={draft === null ? 'true' : undefined}
         value={draft ?? show(value)}
         onChange={(event) => setDraft(event.currentTarget.value)}
@@ -391,7 +391,7 @@ export function PdfOverlayPalette({ tool, style, onStyleChange, selected = null,
       icon={info.icon(15, false)}
       label={label}
       onClose={onDone}
-      hint={sampling && target === 'text' ? t('서식을 가져올 글 상자나 PDF 글자를 누르세요 · Esc 로 취소') : selected === null && TOOL_HINT[tool] !== undefined ? t(TOOL_HINT[tool]!) : undefined}
+      hint={sampling && target === 'text' ? t('서식을 가져올 글 상자나 PDF 글자를 누르세요. Esc로 취소') : selected === null && TOOL_HINT[tool] !== undefined ? t(TOOL_HINT[tool]!) : undefined}
     >
       {target === null ? null : (
         <>

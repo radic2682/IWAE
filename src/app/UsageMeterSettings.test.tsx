@@ -18,7 +18,7 @@ describe('CPU·메모리 표시 설정', () => {
 
   it('기본은 끔이고, 스위치로 켜면 저장되고 쓰는 곳에도 바로 반영된다', () => {
     render(<><UsageMeterSettings /><Probe /></>)
-    const toggle = screen.getByRole('switch', { name: '하단 막대에 CPU·메모리 보이기' })
+    const toggle = screen.getByRole('switch', { name: '하단 막대에 CPU와 메모리 표시' })
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(screen.getByTestId('probe').textContent).toBe('off')
     fireEvent.click(toggle)

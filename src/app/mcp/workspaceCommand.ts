@@ -92,8 +92,8 @@ const MAX_COMMAND_CHARS = 2000
 const workspaceCommand = async (args: Record<string, unknown>, ctx: OpContext) => {
   const app = needApp(ctx)
   if (typeof args.command !== 'string' || args.command.trim() === '') throw new Error('command(명령 줄)가 필요합니다. 예: "split-window -h ; open 노트 A"')
-  if (args.command.length > MAX_COMMAND_CHARS) throw new Error(`command 가 너무 깁니다(최대 ${MAX_COMMAND_CHARS}자).`)
-  if (args.client !== undefined && (typeof args.client !== 'string' || args.client.trim() === '')) throw new Error('client 는 앱 창 이름이어야 합니다. 예: "B" (app_state.clients 의 label 이나 id)')
+  if (args.command.length > MAX_COMMAND_CHARS) throw new Error(`command가 너무 깁니다(최대 ${MAX_COMMAND_CHARS}자).`)
+  if (args.client !== undefined && (typeof args.client !== 'string' || args.client.trim() === '')) throw new Error('client는 앱 창 이름이어야 합니다. 예: "B" (app_state.clients의 label 이나 id)')
   const result = await app.workspaceCommand(args.command, typeof args.client === 'string' ? args.client.trim() : undefined)
   ctx.change.target = args.command.trim().slice(0, 80)
   return { ok: result.ok, message: result.message === '' ? (result.ok ? 'ok' : 'failed') : result.message, state: result.state }

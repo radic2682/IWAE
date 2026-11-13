@@ -6,7 +6,7 @@ import { op, type McpDeps, type OpContext, type OpDef } from './types'
 type Sources = NonNullable<McpDeps['docSources']>
 
 function requireSources(ctx: OpContext): Sources {
-  if (ctx.deps.docSources === undefined) throw new Error('문서 출처를 다룰 수 없습니다(Vault 가 열려 있지 않습니다).')
+  if (ctx.deps.docSources === undefined) throw new Error('문서 출처를 다룰 수 없습니다(Vault가 열려 있지 않습니다).')
   return ctx.deps.docSources
 }
 
@@ -22,7 +22,7 @@ const sourceList = (args: Record<string, unknown>, ctx: OpContext) => {
 
 const sourceAdd = (args: Record<string, unknown>, ctx: OpContext) => {
   const store = requireSources(ctx)
-  if (typeof args.doc_id !== 'string') throw new Error('doc_id 가 필요합니다.')
+  if (typeof args.doc_id !== 'string') throw new Error('doc_id가 필요합니다.')
   const docId = args.doc_id
   if (!Array.isArray(args.sources) || args.sources.length === 0) throw new Error('sources 배열이 필요합니다.')
   const added: string[] = []
@@ -58,13 +58,13 @@ const sourceAdd = (args: Record<string, unknown>, ctx: OpContext) => {
 
 const sourceUpdate = (args: Record<string, unknown>, ctx: OpContext) => {
   const store = requireSources(ctx)
-  if (typeof args.doc_id !== 'string' || typeof args.id !== 'string') throw new Error('doc_id 와 id 가 필요합니다.')
+  if (typeof args.doc_id !== 'string' || typeof args.id !== 'string') throw new Error('doc_id와 id가 필요합니다.')
   const docId = args.doc_id
   const id = args.id
   const previous = (store.all()[docId] ?? []).find((item) => item.id === id)
   if (previous === undefined) throw new Error(`없는 출처입니다: ${id}`)
   const target = typeof args.target === 'string' ? normalizeSourceTarget(args.target) : undefined
-  if (target !== undefined && !isValidSourceTarget(target)) throw new Error('target 이 올바르지 않습니다.')
+  if (target !== undefined && !isValidSourceTarget(target)) throw new Error('target이 올바르지 않습니다.')
   const patch = {
     ...(target === undefined ? {} : { target }),
     ...(typeof args.label === 'string' ? { label: args.label } : {}),
@@ -84,7 +84,7 @@ const sourceUpdate = (args: Record<string, unknown>, ctx: OpContext) => {
 
 const sourceRemove = (args: Record<string, unknown>, ctx: OpContext) => {
   const store = requireSources(ctx)
-  if (typeof args.doc_id !== 'string' || !Array.isArray(args.ids)) throw new Error('doc_id 와 ids 배열이 필요합니다.')
+  if (typeof args.doc_id !== 'string' || !Array.isArray(args.ids)) throw new Error('doc_id와 ids 배열이 필요합니다.')
   const docId = args.doc_id
   const have = new Map<string, DocSource>((store.all()[docId] ?? []).map((item) => [item.id, item]))
   const removed = (args.ids as unknown[]).filter((id): id is string => typeof id === 'string' && have.has(id))

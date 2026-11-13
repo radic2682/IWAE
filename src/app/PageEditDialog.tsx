@@ -117,7 +117,7 @@ export function PageEditDialog({ docId, title, pageCount, sourcePath, onCancel, 
       // setItems 의 계산은 렌더 때 돈다 — 그 뒤에 고름·안내를 건다
       queueMicrotask(() => {
         setSelected(new Set(inserted.map((item) => item.key)))
-        setMessage(t('{name} 에서 {count}쪽을 끌어 넣었습니다. 저장을 눌러야 이 PDF 에 들어가고, 취소하면 사라집니다.', { name: from, count }))
+        setMessage(t('{name}에서 {count}쪽을 끌어 넣었습니다. 저장해야 이 PDF에 들어가고, 취소하면 사라집니다.', { name: from, count }))
         const first = inserted[0]
         if (first !== undefined) requestAnimationFrame(() => gridRef.current?.querySelector<HTMLElement>(`[data-item-key="${first.key}"]`)?.scrollIntoView({ block: 'nearest' }))
       })
@@ -194,9 +194,9 @@ export function PageEditDialog({ docId, title, pageCount, sourcePath, onCancel, 
       }))
       setItems((current) => [...current.slice(0, after), ...inserted, ...current.slice(after)])
       setSelected(new Set(inserted.map((item) => item.key)))
-      setMessage(t('{name} 의 {count}쪽을 끼워 넣었습니다. 필요 없는 쪽은 골라서 빼세요.', { name, count: meta.pageCount }))
+      setMessage(t('{name}의 {count}쪽을 넣었습니다. 필요 없는 쪽은 골라서 빼세요.', { name, count: meta.pageCount }))
     } catch (cause) {
-      setMessage(t('PDF 를 열지 못했습니다: {error}', { error: errorText(cause) }))
+      setMessage(t('PDF를 열지 못했습니다: {error}', { error: errorText(cause) }))
     }
   }
 
@@ -230,14 +230,14 @@ export function PageEditDialog({ docId, title, pageCount, sourcePath, onCancel, 
   }
 
   const footerText = message ?? (removedCount > 0
-    ? t('원본 {count}쪽을 뺍니다 — 그 쪽의 형광펜·책갈피도 함께 사라집니다.', { count: removedCount })
-    : t('쪽을 끌어 옮기거나, 골라서(Ctrl·Shift 로 여럿) 돌리고 뺄 수 있습니다. 저장하면 원본 PDF 를 덮어씁니다(원본은 .iwae/history/pdf-edits 에 남습니다).'))
+    ? t('원본 {count}쪽을 뺍니다. 그 쪽의 형광펜과 책갈피도 사라집니다.', { count: removedCount })
+    : t('쪽을 끌어 옮기거나, 골라서(Ctrl, Shift로 여러 쪽) 돌리고 뺄 수 있습니다. 저장하면 원본 PDF를 덮어쓰며, 원본은 .iwae/history/pdf-edits에 남습니다.'))
 
   return (
     <div className="page-edit-backdrop" role="presentation">
       <div className="page-edit" role="region" aria-label={t('{title} 쪽 편집', { title })}>
         <header className="page-edit-head">
-          <button type="button" className="page-edit-back" onClick={close} disabled={busy}><ArrowLeft size={15} aria-hidden="true" />{t('PDF 로 돌아가기')}</button>
+          <button type="button" className="page-edit-back" onClick={close} disabled={busy}><ArrowLeft size={15} aria-hidden="true" />{t('PDF로 돌아가기')}</button>
           <div className="page-edit-title">
             <strong>{t('쪽 편집')}</strong>
             <span>{title}</span>
@@ -247,10 +247,10 @@ export function PageEditDialog({ docId, title, pageCount, sourcePath, onCancel, 
           <button type="button" disabled={selected.size === 0} onClick={() => rotate(-90)} title={t('왼쪽으로 돌리기')}><ArrowArcLeft size={16} aria-hidden="true" /> {t('왼쪽으로')}</button>
           <button type="button" disabled={selected.size === 0} onClick={() => rotate(90)} title={t('오른쪽으로 돌리기')}><ArrowArcRight size={16} aria-hidden="true" /> {t('오른쪽으로')}</button>
           <span className="page-edit-sep" />
-          <button type="button" disabled={selected.size === 0} onClick={() => shift(-1)} title={t('앞으로 한 칸')}><CaretLeft size={16} aria-hidden="true" /> {t('앞으로')}</button>
-          <button type="button" disabled={selected.size === 0} onClick={() => shift(1)} title={t('뒤로 한 칸')}>{t('뒤로')} <CaretRight size={16} aria-hidden="true" /></button>
+          <button type="button" disabled={selected.size === 0} onClick={() => shift(-1)} title={t('한 쪽 앞으로')}><CaretLeft size={16} aria-hidden="true" /> {t('앞으로')}</button>
+          <button type="button" disabled={selected.size === 0} onClick={() => shift(1)} title={t('한 쪽 뒤로')}>{t('뒤로')} <CaretRight size={16} aria-hidden="true" /></button>
           <span className="page-edit-sep" />
-          <button type="button" onClick={() => void insertFromPdf()} title={t('고른 쪽 뒤에 다른 PDF 쪽 끼워 넣기')}><FilePlus size={16} aria-hidden="true" /> {t('다른 PDF 쪽 넣기')}</button>
+          <button type="button" onClick={() => void insertFromPdf()} title={t('고른 쪽 뒤에 다른 PDF 쪽 넣기')}><FilePlus size={16} aria-hidden="true" /> {t('다른 PDF 쪽 넣기')}</button>
           <button type="button" disabled={selected.size === 0} onClick={remove} title={t('고른 쪽 빼기')}><Trash size={16} aria-hidden="true" /> {t('빼기')}</button>
           <span className="page-edit-count">{t('{count}쪽', { count: items.length })}{selected.size > 0 ? ` · ${t('{count}쪽 고름', { count: selected.size })}` : ''}</span>
         </div>
@@ -273,7 +273,7 @@ export function PageEditDialog({ docId, title, pageCount, sourcePath, onCancel, 
                 onPointerDown={(event) => startDrag(event, item, index)}
               >
                 {/* 옆으로 돌린 쪽(90°·270°)은 돌린 뒤에도 칸 안에 다 들어오게 작게 */}
-                {item.pending === true ? <span className="page-edit-pending-chip">{t('새로 끼움')}</span> : null}
+                {item.pending === true ? <span className="page-edit-pending-chip">{t('새로 넣음')}</span> : null}
                 <div className={`page-edit-thumb${Math.abs(item.rotate) % 180 === 90 ? ' page-edit-thumb-quarter' : ''}`}>
                   <img
                     src={pageImageUrl(item.thumbDocId, item.page, Math.round(THUMB_WIDTH * ratio))}
@@ -287,7 +287,7 @@ export function PageEditDialog({ docId, title, pageCount, sourcePath, onCancel, 
                   <b>{index + 1}</b>
                   {item.source === undefined
                     ? (item.page === index ? '' : <small>{t('원래 {page}쪽', { page: item.page + 1 })}</small>)
-                    : <small title={item.sourceTitle}>{t('끼움 · {page}쪽', { page: item.page + 1 })}</small>}
+                    : <small title={item.sourceTitle}>{t('넣음 · {page}쪽', { page: item.page + 1 })}</small>}
                   {item.rotate !== 0 ? <small>↻{item.rotate}°</small> : null}
                 </span>
               </div>

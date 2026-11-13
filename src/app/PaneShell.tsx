@@ -46,7 +46,7 @@ export function PaneShell({ state, emptyHint, emptyContent, placeholder, renderB
         {body ?? (
           <div className="pane-placeholder-card">
             <span className="pane-placeholder">
-              {active ? `${active.title} — ${placeholder}` : emptyContent !== undefined ? emptyContent : (
+              {active ? `${active.title}: ${placeholder}` : emptyContent !== undefined ? emptyContent : (
                 <span className="pane-placeholder-empty">
                   <FileDashed size={26} weight="regular" aria-hidden="true" />
                   <span>{emptyHint}</span>

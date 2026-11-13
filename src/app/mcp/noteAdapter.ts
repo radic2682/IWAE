@@ -35,14 +35,14 @@ export interface NoteRef {
 
 export class NoteNotFoundError extends Error {
   constructor(title: string) {
-    super(`「${title}」 노트가 없습니다(note not found). note_list 로 제목을 확인하거나 note_create 로 만드세요.`)
+    super(`「${title}」 노트가 없습니다(note not found). note_list로 제목을 확인하거나 note_create로 만드세요.`)
     this.name = 'NoteNotFoundError'
   }
 }
 
 /** 저장이 거부된 노트: 다시 읽고 다시 시도하라고 알린다 */
 export function changedOnDiskError(title: string): Error {
-  return new Error(`「${title}」 노트가 디스크에서 다른 프로그램에 의해 바뀌었습니다(note changed on disk). note_read 로 다시 읽고 다시 시도하세요. 앱의 충돌 안내를 사용자가 먼저 정해야 할 수도 있습니다.`)
+  return new Error(`「${title}」 노트가 디스크에서 다른 프로그램에 의해 바뀌었습니다(note changed on disk). note_read로 다시 읽고 다시 시도하세요. 앱의 충돌 안내를 사용자가 먼저 정해야 할 수도 있습니다.`)
 }
 
 function isStaleWrite(cause: unknown): boolean {
@@ -70,7 +70,7 @@ export interface NoteAdapter {
 
 export function noteAdapter(store: NoteStoreDeps | undefined): NoteAdapter {
   const need = (): NoteStoreDeps => {
-    if (store === undefined) throw new Error('노트를 다룰 수 없습니다(Vault 가 열려 있지 않습니다).')
+    if (store === undefined) throw new Error('노트를 다룰 수 없습니다(Vault가 열려 있지 않습니다).')
     return store
   }
   const refOf = (path: string, note: MemoNote): NoteRef => ({ path, title: memoNoteTitleOf(path), note })
@@ -104,7 +104,7 @@ export function noteAdapter(store: NoteStoreDeps | undefined): NoteAdapter {
     } else {
       path = await deps.edit(wanted, (note) => (docId === undefined ? note : { ...note, docId }), true)
     }
-    if (path === null) throw new Error('노트를 만들지 못했습니다(Vault 를 확인하세요).')
+    if (path === null) throw new Error('노트를 만들지 못했습니다(Vault를 확인하세요).')
     const made = byPath(path) ?? { path, title: memoNoteTitleOf(path), note: docId === undefined ? EMPTY_MEMO_NOTE : { ...EMPTY_MEMO_NOTE, docId } }
     const snapshot = made.note
     recordUndo({

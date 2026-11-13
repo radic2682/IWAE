@@ -1290,7 +1290,7 @@ function NoteFlow({
     interactionRef.current = cancelCanvasInteraction()
     setNodes(next)
     emitDocument(next, edgesRef.current, viewportRef.current)
-    if (source === 'manual') announceAction(t('크기 조절 완료'))
+    if (source === 'manual') announceAction(t('크기를 바꿨습니다'))
   }, [emitDocument, resizedNodes, setNodes])
 
   const settleNode = useCallback((nodeId: string, position: { x: number; y: number }) => {
@@ -2197,7 +2197,7 @@ function NoteFlow({
     nodesRef.current = next
     setNodes(next)
     emitDocument(next, edgesRef.current, viewportRef.current)
-    announceAction(copies.length === 1 ? t('복사해서 놓았습니다') : t('{count}개를 복사해서 놓았습니다', { count: copies.length }))
+    announceAction(copies.length === 1 ? t('복제했습니다') : t('{count}개를 복제했습니다', { count: copies.length }))
   }, [emitDocument, setNodes])
 
   const startNodeDrag = useCallback((node: NoteCanvasNode) => {
@@ -2245,7 +2245,7 @@ function NoteFlow({
   const addCanvasBlock = useCallback((kind: CanvasBlockPreset) => {
     if (kind === 'rectangle' || kind === 'square' || kind === 'ellipse' || kind === 'diamond') {
       setDrawingTool((current) => current === kind ? null : kind)
-      announceAction(t('캔버스 위에서 드래그해 도형을 그리세요'))
+      announceAction(t('캔버스에서 끌어서 도형을 그리세요'))
       setContextMenu(null)
       return
     }
@@ -2416,7 +2416,7 @@ function NoteFlow({
           announceAction(enabled ? t('PDF 글자 크기 맞춤 켜짐') : t('PDF 글자 크기 맞춤 꺼짐'))
         }}
         onCommand={applyFormat}
-        onUndo={() => { restoreHistory('undo'); announceAction(t('실행을 취소했습니다')) }}
+        onUndo={() => { restoreHistory('undo'); announceAction(t('되돌렸습니다')) }}
         onRedo={() => { restoreHistory('redo'); announceAction(t('다시 실행했습니다')) }}
         onSetConnectionStartMarker={(marker) => setConnectionMarker('start', marker)}
         onSetConnectionEndMarker={(marker) => setConnectionMarker('end', marker)}
@@ -2524,7 +2524,7 @@ function NoteFlow({
             onPointerUp={finishDrawing}
             onPointerCancel={() => setDrawingDraft(null)}
           >
-            <div className="canvas-drawing-hint">{t('드래그해 도형 그리기')} <button type="button" onClick={() => { setDrawingTool(null); setDrawingDraft(null) }}>{t('취소')}</button></div>
+            <div className="canvas-drawing-hint">{t('끌어서 도형 그리기')} <button type="button" onClick={() => { setDrawingTool(null); setDrawingDraft(null) }}>{t('취소')}</button></div>
             {drawingDraft !== null && <div className={`canvas-drawing-preview canvas-drawing-preview-${drawingTool}`} style={{ left: Math.min(drawingDraft.x1, drawingDraft.x2), top: Math.min(drawingDraft.y1, drawingDraft.y2), width: Math.abs(drawingDraft.x2 - drawingDraft.x1), height: Math.abs(drawingDraft.y2 - drawingDraft.y1) }} />}
           </div>
         )}

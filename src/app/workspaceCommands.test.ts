@@ -72,7 +72,7 @@ describe('파서', () => {
   })
 
   it('오류: 모르는 명령 · 모르는 옵션 · 값이 없는 -t · 빈 줄 · 닫히지 않은 따옴표', () => {
-    expect(parseCommandLine('foo')).toEqual({ ok: false, message: '모르는 명령: foo — ? 로 목록' })
+    expect(parseCommandLine('foo')).toEqual({ ok: false, message: '알 수 없는 명령: foo. ?를 입력하면 목록이 나옵니다' })
     const flag = parseCommandLine('split-window -x')
     expect(flag.ok).toBe(false)
     expect(!flag.ok && flag.message).toContain('-x')
@@ -486,9 +486,9 @@ describe('명령 실행: 앱이 하는 일', () => {
   })
 
   it('source-file 은 keys.conf 를 다시 읽는 손잡이를 부른다', async () => {
-    const reloadKeys = vi.fn(async () => ({ ok: true, message: 'keys.conf 를 읽었습니다' }))
+    const reloadKeys = vi.fn(async () => ({ ok: true, message: 'keys.conf를 읽었습니다' }))
     const h = harness(oneScreen(), { reloadKeys })
-    expect(await h.run('source')).toEqual({ ok: true, message: 'keys.conf 를 읽었습니다' })
+    expect(await h.run('source')).toEqual({ ok: true, message: 'keys.conf를 읽었습니다' })
     expect(reloadKeys).toHaveBeenCalledOnce()
     expect((await harness().run('source-file')).ok).toBe(false)
   })
@@ -587,7 +587,7 @@ describe('명령 실행: 앱이 하는 일', () => {
     it('손잡이가 없으면 「지금은 안 됩니다」, 손잡이가 실패를 돌려주면 그 말을 그대로 낸다', async () => {
       const h = harness()
       for (const line of ['new-session', 'switch-client -t x', 'rename-session x', 'save-session', 'kill-session', 'list-sessions']) {
-        expect(await h.run(line), line).toEqual({ ok: false, message: '지금은 안 됩니다' })
+        expect(await h.run(line), line).toEqual({ ok: false, message: '지금은 사용할 수 없습니다' })
       }
       const failing = harness(oneScreen(), { switchSession: async () => ({ ok: false, message: '세션을 찾을 수 없습니다: x' }) })
       expect(await failing.run('switch-client -t x')).toEqual({ ok: false, message: '세션을 찾을 수 없습니다: x' })
@@ -689,13 +689,13 @@ describe('명령 실행: 앱이 하는 일', () => {
       expect((await h.run('popup')).ok).toBe(true)
       expect(openTranslator).toHaveBeenCalledTimes(2)
       expect(floatsOf(h)).toHaveLength(0)
-      expect(await harness().run('display-popup')).toEqual({ ok: false, message: '지금은 안 됩니다' })
+      expect(await harness().run('display-popup')).toEqual({ ok: false, message: '지금은 사용할 수 없습니다' })
     })
 
     it('display-popup: 번역이 꺼져 있어 번역기가 열리지 않으면 ok 가 아니라 이유로 실패한다', async () => {
       const openTranslator = vi.fn(() => false)
       const h = harness(oneScreen(), { openTranslator })
-      expect(await h.run('display-popup')).toEqual({ ok: false, message: '번역이 꺼져 있습니다. 설정에서 켜 주세요' })
+      expect(await h.run('display-popup')).toEqual({ ok: false, message: '번역이 꺼져 있습니다. 설정에서 켜세요' })
       expect(openTranslator).toHaveBeenCalledTimes(1)
       expect(floatsOf(h)).toHaveLength(0)
     })
@@ -723,7 +723,7 @@ describe('명령 실행: 앱이 하는 일', () => {
       expect(await failing.run('display-popup 없음')).toEqual({ ok: false, message: '찾을 수 없습니다' })
       expect(floatsOf(failing)).toHaveLength(0)
       const noOpen = harness()
-      expect(await noOpen.run('display-popup 노트')).toEqual({ ok: false, message: '지금은 안 됩니다' })
+      expect(await noOpen.run('display-popup 노트')).toEqual({ ok: false, message: '지금은 사용할 수 없습니다' })
     })
 
     it('display-popup 이름은 문서를 보는 칸에서 부르면 그 칸에 붙인다', async () => {
@@ -782,7 +782,7 @@ describe('명령 줄 전체', () => {
   it('파서 오류는 아무것도 실행하지 않는다', async () => {
     const h = harness()
     const result = await h.run('split-window -h ; 모르는명령')
-    expect(result).toEqual({ ok: false, message: '모르는 명령: 모르는명령 — ? 로 목록' })
+    expect(result).toEqual({ ok: false, message: '알 수 없는 명령: 모르는명령. ?를 입력하면 목록이 나옵니다' })
     expect(leaves(h.screen().layout)).toHaveLength(1)
   })
 })

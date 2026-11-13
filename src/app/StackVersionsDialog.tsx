@@ -77,12 +77,12 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
         </header>
 
         <div className="stack-body">
-          {suggested ? <p className="stack-suggested">{t('가져온 파일이 이 문서의 다른 버전 같습니다. 묶지 않으려면 취소하세요(파일은 그대로 들어와 있습니다).')}</p> : null}
+          {suggested ? <p className="stack-suggested">{t('가져온 파일이 이 문서의 다른 버전으로 보입니다. 묶지 않으려면 취소하세요. 파일은 이미 추가되어 있습니다.')}</p> : null}
           {given === null ? (
             <div className="stack-picker">
               <input aria-label={t('묶을 문서 찾기')} placeholder={t('묶을 문서 이름')} value={query} autoFocus onChange={(event) => setQuery(event.target.value)} />
               <div className="stack-candidates" role="radiogroup" aria-label={t('묶을 문서')}>
-                {filtered.length === 0 ? <p className="stack-empty">{t('묶을 수 있는 다른 PDF 가 없습니다.')}</p> : filtered.map((doc) => (
+                {filtered.length === 0 ? <p className="stack-empty">{t('묶을 수 있는 다른 PDF가 없습니다.')}</p> : filtered.map((doc) => (
                   <button key={doc.docId} type="button" role="radio" aria-checked={picked?.docId === doc.docId} className={`stack-candidate${picked?.docId === doc.docId ? ' stack-candidate-on' : ''}`} onClick={() => choose(doc)}>
                     {doc.title}
                   </button>
@@ -107,9 +107,9 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
               </label>
               <label className="stack-check">
                 <input type="checkbox" checked={makeDefault} onChange={(event) => setMakeDefault(event.target.checked)} />
-                <span>{t('묶을 버전을 문서 기본 버전으로 (핀)')}</span>
+                <span>{t('묶을 버전을 문서 기본 버전으로 고정')}</span>
               </label>
-              {sameLabels ? <p className="stack-error" role="alert">{t('두 버전 이름이 같습니다. 구분되게 적어 주세요.')}</p> : null}
+              {sameLabels ? <p className="stack-error" role="alert">{t('두 버전 이름이 같습니다. 서로 다르게 입력하세요.')}</p> : null}
             </div>
           )}
         </div>

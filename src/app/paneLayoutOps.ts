@@ -65,7 +65,7 @@ export function splitPane(input: TreeWorkspace, pane: PaneId, dir: SplitDir, siz
 
 /**
  * 탭을 pane 의 edge 쪽에 새 칸을 만들어 옮긴다. dockTab 과 달리 하나뿐인 탭도 옮긴다(원래 칸은 빈 채 남는다) —
- * 탭 메뉴 「새 오른쪽 패널로 옮기기」가 쓴다. 못 하면 { refused }
+ * 탭 메뉴 「새 오른쪽 칸으로 이동」가 쓴다. 못 하면 { refused }
  */
 export function moveTabToNewPane(input: TreeWorkspace, tabId: string, source: PaneId, edge: DockEdge, sizeOf?: PaneSizer): SplitOutcome | { readonly refused: SplitRefusal } | null {
   const tab: Tab | undefined = tabsOf(input.panes, source).tabs.find((candidate) => candidate.id === tabId)

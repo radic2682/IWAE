@@ -74,7 +74,7 @@ export function ShortcutOverlay({ onClose, onOpenSettings }: { readonly onClose:
           {visible.length === 0 ? <p className="sk-empty">{t('맞는 단축키가 없습니다')}</p> : null}
         </div>
         <footer className="sko-foot">
-          <span>{t('Esc 로 닫기')}</span>
+          <span>{t('Esc로 닫기')}</span>
           <button type="button" className="translation-cache-clear" onClick={() => { onClose(); onOpenSettings() }}>{t('설정에서 바꾸기')}</button>
         </footer>
       </div>

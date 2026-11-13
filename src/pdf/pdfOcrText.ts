@@ -16,7 +16,7 @@ export async function recognizePdfPageText(
 ): Promise<string> {
   const url = pageImageUrl(docId, page, 1800)
   const response = await fetchPage(url)
-  if (!response.ok) throw new Error(t('PDF OCR 페이지 렌더 실패: {status}', { status: response.status }))
+  if (!response.ok) throw new Error(t('PDF OCR 쪽 그리기 실패: {status}', { status: response.status }))
   const text = await recognizeImageText(await response.blob())
   if (text === null) throw new Error(t('PDF OCR 엔진을 사용할 수 없습니다.'))
   return text
@@ -37,7 +37,7 @@ export async function recognizePdfPageLines(
 ): Promise<SearchableLine[]> {
   const url = pageImageUrl(docId, page, OCR_RENDER_WIDTH)
   const response = await fetchPage(url)
-  if (!response.ok) throw new Error(t('PDF OCR 페이지 렌더 실패: {status}', { status: response.status }))
+  if (!response.ok) throw new Error(t('PDF OCR 쪽 그리기 실패: {status}', { status: response.status }))
   const items = await recognizeImageLines(await response.blob())
   if (items === null) throw new Error(t('PDF OCR 엔진을 사용할 수 없습니다.'))
   return ocrItemsToLines(items, pageWidth / OCR_RENDER_WIDTH)

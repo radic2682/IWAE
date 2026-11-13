@@ -475,7 +475,7 @@ function NoteFlowImpl({
     if (hit !== undefined) { setTranslation(source.id, { status: 'done', text: hit }); return }
     setTranslation(source.id, { status: 'loading', text: '' })
     translateWithCache(quote, { docId: source.anchor.docId, page: source.anchor.page })
-      .then((text) => setTranslation(source.id, text === null ? { status: 'error', text: t('번역하지 못했습니다. 설정 → 번역을 확인해 주세요') } : { status: 'done', text }))
+      .then((text) => setTranslation(source.id, text === null ? { status: 'error', text: t('번역하지 못했습니다. 설정 → 번역을 확인하세요') } : { status: 'done', text }))
       .catch((error: unknown) => setTranslation(source.id, { status: 'error', text: error instanceof Error ? error.message : String(error) }))
   }
   // ID 나 제목을 고치는 중인 블록과 칸
@@ -595,7 +595,7 @@ function NoteFlowImpl({
         <div className="note-selection-bar" role="toolbar" aria-label={t('고른 블록')}>
           {confirmDelete ? (
             <>
-              <span>{t('{count}개 블록을 지울까요? 메모는 형광펜도 함께 지워집니다.', { count: selected.size })}</span>
+              <span>{t('블록 {count}개를 지울까요? 메모는 형광펜도 함께 지워집니다.', { count: selected.size })}</span>
               <button type="button" className="note-selection-danger" onClick={deleteSelected}>{t('지우기')}</button>
               <button type="button" onClick={() => setConfirmDelete(false)}>{t('취소')}</button>
             </>
@@ -604,7 +604,7 @@ function NoteFlowImpl({
               <span>{t('{count}개 고름', { count: selected.size })}</span>
               <span className="note-selection-hint">{t('끌어서 함께 옮기기')}</span>
               <button type="button" className="note-selection-danger" onClick={() => setConfirmDelete(true)}>{t('지우기')}</button>
-              <button type="button" onClick={() => setSelected(new Set())}>{t('고르기 풀기')}</button>
+              <button type="button" onClick={() => setSelected(new Set())}>{t('선택 해제')}</button>
             </>
           )}
         </div>
@@ -751,7 +751,7 @@ function NoteFlowImpl({
                   ))}
                 </div>
                 {onAddRef !== undefined ? (
-                  <button type="button" role="menuitem" onClick={run(() => onAddRef(menuItem.key))}>{menuLabel(<LinkSimple size={15} />, t('원문 더하기'))}</button>
+                  <button type="button" role="menuitem" onClick={run(() => onAddRef(menuItem.key))}>{menuLabel(<LinkSimple size={15} />, t('원문 추가'))}</button>
                 ) : null}
                 {onSetTicket !== undefined && menuItem.draft !== true ? (
                   <>
@@ -1050,7 +1050,7 @@ const NoteTextRow = memo(function NoteTextRow({ item, editing, matches, api, sel
             label={t('글')}
             initialText={item.text}
             initialHtml={item.html}
-            placeholder={t('글을 쓰세요 (끝에서 Enter 두 번이면 아래에 새 글)')}
+            placeholder={t('글을 쓰세요. 끝에서 Enter를 두 번 누르면 새 글이 생깁니다')}
             onSave={(content) => {
               api.onSaveText(item.key, content)
               api.onEdit(null)
@@ -1117,7 +1117,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
     const collapsed = source.kind !== 'region' && !isOpen(source.id)
     const meta = source.rating === undefined ? null : <span className="note-source-meta">{noteStars(source)}</span>
     const remove = extra && canRemoveRef ? (
-      <button type="button" className="note-source-remove" aria-label={t('이 원문 떼기')} title={t('이 원문 떼기')} onClick={(event) => {
+      <button type="button" className="note-source-remove" aria-label={t('이 원문 분리')} title={t('이 원문 분리')} onClick={(event) => {
         event.stopPropagation()
         api.onRemoveRef(item.key, source.id)
       }}>
@@ -1226,8 +1226,8 @@ const NoteMemoRow = memo(function NoteMemoRow({
       {sources.map((source, at) => renderSource(source, at > 0, at))}
       {attaching ? (
         <div className="note-source-attach" role="status">
-          <span>{t('PDF 에서 더할 원문을 고르세요')}</span>
-          <button type="button" onClick={() => api.onAddRef(null)}>{t('그만두기')}</button>
+          <span>{t('PDF에서 추가할 원문을 고르세요')}</span>
+          <button type="button" onClick={() => api.onAddRef(null)}>{t('취소')}</button>
         </div>
       ) : null}
     </div>
@@ -1239,8 +1239,8 @@ const NoteMemoRow = memo(function NoteMemoRow({
       initialHtml={highlight.noteHtml}
       discardEmptyOnBlur={draft}
       placeholder={!draft ? t('메모를 쓰세요')
-        : highlight.kind === 'region' ? t('설명을 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다 · 그림만 남기려면 Ctrl+Enter)')
-          : t('메모를 쓰세요 (안 쓰고 다른 곳을 누르면 사라집니다)')}
+        : highlight.kind === 'region' ? t('설명을 쓰세요. 쓰지 않고 다른 곳을 누르면 사라지며, 그림만 남기려면 Ctrl+Enter를 누르세요')
+          : t('메모를 쓰세요. 쓰지 않고 다른 곳을 누르면 사라집니다')}
       onSave={(content) => {
         // 아직 ID 가 없는데 글 맨 앞에 「REQ-04 」처럼 썼으면 그 낱말을 ID 배지로 옮긴다
         const leading = ticket?.id === undefined && canHead ? splitLeadingTicketId(content.text) : null
@@ -1384,7 +1384,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
         {memo}
         {sourceList}
         {item.farSource === undefined ? null : (
-          <button type="button" className="note-far-link" data-far-memo={highlight.id} title={t('이 메모의 문서를 같은 색 창에 보이기')}>
+          <button type="button" className="note-far-link" data-far-memo={highlight.id} title={t('이 메모의 문서를 같은 색 칸에 표시')}>
             <span aria-hidden="true">→</span> {item.farSource.label}{item.farSource.page === undefined ? '' : ` p.${item.farSource.page}`}
           </button>
         )}
@@ -1464,7 +1464,7 @@ function TicketIdInput({ initial, suggestions, taken, onDone, onCancel }: {
           ))}
         </div>
       ) : null}
-      {duplicate ? <p className="note-ticket-id-warn" role="status">{t('이 노트에 이미 있는 ID 입니다')}</p> : null}
+      {duplicate ? <p className="note-ticket-id-warn" role="status">{t('이 노트에 이미 있는 ID입니다')}</p> : null}
     </div>
   )
 }

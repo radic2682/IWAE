@@ -18,7 +18,7 @@ export interface TranslationLanguageBarProps {
 /** [원문 ▾] ⇄ [번역 ▾]: 번역 카드와 번역기가 함께 쓴다 */
 export function TranslationLanguageBar({ source, target, detected, disabled = false, onSourceChange, onTargetChange, onSwap }: TranslationLanguageBarProps) {
   const swapBlocked = source === AUTO_SOURCE && (detected === null || detected === target)
-  const swapTitle = swapBlocked ? t('원문 언어를 어림할 수 없어 바꿀 수 없습니다. 원문 언어를 직접 고르세요.') : t('원문과 번역 언어 바꾸기')
+  const swapTitle = swapBlocked ? t('원문 언어를 알 수 없어 바꿀 수 없습니다. 원문 언어를 직접 고르세요.') : t('원문과 번역 언어 바꾸기')
   return (
     <div className="translation-lang-bar" role="group" aria-label={t('번역 언어')} data-no-drag>
       <select

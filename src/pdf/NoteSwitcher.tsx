@@ -142,7 +142,7 @@ export function NoteSwitcherMenu({ api, currentDocId, docLabel, currentPath, onP
           <hr className="note-switch-sep" />
           <button type="button" role="menuitem" className="note-switch-item note-switch-danger" onClick={() => { onClose(); onTrashCurrent() }}>
             <Trash size={14} aria-hidden="true" />
-            <span>{t('이 노트 휴지통으로 이동…')}</span>
+            <span>{t('이 노트를 휴지통으로 이동…')}</span>
           </button>
         </>
       )}

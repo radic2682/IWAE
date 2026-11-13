@@ -50,7 +50,7 @@ export function ThemeSettings({
     <section className="theme-settings" data-theme-drop="" aria-labelledby="theme-settings-title">
       <header className="theme-settings-heading">
         <h2 id="theme-settings-title">{t('화면 테마')}</h2>
-        <p>{t('작업 공간의 밝기를 선택합니다. 시스템 설정은 운영체제 변경을 바로 따라갑니다.')}</p>
+        <p>{t('작업 공간의 밝기를 고릅니다. 시스템 설정은 운영체제 설정을 따릅니다.')}</p>
       </header>
       <div className="theme-settings-options" role="radiogroup" aria-label={t('화면 테마 선택')}>
         {CHOICES.map(({ value, label, icon: Icon }) => (

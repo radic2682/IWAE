@@ -78,7 +78,7 @@ export function ThemeIntakeHost({ resolvedTheme }: { readonly resolvedTheme: Res
   return (
     <>
       {hovering && current === null
-        ? createPortal(<div className="ut-drop-hint" role="status"><span>{t('테마 파일을 놓으면 추가할 수 있어요')}</span></div>, document.body)
+        ? createPortal(<div className="ut-drop-hint" role="status"><span>{t('테마 파일을 놓아 추가할 수 있습니다')}</span></div>, document.body)
         : null}
       {current === null ? null : createPortal(
         <div className="confirm-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) next() }}>
@@ -115,7 +115,7 @@ export function ThemeIntakeHost({ resolvedTheme }: { readonly resolvedTheme: Res
                 <div className="confirm-dialog-body">
                   <div className="ut-intake-preview"><UserThemePreview theme={current.content.theme} mode={resolvedTheme} /></div>
                   <p>{current.file}{queue.length > 1 ? ` · ${t('남은 파일')} ${queue.length - 1}` : ''}</p>
-                  {findSameTheme(current.content.theme, themes) !== undefined ? <p>{t('같은 테마가 이미 있어서 새로 만들지 않고 그것을 씁니다.')}</p> : null}
+                  {findSameTheme(current.content.theme, themes) !== undefined ? <p>{t('같은 테마가 이미 있어 새로 만들지 않고 기존 테마를 씁니다.')}</p> : null}
                   {current.content.highlightColors !== undefined ? (
                     <label className="ut-intake-check">
                       <input type="checkbox" checked={withHighlights} onChange={(event) => setWithHighlights(event.target.checked)} />

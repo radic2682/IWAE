@@ -38,7 +38,7 @@ function requireTitle(args: Record<string, unknown>): string {
 export function textContent(input: Record<string, unknown>): { text: string; html: string } {
   const markdown = typeof input.markdown === 'string' ? input.markdown : typeof input.text === 'string' ? input.text : typeof input.content === 'string' ? input.content : null
   const html = typeof input.html === 'string' ? sanitizeMemoHtml(input.html) : markdown !== null ? markdownToMemoHtml(markdown) : ''
-  if (html.trim() === '' && (markdown ?? '').trim() === '') throw new Error('글 블록에는 markdown 또는 html 이 필요합니다.')
+  if (html.trim() === '' && (markdown ?? '').trim() === '') throw new Error('글 블록에는 markdown 또는 html이 필요합니다.')
   const box = document.createElement('div')
   box.innerHTML = html
   // 칸·목록 사이에 빈칸을 두고 글자만 뽑는다(검색·미리보기용)
@@ -59,7 +59,7 @@ function blockFromInput(input: Record<string, unknown>, index: number, highlight
     : typeof input.highlight_id === 'string' ? 'memo' : input.markdown === undefined && input.html === undefined && typeof input.title === 'string' ? 'section' : 'text'
   if (kind === 'section') {
     const title = typeof input.title === 'string' ? input.title.trim() : ''
-    if (title === '') throw new Error(`blocks[${index}]: 소제목에는 title 이 필요합니다.`)
+    if (title === '') throw new Error(`blocks[${index}]: 소제목에는 title 값이 필요합니다.`)
     return sectionBlock(title)
   }
   if (kind === 'memo' || kind === 'ticket') {
@@ -69,7 +69,7 @@ function blockFromInput(input: Record<string, unknown>, index: number, highlight
     if (kind === 'ticket' && ticket === undefined) throw new Error(`blocks[${index}]: 티켓에는 title(또는 ticket_id/ticket_title)이 필요합니다.`)
     return memoBlock(id, ticket)
   }
-  if (kind !== 'text') throw new Error(`blocks[${index}]: kind 는 section, text, memo, ticket 중 하나입니다.`)
+  if (kind !== 'text') throw new Error(`blocks[${index}]: kind는 section, text, memo, ticket 중 하나입니다.`)
   const { text, html } = textContent(input)
   return textBlock(text, html)
 }
@@ -144,7 +144,7 @@ const noteRead = (args: Record<string, unknown>, ctx: OpContext) => {
 /** 노트 폴더 안으로만: 「..」·절대 경로를 거절하고, 노트 폴더 밖이면 그 아래로 둔다 */
 function safeFolder(folder: string): string {
   const parts = folder.replaceAll('\\', '/').split('/').map((part) => part.trim()).filter((part) => part !== '')
-  if (parts.some((part) => part === '..' || part === '.' || /^[A-Za-z]:$/u.test(part))) throw new Error('folder 가 올바르지 않습니다(노트 폴더 안의 하위 폴더 이름만).')
+  if (parts.some((part) => part === '..' || part === '.' || /^[A-Za-z]:$/u.test(part))) throw new Error('folder가 올바르지 않습니다(노트 폴더 안의 하위 폴더 이름만).')
   const root = memoNotesFolder()
   const rest = parts[0] === root ? parts.slice(1) : parts
   return [root, ...rest].join('/')
@@ -156,11 +156,11 @@ const noteCreate = async (args: Record<string, unknown>, ctx: OpContext) => {
   let docTitle = ''
   if (docId !== undefined) {
     const loaded = await ctx.deps.loadPdfById(docId).catch(() => null)
-    if (loaded === null) throw new Error(`없는 문서입니다(doc_id not found): ${docId}. list_documents 로 doc_id 를 확인하세요.`)
+    if (loaded === null) throw new Error(`없는 문서입니다(doc_id not found): ${docId}. list_documents로 doc_id를 확인하세요.`)
     docTitle = loaded.title
   }
   if (title === '') {
-    if (docId === undefined) throw new Error('title 또는 doc_id 가 필요합니다.')
+    if (docId === undefined) throw new Error('title 또는 doc_id가 필요합니다.')
     // 제목이 없으면 그 PDF 의 노트 제목. 이미 있으면 그 노트를 다시 쓰고(unique 가 아니면), 아니면 겹치지 않는 제목
     const taken = args.unique === true ? ctx.notes.list().map((ref) => ref.title) : []
     title = docNoteTitle(docTitle, taken)
@@ -298,10 +298,10 @@ const noteUpdateBlock = async (args: Record<string, unknown>, ctx: OpContext) =>
   let kind = ''
   const { ref } = await ctx.notes.edit(title, (note) => {
     const block = note.blocks.find((item) => item.id === id)
-    if (block === undefined) throw new Error(`없는 블록입니다(block not found): ${id}. note_read 로 블록 id 를 확인하세요.`)
+    if (block === undefined) throw new Error(`없는 블록입니다(block not found): ${id}. note_read로 블록 id를 확인하세요.`)
     kind = block.kind
     if (block.kind === 'section') {
-      if (typeof args.section_title !== 'string' && typeof args.collapsed !== 'boolean') throw new Error('소제목은 section_title 또는 collapsed 로 바꿉니다.')
+      if (typeof args.section_title !== 'string' && typeof args.collapsed !== 'boolean') throw new Error('소제목은 section_title 또는 collapsed로 바꿉니다.')
       return updateSection(note, id, {
         ...(typeof args.section_title === 'string' ? { title: args.section_title } : {}),
         ...(typeof args.collapsed === 'boolean' ? { collapsed: args.collapsed } : {}),
@@ -319,7 +319,7 @@ const noteUpdateBlock = async (args: Record<string, unknown>, ctx: OpContext) =>
       return setMemoTicket(note, id, normalizeTicket({ id: nextId, title: nextTitle }))
     }
     if (typeof args.collapsed === 'boolean') return note
-    throw new Error('메모·티켓 블록의 글은 memo_update 로 고칩니다(ID 는 ticket_id, 제목은 ticket_title. 둘 다 비우면 그냥 메모).')
+    throw new Error('메모·티켓 블록의 글은 memo_update로 고칩니다(ID는 ticket_id, 제목은 ticket_title. 둘 다 비우면 그냥 메모).')
   }, {})
   if (kind === 'memo' && typeof args.collapsed === 'boolean') {
     const block = ref.note.blocks.find((item) => item.id === id)
@@ -350,10 +350,10 @@ function moveSpecOf(args: Record<string, unknown>): MoveSpec {
 /** ids 를 주어진 차례로 한 자리에 모은다 */
 function moveBlocks(note: MemoNote, ids: readonly string[], spec: MoveSpec): MemoNote {
   const known = new Set(note.blocks.map((block) => block.id))
-  for (const id of ids) if (!known.has(id)) throw new Error(`없는 블록입니다(block not found): ${id}. note_read 로 블록 id 를 확인하세요.`)
+  for (const id of ids) if (!known.has(id)) throw new Error(`없는 블록입니다(block not found): ${id}. note_read로 블록 id를 확인하세요.`)
   if ((spec.mode === 'before' || spec.mode === 'after' || spec.mode === 'section') && !known.has(spec.id)) throw new Error(`기준 블록을 찾지 못했습니다(block not found): ${spec.id}`)
   if ((spec.mode === 'before' || spec.mode === 'after') && ids.includes(spec.id)) throw new Error('기준 블록이 옮길 블록에 들어 있습니다.')
-  if (spec.mode === 'section' && sectionRange(note, spec.id) === null) throw new Error(`section_id 가 소제목이 아닙니다(not a section): ${spec.id}`)
+  if (spec.mode === 'section' && sectionRange(note, spec.id) === null) throw new Error(`section_id가 소제목이 아닙니다(not a section): ${spec.id}`)
   let next = note
   let last = spec.mode === 'after' ? spec.id : ''
   for (const id of ids) {
@@ -392,14 +392,14 @@ const noteMoveBlocks = async (args: Record<string, unknown>, ctx: OpContext) => 
 const noteRename = async (args: Record<string, unknown>, ctx: OpContext) => {
   const title = requireTitle(args)
   const newTitle = typeof args.new_title === 'string' ? cleanTitle(args.new_title) : ''
-  if (newTitle === '') throw new Error('new_title 이 필요합니다.')
+  if (newTitle === '') throw new Error('new_title 값이 필요합니다.')
   const current = ctx.notes.require(title)
   const clash = ctx.notes.find(newTitle)
   if (clash !== null && clash.path !== current.path) throw new Error(`이미 있는 노트 제목입니다(already exists): ${clash.title}`)
   const renamed = await ctx.notes.rename(title, newTitle)
   ctx.change.target = renamed.title
   ctx.change.count += 1
-  ctx.change.summary = t('노트 이름을 「{title}」(으)로 바꿈', { title: renamed.title })
+  ctx.change.summary = t('노트 이름을 「{title}」로 바꿈', { title: renamed.title })
   return { title: current.title, new_title: renamed.title }
 }
 
@@ -428,7 +428,7 @@ const noteDelete = async (args: Record<string, unknown>, ctx: OpContext) => {
   const found = await ctx.notes.trash(title)
   ctx.change.target = found.title
   ctx.change.count += 1
-  ctx.change.summary = t('노트 「{title}」 휴지통으로', { title: found.title })
+  ctx.change.summary = t('「{title}」 노트를 휴지통으로 옮김', { title: found.title })
   return { deleted: found.title, path: found.path, note: 'Moved to the Vault trash (restorable); ai_undo brings it back. The PDF memos in it stay.' }
 }
 

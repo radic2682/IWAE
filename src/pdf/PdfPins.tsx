@@ -132,7 +132,7 @@ export function PdfPins({ pins, editingId, onEdit, onJump, onUpdate, onRemove, s
           label={t('책갈피 {title}', { title: pinMenu.placed.pin.title })}
           onClose={() => setPinMenu(null)}
           entries={[
-            { key: 'jump', icon: <ArrowSquareIn size={15} />, label: t('이 자리로 가기'), onSelect: () => onJump(pinMenu.placed.target) },
+            { key: 'jump', icon: <ArrowSquareIn size={15} />, label: t('이 위치로 이동'), onSelect: () => onJump(pinMenu.placed.target) },
             ...(onUpdate === undefined ? [] : [{ key: 'rename', icon: <PencilSimple size={15} />, label: t('이름 바꾸기'), onSelect: () => onEdit(pinMenu.placed.pin.id) }]),
             ...(onRemove === undefined ? [] : [
               { key: 'sep', separator: true as const },

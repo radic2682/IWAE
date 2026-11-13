@@ -37,12 +37,12 @@ describe('UpdateBanner', () => {
   it('다운로드 완료 후 재시작 설치 버튼을 표시한다', () => {
     const state = updater({ status: 'ready', progress: { downloaded: 100, total: 100 } })
     render(<UpdateBanner state={state} />)
-    fireEvent.click(screen.getByRole('button', { name: '재시작하여 설치' }))
+    fireEvent.click(screen.getByRole('button', { name: '다시 시작해 설치' }))
     expect(state.install).toHaveBeenCalledOnce()
   })
 
   it('설정 창이 열려 있으면 숨긴다', () => {
     render(<UpdateBanner state={updater({ status: 'ready' })} hidden />)
-    expect(screen.queryByRole('button', { name: '재시작하여 설치' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '다시 시작해 설치' })).toBeNull()
   })
 })

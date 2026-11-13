@@ -488,7 +488,7 @@ export function Sidebar({
                   className={`side-version-pill${isCurrent ? ' side-version-pill-on' : ''}${versionDrag?.docId === version.docId ? ' side-version-row-dragging' : ''}`}
                   aria-pressed={isCurrent}
                   aria-label={t('{label} 버전으로 바꾸기', { label: version.label })}
-                  title={t('눌러서 이 버전으로 · 우클릭: 더 보기 · 끌어서 묶음 밖에 놓으면 빼기')}
+                  title={t('눌러서 이 버전으로, 우클릭으로 더 보기, 묶음 밖으로 끌어 놓으면 빼기')}
                   onPointerDown={(event) => startVersionDrag(event, version.docId, versionActions.onRemove)}
                   onClick={() => {
                     if (suppressVersionClickRef.current) return
@@ -640,7 +640,7 @@ export function Sidebar({
     if (onRenameEntry === undefined) return
     const displayName = editingName.trim()
     if (displayName === '') {
-      setRenameError(t('표시 이름을 입력해 주세요.'))
+      setRenameError(t('표시 이름을 입력하세요.'))
       return
     }
     // 판 묶음 줄: 줄에 보이는 것은 묶음 이름이므로 묶음 이름을 바꾼다(PDF 는 docId, Markdown 은 경로로 온다)
@@ -686,7 +686,7 @@ export function Sidebar({
     if (onRenameFolder === undefined) return
     const name = editingName.trim()
     if (name === '') {
-      setRenameError(t('폴더 이름을 입력해 주세요.'))
+      setRenameError(t('폴더 이름을 입력하세요.'))
       return
     }
     try {
@@ -1220,7 +1220,7 @@ export function Sidebar({
           if (target === undefined) return
           const position = event.key === 'ArrowUp' ? 'before' : 'after'
           onReorderNode({ parentPath, nodeId: node.id, targetNodeId: target.id, position })
-          setReorderAnnouncement((event.key === 'ArrowUp' ? t('{name}을 위로 이동했습니다.', { name: node.name }) : t('{name}을 아래로 이동했습니다.', { name: node.name })))
+          setReorderAnnouncement((event.key === 'ArrowUp' ? t('{name}: 위로 이동했습니다.', { name: node.name }) : t('{name}: 아래로 이동했습니다.', { name: node.name })))
         }
 
         return (
@@ -1728,11 +1728,11 @@ export function Sidebar({
           <span className="side-document-drop-banner">
             {documentDropFolder === null || documentDropFolder === ''
               ? documentDropPlace === null
-                ? t('놓으면 Vault 에 복사 · 줄 사이에 놓으면 그 자리, 폴더 위면 그 폴더 안')
-                : t('놓으면 Vault 맨 위의 선 자리에 복사')
+                ? t('놓으면 Vault에 복사합니다. 줄 사이면 그 위치에, 폴더 위면 폴더 안에 넣습니다')
+                : t('놓으면 Vault 맨 위에 복사합니다')
               : documentDropPlace === null || documentDropPlace.position === 'inside'
                 ? t('놓으면 「{folder}」 폴더에 복사', { folder: documentDropFolder.split('/').at(-1) ?? documentDropFolder })
-                : t('놓으면 「{folder}」 폴더의 선 자리에 복사', { folder: documentDropFolder.split('/').at(-1) ?? documentDropFolder })}
+                : t('놓으면 「{folder}」 폴더의 이 위치에 복사', { folder: documentDropFolder.split('/').at(-1) ?? documentDropFolder })}
           </span>
         </div>
       ) : null}
@@ -1777,7 +1777,7 @@ export function Sidebar({
             ? <div ref={setNavHost} className="library-nav-host" />
             : projectedTree.documents.length > 0 || draft?.section === 'documents'
             ? renderTree(projectedTree.documents, '', 0, 'documents')
-            : <p className="side-section-empty">{t('문서가 없습니다 · PDF·Markdown 을 끌어 넣으세요')}</p>}
+            : <p className="side-section-empty">{t('문서가 없습니다. PDF나 Markdown을 끌어 넣으세요')}</p>}
         </section>
 
         {memoNotes !== undefined && !libraryExpanded ? (
@@ -1815,7 +1815,7 @@ export function Sidebar({
       {contextMenu !== null && (() => {
         const close = () => setContextMenu(null)
         const mac = isMacPlatform()
-        const revealLabel = mac ? t('Finder 에서 보기') : t('탐색기에서 보기')
+        const revealLabel = mac ? t('Finder에서 보기') : t('탐색기에서 보기')
         const isEntry = contextMenu.kind === 'entry'
         const isFolder = contextMenu.kind === 'folder'
         const item = (key: string, icon: ReactNode, label: string, onClick: () => void, danger = false) => (
@@ -2231,8 +2231,8 @@ export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOp
                   <button
                     type="button"
                     className="vault-menu-icon-btn"
-                    aria-label={mac ? t('Finder 에서 보기') : t('탐색기에서 보기')}
-                    title={mac ? t('Finder 에서 보기') : t('탐색기에서 보기')}
+                    aria-label={mac ? t('Finder에서 보기') : t('탐색기에서 보기')}
+                    title={mac ? t('Finder에서 보기') : t('탐색기에서 보기')}
                     onClick={() => run(() => revealInFolder(vaultRoot))}
                   >
                     <ArrowSquareOut size={15} aria-hidden="true" />
@@ -2291,7 +2291,7 @@ export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOp
             </div>
             <div className="vault-menu-recent">
               <div className="vault-menu-heading">{t('최근 Vault')}</div>
-              {others.length === 0 ? <div className="vault-menu-empty">{t('최근에 연 다른 Vault 가 없습니다')}</div> : (
+              {others.length === 0 ? <div className="vault-menu-empty">{t('최근에 연 다른 Vault가 없습니다')}</div> : (
                 <ul>
                   {others.map((root) => (
                     <li key={root}>
@@ -2312,7 +2312,7 @@ export function SidebarFooter({ vaultRoot, recentVaultPaths, onSwitchVault, onOp
                       <button
                         type="button"
                         className="vault-menu-recent-remove"
-                        aria-label={t('{name} 를 목록에서 빼기', { name: vaultFolderName(root) })}
+                        aria-label={t('목록에서 빼기: {name}', { name: vaultFolderName(root) })}
                         title={t('목록에서 빼기 (폴더는 그대로)')}
                         onClick={() => {
                           setForgotten((current) => [...current, root])

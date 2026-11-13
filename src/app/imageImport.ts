@@ -9,7 +9,7 @@ export interface ImportedImage {
 }
 
 export async function importImageFile(file: File): Promise<ImportedImage> {
-  if (!file.type.startsWith('image/')) throw new Error(t('이미지 파일을 선택해 주세요.'))
+  if (!file.type.startsWith('image/')) throw new Error(t('이미지 파일을 선택하세요.'))
   const bitmap = await createImageBitmap(file)
   try {
     const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))

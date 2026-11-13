@@ -13,7 +13,7 @@ describe('ReportProblemDialog', () => {
     render(<ReportProblemDialog version="0.1.10" vaultRoot="C:\Users\kim\Vault" onClose={vi.fn()} />) // release-scan-allow
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '열면 멈춥니다' } })
-    const preview = screen.getByLabelText('보내질 내용 미리 보기')
+    const preview = screen.getByLabelText('보낼 내용 미리보기')
     expect(preview.textContent).toContain('열면 멈춥니다')
     expect(preview.textContent).not.toContain('kim')
     expect(preview.textContent).not.toContain('논문')

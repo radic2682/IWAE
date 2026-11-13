@@ -132,7 +132,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   }, [attachingKey])
   const addRef = useEvent((key: string | null) => {
     setAttachRequest(key === null ? null : { path, key })
-    if (key !== null) announceAction(t('문서에서 더할 원문을 고르세요'))
+    if (key !== null) announceAction(t('문서에서 추가할 원문을 고르세요'))
   })
 
   // 모든 메모에서 찾기: 이 노트뿐 아니라 모든 노트의 메모 글·원문·분류에서 찾는다
@@ -422,7 +422,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
                 if (memoId !== undefined && memoId !== '') sendPoint(memoId, 'note')
               }}
             >
-              {items.length === 0 && draft === null ? <p className="note-empty-hint">{t('비어 있는 노트입니다. 「＋」로 글 블록을 넣어 쓰세요.')}</p> : null}
+              {items.length === 0 && draft === null ? <p className="note-empty-hint">{t('빈 노트입니다. 「＋」로 글 블록을 추가하세요.')}</p> : null}
               <MemoNoteContext.Provider value={flow.scopedApi}>
                 <MemoFormatSlotContext.Provider value={flow.formatSlot}>
                   <NoteFlow

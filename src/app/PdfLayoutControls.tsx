@@ -120,7 +120,7 @@ export function PdfPageLayoutButtons({ layout, onChange, buttonClassName, clean,
 
 /** 화면 나누기 단추. 누르면 배치 그림 목록이 펼쳐진다 */
 export function PdfSplitPicker({
-  value, onChange, buttonClassName, layouts = PDF_SPLIT_LAYOUTS, label = t('화면 나누기'), head = t('화면 나누기 · 같은 PDF 의 다른 쪽을 함께 봅니다'), align = 'right', activeClassName = 'toolbar-tool-btn-active', shortcut, presets,
+  value, onChange, buttonClassName, layouts = PDF_SPLIT_LAYOUTS, label = t('화면 나누기'), head = t('화면 나누기: 같은 PDF의 다른 쪽을 함께 봅니다'), align = 'right', activeClassName = 'toolbar-tool-btn-active', shortcut, presets,
 }: {
   /** 지금 배치. 예전 배치 중 어느 것과도 모양이 다르면(직접 나눈 칸) null */
   readonly value: PdfSplitLayoutId | null
@@ -201,7 +201,7 @@ export function PdfSplitPicker({
           </div>
           {presets === undefined || presets.presets.length === 0 ? null : (
             <div className="pdf-split-presets" role="group" aria-label={t('배치')}>
-              <div className="pdf-split-menu-head">{t('배치 · 열린 탭을 이 모양으로 다시 놓습니다')}</div>
+              <div className="pdf-split-menu-head">{t('배치: 열린 탭을 이 모양으로 다시 놓습니다')}</div>
               {presets.presets.map((preset) => (
                 <button
                   key={preset.id}
@@ -232,8 +232,8 @@ export function CleanViewButton({ clean, onChange, buttonClassName }: { readonly
     <button
       type="button"
       className={`${buttonClassName}${clean ? ' toolbar-tool-btn-active' : ''}`}
-      aria-label={clean ? t('표시 다시 보기') : t('표시 모두 감추기')}
-      title={clean ? t('표시 다시 보기') : t('표시 모두 감추기 (형광펜·메모·책갈피)')}
+      aria-label={clean ? t('표시 다시 보이기') : t('표시 모두 숨기기')}
+      title={clean ? t('표시 다시 보이기') : t('표시 모두 숨기기 (형광펜, 메모, 책갈피)')}
       aria-pressed={clean}
       onClick={() => onChange(!clean)}
     >
@@ -249,7 +249,7 @@ export function OnlyOpenNotesButton({ on, onChange, buttonClassName }: { readonl
       type="button"
       className={`${buttonClassName} pdf-only-open-notes${on ? ' toolbar-tool-btn-active' : ''}`}
       aria-label={t('열린 노트 표시만 보기')}
-      title={t('켜면 같은 색 창에 보이는 노트의 형광펜·메모만 PDF에 보입니다')}
+      title={t('켜면 같은 색 칸에 열린 노트의 형광펜과 메모만 PDF에 보입니다')}
       aria-pressed={on}
       onClick={() => onChange(!on)}
     >

@@ -197,11 +197,11 @@ export function VaultPicker({ onOpened, theme, version }: VaultPickerProps) {
               <img className="about-logo-final" src="/iwae-logo.png" alt="" />
             </div>
             <h1 className="vault-picker-name">IWAE</h1>
-            <p className="vault-picker-tagline">{t('PDF 를 폴더에서 정리하고, 누르면 바로 열어 나란히 읽고, 칠한 곳을 노트로 엮습니다.')}</p>
+            <p className="vault-picker-tagline">{t('PDF를 폴더에서 정리하고, 열어서 나란히 읽고, 칠한 곳을 노트로 엮습니다.')}</p>
             <ul className="vault-picker-features">
-              <li><Folders size={18} aria-hidden="true" />{t('내 폴더가 그대로 서재')}</li>
+              <li><Folders size={18} aria-hidden="true" />{t('내 폴더가 곧 서재')}</li>
               <li><SquaresFour size={18} aria-hidden="true" />{t('탭과 나란히 보기')}</li>
-              <li><Highlighter size={18} aria-hidden="true" />{t('원문과 이어진 메모·노트')}</li>
+              <li><Highlighter size={18} aria-hidden="true" />{t('원문과 이어진 메모와 노트')}</li>
             </ul>
             {version === undefined ? null : <p className="vault-picker-version">{t('버전 {version}', { version })}</p>}
           </aside>
@@ -241,7 +241,7 @@ export function VaultPicker({ onOpened, theme, version }: VaultPickerProps) {
 
             {step === 'look' && theme !== undefined ? (
               <div className="vault-picker-pane vault-picker-look">
-                <h2>{t('어떤 화면이 편하세요?')}</h2>
+                <h2>{t('화면 구성을 고르세요')}</h2>
                 <p className="vault-picker-note">{t('고르는 즉시 이 창에 적용됩니다. 나중에 설정에서 바꿀 수 있습니다.')}</p>
                 <ThemeSettings
                   preference={theme.preference}
@@ -270,14 +270,14 @@ export function VaultPicker({ onOpened, theme, version }: VaultPickerProps) {
                   <Sparkle size={20} aria-hidden="true" />
                   <span>
                     <strong>{t('예시로 시작하기')}</strong>
-                    <small>{t('문서 폴더에 사용 안내서와 예시 노트가 든 Vault 를 만듭니다')}</small>
+                    <small>{t('문서 폴더에 사용 안내서와 예시 노트가 든 Vault를 만듭니다')}</small>
                   </span>
                 </button>
                 <button type="button" className="vault-picker-action" disabled={opening} onClick={chooseFolder}>
                   <FolderOpen size={20} aria-hidden="true" />
                   <span>
                     <strong>{opening ? t('Vault 여는 중…') : t('내 폴더 열기')}</strong>
-                    <small>{t('PDF 가 든 폴더를 고릅니다. 빈 폴더면 예시를 넣어 둡니다')}</small>
+                    <small>{t('PDF가 든 폴더를 고릅니다. 빈 폴더면 예시를 넣습니다')}</small>
                   </span>
                 </button>
                 {error !== null && <p className="vault-picker-error" role="alert">{error}</p>}
@@ -294,7 +294,7 @@ export function VaultPicker({ onOpened, theme, version }: VaultPickerProps) {
                               <small>{root}</small>
                             </span>
                           </button>
-                          <button type="button" className="vault-picker-recent-remove" aria-label={t('{name} 를 목록에서 빼기', { name: vaultFolderName(root) })} title={t('목록에서 빼기 (폴더는 그대로)')} onClick={() => removeRecent(root)}>
+                          <button type="button" className="vault-picker-recent-remove" aria-label={t('목록에서 빼기: {name}', { name: vaultFolderName(root) })} title={t('목록에서 빼기 (폴더는 그대로)')} onClick={() => removeRecent(root)}>
                             <X size={13} aria-hidden="true" />
                           </button>
                         </li>
@@ -302,7 +302,7 @@ export function VaultPicker({ onOpened, theme, version }: VaultPickerProps) {
                     </ul>
                   </div>
                 )}
-                <p className="vault-picker-drop">{t('폴더를 이 창에 끌어 놓아도 열립니다. 원본 문서는 옮기거나 고치지 않고, 앱의 기록은 그 폴더 안 .iwae 에 둡니다.')}</p>
+                <p className="vault-picker-drop">{t('폴더를 이 창에 끌어 놓아도 열립니다. 원본 문서는 옮기거나 고치지 않으며, 앱의 기록은 폴더 안 .iwae에 저장합니다.')}</p>
               </div>
             )}
           </div>

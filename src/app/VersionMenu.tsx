@@ -108,7 +108,7 @@ export function VersionMenu({ group, openDocIds, currentDocId, anchor, onClose, 
                   type="button"
                   role="menuitem"
                   className="version-menu-name"
-                  title={t('열기 · 두 번 눌러 이름 바꾸기')}
+                  title={t('열기, 두 번 눌러 이름 바꾸기')}
                   onClick={() => { onOpen(version.docId); onClose() }}
                   onDoubleClick={(event) => { event.preventDefault(); setDraft(version.label); setEditing(version.docId) }}
                 >
@@ -205,7 +205,7 @@ export function DefaultVersionMenu({ group, anchor, onPick, onRename, onClose }:
               role="menuitemradio"
               aria-checked={isDefault}
               className={`version-default-item${isDefault ? ' version-default-item-on' : ''}`}
-              title={onRename === undefined ? undefined : t('기본 버전으로 · 두 번 눌러 이름 바꾸기')}
+              title={onRename === undefined ? undefined : t('기본 버전으로, 두 번 눌러 이름 바꾸기')}
               onClick={() => { onPick(version.docId); onClose() }}
               onDoubleClick={(event) => { event.preventDefault(); startEdit(version.docId, version.label) }}
             >

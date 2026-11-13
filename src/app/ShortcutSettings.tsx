@@ -76,7 +76,7 @@ export function ShortcutSettings() {
       const combo = eventToCombo(event)
       if (combo === null) return // Ctrl·Shift 만 누른 상태: 더 기다린다
       if (!isSafeBinding(combo)) {
-        setNotice({ kind: 'info', text: t('글자 키 하나만으로는 정할 수 없습니다. Ctrl(⌘)·Alt 와 함께 누르세요.') })
+        setNotice({ kind: 'info', text: t('글자 키 하나만으로는 정할 수 없습니다. Ctrl(⌘)이나 Alt와 함께 누르세요.') })
         return
       }
       const other = findConflict(id, combo, shortcutsRef.current)
@@ -115,7 +115,7 @@ export function ShortcutSettings() {
           {t('모두 기본값으로')}
         </button>
       </div>
-      <p className="sk-hint">{t('키 칸을 누른 뒤 새 조합을 누르세요. Esc 는 취소, Backspace 는 키 지우기입니다.')}</p>
+      <p className="sk-hint">{t('키 칸을 누른 뒤 새 조합을 누르세요. Esc는 취소, Backspace는 키 지우기입니다.')}</p>
       <div className="sk-notice-slot" role="status" aria-live="polite">
         {notice === null ? null : notice.kind === 'info' ? (
           <p className="sk-notice">{notice.text}</p>
@@ -123,8 +123,8 @@ export function ShortcutSettings() {
           <div className="sk-notice sk-notice-conflict">
             <span>
               {isRebindable(notice.other)
-                ? t('{keys} 는 이미 「{name}」에 쓰입니다.', { keys: comboText(notice.combo), name: t(notice.other.label) })
-                : t('{keys} 는 편집기 고정 키 「{name}」입니다. 다른 조합을 고르세요.', { keys: comboText(notice.combo), name: t(notice.other.label) })}
+                ? t('{keys}: 이미 「{name}」에 쓰이는 키입니다.', { keys: comboText(notice.combo), name: t(notice.other.label) })
+                : t('{keys}: 편집기 고정 키 「{name}」입니다. 다른 조합을 고르세요.', { keys: comboText(notice.combo), name: t(notice.other.label) })}
             </span>
             {isRebindable(notice.other) ? (
               <button type="button" className="sk-notice-button" onClick={() => {
@@ -191,7 +191,7 @@ export function ShortcutSettings() {
                                 </Fragment>
                               )
                             })}
-                            <span className="sk-preset-note">{t('Ctrl+B 를 고르면 글 쓰는 칸에서는 Ctrl+B 를 두 번 눌러야 굵게가 됩니다. 입력기가 Ctrl+Space 를 쓰면 다른 키를 고르세요.')}</span>
+                            <span className="sk-preset-note">{t('Ctrl+B를 고르면 글 쓰는 곳에서는 Ctrl+B를 두 번 눌러야 굵게가 됩니다. 입력기가 Ctrl+Space를 쓰면 다른 키를 고르세요.')}</span>
                           </div>
                         )}
                       </>

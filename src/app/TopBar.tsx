@@ -228,7 +228,7 @@ export function TopBar({
             앞의 주인 칩(색 점 · 칸 번호 · 문서 종류)은 어느 칸의 도구인지 보이고, 도구 단추 규칙은 이 자리의 자기 규칙(.topbar-toolbar-host …)이다 */}
         <div className="topbar-toolbar-host" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
           {toolbarOwner === null ? null : (
-            <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 지금 만지는 칸의 것입니다')}>
+            <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 현재 선택한 칸에 적용됩니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />
               {toolbarOwner.number === null ? null : <span className="topbar-owner-number">{toolbarOwner.number}</span>}
               {toolbarOwner.kind === 'markdown' ? <FileText size={16} aria-hidden="true" /> : toolbarOwner.kind === 'memoNote' ? <NotePencil size={16} aria-hidden="true" /> : <FilePdf size={16} aria-hidden="true" />}
@@ -243,7 +243,7 @@ export function TopBar({
               type="button"
               className={`topbar-app-btn${translatorWindow.open ? ' topbar-app-btn-active' : ''}`}
               aria-label={t('번역기')}
-              title={t('번역기 (창 띄우기)')}
+              title={t('번역기 띄우기')}
               aria-pressed={translatorWindow.open}
               onClick={(event) => { event.currentTarget.blur(); toggleTranslatorWindow() }}
             >

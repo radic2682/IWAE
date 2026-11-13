@@ -39,7 +39,7 @@ export function PdfPasswordDialog({ path, wrong, onSubmit, onCancel }: {
           <button type="button" className="bib-dialog-close" aria-label={t('닫기')} onClick={onCancel}><X size={14} aria-hidden="true" /></button>
         </header>
         <label>
-          <span>{wrong ? t('암호가 맞지 않습니다. 다시 넣어 주세요') : t('이 PDF 를 열 암호')}</span>
+          <span>{wrong ? t('암호가 맞지 않습니다. 다시 입력하세요') : t('이 PDF를 열 암호')}</span>
           <input ref={inputRef} type="password" autoComplete="off" aria-label={t('암호')} value={password} onChange={(event) => setPassword(event.target.value)} />
         </label>
         <p className="bib-dialog-note">{t('암호는 앱을 닫을 때까지만 기억하고 어디에도 저장하지 않습니다.')}</p>

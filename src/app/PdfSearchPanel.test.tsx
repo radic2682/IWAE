@@ -186,9 +186,9 @@ describe('PdfSearchPanel', () => {
     )
 
     expect(screen.getByLabelText('검색 결과 위치').textContent).toBe('2/2')
-    expect(screen.getByLabelText('PDF 검색 진행률').textContent).toBe('3 / 10 페이지')
-    expect(screen.getByRole('button', { name: '2페이지 needle' })).toBeDefined()
-    expect(screen.getByRole('button', { name: '6페이지 needle' }).getAttribute('aria-current')).toBe('true')
+    expect(screen.getByLabelText('PDF 검색 진행률').textContent).toBe('3 / 10쪽')
+    expect(screen.getByRole('button', { name: '2쪽 needle' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '6쪽 needle' }).getAttribute('aria-current')).toBe('true')
     expect(screen.getAllByText('needle')).toHaveLength(2)
     expect(container.querySelector('.pdf-search-panel')).not.toBeNull()
     expect(container.querySelectorAll('.pdf-search-result-row')).toHaveLength(2)
@@ -234,7 +234,7 @@ describe('PdfSearchPanel', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '6페이지 needle' }))
+    fireEvent.click(screen.getByRole('button', { name: '6쪽 needle' }))
 
     expect(search.select).toHaveBeenCalledWith(1)
     expect(onSelectMatch).toHaveBeenCalledWith(matches[1])
@@ -259,7 +259,7 @@ describe('PdfSearchPanel', () => {
         onSelectMatch={vi.fn()}
       />,
     )
-    expect(screen.getByRole('alert').textContent).toBe('PDF 검색 중 오류가 발생했습니다')
+    expect(screen.getByRole('alert').textContent).toBe('PDF를 검색하지 못했습니다')
   })
 
   it('왼쪽 결과 줄을 누른 뒤 Enter·↓ 는 다음, Shift+Enter·↑ 는 앞 결과로 가고, 줄마다 쪽 미리보기를 보인다', () => {

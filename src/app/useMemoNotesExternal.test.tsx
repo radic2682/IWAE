@@ -90,7 +90,7 @@ describe('외부에서 바뀐 노트', () => {
 
     external(PATH, note('a', 'b', 'c'))
     await waitFor(() => expect(blockIds(result.current.openNote)).toEqual(['a', 'b', 'c']))
-    expect(messages).toEqual(['다른 프로그램이 이 노트를 바꿔서 다시 읽었습니다'])
+    expect(messages).toEqual(['다른 프로그램이 노트를 바꿔 다시 불러왔습니다'])
     expect(result.current.conflict).toBeNull()
     expect(bridge.writes).toEqual([])
   })

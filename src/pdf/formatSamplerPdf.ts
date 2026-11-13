@@ -99,7 +99,7 @@ export async function applySamplePick(pick: SamplePick, context: SampleContext):
     sampled = size === undefined ? null : await samplePdfPoint(context.pdf.docId, pick.page, size, pick.point)
   }
   if (sampled === null) {
-    announceAction(t('여기서는 글자를 찾지 못했습니다. 글자 위를 눌러 주세요'))
+    announceAction(t('글자를 찾지 못했습니다. 글자 위를 누르세요'))
     return
   }
   if (context.selected?.kind === 'text') context.onUpdateSelected(overlayPatchOf(sampled))

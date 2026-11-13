@@ -37,7 +37,7 @@ export function NoteHeadMenu({ api, path }: { readonly api: MemoNoteApi; readonl
           aria-haspopup="menu"
           aria-expanded={at !== null}
           aria-label={t('노트 바꾸기: {title}', { title: memoNoteTitleOf(path) })}
-          title={t('눌러서 노트 바꾸기 · 제목을 두 번 눌러 이름 바꾸기')}
+          title={t('눌러서 노트 바꾸기, 두 번 눌러 이름 바꾸기')}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => {
             if (at !== null) { close(); return }

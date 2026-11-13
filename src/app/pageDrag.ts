@@ -191,8 +191,8 @@ function tabVerdict(target: Extract<Target, { kind: 'tab' }>, ownDocId: string):
   if (!target.element.classList.contains('pane-top-tab-pdf')) return { ok: false, silent: true, reason: '' }
   if (target.docId === ownDocId) return { ok: false, silent: true, reason: '' }
   const info = host?.docInfo(target.docId) ?? null
-  if (info === null || !info.editable) return { ok: false, silent: false, reason: t('Vault 에 없는 PDF 에는 쪽을 끌어 넣을 수 없습니다') }
-  if (info.locked) return { ok: false, silent: false, reason: t('암호가 걸린 PDF 에는 쪽을 끌어 넣을 수 없습니다') }
+  if (info === null || !info.editable) return { ok: false, silent: false, reason: t('Vault에 없는 PDF에는 쪽을 끌어 넣을 수 없습니다') }
+  if (info.locked) return { ok: false, silent: false, reason: t('암호가 걸린 PDF에는 쪽을 끌어 넣을 수 없습니다') }
   return { ok: true }
 }
 
@@ -370,8 +370,8 @@ export function startPageDrag(down: { readonly clientX: number; readonly clientY
         landed = true
       } else if (options.pages !== null) {
         const info = host?.docInfo(target.docId) ?? null
-        if (info === null || !info.editable) host?.announce(t('Vault 에 없는 PDF 에는 쪽을 끌어 넣을 수 없습니다'))
-        else if (info.locked) host?.announce(t('암호가 걸린 PDF 에는 쪽을 끌어 넣을 수 없습니다'))
+        if (info === null || !info.editable) host?.announce(t('Vault에 없는 PDF에는 쪽을 끌어 넣을 수 없습니다'))
+        else if (info.locked) host?.announce(t('암호가 걸린 PDF에는 쪽을 끌어 넣을 수 없습니다'))
         else {
           deliverPages(target.docId, { index: target.index, pages: options.pages })
           landed = true

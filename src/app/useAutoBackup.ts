@@ -55,7 +55,7 @@ export function useAutoBackup(vaultRoot: string | null) {
     })
   }, [vaultRoot])
 
-  /** 지금 자동 백업을 한다(차례가 아니어도). 끝나면 마지막 시각을 적는다 */
+  /** 지금 백업을 한다(차례가 아니어도). 끝나면 마지막 시각을 적는다 */
   const runNow = useCallback(async (reason: 'scheduled' | 'manual') => {
     if (vaultRoot === null || runningRef.current) return
     const current = readAutoBackup(vaultRoot)
@@ -68,7 +68,7 @@ export function useAutoBackup(vaultRoot: string | null) {
       const next = { ...readAutoBackup(vaultRoot), lastAt: new Date().toISOString(), lastError: null }
       writeAutoBackup(vaultRoot, next)
       setSettings(next)
-      announceAction(result.removed.length > 0 ? t('자동 백업을 만들었습니다 ({size} · 옛 백업 {count}개 정리)', { size: formatBytes(result.backup.archiveBytes), count: result.removed.length }) : t('자동 백업을 만들었습니다 ({size})', { size: formatBytes(result.backup.archiveBytes) }))
+      announceAction(result.removed.length > 0 ? t('자동 백업을 만들었습니다 ({size}, 이전 백업 {count}개 정리)', { size: formatBytes(result.backup.archiveBytes), count: result.removed.length }) : t('자동 백업을 만들었습니다 ({size})', { size: formatBytes(result.backup.archiveBytes) }))
     } catch (cause) {
       const message = errorText(cause)
       // 다른 백업·복원이 돌고 있으면 다음 확인 때 다시 한다

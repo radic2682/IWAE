@@ -52,7 +52,7 @@ const SETTLE_MS = 450
 const MIGRATION_MARK = '.iwae/memo-notes.json'
 
 function conflictError(): string {
-  return t('이 노트는 다른 프로그램이 바꾼 내용과 부딪쳐 있어 저장하지 않았습니다. 어느 쪽을 남길지 먼저 정하세요.')
+  return t('이 노트는 다른 프로그램이 바꾼 내용과 충돌해 저장하지 않았습니다. 어느 쪽을 남길지 먼저 정하세요.')
 }
 
 function openKey(root: string): string {
@@ -247,7 +247,7 @@ export function useMemoNotes(
     adoptMemoNoteText(vault, path, result.text)
     const note = result.note
     applyNotes((current) => new Map(current).set(path, note))
-    if (openPathRef.current === path) onErrorRef.current(t('다른 프로그램이 이 노트를 바꿔서 다시 읽었습니다'))
+    if (openPathRef.current === path) onErrorRef.current(t('다른 프로그램이 노트를 바꿔 다시 불러왔습니다'))
   }, [vault])
 
   /** 파일 감시·창 복귀가 알려 온 변경을 차례로 처리한다. paths 가 null 이면 모든 노트를 디스크와 견준다 */
@@ -469,7 +469,7 @@ export function useMemoNotes(
 
   /** 내 변경을 「(충돌 사본)」 노트로 따로 저장한다. 새 노트의 경로 */
   const saveConflictCopy = useCallback(async (path: string, note: MemoNote): Promise<string> => {
-    if (vault === null) throw new Error(t('Vault 가 열려 있지 않습니다.'))
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const taken = [...notesRef.current.keys()].map(memoNoteTitleOf)
     const copyPath = memoNotePath(uniqueNoteTitle(t('{name} (충돌 사본)', { name: memoNoteTitleOf(path) }), taken), memoParentOf(path))
     await writeMemoNote(vault, copyPath, note)
@@ -504,7 +504,7 @@ export function useMemoNotes(
         await saveNote(path, notesRef.current.get(path) ?? local)
         return
       }
-      if (disk.state === 'changed' && disk.note === null) throw new Error(t('다른 프로그램이 바꾼 파일을 읽을 수 없습니다. 「내 것으로 덮어쓰기」를 고르거나 파일을 고친 뒤 다시 해 보세요.'))
+      if (disk.state === 'changed' && disk.note === null) throw new Error(t('다른 프로그램이 바꾼 파일을 읽을 수 없습니다. 「내 것으로 덮어쓰기」를 고르거나 파일을 고친 뒤 다시 시도하세요.'))
       let copyPath: string | null = null
       if (choice === 'copy') copyPath = await saveConflictCopy(path, local)
       heldRef.current.delete(path)
@@ -557,7 +557,7 @@ export function useMemoNotes(
   }, [applyMoved, flushPending, vault])
 
   const createFolder = useCallback(async (parent: string, name: string) => {
-    if (vault === null) throw new Error(t('Vault 가 열려 있지 않습니다.'))
+    if (vault === null) throw new Error(t('Vault가 열려 있지 않습니다.'))
     const path = `${parent === '' ? memoNotesFolder() : parent}/${safeNoteTitle(name)}`
     if (foldersRef.current.some((folder) => folder.toLowerCase() === path.toLowerCase())) throw new Error(t('같은 이름의 폴더가 이미 있습니다.'))
     await createMemoNoteFolder(vault, path)
@@ -705,7 +705,7 @@ export function useMemoNotes(
    */
   const editNoteTitled = useCallback((title: string, change: (note: MemoNote) => MemoNote, create: boolean): string => {
     const found = findNoteTitled(title)
-    if (found === null && !create) throw new Error(`「${title}」 노트가 없습니다. note_list 로 제목을 확인하세요.`)
+    if (found === null && !create) throw new Error(`「${title}」 노트가 없습니다. note_list로 제목을 확인하세요.`)
     const path = found?.path ?? memoNotePath(title)
     const current = found?.note ?? EMPTY_MEMO_NOTE
     const next = change(current)

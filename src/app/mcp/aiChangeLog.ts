@@ -107,7 +107,7 @@ export async function runAiChange<T>(tool: string, run: (note: ChangeNote) => Pr
   aiActivityEnd(info === null ? 0 : Math.max(note.count, 1), note.target)
   if (failed) {
     const message = failure instanceof Error ? failure.message : String(failure)
-    throw new Error(info === null ? message : `${message} (일부는 이미 바뀌었습니다. ai_undo 로 되돌릴 수 있습니다 / partial changes were made; ai_undo reverts them)`)
+    throw new Error(info === null ? message : `${message} (일부는 이미 바뀌었습니다. ai_undo로 되돌릴 수 있습니다 / partial changes were made; ai_undo reverts them)`)
   }
   return result as T
 }

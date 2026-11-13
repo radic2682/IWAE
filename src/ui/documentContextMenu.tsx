@@ -37,10 +37,10 @@ export function documentContextEntries(options: {
     ...(options.pdf === undefined ? [] : [
       { key: 'sep-pdf', separator: true as const },
       ...(options.pdf.hasText ? [] : [{ key: 'ocr', icon: <TextT size={15} />, label: t('OCR (스캔 글자 인식)'), onSelect: () => runAppCommand('ocrDocument', { docId: options.pdf!.docId }) }]),
-      { key: 'import-marks', icon: <Highlighter size={15} />, label: t('PDF 안의 기존 주석 가져오기'), onSelect: () => runAppCommand('importPdfMarks', { docId: options.pdf!.docId }) },
+      { key: 'import-marks', icon: <Highlighter size={15} />, label: t('PDF의 기존 주석 가져오기'), onSelect: () => runAppCommand('importPdfMarks', { docId: options.pdf!.docId }) },
       { key: 'pdf-tools', icon: <Toolbox size={15} />, label: t('PDF 도구…'), onSelect: () => runAppCommand('pdfTools', { docId: options.pdf!.docId }) },
     ]),
     { key: 'sep-hint', separator: true as const },
-    { key: 'hint', note: t('오른쪽 버튼을 누른 채 그리면: ↑↓ 맨 위·아래, ←→ 뒤로·앞으로, ㄴ 탭 닫기, ㄱ 닫은 탭 다시 열기') },
+    { key: 'hint', note: t('마우스 제스처(오른쪽 버튼을 누른 채 그리기): ↑↓ 맨 위·맨 아래, ←→ 뒤로·앞으로, ㄴ 탭 닫기, ㄱ 닫은 탭 다시 열기') },
   ]
 }

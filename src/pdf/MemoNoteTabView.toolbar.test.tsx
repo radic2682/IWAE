@@ -192,13 +192,13 @@ describe('MemoNoteTabView — 원문 더하기', () => {
   it('카드 메뉴의 「원문 더하기」는 문서 창에 요청을 남기고, 「그만두기」나 Esc 로 거둔다', () => {
     const { container } = render(<Harness spies={makeSpies()} />)
     fireEvent.contextMenu(container.querySelector('[data-note-block="m1"]')!)
-    fireEvent.click(screen.getByRole('menuitem', { name: /원문 더하기/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /원문 추가/ }))
     expect(getAttachRequest()).toEqual({ path: PATH, key: 'm1' })
     // 더하는 중인 카드에는 그만두기 단추가 보인다
-    fireEvent.click(screen.getByRole('button', { name: '그만두기' }))
+    fireEvent.click(screen.getByRole('button', { name: '취소' }))
     expect(getAttachRequest()).toBeNull()
     fireEvent.contextMenu(container.querySelector('[data-note-block="m2"]')!)
-    fireEvent.click(screen.getByRole('menuitem', { name: /원문 더하기/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /원문 추가/ }))
     expect(getAttachRequest()).toEqual({ path: PATH, key: 'm2' })
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
     expect(getAttachRequest()).toBeNull()
@@ -207,7 +207,7 @@ describe('MemoNoteTabView — 원문 더하기', () => {
   it('다른 노트가 요청한 원문 더하기에는 반응하지 않는다', () => {
     setAttachRequest({ path: OTHER, key: 'c1' })
     render(<Harness spies={makeSpies()} />)
-    expect(screen.queryByRole('button', { name: '그만두기' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '취소' })).toBeNull()
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
     // 이 노트의 요청이 아니므로 Esc 도 건드리지 않는다
     expect(getAttachRequest()).toEqual({ path: OTHER, key: 'c1' })

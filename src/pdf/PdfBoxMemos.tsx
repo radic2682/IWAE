@@ -233,7 +233,7 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
                   key={memo.id}
                   initialText={memo.note ?? ''}
                   initialHtml={memo.noteHtml}
-                  placeholder={t('박스 메모 (Esc 취소 · 다른 곳을 누르면 저장)')}
+                  placeholder={t('박스 메모 (Esc 취소, 다른 곳을 누르면 저장)')}
                   onSave={(content) => {
                     onSave(memo.id, content)
                     onEdit(null)

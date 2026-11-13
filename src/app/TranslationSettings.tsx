@@ -120,7 +120,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
           <h2 id="translation-settings-title">{external ? t('클라우드 API 번역') : t('로컬 번역')}</h2>
           <p className="translation-settings-description">
             {external
-              ? t('Claude · OpenAI · Gemini 등 클라우드 모델로 번역합니다. API key 는 이 PC 의 자격 증명 저장소에 보관됩니다.')
+              ? t('Claude, OpenAI, Gemini 등 클라우드 모델로 번역합니다. API key는 이 PC의 자격 증명 저장소에 보관됩니다.')
               : t('PDF 원문은 그대로 두고 이 컴퓨터의 Ollama로 번역 블록을 만듭니다.')}
           </p>
         </div>
@@ -133,7 +133,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
           <input type="checkbox" checked={state.settings.enabled} onChange={(event) => state.updateSettings({ enabled: event.currentTarget.checked })} />
           <span>
             <strong>{t('번역 사용')}</strong>
-            <span>{t('끄면 글을 고를 때의 「번역」과 노트 카드의 번역 단추가 보이지 않습니다.')}</span>
+            <span>{t('끄면 선택한 글의 「번역」과 노트 카드의 번역 단추가 숨겨집니다.')}</span>
           </span>
         </label>
       </div>
@@ -141,11 +141,11 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
       <div className="translation-settings-engine" role="radiogroup" aria-label={t('번역 방식')}>
         <button type="button" role="radio" aria-checked={!external} className={`translation-settings-engine-option${!external ? ' translation-settings-engine-on' : ''}`} onClick={() => chooseEngine(false)}>
           <strong>{t('로컬 (Ollama)')}</strong>
-          <span>{t('이 PC 에서 번역합니다. 글이 밖으로 나가지 않습니다.')}</span>
+          <span>{t('이 PC에서 번역하며 글이 밖으로 나가지 않습니다.')}</span>
         </button>
         <button type="button" role="radio" aria-checked={external} className={`translation-settings-engine-option${external ? ' translation-settings-engine-on' : ''}`} onClick={() => chooseEngine(true)}>
           <strong>{t('클라우드 API')}</strong>
-          <span>{t('Google 번역(키 없음) · Azure 번역기 · DeepL · Claude 등으로 빠르게 번역합니다. 고른 글이 그 서비스로 전송됩니다.')}</span>
+          <span>{t('Google 번역(키 없음), Azure 번역기, DeepL, Claude 등으로 번역합니다. 선택한 글이 해당 서비스로 전송됩니다.')}</span>
         </button>
       </div>
 
@@ -229,7 +229,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
               <button type="button" className="translation-settings-link" onClick={() => requestExternalLink(externalProviderInfo(state.settings.externalProvider).keyUrl ?? '')}>
                 {t('키 받는 곳 열기')}
               </button>
-              <span>{state.settings.externalProvider === 'deepl' ? t('Free 키(:fx 로 끝남)와 Pro 키 모두 됩니다. 알맞은 주소는 자동으로 맞춥니다.') : t('열기 전에 주소를 한 번 더 확인합니다.')}</span>
+              <span>{state.settings.externalProvider === 'deepl' ? t('Free 키(:fx로 끝남)와 Pro 키 모두 쓸 수 있으며 주소는 자동으로 맞춥니다.') : t('열기 전에 주소를 한 번 더 확인합니다.')}</span>
             </p>
           )}
           <label className="translation-settings-field">
@@ -257,7 +257,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
             </datalist>
           </label>}
           {keyless ? (
-            <p className="translation-settings-keyless">{t('키 없이 바로 씁니다. 구글이 막거나 바꾸면 잠시 안 될 수 있으니, 그때는 다른 제공자를 고르세요.')}</p>
+            <p className="translation-settings-keyless">{t('키 없이 쓸 수 있습니다. Google이 막거나 바꾸면 안 될 수 있으니 그때는 다른 제공자를 고르세요.')}</p>
           ) : <label className="translation-settings-field">
             <span className="translation-settings-label">API key</span>
             <input
@@ -302,7 +302,7 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
           </button>
           {test.status === 'ok' ? (
             <p className="translation-settings-test-result" role="status">
-              <strong>{t('연결됐습니다. 번역이 잘 됩니다.')}</strong>
+              <strong>{t('연결되었습니다. 번역할 수 있습니다.')}</strong>
               <span>{t('{ms}ms · {model}', { ms: test.ms, model: test.model })}</span>
               <q>{test.text}</q>
             </p>
@@ -326,15 +326,15 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
             />
             <span className="translation-settings-model-copy">
               <strong>{t('자동')}</strong>
-              <span>{t('받아 둔 모델 가운데 이 컴퓨터에서 충분히 빠른 가장 큰 모델을 골라 씁니다. 모델은 용량이 커서 받기만 직접 누릅니다.')}</span>
+              <span>{t('받아 둔 모델 중 이 컴퓨터에서 충분히 빠른 가장 큰 모델을 고릅니다. 모델은 용량이 커서 다운로드는 직접 시작해야 합니다.')}</span>
             </span>
           </label>
           {online && !hasRecommendedModel && (
             <div className="translation-settings-model-hint" role="note">
               {pullingChoice !== undefined
-                ? <span>{t('{model}을 받고 있습니다. 다 받으면 자동으로 이 모델을 씁니다.', { model: pullingChoice.label })}</span>
+                ? <span>{t('{model} 모델을 받고 있습니다. 받으면 자동으로 사용합니다.', { model: pullingChoice.label })}</span>
                 : <>
-                    <span>{t('아직 받은 번역 모델이 없습니다. 처음이라면 가장 가벼운 4B를 권합니다.')}</span>
+                    <span>{t('받은 번역 모델이 없습니다. 처음이라면 가장 가벼운 4B를 권합니다.')}</span>
                     <button
                       type="button"
                       className="translation-settings-download"
@@ -426,9 +426,9 @@ export function TranslationSettings({ state }: TranslationSettingsProps) {
       {!external && <div className="translation-settings-benchmark">
         <p className="translation-settings-selected-model">
           {t('선택 모델: {model}', { model: state.selectedModel ?? (online && !hasRecommendedModel && state.settings.mode === 'auto'
-            ? t('받은 모델이 없어 아직 고르지 못함')
+            ? t('받은 모델이 없어 선택할 수 없음')
             : t('아직 선택되지 않음')) })}
-          {chosenMissing && (pulling === chosenChoice?.model ? ` ${t('(받는 중)')}` : ` ${t('(아직 받지 않음 · 위에서 다운로드를 누르세요)')}`)}
+          {chosenMissing && (pulling === chosenChoice?.model ? ` ${t('(받는 중)')}` : ` ${t('(아직 받지 않음, 위에서 다운로드하세요)')}`)}
         </p>
         <button
           type="button"
@@ -546,7 +546,7 @@ function TranslationCacheSettings() {
         <input type="checkbox" checked={cache.enabled} onChange={(event) => setTranslationCacheEnabled(event.currentTarget.checked)} />
         <span>
           <strong>{t('번역 캐시 사용')}</strong>
-          <span>{t('같은 글을 같은 언어로 다시 번역하면 저장해 둔 번역을 바로 씁니다(요청·사용량 없음). 번역은 이 Vault 의 .iwae 안에만 남습니다.')}</span>
+          <span>{t('같은 글을 같은 언어로 다시 번역하면 저장된 번역을 씁니다. 요청과 사용량이 없고, 번역은 이 Vault의 .iwae 안에만 남습니다.')}</span>
         </span>
       </label>
       <button type="button" className="translation-cache-clear" disabled={cache.count === 0} onClick={() => clearTranslationCache()}>
@@ -561,7 +561,7 @@ function TranslationCacheSettings() {
 function OllamaDetected({ endpoint, models }: { readonly endpoint: string; readonly models: readonly { readonly name: string; readonly size: number }[] }) {
   return (
     <div className="translation-settings-detected" role="status">
-      <strong>{t('Ollama 를 찾았습니다 ({endpoint})', { endpoint: endpoint.replace(/^https?:[/][/]/u, '') })}</strong>
+      <strong>{t('Ollama를 찾았습니다 ({endpoint})', { endpoint: endpoint.replace(/^https?:[/][/]/u, '') })}</strong>
       <p>
         {models.length === 0
           ? t('설치된 모델이 없습니다. 아래에서 추천 모델을 받으세요.')

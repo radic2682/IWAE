@@ -124,7 +124,7 @@ export function VaultBackupSettings({ vault, onOpenVault }: VaultBackupSettingsP
     <section className="theme-settings vault-backup" aria-labelledby="vault-backup-title">
       <header className="theme-settings-heading">
         <h2 id="vault-backup-title">{t('전체 Vault 백업')}</h2>
-        <p>{t('문서·노트·하이라이트·설정(.iwae)까지 Vault 폴더 전체를 zip 하나로 묶습니다. 다른 PC 로 옮기거나 보관할 때 씁니다.')}</p>
+        <p>{t('문서, 노트, 형광펜, 설정(.iwae)까지 Vault 폴더 전체를 zip 하나로 묶습니다. 다른 PC로 옮기거나 보관할 때 씁니다.')}</p>
       </header>
 
       <div className="vault-backup-summary">
@@ -140,10 +140,10 @@ export function VaultBackupSettings({ vault, onOpenVault }: VaultBackupSettingsP
       <label className="vault-backup-option">
         <input type="checkbox" checked={includeIndex} disabled={running !== null} onChange={(event) => setIncludeIndex(event.target.checked)} />
         <span>
-          <strong>{t('검색 색인·미리보기 캐시도 넣기')}</strong>
+          <strong>{t('검색 색인과 미리보기 캐시 포함')}</strong>
           <small>
             {t('다시 만들 수 있는 파일이라 기본으로 뺍니다{size}.', { size: estimate !== null && estimate.rebuildableBytes > 0 ? ` (${formatBytes(estimate.rebuildableBytes)})` : '' })}
-            {' '}{t('빼면 복원한 뒤 [색인 갱신]을 한 번 눌러야 문서 검색이 됩니다.')}
+            {' '}{t('빼면 복원한 뒤 「색인 갱신」을 한 번 눌러야 문서 검색이 됩니다.')}
           </small>
         </span>
       </label>
@@ -198,7 +198,7 @@ export function VaultBackupSettings({ vault, onOpenVault }: VaultBackupSettingsP
       ) : null}
 
       {error !== null ? <p className="settings-inline-error" role="alert">{error}</p> : null}
-      <p className="vault-backup-note">{t('복원은 지금 Vault 를 덮어쓰지 않습니다. 빈 폴더에 풀어 새 Vault 로 엽니다.')}</p>
+      <p className="vault-backup-note">{t('복원해도 현재 Vault는 덮어쓰지 않습니다. 빈 폴더에 풀어 새 Vault로 엽니다.')}</p>
     </section>
   )
 }

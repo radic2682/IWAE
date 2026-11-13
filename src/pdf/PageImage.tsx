@@ -295,7 +295,7 @@ export function PageImage({ docId, page, cssWidth, cssHeight, pageSize, devicePi
       }
 
   return (
-    <div className="pdf-page" role="img" aria-label={t('{page} 페이지', { page: page + 1 })}>
+    <div className="pdf-page" role="img" aria-label={t('{page}쪽', { page: page + 1 })}>
       {/* decoding="sync": 이미 받아 둔 그림을 다시 붙일 때(스크롤로 나갔다 들어옴) 한 프레임 비는 것을 막는다 */}
       {showPreview || keepPreviewUnder ? <img className="pdf-page-layer pdf-page-preview" src={preview} alt="" decoding="sync" draggable={false} /> : null}
       {shownFull !== null && sharedFull?.bitmap != null ? (

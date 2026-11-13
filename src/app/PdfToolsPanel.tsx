@@ -28,7 +28,7 @@ export function PdfToolsPanel({ docTitle, activeTool, onPick, renderTool }: PdfT
       </div>
       <nav className="pdf-tools-list" aria-label={t('도구')}>
         {disabled ? (
-          <div className="side-panel-empty">{t('열린 PDF 가 없습니다')}</div>
+          <div className="side-panel-empty">{t('열린 PDF가 없습니다')}</div>
         ) : (
           <div className="pdf-tools-target" title={docTitle}>
             <FilePdf size={14} aria-hidden="true" />

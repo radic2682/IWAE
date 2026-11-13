@@ -67,7 +67,7 @@ export function UiScaleSettings({ scale, onChange }: UiScaleSettingsProps) {
     <section className="theme-settings ui-scale-settings" aria-labelledby="ui-scale-title">
       <header className="theme-settings-heading">
         <h2 id="ui-scale-title">{t('화면 크기')}</h2>
-        <p>{t('글자·아이콘·여백을 함께 키우거나 줄입니다. PDF 배율은 아래 막대에서 따로 조절합니다.')}</p>
+        <p>{t('글자, 아이콘, 여백을 함께 키우거나 줄입니다. PDF 배율은 아래 막대에서 따로 조절합니다.')}</p>
       </header>
       <div className="ui-scale-row">
         <input

@@ -58,7 +58,7 @@ export function ReleaseHistory({ currentVersion, focusVersion = null, notes = BU
     <section ref={section} className="release-history" aria-labelledby="release-history-title">
       <h3 id="release-history-title">{t('업데이트 기록')}</h3>
       {notes.length === 0 ? (
-        <p className="release-history-empty">{t('묶인 업데이트 기록이 없습니다.')}</p>
+        <p className="release-history-empty">{t('업데이트 기록이 없습니다.')}</p>
       ) : (
         <ul className="release-history-list">
           {notes.map((note) => {

@@ -44,7 +44,7 @@ describe('MCP 탐색 도구', () => {
     await env.call('open_document', { doc_id: 'd1', pane: 3 })
     expect(openDocument).toHaveBeenLastCalledWith('d1', { pane: '3', activate: true })
     for (const pane of ['8', 'middle', -1, 8, 'P1']) {
-      await expect(env.call('open_document', { doc_id: 'd1', pane }), String(pane)).rejects.toThrow(/pane 은/u)
+      await expect(env.call('open_document', { doc_id: 'd1', pane }), String(pane)).rejects.toThrow(/pane은/u)
     }
   })
 
@@ -72,7 +72,7 @@ describe('MCP 탐색 도구', () => {
     await expect(env.call('set_layout', { pane_count: 9 })).rejects.toThrow()
     await expect(env.call('set_layout', { pane_count: 0 })).rejects.toThrow()
     await expect(env.call('set_layout', { pane_count: 1, focus: 'right' })).rejects.toThrow()
-    await expect(env.call('set_layout', { pane_count: 2, focus: 'sideways' })).rejects.toThrow(/pane 은/u)
+    await expect(env.call('set_layout', { pane_count: 2, focus: 'sideways' })).rejects.toThrow(/pane은/u)
     expect(await env.call('close_tab', { tab_id: 'd1' })).toEqual({ closed: 'd1' })
     expect(closeTab).toHaveBeenCalledWith('d1')
     await expect(env.call('close_tab', { tab_id: 'nope' })).rejects.toThrow(/tab not found/u)

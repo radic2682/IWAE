@@ -92,7 +92,7 @@ export function CanvasTextEditor({
       ref={editorRef}
       role="textbox"
       aria-multiline="true"
-      aria-label={editing ? t('텍스트 편집 중') : t('텍스트 블록, 클릭하여 편집')}
+      aria-label={editing ? t('텍스트 편집 중') : t('텍스트 블록, 눌러서 편집')}
       contentEditable={editing}
       suppressContentEditableWarning
       className={`canvas-text-editor ${editing ? 'nodrag nowheel canvas-text-editor-editing' : 'drag-handle canvas-text-editor-draggable'}`}

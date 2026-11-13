@@ -21,7 +21,7 @@ interface Choice {
 }
 
 const CHOICES: readonly Choice[] = [
-  { value: PREFIX_DEFAULT_PRESET, key: 'Ctrl+B', title: '기본 (tmux와 같음)', note: '메모를 쓸 때 Ctrl+B 는 굵게입니다. 접두키를 Ctrl+B 로 쓰면 편집기 안에서는 Ctrl+B 를 두 번 눌러야 굵게가 됩니다.' },
+  { value: PREFIX_DEFAULT_PRESET, key: 'Ctrl+B', title: '기본 (tmux와 같음)', note: '메모를 쓸 때 Ctrl+B는 굵게입니다. 접두키를 Ctrl+B로 쓰면 편집기 안에서는 Ctrl+B를 두 번 눌러야 굵게가 됩니다.' },
   { value: 'Ctrl+Space', key: 'Ctrl+Space', note: '서식 단축키와 겹치지 않음. 일부 PC 에서는 입력기 전환과 겹칠 수 있음' },
   { value: 'Ctrl+A', key: 'Ctrl+A', note: 'screen 방식. 편집기에서 전체 선택은 Ctrl+A 두 번' },
   { value: CUSTOM, key: '', title: '직접 정하기…' },
@@ -60,7 +60,7 @@ export function PrefixKeyHost({ enabled, onChooseCustom }: PrefixKeyHostProps) {
   return (
     <ConfirmDialog title={t('접두키 고르기')} confirmLabel={t('확인')} cancelLabel={t('나중에')} onConfirm={confirm} onCancel={done}>
       <div className="prefix-dialog">
-        <p className="prefix-dialog-lead">{t('칸 나누기·화면 바꾸기 같은 작업 공간 명령은 접두키를 누른 뒤 한 글자로 합니다 (tmux 방식).')}</p>
+        <p className="prefix-dialog-lead">{t('칸 나누기나 화면 바꾸기 같은 작업 공간 명령은 접두키를 누른 뒤 한 글자로 실행합니다(tmux 방식).')}</p>
         <div className="prefix-dialog-choices" role="radiogroup" aria-label={t('접두키로 쓸 키')}>
           {CHOICES.map((choice) => (
             <label key={choice.value} className="prefix-dialog-choice" data-checked={picked === choice.value ? '' : undefined}>

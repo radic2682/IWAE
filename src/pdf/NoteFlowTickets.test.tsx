@@ -121,7 +121,7 @@ describe('NoteFlow — 블록 사이 + 와 티켓', () => {
     const badge = screen.getByRole('button', { name: '2곳' })
     expect(badge.className).not.toContain('warn')
     fireEvent.click(badge)
-    const popover = screen.getByRole('dialog', { name: 'REQ-01 가 있는 곳' })
+    const popover = screen.getByRole('dialog', { name: 'REQ-01 위치' })
     const entries = within(popover).getAllByRole('button')
     expect(entries.map((entry) => entry.textContent)).toEqual(['A여기1장 · 2번째 블록', 'B1번째 블록'])
     expect(entries[0]!.getAttribute('aria-current')).toBe('true')

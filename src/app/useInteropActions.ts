@@ -103,7 +103,7 @@ export function useInteropActions(deps: InteropDeps) {
   }, [addToDocNote])
 
   const importMarksMessage = (result: PdfMarkImport): string => {
-    if (result.found === 0) return t('이 PDF 에는 가져올 표시가 없습니다')
+    if (result.found === 0) return t('이 PDF에는 가져올 표시가 없습니다')
     const base = t('{count}개 가져왔습니다', { count: result.imported })
     return result.skipped > 0 ? `${base} ${t('(이미 있거나 글자를 찾지 못한 표시 {skipped}개는 건너뜀)', { skipped: result.skipped })}` : base
   }
@@ -135,7 +135,7 @@ export function useInteropActions(deps: InteropDeps) {
 
   const runZotero = useCallback(async (path?: string) => {
     const { vault: current } = ref.current
-    if (current === null) { announceAction(t('먼저 Vault 를 열어 주세요')); return null }
+    if (current === null) { announceAction(t('먼저 Vault를 여세요')); return null }
     try {
       const folder = path ?? await pickZoteroFolder()
       if (folder === null) return null
@@ -164,7 +164,7 @@ export function useInteropActions(deps: InteropDeps) {
 
   const exportMarkdown = useCallback(async (scope: MarkdownExportScope, folder?: string) => {
     const { vault: current } = ref.current
-    if (current === null) { announceAction(t('먼저 Vault 를 열어 주세요')); return null }
+    if (current === null) { announceAction(t('먼저 Vault를 여세요')); return null }
     try {
       const result = await exportNotesAsMarkdown(current, scope, folder === undefined ? {} : { folder })
       if (result === null) return null

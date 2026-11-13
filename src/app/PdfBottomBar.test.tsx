@@ -7,7 +7,7 @@ describe('PdfBottomBar', () => {
   it('페이지 이동·맞춤·배율 조작을 한 줄에 제공한다', () => {
     render(<PdfBottomBar zoomPercent={100} page={7} pageCount={12} onZoomIn={vi.fn()} onZoomOut={vi.fn()} onZoomChange={vi.fn()} onPageChange={vi.fn()} onFitWidth={vi.fn()} onFitPage={vi.fn()} />)
 
-    expect(screen.getByRole('textbox', { name: '페이지' })).toHaveProperty('value', '7')
+    expect(screen.getByRole('textbox', { name: '쪽' })).toHaveProperty('value', '7')
     expect(screen.getByText('/ 12')).toBeDefined()
     expect(screen.getByRole('slider', { name: '배율' })).toHaveProperty('value', '100')
     expect(screen.getByRole('spinbutton', { name: '배율 직접 입력' })).toHaveProperty('value', '100')
@@ -21,8 +21,8 @@ describe('PdfBottomBar', () => {
     const onZoomChange = vi.fn()
     render(<PdfBottomBar zoomPercent={100} page={7} pageCount={12} onZoomIn={vi.fn()} onZoomOut={vi.fn()} onZoomChange={onZoomChange} onPageChange={onPageChange} onFitWidth={vi.fn()} onFitPage={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '이전 페이지' }))
-    fireEvent.click(screen.getByRole('button', { name: '다음 페이지' }))
+    fireEvent.click(screen.getByRole('button', { name: '이전 쪽' }))
+    fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }))
     fireEvent.change(screen.getByRole('slider', { name: '배율' }), { target: { value: '130' } })
     fireEvent.change(screen.getByRole('spinbutton', { name: '배율 직접 입력' }), { target: { value: '150' } })
     fireEvent.keyDown(screen.getByRole('spinbutton', { name: '배율 직접 입력' }), { key: 'Enter' })

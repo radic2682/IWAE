@@ -97,9 +97,9 @@ describe('VaultSearch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Vault 검색' }))
     fireEvent.change(screen.getByRole('searchbox', { name: 'Vault 검색어' }), { target: { value: 'negotiation' } })
 
-    expect(screen.getByText('5페이지')).toBeDefined()
+    expect(screen.getByText('5쪽')).toBeDefined()
     expect(screen.getByText(/content negotiation/u)).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /HTTP Guide.*5페이지/u }))
+    fireEvent.click(screen.getByRole('button', { name: /HTTP Guide.*5쪽/u }))
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ page: 4, query: 'negotiation' }))
   })
 

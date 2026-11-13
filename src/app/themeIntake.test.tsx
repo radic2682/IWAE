@@ -155,9 +155,9 @@ describe('ThemeIntakeHost', () => {
 
   it('테마 파일을 끌고 있는 동안 안내가 뜬다', () => {
     render(<ThemeIntakeHost resolvedTheme="light" />)
-    expect(screen.queryByText('테마 파일을 놓으면 추가할 수 있어요')).toBeNull()
+    expect(screen.queryByText('테마 파일을 놓아 추가할 수 있습니다')).toBeNull()
     act(() => setThemeDropHover(true))
-    expect(screen.getByText('테마 파일을 놓으면 추가할 수 있어요')).toBeTruthy()
+    expect(screen.getByText('테마 파일을 놓아 추가할 수 있습니다')).toBeTruthy()
   })
 
   it('브라우저에서 파일을 DOM 으로 끌어 놓으면(.iwtheme) 같은 확인 창', async () => {

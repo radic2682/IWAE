@@ -65,7 +65,7 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
       {/* 칸별 상태 표시 자리(비어 있다). 단계 4 이후에 채운다 */}
       <span className="pane-head-status" data-slot="status" aria-hidden="true" />
       {zoomed ? (
-        <button type="button" className="pane-head-zoom" aria-label={t('원래 크기로')} title={t('크게 보는 중 · 눌러서 원래 크기로')} onClick={onToggleZoom}>Z</button>
+        <button type="button" className="pane-head-zoom" aria-label={t('원래 크기로')} title={t('크게 보는 중, 눌러서 원래 크기로')} onClick={onToggleZoom}>Z</button>
       ) : null}
       <button
         ref={buttonRef}
@@ -94,10 +94,10 @@ export function PaneHead({ tabs, paneCount, splitEnabled = true, zoomed, onSplit
             <Rows size={15} aria-hidden="true" /><span>{t('아래로 나누기')}</span><kbd>{hint('"')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi && !zoomed} onClick={run(onToggleZoom)}>
-            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('원래 크기로') : t('이 칸만 크게')}</span><kbd>{hint('z')}</kbd>
+            <ArrowsOutSimple size={15} aria-hidden="true" /><span>{zoomed ? t('원래 크기로') : t('이 칸 확대')}</span><kbd>{hint('z')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi || !splitEnabled} onClick={run(onBreak)}>
-            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('새 화면으로 떼기')}</span><kbd>{hint('!')}</kbd>
+            <ArrowSquareOut size={15} aria-hidden="true" /><span>{t('새 화면으로 분리')}</span><kbd>{hint('!')}</kbd>
           </button>
           <button type="button" role="menuitem" disabled={!multi || onFloat === undefined} title={multi ? undefined : t('칸이 하나뿐이라 띄울 수 없습니다')} onClick={run(() => onFloat?.())}>
             <PictureInPicture size={15} aria-hidden="true" /><span>{t('띄우기')}</span>

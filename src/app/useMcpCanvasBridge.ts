@@ -65,12 +65,12 @@ function base64(bytes: Uint8Array): string {
 async function loadImage(vault: VaultHandle, path: string): Promise<{ src: string; width: number; height: number }> {
   const extension = path.split('.').pop()?.toLowerCase() ?? ''
   const type = IMAGE_TYPES[extension]
-  if (type === undefined) throw new Error(`그림은 png·jpg·webp·gif 만 넣을 수 있습니다: ${path}`)
+  if (type === undefined) throw new Error(`그림은 png·jpg·webp·gif만 넣을 수 있습니다: ${path}`)
   const { readFile } = await import('@tauri-apps/plugin-fs')
   const { isAbsolute, join } = await import('@tauri-apps/api/path')
   const absolute = await isAbsolute(path) ? path : await join(vault.root, ...path.replaceAll('\\', '/').split('/'))
   const bytes = await readFile(absolute)
-  if (bytes.byteLength > 12 * 1024 * 1024) throw new Error('그림이 너무 큽니다(12MB 까지).')
+  if (bytes.byteLength > 12 * 1024 * 1024) throw new Error('그림이 너무 큽니다(12MB까지).')
   const bitmap = await createImageBitmap(new Blob([bytes], { type }))
   const size = { width: bitmap.width, height: bitmap.height }
   bitmap.close()
@@ -83,7 +83,7 @@ async function resolveBlocks(blocks: readonly CanvasBlockInput[], deps: McpCanva
   for (const [position, block] of blocks.entries()) {
     try {
       if (block.type === 'pdf_excerpt') {
-        if (typeof block.doc_id !== 'string' || typeof block.page !== 'number') throw new Error('doc_id 와 page(1부터)가 필요합니다.')
+        if (typeof block.doc_id !== 'string' || typeof block.page !== 'number') throw new Error('doc_id와 page(1부터)가 필요합니다.')
         const { meta, title } = await deps.loadPdfById(block.doc_id)
         const page = Math.floor(block.page) - 1
         if (page < 0 || page >= meta.pageCount) throw new Error(`쪽 번호가 범위를 벗어났습니다(1–${meta.pageCount}).`)
@@ -93,11 +93,11 @@ async function resolveBlocks(blocks: readonly CanvasBlockInput[], deps: McpCanva
         const rect = block.rect ?? (typeof block.from_text === 'string'
           ? findTextRegion(index, block.from_text, block.to_text, { padding: block.padding, fullWidth: block.full_width, pageSize })
           : undefined)
-        if (rect === undefined) throw new Error('rect 또는 from_text 가 필요합니다.')
+        if (rect === undefined) throw new Error('rect 또는 from_text가 필요합니다.')
         const selection = createRegionExcerptSelection({ docId: meta.docId, page, rect, index, pageSize })
         resolved.push({ ...block, excerpt: { selection, sourceTitle: title } })
       } else if (block.type === 'image') {
-        if (typeof block.path !== 'string') throw new Error('path 가 필요합니다.')
+        if (typeof block.path !== 'string') throw new Error('path가 필요합니다.')
         resolved.push({ ...block, image: await loadImage(vault, block.path) })
       } else {
         resolved.push(block)
@@ -138,7 +138,7 @@ async function tidyAfterRender(
 
 async function handle(op: string, args: Record<string, unknown>, deps: McpCanvasBridgeDeps): Promise<unknown> {
   const vault = deps.vault
-  if (vault === null) throw new Error('IWAE 에 열린 Vault 가 없습니다.')
+  if (vault === null) throw new Error('IWAE에 열린 Vault가 없습니다.')
   const list = canvases(deps.tree)
   if (op === 'canvas_list') {
     return list.map((canvas) => {
@@ -146,7 +146,7 @@ async function handle(op: string, args: Record<string, unknown>, deps: McpCanvas
       return { canvas: canvas.path, title: canvas.title, folder: canvas.folder, open: open !== undefined, ...(open === undefined ? {} : { blocks: open.get().nodes.length }) }
     })
   }
-  if (typeof args.canvas !== 'string') throw new Error('canvas 가 필요합니다(canvas_list 의 canvas 값).')
+  if (typeof args.canvas !== 'string') throw new Error('canvas가 필요합니다(canvas_list의 canvas 값).')
   const target = resolveCanvasTarget(list, args.canvas)
   const open = liveCanvas(target.path)
   let current: CanvasDocumentV2
@@ -189,7 +189,7 @@ async function handle(op: string, args: Record<string, unknown>, deps: McpCanvas
     }
     case 'canvas_arrange': {
       const layout = args.layout
-      if (layout !== 'grid' && layout !== 'column' && layout !== 'row' && layout !== 'stack') throw new Error('layout 은 grid·column·row·stack 중 하나입니다.')
+      if (layout !== 'grid' && layout !== 'column' && layout !== 'row' && layout !== 'stack') throw new Error('layout 값은 grid, column, row, stack 중 하나입니다.')
       const result = arrangeCanvasBlocks(current, {
         layout,
         ids: args.ids as string[] | undefined,
