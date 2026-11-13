@@ -55,28 +55,46 @@ export function noteTargetAt(x: number, y: number, sourcePath: string | null): N
 }
 
 /** 노트의 카드들(그리는 차례). 쓰는 중인 새 메모(draft)는 놓을 자리가 아니다 */
-function cardsOf(scroller: HTMLElement): HTMLElement[] {
+export function cardsOf(scroller: HTMLElement): HTMLElement[] {
   return Array.from(scroller.querySelectorAll<HTMLElement>('[data-note-block]')).filter((card) => card.dataset.noteBlock !== 'draft')
 }
 
-/** 포인터 높이에서 놓을 자리: 가운데선 아래로 처음 내려가는 카드 앞(없으면 null = 맨 끝). 원래 노트의 dropIndexAt 과 같은 규칙 */
-export function dropBeforeIdAt(scroller: HTMLElement, clientY: number): string | null {
-  const before = cardsOf(scroller).find((card) => {
-    const rect = card.getBoundingClientRect()
-    return clientY < rect.top + rect.height / 2
-  })
-  return before?.dataset.noteBlock ?? null
+/** 위쪽이 `y` 아래에 처음 오는(가운데선이 포인터보다 아래인) 칸의 차례. 없으면 -1. 노트 안 순서 바꾸기(NoteFlow)와 노트 사이 옮기기가 같은 규칙을 쓴다 */
+export function firstBelowMidpoint(rects: Iterable<{ readonly top: number; readonly height: number } | undefined>, y: number): number {
+  let index = 0
+  for (const rect of rects) {
+    if (rect !== undefined && y < rect.top + rect.height / 2) return index
+    index += 1
+  }
+  return -1
 }
 
-/** 놓을 자리 줄을 그린다(원래 노트가 쓰는 클래스 그대로). beforeId 가 null 이면 마지막 카드 아래 */
-function paintDropLine(scroller: HTMLElement | null, beforeId: string | null): void {
-  for (const card of document.querySelectorAll('.pdf-memo-card-drop-before.note-block-ghost-line, .pdf-memo-card-drop-after.note-block-ghost-line')) {
-    card.classList.remove('pdf-memo-card-drop-before', 'pdf-memo-card-drop-after', 'note-block-ghost-line')
-  }
+/** 노트 가장자리에서 이만큼 안이면 스크롤한다(노트 안 끌기와 노트 사이 끌기가 같은 값) */
+export function edgeScroll(scroller: Element, clientY: number): void {
+  const rect = scroller.getBoundingClientRect()
+  if (clientY < rect.top + EDGE_SCROLL_BAND) scroller.scrollTop -= EDGE_SCROLL_STEP
+  else if (clientY > rect.bottom - EDGE_SCROLL_BAND) scroller.scrollTop += EDGE_SCROLL_STEP
+}
+
+/** 포인터 높이에서 놓을 자리: 가운데선 아래로 처음 내려가는 카드 앞(없으면 null = 맨 끝). cards 를 주면 다시 찾지 않는다 */
+export function dropBeforeIdAt(scroller: HTMLElement, clientY: number, cards: readonly HTMLElement[] = cardsOf(scroller)): string | null {
+  const at = firstBelowMidpoint(cards.map((card) => card.getBoundingClientRect()), clientY)
+  return at < 0 ? null : cards[at]?.dataset.noteBlock ?? null
+}
+
+/** 줄이 칠해진 카드와 칠한 자리(같은 자리면 다시 칠하지 않는다: 클래스를 뗐다 붙이면 margin 이 바뀌어 매번 다시 배치된다) */
+let paintedLine: { readonly scroller: HTMLElement; readonly beforeId: string | null; readonly card: Element | undefined } | null = null
+
+/** 놓을 자리 줄을 그린다(원래 노트가 쓰는 클래스 그대로). beforeId 가 null 이면 마지막 카드 아래. scroller/beforeId 가 그대로면 아무것도 안 한다 */
+function paintDropLine(scroller: HTMLElement | null, beforeId: string | null, cards?: readonly HTMLElement[]): void {
+  if (scroller !== null && paintedLine?.scroller === scroller && paintedLine.beforeId === beforeId && (paintedLine.card === undefined || paintedLine.card.classList.contains('note-block-ghost-line'))) return
+  if (paintedLine?.card !== undefined) paintedLine.card.classList.remove('pdf-memo-card-drop-before', 'pdf-memo-card-drop-after', 'note-block-ghost-line')
+  paintedLine = null
   if (scroller === null) return
-  const cards = cardsOf(scroller)
-  const anchor = beforeId === null ? cards.at(-1) : cards.find((card) => card.dataset.noteBlock === beforeId)
+  const list = cards ?? cardsOf(scroller)
+  const anchor = beforeId === null ? list.at(-1) : list.find((card) => card.dataset.noteBlock === beforeId)
   anchor?.classList.add(beforeId === null ? 'pdf-memo-card-drop-after' : 'pdf-memo-card-drop-before', 'note-block-ghost-line')
+  paintedLine = { scroller, beforeId, card: anchor }
 }
 
 // ---------- 따라오는 모양 ----------
@@ -254,11 +272,15 @@ export interface BlockDragSessionInput {
   readonly api: () => MemoNoteApi | null
   /** Esc: 이 끌기를 통째로 그만둔다(NoteFlow 가 자기 쪽 정리를 한다) */
   readonly onCancel: () => void
+  /** 포인터 자리 계산은 한 프레임에 한 번만 한다. 다른 노트 위인지가 바뀌면(프레임 뒤에 알게 된 것도) 알린다 */
+  readonly onCrossingChange?: (crossing: boolean) => void
 }
 
 export interface BlockDragSession {
   /** 포인터가 움직였다. crossing 이면 다른 노트 위라 원래 노트의 놓을 자리 줄은 쓰지 않는다 */
   readonly update: (event: PointerEvent) => { readonly crossing: boolean }
+  /** 원래 노트가 화면에서 사라졌는가(그 노트의 탭이 다른 노트로 바뀌어 내려갔다). 그러면 노트 안 순서 바꾸기로 이어 가지 않는다 */
+  readonly sourceGone: () => boolean
   /**
    * 놓았다. 다른 노트에 놓았거나(옮김·링크) Alt 인데 놓을 노트가 없어 아무 일도 하지 않기로 했으면 true —
    * false 면 원래 노트 안 순서 바꾸기로 이어 간다
@@ -268,7 +290,7 @@ export interface BlockDragSession {
 }
 
 export function startBlockDragSession(input: BlockDragSessionInput): BlockDragSession {
-  const { card, startX, startY, keys, sourcePath, snapSection, api, onCancel } = input
+  const { card, startX, startY, keys, sourcePath, snapSection, api, onCancel, onCrossingChange } = input
   const carried = (() => {
     const note = sourcePath === null ? null : api()?.noteAt(sourcePath) ?? null
     return note === null ? [] : carriedBlocks(note, keys)
@@ -276,11 +298,28 @@ export function startBlockDragSession(input: BlockDragSessionInput): BlockDragSe
   // 메모 블록이 하나라도 있으면 링크, 글·소제목만이면 복사
   const linkKind: 'link' | 'copy' = carried.some((block) => block.kind === 'memo') ? 'link' : 'copy'
   const ghost = card === null ? null : createBlockGhost(card, startX, startY, Math.max(carried.length, keys.length))
+  // 원래 노트의 스크롤 칸: 끄는 사이 그 칸의 탭이 다른 노트로 바뀌면(spring-load) 이 칸이 사라진다
+  const sourceScroller = card?.closest<HTMLElement>('.pdf-memo-bar-scroll, [data-note-path]') ?? null
+  const sourceGone = () => sourceScroller !== null && !sourceScroller.isConnected
   let alt = false
   let target: NoteDropTarget | null = null
   let beforeId: string | null = null
   let paintedPane: HTMLElement | null = null
   let spring: { readonly pill: HTMLElement; readonly timer: number } | null = null
+  // 끄는 동안 노트의 카드 목록은 스크롤 칸마다 한 번만 찾는다(카드가 사라졌으면 다시 찾는다)
+  const cardCache = new Map<HTMLElement, HTMLElement[]>()
+  const cardsFor = (scroller: HTMLElement) => {
+    let cards = cardCache.get(scroller)
+    if (cards === undefined || cards.some((item) => !item.isConnected)) {
+      cards = cardsOf(scroller)
+      cardCache.set(scroller, cards)
+    }
+    return cards
+  }
+  let lastEvent: PointerEvent | null = null
+  let lastCrossing = false
+  let frame = 0
+  let queued = false
 
   const clearSpring = () => {
     if (spring !== null) window.clearTimeout(spring.timer)
@@ -314,18 +353,17 @@ export function startBlockDragSession(input: BlockDragSessionInput): BlockDragSe
   window.addEventListener('keyup', onKey, true)
   refresh()
 
-  const update = (event: PointerEvent) => {
+  /** 포인터 자리에서 놓을 곳을 다시 구한다(elementFromPoint · 칸 찾기 · 카드 자리 읽기: 한 프레임에 한 번) */
+  const compute = (event: PointerEvent) => {
     alt = event.altKey
-    ghost?.move(event.clientX, event.clientY)
     const next = noteTargetAt(event.clientX, event.clientY, sourcePath)
     target = next
     if (next?.kind === 'body') {
-      beforeId = dropBeforeIdAt(next.scroller, event.clientY)
-      paintDropLine(next.scroller, beforeId)
+      const cards = cardsFor(next.scroller)
+      beforeId = dropBeforeIdAt(next.scroller, event.clientY, cards)
+      paintDropLine(next.scroller, beforeId, cards)
       paintPane(next.card)
-      const rect = next.scroller.getBoundingClientRect()
-      if (event.clientY < rect.top + EDGE_SCROLL_BAND) next.scroller.scrollTop -= EDGE_SCROLL_STEP
-      else if (event.clientY > rect.bottom - EDGE_SCROLL_BAND) next.scroller.scrollTop += EDGE_SCROLL_STEP
+      edgeScroll(next.scroller, event.clientY)
     } else {
       beforeId = null
       paintDropLine(null, null)
@@ -342,14 +380,36 @@ export function startBlockDragSession(input: BlockDragSessionInput): BlockDragSe
       clearSpring()
     }
     refresh()
-    return { crossing: next !== null }
+    const crossing = next !== null
+    if (crossing !== lastCrossing) {
+      lastCrossing = crossing
+      onCrossingChange?.(crossing)
+    }
+  }
+
+  const update = (event: PointerEvent) => {
+    lastEvent = event
+    ghost?.move(event.clientX, event.clientY)
+    // 첫 움직임은 바로, 그다음부터는 프레임마다 한 번(마지막 자리로)
+    if (frame === 0) {
+      compute(event)
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        if (queued && lastEvent !== null) { queued = false; compute(lastEvent) }
+      })
+    } else {
+      queued = true
+    }
+    return { crossing: lastCrossing || sourceGone() }
   }
 
   const drop = () => {
+    // 끌다가 원래 노트가 사라졌으면(탭이 바뀌었다) 놓을 노트가 아니면 아무 일도 하지 않는다
+    if (queued && lastEvent !== null) { queued = false; compute(lastEvent) }
     const at = target
     const link = alt
     const api_ = api()
-    if (at === null) return link
+    if (at === null) return link || sourceGone()
     if (api_ === null || sourcePath === null) return true
     void transferBlocks({ api: api_, sourcePath, target: at, keys, beforeId: at.kind === 'tab' ? null : beforeId, link, snapSection })
     return true
@@ -357,12 +417,15 @@ export function startBlockDragSession(input: BlockDragSessionInput): BlockDragSe
 
   const dispose = () => {
     clearSpring()
+    if (frame !== 0) window.cancelAnimationFrame(frame)
+    frame = 0
     window.removeEventListener('keydown', onKey, true)
     window.removeEventListener('keyup', onKey, true)
     paintDropLine(null, null)
     paintPane(null)
+    cardCache.clear()
     document.body.classList.remove('note-block-drag-copy')
     ghost?.remove()
   }
-  return { update, drop, dispose }
+  return { update, drop, dispose, sourceGone }
 }

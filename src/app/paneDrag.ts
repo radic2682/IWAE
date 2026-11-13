@@ -1,7 +1,8 @@
 import { isDragExempt } from '../ui/dragExempt'
 import { t } from '../i18n'
 import { createPillGhost, type PillGhost } from './dockSession'
-import { TAB_DRAG_THRESHOLD_PX, createDockVisuals, paintDockTarget, paneHitAt, reducedMotion, resolveDockTarget, setDockDragging, type DockTarget } from './tabDrag'
+import { TAB_DRAG_THRESHOLD_PX, createDockVisuals, paintDockTarget, paneCardOf, paneHitAt, reducedMotion, resolveDockTarget, setDockDragging, type DockTarget } from './tabDrag'
+import { armClickSuppress } from '../ui/clickSuppress'
 import { type DockEdge } from './tabDock'
 import type { PaneId } from './tabs'
 import '../ui/pane-drag.css'
@@ -58,7 +59,7 @@ function sourceOutline(): SVGSVGElement {
 }
 
 function sourceCard(pane: PaneId): HTMLElement | null {
-  return Array.from(document.querySelectorAll<HTMLElement>('.pane-card[data-card-pane]')).find((card) => card.dataset.cardPane === pane) ?? null
+  return paneCardOf(pane)
 }
 
 /** 손에 붙을 알약: 칸 번호 + 보는 탭의 아이콘 · 이름(탭이 없으면 「칸 N」) */
@@ -192,20 +193,6 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
     document.querySelectorAll(`[${SOURCE_ATTR}]`).forEach((element) => element.removeAttribute(SOURCE_ATTR))
     document.querySelectorAll(`.${SOURCE_OUTLINE_CLASS}`).forEach((element) => element.remove())
   }
-  /** 끌고 난 뒤 따라오는 click 이 아래 요소에 닿지 않게 한 번 삼킨다(놓은 뒤 한 틱 뒤에 풀고, 새로 누르면 바로 푼다) */
-  const swallowClickOnce = () => {
-    const swallow = (clickEvent: Event) => { clickEvent.stopPropagation(); clickEvent.preventDefault() }
-    let timer: number | null = null
-    const release = () => {
-      window.removeEventListener('click', swallow, true)
-      window.removeEventListener('pointerdown', release, true)
-      if (timer !== null) window.clearTimeout(timer)
-    }
-    window.addEventListener('click', swallow, true)
-    window.addEventListener('pointerdown', release, true)
-    timer = window.setTimeout(release, 400)
-  }
-
   const cancel = () => {
     if (finished) return
     finished = true
@@ -213,7 +200,8 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
     const was = dragging
     cleanupVisuals()
     dismissGhost()
-    if (was) swallowClickOnce()
+    // Esc · 취소: 손은 아직 눌려 있을 수 있다(손을 떼거나 새로 누르면 풀린다)
+    if (was) armClickSuppress()
   }
   const onCancel = () => cancel()
   const onKey = (keyEvent: KeyboardEvent) => {
@@ -233,7 +221,8 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
     const chosen = drop
     cleanupVisuals()
     dismissGhost()
-    swallowClickOnce()
+    // 놓았다: click 이 지나간 한 틱 뒤에 푼다
+    armClickSuppress({ released: true })
     const h = getHost()
     if (chosen.kind === 'swap') h.swap(chosen.pane)
     else if (chosen.kind === 'dock') h.dock(chosen.pane, chosen.edge)

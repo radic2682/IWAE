@@ -12,7 +12,8 @@ import { fadeIn, reducedMotion, slideFrom } from '../app/motion'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { insertBlock, memoBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
 import { ticketGroupOf, type TicketChoice, type TicketGroup, type TicketIndex, type TicketPlace } from '../core/memoTickets'
-import { startBlockDragSession, type BlockDragSession } from './noteBlockDrag'
+import { armClickSuppress } from '../ui/clickSuppress'
+import { edgeScroll, firstBelowMidpoint, startBlockDragSession, type BlockDragSession } from './noteBlockDrag'
 import { clearBlockReveal, onBlockRevealRequest, peekBlockReveal, revealNoteBlock, useMemoNoteApi, type MemoNoteApi } from './memoNoteContext'
 import { usePaneChannel, useWorkspaceLink } from '../app/workspaceContext'
 import { placementRevealMode } from '../app/workspaceRouting'
@@ -195,10 +196,7 @@ function NoteFlowImpl({
   const [dragging, setDragging] = useState<{ key: string; drop: number } | null>(null)
   const draggingRef = useRef<{ key: string; drop: number } | null>(null)
   const dropIndexAt = (clientY: number) => {
-    const index = items.findIndex((item) => {
-      const rect = cardRefs.current.get(item.key)?.getBoundingClientRect()
-      return rect !== undefined && clientY < rect.top + rect.height / 2
-    })
+    const index = firstBelowMidpoint(items.map((item) => cardRefs.current.get(item.key)?.getBoundingClientRect()), clientY)
     return index < 0 ? items.length : index
   }
   /** 소제목이면 그 묶음(소제목 ~ 다음 소제목 앞)의 key 들 */
@@ -227,6 +225,8 @@ function NoteFlowImpl({
         started = true
         window.getSelection()?.removeAllRanges()
         document.body.classList.add('note-block-dragging')
+        // 끈 뒤에 따라오는 click(고치기 열기 · 원문 접기)은 삼킨다: 손을 뗀 한 틱 뒤, Esc · 창 밖에서 뗀 끌기는 새로 누를 때 풀린다
+        armClickSuppress()
         const picked = selectedRef.current
         const carryKeys = picked.size > 1 && picked.has(key) ? items.filter((item) => picked.has(item.key) && item.key !== 'draft').map((item) => item.key) : [key]
         session = startBlockDragSession({
@@ -238,6 +238,13 @@ function NoteFlowImpl({
           snapSection: carryKeys.length === 1 && items.find((item) => item.key === key)?.kind === 'section',
           api: () => noteApiRef.current,
           onCancel: cancel,
+          // 프레임 뒤에야 다른 노트 위가 된 것도 이 노트의 놓을 자리 줄을 지운다
+          onCrossingChange: (crossing) => {
+            if (crossing && draggingRef.current?.drop !== -1) {
+              draggingRef.current = { key, drop: -1 }
+              setDragging(draggingRef.current)
+            }
+          },
         })
       }
       moveEvent.preventDefault()
@@ -254,11 +261,7 @@ function NoteFlowImpl({
         draggingRef.current = next
         setDragging(next)
       }
-      if (scroller !== null) {
-        const rect = scroller.getBoundingClientRect()
-        if (moveEvent.clientY < rect.top + 30) scroller.scrollTop -= 12
-        else if (moveEvent.clientY > rect.bottom - 30) scroller.scrollTop += 12
-      }
+      if (scroller !== null) edgeScroll(scroller, moveEvent.clientY)
     }
     const cleanup = () => {
       window.removeEventListener('pointermove', move)
@@ -271,18 +274,13 @@ function NoteFlowImpl({
       setDragging(null)
     }
     // Esc: 아무것도 바꾸지 않고 끌기를 그만둔다
-    const cancel = () => {
-      cleanup()
-      if (started) window.addEventListener('click', (clickEvent) => clickEvent.stopPropagation(), { capture: true, once: true })
-    }
+    const cancel = cleanup
     function finish(upEvent: PointerEvent) {
       const state = draggingRef.current
       // 다른 노트에 놓았으면(또는 Alt 인데 놓을 노트가 없어 그만두면) 여기서 끝난다. pointercancel 은 놓은 것이 아니다
       const handled = started && upEvent.type === 'pointerup' && (session?.drop() ?? false)
       cleanup()
       if (!started || state === null) return
-      // 끈 뒤에 따라오는 click(고치기 열기·원문 접기)은 삼킨다
-      window.addEventListener('click', (clickEvent) => clickEvent.stopPropagation(), { capture: true, once: true })
       if (handled || upEvent.type === 'pointercancel') return
       const moving = items.find((item) => item.key === state.key)
       if (moving === undefined) return

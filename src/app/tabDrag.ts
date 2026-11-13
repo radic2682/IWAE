@@ -106,6 +106,11 @@ const insideBox = (box: DOMRect, x: number, y: number): boolean => box.width > 0
  * 틈과 경계선 위에서도 가장 가까운 칸이라 미리보기가 깜빡이지 않는다. 떠 있는 칸은 DOM 에서 뒤라 먼저 본다(위에 있다).
  * 칸 영역 밖(왼쪽 바 · 상단바 · 창 위에 뜬 것)은 none.
  */
+/** 칸 id 의 칸 요소(.pane-card). 속성 선택자로 찾으므로 칸 id 를 따로 이스케이프할 필요가 없다 */
+export function paneCardOf(pane: string): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>('.pane-card[data-card-pane]')).find((card) => card.dataset.cardPane === pane) ?? null
+}
+
 export function paneHitAt(x: number, y: number): Hit {
   const element = document.elementFromPoint(x, y)
   if (element === null || element.closest('.panes') === null) return { kind: 'none' }

@@ -1,3 +1,4 @@
+import { armClickSuppress } from '../ui/clickSuppress'
 import type { PaneId } from './tabs'
 import type { Channel, PaneChannel } from './workspaceChannels'
 import { TAB_DRAG_THRESHOLD_PX, paneHitAt, setDockDragging } from './tabDrag'
@@ -63,13 +64,6 @@ export function startChannelDrag(start: ChannelDragStart): void {
     previewCard = null
   }
 
-  // 이 끌기 뒤에 따라오는 클릭(점을 눌러 색을 바꾸는)은 한 번 삼킨다
-  const swallowClick = (event: Event) => {
-    event.stopPropagation()
-    event.preventDefault()
-    window.removeEventListener('click', swallowClick, true)
-  }
-
   const begin = () => {
     dragging = true
     const box = dot.getBoundingClientRect()
@@ -92,7 +86,8 @@ export function startChannelDrag(start: ChannelDragStart): void {
     document.body.append(svg, ghost)
     setDockDragging(true)
     start.onDragged?.()
-    window.addEventListener('click', swallowClick, true)
+    // 이 끌기 뒤에 따라오는 클릭(점을 눌러 색을 바꾸는)은 삼킨다: 손을 뗀 한 틱 뒤(Esc 였으면 손을 떼거나 새로 누를 때)에 풀린다
+    armClickSuppress()
   }
 
   const paint = () => {
@@ -113,20 +108,7 @@ export function startChannelDrag(start: ChannelDragStart): void {
     }
   }
 
-  /** 끌기가 끝난 뒤 삼키는 클릭을 치운다: 놓은 직후면 클릭이 지나간 다음 틱에, Esc 로 끝났으면 손을 뗀(또는 새로 누른) 다음에 */
-  const releaseClickSwallow = (released: boolean) => {
-    const drop = () => {
-      window.removeEventListener('click', swallowClick, true)
-      window.removeEventListener('pointerup', afterUp, true)
-      window.removeEventListener('pointerdown', drop, true)
-    }
-    const afterUp = () => { window.setTimeout(drop, 0) }
-    if (released) { window.setTimeout(drop, 0); return }
-    window.addEventListener('pointerup', afterUp, true)
-    window.addEventListener('pointerdown', drop, true)
-  }
-
-  const cleanup = (released = false) => {
+  const cleanup = () => {
     window.removeEventListener('pointermove', onMove, true)
     window.removeEventListener('pointerup', onUp, true)
     window.removeEventListener('pointercancel', onCancel, true)
@@ -138,10 +120,7 @@ export function startChannelDrag(start: ChannelDragStart): void {
     ghost = null
     svg = null
     line = null
-    if (dragging) {
-      setDockDragging(false)
-      releaseClickSwallow(released)
-    }
+    if (dragging) setDockDragging(false)
   }
 
   const cancel = () => {
@@ -172,7 +151,7 @@ export function startChannelDrag(start: ChannelDragStart): void {
     lastY = event.clientY
     if (dragging) paint()
     const dropped = dragging ? target : null
-    cleanup(true)
+    cleanup()
     if (dropped !== null) host?.link(source, dropped)
   }
 

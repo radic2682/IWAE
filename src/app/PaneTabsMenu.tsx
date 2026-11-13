@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
+import { armClickSuppress } from '../ui/clickSuppress'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { ChannelDot } from './ChannelDot'
 import type { PaneChannel } from './workspaceChannels'
@@ -164,23 +165,17 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   // 놓은 뒤(pointerup) click 이 지나가도록 한 틱 미루어 풀고, 새로 누르면(pointerdown) 바로 푼다 — 창이 따로 움직여 pointerup 이 안 오는 끌기도 갇히지 않게
   const suppressClickRef = useRef(false)
   const clearSuppressRef = useRef<(() => void) | null>(null)
-  const armClickSuppress = () => {
+  const armTabClickSuppress = () => {
     clearSuppressRef.current?.()
     suppressClickRef.current = true
-    let timer: number | null = null
-    const release = () => {
-      window.removeEventListener('pointerup', onUp, true)
-      window.removeEventListener('pointercancel', onUp, true)
-      window.removeEventListener('pointerdown', release, true)
-      if (timer !== null) window.clearTimeout(timer)
-      suppressClickRef.current = false
-      if (clearSuppressRef.current === release) clearSuppressRef.current = null
-    }
-    const onUp = () => { timer = window.setTimeout(release, 0) }
+    const release = armClickSuppress({
+      swallow: false,
+      onRelease: () => {
+        suppressClickRef.current = false
+        if (clearSuppressRef.current === release) clearSuppressRef.current = null
+      },
+    })
     clearSuppressRef.current = release
-    window.addEventListener('pointerup', onUp, true)
-    window.addEventListener('pointercancel', onUp, true)
-    window.addEventListener('pointerdown', release, true)
   }
   useEffect(() => () => clearSuppressRef.current?.(), [])
   // 끄는 동안 다시 그려져도 최신 값을 읽도록 ref 로 둔다
@@ -195,7 +190,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     dragWindow: dragWindow === true && state.tabs.length === 1 && tab.kind === 'pdf',
     // PDF 는 떼어 낸 PDF 창으로, 메모 노트 · Markdown 은 새 화면을 보는 새 앱 창으로 떼어 낸다(캔버스는 아직 안 된다)
     tearOff: onTearOffTab === undefined || tab.kind === 'canvas' ? undefined : (id, info) => onTearOffTab(id, info),
-    onDragged: armClickSuppress,
+    onDragged: armTabClickSuppress,
   })
   // 탭 우클릭 메뉴: 어느 탭에서, 화면 어디에 열렸나
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)

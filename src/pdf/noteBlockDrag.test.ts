@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MemoNote, MemoNoteBlock } from '../core/memoNote'
 import type { MemoNoteApi } from './memoNoteContext'
-import { createBlockGhost, ghostTextOf, dropBeforeIdAt, transferBlocks, type NoteDropTarget } from './noteBlockDrag'
+import { createBlockGhost, ghostTextOf, dropBeforeIdAt, startBlockDragSession, transferBlocks, type NoteDropTarget } from './noteBlockDrag'
 
 const memo = (id: string, highlightId: string): MemoNoteBlock => ({ id, kind: 'memo', highlightId })
 const text = (id: string): MemoNoteBlock => ({ id, kind: 'text', text: id })
@@ -203,5 +203,25 @@ describe('ghostTextOf · createBlockGhost', () => {
     ghost.move(300, 300)
     expect(root.style.transform).toBe('translate(314px, 316px)')
     ghost.remove()
+  })
+})
+
+describe('startBlockDragSession', () => {
+  it('원래 노트가 화면에서 사라졌으면(탭이 바뀌었다) 놓을 노트가 없을 때 노트 안 순서 바꾸기로 이어 가지 않는다', () => {
+    document.elementFromPoint = () => null
+    const scroller = document.createElement('div')
+    scroller.dataset.notePath = 'S'
+    const cardEl = document.createElement('div')
+    cardEl.dataset.noteBlock = 'a'
+    scroller.append(cardEl)
+    document.body.append(scroller)
+    const { api } = fakeApi({ S: note(text('a')), T: note() })
+    const session = startBlockDragSession({ card: cardEl, startX: 0, startY: 0, keys: ['a'], sourcePath: 'S', snapSection: false, api: () => api, onCancel: () => undefined })
+    expect(session.sourceGone()).toBe(false)
+    expect(session.drop()).toBe(false)
+    scroller.remove()
+    expect(session.sourceGone()).toBe(true)
+    expect(session.drop()).toBe(true)
+    session.dispose()
   })
 })

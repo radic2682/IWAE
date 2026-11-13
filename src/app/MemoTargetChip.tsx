@@ -2,6 +2,7 @@ import { useContext, useLayoutEffect, useState } from 'react'
 import { t } from '../i18n'
 import { PaneIdContext, usePaneChannel, useWorkspaceLink } from './workspaceContext'
 import { flashReaction } from './paneReaction'
+import { paneCardOf } from './tabDrag'
 
 /** 칸 너비가 이보다 좁으면 칩을 숨긴다(좁은 칸의 도구줄을 밀지 않는다) */
 export const MEMO_TARGET_CHIP_MIN_PANE_PX = 420
@@ -11,7 +12,7 @@ function usePaneNarrow(pane: string | null, min: number): boolean {
   const [narrow, setNarrow] = useState(false)
   useLayoutEffect(() => {
     if (pane === null) return undefined
-    const card = Array.from(document.querySelectorAll<HTMLElement>('.pane-card[data-card-pane]')).find((element) => element.dataset.cardPane === pane) ?? null
+    const card = paneCardOf(pane)
     if (card === null) { setNarrow(false); return undefined }
     const measure = () => setNarrow(card.getBoundingClientRect().width < min)
     measure()
