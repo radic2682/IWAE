@@ -25,7 +25,7 @@ export async function pickZoteroFolder(): Promise<string | null> {
 
 /** Zotero 보관함을 읽는다. DB 는 Rust 가 임시 사본으로만 연다(원본은 건드리지 않는다) */
 export async function readZoteroLibrary(path: string): Promise<ZoteroLibrary> {
-  if (!isDesktop()) throw new Error(t('Zotero 가져오기는 데스크톱(Tauri) 안에서만 됩니다.'))
+  if (!isDesktop()) throw new Error(t('Zotero 가져오기는 데스크톱 앱에서만 쓸 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   return parseZoteroLibrary(await invoke<unknown>('zotero_read', { path }))
 }

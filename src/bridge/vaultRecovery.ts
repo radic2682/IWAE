@@ -262,7 +262,7 @@ export async function restoreTrash(vault: VaultHandle, id: string): Promise<void
   if (entry === undefined) throw new Error(t('복원할 휴지통 항목을 찾지 못했습니다.'))
   const index = await readVaultIndex(vault)
   if (index.entries.some((candidate) => candidate.id === id)) {
-    throw new Error(t('같은 ID의 Vault 항목이 이미 존재합니다.'))
+    throw new Error(t('같은 ID의 Vault 항목이 이미 있습니다.'))
   }
   if (entry.kind === 'folder') {
     const { exists } = await import('@tauri-apps/plugin-fs')

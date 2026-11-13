@@ -128,7 +128,7 @@ export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onCanvas, onC
     <div className="empty-pane" ref={listRef} onKeyDown={onKeyDown}>
       <SquaresFour className="empty-pane-icon" size={28} aria-hidden="true" />
       <p className="empty-pane-title">{t('빈 칸')}</p>
-      {trim.hint ? <p className="empty-pane-hint">{t('문서를 열거나, 다른 칸의 탭을 끌어 오세요')}</p> : null}
+      {trim.hint ? <p className="empty-pane-hint">{t('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')}</p> : null}
       {rows.length === 0 ? null : (
         <div className="empty-pane-actions" role="group" aria-label={t('이 칸에 열기')}>
           {rows.map((row, index) => (

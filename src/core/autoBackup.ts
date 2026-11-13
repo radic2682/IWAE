@@ -11,7 +11,7 @@ export interface AutoBackupSettings {
   readonly folder: string
   /** 자동 백업을 몇 개까지 남길지(넘으면 오래된 것부터 지운다) */
   readonly keep: number
-  /** 검색 색인·미리보기 캐시도 넣기(다시 만들 수 있어 기본으로 뺀다) */
+  /** 검색 색인과 미리보기 캐시 포함(다시 만들 수 있어 기본으로 뺀다) */
   readonly includeIndex: boolean
   /** 마지막으로 자동 백업을 마친 시각(ISO) */
   readonly lastAt: string | null
@@ -63,7 +63,7 @@ export function writeAutoBackup(vaultRoot: string, settings: AutoBackupSettings)
   try { window.localStorage.setItem(storageKey(vaultRoot), JSON.stringify(settings)) } catch { /* 이번 실행에만 */ }
 }
 
-/** 지금 자동 백업을 할 차례인가. 켜져 있고 폴더가 있고, 마지막 백업에서 everyDays 가 지났으면 */
+/** 지금 백업을 할 차례인가. 켜져 있고 폴더가 있고, 마지막 백업에서 everyDays 가 지났으면 */
 export function autoBackupDue(settings: AutoBackupSettings, now: Date = new Date()): boolean {
   if (!settings.enabled || settings.folder.trim() === '') return false
   if (settings.lastAt === null) return true

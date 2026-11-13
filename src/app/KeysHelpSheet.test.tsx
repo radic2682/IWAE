@@ -21,7 +21,7 @@ describe('KeysHelpSheet', () => {
     const commandOf = (keys: string) => within(rows.find((row) => within(row).getAllByRole('cell')[0]!.textContent === keys)!).getAllByRole('cell')[2]!
     expect(commandOf('% / "').textContent).toBe('split-window -h / -v')
     expect(commandOf('q').textContent).toBe('display-panes')
-    expect(screen.getByText(/접두키\(Ctrl\+B\)를 누르고/u)).toBeDefined()
+    expect(screen.getByText(/Ctrl\+B를 눌렀다 놓은 다음/u)).toBeDefined()
     expect(screen.getByText('Ctrl+K')).toBeDefined()
   })
 
@@ -82,14 +82,14 @@ describe('KeysHelpSheet', () => {
   it('「:」 줄은 명령 대신 풀이를 보이고 자연스럽게 읽힌다', () => {
     render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
     const colonRow = within(screen.getByRole('table')).getAllByRole('row').slice(1).find((candidate) => within(candidate).getAllByRole('cell')[0]!.textContent === ':')!
-    expect(within(colonRow).getAllByRole('cell')[2]!.textContent).toBe('명령 팔레트를 「:」 로 엽니다')
+    expect(within(colonRow).getAllByRole('cell')[2]!.textContent).toBe('명령 팔레트를 「:」로 엽니다')
     expect(colonRow.textContent).not.toContain('(명령 팔레트가')
   })
 
-  it('z 줄은 「이 칸만 크게 / 원래 크기로」 이고 「되돌리기」 가 아니다', () => {
+  it('z 줄은 「이 칸 확대 / 원래 크기로」 이고 「되돌리기」 가 아니다', () => {
     render(<KeysHelpSheet onClose={vi.fn()} currentKeys={[]} />)
-    expect(screen.getByText('이 칸만 크게 / 원래 크기로')).toBeDefined()
-    expect(screen.queryByText('이 칸만 크게 / 되돌리기')).toBeNull()
+    expect(screen.getByText('이 칸 확대 / 원래 크기로')).toBeDefined()
+    expect(screen.queryByText('이 칸 확대 / 되돌리기')).toBeNull()
   })
 
   it('도움말의 접두키 표가 가리키는 명령은 실제 명령이거나 다음 단계 명령이다', () => {

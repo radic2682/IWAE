@@ -44,7 +44,7 @@ function OtherNoteHighlightSetting() {
           </button>
         ))}
       </div>
-      <p className="hlc-caption">{t('같은 색 창에 보이는 노트에 없는 메모의 형광펜을 PDF 에서 어떻게 보일지 정합니다. 노트가 보이지 않을 때는 모두 보통으로 보입니다.')}</p>
+      <p className="hlc-caption">{t('같은 색 칸에 열린 노트에 없는 메모의 형광펜을 PDF에서 어떻게 표시할지 정합니다. 노트가 열려 있지 않으면 모두 보통으로 표시됩니다.')}</p>
     </div>
   )
 }
@@ -119,7 +119,7 @@ export function HighlightColorSettings() {
     <>
     <div className="theme-subsection hlc-settings" data-testid="highlight-color-settings">
       <h3 id="hlc-title">
-        {t('형광펜 색')} <small>{t('끌어서 순서 바꾸기 · 최대 {n}가지', { n: MAX_HIGHLIGHT_COLORS })}</small>
+        {t('형광펜 색')} <small>{t('끌어서 순서 변경, 최대 {n}가지', { n: MAX_HIGHLIGHT_COLORS })}</small>
       </h3>
       <div className="hlc-list" ref={listRef} role="list" aria-labelledby="hlc-title">
         {colors.map((color, index) => {
@@ -209,7 +209,7 @@ export function HighlightColorSettings() {
         )}
       </div>
       <p className="hlc-caption">
-        {t('고른 색 하나로 본문 표시(반투명), 카드 탭·테두리·연결선(흰 글자가 읽히는 진한 톤)을 자동으로 만듭니다. 지운 색으로 칠한 형광펜은 「기타」 색으로 남습니다.')}
+        {t('고른 색 하나로 본문 표시(반투명)와 카드 탭, 테두리, 연결선(흰 글자가 읽히는 진한 톤)이 자동으로 만들어집니다. 지운 색의 형광펜은 「기타」 색으로 남습니다.')}
       </p>
     </div>
     <OtherNoteHighlightSetting />

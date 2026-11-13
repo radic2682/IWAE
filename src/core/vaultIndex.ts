@@ -232,7 +232,7 @@ export function reconcileLibraryPdfEntries(
 
 export function renameDisplayName(index: VaultIndexFile, id: string, displayName: string): VaultIndexFile {
   const trimmed = displayName.trim()
-  if (trimmed === '') throw new Error(t('표시 이름을 입력해 주세요.'))
+  if (trimmed === '') throw new Error(t('표시 이름을 입력하세요.'))
   return {
     version: 1,
     entries: index.entries.map((entry) => entry.id === id ? { ...entry, displayName: trimmed } : entry),

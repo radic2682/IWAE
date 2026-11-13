@@ -149,7 +149,7 @@ export function DocumentSearchPanel({ state, records, indexProgress, onOpenHit }
 
       <div className="doc-search-status" role="status" aria-live="polite">
         <span>
-          {submitted === '' ? t('모든 PDF 본문에서 글자 그대로 찾습니다') : t('“{query}” {count}건', { query: submitted, count: hits.length })}
+          {submitted === '' ? t('모든 PDF 본문에서 같은 글자를 찾습니다') : t('“{query}” {count}건', { query: submitted, count: hits.length })}
           {indexProgress !== undefined && indexProgress.indexed < indexProgress.total
             ? ` · ${t('본문 추출 {indexed}/{total}', { indexed: indexProgress.indexed, total: indexProgress.total })}` : ''}
         </span>
@@ -177,7 +177,7 @@ export function DocumentSearchPanel({ state, records, indexProgress, onOpenHit }
         {submitted === '' ? (
           <div className="doc-results-help">
             <p>{pick({
-              ko: <>카드를 누르면 오른쪽에 원본 PDF 가 그 쪽으로 열리고 찾은 자리가 칠해집니다. <kbd>↑</kbd> <kbd>↓</kbd> 로 옮겨 다니고 <kbd>/</kbd> 로 검색창에 갑니다.</>,
+              ko: <>카드를 누르면 오른쪽에 원본 PDF가 해당 쪽으로 열리고 찾은 부분이 표시됩니다. <kbd>↑</kbd> <kbd>↓</kbd>로 결과를 이동하고 <kbd>/</kbd>로 검색창으로 돌아갑니다.</>,
               en: <>Click a card to open the source PDF at that page on the right, with the match highlighted. Use <kbd>↑</kbd> <kbd>↓</kbd> to move between results and <kbd>/</kbd> to jump to the search box.</>,
             })}</p>
           </div>

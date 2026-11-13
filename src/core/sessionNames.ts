@@ -25,9 +25,9 @@ const same = (a: string, b: string) => a.toLocaleLowerCase() === b.toLocaleLower
  */
 export function validateSessionName(raw: string, existing: readonly string[], except?: string): SessionNameCheck {
   const name = raw.trim()
-  if (name === '') return { ok: false, reason: t('세션 이름을 쓰세요') }
-  if (FORBIDDEN.test(name)) return { ok: false, reason: t('세션 이름에는 / \\ : * ? " < > | 를 쓸 수 없습니다') }
-  if (name.startsWith('.') || name.startsWith('_')) return { ok: false, reason: t('세션 이름은 . 이나 _ 로 시작할 수 없습니다') }
+  if (name === '') return { ok: false, reason: t('세션 이름을 입력하세요') }
+  if (FORBIDDEN.test(name)) return { ok: false, reason: t('세션 이름에는 / \\ : * ? " < > | 문자를 쓸 수 없습니다') }
+  if (name.startsWith('.') || name.startsWith('_')) return { ok: false, reason: t('세션 이름은 . 또는 _로 시작할 수 없습니다') }
   if ([...name].length > MAX_SESSION_NAME_LENGTH) return { ok: false, reason: t('세션 이름이 너무 깁니다 ({max}자까지)', { max: MAX_SESSION_NAME_LENGTH }) }
   if (existing.some((candidate) => same(candidate, name) && (except === undefined || !same(except, candidate)))) {
     return { ok: false, reason: t('같은 이름의 세션이 이미 있습니다: {name}', { name }) }

@@ -1,9 +1,9 @@
 /** 영어 사전: 이름 붙은 세션 · 떠 있는 칸(설계 5·6) */
 export const SESSIONS: Readonly<Record<string, string>> = {
   // 이름 검사
-  '세션 이름을 쓰세요': 'Enter a session name',
-  '세션 이름에는 / \\ : * ? " < > | 를 쓸 수 없습니다': 'A session name cannot contain / \\ : * ? " < > |',
-  '세션 이름은 . 이나 _ 로 시작할 수 없습니다': 'A session name cannot start with . or _',
+  '세션 이름을 입력하세요': 'Enter a session name',
+  '세션 이름에는 / \\ : * ? " < > | 문자를 쓸 수 없습니다': 'A session name cannot contain / \\ : * ? " < > |',
+  '세션 이름은 . 또는 _로 시작할 수 없습니다': 'A session name cannot start with . or _',
   '세션 이름이 너무 깁니다 ({max}자까지)': 'The session name is too long (up to {max} characters)',
   '같은 이름의 세션이 이미 있습니다: {name}': 'A session with this name already exists: {name}',
   '세션': 'Session',
@@ -21,9 +21,9 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   '마지막 세션은 지울 수 없습니다': 'The last session cannot be deleted',
   '세션을 지웠습니다: {name}': 'Deleted session: {name}',
   '세션을 저장했습니다: {name}': 'Saved session: {name}',
-  '확인 창에서 세션 「{name}」 을(를) 지울지 정하세요': 'Confirm in the dialog whether to delete session “{name}”',
+  '세션을 지울지 확인 창에서 정하세요: {name}': 'Confirm in the dialog whether to delete the session: {name}',
   '세션을 지울까요?': 'Delete this session?',
-  '세션 「{name}」 을(를) 지웁니다. 세션 파일은 .iwae/sessions/.trash 폴더로 옮겨 두고, 열려 있는 문서와 노트는 그대로입니다.': 'Deletes session “{name}”. The session file is moved to .iwae/sessions/.trash; open documents and notes are untouched.',
+  '세션을 지웁니다: {name}. 세션 파일은 .iwae/sessions/.trash 폴더로 옮겨지며, 열려 있는 문서와 노트는 그대로 둡니다.': 'Deletes the session: {name}. The session file is moved to the .iwae/sessions/.trash folder; open documents and notes are left alone.',
   // 세션 메뉴
   '복사': 'copy',
   '새 세션': 'New session',
@@ -42,7 +42,7 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   '새 이름을 쓰세요: rename-session 이름': 'Give a new name: rename-session name',
   // 떠 있는 칸(설계 5)
   '띄우기': 'Float',
-  '접기 (머리만 남깁니다)': 'Collapse (keep the head only)',
+  '접기 (제목만 남김)': 'Collapse (keep the head only)',
   '칸으로 넣기': 'Embed in layout',
   '칸으로 넣기 (embed-pane)': 'Embed in layout (embed-pane)',
   '떠 있는 칸 닫기': 'Close floating pane',
@@ -59,7 +59,7 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   '같은 세션에 붙은 다른 앱 창입니다': 'Another app window attached to the same session',
   '앱 창을 열었습니다: {name}': 'Opened an app window: {name}',
   '창을 열 수 없는 환경입니다': 'Windows cannot be opened here',
-  '떼어 낸 PDF 창은 「다시 붙이기」로 닫습니다': 'Close a detached PDF window with "Reattach"',
+  '분리한 PDF 창은 「다시 붙이기」로 닫습니다': 'Close a detached PDF window with "Reattach"',
   '앱을 닫을까요? y/n': 'Quit the app? y/n',
   '세션은 앱 창에서만 바꿀 수 있습니다': 'Sessions can only be changed in an app window',
   '다른 앱 창이 붙어 있어 바꿀 수 없습니다: {name}': 'Other app windows are attached, so it cannot be renamed: {name}',

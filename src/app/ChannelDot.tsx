@@ -6,10 +6,10 @@ import '../ui/tab-menu.css'
 
 /** 점의 설명(말풍선·접근성 이름) */
 function channelTitle(channel: PaneChannel): string {
-  if (channel === 'blue') return t('색 채널: 파랑 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기 · 다른 칸으로 끌어 잇기)')
-  if (channel === 'green') return t('색 채널: 초록 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기 · 다른 칸으로 끌어 잇기)')
-  if (channel === 'orange') return t('색 채널: 주황 — 같은 색 창끼리 연동합니다 (눌러서 바꾸기 · 다른 칸으로 끌어 잇기)')
-  return t('색 채널: 없음 — 어느 창과도 연동하지 않습니다 (눌러서 바꾸기 · 다른 칸으로 끌어 잇기)')
+  if (channel === 'blue') return t('파랑 채널: 같은 색 칸끼리 연동합니다. 눌러서 색 바꾸기, 다른 칸으로 끌어서 연결')
+  if (channel === 'green') return t('초록 채널: 같은 색 칸끼리 연동합니다. 눌러서 색 바꾸기, 다른 칸으로 끌어서 연결')
+  if (channel === 'orange') return t('주황 채널: 같은 색 칸끼리 연동합니다. 눌러서 색 바꾸기, 다른 칸으로 끌어서 연결')
+  return t('채널 없음: 다른 칸과 연동하지 않습니다. 눌러서 색 바꾸기, 다른 칸으로 끌어서 연결')
 }
 
 /**

@@ -14,7 +14,7 @@ interface AnnotationOfferBannerProps {
  * 오른쪽 아래 알림 줄기의 카드 모양을 쓴다.
  */
 export function AnnotationOfferBanner({ count, onImport, onDismiss }: AnnotationOfferBannerProps) {
-  const title = t('이 PDF 안에 다른 프로그램에서 단 표시가 {count}개 있습니다', { count })
+  const title = t('이 PDF에 다른 프로그램에서 만든 주석이 {count}개 있습니다', { count })
   return (
     <aside className="notice-card" aria-label={title} aria-live="polite">
       <div className="notice-mark"><Highlighter size={16} weight="bold" aria-hidden="true" /></div>

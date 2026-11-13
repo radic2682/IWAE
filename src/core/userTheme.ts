@@ -246,7 +246,7 @@ export type ThemeParseResult = { readonly ok: true; readonly theme: UserTheme } 
 
 /** 저장된 테마 하나(또는 가져온 파일의 theme)를 검사한다. 새 id 를 주려면 id 인자로 */
 export function parseUserTheme(value: unknown, id?: string): ThemeParseResult {
-  if (typeof value !== 'object' || value === null) return { ok: false, error: t('테마 파일 모양이 아닙니다.') }
+  if (typeof value !== 'object' || value === null) return { ok: false, error: t('테마 파일 형식이 아닙니다.') }
   const raw = value as Record<string, unknown>
   const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, THEME_NAME_MAX) : ''
   if (name === '') return { ok: false, error: t('테마 이름이 없습니다.') }

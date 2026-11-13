@@ -313,7 +313,7 @@ ${map === '' ? '' : `<section><h2 class="section">${escapeHtml(t('캔버스'))}<
 ${body}
 </section>
 ${groups.length === 0 ? '' : `<section><h2 class="section">${escapeHtml(t('근거'))}</h2>\n${evidence}\n</section>`}
-<footer>${escapeHtml(t('근거 그림은 원문 쪽을 그대로 옮긴 것이고, 노란 표시가 인용한 부분입니다.'))}</footer>
+<footer>${escapeHtml(t('근거 그림은 원문 쪽을 옮긴 것이며, 노란 표시가 인용한 부분입니다.'))}</footer>
 </main>
 </body>
 </html>

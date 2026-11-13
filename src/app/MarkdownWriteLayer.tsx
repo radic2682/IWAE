@@ -306,7 +306,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
         <PdfFloatPalette
           label={t('박스 메모')}
           icon={<ChatTeardropText size={15} aria-hidden="true" />}
-          hint={editingBoxId === null && draftBox === null ? t('글을 끌면 박스가 생깁니다') : undefined}
+          hint={editingBoxId === null && draftBox === null ? t('끌어서 박스 만들기') : undefined}
           onDone={() => {
             const active = document.activeElement
             if (active instanceof HTMLElement && active.closest('.pdf-box-card') !== null) active.blur()

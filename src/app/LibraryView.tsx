@@ -259,8 +259,8 @@ export function LibraryView({
         failures.push(`${item.name}: ${errorText(err)}`)
       }
     }
-    const parts = [t("{count}개 항목을 '{folder}'(으)로 이동했습니다.", { count: moved, folder: label })]
-    if (references > 0) parts.push(t('외부 참조 {count}개는 이동하지 않았습니다 — 먼저 Vault에 복사하세요.', { count: references }))
+    const parts = [t("항목 {count}개를 이동했습니다: {folder}", { count: moved, folder: label })]
+    if (references > 0) parts.push(t('외부 참조 {count}개는 이동하지 않았습니다. 먼저 Vault에 복사하세요.', { count: references }))
     if (failures.length > 0) parts.push(t('실패 {count}개: {list}', { count: failures.length, list: failures.join(', ') }))
     setStatus(parts.join(' '))
   }
@@ -448,7 +448,7 @@ export function LibraryView({
       const name = value.trim()
       if (name === '' || onRenameItem === undefined) return
       void onRenameItem(item.id, name)
-        .then(() => setStatus(t("이름을 '{name}'(으)로 바꿨습니다.", { name })))
+        .then(() => setStatus(t("이름을 바꿨습니다: {name}", { name })))
         .catch((err: unknown) => setStatus(t('이름을 바꾸지 못했습니다: {error}', { error: errorText(err) })))
       return
     }
@@ -460,7 +460,7 @@ export function LibraryView({
     const trimmed = value.trim()
     const year = trimmed === '' ? null : Number.parseInt(trimmed, 10)
     if (year !== null && (!Number.isFinite(year) || year < 1000 || year > 9999)) {
-      setStatus(t('연도는 네 자리 숫자로 적어 주세요.'))
+      setStatus(t('연도는 네 자리 숫자로 입력하세요.'))
       return
     }
     onUpdateBibliography?.(docIdOf(item), { year })

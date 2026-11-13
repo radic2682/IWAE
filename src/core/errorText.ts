@@ -26,17 +26,17 @@ export function friendlyOsError(message: string): string | null {
   switch (Number(match[1])) {
     case 32: // Windows: 다른 프로세스가 사용 중
     case 33:
-      return t('다른 앱이 이 파일을 쓰고 있습니다. 그 앱에서 파일을 닫은 뒤 다시 해 보세요')
+      return t('다른 앱이 이 파일을 쓰고 있습니다. 그 앱에서 파일을 닫은 뒤 다시 시도하세요')
     case 5: // Windows: 접근 거부
     case 13: // macOS·Linux: Permission denied
     case 1:
-      return t('이 위치에 쓸 권한이 없습니다. 다른 폴더를 고르거나 권한을 확인해 보세요')
+      return t('이 위치에 쓸 권한이 없습니다. 다른 폴더를 고르거나 권한을 확인하세요')
     case 2: // 파일 없음
     case 3: // Windows: 경로 없음
       return t('파일이나 폴더를 찾을 수 없습니다. 옮겨졌거나 지워졌을 수 있습니다')
     case 112: // Windows: 디스크 공간 부족
     case 28: // macOS·Linux: No space left on device
-      return t('디스크 공간이 모자랍니다. 공간을 비운 뒤 다시 해 보세요')
+      return t('디스크 공간이 부족합니다. 공간을 비운 뒤 다시 시도하세요')
     case 80: // Windows: 파일 있음
     case 183:
     case 17: // macOS·Linux: File exists

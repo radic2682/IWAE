@@ -53,7 +53,7 @@ describe('BibliographyDialog', () => {
   it('disables the Crossref button without a DOI and closes on Escape', () => {
     const props = setup({ entry: { authors: [], source: 'pdf', updatedAt: 'x' } })
     expect((screen.getByRole('button', { name: 'Crossref에서 채우기' }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.keyDown(screen.getByRole('dialog', { name: '논문 정보 — 논문 A' }), { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '논문 정보: 논문 A' }), { key: 'Escape' })
     expect(props.onClose).toHaveBeenCalled()
   })
 })

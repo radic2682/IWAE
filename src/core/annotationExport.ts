@@ -44,7 +44,7 @@ function quoteBlock(text: string, mark: string): string {
 
 /** 문서 하나의 주석 요약. 쪽마다 제목을 달고, 색은 이모지로, 메모는 인용 아래 문단으로 둔다 */
 export function annotationsToMarkdown(title: string, highlights: readonly PersistentPdfHighlight[]): string {
-  const lines = [`# ${t('{title} — 주석', { title })}`, '']
+  const lines = [`# ${t('{title}: 주석', { title })}`, '']
   if (highlights.length === 0) return `${lines.join('\n')}\n_${t('주석이 없습니다.')}_\n`
 
   let page = -1

@@ -452,7 +452,7 @@ export async function readVaultIndex(vault: VaultHandle): Promise<VaultIndexFile
     await writeVaultIndex(vault, index)
     return index
   } catch (err) {
-    throw new Error(t('Vault 인덱스를 마이그레이션하지 못했습니다: {error}', { error: errorText(err) }))
+    throw new Error(t('Vault 인덱스를 새 형식으로 바꾸지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
@@ -548,7 +548,7 @@ function validatedFolderPath(path: string): string {
     || part === '..'
     || /[<>:"|?*]/u.test(part)
   ))) {
-    throw new Error(t('PDF를 복사할 vault 폴더 경로가 올바르지 않습니다.'))
+    throw new Error(t('PDF를 복사할 Vault 폴더 경로가 올바르지 않습니다.'))
   }
   return parts.join('/')
 }
@@ -1107,7 +1107,7 @@ export async function createNote(
   const title = requestedNote.endsWith('.canvas')
     ? requestedNote.slice(0, -'.canvas'.length)
     : requestedNote
-  if (title.length === 0) throw new Error(t('노트 이름을 입력해 주세요.'))
+  if (title.length === 0) throw new Error(t('노트 이름을 입력하세요.'))
 
   const { join } = await import('@tauri-apps/api/path')
   const { exists, mkdir } = await import('@tauri-apps/plugin-fs')
@@ -1161,7 +1161,7 @@ function validateCanvasPath(notePath: string): readonly string[] {
     || parts.some((part) => part === '' || part === '.' || part === '..')
     || !normalized.toLowerCase().endsWith('.canvas')
   ) {
-    throw new Error(t('올바른 vault 캔버스 경로가 아닙니다.'))
+    throw new Error(t('올바른 Vault 캔버스 경로가 아닙니다.'))
   }
   return parts
 }
@@ -1181,7 +1181,7 @@ function validateMarkdownPath(markdownPath: string): readonly string[] {
     || parts.some((part) => part === '' || part === '.' || part === '..')
     || !isMarkdownPath(normalized)
   ) {
-    throw new Error(t('올바른 vault Markdown 경로가 아닙니다.'))
+    throw new Error(t('올바른 Vault Markdown 경로가 아닙니다.'))
   }
   return parts
 }
@@ -1261,7 +1261,7 @@ export async function relinkDocument(
 ): Promise<VaultLibraryEntry> {
   const entries = await readLibrary(vault)
   const current = entries.find((entry) => entry.docId === docId)
-  if (current === undefined) throw new Error(t('다시 연결할 문서를 Library에서 찾지 못했습니다.'))
+  if (current === undefined) throw new Error(t('다시 연결할 문서를 라이브러리에서 찾지 못했습니다.'))
 
   const meta = await openPdf(newPath)
   if (meta.docId !== current.docId || meta.sha256 !== current.sha256) {

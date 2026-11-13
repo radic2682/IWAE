@@ -178,7 +178,7 @@ export async function openPdf(path: string, docId?: string, options: { readonly 
     // pickPdfFile 이 브라우저에서 null 을 주므로 정상 경로로는 여기 오지
     // 않는다. 조용히 가짜 메타를 지어내면 빈 페이지 1,000장이 뜨고 원인을
     // 찾는 데 한참 걸리므로, 오는 경우가 있다면 시끄럽게 실패한다.
-    throw new Error(t('PDF 열기는 데스크톱(Tauri) 안에서만 됩니다.'))
+    throw new Error(t('PDF 열기는 데스크톱 앱에서만 쓸 수 있습니다.'))
   }
 
   const { invoke } = await import('@tauri-apps/api/core')
@@ -281,7 +281,7 @@ export interface PdfToolResult {
 
 /** PDF 도구를 돌린다. 저장 대화상자를 취소하면 null */
 export async function runPdfTool(docId: string, op: PdfToolOp, output: PdfToolOutput): Promise<PdfToolResult | null> {
-  if (!isDesktop()) throw new Error(t('PDF 도구는 데스크톱(Tauri) 안에서만 됩니다.'))
+  if (!isDesktop()) throw new Error(t('PDF 도구는 데스크톱 앱에서만 쓸 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   const result = await invoke<PdfToolResult | null>('pdf_tool', { docId, op, output })
   if (result !== null && output.kind === 'inPlace') forgetDocumentCaches(docId)
@@ -317,7 +317,7 @@ export function pageTextIndex(docId: string, page: number): Promise<PageTextInde
 
   const request = (async () => {
     if (docId === SAMPLE_DOC_ID) return samplePageTextIndex(page)
-    if (!isDesktop()) throw new Error(t('PDF 텍스트 선택은 데스크톱(Tauri) 안에서만 됩니다.'))
+    if (!isDesktop()) throw new Error(t('PDF 텍스트 선택은 데스크톱 앱에서만 쓸 수 있습니다.'))
     const { invoke } = await import('@tauri-apps/api/core')
     return invoke<PageTextIndex>('pdf_page_text', { docId, page })
   })()
@@ -357,7 +357,7 @@ export function pdfOutline(docId: string): Promise<readonly PdfOutlineEntry[]> {
 
   const request = (async () => {
     if (docId === SAMPLE_DOC_ID) return samplePdfOutline
-    if (!isDesktop()) throw new Error(t('PDF 목차는 데스크톱(Tauri) 안에서만 읽을 수 있습니다.'))
+    if (!isDesktop()) throw new Error(t('PDF 목차는 데스크톱 앱에서만 읽을 수 있습니다.'))
     const { invoke } = await import('@tauri-apps/api/core')
     return invoke<readonly PdfOutlineEntry[]>('pdf_outline', { docId })
   })()
@@ -419,7 +419,7 @@ export function pdfPageLinks(docId: string, page: number): Promise<readonly PdfL
 
   const request = (async () => {
     if (docId === SAMPLE_DOC_ID) return []
-    if (!isDesktop()) throw new Error(t('PDF 링크는 데스크톱(Tauri) 안에서만 읽을 수 있습니다.'))
+    if (!isDesktop()) throw new Error(t('PDF 링크는 데스크톱 앱에서만 읽을 수 있습니다.'))
     const { invoke } = await import('@tauri-apps/api/core')
     return invoke<readonly PdfLink[]>('pdf_page_links', { docId, page })
   })()
@@ -434,7 +434,7 @@ export function pdfPageLinks(docId: string, page: number): Promise<readonly PdfL
 /** PDF 문서 정보 사전(제목·저자·만든 날짜). */
 export async function pdfMetadata(docId: string): Promise<PdfMetadata> {
   if (docId === SAMPLE_DOC_ID) return {}
-  if (!isDesktop()) throw new Error(t('PDF 정보는 데스크톱(Tauri) 안에서만 읽을 수 있습니다.'))
+  if (!isDesktop()) throw new Error(t('PDF 정보는 데스크톱 앱에서만 읽을 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<PdfMetadata>('pdf_metadata', { docId })
 }
@@ -442,7 +442,7 @@ export async function pdfMetadata(docId: string): Promise<PdfMetadata> {
 /** 다른 프로그램이 문서에 남긴 형광펜·밑줄·붙임 쪽지. */
 export async function pdfAnnotations(docId: string): Promise<readonly ImportedPdfAnnotation[]> {
   if (docId === SAMPLE_DOC_ID) return []
-  if (!isDesktop()) throw new Error(t('PDF 주석은 데스크톱(Tauri) 안에서만 읽을 수 있습니다.'))
+  if (!isDesktop()) throw new Error(t('PDF 주석은 데스크톱 앱에서만 읽을 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<readonly ImportedPdfAnnotation[]>('pdf_annotations', { docId })
 }
@@ -456,7 +456,7 @@ export async function exportAnnotatedPdf(
   highlights: readonly ExportPdfHighlight[],
   suggestedName: string,
 ): Promise<string | null> {
-  if (!isDesktop()) throw new Error(t('주석 포함 PDF 내보내기는 데스크톱(Tauri) 안에서만 됩니다.'))
+  if (!isDesktop()) throw new Error(t('주석 포함 PDF 내보내기는 데스크톱 앱에서만 쓸 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<string | null>('pdf_export_annotated', { docId, highlights, suggestedName })
 }
@@ -478,7 +478,7 @@ export async function exportSearchablePdf(
   pages: readonly SearchablePdfPage[],
   suggestedName: string,
 ): Promise<SearchablePdfExport | null> {
-  if (!isDesktop()) throw new Error(t('검색 가능한 PDF 만들기는 데스크톱(Tauri) 안에서만 됩니다.'))
+  if (!isDesktop()) throw new Error(t('검색 가능한 PDF 만들기는 데스크톱 앱에서만 쓸 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<SearchablePdfExport | null>('pdf_export_searchable', { docId, pages, suggestedName })
 }

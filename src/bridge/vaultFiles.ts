@@ -25,12 +25,12 @@ const WINDOWS_RESERVED = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu
  */
 export function cleanEntryName(value: string): string {
   const name = value.trim().replace(/[. ]+$/u, '')
-  if (name === '' || name === '.' || name === '..') throw new Error(t('이름을 입력해 주세요.'))
+  if (name === '' || name === '.' || name === '..') throw new Error(t('이름을 입력하세요.'))
   const bad = name.match(/[<>:"/\\|?*]/u)
-  if (bad !== null) throw new Error(t(`이름에 '{char}' 는 쓸 수 없습니다 (< > : " / \\ | ? * 는 Windows 에서 못 씁니다).`, { char: bad[0] }))
+  if (bad !== null) throw new Error(t(`이름에 「{char}」는 쓸 수 없습니다. Windows에서는 < > : " / \\ | ? * 를 쓸 수 없습니다.`, { char: bad[0] }))
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f]/u.test(name)) throw new Error(t('이름에 제어 문자가 들어 있습니다.'))
-  if (WINDOWS_RESERVED.test(name)) throw new Error(t("'{name}' 은 Windows 가 예약한 이름이라 쓸 수 없습니다 (CON, NUL, COM1 등).", { name }))
+  if (WINDOWS_RESERVED.test(name)) throw new Error(t("예약된 이름입니다: {name}. Windows에서는 CON, NUL, COM1 등을 쓸 수 없습니다.", { name }))
   return name
 }
 
@@ -101,7 +101,7 @@ async function rollbackFailure(error: unknown, actions: readonly (() => Promise<
     }
   }
   if (rollbackErrors.length > 0) {
-    throw new Error(t('파일 작업 실패 후 원상 복구하지 못했습니다: {error} / {rollback}', { error: errorText(error), rollback: rollbackErrors.join(' / ') }))
+    throw new Error(t('파일 작업이 실패했고 원래대로 되돌리지도 못했습니다: {error} / {rollback}', { error: errorText(error), rollback: rollbackErrors.join(' / ') }))
   }
   throw error
 }

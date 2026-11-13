@@ -81,7 +81,7 @@ export function MarkdownOutline({ source, currentSection, onSelectSection, bookm
           <h2 id="md-bookmark-section-title" className="side-panel-section-title">{t('책갈피')}</h2>
         </div>
         {bookmarks.length === 0 ? (
-          <div className="side-panel-empty side-panel-empty-inline">{t('꽂은 책갈피가 없습니다')}</div>
+          <div className="side-panel-empty side-panel-empty-inline">{t('책갈피가 없습니다')}</div>
         ) : (
           <div className="outline-list bookmark-list">
             {bookmarks.map((bookmark) => (

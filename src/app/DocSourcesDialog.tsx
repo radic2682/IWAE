@@ -52,7 +52,7 @@ export function DocSourcesDialog({ title, sources, onOpen, onAdd, onUpdate, onRe
   const save = () => {
     const clean = normalizeSourceTarget(target)
     if (!isValidSourceTarget(clean)) {
-      setError(t('주소(https://…)나 폴더·파일 경로를 적어 주세요.'))
+      setError(t('주소(https://…)나 폴더·파일 경로를 입력하세요.'))
       return
     }
     if (editing === 'new') {

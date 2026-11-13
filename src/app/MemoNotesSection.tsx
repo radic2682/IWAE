@@ -692,7 +692,7 @@ export function MemoNotesSection({
               <button type="button" role="menuitem" onClick={() => {
                 window.dispatchEvent(new CustomEvent(APP_COMMAND_EVENT, { detail: { name: 'exportMarkdown', scope: { kind: 'note', path: menu.path } } }))
                 setMenu(null)
-              }}><span className="side-context-icon" aria-hidden="true"><Export size={15} /></span><span className="side-context-label">{t('Markdown 으로 내보내기…')}</span></button>
+              }}><span className="side-context-icon" aria-hidden="true"><Export size={15} /></span><span className="side-context-label">{t('Markdown으로 내보내기…')}</span></button>
             ) : null}
             {menu.kind === 'note' || onRenameFolder !== undefined ? (
               <button type="button" role="menuitem" onClick={() => {

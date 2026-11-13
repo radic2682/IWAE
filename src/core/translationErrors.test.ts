@@ -12,7 +12,7 @@ describe('explainTranslationError', () => {
     expect(explainTranslationError('뭔가 이상함', false)).toEqual({ kind: 'other', text: '뭔가 이상함' })
   })
   it('설정 부족 오류를 알아본다', () => {
-    expect(isTranslationNotConfigured('API key 를 넣으세요.')).toBe(true)
+    expect(isTranslationNotConfigured('API key를 입력하세요.')).toBe(true)
     expect(isTranslationNotConfigured('외부 번역 API 요청에 실패했습니다 (HTTP 401): invalid API key')).toBe(false)
   })
 })

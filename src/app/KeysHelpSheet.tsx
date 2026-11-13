@@ -21,7 +21,7 @@ export interface PrefixKeyRow {
 export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
   { keys: '% / "', action: '좌우 / 위아래로 나누기', commands: ['split-window -h / -v'] },
   { keys: '← ↑ → ↓ · o', action: '칸 이동 · 다음 칸', commands: ['select-pane -L/-U/-R/-D'] },
-  { keys: 'z', action: '이 칸만 크게 / 원래 크기로', commands: ['resize-pane -Z'] },
+  { keys: 'z', action: '이 칸 확대 / 원래 크기로', commands: ['resize-pane -Z'] },
   { keys: 'x', action: '칸 닫기', commands: ['kill-pane'] },
   { keys: '!', action: '칸을 새 화면으로', commands: ['break-pane'] },
   { keys: '{ }', action: '칸 자리 바꾸기', commands: ['swap-pane -U/-D'] },
@@ -32,7 +32,7 @@ export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
   { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 번역기', commands: ['toggle-floating', 'display-popup'] },
   { keys: 's', action: '세션 목록', commands: ['choose-session'] },
   { keys: 'd', action: '이 앱 창 떼기', commands: ['detach'] },
-  { keys: ':', action: '명령줄', commands: [], note: '명령 팔레트를 「:」 로 엽니다' },
+  { keys: ':', action: '명령줄', commands: [], note: '명령 팔레트를 「:」로 엽니다' },
   { keys: '?', action: '키 목록', commands: ['list-keys'] },
 ]
 
@@ -53,7 +53,7 @@ function ActionText({ text }: { readonly text: string }) {
 
 /**
  * 키와 명령 목록(접두키 ? · 명령 팔레트의 「키와 명령 보기」). 접두키 다음 키마다 동작과 명령을 보인다.
- * 접두키 없이 되는 키는 위쪽에 따로 둔다.
+ * 접두키 없이 쓰는 키는 위쪽에 따로 둔다.
  */
 export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
   readonly onClose: () => void
@@ -86,8 +86,8 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
           <button type="button" className="sko-close" aria-label={t('닫기')} onClick={onClose}><X size={16} weight="bold" aria-hidden="true" /></button>
         </header>
         <div className="sko-body">
-          <section className="sko-group" aria-label={t('접두키 없이 되는 키')}>
-            <h3>{t('접두키 없이 되는 키')}</h3>
+          <section className="sko-group" aria-label={t('접두키 없이 쓰는 키')}>
+            <h3>{t('접두키 없이 쓰는 키')}</h3>
             <ul>
               {currentKeys.map((row) => (
                 <li key={row.label}><span>{row.label}</span><kbd className="keycap">{row.keys}</kbd></li>
@@ -96,7 +96,7 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
           </section>
           <section className="sko-group keys-help-prefix" aria-label={t('접두키 다음 키')}>
             <h3>{t('접두키 다음 키')}</h3>
-            <p className="keys-help-note">{t('접두키({keys})를 누르고 손을 뗀 뒤 아래 키를 누릅니다. 2초 안에 누르지 않거나 Esc 를 누르면 그만둡니다. 입력기에 막히면 명령 팔레트(Ctrl+K)에 「:」 로 시작해 같은 명령을 치세요.', { keys: prefixText })}</p>
+            <p className="keys-help-note">{t('{keys}를 눌렀다 놓은 다음 아래 키를 누릅니다. 2초가 지나거나 Esc를 누르면 취소됩니다. 입력기 때문에 안 되면 명령 팔레트(Ctrl+K)에 「:」로 시작하는 명령을 입력하세요.', { keys: prefixText })}</p>
             <table className="keys-help-table">
               <thead>
                 <tr><th scope="col">{t('키')}</th><th scope="col">{t('동작')}</th><th scope="col">{t('명령')}</th></tr>
@@ -122,13 +122,13 @@ export function KeysHelpSheet({ onClose, currentKeys, prefixText = 'Ctrl+B' }: {
           </section>
           <section className="sko-group keys-help-commands" aria-label={t('명령줄 명령')}>
             <h3>{t('명령줄 명령')}</h3>
-            <p className="keys-help-note">{t('「:」 를 누르면 명령 팔레트가 명령 목록과 함께 열립니다(↑ ↓ 로 고르고 Tab 으로 완성, Enter 로 실행, Alt+↑ ↓ 로 기록). 「;」 로 여러 명령을 잇습니다. 예: split-window -h ; open 노트 A')}</p>
+            <p className="keys-help-note">{t('「:」를 누르면 명령 팔레트가 명령 목록과 함께 열립니다. ↑ ↓로 고르고, Tab으로 완성하고, Enter로 실행하며, Alt+↑ ↓로 이전 명령을 불러옵니다. 「;」로 여러 명령을 이을 수 있습니다. 예: split-window -h ; open 노트 A')}</p>
             <ul className="keys-help-commandlist">
               {commandUsages().map((usage) => <li key={usage}><code>{usage}</code></li>)}
             </ul>
           </section>
         </div>
-        <footer className="sko-foot"><span>{t('Esc 로 닫기')}</span></footer>
+        <footer className="sko-foot"><span>{t('Esc로 닫기')}</span></footer>
       </div>
     </div>,
     document.body,

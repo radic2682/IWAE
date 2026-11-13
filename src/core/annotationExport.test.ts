@@ -31,7 +31,7 @@ describe('annotationExport', () => {
       make(0, 10, 'first\nline', { note: '메모 한 줄\n두 줄' }),
     ])
     expect(markdown).toBe([
-      '# HTTP 사양 — 주석',
+      '# HTTP 사양: 주석',
       '',
       '## p.1',
       '',
@@ -49,6 +49,6 @@ describe('annotationExport', () => {
   })
 
   it('says so when there is nothing to export', () => {
-    expect(annotationsToMarkdown('빈 문서', [])).toBe('# 빈 문서 — 주석\n\n_주석이 없습니다._\n')
+    expect(annotationsToMarkdown('빈 문서', [])).toBe('# 빈 문서: 주석\n\n_주석이 없습니다._\n')
   })
 })

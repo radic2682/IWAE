@@ -43,7 +43,7 @@ describe('웹뷰 기본 단축키 막이', () => {
     expect(isBlockedNativeKey(press('I', { ctrlKey: true, shiftKey: true }), true)).toBe(false)
   })
 
-  it('앱 명령(Ctrl+G 쪽으로 가기)은 막지 않는다', () => {
+  it('앱 명령(Ctrl+G 쪽으로 이동)은 막지 않는다', () => {
     expect(isBlockedNativeKey(press('g', { ctrlKey: true }), false)).toBe(false)
   })
 

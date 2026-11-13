@@ -95,11 +95,11 @@ describe('ChannelDot — 끌기와 클릭', () => {
     expect(head).not.toHaveBeenCalled()
   })
 
-  it('끌지 않고 누르면 그대로 색 바꾸기(클릭)이다, 설명에 끌어 잇기가 있다', () => {
+  it('끌지 않고 누르면 그대로 색 바꾸기(클릭)이다, 설명에 끌어서 연결가 있다', () => {
     const onCycle = vi.fn()
     render(<ChannelDot channel="blue" onCycle={onCycle} pane="a" />)
     const dot = screen.getByRole('button')
-    expect(dot.getAttribute('title')).toContain('다른 칸으로 끌어 잇기')
+    expect(dot.getAttribute('title')).toContain('다른 칸으로 끌어서 연결')
     fireEvent.pointerDown(dot, { button: 0, clientX: 5, clientY: 5 })
     fireEvent.pointerUp(window, { clientX: 5, clientY: 5 })
     fireEvent.click(dot)

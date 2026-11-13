@@ -92,11 +92,11 @@ export function parseThemeFileContent(text: string): ThemeFileResult {
   try {
     data = JSON.parse(text.replace(/^﻿/u, ''))
   } catch {
-    return { ok: false, error: t('JSON 모양이 아닙니다. 따옴표·쉼표·괄호가 맞는지 확인해 주세요.') }
+    return { ok: false, error: t('JSON 형식이 아닙니다. 따옴표, 쉼표, 괄호를 확인하세요.') }
   }
-  if (typeof data !== 'object' || data === null || Array.isArray(data)) return { ok: false, error: t('IWAE 테마 파일이 아닙니다. (바깥이 { } 모양이어야 합니다)') }
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return { ok: false, error: t('IWAE 테마 파일이 아닙니다. 가장 바깥이 { } 모양이어야 합니다.') }
   const file = data as Record<string, unknown>
-  if (file.format !== THEME_FILE_FORMAT) return { ok: false, error: t('IWAE 테마 파일이 아닙니다. "format": "{format}" 이 있어야 합니다.', { format: THEME_FILE_FORMAT }) }
+  if (file.format !== THEME_FILE_FORMAT) return { ok: false, error: t('IWAE 테마 파일이 아닙니다. "format": "{format}"이 있어야 합니다.', { format: THEME_FILE_FORMAT }) }
   if (file.version === undefined) return { ok: false, error: t('파일 버전("version")이 없습니다. 이 앱은 버전 {supported} 파일을 읽습니다.', { supported: THEME_FILE_VERSION }) }
   if (file.version !== THEME_FILE_VERSION) return { ok: false, error: t('지원하지 않는 테마 파일 버전입니다(버전 {found}). 이 앱은 버전 {supported} 파일을 읽습니다.', { found: String(file.version), supported: THEME_FILE_VERSION }) }
   if (file.theme === undefined) return { ok: false, error: t('"theme" 항목이 없습니다.') }
@@ -147,10 +147,10 @@ export function buildTemplateFile(theme: UserTheme, highlightColors: readonly Hi
     format: THEME_FILE_FORMAT,
     version: THEME_FILE_VERSION,
     description: [
-      '이 파일을 고쳐 .iwtheme 로 저장한 뒤 IWAE 창에 끌어 놓거나, Vault 의 .iwae/themes 폴더에 넣으세요.',
+      '이 파일을 고쳐 .iwtheme로 저장한 뒤 IWAE 창에 끌어 놓거나, Vault의 .iwae/themes 폴더에 넣으세요.',
       'Edit this file, save it as .iwtheme, then drop it onto the IWAE window or put it in the vault .iwae/themes folder.',
-      '색은 모두 #rrggbb. theme.light / theme.dark 에 시드 8개씩. 나머지 색은 앱이 계산합니다. All colours are #rrggbb; the app derives the rest.',
-      'highlightColors 는 고르기 항목입니다(없애도 됩니다). highlightColors is optional; delete it to leave highlight colours alone.',
+      '색은 모두 #rrggbb입니다. theme.light, theme.dark에 시드 색 8개씩을 넣으면 나머지는 앱이 계산합니다. All colours are #rrggbb; the app derives the rest.',
+      'highlightColors는 선택 항목이며 지워도 됩니다. highlightColors is optional; delete it to leave highlight colours alone.',
     ].join('\n'),
     seedGuide: Object.fromEntries(SEED_KEYS.map((key) => [key, SEED_GUIDE[key]])),
     theme: { name: theme.name, base: theme.base, light: theme.light, dark: theme.dark },

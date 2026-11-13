@@ -4,5 +4,5 @@ export const RELEASE_NOTES: Readonly<Record<string, string>> = {
   '지난 기록 보기': 'View past notes',
   '업데이트 기록': 'Update history',
   '지금 버전': 'Current version',
-  '묶인 업데이트 기록이 없습니다.': 'No update notes are bundled with this build.',
+  '업데이트 기록이 없습니다.': 'No update notes available.',
 }

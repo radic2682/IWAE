@@ -479,7 +479,7 @@ export function DocumentView(props: DocumentViewProps) {
     if (meta === null) return false
     const target = parseGoto(text)
     if (target === null) {
-      announceAction(t('알 수 없는 위치입니다: {text} (예: 81, 5.1.9.3, Table 52)', { text }))
+      announceAction(t('알 수 없는 위치입니다: {text}. 예: 81, 5.1.9.3, Table 52', { text }))
       return false
     }
     const id = meta.docId

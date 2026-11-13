@@ -11,5 +11,5 @@ export function isFolderAccessDenied(err: unknown): boolean {
 
 /** 허락이 없어 못 연 Vault 를 사람이 알아들을 말로 */
 export function folderAccessText(root: string): string {
-  return t('{root} 폴더를 한 번 더 골라 주세요. 「Vault 폴더 선택」이나 아래 최근 Vault 를 누르면 그 폴더가 잡힌 선택 창이 열립니다. 거기서 「폴더 선택」만 누르면 됩니다.', { root })
+  return t('{root} 폴더를 한 번 더 선택하세요. 「Vault 폴더 선택」이나 아래 최근 Vault를 누르면 그 폴더가 지정된 선택 창이 열립니다. 거기서 「폴더 선택」만 누르세요.', { root })
 }

@@ -89,7 +89,7 @@ export function parseKeysConf(text: string): KeysConf {
       bindings[token] = ''
     } else if (command === 'set' || command === 'set-option' || command === 'set-window-option') {
       const flagless = rest.filter((word) => !word.startsWith('-'))
-      if (flagless[0] !== 'prefix') { errors.push(`${where}: set prefix C-b|C-Space|C-a 만 됩니다`); return }
+      if (flagless[0] !== 'prefix') { errors.push(`${where}: set prefix는 C-b, C-Space, C-a만 쓸 수 있습니다`); return }
       const combo = flagless[1] === undefined ? null : prefixComboOf(flagless[1])
       if (combo === null) { errors.push(`${where}: set prefix C-b|C-Space|C-a`); return }
       prefix = combo

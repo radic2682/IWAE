@@ -1555,7 +1555,7 @@ export function MarkdownPane({
             <button
               type="button"
               className="selection-action"
-              aria-label={t('선택 내용을 노트로 드래그')}
+              aria-label={t('선택 내용을 노트로 끌기')}
               onPointerDown={(event) => {
                 if (event.button !== 0) return
                 event.preventDefault()
@@ -1565,7 +1565,7 @@ export function MarkdownPane({
                 }, { label: action.payload.selection.quote.slice(0, 60) || t('노트로 끌기') })
               }}
             >
-              {t('노트로 드래그')}
+              {t('노트로 끌기')}
             </button>
             {onTranslateSelection === undefined ? null : (
               <button

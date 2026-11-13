@@ -70,7 +70,7 @@ export function GithubImportDialog({ onImport, onClose, folders = [], initialFol
     }
   }
   return (
-    <Frame title={t('GitHub에서 가져오기')} subtitle={t('공개 저장소의 폴더를 Vault의 원하는 폴더로 가져옵니다. 나중에 폴더를 옮겨도 새 소식 확인·최신으로 받기가 이어집니다')} onClose={onClose} busy={busy}>
+    <Frame title={t('GitHub에서 가져오기')} subtitle={t('공개 저장소의 폴더를 Vault로 가져옵니다. 나중에 폴더를 옮겨도 새 소식 확인과 최신으로 받기가 계속됩니다.')} onClose={onClose} busy={busy}>
       <div className="gh-body">
         <input
           className="gh-url"
@@ -202,7 +202,7 @@ export function GithubChangesDialog({ source, changed, applied, onOpen, onPull, 
     <Frame title={title} subtitle={subtitle} onClose={onClose} busy={busy}>
       <div className="gh-body">
         {changed.length === 0 ? (
-          <p className="gh-hint">{applied ? t('받은 폴더 안에서 바뀐 파일이 없습니다.') : source.branch === null ? t('지금 {ref} 를 보는 중이라 브랜치 새 소식은 「최신으로」에서 돌아가며 받습니다.', { ref: source.detached ?? '' }) : t('바뀐 파일이 없습니다.')}</p>
+          <p className="gh-hint">{applied ? t('받은 폴더 안에서 바뀐 파일이 없습니다.') : source.branch === null ? t('현재 {ref}를 보고 있습니다. 브랜치 소식은 「최신으로」를 누르면 받습니다.', { ref: source.detached ?? '' }) : t('바뀐 파일이 없습니다.')}</p>
         ) : (
           <ul className="gh-changes">
             {documents.map((path) => (

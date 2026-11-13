@@ -107,7 +107,7 @@ describe('LibraryView', () => {
     await waitFor(() => expect(props.onMoveEntry).toHaveBeenCalledTimes(2))
     expect(props.onMoveEntry).toHaveBeenCalledWith('d1', '논문')
     expect(props.onMoveEntry).toHaveBeenCalledWith('d2', '논문')
-    expect(await screen.findByText(/2개 항목을 '논문'\(으\)로 이동했습니다/)).toBeTruthy()
+    expect(await screen.findByText(/항목 2개를 이동했습니다: 논문/)).toBeTruthy()
     expect(screen.queryByText(/외부 참조/)).toBeNull()
   })
 

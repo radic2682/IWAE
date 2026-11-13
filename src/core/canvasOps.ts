@@ -223,7 +223,7 @@ function buildBlock(input: ResolvedCanvasBlockInput, id: string): CanvasBlockDat
       return { ...block, ...normalizeCanvasBlockSize(block, block) }
     }
     case 'image': {
-      if (input.image === undefined) throw new Error(t('그림 블록에는 path 가 필요합니다.'))
+      if (input.image === undefined) throw new Error(t('그림 블록에는 path가 필요합니다.'))
       const blockWidth = width ?? Math.min(input.image.width, 640)
       return {
         kind: 'image',
@@ -235,7 +235,7 @@ function buildBlock(input: ResolvedCanvasBlockInput, id: string): CanvasBlockDat
       }
     }
     case 'pdf_excerpt': {
-      if (input.excerpt === undefined) throw new Error(t('PDF 발췌에는 doc_id·page 와 rect 또는 from_text 가 필요합니다.'))
+      if (input.excerpt === undefined) throw new Error(t('PDF 발췌에는 doc_id, page와 rect 또는 from_text가 필요합니다.'))
       const { crop } = input.excerpt.selection
       // 기본 폭: 원문 크기(1pt = 96/72 px)를 640px 안에서
       const blockWidth = width ?? Math.min(Math.max(crop.w * (96 / 72), 240), 640)
@@ -545,14 +545,14 @@ function foldNeedle(text: string): string {
 export function findTextRange(index: PageTextIndex, fromText: string, toText?: string): [number, number] {
   const { folded, origin } = foldText(index.text)
   const from = foldNeedle(fromText)
-  if (from === '') throw new Error(t('from_text 가 비어 있습니다.'))
+  if (from === '') throw new Error(t('from_text가 비어 있습니다.'))
   const start = folded.indexOf(from)
-  if (start < 0) throw new Error(t('쪽에서 from_text 를 찾지 못했습니다: "{text}". read_page 로 쪽 글을 확인하세요.', { text: fromText.slice(0, 60) }))
+  if (start < 0) throw new Error(t('쪽에서 from_text를 찾지 못했습니다: "{text}". read_page로 쪽 글을 확인하세요.', { text: fromText.slice(0, 60) }))
   let end = start + from.length
   if (toText !== undefined && toText.trim() !== '') {
     const to = foldNeedle(toText)
     const found = folded.indexOf(to, start)
-    if (found < 0) throw new Error(t('from_text 뒤에서 to_text 를 찾지 못했습니다: "{text}"', { text: toText.slice(0, 60) }))
+    if (found < 0) throw new Error(t('from_text 뒤에서 to_text를 찾지 못했습니다: "{text}"', { text: toText.slice(0, 60) }))
     end = found + to.length
   }
   const first = origin[start] ?? 0
@@ -580,7 +580,7 @@ export function findTextRegion(
     right = Math.max(right, box.x + box.w)
     bottom = Math.max(bottom, box.y + box.h)
   }
-  if (!Number.isFinite(left)) throw new Error(t('찾은 글자에 위치 정보가 없습니다(스캔본일 수 있습니다). rect 로 영역을 주세요.'))
+  if (!Number.isFinite(left)) throw new Error(t('찾은 글자에 위치 정보가 없습니다. 스캔본일 수 있으니 rect로 영역을 지정하세요.'))
   if (options.fullWidth === true) {
     const boxes = index.chars.filter((box) => box.w > 0 && box.h > 0 && box.c.trim() !== '')
     left = Math.min(left, ...boxes.map((box) => box.x))
@@ -611,5 +611,5 @@ export function resolveCanvasTarget<T extends { readonly path: string; readonly 
   const stem = (path: string) => (path.split('/').pop() ?? path).replace(/\.canvas$/iu, '').toLowerCase()
   const byStem = canvases.filter((canvas) => stem(canvas.path) === lower.replace(/\.canvas$/iu, ''))
   if (byStem.length === 1) return byStem[0]!
-  throw new Error(t('캔버스를 찾지 못했습니다: {query}. canvas_list 로 확인하세요.', { query }))
+  throw new Error(t('캔버스를 찾지 못했습니다: {query}. canvas_list로 확인하세요.', { query }))
 }

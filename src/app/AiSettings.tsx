@@ -117,7 +117,7 @@ export function AiSettings({ listModels, pullModel }: AiSettingsProps) {
       <header className="settings-section-heading">
         <div>
           <h2 id="ai-settings-title">{t('외부 AI 연결')}</h2>
-          <p>{t('Claude Code 같은 AI가 이 Vault를 검색하고, 찾은 위치를 IWAE 화면에 알림으로 보낼 수 있게 합니다.')}</p>
+          <p>{t('Claude Code 같은 AI가 이 Vault를 검색하고, 찾은 위치를 IWAE에 알려 줄 수 있습니다.')}</p>
         </div>
       </header>
 
@@ -174,7 +174,7 @@ export function AiSettings({ listModels, pullModel }: AiSettingsProps) {
         </div>
         <p className="ai-settings-note">
           <ShieldCheck size={14} aria-hidden="true" />
-          {t('이 PC에서 토큰을 가진 프로그램만 접속할 수 있습니다. 외부 AI는 자료를 읽고 위치를 보여 줄 수 있으며, PDF 메모(형광펜)와 노트를 더하거나 고칠 수 있습니다. PDF 원본 파일은 바꾸지 못합니다.')}
+          {t('이 PC에서 토큰을 가진 프로그램만 접속할 수 있습니다. 외부 AI는 자료를 읽고, 위치를 알리고, 형광펜과 노트를 추가하거나 고칠 수 있습니다. PDF 원본은 바꾸지 못합니다.')}
         </p>
       </div>
 

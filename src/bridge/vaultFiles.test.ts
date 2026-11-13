@@ -115,7 +115,7 @@ describe('vault file operations', () => {
     vi.mocked(writeVaultIndex).mockRejectedValueOnce(new Error('index write failed'))
     fsMocks.rename.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('file locked'))
 
-    await expect(moveVaultEntry(vault, storedPdf.id, 'Archive')).rejects.toThrow('원상 복구하지 못했습니다')
+    await expect(moveVaultEntry(vault, storedPdf.id, 'Archive')).rejects.toThrow('되돌리지도 못했습니다')
 
     expect(writeLibrary).toHaveBeenLastCalledWith(vault, [libraryEntry])
   })
@@ -399,7 +399,7 @@ describe('cleanEntryName', () => {
 
   it('못 쓰는 이름은 이유를 말한다', async () => {
     const { cleanEntryName } = await import('./vaultFiles')
-    expect(() => cleanEntryName('a:b')).toThrow(/':'/u)
+    expect(() => cleanEntryName('a:b')).toThrow(/「:」/u)
     expect(() => cleanEntryName('CON')).toThrow(/예약/u)
     expect(() => cleanEntryName(' . ')).toThrow(/입력/u)
   })

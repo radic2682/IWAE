@@ -155,7 +155,7 @@ export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine
             autoFocus
             data-prefix-off=""
             aria-label={t('명령 찾기')}
-            placeholder={t('명령이나 문서 이름을 치세요')}
+            placeholder={t('명령이나 문서 이름을 입력하세요')}
             value={query}
             spellCheck={false}
             role="combobox"

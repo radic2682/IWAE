@@ -212,7 +212,7 @@ async function fetchGenerate(
   request: TranslationRequest,
 ): Promise<TranslationResult> {
   if ([...request.text].length > 20_000) {
-    throw new Error(t('번역할 텍스트는 최대 20,000자까지 입력할 수 있습니다.'))
+    throw new Error(t('번역할 글은 최대 20,000자입니다.'))
   }
 
   const started = performance.now()
@@ -247,7 +247,7 @@ async function fetchExternalGenerate(
 ): Promise<TranslationResult> {
   if (typeof fetch !== 'function') throw new Error(t('외부 API 요청에 사용할 fetch 구현이 없습니다.'))
   if ([...request.text].length > 20_000) {
-    throw new Error(t('번역할 텍스트는 최대 20,000자까지 입력할 수 있습니다.'))
+    throw new Error(t('번역할 글은 최대 20,000자입니다.'))
   }
   const apiKey = request.apiKey.trim()
   if (apiKey === '') throw new Error(t('외부 API key를 입력하세요.'))
@@ -305,7 +305,7 @@ function normalizeExternalEndpoint(endpoint: string): string {
   }
   const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]'
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
-    throw new Error(t('외부 API는 HTTPS 주소만 사용할 수 있습니다. 로컬 개발 서버만 HTTP가 허용됩니다.'))
+    throw new Error(t('외부 API는 HTTPS 주소만 쓸 수 있습니다. 로컬 개발 서버만 HTTP를 허용합니다.'))
   }
   if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') {
     throw new Error(t('외부 API 주소에 인증 정보, query, fragment를 넣을 수 없습니다.'))
@@ -422,6 +422,6 @@ function normalizeProgress(progress: RawPullProgress): PullProgress {
 
 function browserPreviewDisabledError(): Error {
   return new Error(
-    t('Ollama 번역은 Tauri 데스크톱에서 사용하세요. 브라우저 개발 미리보기에서는 명시적으로 개발 fetch 모드를 켜야 합니다.'),
+    t('Ollama 번역은 데스크톱 앱에서 사용하세요. 브라우저 개발 미리보기에서는 개발 fetch 모드를 켜야 합니다.'),
   )
 }

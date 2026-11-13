@@ -46,7 +46,7 @@ describe('MarkdownPane', () => {
 
     fireEvent.mouseUp(screen.getByRole('article', { name: 'Guide' }))
 
-    const action = screen.getByRole('button', { name: '선택 내용을 노트로 드래그' })
+    const action = screen.getByRole('button', { name: '선택 내용을 노트로 끌기' })
     const serialized = dragInternally(action)?.data[MARKDOWN_EXCERPT_DRAG_MIME] ?? ''
     const payload = parseMarkdownExcerptDrag(serialized)
     expect(payload).toMatchObject({
@@ -72,11 +72,11 @@ describe('MarkdownPane', () => {
     selection?.removeAllRanges()
     selection?.addRange(range)
     fireEvent.mouseUp(screen.getByRole('article', { name: 'Guide' }))
-    expect(screen.queryByRole('button', { name: '선택 내용을 노트로 드래그' })).not.toBeNull()
+    expect(screen.queryByRole('button', { name: '선택 내용을 노트로 끌기' })).not.toBeNull()
 
     fireEvent.pointerDown(document.body)
 
-    expect(screen.queryByRole('button', { name: '선택 내용을 노트로 드래그' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '선택 내용을 노트로 끌기' })).toBeNull()
     expect(window.getSelection()?.isCollapsed).toBe(true)
   })
 
@@ -103,7 +103,7 @@ describe('MarkdownPane', () => {
     fireEvent.pointerMove(window, { clientX: 280, clientY: 130 })
     fireEvent.pointerUp(window, { clientX: 280, clientY: 130 })
 
-    const action = screen.getByRole('button', { name: '선택 내용을 노트로 드래그' })
+    const action = screen.getByRole('button', { name: '선택 내용을 노트로 끌기' })
     const serialized = dragInternally(action)?.data[MARKDOWN_EXCERPT_DRAG_MIME] ?? ''
     const payload = parseMarkdownExcerptDrag(serialized)
     expect(payload?.selection.quote).toContain('제목')

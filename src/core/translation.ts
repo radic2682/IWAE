@@ -121,9 +121,9 @@ export function friendlyTranslationError(raw: unknown): string {
   const status = /\bHTTP\s+(\d{3})\b/i.exec(message)?.[1]
   const looksLikeMarkup = /<\/?[a-z!][^>]*>/i.test(message)
   if (status === '429' || (looksLikeMarkup && /too many requests|quota exceeded/i.test(message))) {
-    return t('번역 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.')
+    return t('번역 요청이 너무 많습니다. 잠시 뒤 다시 시도하세요.')
   }
   if (!looksLikeMarkup && message.length <= 240) return message
   if (status !== undefined) return t('번역 요청에 실패했습니다 (HTTP {status}).', { status })
-  return t('번역 요청에 실패했습니다. 잠시 뒤 다시 시도해 주세요.')
+  return t('번역 요청에 실패했습니다. 잠시 뒤 다시 시도하세요.')
 }

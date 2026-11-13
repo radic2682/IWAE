@@ -75,7 +75,7 @@ export function BibliographyDialog({ documentTitle, entry, onSave, onClose, onFe
         className="bib-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={t('논문 정보 — {title}', { title: documentTitle })}
+        aria-label={t('논문 정보: {title}', { title: documentTitle })}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return

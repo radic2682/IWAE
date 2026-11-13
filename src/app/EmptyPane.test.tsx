@@ -15,7 +15,7 @@ describe('EmptyPane', () => {
   it('제목 · 한 줄 안내 · 명령 목록(아이콘 · 이름 · 오른쪽 키 힌트)을 그린다', () => {
     render(<EmptyPane prefixText="Ctrl+B" {...all()} />)
     expect(screen.getByText('빈 칸')).toBeDefined()
-    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')).toBeDefined()
     // 번역기 · 캔버스 줄은 없다(번역기는 창 전체에 떠 있는 창, 캔버스는 꺼 두었다)
     expect(labels()).toEqual(['PDF 열기', 'Markdown 열기', '노트 열기', '이 칸 닫기Ctrl+B x'])
     expect(screen.queryByRole('button', { name: /번역기/u })).toBeNull()
