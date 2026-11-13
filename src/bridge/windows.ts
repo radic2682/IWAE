@@ -190,6 +190,8 @@ export async function sendTabDrop(target: string, request: Omit<ReattachRequest,
 export interface TabAttachRequest {
   /** 붙일 탭의 id(노트 경로 · Markdown 경로) */
   readonly tabId: string
+  /** 떼어 낸 탭이 담긴 새 화면의 id(같은 탭이 다른 화면에도 있어도 이 화면에서만 찾는다) */
+  readonly screenId: string
   /** 놓은 자리의 칸과 대상 창 안 x 좌표(CSS 픽셀) */
   readonly pane: string
   readonly x: number
@@ -207,4 +209,39 @@ export async function onTabAttach(handler: (request: TabAttachRequest) => void):
   if (!isDesktop()) return () => undefined
   const { listen } = await import('@tauri-apps/api/event')
   return listen<TabAttachRequest>('iwae:tab-attach', (event) => handler(event.payload))
+}
+
+/** 받은 창이 붙였는지(ok) 보낸 창에 알린다 */
+export interface TabAttachAck {
+  readonly tabId: string
+  readonly screenId: string
+  readonly ok: boolean
+}
+
+export async function sendTabAttachAck(target: string, ack: TabAttachAck): Promise<void> {
+  if (!isDesktop()) return
+  const { emitTo } = await import('@tauri-apps/api/event')
+  await emitTo(target, 'iwae:tab-attach-ack', ack)
+}
+
+/** 붙여 달라고 보내고 받은 창이 붙였다고 답할 때까지 기다린다. 답이 없거나(시간 초과) 못 붙였으면 false — 보낸 창은 그러면 떼어 낸 창을 닫지 않는다 */
+export async function requestTabAttach(target: string, request: Omit<TabAttachRequest, 'source'>, timeoutMs = 1500): Promise<boolean> {
+  if (!isDesktop()) return false
+  const { listen } = await import('@tauri-apps/api/event')
+  let settle: (ok: boolean) => void = () => undefined
+  const answered = new Promise<boolean>((resolve) => { settle = resolve })
+  const unlisten = await listen<TabAttachAck>('iwae:tab-attach-ack', (event) => {
+    if (event.payload.tabId === request.tabId && event.payload.screenId === request.screenId) settle(event.payload.ok)
+  })
+  const timer = setTimeout(() => settle(false), timeoutMs)
+  try {
+    await sendTabAttach(target, request)
+    return await answered
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+    unlisten()
+  }
+
 }

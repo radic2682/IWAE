@@ -16,11 +16,18 @@ function pinned(tab: Tab): Tab {
   return rest
 }
 
-/** 탭이 들어 있는 화면(칸 · 떠 있는 칸 포함). 없으면 null */
-function screenOfTab(state: ScreensState, tabId: string): { readonly screen: Screen; readonly pane: PaneId } | null {
+/**
+ * 탭이 들어 있는 화면과 칸(떠 있는 칸 포함). 같은 노트 · Markdown 탭이 여러 칸 · 여러 화면에 열려 있을 수 있어서, 어느 칸의 탭인지 알면
+ * (pane) 그 칸에서만 찾고 첫 번째 것으로 대신하지 않는다. 없으면 null
+ */
+function screenOfTab(state: ScreensState, tabId: string, pane?: PaneId): { readonly screen: Screen; readonly pane: PaneId } | null {
   for (const screen of state.screens) {
-    const pane = paneOfTab(screen.panes, tabId)
-    if (pane !== null) return { screen, pane }
+    if (pane !== undefined) {
+      if (screenPaneIds(screen).includes(pane) && tabsOf(screen.panes, pane).tabs.some((tab) => tab.id === tabId)) return { screen, pane }
+      continue
+    }
+    const found = paneOfTab(screen.panes, tabId)
+    if (found !== null) return { screen, pane: found }
   }
   return null
 }
@@ -36,10 +43,10 @@ export interface TearOutcome {
 /**
  * 탭 하나를 새 화면(맨 뒤, 칸 하나)으로 옮긴다. 보는 화면은 그대로다(새 화면은 새 앱 창이 본다).
  * 원래 칸은 탭이 비어도 닫지 않는다(하나뿐인 칸의 마지막 탭이면 빈 칸이 남는다). 새 칸은 원래 칸의 색 채널을 받는다.
- * screenId: 미리 정해 둔 새 화면 id(창을 열 때 주소에 실어야 해서 먼저 정한다). 탭이 없으면 null.
+ * screenId: 미리 정해 둔 새 화면 id(창을 열 때 주소에 실어야 해서 먼저 정한다). fromPane: 끈 탭이 있는 칸(같은 탭이 여러 칸에 있어도 그 칸에서만 뗀다). 탭이 없으면 null.
  */
-export function tearTabToScreen(state: ScreensState, tabId: string, name: string, screenId?: string): TearOutcome | null {
-  const found = screenOfTab(state, tabId)
+export function tearTabToScreen(state: ScreensState, tabId: string, name: string, screenId?: string, fromPane?: PaneId): TearOutcome | null {
+  const found = screenOfTab(state, tabId, fromPane)
   if (found === null) return null
   const { screen, pane } = found
   const tab = tabsOf(screen.panes, pane).tabs.find((candidate) => candidate.id === tabId)
@@ -65,8 +72,15 @@ export function tearTabToScreen(state: ScreensState, tabId: string, name: string
  * 탭을 칸 pane(어느 화면의 칸이든)의 index 자리에 붙인다. 떼어 낸 창을 다른 앱 창의 탭 줄에 놓았을 때 쓴다 —
  * 탭이 있던 화면이 칸 하나에 빈 칸만 남으면(떼어 낼 때 만든 화면) 그 화면은 닫는다. 탭이나 칸이 없으면 null.
  */
-export function attachTabToPane(state: ScreensState, tabId: string, target: PaneId, index: number): ScreensState | null {
-  const found = screenOfTab(state, tabId)
+export function attachTabToPane(state: ScreensState, tabId: string, target: PaneId, index: number, fromScreen?: string): ScreensState | null {
+  // fromScreen: 떼어 낸 탭이 담긴 화면. 알면 그 화면에서만 찾는다(같은 탭이 다른 화면에도 열려 있어도 엉뚱한 것을 옮기지 않는다)
+  const found = fromScreen === undefined
+    ? screenOfTab(state, tabId)
+    : (() => {
+      const screen = state.screens.find((candidate) => candidate.id === fromScreen)
+      const pane = screen === undefined ? null : paneOfTab(screen.panes, tabId)
+      return screen === undefined || pane === null ? null : { screen, pane }
+    })()
   const targetScreen = state.screens.find((screen) => screenPaneIds(screen).includes(target))
   if (found === null || targetScreen === undefined) return null
   const { screen: source, pane: sourcePane } = found

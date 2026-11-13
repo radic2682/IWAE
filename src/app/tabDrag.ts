@@ -54,6 +54,8 @@ export interface TabDragHost {
 
 export interface TearOffInfo {
   readonly id: string
+  /** 끈 탭이 있는 칸(같은 탭이 여러 칸에 열려 있어도 이 칸의 탭을 뗀다) */
+  readonly pane?: PaneId
   readonly screenX: number
   readonly screenY: number
   /** 잡은 자리(탭 왼쪽 위에서) */
@@ -633,7 +635,7 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     if (edgeTimer !== null) { window.clearTimeout(edgeTimer); edgeTimer = null }
     let handled = false
     try {
-      handled = await h.tearOff(tabId, { id: tabId, screenX, screenY, grabX, grabY, width: startRect.width, height: startRect.height })
+      handled = await h.tearOff(tabId, { id: tabId, ...(h.sourcePane === undefined ? {} : { pane: h.sourcePane }), screenX, screenY, grabX, grabY, width: startRect.width, height: startRect.height })
     } catch {
       handled = false
     }

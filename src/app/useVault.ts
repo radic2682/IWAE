@@ -1021,7 +1021,8 @@ export function useVault(options: UseVaultOptions = {}) {
     session: sessionName,
     screen: Math.max(screensState.screens.findIndex((screen) => screen.id === screensState.activeScreen), 0),
     hidden: windowHidden,
-    snapshot: sessionSnapshot,
+    // 떼어 낸 탭의 새 창은 소유자의 상태가 처음 도착하기 전에는 알리지 않는다: 세션 파일에 아직 없는 새 화면이 빠진 낡은 상태가 소유자의 떼기를 되돌리지 않게
+    snapshot: wantedScreenRef.current !== null ? null : sessionSnapshot,
     apply: applyRemoteSession,
     runCommand: (line) => clientHooksRef.current.runCommand(line),
     quit: () => clientHooksRef.current.quit(),

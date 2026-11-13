@@ -232,7 +232,7 @@ import { createOllamaTranslationProvider } from '../bridge/translation'
 import { runAfterCanvasFlush } from './canvasClose'
 import { buildEvidenceHtml, createCanvasRasterizer, saveHtmlFile } from './exportEvidence'
 import { closeWindow, currentWindowLabel, interceptWindowClose, isDesktop } from '../bridge/window'
-import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabAttach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, sendReattach, sendTabAttach, sendTabDrop, type ReattachRequest, type TabAttachRequest, type TabDragReleased } from '../bridge/windows'
+import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabAttach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, requestTabAttach, sendReattach, sendTabAttachAck, sendTabDrop, type ReattachRequest, type TabAttachRequest, type TabDragReleased } from '../bridge/windows'
 import { clearExternalTabHover, holdTabFlip, insertionIndexInPane, showExternalTabHover, tabZoneRects, type TearOffInfo } from './tabDrag'
 import { currentWindowMode, ownsSession, windowQuery } from '../core/windowMode'
 import { closePlan, detachPlan, findClient, newClientPlan, nextClientLetter } from '../core/clients'
@@ -3113,18 +3113,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    */
   const tearRef = useRef<{ label: string; mode: 'new' | 'self'; docId: string; page: number; zoom: DocZoom | null } | null>(null)
   /** 노트 · Markdown 탭을 떼어 연 새 앱 창(마우스를 따라오는 중). 놓으면 onTabDragReleased 가 이 창과 이어 준다 */
-  const tornTabRef = useRef<{ label: string; tabId: string } | null>(null)
+  const tornTabRef = useRef<{ label: string; tabId: string; screenId: string } | null>(null)
   /**
    * 메모 노트 · Markdown 탭을 창 밖으로 끌어냈다(tmux 의 break-pane 처럼): 탭을 같은 세션의 새 화면(칸 하나)에 담고, 그 화면을 보는
    * 새 앱 창을 열어 마우스를 따라오게 한다. 이 창은 보던 화면 그대로고, 원래 칸은 비어도 닫지 않는다(하나뿐인 칸의 마지막 탭이면 빈 칸이 남는다).
    * 새 창은 `screenid=` 로 새 화면을 가리킨다(번호가 아니라 id — 새 화면이 세션 파일에 쓰이기 전에도 소유자 창의 상태로 찾는다)
    */
-  const tearOffToNewClient = async (tab: Tab): Promise<boolean> => {
+  const tearOffToNewClient = async (tab: Tab, fromPane: PaneId | undefined): Promise<boolean> => {
     if (vault === null || isDetachedWindow) return false
     const state = commandModelRef.current.screens
     const screenName = t('화면 {n}', { n: state.screens.length })
     const screenId = newScreenId(state.screens.map((screen) => screen.id))
-    if (tearTabToScreen(state, tab.id, screenName, screenId) === null) return false
+    if (tearTabToScreen(state, tab.id, screenName, screenId, fromPane) === null) return false
     const ratio = window.devicePixelRatio || 1
     try {
       const began = await beginTabDrag({
@@ -3134,15 +3134,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         grabX: Math.round(TORN_CLIENT_GRAB_X * ratio),
         grabY: Math.round(TORN_CLIENT_GRAB_Y * ratio),
       })
-      if (began === null) return false
+      // 이미 있는 창을 앞으로 가져왔을 뿐 끌기는 시작하지 않았다: 탭을 떼면 새 화면이 아무도 안 보는 채로 남는다
+      if (began === null || began.existing) return false
       // 창이 만들어지는 사이에 상태가 바뀌었을 수 있어, 떼어 내기는 지금 상태에서 같은 화면 id 로 다시 계산한다
-      const torn = tearTabToScreen(commandModelRef.current.screens, tab.id, screenName, screenId)
+      const torn = tearTabToScreen(commandModelRef.current.screens, tab.id, screenName, screenId, fromPane)
       if (torn === null) {
         await destroyAppWindow(began.label)
         return false
       }
       screenOps.replace(torn.screens)
-      tornTabRef.current = { label: began.label, tabId: tab.id }
+      tornTabRef.current = { label: began.label, tabId: tab.id, screenId }
       return true
     } catch (cause) {
       announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
@@ -3151,7 +3152,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   const tearOffTab = async (id: string, info: TearOffInfo): Promise<boolean> => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
-    if (tab !== undefined && (tab.kind === 'memoNote' || tab.kind === 'markdown')) return tearOffToNewClient(tab)
+    if (tab !== undefined && (tab.kind === 'memoNote' || tab.kind === 'markdown')) return tearOffToNewClient(tab, info.pane)
     if (tab === undefined || tab.kind !== 'pdf' || vault === null) return false
     const docId = tabDocId(tab)
     const { page, zoom } = viewOfDoc(docId, id)
@@ -3196,14 +3197,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     tornTabRef.current = null
     const target = event.target
     if (target === null || event.pane === null) return true
+    // 대상 창이 세션 목록에 없거나 다른 세션이면 붙이지 않고 창을 그대로 둔다
     const targetClient = findClient(clients.registry, target)
-    if (targetClient !== null && targetClient.session !== sessionName) return true
-    const request = { tabId: torn.tabId, pane: event.pane, x: event.x }
+    if (targetClient === null || targetClient.session !== sessionName) return true
+    const request = { tabId: torn.tabId, screenId: torn.screenId, pane: event.pane, x: event.x }
     void (async () => {
       try {
-        if (target === currentWindowLabel()) acceptTabAttachRef.current({ ...request, source: torn.label })
-        else await sendTabAttach(target, request)
-        await destroyAppWindow(torn.label)
+        // 받은 창이 붙였다고 답한 뒤에만 떼어 낸 창을 닫는다(상태가 뒤처졌거나 탭을 못 찾으면 창과 탭을 그대로 둔다)
+        const attached = target === currentWindowLabel()
+          ? acceptTabAttachRef.current({ ...request, source: torn.label })
+          : await requestTabAttach(target, request)
+        if (attached) await destroyAppWindow(torn.label)
+        else announceAction(t('탭을 붙이지 못해 떼어 낸 창을 그대로 두었습니다'))
       } catch (cause) {
         announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
       }
@@ -3211,21 +3216,25 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     return true
   }
   /** 다른 앱 창에서 떼어 낸 탭이 이 창의 탭 줄에 놓였다: 새 화면에 있던 탭을 놓은 자리로 가져온다(탭 줄이 벌려 둔 자리에 들어간다) */
-  const acceptTabAttachRef = useRef<(request: TabAttachRequest) => void>(() => undefined)
+  const acceptTabAttachRef = useRef<(request: TabAttachRequest) => boolean>(() => false)
   acceptTabAttachRef.current = (request) => {
-    const next = attachTabToPane(commandModelRef.current.screens, request.tabId, request.pane, insertionIndexInPane(request.pane, request.x))
+    const next = attachTabToPane(commandModelRef.current.screens, request.tabId, request.pane, insertionIndexInPane(request.pane, request.x), request.screenId)
     clearExternalTabHover(true)
-    if (next === null) return
+    if (next === null) return false
     holdTabFlip()
     screenOps.replace(next)
     setActivePaneId(request.pane)
     void focusThisWindow()
+    return true
   }
   useEffect(() => {
     if (isDetachedWindow) return undefined
     let disposed = false
     let stop: (() => void) | undefined
-    void onTabAttach((request) => acceptTabAttachRef.current(request)).then((unlisten) => {
+    void onTabAttach((request) => {
+      const ok = acceptTabAttachRef.current(request)
+      void sendTabAttachAck(request.source, { tabId: request.tabId, screenId: request.screenId, ok }).catch(() => undefined)
+    }).then((unlisten) => {
       if (disposed) unlisten()
       else stop = unlisten
     })

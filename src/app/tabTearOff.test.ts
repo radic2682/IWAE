@@ -98,3 +98,42 @@ describe('attachTabToPane — 떼어 낸 탭을 다른 창의 탭 줄에 붙이�
     expect(attachTabToPane(base(), 'n1', 'zzz', 0)).toBeNull()
   })
 })
+
+describe('같은 탭이 여러 칸 · 화면에 열려 있을 때', () => {
+  /** 노트 n1 이 w1 의 칸 a 와 칸 b, 화면 w2 의 칸 c 에 모두 있다 */
+  function dup(): ScreensState {
+    return {
+      screens: [
+        screen('w1', { layout: layoutForLegacyId('cols2', ['a', 'b']), panes: { a: tabs(note('n1')), b: tabs(note('n1'), note('n2')) }, channels: { a: 'green', b: 'blue' } }),
+        screen('w2', { layout: paneNode('c'), panes: { c: tabs(note('n1')) }, channels: { c: 'orange' } }),
+      ],
+      activeScreen: 'w1',
+      lastScreen: null,
+    }
+  }
+
+  it('끈 칸(fromPane)의 탭만 뗀다: 첫 번째로 보이는 칸이 아니다', () => {
+    const torn = tearTabToScreen(dup(), 'n1', 'x', 'new', 'b')!
+    expect(torn.screens.screens[0]!.panes.a!.tabs.map((t) => t.id)).toEqual(['n1'])
+    expect(torn.screens.screens[0]!.panes.b!.tabs.map((t) => t.id)).toEqual(['n2'])
+    expect(torn.screens.screens[1]!.panes.c!.tabs.map((t) => t.id)).toEqual(['n1'])
+    expect(torn.screens.screens[2]!.channels[torn.pane]).toBe('blue')
+  })
+
+  it('fromPane 에 그 탭이 없으면 다른 칸의 같은 탭으로 대신하지 않고 null', () => {
+    expect(tearTabToScreen(dup(), 'n2', 'x', 'new', 'a')).toBeNull()
+    expect(tearTabToScreen(dup(), 'n1', 'x', 'new', 'zz')).toBeNull()
+  })
+
+  it('붙일 때는 떼어 낸 화면(fromScreen)에서만 탭을 찾는다', () => {
+    const torn = tearTabToScreen(dup(), 'n1', 'x', 'new', 'b')!
+    const attached = attachTabToPane(torn.screens, 'n1', 'b', 0, 'new')!
+    // 떼어 낸 화면은 비었으니 닫히고, w1 · w2 의 다른 n1 은 그대로다
+    expect(attached.screens.map((s) => s.id)).toEqual(['w1', 'w2'])
+    expect(attached.screens[1]!.panes.c!.tabs.map((t) => t.id)).toEqual(['n1'])
+    expect(attached.screens[0]!.panes.a!.tabs.map((t) => t.id)).toEqual(['n1'])
+    expect(attached.screens[0]!.panes.b!.tabs.map((t) => t.id)).toEqual(['n1', 'n2'])
+    // 그 화면이 없으면 다른 화면의 같은 탭을 끌어오지 않고 null
+    expect(attachTabToPane(torn.screens, 'n1', 'a', 0, 'nope')).toBeNull()
+  })
+})

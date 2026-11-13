@@ -53,3 +53,26 @@ describe('window bridge', () => {
     expect(invoke).toHaveBeenCalledWith('close_secondary_windows')
   })
 })
+
+describe('requestTabAttach', () => {
+  const request = { tabId: 'n1', screenId: 's2', pane: 'a', x: 10 }
+
+  it('resolves true only when the receiving window acks ok', async () => {
+    const { requestTabAttach } = await import('./windows')
+    vi.spyOn(windowBridge, 'isDesktop').mockReturnValue(true)
+    let handler: (event: { payload: unknown }) => void = () => undefined
+    listen.mockImplementation((async (_name: string, cb: (event: { payload: unknown }) => void) => { handler = cb; return () => undefined }) as never)
+    emitTo.mockImplementation(async () => { handler({ payload: { tabId: 'other', screenId: 's2', ok: true } }); handler({ payload: { tabId: 'n1', screenId: 's2', ok: true } }) })
+    await expect(requestTabAttach('main', request)).resolves.toBe(true)
+    emitTo.mockImplementation(async () => { handler({ payload: { tabId: 'n1', screenId: 's2', ok: false } }) })
+    await expect(requestTabAttach('main', request)).resolves.toBe(false)
+  })
+
+  it('times out to false when nobody answers, so the torn window is kept', async () => {
+    const { requestTabAttach } = await import('./windows')
+    vi.spyOn(windowBridge, 'isDesktop').mockReturnValue(true)
+    listen.mockImplementation((async () => () => undefined) as never)
+    emitTo.mockImplementation(async () => undefined)
+    await expect(requestTabAttach('main', request, 20)).resolves.toBe(false)
+  })
+})
