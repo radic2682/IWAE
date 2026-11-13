@@ -42,30 +42,20 @@ describe('탭을 창 밖으로 끌어 떼어 내기 — 어떤 탭이 떼어지�
   })
 })
 
-describe('창 전체를 끄는 탭(dragWindow) — 떼어 낸 PDF 창 · 노트 · Markdown 앱 창', () => {
-  const drag = (only: Tab, dragWindow: boolean, onTearOffTab: (id: string) => boolean) => {
-    document.elementFromPoint = () => null
-    if (typeof CSS === 'undefined') (globalThis as { CSS?: unknown }).CSS = { escape: (value: string) => value }
-    else if (typeof CSS.escape !== 'function') (CSS as { escape?: unknown }).escape = (value: string) => value
-    window.matchMedia = ((query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener: () => undefined, removeEventListener: () => undefined })) as unknown as typeof window.matchMedia
-    render(<PaneTabsMenu state={{ tabs: [only], activeId: only.id }} label="탭" paneId="p1" onActivate={vi.fn()} onClose={vi.fn()} onTearOffTab={onTearOffTab} dragWindow={dragWindow} />)
-    fireEvent.pointerDown(screen.getByRole('tab'), { button: 0, clientX: 40, clientY: 14 })
-    fireEvent.pointerMove(window, { clientX: 70, clientY: 20 })
-  }
-
+describe('떼어 낸 창에서도 탭 끌기는 탭 끌기다 — 창 전체가 따라가지 않는다', () => {
   it.each([
     [{ id: 'doc', title: 'Paper', kind: 'pdf' } as Tab],
     [{ id: 'notes/a.md', title: 'Note A', kind: 'memoNote' } as Tab],
     [{ id: 'readme.md', title: 'Readme', kind: 'markdown' } as Tab],
-  ])('탭이 하나뿐이면 조금만 움직여도 바로 창이 따라간다 (%o)', (only) => {
+  ])('탭이 하나뿐이어도 창 안에서 끄는 것만으로는 떼어 내지 않는다 (%o)', (only) => {
     const tear = vi.fn((_id: string) => true)
-    drag(only, true, tear)
-    expect(tear).toHaveBeenCalledTimes(1)
-  })
-
-  it('dragWindow 가 아니면 창 안에서는 떼어 내지 않는다', () => {
-    const tear = vi.fn((_id: string) => true)
-    drag({ id: 'notes/a.md', title: 'Note A', kind: 'memoNote' }, false, tear)
+    document.elementFromPoint = () => null
+    if (typeof CSS === 'undefined') (globalThis as { CSS?: unknown }).CSS = { escape: (value: string) => value }
+    else if (typeof CSS.escape !== 'function') (CSS as { escape?: unknown }).escape = (value: string) => value
+    window.matchMedia = ((query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener: () => undefined, removeEventListener: () => undefined })) as unknown as typeof window.matchMedia
+    render(<PaneTabsMenu state={{ tabs: [only], activeId: only.id }} label="탭" paneId="p1" onActivate={vi.fn()} onClose={vi.fn()} onTearOffTab={tear} />)
+    fireEvent.pointerDown(screen.getByRole('tab'), { button: 0, clientX: 40, clientY: 14 })
+    fireEvent.pointerMove(window, { clientX: 70, clientY: 20 })
     expect(tear).not.toHaveBeenCalled()
   })
 })

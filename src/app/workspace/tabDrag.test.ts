@@ -321,6 +321,47 @@ describe('탭 끌기', () => {
       expect(fixture.host.calls).toEqual([`move:a:right:${Number.MAX_SAFE_INTEGER}`])
     })
 
+    it('끌기를 시작한 뒤에는 띠 가능 여부를 다시 계산하지 않는다(움직이는 중에 됐다 안 됐다 하지 않는다)', () => {
+      let calls = 0
+      let offered = true
+      const fixture = withTree({ rootDockShare: (_id, edge) => { calls += 1; return edge === 'right' && offered ? 0.25 : null } })
+      start(fixture)
+      fire('pointermove', 100, 100)
+      fire('pointermove', 390, 200)
+      const afterFirst = calls
+      expect(previewBox()).not.toBeNull()
+      // 중간에 호스트의 답이 바뀌어도(칸 크기 재계산 등) 이 끌기 안에서는 처음 정한 대로다
+      offered = false
+      fire('pointermove', 392, 210)
+      fire('pointermove', 391, 220)
+      expect(calls).toBe(afterFirst)
+      expect(previewBox()).not.toBeNull()
+      fire('pointerup', 391, 220)
+      expect(fixture.host.calls).toEqual(['root:a:right'])
+    })
+
+    it('띠 경계에서 8px 여유: 들어갈 때는 두께, 나갈 때는 두께 + 8 이라 경계에서 번갈아 바뀌지 않는다', () => {
+      const fixture = withTree()
+      start(fixture)
+      fire('pointermove', 100, 100)
+      // 띠 두께 24: 오른쪽 끝까지 400 - 24 = 376 부터 띠
+      fire('pointermove', 370, 200)
+      expect(document.querySelector('.tab-dock-preview-root')).toBeNull()
+      fire('pointermove', 380, 200)
+      expect(document.querySelector('.tab-dock-preview-root')).not.toBeNull()
+      // 들어온 뒤 경계(376)를 살짝 넘어 안쪽으로 가도 8px(368) 까지는 띠를 놓지 않는다
+      for (const x of [372, 376, 374, 376, 371]) {
+        fire('pointermove', x, 200)
+        expect(document.querySelector('.tab-dock-preview-root')).not.toBeNull()
+      }
+      fire('pointermove', 366, 200)
+      expect(document.querySelector('.tab-dock-preview-root')).toBeNull()
+      // 나간 뒤 다시 들어오려면 두께를 지켜야 한다
+      fire('pointermove', 372, 200)
+      expect(document.querySelector('.tab-dock-preview-root')).toBeNull()
+      fire('pointerup', 372, 200)
+    })
+
     it('호스트가 바깥 띠를 모르면(dockRoot 없음) 아무 일도 없다', () => {
       const fixture = build()
       rects.set(document.querySelector('.panes-tree')!, box(0, 0, 400, 440))
@@ -341,12 +382,15 @@ describe('탭 끌기', () => {
     expect(fixture.host.calls).toEqual([])
   })
 
-  it('창 전체를 끄는 탭(dragWindow)은 조금만 움직여도 바로 떼어 낸다', async () => {
-    const fixture = build({ dragWindow: true })
+  it('탭 끌기는 어느 창에서든 탭 끌기다: 창 안에서 움직이는 것만으로는 떼어 내지 않는다(창 전체가 따라가지 않는다)', async () => {
+    const fixture = build()
     start(fixture)
     fire('pointermove', 80, 25)
+    fire('pointermove', 100, 100)
     await Promise.resolve()
-    expect(fixture.host.calls).toEqual(['tear:a'])
+    expect(fixture.host.calls).toEqual([])
+    expect('dragWindow' in fixture.host).toBe(false)
+    fire('pointerup', 100, 100)
   })
 })
 

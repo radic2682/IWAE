@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_PANES, layoutForCount, leaves, paneCount, paneNode, splitLeaf, type LayoutNode } from '../../core/layoutTree'
-import { ALL_DOCK_EDGES, type TreeWorkspace } from './tabDock'
+import { ALL_DOCK_EDGES, type DockEdge, type TreeWorkspace } from './tabDock'
 import { emptyTabs, type PanesState, type Tab } from './tabs'
-import { WORKSPACE_EDGE_BAND_PX, WORKSPACE_EDGE_REACH_PX, WORKSPACE_TOP_BAND_PX, dockTabAtRoot, rootDockBox, rootDockPlan, splitRoot, workspaceEdgeAt } from './workspaceEdge'
+import { WORKSPACE_EDGE_BAND_PX, WORKSPACE_EDGE_HYSTERESIS_PX, WORKSPACE_EDGE_REACH_PX, WORKSPACE_TOP_BAND_PX, dockTabAtRoot, edgeLeaves, rootBandOffered, rootDockBox, rootDockPlan, splitRoot, stickyWorkspaceEdgeAt, workspaceEdgeAt } from './workspaceEdge'
 
 const tab = (id: string): Tab => ({ id, title: id, kind: 'pdf' })
 const tabs = (...ids: string[]) => ({ tabs: ids.map(tab), activeId: ids[0] ?? null })
@@ -169,5 +169,54 @@ describe('dockTabAtRoot', () => {
     const outcome = dockTabAtRoot({ panes: preview, layout: layoutForCount(2, ['a', 'b']), channels: {} }, 'p', 'bottom', null)
     if (outcome === null || 'refused' in outcome) throw new Error('expected an outcome')
     expect(outcome.panes[outcome.newPane]?.tabs[0]?.preview).toBeUndefined()
+  })
+})
+
+describe('rootBandOffered — 칸 가장자리와 같은 결과면 띠를 두지 않는다', () => {
+  const left = paneNode('L')
+  const rightTop = paneNode('RT')
+  const rightBottom = paneNode('RB')
+  // L | (RT / RB): 오른쪽 가장자리는 두 칸이 쪼개 가졌다
+  const tree: LayoutNode = { kind: 'split', id: 's1', dir: 'h', ratio: 0.5, a: left, b: { kind: 'split', id: 's2', dir: 'v', ratio: 0.5, a: rightTop, b: rightBottom } }
+
+  it('가장자리 줄이 여러 칸이면 띠가 다른 결과다(위 · 아래도 같은 식으로 센다)', () => {
+    expect(edgeLeaves(tree, 'right')).toEqual(['RT', 'RB'])
+    expect(rootBandOffered(tree, 'right')).toBe(true)
+    expect(rootBandOffered(tree, 'top')).toBe(true)
+    expect(rootBandOffered(tree, 'bottom')).toBe(true)
+  })
+  it('칸 하나가 그 쪽 전체를 차지하면 띠를 두지 않는다', () => {
+    expect(edgeLeaves(tree, 'left')).toEqual(['L'])
+    expect(rootBandOffered(tree, 'left')).toBe(false)
+    expect(rootBandOffered(left, 'right')).toBe(false)
+  })
+  it('끌려 닫힐 칸이 있으면 닫힌 뒤의 트리로 센다', () => {
+    // RB 의 하나뿐인 탭을 끌면 RB 가 닫혀 오른쪽 가장자리는 RT 하나다
+    expect(rootBandOffered(tree, 'right', 'RB')).toBe(false)
+    expect(rootBandOffered(tree, 'right', 'L')).toBe(true)
+  })
+})
+
+describe('stickyWorkspaceEdgeAt — 경계 되돌림 여유', () => {
+  const edge = (x: number, current: DockEdge | null) => stickyWorkspaceEdgeAt(box, x, 400, ALL_DOCK_EDGES, current)
+  const boundary = 1500 - WORKSPACE_EDGE_BAND_PX
+  it('들어갈 때는 띠 두께, 나갈 때는 두께 + 여유', () => {
+    expect(edge(boundary - 1, null)).toBeNull()
+    expect(edge(boundary + 1, null)).toBe('right')
+    expect(edge(boundary - WORKSPACE_EDGE_HYSTERESIS_PX + 1, 'right')).toBe('right')
+    expect(edge(boundary - WORKSPACE_EDGE_HYSTERESIS_PX - 1, 'right')).toBeNull()
+  })
+  it('경계 부근을 오가도 판정은 같은 쪽에 머문다', () => {
+    let current: DockEdge | null = null
+    const seen: (string | null)[] = []
+    for (const x of [boundary - 3, boundary + 2, boundary - 2, boundary + 1, boundary - 4, boundary - 1]) {
+      current = edge(x, current)
+      seen.push(current)
+    }
+    expect(seen).toEqual([null, 'right', 'right', 'right', 'right', 'right'])
+  })
+  it('허용되지 않은 쪽 · 트리 밖으로 멀리 나가면 붙들지 않는다', () => {
+    expect(stickyWorkspaceEdgeAt(box, 1495, 400, ['left'], 'right')).toBeNull()
+    expect(stickyWorkspaceEdgeAt(box, 1500 + WORKSPACE_EDGE_REACH_PX + 1, 400, ALL_DOCK_EDGES, 'right')).toBeNull()
   })
 })

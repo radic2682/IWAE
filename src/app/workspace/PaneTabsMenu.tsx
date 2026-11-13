@@ -51,8 +51,6 @@ interface PaneTabsMenuProps {
   onDockRoot?: (id: string, edge: DockEdge) => void
   /** 창 밖에서 놓은 탭을 새 창으로 떼어 낸다. true 면 이어 받았다 */
   onTearOffTab?: (id: string, info: TearOffInfo) => Promise<boolean> | boolean
-  /** 이 창에 탭이 이것뿐인 떼어 낸 창: 탭을 끌면 창 전체가 따라간다 */
-  dragWindow?: boolean
   /** 이 창의 색 채널. onCycleChannel 을 함께 주면 탭 줄 맨 앞에 색 점이 보인다(눌러서 바꾸기) */
   channel?: PaneChannel
   onCycleChannel?: () => void
@@ -87,7 +85,7 @@ function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
 }
 
 /** 브라우저처럼 열린 항목마다 상단바에 탭 하나를 둔다. */
-export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, rootDockShare, onDockRoot, onTearOffTab, dragWindow, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber, secondary = null, renderTabExtra, onRenameTab, canRenameTab }: PaneTabsMenuProps) {
+export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, paneId, onMoveTab, moveTargets, focused = true, onDuplicateTab, onEditPages, onDetachTab, onReattach, onReorderTab, onMoveTabAt, onDockTab, dockEdges, rootDockShare, onDockRoot, onTearOffTab, onClosePane, channel = null, onCycleChannel, onPinTab, paneNumber, secondary = null, renderTabExtra, onRenameTab, canRenameTab }: PaneTabsMenuProps) {
   const channelDot = onCycleChannel === undefined ? null : (
     <>
       <ChannelDot channel={channel} onCycle={onCycleChannel} pane={paneId} />
@@ -191,7 +189,6 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
     dock: onDockTab,
     dockEdges,
     ...(rootDockShare === undefined || onDockRoot === undefined ? {} : { rootDockShare, dockRoot: onDockRoot }),
-    dragWindow: dragWindow === true && state.tabs.length === 1 && tab.kind !== 'canvas',
     // PDF 는 떼어 낸 PDF 창으로, 메모 노트 · Markdown 은 새 화면을 보는 새 앱 창으로 떼어 낸다(캔버스는 아직 안 된다)
     tearOff: onTearOffTab === undefined || tab.kind === 'canvas' ? undefined : (id, info) => onTearOffTab(id, info),
     onDragged: armTabClickSuppress,

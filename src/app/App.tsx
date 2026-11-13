@@ -237,7 +237,7 @@ import { buildEvidenceHtml, createCanvasRasterizer, saveHtmlFile } from './docum
 import { closeWindow, currentWindowLabel, interceptWindowClose, isDesktop } from '../bridge/window'
 import { beginTabDrag, closeSecondaryWindows, destroyAppWindow, focusThisWindow, onCloseNow, onReattach, onTabAttach, onTabDragReleased, onTabHover, onTabZonesRequest, openAppWindow, reportTabZones, requestTabAttach, sendReattach, sendTabAttachAck, sendTabDrop, type ReattachRequest, type TabAttachRequest, type TabDragReleased } from '../bridge/windows'
 import { clearExternalTabHover, holdTabFlip, insertionIndexInPane, paneTreeBox, showExternalTabHover, tabZoneRects, type TearOffInfo } from './workspace/tabDrag'
-import { dockTabAtRoot, rootDockPlan } from './workspace/workspaceEdge'
+import { dockTabAtRoot, rootBandOffered, rootDockPlan } from './workspace/workspaceEdge'
 import { currentWindowMode, ownsSession, windowQuery } from '../core/windowMode'
 import { closePlan, detachPlan, findClient, newClientPlan, nextClientLetter } from '../core/clients'
 import { hideThisWindow, openClientWindow, showAppWindow } from '../bridge/clients'
@@ -3128,17 +3128,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    * 새 창은 `screenid=` 로 새 화면을 가리킨다(번호가 아니라 id — 새 화면이 세션 파일에 쓰이기 전에도 소유자 창의 상태로 찾는다)
    */
   /**
-   * 떼어 낸 노트 · Markdown 앱 창(메인이 아닌 앱 창)에 탭이 이것 하나뿐이면, 그 탭을 끌 때 탭이 아니라 창 전체가 마우스를 따라간다(떼어 낸 PDF 창과 같다).
-   * 놓은 자리가 다른 앱 창의 탭 줄이면 그 창에 탭을 붙이고 이 창은 닫는다(tornReleaseRef). 탭이 여럿이면 평소처럼 탭만 끌린다
+   * 떼어 낸 노트 · Markdown 앱 창(메인이 아닌 앱 창)에 탭이 이것 하나뿐이어도 탭 끌기는 늘 탭 끌기다(창 옮기기는 제목 영역).
+   * 이 창 밖에서 놓았을 때만 새 창을 만들지 않고, 놓은 자리가 다른 앱 창의 탭 줄이면 그 창에 탭을 붙이고 이 창은 닫는다(tornReleaseRef).
+   * 빈 곳이면 이 창이 놓은 자리에 그대로 있다. 탭이 여럿이면 평소처럼 새 창으로 떼어 낸다
    */
   const soleTabClientWindow = windowMode.role === 'extra' && !isMainWindow && vault !== null && (() => {
     const all = allPaneTabs(panes)
     return all.length === 1 && (all[0]!.kind === 'memoNote' || all[0]!.kind === 'markdown')
   })()
-  /** 앱 창 하나가 통째로 따라가게 한다(탭은 이 창의 화면에 그대로). 놓으면 onTabDragReleased → tornReleaseRef 가 이어 받는다 */
-  const dragClientWindow = async (tab: Tab): Promise<boolean> => {
+  /** 이미 놓은 자리(창 밖)의 판정만 받는다(창은 움직이지 않는다). onTabDragReleased → tornReleaseRef 가 이어 받는다 */
+  const dragClientWindow = async (tab: Tab, released: boolean): Promise<boolean> => {
     try {
-      const began = await beginTabDrag({ mode: 'self' })
+      const began = await beginTabDrag({ mode: 'self', alreadyReleased: released })
       if (began === null) return false
       tornTabRef.current = { label: began.label, tabId: tab.id, screenId: commandModelRef.current.screens.activeScreen }
       return true
@@ -3182,7 +3183,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const tearOffTab = async (id: string, info: TearOffInfo): Promise<boolean> => {
     const tab = openTabIds.find((candidate) => candidate.id === id)
     if (tab !== undefined && (tab.kind === 'memoNote' || tab.kind === 'markdown')) {
-      return soleTabClientWindow ? dragClientWindow(tab) : tearOffToNewClient(tab, info.pane, info.released === true)
+      return soleTabClientWindow ? dragClientWindow(tab, info.released === true) : tearOffToNewClient(tab, info.pane, info.released === true)
     }
     if (tab === undefined || tab.kind !== 'pdf' || vault === null) return false
     const docId = tabDocId(tab)
@@ -3191,7 +3192,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     try {
       if (isDetachedWindow) {
         if (allPaneTabs(panes).length !== 1) return false
-        const began = await beginTabDrag({ mode: 'self' })
+        const began = await beginTabDrag({ mode: 'self', alreadyReleased: info.released === true })
         if (began === null) return false
         tearRef.current = { label: began.label, mode: 'self', docId, page, zoom }
         return true
@@ -3350,6 +3351,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (source === null) return null
     const closes = tabsOf(panes, source).tabs.length <= 1
     if (closes && leaves(layoutRoot).length <= 1) return null
+    // 그 쪽 가장자리에 칸이 하나뿐이면 칸 가장자리와 같은 결과라 띠를 두지 않는다
+    if (!rootBandOffered(layoutRoot, edge, closes ? source : null)) return null
     const plan = rootDockPlan(layoutRoot, edge, paneTreeSize(), closes ? source : null, paneSizeOf)
     return 'refused' in plan ? null : plan.share
   }
@@ -3703,7 +3706,6 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       rootDockShare={SPLIT_PANES_ENABLED && !isDetachedWindow ? rootDockShareFor : undefined}
       onDockRoot={SPLIT_PANES_ENABLED && !isDetachedWindow ? dockRootTab : undefined}
       onTearOffTab={isDesktop() ? tearOffTab : undefined}
-      dragWindow={isDetachedWindow || soleTabClientWindow}
       onEditPages={(id) => {
         const tab = openTabIds.find((candidate) => candidate.id === id)
         if (tab !== undefined) setPdfToolsTarget({ docId: tabDocId(tab), tool: 'pageEdit' })

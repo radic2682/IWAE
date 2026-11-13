@@ -3,7 +3,7 @@ import { dockZoneAt, dockZoneBox, insertionIndexAt, type Box, type DockEdge, typ
 import type { PaneId, Tab } from './tabs'
 import { GHOST_EDGE_MARGIN, clampGhostPos } from './ghostPlace'
 import { EASE_SPRING_FIRM, SPRING_FIRM_MS, springSoft } from '../motion'
-import { rootDockBox, workspaceEdgeAt } from './workspaceEdge'
+import { rootDockBox, stickyWorkspaceEdgeAt } from './workspaceEdge'
 import { t } from '../../i18n'
 
 /**
@@ -47,15 +47,10 @@ export interface TabDragHost {
   /** 작업 영역 맨 바깥 edge 쪽에 새 줄을 만들어 탭을 옮긴다 */
   dockRoot?(id: string, edge: DockEdge): void
   /**
-   * 창 밖에서 놓았다(dragWindow 는 끌기 시작 때): 새 창으로 떼어 내고 true 를 돌려주면 끌기는 거기서 끝난다(뒤는 창 쪽이 이어 받는다).
+   * 창 밖에서 놓았다: 새 창으로 떼어 내고 true 를 돌려주면 끌기는 거기서 끝난다(뒤는 창 쪽이 이어 받는다).
    * 이 탭을 떼어 낼 수 없으면 아예 안 둔다
    */
   tearOff?(id: string, info: TearOffInfo): Promise<boolean> | boolean
-  /**
-   * 창 하나에 탭이 이 탭뿐인 떼어 낸 창: 이 탭을 끌면 탭이 아니라 창 전체가 마우스를 따라간다.
-   * tearOff 가 바로(창 밖으로 안 나가도) 불린다
-   */
-  dragWindow?: boolean
   /** 끌기가 시작됐다(끝난 뒤 따라오는 click 을 탭 전환으로 안 치려고) */
   onDragged?(): void
 }
@@ -353,7 +348,7 @@ const INSET = 1
 /** 끄는 동안의 표시 한 벌: 구역 미리보기 · 탭 줄 틈(점선 칸) · 탭 줄 구역 표시. 탭 끌기와 왼쪽 바 끌기가 같이 쓴다 */
 export interface DockVisuals {
   /** 구역 미리보기. null 이면 숨긴다. 한 번 만들어 두고 자리·크기만 옮겨 다닌다(전환으로 미끄러진다) */
-  showPreview(box: Box | null): void
+  showPreview(box: Box | null, variant?: 'root'): void
   /** 탭 줄(strip)의 index 자리에 탭 하나(tabWidth)와 탭 사이 간격만큼 틈을 연다. 다른 줄에 열려 있던 틈은 닫는다 */
   setGap(strip: HTMLElement | null, index: number, tabWidth: number): void
   clearGap(immediate?: boolean): void
@@ -372,7 +367,7 @@ export function createDockVisuals(): DockVisuals {
     gapStrip = null
   }
   return {
-    showPreview(box) {
+    showPreview(box, variant) {
       if (box === null) {
         preview?.classList.remove('tab-dock-preview-on')
         return
@@ -383,6 +378,8 @@ export function createDockVisuals(): DockVisuals {
         preview.setAttribute('aria-hidden', 'true')
         document.body.append(preview)
       }
+      // 작업 영역 바깥 띠는 칸 나누기와 다르게 보인다(자기 윤곽선 · 칸을 가로지르는 줄)
+      preview.classList.toggle('tab-dock-preview-root', variant === 'root')
       const on = preview.classList.contains('tab-dock-preview-on')
       // 처음 나타날 때는 자리를 바로 잡고(떠돌지 않게), 그 뒤로는 전환으로 옮겨 간다
       if (!on) preview.style.transition = 'none'
@@ -437,6 +434,8 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
   let ghost: HTMLElement | null = null
   const visuals = createDockVisuals()
   let drop: Drop = { kind: 'none' }
+  /** 끌기를 시작할 때 계산한 작업 영역 바깥 띠별 몫(null = 못 놓거나 띠를 둘 까닭이 없다) */
+  let rootShares: ReadonlyMap<DockEdge, number | null> | null = null
   let lastX = startX
   let lastY = startY
   let holeCollapsed = false
@@ -446,7 +445,6 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
   /** 「새 창」 미리보기 중: 놓으면 새 창으로 떼어 낸다. 칸 미리보기 · 놓을 자리는 없다 */
   let tearPreview = false
   let badge: HTMLElement | null = null
-  let tearing = false
   // 껍질 안에서 탭이 놓인 자리(껍질 왼쪽 위에서). 탭의 왼쪽 위가 손에서 grab 만큼 떨어지게 껍질을 둔다
   let insetX = 20
   let insetY = 0
@@ -495,13 +493,16 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     // 작업 영역 맨 바깥 띠: 칸의 가장자리 · 탭 줄보다 먼저 본다(트리 전체를 감싸는 새 줄)
     const treeBox = h.dockRoot === undefined ? null : paneTreeBox()
     if (treeBox !== null && h.rootDockShare !== undefined) {
-      const allowed = ALL_ROOT_EDGES.filter((edge) => h.rootDockShare?.(tabId, edge) != null)
-      const edge = workspaceEdgeAt(treeBox, lastX, lastY, allowed)
-      const share = edge === null ? null : h.rootDockShare(tabId, edge)
+      // 어느 띠가 되는지는 끌기를 시작할 때 한 번 계산해 둔 것으로만 본다(움직이는 중에 칸 크기로 다시 계산하면 되고 안 되고가 깜빡인다)
+      const shares = (rootShares ??= new Map(ALL_ROOT_EDGES.map((edge) => [edge, h.rootDockShare?.(tabId, edge) ?? null] as const)))
+      const allowed = ALL_ROOT_EDGES.filter((edge) => shares.get(edge) != null)
+      // 한 프레임에 판정 한 번: 직전에 잡은 띠는 8px 더 붙들어 경계에서 번갈아 바뀌지 않게 한다
+      const edge = stickyWorkspaceEdgeAt(treeBox, lastX, lastY, allowed, drop.kind === 'root' ? drop.edge : null)
+      const share = edge === null ? null : shares.get(edge) ?? null
       if (edge !== null && share != null) {
         collapseHole(false)
         paintDockTarget(visuals, { kind: 'none' }, null)
-        visuals.showPreview(rootDockBox(treeBox, edge, share))
+        visuals.showPreview(rootDockBox(treeBox, edge, share), 'root')
         drop = { kind: 'root', edge }
         return
       }
@@ -696,31 +697,6 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     settle(() => anyTab()?.getBoundingClientRect() ?? null, reveal)
   }
 
-  const tear = async (screenX: number, screenY: number) => {
-    const h = getHost()
-    if (tearing || finished || h.tearOff === undefined) return
-    tearing = true
-    if (edgeTimer !== null) { window.clearTimeout(edgeTimer); edgeTimer = null }
-    let handled = false
-    try {
-      handled = await h.tearOff(tabId, { id: tabId, ...(h.sourcePane === undefined ? {} : { pane: h.sourcePane }), screenX, screenY, grabX, grabY, width: startRect.width, height: startRect.height })
-    } catch {
-      handled = false
-    }
-    if (finished) return
-    if (handled) {
-      // 새 창이 이어 받았다. 이 창의 끌기는 여기서 끝: 들린 탭을 지우고 구멍은 탭이 닫히면서 사라진다
-      finished = true
-      cleanupListeners()
-      cleanupVisuals()
-      ghost?.remove()
-      ghost = null
-      reveal()
-      return
-    }
-    tearing = false
-  }
-
   /**
    * 포인터 자리로 「새 창」 미리보기를 켜고 끈다. 창 밖(TEAR_OFF_MARGIN_PX 넘게)이거나, 가장자리에 360ms 머물렀으면 켜진다 —
    * 켜졌다고 창이 열리지는 않는다(놓아야 열린다). 나갔다 돌아오면 꺼진다.
@@ -780,16 +756,8 @@ export function startTabDrag(event: { readonly clientX: number; readonly clientY
     lastY = moveEvent.clientY
     if (!dragging) {
       if (Math.hypot(lastX - startX, lastY - startY) < TAB_DRAG_THRESHOLD_PX) return
-      if (getHost().dragWindow === true) {
-        // 창 전체를 끄는 탭: 들린 탭 없이 바로 창이 마우스를 따라간다
-        dragging = true
-        getHost().onDragged?.()
-        void tear(moveEvent.screenX, moveEvent.screenY)
-        return
-      }
       beginDrag()
     }
-    if (tearing) return
     evaluateTear()
     update()
   }

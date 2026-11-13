@@ -46,6 +46,51 @@ export function workspaceEdgeAt(box: Box, x: number, y: number, allowed: readonl
   return best
 }
 
+/** 이미 띠 안에 있을 때 띠를 벗어났다고 보는 여유(px): 들어갈 때는 띠 두께, 나갈 때는 두께 + 이만큼 — 경계에서 두 목표가 번갈아 깜빡이지 않게 한다 */
+export const WORKSPACE_EDGE_HYSTERESIS_PX = 8
+
+/**
+ * workspaceEdgeAt 에 되돌림 여유(히스테리시스)를 더한 판정. current 는 직전 프레임에 고른 띠 — 그 띠는 두께 + HYSTERESIS 안쪽이면 계속 잡고,
+ * 새로 들어갈 때만 두께를 지킨다. 한 번의 판정으로 정하고 프레임마다 번갈아 바뀌지 않는다
+ */
+export function stickyWorkspaceEdgeAt(box: Box, x: number, y: number, allowed: readonly DockEdge[], current: DockEdge | null): DockEdge | null {
+  if (current !== null && allowed.includes(current) && box.width > 0 && box.height > 0) {
+    const reach = WORKSPACE_EDGE_REACH_PX
+    const left = x - box.left
+    const right = box.left + box.width - x
+    const top = y - box.top
+    const bottom = box.top + box.height - y
+    if (left >= -reach && right >= -reach && top >= -reach && bottom >= -reach) {
+      const distance = current === 'left' ? left : current === 'right' ? right : current === 'top' ? top : bottom
+      const band = current === 'top' ? WORKSPACE_TOP_BAND_PX : WORKSPACE_EDGE_BAND_PX
+      if (distance < band + WORKSPACE_EDGE_HYSTERESIS_PX) return current
+    }
+  }
+  return workspaceEdgeAt(box, x, y, allowed)
+}
+
+/** 트리 가장자리 edge 쪽에 맞닿은 칸들(그 쪽 맨 바깥 줄) */
+export function edgeLeaves(layout: LayoutNode, edge: DockEdge): string[] {
+  const { dir, before } = edgeSplit(edge)
+  const walk = (node: LayoutNode): string[] => {
+    if (node.kind === 'pane') return [node.paneId]
+    // 나누기 방향이 edge 와 같으면 그 쪽 가장자리에는 한쪽 자식만 닿는다. 다르면 두 자식이 모두 닿는다
+    if (node.dir === dir) return walk(before ? node.a : node.b)
+    return [...walk(node.a), ...walk(node.b)]
+  }
+  return walk(layout)
+}
+
+/**
+ * 작업 영역 바깥 띠를 보일 가치가 있는가: 그 쪽 가장자리에 칸이 하나뿐이면(그 칸이 그 쪽 전체를 차지한다) 칸 가장자리로 나눈 결과와
+ * 같은 모양이라 띠는 두지 않는다. 가장자리 줄이 여러 칸으로 쪼개져 있을 때만 키 전체의 새 줄이 다른 결과다.
+ * closingSource: 이 끌기로 비어 닫힐 칸(닫힌 뒤의 트리로 본다)
+ */
+export function rootBandOffered(layout: LayoutNode, edge: DockEdge, closingSource: PaneId | null = null): boolean {
+  const base = closingSource !== null ? removeLeaf(layout, closingSource) ?? layout : layout
+  return edgeLeaves(base, edge).length > 1
+}
+
 /** 새 줄을 더할 수 있는가: 가능하면 새 줄이 차지할 몫(트리 폭 · 높이에 대한 비율), 못 하면 까닭 */
 export type RootDockPlan = { readonly share: number } | { readonly refused: SplitRefusal }
 
