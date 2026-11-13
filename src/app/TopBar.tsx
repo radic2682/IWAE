@@ -229,6 +229,8 @@ export function TopBar({
         {/* 지금 만지는 칸의 도구줄(MD · PDF 도구 · 노트 서식 줄). 남는 폭을 다 쓰고, 모자라면 도구줄이 스스로 「⋯」 로 접는다.
             앞의 주인 칩(색 점 · 칸 번호 · 문서 종류)은 어느 칸의 도구인지 보이고, 도구 단추 규칙은 이 자리의 자기 규칙(.topbar-toolbar-host …)이다 */}
         <div ref={toolbarHostRef} className="topbar-toolbar-host" data-tour="toolbar" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
+          {/* 서식 줄 손잡이 자리: 서식 줄이 상단바에 붙어 있으면 손잡이가 포털로 여기(묶음 맨 왼쪽, 주인 칩 앞)에 앉는다. 비면 폭이 없다 */}
+          <span className="topbar-grip-slot" />
           {toolbarOwner === null ? null : (
             <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 현재 선택한 칸에 적용됩니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />

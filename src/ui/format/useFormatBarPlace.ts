@@ -93,6 +93,12 @@ export function useFormatBarPlace(kindProp: FormatHostKind | undefined, barRef: 
   }
   const dock = useCallback((side: FormatDockSide = lastDock.current) => { refocus.current = true; commit({ mode: side }) }, [commit])
 
+  /** 손잡이가 줄 밖에 앉아 있을 때(상단바 도구 묶음 맨 왼쪽)의 손잡이 자리. 줄 안이면 null */
+  const outsideGrip = () => {
+    const grip = gripRef.current
+    const bar = barRef.current
+    return grip === null || bar === null || bar.contains(grip) ? null : grip.getBoundingClientRect()
+  }
   const onGripPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return
     event.preventDefault()
@@ -102,7 +108,11 @@ export function useFormatBarPlace(kindProp: FormatHostKind | undefined, barRef: 
     if (barRect === undefined) return
     const dockEl = findDock(anchorRef.current ?? barRef.current)
     const dockRect0: RectLike | null = dockEl === null ? null : dockEl.getBoundingClientRect()
-    const grab = { x: start.x - barRect.left + CARD_INSET_PX, y: start.y - barRect.top + CARD_INSET_PX }
+    // 손잡이가 줄 밖(상단바 묶음 맨 왼쪽)에 있으면 떠 있는 카드의 손잡이 자리(카드 왼쪽 위)를 기준으로 잡아 카드가 튀지 않는다
+    const outside = outsideGrip()
+    const origin = outside ?? barRect
+    const grab = { x: start.x - origin.left + CARD_INSET_PX, y: start.y - origin.top + CARD_INSET_PX }
+    const barW = barRect.width + (outside === null ? 0 : outside.width)
     let started = false
     let last: FormatDragView | null = null
     const clear = () => {
@@ -126,7 +136,7 @@ export function useFormatBarPlace(kindProp: FormatHostKind | undefined, barRef: 
       }
       const rect = dockRectNow()
       const decision = decideDrop(move.clientX, move.clientY, rect)
-      const snap = decision.kind === 'dock' && rect !== null ? { side: decision.side, ...snapOutline(decision.side, rect, barRect!.width, barRect!.height) } : null
+      const snap = decision.kind === 'dock' && rect !== null ? { side: decision.side, ...snapOutline(decision.side, rect, barW, barRect!.height) } : null
       if (snap === null) dockEl?.removeAttribute('data-format-drop')
       else dockEl?.setAttribute('data-format-drop', '')
       last = { x: move.clientX - grab.x, y: move.clientY - grab.y, snap }
@@ -141,7 +151,7 @@ export function useFormatBarPlace(kindProp: FormatHostKind | undefined, barRef: 
       setDrag(null)
       if (decision.kind === 'dock') { refocus.current = false; commit({ mode: decision.side }); return }
       const raw = last ?? { x: up.clientX - grab.x, y: up.clientY - grab.y }
-      const clamped = clampFloat(raw.x, raw.y, size?.w ?? barRect!.width + 2 * CARD_INSET_PX, size?.h ?? barRect!.height + 2 * CARD_INSET_PX, window.innerWidth, window.innerHeight)
+      const clamped = clampFloat(raw.x, raw.y, size?.w ?? barW + 2 * CARD_INSET_PX, size?.h ?? barRect!.height + 2 * CARD_INSET_PX, window.innerWidth, window.innerHeight)
       commit({ mode: 'float', x: clamped.x, y: clamped.y })
     }
     function onCancel() { clear(); setDrag(null) }
@@ -163,7 +173,7 @@ export function useFormatBarPlace(kindProp: FormatHostKind | undefined, barRef: 
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       refocus.current = true
-      const rect = (barRef.current ?? floatRef.current)?.getBoundingClientRect()
+      const rect = outsideGrip() ?? (barRef.current ?? floatRef.current)?.getBoundingClientRect()
       const state = placeReducer({ place, lastDock: lastDock.current }, { type: 'toggle', x: Math.round((rect?.left ?? 0) - CARD_INSET_PX), y: Math.round((rect?.bottom ?? 0) + FORMAT_FLOAT_MARGIN_PX) })
       commit(state.place)
       return

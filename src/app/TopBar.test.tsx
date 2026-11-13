@@ -150,6 +150,11 @@ describe('TopBar', () => {
       expect(chip.querySelector('svg')).not.toBeNull()
       expect(container.querySelector('.topbar-toolbar-host')?.getAttribute('data-owner')).toBe('markdown')
       expect(chip.nextElementSibling?.classList.contains('topbar-toolbar-slot')).toBe(true)
+      // 서식 줄 손잡이 자리: 도구 묶음 맨 앞(주인 칩 앞)에 비어 있는 채로 있다
+      const host = container.querySelector('.topbar-toolbar-host') as HTMLElement
+      expect(host.firstElementChild?.classList.contains('topbar-grip-slot')).toBe(true)
+      expect(host.firstElementChild?.nextElementSibling).toBe(chip)
+      expect(host.firstElementChild?.childNodes.length).toBe(0)
       rerender(<TopBar {...props} toolbarOwner={{ channel: null, number: null, kind: 'pdf' }} />)
       expect((container.querySelector('.topbar-owner-chip') as HTMLElement).dataset.channel).toBe('none')
       expect(container.querySelector('.topbar-owner-number')).toBeNull()

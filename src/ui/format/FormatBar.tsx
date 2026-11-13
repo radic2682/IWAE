@@ -441,7 +441,7 @@ export function fitFormatClusters(widths: readonly number[], capacity: number, m
  * 접는 자리 안의 서식 줄은 늘 한 줄이다: 폭이 모자라면 뒤쪽 묶음부터 「⋯」 메뉴로 옮긴다. 첫 묶음과 「⋯」 은 늘 줄에 있다.
  * 묶음 폭은 줄에 있을 때 재어 두고(처음엔 모두 줄에 그린다) 그 폭으로 몇 개가 들어가는지 정한다. 접는 자리 밖의 서식 줄은 건드리지 않는다.
  */
-function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number, floating: boolean): [number, boolean, Dispatch<SetStateAction<boolean>>] {
+function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number, floating: boolean, gripWidth: number): [number, boolean, Dispatch<SetStateAction<boolean>>] {
   const [visible, setVisible] = useState(total)
   const [moreOpen, setMoreOpen] = useState(false)
   const widths = useRef<number[]>([])
@@ -493,9 +493,9 @@ function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number, 
     const capacity = formatCapacity(bar)
     const known = widths.current
     if (capacity <= 0 || known.length < total || known.some((width) => !(width > 0))) return
-    const next = fitFormatClusters(known, capacity - FORMAT_GRIP_W, FORMAT_MORE_W)
+    const next = fitFormatClusters(known, capacity - gripWidth, FORMAT_MORE_W)
     if (next !== visible) setVisible(next)
-  }, [barRef, tick, visible, total, floating])
+  }, [barRef, tick, visible, total, floating, gripWidth])
   return [visible, moreOpen, setMoreOpen]
 }
 
@@ -507,6 +507,20 @@ export function FormatBar(props: FormatBarProps) {
   const floatRef = useRef<HTMLDivElement | null>(null)
   const gripRef = useRef<HTMLButtonElement | null>(null)
   const placed = useFormatBarPlace(props.hostKind, barRef, anchorRef, floatRef, gripRef)
+  // 상단바에 붙어 있으면 손잡이는 줄 안이 아니라 상단바 도구 묶음의 맨 왼쪽(주인 칩 앞) 자리로 포털로 옮겨 앉는다(떠 있을 때는 줄 안 그대로)
+  const [gripSlot, setGripSlot] = useState<HTMLElement | null>(null)
+  const regrip = useRef(false)
+  useLayoutEffect(() => {
+    const next = placed.floating ? null : barRef.current?.closest('.topbar-toolbar-host')?.querySelector<HTMLElement>(':scope > .topbar-grip-slot') ?? null
+    if (next === gripSlot) return
+    if (document.activeElement === gripRef.current) regrip.current = true
+    setGripSlot(next)
+  })
+  useLayoutEffect(() => {
+    if (!regrip.current) return
+    regrip.current = false
+    gripRef.current?.focus()
+  }, [gripSlot])
   const moreRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const run = (action: () => void) => () => {
@@ -596,7 +610,7 @@ export function FormatBar(props: FormatBarProps) {
   ].map((cluster, index) => (
     <span key={cluster.key} className="format-bar-cluster" data-cluster={index} data-group={cluster.group}>{cluster.node}</span>
   ))
-  const [visible, moreOpen, setMoreOpen] = useFormatFold(barRef, clusters.length, placed.floating)
+  const [visible, moreOpen, setMoreOpen] = useFormatFold(barRef, clusters.length, placed.floating, gripSlot === null ? FORMAT_GRIP_W : 0)
   const folded = visible < clusters.length
   const [panelAt, setPanelAt] = useState<CSSProperties | null>(null)
   useEffect(() => {
@@ -645,7 +659,7 @@ export function FormatBar(props: FormatBarProps) {
       aria-disabled={disabled || undefined}
       data-tour={props.tourTarget}
     >
-      {grip}
+      {gripSlot === null ? grip : null}
       {clusters.slice(0, visible)}
       {folded && !placed.floating ? (
         <button
@@ -681,7 +695,8 @@ export function FormatBar(props: FormatBarProps) {
       ) : null}
     </div>
   )
-  if (!placed.floating) return bar
+  const gripInSlot = gripSlot === null || placed.floating ? null : createPortal(grip, gripSlot)
+  if (!placed.floating) return gripInSlot === null ? bar : <>{gripInSlot}{bar}</>
   const snap = placed.drag?.snap ?? null
   return (
     <>
