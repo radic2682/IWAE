@@ -46,10 +46,11 @@
 /* 글자 크기 칸: 숫자를 직접 쓰고 ▾ 로 자주 쓰는 크기를 고른다 */
 .format-bar-size {
   display: inline-flex; flex: 0 0 auto; align-items: center; box-sizing: border-box; height: 28px; padding: 0 2px 0 8px;
-  border: 1px solid var(--divider-strong, var(--divider)); border-radius: var(--r-sm); background: var(--paper); color: var(--text-strong);
+  /* 옆 드롭다운(문단 모양 · 글꼴)과 같은 모양: 테두리 · 흰 바탕 없이, 올리면 옅은 바탕, 쓰는 중이면 강조색 테두리 */
+  border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; color: var(--text-strong);
 }
-.format-bar-size:hover:not(.format-bar-size-disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--divider-strong, var(--divider))); }
-.format-bar-size:focus-within, .format-bar-size-open { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.format-bar-size:hover:not(.format-bar-size-disabled) { background: var(--chrome-hover); }
+.format-bar-size:focus-within, .format-bar-size-open { border-color: var(--accent); background: transparent; }
 .format-bar-size-disabled { opacity: .45; }
 .format-bar-idle .format-bar-size-disabled { opacity: .35; }
 .format-bar-size input {
