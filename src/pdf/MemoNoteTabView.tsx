@@ -14,7 +14,7 @@ import { LINK_CARD_DEPTH, registerPaneLinks, requestPaneLinks, useLinkedDocIds, 
 import { MemoFormatBar, MemoFormatSlotContext, type MemoContent } from './MemoEditor'
 import { MemoNoteContext, revealNoteBlock, useMemoNoteApi } from './memoNoteContext'
 import { NoteFlow, type NoteFlowItem } from './NoteFlow'
-import { NoteOutline, useExpandQuotesWhileWide } from './NoteOutline'
+import { NoteOutline } from './NoteOutline'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from './persistentHighlight'
 import { useNoteFlowController } from './useNoteFlowController'
 import '../ui/pdf-memo.css'
@@ -85,7 +85,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
   // 카드 목록 모양에서는 이 창 안에서 Ctrl+휠로 확대·축소한다(설정에 기억되는 「오른쪽 바」 배율). 문서처럼 읽는 넓은 모양에서는 쓰지 않는다
   const barZoom = useBarZoom('right')
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
-  useBarZoomWheel(barEl, 'right', !wide)
+  useBarZoomWheel(barEl, 'right', true)
   const [searchOpen, setSearchOpen] = useState(false)
   // 모든 메모에서 찾기: 검색 결과 목록
   const [resultsOpen, setResultsOpen] = useState(false)
@@ -283,8 +283,6 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
     if (draft !== null && highlightId === draft.highlight.id) draft.save(content, ticket, draftIndex)
     else flow.flowProps.onSaveMemo(highlightId, content, ticket)
   }
-  // 문서처럼 읽는 폭에서는 원문을 모두 펼쳐 보인다(좁아지면 전 상태로)
-  useExpandQuotesWhileWide(wide, flow.openQuotes, flow.setOpenQuotes, noteMemos)
 
   const closeSearch = () => {
     flow.setQuery('')
@@ -334,7 +332,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
 
   return (
     <div ref={rootRef} className={`pane-doc memo-note-tab${wide ? ' memo-note-tab-wide' : ''}`} data-tour="note-pane" data-memo-note-tab={path} data-layout={wide ? 'wide' : 'narrow'}>
-      <section ref={setBarEl} className="pdf-memo-bar memo-note-tab-bar" aria-label={t('메모 노트')} style={{ '--bar-zoom': wide ? 1 : barZoom } as CSSProperties}>
+      <section ref={setBarEl} className="pdf-memo-bar memo-note-tab-bar" aria-label={t('메모 노트')} style={{ '--bar-zoom': barZoom } as CSSProperties}>
         {searchOpen ? (
           <div className="memo-note-tab-searchrow">
             <div className="pdf-memo-search">

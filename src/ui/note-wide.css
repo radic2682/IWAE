@@ -1,4 +1,4 @@
-/* ---------- 메모만 보기: 노트 바와 같은 블록을 글 칸 폭(708px)으로 가운데에 놓고, 왼쪽 빈 곳에 목차 ---------- */
+/* ---------- 넓은 노트: 노트 바와 같은 블록(모양도 같다)을 글 칸 폭(708px)으로 가운데에 놓고, 왼쪽 빈 곳에 목차 ---------- */
 .pane-doc :is(.pdf-memo-bar-body, .markdown-memo-bar-body).note-wide { position: relative; container-type: inline-size; }
 /* 목차가 있으면 (목차 + 사이 + 글 칸) 묶음을 칸 가운데에 두고, 목차는 글 칸 왼쪽 바로 옆(위 끝은 첫 블록과 같은 높이)에 붙인다.
    폭은 모두 칸 폭에서 계산: 목차 = 18%(160~240px), 사이 28px, 양쪽 최소 16px. 좁으면 목차를 감추고 글 칸만 가운데(note-outline 이 판단) */
@@ -13,22 +13,7 @@
 .pane-doc .note-wide[data-note-outline] > .pdf-memo-bar-scroll > * { align-self: flex-start; margin-left: max(0px, calc(var(--nw-left) + var(--nw-out) + var(--nw-gap) - 12px)); }
 .pane-doc .note-wide[data-note-outline] > .note-format-dock { padding-left: calc(var(--nw-left) + var(--nw-out) + var(--nw-gap)); }
 
-/* 검색어에 맞지 않는 블록은 흐리게 두지 않고 걸러 낸다(전엔 목록이 그랬다) */
-.pane-doc .note-wide .pdf-memo-card-dim { display: none; }
-
-/* 원문: 상자는 바탕 없이 「점 + 따옴표 글 … 쪽 번호 · 번역」 한 줄로 두고(좁은 카드와 같다),
-   형광펜 색은 따옴표 글에만 입힌다 — PDF 형광펜처럼 알아볼 수 있게 45%(밝은·어두운 화면 모두 카드가 흰 종이라 같다). 쪽 번호와 번역 단추는 색 밖, 오른쪽 */
-.pane-doc .note-wide .note-block.note-block .pdf-memo-card-quote.note-source.note-source {
-  display: flex; align-items: flex-start; gap: 6px;
-  background: transparent !important;
-}
-.pane-doc .note-wide .note-block :is(.note-source-quote, .note-source-chip-text) {
-  flex: 0 1 auto; min-width: 0;
-  padding: 1px 4px; border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--hlc-dot) 45%, transparent);
-  box-decoration-break: clone; -webkit-box-decoration-break: clone;
-}
-.pane-doc .note-wide .note-block :is(.pdf-memo-card-quote, .note-source-chip) .note-source-page { margin-left: auto; }
+/* 메모 카드는 좁은 칸과 똑같다(원문 줄 · 검색 흐림 · 펼침 · 확대 모두). 넓은 칸이 바꾸는 것은 글 칸 폭(가운데 708px)과 왼쪽 목차뿐이다 */
 
 /* 목차 */
 .note-outline {

@@ -148,13 +148,6 @@ describe('CSS 규칙', () => {
     expect(ruleDecl('note-ticket.css', '.pane-doc .note-block.note-section + .note-gap', 'height')).toBe('14px')
   })
 
-  it('원문 따옴표 색은 45% 이고 줄임 칩 글자에도 입힌다', () => {
-    // 선택자 목록 안의 :is(…) 쉼표는 규칙 분해기가 갈라 놓으므로, 그 규칙은 선택자 끝으로 찾는다
-    const rule = cssRules(cssSource('note-wide.css')).find((candidate) => candidate.selectors.some((selector) => selector.includes('.note-source-chip-text)')))
-    expect(rule).toBeDefined()
-    expect(declarationsOf(rule!.body).background).toBe('color-mix(in srgb, var(--hlc-dot) 45%, transparent)')
-  })
-
   it('「→ 문서」 링크는 원문 줄의 왼쪽 선에 맞추고 위 간격이 좁다', () => {
     expect(ruleDecl('memo-note-tab.css', '.note-far-link', 'margin')).toBe('-3px 0 0 -6px')
   })

@@ -20,32 +20,6 @@ export function outlineFits(paneWidth: number): boolean {
   return paneWidth >= NOTE_WIDE_COLUMN + outlineWidthFor(paneWidth) + OUTLINE_GAP + 2 * OUTLINE_SIDE_PAD
 }
 
-/**
- * 메모만 보기로 들어가면 원문을 모두 펼치고, 나올 때 전에 펼쳐 둔 것으로 되돌린다
- * (노트 바와 같은 NoteFlow 를 쓰므로 펼침 상태도 같은 집합이다).
- */
-export function useExpandQuotesWhileWide(
-  wide: boolean,
-  openQuotes: ReadonlySet<string>,
-  setOpenQuotes: (next: ReadonlySet<string>) => void,
-  memos: readonly PersistentPdfHighlight[],
-): void {
-  const saved = useRef<ReadonlySet<string> | null>(null)
-  const latest = useRef({ openQuotes, memos })
-  latest.current = { openQuotes, memos }
-  useEffect(() => {
-    if (wide) {
-      saved.current = latest.current.openQuotes
-      setOpenQuotes(new Set(latest.current.memos.filter((highlight) => highlight.kind !== 'region').map((highlight) => highlight.id)))
-    } else if (saved.current !== null) {
-      setOpenQuotes(saved.current)
-      saved.current = null
-    }
-    // 넓게 보기를 켜고 끌 때만 바꾼다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wide])
-}
-
 export type OutlineEntry = {
   readonly key: string
   readonly kind: 'section' | 'memo' | 'text'

@@ -4,19 +4,17 @@ import { describe, expect, it } from 'vitest'
 
 const css = readFileSync(join(__dirname, 'note-wide.css'), 'utf8').split(String.fromCharCode(13)).join('')
 
-describe('메모만 보기(넓은 노트)의 원문 줄', () => {
-  it('원문 상자 전체에는 형광펜 바탕이 없고, 따옴표 글(.note-source-quote)에만 입힌다', () => {
-    const box = css.match(/\.pdf-memo-card-quote\.note-source\.note-source \{[^}]*\}/u)?.[0] ?? ''
-    expect(box).toContain('background: transparent !important')
-    expect(box).not.toContain('--hlc-dot')
-    const quote = css.match(/:is\(\.note-source-quote, \.note-source-chip-text\) \{[^}]*\}/u)?.[0] ?? ''
-    expect(quote).toContain('--hlc-dot')
-    // PDF 형광펜처럼 알아볼 수 있게 45%(예전 22% 는 흰 카드 위에서 거의 안 보였다)
-    expect(quote).toContain('var(--hlc-dot) 45%')
+describe('넓은 노트의 메모 카드', () => {
+  it('카드 모양을 바꾸는 규칙이 없다(원문 줄 · 검색 흐림 모두 좁은 칸과 같다)', () => {
+    // 넓은 칸은 글 칸 폭과 목차만 바꾼다. 사용자가 「너비가 커졌을 때 메모 디자인이 안 바뀌었으면」 했다(2026-11-13)
+    expect(css).not.toContain('.pdf-memo-card-quote')
+    expect(css).not.toContain('.note-source-quote')
+    expect(css).not.toContain('.pdf-memo-card-dim')
+    expect(css).not.toContain('--hlc-dot')
   })
 
-  it('쪽 번호는 색 밖 오른쪽 끝에 놓인다', () => {
-    expect(css).toContain('.note-source-page { margin-left: auto; }')
-    expect(css).toContain(':is(.pdf-memo-card-quote, .note-source-chip) .note-source-page')
+  it('넓은 칸은 글 칸을 가운데 708px 로 두고 왼쪽에 목차를 놓는다', () => {
+    expect(css).toContain('width: min(100%, 708px)')
+    expect(css).toContain('.note-outline {')
   })
 })
