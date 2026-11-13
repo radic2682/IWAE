@@ -1202,7 +1202,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
         <Fragment key={source.id}>
           <div className="pdf-memo-card-source note-source-region" onClick={draft ? undefined : () => api.onJump(source)}>
             {meta}
-            <RegionCrop highlight={source} pageSize={pageSize} maxWidth={480} fill />
+            <RegionCrop highlight={source} pageSize={pageSize} maxWidth={480} fill capped />
             {remove}
             {translateButton === null ? null : <span className="note-region-translate">{translateButton}</span>}
           </div>
