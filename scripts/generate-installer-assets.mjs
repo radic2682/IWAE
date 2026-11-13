@@ -128,7 +128,7 @@ export async function generateInstallerAssets(outputDirectory) {
 // ---------- HTML 그림(src-tauri/installer/*.html)을 브라우저로 2배 크기로 찍어 BMP 로 ----------
 // NSIS(MUI2)는 그림을 칸 크기에 맞춰 줄이므로 2배로 주면 125%·150% 배율 화면에서도 선명하다
 
-export function findChromium(candidates = [
+export const CHROMIUM_CANDIDATES = [
   process.env.IWAE_CHROMIUM,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
@@ -136,8 +136,15 @@ export function findChromium(candidates = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/usr/bin/chromium',
   '/usr/bin/google-chrome',
-]) {
-  return candidates.find((path) => typeof path === 'string' && path !== '' && existsSync(path)) ?? null
+]
+
+/** 있는 브라우저 모두(앞의 것 먼저) */
+export function findChromiums(candidates = CHROMIUM_CANDIDATES) {
+  return [...new Set(candidates.filter((path) => typeof path === 'string' && path !== '' && existsSync(path)))]
+}
+
+export function findChromium(candidates = CHROMIUM_CANDIDATES) {
+  return findChromiums(candidates)[0] ?? null
 }
 
 /** 8비트 RGB/RGBA PNG → { width, height, pixels(RGB) } */
@@ -201,10 +208,10 @@ export function decodePng(buffer) {
   return { width, height, pixels }
 }
 
-/** 스크린샷 파일이 생기고 크기가 멈출 때까지 기다린다(최대 20초) */
+/** 스크린샷 파일이 생기고 크기가 멈출 때까지 기다린다(최대 8초) */
 async function waitForShot(path) {
   let lastSize = -1
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < 32; attempt += 1) {
     const size = await stat(path).then((info) => info.size, () => -1)
     if (size > 0 && size === lastSize) return
     lastSize = size
@@ -213,14 +220,19 @@ async function waitForShot(path) {
   throw new Error(`스크린샷이 만들어지지 않았습니다: ${path}`)
 }
 
-/** 헤드리스 Edge 는 가끔 그림을 남기지 않고 끝난다: 새 임시 폴더로 세 번까지 다시 찍는다 */
-async function screenshot(browser, html, width, height, scale) {
+/**
+ * 헤드리스 Edge 는 이미 떠 있는 Edge 가 있으면 일을 넘기고 그림 없이 끝나는 때가 있다(따로 프로필을 줘도).
+ * 브라우저마다 두 번씩 찍어 보고, 안 되면 다음 브라우저(Chrome …)로 넘어간다
+ */
+async function screenshot(browsers, html, width, height, scale) {
   let lastError
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      return await screenshotOnce(browser, html, width, height, scale)
-    } catch (error) {
-      lastError = error
+  for (const browser of browsers) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await screenshotOnce(browser, html, width, height, scale)
+      } catch (error) {
+        lastError = error
+      }
     }
   }
   throw lastError
@@ -246,12 +258,13 @@ async function screenshotOnce(browser, html, width, height, scale) {
 }
 
 /** HTML 그림을 찍어 BMP 로 쓴다. 브라우저가 없으면 false(그때는 픽셀 그림으로) */
-export async function renderInstallerAssets(outputDirectory, { browser = findChromium(), scale = 2 } = {}) {
-  if (browser === null) return false
+export async function renderInstallerAssets(outputDirectory, { browser, scale = 2 } = {}) {
+  const browsers = browser === undefined ? findChromiums() : browser === null ? [] : [browser]
+  if (browsers.length === 0) return false
   const source = resolve(dirname(fileURLToPath(import.meta.url)), '../src-tauri/installer')
   await mkdir(outputDirectory, { recursive: true })
-  const header = await screenshot(browser, join(source, 'header.html'), 150, 57, scale)
-  const sidebar = await screenshot(browser, join(source, 'sidebar.html'), 164, 314, scale)
+  const header = await screenshot(browsers, join(source, 'header.html'), 150, 57, scale)
+  const sidebar = await screenshot(browsers, join(source, 'sidebar.html'), 164, 314, scale)
   await writeFile(join(outputDirectory, 'header.bmp'), encodeBmp(header))
   await writeFile(join(outputDirectory, 'sidebar.bmp'), encodeBmp(sidebar))
   return true
