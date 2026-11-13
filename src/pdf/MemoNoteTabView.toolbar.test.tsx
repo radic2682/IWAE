@@ -68,7 +68,7 @@ function Harness({ spies, withLink = true, path = PATH }: { readonly spies: Spie
     docLabel: (docId) => (docId === 'doc-a' ? '전원 설계서' : docId),
     rename: vi.fn(),
   }), [spies, state])
-  const link: WorkspaceLink = { channels: DEFAULT_CHANNELS, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab: vi.fn(), openNoteBeside: vi.fn().mockResolvedValue(null), revealMemo: vi.fn() }
+  const link: WorkspaceLink = { channels: DEFAULT_CHANNELS, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab: vi.fn(), openNoteBeside: vi.fn().mockResolvedValue(null), resolveNoteFor: vi.fn().mockResolvedValue(null), revealMemo: vi.fn() }
   const view = (
     <MemoNoteContext.Provider value={api}>
       <MemoNoteTabView path={path} highlights={HIGHLIGHTS} docTitles={{ 'doc-a': '전원 설계서', 'doc-b': '통신 설계서' }} onJump={spies.onJump as never} />

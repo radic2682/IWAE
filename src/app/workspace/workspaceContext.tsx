@@ -31,6 +31,8 @@ export interface WorkspaceLink {
    * 이미 같은 색 창에 보이면 그대로다. 연 노트의 경로(못 열면 null) — 새 메모의 초안이 갈 곳
    */
   readonly openNoteBeside: (pane: PaneId | null, notePath?: string) => Promise<string | null>
+  /** 노트를 열지 않고 어느 노트에 넣을지만 정한다(openNoteBeside 와 같은 순서, 탭은 놓지 않는다). 영역 캡처를 조용히 넣을 때 쓴다. 못 구하면 null */
+  readonly resolveNoteFor: (pane: PaneId | null) => Promise<string | null>
   /** 색이 없는 문서 창에서 누른 형광펜: 그 메모의 노트(없으면 마지막으로 만진 노트)를 옆에 열고 그 카드를 보인다 */
   readonly revealMemo: (pane: PaneId | null, memoId: string) => void
   /** pane 과 같은 색 창에 보이는 캔버스에 그 메모에 이어진 블록이 있는가(있으면 노트를 따로 열지 않고 캔버스가 그 블록을 보인다) */
@@ -47,6 +49,7 @@ export const NO_WORKSPACE_LINK: WorkspaceLink = {
   visibleNotePathsFor: () => NO_PATHS,
   pinTab: () => undefined,
   openNoteBeside: () => Promise.resolve(null),
+  resolveNoteFor: () => Promise.resolve(null),
   revealMemo: () => undefined,
 }
 

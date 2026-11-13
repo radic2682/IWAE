@@ -36,7 +36,7 @@ function Harness({ children, count, channel = 'blue' }: { readonly children: Rea
     updateNoteAt: (path, change) => { if (path === PATH) setNote((current) => change(current)) },
     notesOf: () => [],
   }), [note])
-  const link: WorkspaceLink = { channels: { ...DEFAULT_CHANNELS, right: channel }, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab: vi.fn(), openNoteBeside: vi.fn().mockResolvedValue(null), revealMemo: vi.fn() }
+  const link: WorkspaceLink = { channels: { ...DEFAULT_CHANNELS, right: channel }, memoNoteTargetFor: () => null, visibleNotePathsFor: () => [], pinTab: vi.fn(), openNoteBeside: vi.fn().mockResolvedValue(null), resolveNoteFor: vi.fn().mockResolvedValue(null), revealMemo: vi.fn() }
   return (
     <MemoNoteContext.Provider value={api}>
       <WorkspaceContext.Provider value={link}>

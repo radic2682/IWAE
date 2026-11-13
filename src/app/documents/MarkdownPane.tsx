@@ -3,6 +3,7 @@ import { defaultHighlightColorId } from '../../core/highlightColors'
 import { isMarkdownPath } from '../../core/markdownPath'
 import { getHighlightColors } from './highlightColorStyle'
 import { t } from '../../i18n'
+import { shortcutText } from '../../core/shortcutRegistry'
 import { startInternalDrag } from '../../core/internalDrag'
 import {
   useCallback,
@@ -23,7 +24,7 @@ import { PdfPins, PinHead, type PdfPinPatchInput, type PlacedPin } from '../../p
 import type { PdfBookmark } from '../../core/pdfBookmarks'
 import { useMemoNoteApi } from '../../pdf/memoNoteContext'
 import { useHighlightTool } from '../../pdf/highlightToolStore'
-import { addMemoRef, insertBlock, memoBlock, type MemoNote, type MemoTicket } from '../../core/memoNote'
+import { addMemoRef, insertBlock, memoBlock, memoNoteTitleOf, type MemoNote, type MemoTicket } from '../../core/memoNote'
 import type { MemoContent } from '../../pdf/MemoEditor'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from '../workspace/workspaceLinks'
 import { sourceTargetItems } from '../workspace/sourceLinkItems'
@@ -634,7 +635,22 @@ export function MarkdownPane({
     }
     const routed = workspace.memoNoteTargetFor(paneId)
     if (routed !== null) begin(routed)
+    // 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 조용히 넣는다(글 메모는 쓸 글이 있어 노트를 연다)
+    else if (draft.kind === 'region') void captureSilently(draft)
     else void workspace.openNoteBeside(paneId).then((notePath) => { if (notePath !== null) begin(notePath) })
+  }
+  /** 영역 캡처를 노트를 열지 않고 넣고 알린다: 노트 끝에 캡션 없는 메모 블록. 노트를 못 구하면 아무것도 남기지 않는다 */
+  const captureSilently = async (draft: PersistentPdfHighlight) => {
+    const notePath = noteApi === null ? null : await workspace.resolveNoteFor(paneId)
+    if (noteApi === null || notePath === null) {
+      announceAction(t('캡처를 넣을 노트가 없습니다'))
+      return
+    }
+    onBoxHighlightCreated?.(updatePersistentPdfHighlight(draft, { note: '', noteHtml: '' }))
+    noteApi.updateNoteAt(notePath, (note) => insertBlock(note, memoBlock(draft.id), note.blocks.length))
+    const shortcut = shortcutText('toggleNoteBeside')
+    const name = workspace.memoNoteTitleOf?.(notePath) ?? memoNoteTitleOf(notePath)
+    announceAction(shortcut === undefined ? t('캡처를 「{note}」 노트에 넣었습니다', { note: name }) : t('캡처를 「{note}」 노트에 넣었습니다. {keys} 키로 노트를 엽니다', { note: name, keys: shortcut }))
   }
   const cancelRoutedDraft = () => {
     setDraftMemo(null)

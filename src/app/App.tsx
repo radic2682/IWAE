@@ -1650,6 +1650,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const anchor = pane ?? anchorDocPane()
     return anchor === null ? Promise.resolve(null) : besideRef.current!.open(anchor, notePath, preview)
   }
+  /** 노트를 열지 않고 어느 노트에 넣을지만 정한다(영역 캡처). 노트 경로(못 구하면 null) */
+  const resolveNoteFor = (pane: PaneId | null): Promise<string | null> => {
+    const anchor = pane ?? anchorDocPane()
+    return anchor === null ? Promise.resolve(null) : besideRef.current!.resolve(anchor)
+  }
   /** 노트 탭 열기(사이드바·노트 열기 메뉴·티켓의 다른 자리): 이미 탭이면 그 탭으로, 노트를 보이는 창이 있으면 거기에 탭으로, 아니면 문서 창 옆에 새 창. 놓은 창 */
   const openMemoNoteTab = (path: string, from?: PaneId): PaneId => {
     const now = workspaceLatest.current
@@ -2057,6 +2062,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 위 함수들은 렌더마다 새로 만들어지므로 ref 로 건넨다(workspaceLink 가 렌더마다 바뀌지 않게)
   const openNoteBesideRef = useRef(openNoteBeside)
   openNoteBesideRef.current = openNoteBeside
+  const resolveNoteForRef = useRef(resolveNoteFor)
+  resolveNoteForRef.current = resolveNoteFor
   const revealMemoBesideRef = useRef(revealMemoBeside)
   revealMemoBesideRef.current = revealMemoBeside
   // 마우스를 올린 메모 · 형광펜이 가리킬 창들(paneReaction.reactingPanes). 최신 상태를 ref 로 읽어 문맥 값(workspaceLink)이 형광펜 수정마다 바뀌지 않게 한다
@@ -2095,6 +2102,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       visibleNotePathsFor: (pane) => (pane === null ? [] : visibleNotePathsIn(panes, channels, visible, channelOf(channels, pane), paneMru)),
       pinTab: pinPaneTab,
       openNoteBeside: (pane, notePath) => openNoteBesideRef.current(pane, notePath),
+      resolveNoteFor: (pane) => resolveNoteForRef.current(pane),
       revealMemo: (pane, memoId) => revealMemoBesideRef.current(pane, memoId),
       canvasShowsMemo: (pane, memoId) => pane !== null && canvasShowsMemoRef.current(channelOf(channels, pane), memoId, pane),
     }

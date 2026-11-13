@@ -63,6 +63,7 @@ const link = (overrides: Partial<WorkspaceLink> = {}): WorkspaceLink => ({
   visibleNotePathsFor: () => [],
   pinTab: vi.fn(),
   openNoteBeside: vi.fn().mockResolvedValue(null),
+  resolveNoteFor: vi.fn().mockResolvedValue(null),
   revealMemo: vi.fn(),
   ...overrides,
 })
@@ -193,6 +194,70 @@ describe('PdfPane — 다른 노트 형광펜 표시(같은 색 창에 보이는
       highlights: [inZ, inA, loose],
     })
     expect((await others(container)).length).toBe(0)
+  })
+})
+
+const ctrlRegion = (layer: Element) => {
+  fireEvent.pointerDown(layer, { button: 0, ctrlKey: true, clientX: 30, clientY: 30, pointerId: 1 })
+  fireEvent.pointerMove(layer, { ctrlKey: true, clientX: 220, clientY: 160, pointerId: 1 })
+  fireEvent.pointerUp(layer, { button: 0, ctrlKey: true, clientX: 220, clientY: 160, pointerId: 1 })
+}
+
+describe('PdfPane — 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 넣는다', () => {
+  const feedback = () => {
+    const messages: string[] = []
+    window.addEventListener('iwae:action-feedback', (event) => { messages.push((event as CustomEvent<string>).detail) })
+    return messages
+  }
+
+  it('보이는 노트가 없으면 openNoteBeside 없이 노트 끝에 메모 블록을 넣고 알린다', async () => {
+    const messages = feedback()
+    const updateNoteAt = vi.fn()
+    const created = vi.fn()
+    const workspace = link({ resolveNoteFor: vi.fn().mockResolvedValue(NOTE_A) })
+    const { container } = mountPane({ api: noteApi({ updateNoteAt }), link: workspace, onCreated: created })
+    ctrlRegion(await selectionLayer(container))
+    await waitFor(() => expect(updateNoteAt).toHaveBeenCalled())
+    expect(workspace.openNoteBeside).not.toHaveBeenCalled()
+    expect(workspace.resolveNoteFor).toHaveBeenCalledWith('left')
+    expect(updateNoteAt.mock.calls[0]![0]).toBe(NOTE_A)
+    const next = updateNoteAt.mock.calls[0]![1](noteOf('old')) as MemoNote
+    expect(next.blocks).toHaveLength(2)
+    expect(next.blocks[1]).toMatchObject({ kind: 'memo' })
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({ kind: 'region' }))
+    expect(getRoutedMemoDraft()).toBeNull()
+    expect(messages.some((message) => message.startsWith('캡처를 「A」 노트에 넣었습니다'))).toBe(true)
+  })
+
+  it('노트를 구하지 못하면 아무것도 남기지 않고 알린다', async () => {
+    const messages = feedback()
+    const updateNoteAt = vi.fn()
+    const created = vi.fn()
+    const { container } = mountPane({ api: noteApi({ updateNoteAt }), link: link(), onCreated: created })
+    ctrlRegion(await selectionLayer(container))
+    await waitFor(() => expect(messages).toContain('캡처를 넣을 노트가 없습니다'))
+    expect(updateNoteAt).not.toHaveBeenCalled()
+    expect(created).not.toHaveBeenCalled()
+  })
+
+  it('같은 색 칸에 노트가 보이면 그 노트의 초안 카드로 간다', async () => {
+    const workspace = link({ memoNoteTargetFor: () => NOTE_Z })
+    const updateNoteAt = vi.fn()
+    const { container } = mountPane({ api: noteApi({ updateNoteAt }), link: workspace })
+    ctrlRegion(await selectionLayer(container))
+    await waitFor(() => expect(getRoutedMemoDraft()).not.toBeNull())
+    expect(getRoutedMemoDraft()!.path).toBe(NOTE_Z)
+    expect(workspace.resolveNoteFor).not.toHaveBeenCalled()
+    expect(updateNoteAt).not.toHaveBeenCalled()
+  })
+
+  it('글 형광펜은 보이는 노트가 없으면 여전히 노트를 옆에 연다', async () => {
+    const workspace = link({ openNoteBeside: vi.fn().mockResolvedValue(NOTE_A) })
+    const { container } = mountPane({ api: noteApi(), link: workspace })
+    dragSelect(await selectionLayer(container))
+    await waitFor(() => expect(getRoutedMemoDraft()).not.toBeNull())
+    expect(workspace.openNoteBeside).toHaveBeenCalledWith('left')
+    expect(workspace.resolveNoteFor).not.toHaveBeenCalled()
   })
 })
 

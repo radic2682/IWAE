@@ -50,6 +50,48 @@ function fakeApp(
   return { state, opener: createNoteBesideOpener(host) }
 }
 
+describe('createNoteBesideOpener.resolve — 탭을 놓지 않고 노트만 고른다', () => {
+  const start = () => panes({ left: strip([pdf('docS')]) })
+  const unchanged = (state: ReturnType<typeof fakeApp>['state'], before: PanesState) => {
+    expect(state.panes).toBe(before)
+    expect(state.touched).toEqual([])
+    expect(state.fresh).toEqual([])
+    expect(shapeOf(state.layout)).toBe('P')
+  }
+
+  it('마지막으로 만진 노트 → 이 문서의 노트 순서로 고르고 아무 탭도 놓지 않는다', async () => {
+    const entries = [{ path: '노트/일반.iwnote', title: '일반' }, { path: '노트/S1.iwnote', title: 'S1', docId: 'docS' }]
+    const first = fakeApp({ panes: start() }, { lastTouched: '노트/일반.iwnote', entries })
+    expect(await first.opener.resolve('left')).toBe('노트/일반.iwnote')
+    unchanged(first.state, first.state.panes)
+    const second = fakeApp({ panes: start() }, { entries })
+    const before = second.state.panes
+    expect(await second.opener.resolve('left')).toBe('노트/S1.iwnote')
+    unchanged(second.state, before)
+  })
+
+  it('고를 노트가 없으면 새 노트를 만들되 탭은 놓지 않는다. 같은 때 들어온 요청은 하나로 모은다', async () => {
+    const { state, opener } = fakeApp({ panes: start() })
+    const before = state.panes
+    const [a, b] = await Promise.all([opener.resolve('left'), opener.resolve('left')])
+    expect([a, b]).toEqual(['노트/새.iwnote', '노트/새.iwnote'])
+    expect(state.created).toEqual(['doc:docS'])
+    unchanged(state, before)
+  })
+
+  it('open 과 resolve 의 만들기도 하나로 모인다', async () => {
+    const { state, opener } = fakeApp({ panes: start() })
+    const [a, b] = await Promise.all([opener.resolve('left'), opener.open('left')])
+    expect(a).toBe(b)
+    expect(state.created).toEqual(['doc:docS'])
+  })
+
+  it('Vault 가 없거나 만들지 못하면 null', async () => {
+    expect(await fakeApp({ panes: start() }, { available: false }).opener.resolve('left')).toBeNull()
+    expect(await fakeApp({ panes: start() }, { createdPath: null }).opener.resolve('left')).toBeNull()
+  })
+})
+
 describe('createNoteBesideOpener — 옆에 노트 열기·닫기의 흐름', () => {
   it('마지막으로 만진 노트를 옆(오른쪽 새 창)에 열고, 같은 색을 주고, 새 창이 자라듯 나타나게 한다', async () => {
     const { state, opener } = fakeApp({ panes: panes({ left: strip([pdf('docS')]) }) }, { lastTouched: '노트/일반.iwnote', entries: [{ path: '노트/일반.iwnote', title: '일반' }, { path: '노트/S1.iwnote', title: 'S1', docId: 'docS' }] })

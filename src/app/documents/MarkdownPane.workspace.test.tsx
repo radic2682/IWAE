@@ -40,11 +40,12 @@ const link = (overrides: Partial<WorkspaceLink> = {}): WorkspaceLink => ({
   visibleNotePathsFor: () => [],
   pinTab: vi.fn(),
   openNoteBeside: vi.fn().mockResolvedValue(null),
+  resolveNoteFor: vi.fn().mockResolvedValue(null),
   revealMemo: vi.fn(),
   ...overrides,
 })
 
-function mount(api: MemoNoteApi, workspace: WorkspaceLink, onCreated = vi.fn()) {
+function mount(api: MemoNoteApi, workspace: WorkspaceLink, onCreated = vi.fn(), interactionMode: 'text' | 'lasso' = 'text') {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <MemoNoteContext.Provider value={api}>
       <WorkspaceContext.Provider value={workspace}>
@@ -53,7 +54,7 @@ function mount(api: MemoNoteApi, workspace: WorkspaceLink, onCreated = vi.fn()) 
     </MemoNoteContext.Provider>
   )
   return render(
-    <MarkdownPane sourceFileId="md-id" path="docs/guide.md" title="Guide" source={'## 중요한 제목\n\n본문입니다.'} interactionMode="text" onBoxHighlightCreated={onCreated} boxHighlights={[]} />,
+    <MarkdownPane sourceFileId="md-id" path="docs/guide.md" title="Guide" source={'## 중요한 제목\n\n본문입니다.'} interactionMode={interactionMode} onBoxHighlightCreated={onCreated} boxHighlights={[]} />,
     { wrapper },
   )
 }
@@ -67,6 +68,45 @@ const selectHeading = () => {
   selection?.addRange(range)
   fireEvent.mouseUp(screen.getByRole('article', { name: 'Guide' }))
 }
+
+/** 영역 선택 도구로 끈다: 글 칸들의 자리를 한 상자로 모의해 영역에 들어오게 한다 */
+const lassoDrag = () => {
+  const rect = { x: 0, y: 0, left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, toJSON: () => ({}) } as DOMRect
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(rect)
+  const host = document.querySelector('[data-markdown-pane]')!
+  fireEvent.pointerDown(host, { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+  fireEvent.pointerUp(window, { clientX: 200, clientY: 200, pointerId: 1 })
+}
+
+describe('MarkdownPane — 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 넣는다', () => {
+  it('노트를 열지 않고 노트 끝에 메모 블록을 넣고 알린다', async () => {
+    const messages: string[] = []
+    window.addEventListener('iwae:action-feedback', (event) => { messages.push((event as CustomEvent<string>).detail) })
+    const updateNoteAt = vi.fn()
+    const created = vi.fn()
+    const workspace = link({ resolveNoteFor: vi.fn().mockResolvedValue(NOTE) })
+    mount(noteApi({ updateNoteAt }), workspace, created, 'lasso')
+    lassoDrag()
+    await waitFor(() => expect(updateNoteAt).toHaveBeenCalled())
+    expect(workspace.openNoteBeside).not.toHaveBeenCalled()
+    expect(updateNoteAt.mock.calls[0]![0]).toBe(NOTE)
+    const next = updateNoteAt.mock.calls[0]![1](EMPTY_MEMO_NOTE) as MemoNote
+    expect(next.blocks.at(-1)).toMatchObject({ kind: 'memo' })
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({ kind: 'region' }))
+    expect(getRoutedMemoDraft()).toBeNull()
+    expect(messages.some((message) => message.startsWith('캡처를 「N」 노트에 넣었습니다'))).toBe(true)
+  })
+
+  it('보이는 노트가 있으면 그 노트의 초안 카드로 간다', async () => {
+    const workspace = link({ memoNoteTargetFor: () => NOTE })
+    const updateNoteAt = vi.fn()
+    mount(noteApi({ updateNoteAt }), workspace, vi.fn(), 'lasso')
+    lassoDrag()
+    await waitFor(() => expect(getRoutedMemoDraft()).not.toBeNull())
+    expect(workspace.resolveNoteFor).not.toHaveBeenCalled()
+    expect(updateNoteAt).not.toHaveBeenCalled()
+  })
+})
 
 describe('MarkdownPane — 새 메모는 노트 탭으로 간다(노트 바는 없다)', () => {
   it('같은 색 창에 노트 탭이 보이면 그 노트로 초안을 보낸다', async () => {

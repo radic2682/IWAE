@@ -240,6 +240,11 @@ const noteTab = (path: string): Tab => ({ id: path, title: memoNoteTitleOf(path)
 
 export interface NoteBesideOpener {
   /**
+   * 노트를 고르거나 만들기만 한다(탭은 놓지 않는다): notePath 가 없으면 마지막으로 만진 노트 → 이 문서의 노트 → 새 노트.
+   * 영역 캡처를 노트를 열지 않고 넣을 때 쓴다. 노트 경로(못 구하면 null). 만들기는 open 과 하나로 모은다
+   */
+  readonly resolve: (anchor: PaneId, notePath?: string) => Promise<string | null>
+  /**
    * 「옆에 노트 열기」: anchor 문서 창 옆에 노트를 연다. notePath 가 없으면 마지막으로 만진 노트 → 이 문서의 노트 → 새 노트.
    * 열린 노트 경로(못 열면 null). 같은 때 들어온 만들기 요청은 하나의 새 노트로 모은다
    */
@@ -262,16 +267,19 @@ export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
     return outcome
   }
 
-  const open: NoteBesideOpener['open'] = async (anchor, notePath, preview = false) => {
+  const resolve: NoteBesideOpener['resolve'] = async (anchor, notePath) => {
     if (!host.available()) return null
     const first = host.snapshot()
     const docId = host.docIdOf(activeTab(tabsOf(first.panes, anchor)))
-    let path = notePath ?? pickNotePath({ lastTouched: host.lastTouched(), docId, entries: host.entries(), docOwner: host.docOwner })
-    if (path === null) {
-      creating ??= (docId === null ? host.createGeneral() : host.createForDoc(docId)).finally(() => { creating = null })
-      path = await creating
-      if (path === null) return null
-    }
+    const path = notePath ?? pickNotePath({ lastTouched: host.lastTouched(), docId, entries: host.entries(), docOwner: host.docOwner })
+    if (path !== null) return path
+    creating ??= (docId === null ? host.createGeneral() : host.createForDoc(docId)).finally(() => { creating = null })
+    return creating
+  }
+
+  const open: NoteBesideOpener['open'] = async (anchor, notePath, preview = false) => {
+    const path = await resolve(anchor, notePath)
+    if (path === null) return null
     place(anchor, path, preview)
     return path
   }
@@ -284,5 +292,5 @@ export function createNoteBesideOpener(host: NoteBesideHost): NoteBesideOpener {
     return { kind: 'closed', outcome: closed }
   }
 
-  return { open, toggle, place }
+  return { resolve, open, toggle, place }
 }

@@ -40,7 +40,7 @@ import { useMemoNoteApi } from './memoNoteContext'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from '../app/workspace/workspaceLinks'
 import { sourceTargetItems } from '../app/workspace/sourceLinkItems'
 import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, type AttachRequest } from '../app/workspace/workspaceContext'
-import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, type MemoNote, type MemoTicket } from '../core/memoNote'
+import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, memoNoteTitleOf, type MemoNote, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
 import { markFreshHighlight } from './freshHighlight'
@@ -50,6 +50,7 @@ import { createFrameScheduler } from '../core/frameScheduler'
 import '../ui/pdf-followup.css'
 import { AiPointerLayer, useAiPointerDismiss, type AiPointer } from './AiPointerLayer'
 import { t } from '../i18n'
+import { shortcutText } from '../core/shortcutRegistry'
 
 /**
  * 페이지 사이의 간격(px).
@@ -626,7 +627,25 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
     const routedPath = workspace.memoNoteTargetFor(paneId)
     if (routedPath !== null) begin(routedPath)
+    // 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 조용히 넣는다(글 형광펜은 메모를 써야 하니 노트를 연다)
+    else if (region) void captureSilently(highlight, selection.anchor.page)
     else void workspace.openNoteBeside(paneId).then((path) => { if (path !== null) begin(path) })
+  }
+
+  /** 영역 캡처를 노트를 열지 않고 넣고 알린다(보이는 같은 색 노트가 없을 때): 노트 끝에 캡션 없는 메모 블록. 노트를 못 구하면 아무것도 남기지 않는다 */
+  const captureSilently = async (highlight: PersistentPdfHighlight, page: number) => {
+    clearPageSelection(page)
+    const notePath = noteApi === null ? null : await workspace.resolveNoteFor(paneId)
+    if (noteApi === null || notePath === null) {
+      announceAction(t('캡처를 넣을 노트가 없습니다'))
+      return
+    }
+    markFreshHighlight(highlight.id)
+    reportCreated(updatePersistentPdfHighlight(highlight, { note: '', noteHtml: '' }))
+    noteApi.updateNoteAt(notePath, (note) => insertBlock(note, memoBlock(highlight.id), note.blocks.length))
+    const shortcut = shortcutText('toggleNoteBeside')
+    const name = workspace.memoNoteTitleOf?.(notePath) ?? memoNoteTitleOf(notePath)
+    announceAction(shortcut === undefined ? t('캡처를 「{note}」 노트에 넣었습니다', { note: name }) : t('캡처를 「{note}」 노트에 넣었습니다. {keys} 키로 노트를 엽니다', { note: name, keys: shortcut }))
   }
 
   /** 박스 메모 모드에서 고른 글: 이미 박스가 있으면 그 박스를 열고, 아니면 여백에 새 박스(글을 써야 저장된다) */
