@@ -1,6 +1,6 @@
-import { MAX_PANES, MIN_PANE_HEIGHT, MIN_PANE_WIDTH, minSize, newPaneId, newSplitId, paneCount, removeLeaf, type LayoutNode, type Size, type SplitNode, type SplitRefusal } from '../../core/layoutTree'
+import { MAX_PANES, MIN_PANE_HEIGHT, MIN_PANE_WIDTH, leaves, minSize, newPaneId, newSplitId, paneCount, removeLeaf, type LayoutNode, type Size, type SplitNode, type SplitRefusal } from '../../core/layoutTree'
 import { closeTab, emptyTabs, openTab, paneIdsOf, paneOfTab, tabsOf, type PaneId } from './tabs'
-import { collapseEmptyPane, edgeSplit, type Box, type DockEdge, type DockOutcome, type TreeWorkspace } from './tabDock'
+import { collapseEmptyPane, edgeSplit, type Box, type DockEdge, type DockOutcome, type PaneSizer, type TreeWorkspace } from './tabDock'
 import { inheritChannel } from './workspaceChannels'
 
 /**
@@ -54,7 +54,7 @@ export type RootDockPlan = { readonly share: number } | { readonly refused: Spli
  * closingSource: 이 끌기로 비어 닫힐 칸(다른 칸의 하나뿐인 탭을 끌 때). 닫힌 뒤의 칸 수 · 남는 트리 크기로 센다.
  * 새 줄은 최소 크기(240×160)를 지키고, 남는 트리도 자기 최소 크기를 지킬 수 있을 때만 된다
  */
-export function rootDockPlan(layout: LayoutNode, edge: DockEdge, total: Size | null, closingSource: PaneId | null = null): RootDockPlan {
+export function rootDockPlan(layout: LayoutNode, edge: DockEdge, total: Size | null, closingSource: PaneId | null = null, sizeOf?: PaneSizer): RootDockPlan {
   const base = closingSource !== null ? removeLeaf(layout, closingSource) ?? layout : layout
   if (paneCount(base) >= MAX_PANES) return { refused: 'max' }
   if (total === null || total.width <= 0 || total.height <= 0) return { share: WORKSPACE_EDGE_SHARE }
@@ -62,8 +62,17 @@ export function rootDockPlan(layout: LayoutNode, edge: DockEdge, total: Size | n
   const extent = horizontal ? total.width : total.height
   const minNew = horizontal ? MIN_PANE_WIDTH : MIN_PANE_HEIGHT
   const minRest = horizontal ? minSize(base).width : minSize(base).height
-  const taken = Math.max(extent * WORKSPACE_EDGE_SHARE, minNew)
-  if (extent - taken < minRest) return { refused: 'small' }
+  // 기존 트리는 새 줄만큼 줄고 안의 칸들은 같은 비율로 줄어든다 — 칸마다 줄어든 크기가 최소 크기를 지켜야 한다(합계만 보면 안 된다).
+  // 칸 크기를 알면 가장 빠듯한 칸이 허락하는 만큼까지만 새 줄을 내주고, 모르면 트리 최소 크기로만 본다
+  let ratioNeeded = 0
+  for (const pane of leaves(base)) {
+    const size = sizeOf?.(pane) ?? null
+    const current = size === null ? 0 : horizontal ? size.width : size.height
+    if (current > 0) ratioNeeded = Math.max(ratioNeeded, (horizontal ? MIN_PANE_WIDTH : MIN_PANE_HEIGHT) / current)
+  }
+  const room = Math.min(extent - minRest, ratioNeeded > 0 ? extent * (1 - ratioNeeded) : Number.POSITIVE_INFINITY)
+  if (room < minNew) return { refused: 'small' }
+  const taken = Math.min(Math.max(extent * WORKSPACE_EDGE_SHARE, minNew), room)
   return { share: taken / extent }
 }
 
@@ -91,14 +100,14 @@ export function splitRoot(root: LayoutNode, newPane: PaneId, edge: DockEdge, sha
  * 탭이 떠나 빈 칸은 닫힌다(칸 하나뿐인 탭을 그 칸 하나뿐인 화면에서 끌면 할 일이 없어 null).
  * 못 하면 { refused }, 탭을 못 찾으면 null
  */
-export function dockTabAtRoot(input: TreeWorkspace, id: string, edge: DockEdge, total: Size | null): DockOutcome | { readonly refused: SplitRefusal } | null {
+export function dockTabAtRoot(input: TreeWorkspace, id: string, edge: DockEdge, total: Size | null, sizeOf?: PaneSizer): DockOutcome | { readonly refused: SplitRefusal } | null {
   const { panes, layout, channels } = input
   const source = paneOfTab(panes, id)
   if (source === null) return null
   const sourceTabs = tabsOf(panes, source).tabs
   const closesSource = sourceTabs.length <= 1
   if (closesSource && paneCount(layout) <= 1) return null
-  const plan = rootDockPlan(layout, edge, total, closesSource ? source : null)
+  const plan = rootDockPlan(layout, edge, total, closesSource ? source : null, sizeOf)
   if ('refused' in plan) return { refused: plan.refused }
   const tab = sourceTabs.find((candidate) => candidate.id === id)!
   const created = newPaneId(paneIdsOf(panes))

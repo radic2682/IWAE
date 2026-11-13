@@ -3350,12 +3350,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (source === null) return null
     const closes = tabsOf(panes, source).tabs.length <= 1
     if (closes && leaves(layoutRoot).length <= 1) return null
-    const plan = rootDockPlan(layoutRoot, edge, paneTreeSize(), closes ? source : null)
+    const plan = rootDockPlan(layoutRoot, edge, paneTreeSize(), closes ? source : null, paneSizeOf)
     return 'refused' in plan ? null : plan.share
   }
   /** 탭을 작업 영역 맨 바깥 edge 쪽 새 줄(키 전체 · 폭 전체)로 옮긴다 */
   const dockRootTab = (id: string, edge: DockEdge) => {
-    const result = dockTabAtRoot({ panes, channels, layout: layoutRoot }, id, edge, paneTreeSize())
+    const result = dockTabAtRoot({ panes, channels, layout: layoutRoot }, id, edge, paneTreeSize(), paneSizeOf)
     if (result === null) return
     if ('refused' in result) { announceRefusal(result.refused); return }
     const tab = openTabIds.find((candidate) => candidate.id === id)

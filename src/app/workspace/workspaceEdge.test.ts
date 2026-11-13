@@ -62,6 +62,30 @@ describe('rootDockPlan', () => {
   })
 })
 
+describe('rootDockPlan: 기존 칸이 줄어든 뒤에도 최소 크기를 지킨다', () => {
+  // [650 | 321 | 322/322] 폭 1311: 가운데 칸 321 이 가장 빠듯하다
+  const layout = splitLeaf(splitLeaf(splitLeaf(paneNode('a'), 'a', 'h', 'b'), 'b', 'h', 'c'), 'c', 'v', 'd')
+  const widths: Record<string, number> = { a: 650, b: 321, c: 322, d: 322 }
+  const sizeOf = (pane: string) => ({ width: widths[pane]!, height: 600 })
+  it('1/3 몫이면 칸이 240 아래로 내려가므로 새 줄을 가장 빠듯한 칸이 허락하는 만큼으로 줄인다', () => {
+    const plan = rootDockPlan(layout, 'right', { width: 1311, height: 600 }, null, sizeOf)
+    if ('refused' in plan) throw new Error('expected a plan')
+    const taken = plan.share * 1311
+    expect(taken).toBeGreaterThanOrEqual(240)
+    expect(taken).toBeLessThan(1311 / 3)
+    const factor = (1311 - taken) / 1311
+    for (const width of Object.values(widths)) expect(width * factor).toBeGreaterThanOrEqual(240 - 1e-6)
+    expect(321 * factor).toBeCloseTo(240, 3)
+  })
+  it('새 줄을 최소 240 으로 줘도 어느 칸이 깨지면 미리보기를 내지 않는다', () => {
+    expect(rootDockPlan(layout, 'right', { width: 1311, height: 600 }, null, (pane) => ({ width: pane === 'b' ? 270 : widths[pane]!, height: 600 }))).toEqual({ refused: 'small' })
+  })
+  it('세로도 같은 규칙(칸 높이 160)', () => {
+    const plan = rootDockPlan(layout, 'bottom', { width: 1311, height: 600 }, null, () => ({ width: 400, height: 200 }))
+    expect(plan).toEqual({ refused: 'small' })
+  })
+})
+
 describe('rootDockBox', () => {
   it('트리 상자 바깥 쪽에 키 전체 · 폭 전체의 띠', () => {
     expect(rootDockBox(box, 'right', 0.25)).toEqual({ left: 1200, top: 40, width: 300, height: 900 })
