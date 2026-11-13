@@ -120,6 +120,8 @@ describe('startPaneDrag', () => {
     expect(ghost.querySelector('.pane-drag-number')?.textContent).toBe('1')
     expect(ghost.textContent).toContain('문서 A')
     expect(document.querySelector('[data-card-pane="one"]')?.hasAttribute('data-pane-dragging')).toBe(true)
+    // 원래 자리는 빈 칸과 같은 SVG 점선 윤곽 하나(CSS dashed 테두리는 틈으로 바탕이 비쳐 실선과 겹쳐 보였다)
+    expect(document.querySelectorAll('[data-card-pane="one"] > .pane-slot-outline')).toHaveLength(1)
     expect(document.body.classList.contains('dock-dragging')).toBe(true)
   })
 
@@ -134,6 +136,7 @@ describe('startPaneDrag', () => {
     expect(host.calls).toEqual(['dock:two:right'])
     expect(document.body.classList.contains('dock-dragging')).toBe(false)
     expect(document.querySelector('[data-pane-dragging]')).toBeNull()
+    expect(document.querySelector('.pane-drag-outline')).toBeNull()
   })
 
   it('다른 칸 가운데에 놓으면 맞바꾸기, 미리보기는 칸 전체다', () => {

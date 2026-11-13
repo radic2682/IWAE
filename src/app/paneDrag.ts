@@ -45,6 +45,17 @@ export function isPaneDragPress(target: EventTarget | null): boolean {
 
 /** 끄는 동안 칸 카드에 다는 표시 이름(pane-drag.css) */
 const SOURCE_ATTR = 'data-pane-dragging'
+/** 끄는 동안 원래 칸에 붙이는 점선 윤곽(빈 칸의 .pane-slot-outline 과 같은 규칙) */
+const SOURCE_OUTLINE_CLASS = 'pane-drag-outline'
+
+function sourceOutline(): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('class', `pane-slot-outline ${SOURCE_OUTLINE_CLASS}`)
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('focusable', 'false')
+  svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'rect'))
+  return svg
+}
 
 function sourceCard(pane: PaneId): HTMLElement | null {
   return Array.from(document.querySelectorAll<HTMLElement>('.pane-card[data-card-pane]')).find((card) => card.dataset.cardPane === pane) ?? null
@@ -142,7 +153,12 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
     dragging = true
     window.addEventListener('pointerover', swallowHover, true)
     setDockDragging(true)
-    sourceCard(pane)?.setAttribute(SOURCE_ATTR, '')
+    const card = sourceCard(pane)
+    if (card !== null) {
+      card.setAttribute(SOURCE_ATTR, '')
+      // 원래 자리는 빈 칸과 같은 SVG 점선 윤곽 하나로 그린다. CSS dashed 테두리는 틈으로 카드 바탕이 비쳐 실선 위에 점선이 겹쳐 보였다
+      if (card.querySelector(`:scope > .${SOURCE_OUTLINE_CLASS}`) === null) card.appendChild(sourceOutline())
+    }
     ghost = buildGhost(head, pane)
     swapChip = createSwapChip()
     ghost.attach()
@@ -176,6 +192,7 @@ export function startPaneDrag(event: { readonly clientX: number; readonly client
     setDockDragging(false)
     sourceCard(pane)?.removeAttribute(SOURCE_ATTR)
     document.querySelectorAll(`[${SOURCE_ATTR}]`).forEach((element) => element.removeAttribute(SOURCE_ATTR))
+    document.querySelectorAll(`.${SOURCE_OUTLINE_CLASS}`).forEach((element) => element.remove())
   }
   /** 끌고 난 뒤 따라오는 click 이 아래 요소에 닿지 않게 한 번 삼킨다(놓은 뒤 한 틱 뒤에 풀고, 새로 누르면 바로 푼다) */
   const swallowClickOnce = () => {
