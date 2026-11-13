@@ -25,8 +25,8 @@ export const TOURS: Readonly<Record<string, string>> = {
   '번역기': 'Translator',
   '고른 글을 번역합니다. 설정에서 번역을 켜면 쓸 수 있습니다.': 'Translates the text you select. Turn on translation in Settings to use it.',
   '고른 글을 번역합니다. 글을 고른 뒤 이 단추로 번역기를 엽니다.': 'Translates the text you select. Select text, then use this button to open the translator.',
-  // v0.1.20 새 기능
-  'v0.1.20 새 기능': 'New in v0.1.20',
+  // v0.2.0 새 기능
+  'v0.2.0 새 기능': 'New in v0.2.0',
   '작업 공간이 칸 단위로 바뀌었습니다. 달라진 점을 둘러봅니다.': 'The workspace now works in panes. Here is what changed.',
   '도구줄이 맨 위로': 'Toolbar moved to the top',
   '아래 상태 줄이 없어지고, 선택한 칸의 도구가 맨 위 줄에 나옵니다.': 'The status row at the bottom is gone. The selected pane\'s tools now sit in the top row.',

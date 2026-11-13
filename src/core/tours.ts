@@ -22,7 +22,7 @@ export interface TourStep {
 export interface Tour {
   readonly id: string
   readonly kind: 'onboarding' | 'feature'
-  /** 새 기능 둘러보기: 이 안내가 처음 들어간 릴리스 버전('v' 없이 0.1.20) */
+  /** 새 기능 둘러보기: 이 안내가 처음 들어간 릴리스 버전('v' 없이 0.2.0) */
   readonly version?: string
   /** 팔레트·메뉴에 보이는 이름(한국어 열쇠) */
   readonly name: string
@@ -49,12 +49,12 @@ export const TOURS: readonly Tour[] = [
     ],
   },
   {
-    id: 'v0.1.20',
+    id: 'v0.2.0',
     kind: 'feature',
-    version: '0.1.20',
+    version: '0.2.0',
     name: '새 기능 둘러보기',
     steps: [
-      { id: 'welcome', title: 'v0.1.20 새 기능', body: '작업 공간이 칸 단위로 바뀌었습니다. 달라진 점을 둘러봅니다.' },
+      { id: 'welcome', title: 'v0.2.0 새 기능', body: '작업 공간이 칸 단위로 바뀌었습니다. 달라진 점을 둘러봅니다.' },
       { id: 'toolbar', target: 'toolbar', title: '도구줄이 맨 위로', body: '아래 상태 줄이 없어지고, 선택한 칸의 도구가 맨 위 줄에 나옵니다.', placement: 'bottom' },
       { id: 'pane-head', target: 'pane-head', title: '칸 끌기', body: '칸 머리를 끌어 옮기거나 자리를 바꿉니다. 탭을 창 밖으로 끌면 새 창으로 분리됩니다.', placement: 'bottom' },
       { id: 'channel-dot', target: 'channel-dot', title: '색 점 잇기', body: '색 점을 다른 칸으로 끌면 두 칸이 같은 색으로 이어집니다.', placement: 'bottom' },

@@ -11,7 +11,7 @@ import { captureInstallSnapshot, readToursSeen, requestTour, resetTourState, TOU
 import { tourById } from '../core/tours'
 
 const notes: readonly ReleaseNote[] = [
-  { version: '0.1.20', date: null, body: '- twenty thing' },
+  { version: '0.2.0', date: null, body: '- twenty thing' },
   { version: '0.1.19', date: null, body: '- nineteen thing' },
 ]
 
@@ -221,8 +221,8 @@ describe('TourHost 저절로 보이기', () => {
 
   it('처음 설치는 지금 버전까지의 새 기능 안내를 본 것으로 적는다', () => {
     freshInstall()
-    render(<TourHost enabled version="0.1.20" prefixText="Ctrl+B" notes={notes} />)
-    expect(JSON.parse(window.localStorage.getItem(TOURS_SEEN_KEY) ?? '[]')).toContain('v0.1.20')
+    render(<TourHost enabled version="0.2.0" prefixText="Ctrl+B" notes={notes} />)
+    expect(JSON.parse(window.localStorage.getItem(TOURS_SEEN_KEY) ?? '[]')).toContain('v0.2.0')
   })
 
   it('접두키 고르기 창이 먼저 뜨고, 닫은 뒤에 둘러보기가 뜬다', () => {
@@ -251,7 +251,7 @@ describe('TourHost 업데이트', () => {
     captureInstallSnapshot()
   }
   const both = (
-    <><WhatsNewHost enabled version="0.1.20" notes={notes} onShowHistory={vi.fn()} /><TourHost enabled version="0.1.20" prefixText="Ctrl+B" notes={notes} /></>
+    <><WhatsNewHost enabled version="0.2.0" notes={notes} onShowHistory={vi.fn()} /><TourHost enabled version="0.2.0" prefixText="Ctrl+B" notes={notes} /></>
   )
 
   it('「새 기능 둘러보기」를 누르면 새 버전 창이 닫히고 새 기능 안내가 시작된다', () => {
@@ -262,10 +262,10 @@ describe('TourHost 업데이트', () => {
     fireEvent.click(screen.getByRole('button', { name: '새 기능 둘러보기' }))
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(card()).not.toBeNull()
-    expect(document.getElementById('tour-card-title')?.textContent).toBe('v0.1.20 새 기능')
+    expect(document.getElementById('tour-card-title')?.textContent).toBe('v0.2.0 새 기능')
     expect(screen.getByText('1 / 7')).not.toBeNull()
     fireEvent.keyDown(window, { key: 'Escape' })
-    expect(readToursSeen()).toContain('v0.1.20')
+    expect(readToursSeen()).toContain('v0.2.0')
   })
 
   it('「나중에」는 안내를 시작하지 않고 본 것으로 적는다', () => {
@@ -274,18 +274,18 @@ describe('TourHost 업데이트', () => {
     fireEvent.click(screen.getByRole('button', { name: '나중에' }))
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(card()).toBeNull()
-    expect(readToursSeen()).toContain('v0.1.20')
+    expect(readToursSeen()).toContain('v0.2.0')
   })
 })
 
 describe('TourHost 직접 열기', () => {
   it('requestTour 는 본 적이 있어도 연다. enabled 가 아니어도(메인 창 밖 규칙은 호출하는 쪽이 지킨다) 열린다', () => {
-    window.localStorage.setItem(TOURS_SEEN_KEY, JSON.stringify(['onboarding', 'v0.1.20']))
+    window.localStorage.setItem(TOURS_SEEN_KEY, JSON.stringify(['onboarding', 'v0.2.0']))
     captureInstallSnapshot()
     render(<TourHost enabled={false} version="0.1.19" prefixText="Ctrl+B" notes={notes} />)
     expect(card()).toBeNull()
-    act(() => requestTour('v0.1.20'))
-    expect(document.getElementById('tour-card-title')?.textContent).toBe('v0.1.20 새 기능')
+    act(() => requestTour('v0.2.0'))
+    expect(document.getElementById('tour-card-title')?.textContent).toBe('v0.2.0 새 기능')
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(card()).toBeNull()
     act(() => requestTour('onboarding'))

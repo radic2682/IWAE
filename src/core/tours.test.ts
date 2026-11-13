@@ -57,10 +57,10 @@ describe('planTours', () => {
 })
 
 describe('둘러보기 등록부', () => {
-  it('처음 사용 안내와 v0.1.20 새 기능 안내가 있다', () => {
+  it('처음 사용 안내와 v0.2.0 새 기능 안내가 있다', () => {
     expect(tourById('onboarding')?.kind).toBe('onboarding')
-    expect(TOURS.filter((tour) => tour.kind === 'feature').map((tour) => tour.version)).toContain('0.1.20')
-    expect(latestFeatureTour()?.version).toBe('0.1.20')
+    expect(TOURS.filter((tour) => tour.kind === 'feature').map((tour) => tour.version)).toContain('0.2.0')
+    expect(latestFeatureTour()?.version).toBe('0.2.0')
   })
 
   it('id 가 겹치지 않고, 단계마다 글이 있고, 새 기능 안내에는 버전이 있다', () => {

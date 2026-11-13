@@ -105,7 +105,7 @@ describe('WhatsNewHost', () => {
 })
 
 describe('새 기능 둘러보기가 있는 업데이트', () => {
-  const tourNotes: readonly ReleaseNote[] = [{ version: '0.1.20', date: null, body: '- twenty thing' }, ...notes]
+  const tourNotes: readonly ReleaseNote[] = [{ version: '0.2.0', date: null, body: '- twenty thing' }, ...notes]
   const upgrade = () => {
     window.localStorage.setItem(LAST_SEEN_VERSION_KEY, '0.1.19')
     captureInstallSnapshot()
@@ -113,7 +113,7 @@ describe('새 기능 둘러보기가 있는 업데이트', () => {
 
   it('확인 단추가 「새 기능 둘러보기」, 보조 단추가 「나중에」가 된다', () => {
     upgrade()
-    render(<WhatsNewHost enabled version="0.1.20" notes={tourNotes} onShowHistory={vi.fn()} />)
+    render(<WhatsNewHost enabled version="0.2.0" notes={tourNotes} onShowHistory={vi.fn()} />)
     expect(screen.getByRole('button', { name: '새 기능 둘러보기' })).not.toBeNull()
     expect(screen.getByRole('button', { name: '나중에' })).not.toBeNull()
     expect(screen.queryByRole('button', { name: '확인' })).toBeNull()
@@ -122,10 +122,10 @@ describe('새 기능 둘러보기가 있는 업데이트', () => {
 
   it('「나중에」는 버전을 기록하고 둘러보기를 본 것으로 적는다', () => {
     upgrade()
-    render(<WhatsNewHost enabled version="0.1.20" notes={tourNotes} onShowHistory={vi.fn()} />)
+    render(<WhatsNewHost enabled version="0.2.0" notes={tourNotes} onShowHistory={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: '나중에' }))
-    expect(stored()).toBe('0.1.20')
-    expect(readToursSeen()).toContain('v0.1.20')
+    expect(stored()).toBe('0.2.0')
+    expect(readToursSeen()).toContain('v0.2.0')
   })
 
   it('둘러보기가 없는 업데이트는 그대로 「확인」 하나다', () => {
