@@ -2,7 +2,6 @@
 export const SESSIONS: Readonly<Record<string, string>> = {
   // 이름 검사
   '세션 이름을 입력하세요': 'Enter a session name',
-  '세션 이름에는 / \\ : * ? " < > | 문자를 쓸 수 없습니다': 'A session name cannot contain / \\ : * ? " < > |',
   '세션 이름은 . 또는 _로 시작할 수 없습니다': 'A session name cannot start with . or _',
   '세션 이름이 너무 깁니다 ({max}자까지)': 'The session name is too long (up to {max} characters)',
   '같은 이름의 세션이 이미 있습니다: {name}': 'A session with this name already exists: {name}',

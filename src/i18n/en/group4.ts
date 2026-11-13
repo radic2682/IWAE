@@ -8,7 +8,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
 
   // pdf/UsageMeter.tsx, app/UsageMeterSettings.tsx
   '메모리 {used} / {total} ({percent}%)': 'Memory {used} / {total} ({percent}%)',
-  'IWAE(화면 그리기 포함) CPU {cpu} · 메모리 {memory}\n시스템 전체 CPU {systemCpu} · {systemMemory}': 'IWAE (incl. rendering) CPU {cpu} · Memory {memory}\nSystem CPU {systemCpu} · {systemMemory}',
   'CPU와 메모리 표시': 'CPU and memory meter',
   'PDF 하단 막대 오른쪽 끝에 IWAE의 CPU와 메모리 사용량을 표시합니다. 마우스를 올리면 시스템 전체 사용량도 보입니다.': 'Shows the CPU and memory IWAE is using at the right end of the PDF bottom bar. Hover to see system-wide usage.',
   '하단 막대에 CPU와 메모리 표시': 'Show CPU and memory in the PDF bottom bar',
@@ -32,10 +31,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '강조색': 'Accent color',
 
   // app/VaultPicker.tsx
-  '작업 폴더를 선택하세요': 'Choose a workspace folder',
-  'Vault는 PDF 문서와 메모, 앱 설정을 함께 보관하는 작업 폴더입니다.': 'A vault is a workspace folder that keeps your PDFs, memos and app settings together.',
-  '원본 문서는 이동하거나 수정하지 않습니다.': 'Your original documents are never moved or changed.',
-  '다음 실행부터 최근 Vault를 바로 다시 열 수 있습니다.': 'Next time, you can reopen a recent vault right away.',
   'Vault 여는 중…': 'Opening vault…',
   'Vault 폴더 선택': 'Choose vault folder',
   '최근 Vault': 'Recent vaults',
@@ -66,8 +61,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '번역 결과 패널': 'Translation result panel',
   '번역 결과': 'Translation result',
   '번역을 복사했습니다': 'Translation copied',
-  '번역 복사': 'Copy translation',
-  '번역과 함께 블록 추가': 'Add block with translation',
   '번역 실패: {message}': 'Translation failed: {message}',
   '번역 설정 열기': 'Open translation settings',
 
@@ -193,7 +186,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '더 보기 ({count}건 남음)': 'Show more ({count} left)',
   '{page}쪽 {quote}': 'Page {page} {quote}',
   'PDF 검색': 'Search PDF',
-  '이 PDF에서 검색': 'Search this PDF',
   '이 문서에서 검색': 'Search this document',
   'PDF에서 검색': 'Search PDF',
   '검색 결과 위치': 'Result position',
@@ -220,7 +212,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '폴더를 자기 안으로 옮길 수 없습니다.': 'A folder cannot be moved into itself.',
 
   // app/App.tsx
-  '사이드바에서 PDF 문서를 여세요': 'Open a PDF from the sidebar',
   '사이드바에서 노트를 여세요': 'Open a note from the sidebar',
   '캔버스를 불러오는 중…': 'Loading canvas…',
   '캔버스를 준비하는 중…': 'Preparing canvas…',
@@ -236,7 +227,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '노트를 저장하지 못해 Vault를 닫지 않았습니다: {error}': 'The vault was not closed because the note could not be saved: {error}',
   '노트를 저장하지 못해 Vault를 전환하지 않았습니다: {error}': 'The vault was not switched because the note could not be saved: {error}',
   '노트를 저장하지 못해 앱을 종료하지 않았습니다: {error}': 'IWAE did not quit because the note could not be saved: {error}',
-  'Vault 에서 이 PDF 를 열 수 없습니다: {name}': 'Cannot open this PDF from the vault: {name}',
   'BibTeX를 복사했습니다': 'BibTeX copied',
   '근거 묶음을 만드는 중…': 'Building evidence bundle…',
   '{title} 근거.html': '{title} evidence.html',
@@ -244,11 +234,7 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '내보내지 못했습니다: {error}': 'Could not export: {error}',
   'AI가 보낸 문서를 이 Vault에서 찾을 수 없습니다': 'The document sent by the AI is not in this vault',
   'PDF를 열 수 없습니다': 'Cannot open the PDF',
-  'OCR 중 {page}/{total}쪽': 'OCR page {page}/{total}',
   '이 PDF는 이미 모든 쪽에 글자가 있습니다': 'Every page of this PDF already has text',
-  '{title} (검색 가능)': '{title} (searchable)',
-  '검색 가능한 PDF를 저장했습니다(한글 글꼴이 없어 {skipped}줄 제외): {path}': 'Saved searchable PDF ({skipped} lines skipped, no Korean font): {path}',
-  '검색 가능한 PDF를 저장했습니다: {path}': 'Saved searchable PDF: {path}',
   '출처와 함께 복사했습니다': 'Copied with source',
   '다시 열 탭이 없습니다': 'No tab to reopen',
   '쪽 편집을 저장했습니다. 원본은 .iwae/history/pdf-edits에 남아 있습니다': 'Page edits saved. The original is kept in .iwae/history/pdf-edits',
@@ -259,7 +245,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '{name}: 새 소식 확인 중…': '{name}: checking for updates…',
   '{name}: 최신으로 받는 중…': '{name}: pulling latest…',
   '{index}번 칸으로 이동': 'Move to pane {index}',
-  '{pane} 패널로 옮기기': 'Move to {pane} pane',
   '새 오른쪽 칸으로 이동': 'Move to new pane on the right',
   '칸이 너무 작습니다': 'The pane is too small',
   '칸은 {max}개까지입니다': 'At most {max} panes',
@@ -271,7 +256,6 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   '경로를 복사했습니다.': 'Path copied.',
   '버전 묶음을 만들었습니다: {label}. 새 버전은 이 문서 위로 끌어 놓거나 우클릭 메뉴의 「이 묶음에 버전 추가…」로 추가합니다': 'Grouped as versions ({label}). Drop a new version onto this document or right-click “Add a version to this group…”',
   '이미 버전 묶음에 있는 문서입니다': 'This document is already in a version group',
-  '검색 가능한 PDF를 만들지 못했습니다: {error}': 'Could not make a searchable PDF: {error}',
   'PDF·Markdown을 열면 여기서 검색할 수 있습니다': 'Open a PDF or Markdown file to search it here',
   '버전으로 묶을 수 없습니다. 이미 다른 묶음에 있는 문서입니다': 'Cannot stack (the document is already in another group)',
   '「{title}」를 {label} 버전으로 묶었습니다': 'Grouped “{title}” as version {label}',

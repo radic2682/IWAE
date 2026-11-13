@@ -89,7 +89,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '메모 모두 펼치기': 'Expand all memos',
   '모두 접기': 'Collapse all',
   '모두 펼치기': 'Expand all',
-  'PDF와 같이 보기': 'Show with PDF',
   '이 PDF': 'This PDF',
   '새 노트 만들기': 'Create new note',
   '박스 메모': 'Box memo',
@@ -100,22 +99,17 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '스캔본 · 텍스트 없음': 'Scanned · no text',
 
   // PdfOverlayPalette
-  '{label} 끝내기': 'Finish {label}',
   'PDF 편집': 'PDF editing',
   '고른 것': 'Selection',
   '색': 'Color',
   '색 {value}': 'Color {value}',
   '글자 크기': 'Font size',
-  '글자 작게': 'Smaller text',
-  '글자 크기(pt)': 'Font size (pt)',
-  '글자 크게': 'Larger text',
   '선 굵기': 'Line width',
   '굵기 {width}': 'Width {width}',
   '굵게': 'Bold',
   '바탕': 'Background',
   '테두리': 'Border',
   '화살표': 'Arrow',
-  '끝에 화살표': 'Arrow at end',
   '점선': 'Dashed',
   '고른 것 지우기': 'Delete selection',
   '지우기 (Delete)': 'Delete (Delete)',
@@ -148,7 +142,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '탭': 'tab',
   '탭 {count}개를 닫았습니다': 'Closed {count} tab(s)',
   '오른쪽 패널로 옮기기': 'Move to right pane',
-  '왼쪽 패널로 옮기기': 'Move to left pane',
   '{label}을 닫았습니다': 'Closed {label}',
   '열린 {label} 없음': 'No open {label}s',
   '열린 {label}': 'Open {label}s',
@@ -163,7 +156,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '다른 탭 모두 닫기': 'Close other tabs',
   '오른쪽 탭 모두 닫기': 'Close tabs to the right',
   '모두 닫기': 'Close all',
-  '같은 PDF 한 군데 더 열기': 'Open same PDF again',
   '쪽 편집…': 'Edit pages…',
   '이름을 복사했습니다': 'Copied name',
   '이름 복사': 'Copy name',
@@ -174,8 +166,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   '문서 검색': 'Search documents',
   '문서 검색 (Ctrl+Shift+F)': 'Search documents (Ctrl+Shift+F)',
   '창 나누기': 'Split view',
-  '창 나누기 · 다른 문서를 나란히 봅니다': 'Split view · view documents side by side',
-  '(Ctrl+\\ 로 차례로)': '(Ctrl+\\ to cycle)',
   '사이드바 보기': 'Sidebar view',
   '탐색기': 'Explorer',
   '목록': 'Outline',
@@ -183,7 +173,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   'PDF 검색': 'Search PDF',
   'PDF 검색 (Ctrl+F)': 'Search PDF (Ctrl+F)',
   '인쇄': 'Print',
-  '인쇄 (Ctrl+P)': 'Print (Ctrl+P)',
 
   // theme
   '짙은 회색, 파란 강조(기본)': 'Dark gray, blue accent (default)',
@@ -262,8 +251,6 @@ export const GROUP_5: Readonly<Record<string, string>> = {
   'PDF 책갈피 파일 형식이 잘못되었습니다.': 'Invalid PDF bookmark file format.',
 
   // MarkdownOutline
-  'Markdown 목차': 'Markdown outline',
-  '제목이 없습니다.': 'No headings.',
   'Markdown 절 미리보기': 'Markdown section preview',
 
   // TextBlockNode

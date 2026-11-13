@@ -31,7 +31,7 @@ export const PREFIX_KEY_ROWS: readonly PrefixKeyRow[] = [
   { keys: 'n p l · 0–9', action: '다음 · 이전 · 마지막 화면 · 번호로', commands: ['next-window', 'previous-window', 'last-window', 'select-window -t N'] },
   { keys: 'f · w', action: '떠 있는 칸 숨기기·보이기 · 번역기', commands: ['toggle-floating', 'display-popup'] },
   { keys: 's', action: '세션 목록', commands: ['choose-session'] },
-  { keys: 'd', action: '이 앱 창 떼기', commands: ['detach'] },
+  { keys: 'd', action: '이 앱 창 닫기', commands: ['detach'] },
   { keys: ':', action: '명령줄', commands: [], note: '명령 팔레트를 「:」로 엽니다' },
   { keys: '?', action: '키 목록', commands: ['list-keys'] },
 ]

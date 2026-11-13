@@ -30,7 +30,6 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '(글자 없음)': '(no text)',
   'Markdown을 저장했습니다: {name}': 'Saved Markdown: {name}',
   'PDF 도구': 'PDF tools',
-  'PDF 도구 (OCR · 주석 · 병합 · 쪽 번호 …)': 'PDF tools (OCR · annotations · merge · page numbers …)',
   'PDF를 수정하지 못했습니다': 'Could not modify the PDF',
   'Vault 목록에 없는 PDF입니다.': 'This PDF is not in the vault list.',
   '새 PDF를 만들지 못했습니다': 'Could not create the new PDF',
@@ -204,7 +203,6 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '{title} 노트': '{title} notes',
   '노트 바꾸기: {title}': 'Switch note: {title}',
   '눌러서 노트 바꾸기': 'Click to switch note',
-  '눌러서 노트 바꾸기 · 두 번 눌러 이름 바꾸기': 'Click to switch note · double-click to rename',
   '{label} 버전으로 바꾸기': 'Switch to version {label}',
   '눌러서 이 버전으로, 우클릭으로 더 보기, 묶음 밖으로 끌어 놓으면 빼기': 'Click to switch to this version, right-click for more, drag out of the group to remove',
   '{label} 버전 작업': 'Version {label} actions',
@@ -341,4 +339,7 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '캔버스 열기': 'Open canvas',
   '자리 바꾸기': 'Swap places',
   '새 메모가 갈 노트: {name}': 'Note for new memos: {name}',
+  'IWAE(화면 그리기 포함) CPU {cpu} · 메모리 {memory}\n시스템 전체 CPU {systemCpu} · {systemMemory}': 'IWAE (incl. rendering) CPU {cpu} · Memory {memory}\nSystem CPU {systemCpu} · {systemMemory}',
+  'https://… 또는 G:\\폴더\\파일.pdf': 'https://… or G:\\folder\\file.pdf',
+  '세션 이름에는 / \\ : * ? " < > | 문자를 쓸 수 없습니다': 'A session name cannot contain / \\ : * ? " < > |',
 }

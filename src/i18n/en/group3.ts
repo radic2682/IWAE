@@ -89,8 +89,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '폴더로 옮기기': 'Move to folder',
   '노트 (맨 위)': 'Notes (top level)',
   '경로 복사': 'Copy path',
-  '노트 지우기': 'Delete note',
-  '폴더 지우기…': 'Delete folder…',
   '{name} 없음': '{name}: none',
   '색 없음': 'No color',
 
@@ -215,7 +213,6 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '선택 내용을 노트로 끌기': 'Drag selection to a note',
   '번역 중…': 'Translating…',
   'Markdown 번역 결과': 'Markdown translation result',
-  '번역과 함께 블록 추가': 'Add block with translation',
   'Markdown 검색': 'Markdown search',
   'Markdown 검색어': 'Markdown search term',
   '이 문서에서 찾기': 'Find in this document',

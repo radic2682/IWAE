@@ -37,7 +37,7 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   '명령줄 명령': 'Command-line commands',
   '「:」를 누르면 명령 팔레트가 명령 목록과 함께 열립니다. ↑ ↓로 고르고, Tab으로 완성하고, Enter로 실행하며, Alt+↑ ↓로 이전 명령을 불러옵니다. 「;」로 여러 명령을 이을 수 있습니다. 예: split-window -h ; open 노트 A': 'Press “:” to open the command palette with the command list. Use ↑ ↓ to choose, Tab to complete, Enter to run, and Alt+↑ ↓ for history. Join several commands with “;”. Example: split-window -h ; open Note A',
   '세션 목록': 'Session list',
-  '이 앱 창 떼기': 'Detach this app window',
+  '이 앱 창 닫기': 'Close this app window',
   '키 목록': 'Key list',
   // 상단바 도구줄 주인 칩
   '떠 있는 칸': 'Floating pane',
