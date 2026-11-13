@@ -262,7 +262,7 @@ const DETACHED_TAB_TOP = 5
 /** 노트 · Markdown 탭을 떼어 연 새 앱 창에서 마우스가 놓일 자리(창 왼쪽 위에서, CSS 픽셀): 기본 사이드바(280px) 오른쪽 칸 머리의 첫 탭쯤 */
 const TORN_CLIENT_GRAB_X = 360
 const TORN_CLIENT_GRAB_Y = 64
-/** 탭 메뉴 「새 오른쪽 패널로 옮기기」가 가리키는 칸(아직 없다) */
+/** 탭 메뉴 「새 오른쪽 칸으로 이동」이 가리키는 칸(아직 없다) */
 const NEW_PANE_TARGET = '__new-pane__'
 
 const LazyNoteCanvas = lazy(async () => {
@@ -559,7 +559,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     // PowerPoint 는 바로 넣지 않고 「PDF 로 바꿔 넣을까요?」 묻는다. 어디에 놓았든 왼쪽 바에 놓은 것처럼 Vault 로 넣는다
     const slides = allPaths.filter(isPowerPointPath)
     // PowerPoint 변환은 PC 의 PowerPoint(COM)를 쓰므로 Windows 에서만 된다
-    if (slides.length > 0 && isMacPlatform()) announceAction(t('PowerPoint 를 PDF 로 바꾸는 기능은 Windows 에서만 됩니다. PDF 로 저장해서 넣어 주세요.'))
+    if (slides.length > 0 && isMacPlatform()) announceAction(t('PowerPoint를 PDF로 바꾸는 기능은 Windows에서만 됩니다. PDF로 저장한 뒤 넣으세요.'))
     else if (slides.length > 0) setPendingSlides({ paths: slides, folderPath: zone.kind === 'vault' ? zone.folderPath ?? '' : '', place: zone.kind === 'vault' ? zone.place : undefined })
     const paths = allPaths.filter((path) => !isPowerPointPath(path))
     if (paths.length === 0) return
@@ -610,7 +610,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const [convertingSlides, setConvertingSlides] = useState(false)
   const convertSlides = async (request: { paths: readonly string[]; folderPath: string; place?: TreeDropPlace }) => {
     if (vault === null) {
-      announceAction(t('먼저 Vault 를 열어 주세요'))
+      announceAction(t('먼저 Vault를 여세요'))
       return
     }
     setConvertingSlides(true)
@@ -622,7 +622,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const name = (path.split(/[\\/]/u).at(-1) ?? 'slides').replace(/\.pptx?$/iu, '.pdf')
       // Vault 안 임시 자리에서 만든 뒤 고른 폴더로 복사하고 지운다(앱은 Vault 밖에 쓰지 못한다)
       const target = await join(vault.root, '.iwae', 'cache', 'converted', name)
-      announceAction(t('PDF 로 바꾸는 중: {name}', { name }))
+      announceAction(t('PDF로 바꾸는 중: {name}', { name }))
       try {
         await officeToPdf(path, target)
         converted.push(target)
@@ -635,7 +635,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setConvertingSlides(false)
     setPendingSlides(null)
     if (failures.length > 0) announceAction(failures.join(' · '))
-    else if (converted.length > 0) announceAction(t('PowerPoint {count}개를 PDF 로 바꿔 넣었습니다', { count: converted.length }))
+    else if (converted.length > 0) announceAction(t('PowerPoint {count}개를 PDF로 바꿔 넣었습니다', { count: converted.length }))
   }
   const [readerDropActive, setReaderDropActive] = useState(false)
   useEffect(() => {
@@ -865,7 +865,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         ? record.path
         : await (await import('@tauri-apps/api/path')).join(vault.root, ...record.path.split(/[\\/]/u))
       await copyFileToClipboard(absolute)
-      announceAction(t('「{name}」 파일을 복사했습니다. 붙여 넣으면 PDF 가 들어갑니다', { name: record.displayName || record.filename }))
+      announceAction(t('「{name}」 파일을 복사했습니다. 붙여 넣으면 PDF가 추가됩니다', { name: record.displayName || record.filename }))
     } catch (cause) {
       announceAction(t('복사하지 못했습니다: {error}', { error: errorText(cause) }))
     }
@@ -1194,7 +1194,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (name === 'search' || name === 'documentSearch' || name === 'commandPalette') shortcutActionsRef.current[name]?.()
       if (name === 'pdfTools' && detail?.docId !== undefined) openPdfToolsView(detail.docId, detail.tool as PdfToolViewId | undefined)
       if (name === 'ocrDocument' && detail?.docId !== undefined) {
-        void ocrDocumentRef.current(detail.docId).catch((cause: unknown) => announceAction(t('OCR 하지 못했습니다: {error}', { error: errorText(cause) })))
+        void ocrDocumentRef.current(detail.docId).catch((cause: unknown) => announceAction(t('OCR에 실패했습니다: {error}', { error: errorText(cause) })))
       }
     }
     window.addEventListener(APP_COMMAND_EVENT, onCommand)
@@ -1208,23 +1208,23 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     return [
       { id: 'pdf-tools', kind: 'action', label: t('PDF 도구…'), keywords: 'pdf tools stirling', run: open(meta?.hasText === false ? 'ocr' : 'flatten') },
       { id: 'pdf-ocr', kind: 'action', label: t('PDF: OCR (스캔 글자 인식)'), keywords: 'ocr scan text recognize 스캔 글자 인식', run: () => { void ocrDocumentRef.current(docId).catch((cause: unknown) => announceAction(errorText(cause))) } },
-      { id: 'pdf-flatten', kind: 'action', label: t('PDF: 주석을 넣은 PDF 저장'), keywords: 'flatten annotate export share 주석 저장 공유', run: open('flatten') },
-      { id: 'pdf-redact', kind: 'action', label: t('PDF: 민감 정보 가린 PDF 저장'), keywords: 'redact hide privacy 가리기 민감 정보', run: open('redact') },
+      { id: 'pdf-flatten', kind: 'action', label: t('PDF: 주석 포함 PDF 저장'), keywords: 'flatten annotate export share 주석 저장 공유', run: open('flatten') },
+      { id: 'pdf-redact', kind: 'action', label: t('PDF: 민감 정보를 가려서 저장'), keywords: 'redact hide privacy 가리기 민감 정보', run: open('redact') },
       { id: 'pdf-compare', kind: 'action', label: t('PDF: 다른 버전과 글자 비교'), keywords: 'compare diff version 비교 버전', run: open('compare') },
       { id: 'pdf-extract', kind: 'action', label: t('PDF: 쪽 추출'), keywords: 'extract split pages 쪽 추출 뽑기 발췌', run: open('extract') },
-      { id: 'pdf-split', kind: 'action', label: t('PDF: PDF 분할 (목차별)'), keywords: 'split chapters 분할 나누기 목차 장', run: open('split') },
-      { id: 'pdf-merge', kind: 'action', label: t('PDF: PDF 병합'), keywords: 'merge combine 병합 합치기 붙이기', run: open('merge') },
+      { id: 'pdf-split', kind: 'action', label: t('PDF: 목차별로 나누기'), keywords: 'split chapters 분할 나누기 목차 장', run: open('split') },
+      { id: 'pdf-merge', kind: 'action', label: t('PDF: 합치기'), keywords: 'merge combine 병합 합치기 붙이기', run: open('merge') },
       { id: 'pdf-blanks', kind: 'action', label: t('PDF: 빈 쪽 삭제'), keywords: 'blank remove delete pages 빈 쪽 삭제 빼기', run: open('blanks') },
       { id: 'pdf-orient', kind: 'action', label: t('PDF: 스캔 쪽 방향 자동 보정'), keywords: 'orientation rotate scan upside down sideways 방향 보정 회전 바로잡기', run: open('orient') },
-      { id: 'pdf-compress', kind: 'action', label: t('PDF: PDF 압축 (용량 줄이기)'), keywords: 'compress shrink size images 압축 용량 줄이기', run: open('compress') },
+      { id: 'pdf-compress', kind: 'action', label: t('PDF: 압축'), keywords: 'compress shrink size images 압축 용량 줄이기', run: open('compress') },
       { id: 'pdf-numbers', kind: 'action', label: t('PDF: 쪽 번호 넣기'), keywords: 'page numbers 쪽 번호', run: open('numbers') },
       { id: 'pdf-watermark', kind: 'action', label: t('PDF: 워터마크 넣기'), keywords: 'watermark stamp 워터마크 도장', run: open('watermark') },
       { id: 'pdf-crop', kind: 'action', label: t('PDF: 여백 자르기'), keywords: 'crop margins 여백 자르기', run: open('crop') },
-      { id: 'pdf-nup', kind: 'action', label: t('PDF: 모아찍기 (한 장에 여러 쪽)'), keywords: 'n-up layout print 모아찍기 한 장에 여러 쪽', run: open('nup') },
-      { id: 'pdf-images', kind: 'action', label: t('PDF: 쪽을 PNG 이미지로 내보내기'), keywords: 'images png export 이미지 그림 내보내기', run: open('images') },
-      { id: 'pdf-markdown', kind: 'action', label: t('PDF: 본문을 Markdown 으로'), keywords: 'markdown text export 본문 글 내보내기', run: open('markdown') },
+      { id: 'pdf-nup', kind: 'action', label: t('PDF: 모아찍기'), keywords: 'n-up layout print 모아찍기 한 장에 여러 쪽', run: open('nup') },
+      { id: 'pdf-images', kind: 'action', label: t('PDF: 쪽을 PNG로 내보내기'), keywords: 'images png export 이미지 그림 내보내기', run: open('images') },
+      { id: 'pdf-markdown', kind: 'action', label: t('PDF: 본문을 Markdown으로'), keywords: 'markdown text export 본문 글 내보내기', run: open('markdown') },
       { id: 'pdf-import-marks', kind: 'action', label: t('PDF: 기존 주석 가져오기'), keywords: 'import annotations highlights acrobat preview zotero 주석 가져오기 형광펜', run: open('importMarks') },
-      { id: 'pdf-notes-markdown', kind: 'action', label: t('PDF: 노트를 Markdown 으로'), keywords: 'markdown export obsidian notion notes', run: open('notesMarkdown') },
+      { id: 'pdf-notes-markdown', kind: 'action', label: t('PDF: 노트를 Markdown으로'), keywords: 'markdown export obsidian notion notes', run: open('notesMarkdown') },
     ]
   }
   /** 명령 팔레트(Ctrl+Shift+P)에 보일 동작과 문서 */
@@ -1235,15 +1235,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       ...(isDetachedWindow
         ? [{ id: 'reattach', kind: 'action' as const, label: t('다시 붙이기'), keywords: 'reattach attach back window main', run: () => windowActionsRef.current.reattach() }]
         : activeDocumentTab?.kind === 'pdf'
-          ? [{ id: 'detach', kind: 'action' as const, label: t('창으로 떼어 내기'), keywords: 'detach window pop out separate', run: () => windowActionsRef.current.detachActive() }]
+          ? [{ id: 'detach', kind: 'action' as const, label: t('창으로 분리'), keywords: 'detach window pop out separate', run: () => windowActionsRef.current.detachActive() }]
           : []),
       { id: 'settings', kind: 'action', label: t('설정 열기'), shortcut: shortcutText('openSettings'), keywords: 'settings preferences', run: act('openSettings') },
       { id: 'translation-settings', kind: 'action', label: t('번역 설정 열기'), keywords: 'translation translate', run: () => { setSettingsSection('translation'); setSettingsOpen(true) } },
-      { id: 'translator', kind: 'action', label: translatorWindow.open && translation.settings.enabled ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open && translationEnabledRef.current) toggleTranslatorWindow(); else if (!openTranslator()) announceAction(t('번역이 꺼져 있습니다. 설정에서 켜 주세요')) } },
+      { id: 'translator', kind: 'action', label: translatorWindow.open && translation.settings.enabled ? t('번역기 닫기') : t('번역기 열기'), shortcut: `${prefixHint} w`, keywords: 'translator translate popup 번역기', run: () => { if (translatorWindow.open && translationEnabledRef.current) toggleTranslatorWindow(); else if (!openTranslator()) announceAction(t('번역이 꺼져 있습니다. 설정에서 켜세요')) } },
       { id: 'keys-help', kind: 'action', label: t('키와 명령 보기'), shortcut: `${prefixHint} ?`, keywords: 'keys help shortcuts commands list-keys 키 명령 도움말', run: () => setKeysHelpOpen(true) },
       { id: 'doc-search', kind: 'action', label: t('모든 문서에서 찾기'), shortcut: shortcutText('documentSearch'), keywords: 'search vault find', run: act('documentSearch') },
       { id: 'find', kind: 'action', label: t('이 문서에서 찾기'), shortcut: shortcutText('search'), keywords: 'find search', run: act('search') },
-      { id: 'goto', kind: 'action', label: t('쪽으로 가기'), shortcut: shortcutText('goTo'), keywords: 'go to page', run: act('goTo') },
+      { id: 'goto', kind: 'action', label: t('쪽으로 이동'), shortcut: shortcutText('goTo'), keywords: 'go to page', run: act('goTo') },
       ...(isDetachedWindow ? [] : [
         { id: 'library', kind: 'action' as const, label: t('라이브러리 펼치기·접기'), shortcut: shortcutText('toggleLibrary'), keywords: 'library', run: act('toggleLibrary') },
         { id: 'sidebar', kind: 'action' as const, label: t('왼쪽 바 접기·펴기'), keywords: 'sidebar', run: () => setSidebarCollapsed((value) => !value) },
@@ -1252,24 +1252,24 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       ...(docPaneId !== null && vault !== null ? [{ id: 'note-beside', kind: 'action' as const, label: noteBesideShown ? t('옆에 노트 닫기') : t('옆에 노트 열기'), shortcut: shortcutText('toggleNoteBeside'), keywords: 'note beside side open close memo reading 노트 옆 읽기', run: act('toggleNoteBeside') }] : []),
       ...(SPLIT_PANES_ENABLED && !isDetachedWindow ? [
         ...availableScreenTemplates(CANVAS_ENABLED).map((template) => ({ id: `new-screen-${template.id}`, kind: 'action' as const, label: t('새 화면: {name}', { name: template.label }), keywords: 'new screen window template new-window 화면 템플릿', run: () => { void newScreenFromTemplate(template.id) } })),
-        ...(vault === null ? [] : availableScreenTemplates(CANVAS_ENABLED).filter((template) => template.id !== 'blank').map((template) => ({ id: `reapply-${template.id}`, kind: 'action' as const, label: t('이 화면을 템플릿으로 다시 짜기: {name}', { name: template.label }), keywords: 'layout template rearrange apply reapply arrangement 배치 템플릿 다시 짜기', run: () => { void applyPreset(template.id as LayoutPresetId) } }))),
+        ...(vault === null ? [] : availableScreenTemplates(CANVAS_ENABLED).filter((template) => template.id !== 'blank').map((template) => ({ id: `reapply-${template.id}`, kind: 'action' as const, label: t('이 화면에 템플릿 적용: {name}', { name: template.label }), keywords: 'layout template rearrange apply reapply arrangement 배치 템플릿 다시 짜기', run: () => { void applyPreset(template.id as LayoutPresetId) } }))),
         { id: 'split-right', kind: 'action' as const, label: t('칸 나누기: 오른쪽으로'), keywords: 'split pane right split-window 칸 나누기', run: () => splitPaneFromHead(activePaneId, 'h') },
         { id: 'split-down', kind: 'action' as const, label: t('칸 나누기: 아래로'), keywords: 'split pane down split-window 칸 나누기', run: () => splitPaneFromHead(activePaneId, 'v') },
-        { id: 'zoom-pane', kind: 'action' as const, label: zoomedPane === null ? t('이 칸만 크게') : t('원래 크기로'), keywords: 'zoom pane resize-pane 크게', run: () => toggleFocus(activePaneId) },
+        { id: 'zoom-pane', kind: 'action' as const, label: zoomedPane === null ? t('이 칸 확대') : t('원래 크기로'), keywords: 'zoom pane resize-pane 크게', run: () => toggleFocus(activePaneId) },
         { id: 'next-screen', kind: 'action' as const, label: t('다음 화면'), keywords: 'next screen window next-window', run: () => screenOps.step(1) },
         { id: 'prev-screen', kind: 'action' as const, label: t('이전 화면'), keywords: 'previous screen window previous-window', run: () => screenOps.step(-1) },
         { id: 'last-screen', kind: 'action' as const, label: t('마지막 화면으로'), keywords: 'last screen window last-window', run: () => screenOps.last() },
         ...(screens.length > 1 ? [{ id: 'close-screen', kind: 'action' as const, label: t('화면 닫기'), keywords: 'close screen window kill-window', run: () => screenOps.close(activeScreenId) }] : []),
       ] : []),
-      { id: 'zotero-import', kind: 'action', label: t('Zotero 에서 가져오기…'), keywords: 'zotero import library references pdf', run: () => { void interop.runZotero() } },
-      { id: 'export-vault-markdown', kind: 'action', label: t('모든 노트를 Markdown 으로 내보내기…'), keywords: 'markdown export obsidian notion vault notes', run: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
+      { id: 'zotero-import', kind: 'action', label: t('Zotero에서 가져오기…'), keywords: 'zotero import library references pdf', run: () => { void interop.runZotero() } },
+      { id: 'export-vault-markdown', kind: 'action', label: t('모든 노트를 Markdown으로 내보내기…'), keywords: 'markdown export obsidian notion vault notes', run: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
       { id: 'undo', kind: 'action', label: t('되돌리기'), shortcut: shortcutText('undo'), keywords: 'undo', run: act('undo') },
       { id: 'redo', kind: 'action', label: t('다시 하기'), shortcut: shortcutText('redo'), keywords: 'redo', run: act('redo') },
       { id: 'next-tab', kind: 'action', label: t('다음 탭'), shortcut: shortcutText('nextTab'), keywords: 'next tab', run: act('nextTab') },
       { id: 'prev-tab', kind: 'action', label: t('이전 탭'), shortcut: shortcutText('prevTab'), keywords: 'previous tab', run: act('prevTab') },
       { id: 'close-tab', kind: 'action', label: t('탭 닫기'), shortcut: shortcutText('closeTab'), keywords: 'close tab', run: act('closeTab') },
-      { id: 'back', kind: 'action', label: t('뒤로 (문서 점프)'), shortcut: shortcutText('navBack'), keywords: 'back', run: act('navBack') },
-      { id: 'forward', kind: 'action', label: t('앞으로 (문서 점프)'), shortcut: shortcutText('navForward'), keywords: 'forward', run: act('navForward') },
+      { id: 'back', kind: 'action', label: t('뒤로 (문서 이동)'), shortcut: shortcutText('navBack'), keywords: 'back', run: act('navBack') },
+      { id: 'forward', kind: 'action', label: t('앞으로 (문서 이동)'), shortcut: shortcutText('navForward'), keywords: 'forward', run: act('navForward') },
       { id: 'print', kind: 'action', label: t('인쇄'), shortcut: shortcutText('print'), keywords: 'print', run: act('print') },
       { id: 'shortcuts', kind: 'action', label: t('단축키 보기'), shortcut: shortcutText('showShortcuts'), keywords: 'keyboard shortcuts help', run: act('showShortcuts') },
       { id: 'theme', kind: 'action', label: theme.resolvedTheme === 'dark' ? t('밝은 화면으로') : t('어두운 화면으로'), keywords: 'theme dark light', run: () => theme.setPreference(theme.resolvedTheme === 'dark' ? 'light' : 'dark') },
@@ -1829,7 +1829,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   /** keys.conf 를 읽어 본 Vault(null = Vault 없음)와 거기서 접두키를 정했는가. 첫 실행 「접두키 고르기」 창이 이것을 기다린다 */
   const [keysConfPrefix, setKeysConfPrefix] = useState<{ readonly root: string | null; readonly sets: boolean } | null>(null)
   const loadKeysConf = useCallback(async (): Promise<CommandResult & { readonly found: boolean }> => {
-    if (vault === null) { setKeyBindings({}); setKeysConfPrefix({ root: null, sets: false }); return { ok: false, found: false, message: t('Vault 를 연 뒤에 쓸 수 있습니다') } }
+    if (vault === null) { setKeyBindings({}); setKeysConfPrefix({ root: null, sets: false }); return { ok: false, found: false, message: t('Vault를 연 뒤에 쓸 수 있습니다') } }
     try {
       const { readKeysConf } = await import('../bridge/vault')
       const text = await readKeysConf(vault)
@@ -1837,11 +1837,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setKeyBindings(conf.bindings)
       setKeysConfPrefix({ root: vault.root, sets: conf.prefix !== null })
       if (conf.prefix !== null) setAppPref('shortcuts', withBinding(getShortcutOverrides(), PREFIX_KEY_ID, conf.prefix))
-      if (conf.errors.length > 0) return { ok: false, found: true, message: t('keys.conf 를 일부 건너뛰었습니다: {line}', { line: conf.errors[0]! }) }
-      return { ok: true, found: text !== null, message: text === null ? t('keys.conf 가 없습니다') : t('keys.conf 를 읽었습니다') }
+      if (conf.errors.length > 0) return { ok: false, found: true, message: t('keys.conf를 일부 건너뛰었습니다: {line}', { line: conf.errors[0]! }) }
+      return { ok: true, found: text !== null, message: text === null ? t('keys.conf가 없습니다') : t('keys.conf를 읽었습니다') }
     } catch {
       setKeysConfPrefix({ root: vault.root, sets: false })
-      return { ok: false, found: false, message: t('keys.conf 를 읽지 못했습니다') }
+      return { ok: false, found: false, message: t('keys.conf를 읽지 못했습니다') }
     }
   }, [vault])
   useEffect(() => {
@@ -1869,7 +1869,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       })) : []),
     ]
     const picked = pickByName(candidates, query) ?? pickByName(candidates.map((candidate) => ({ ...candidate, label: candidate.hint })), query)
-    if (picked === null) return { ok: false, message: t('「{name}」을(를) 찾을 수 없습니다', { name: query }) }
+    if (picked === null) return { ok: false, message: t('찾을 수 없습니다: {name}', { name: query }) }
     picked.run()
     return { ok: true, message: t('열었습니다: {name}', { name: picked.label }) }
   }
@@ -1929,7 +1929,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (sessionNames.length <= 1) return { ok: false, message: t('마지막 세션은 지울 수 없습니다') }
       // 지우기는 사람이 확인 창에서 정한다(바깥 AI 가 보낸 명령도 같다)
       setSessionToKill(target)
-      return { ok: true, message: t('확인 창에서 세션 「{name}」 을(를) 지울지 정하세요', { name: target }) }
+      return { ok: true, message: t('세션을 지울지 확인 창에서 정하세요: {name}', { name: target }) }
     },
     reloadKeys: loadKeysConf,
   }
@@ -2297,7 +2297,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         if (client !== undefined) {
           // 다른 앱 창에서 돌린다(없는 창이면 AI 가 고치도록 오류)
           const target = findClient(clients.registry, client)
-          if (target === null) throw new Error(`unknown client '${client}' (app_state.clients 의 label 이나 id 를 쓰세요: ${clients.registry.map((candidate) => candidate.letter).join(', ')})`)
+          if (target === null) throw new Error(`unknown client '${client}' (app_state.clients의 label이나 id를 쓰세요: ${clients.registry.map((candidate) => candidate.letter).join(', ')})`)
           if (target.id !== clients.selfId) {
             const remote = await clients.engine.runOn(target.id, command)
             return { ok: remote.ok, message: remote.message, state: remote.state as McpWorkspaceState }
@@ -2393,7 +2393,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const copyBibtex = useCallback((docId: string) => {
     const entry = bibliography.entries[docId] ?? { title: docTitles[docId], authors: [], source: 'manual' as const, updatedAt: '' }
     void navigator.clipboard.writeText(toBibtex({ ...entry, title: entry.title ?? docTitles[docId] }))
-      .then(() => announceAction(t('BibTeX을 복사했습니다')))
+      .then(() => announceAction(t('BibTeX를 복사했습니다')))
       .catch((cause: unknown) => announceAction(t('복사하지 못했습니다: {error}', { error: errorText(cause) })))
   }, [bibliography.entries, docTitles])
   /** 노트와 인용한 원본 쪽을 HTML 한 파일로 묶어 저장한다 */
@@ -2475,7 +2475,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    * 진행은 pdfToolJobs 로 알린다(스캔 표시 단추·도구 창이 같이 본다).
    */
   const ocrDocument = useCallback(async (docId: string): Promise<string> => {
-    if (getPdfToolJob(docId) !== undefined) return t('이미 OCR 하는 중입니다')
+    if (getPdfToolJob(docId) !== undefined) return t('이미 OCR 중입니다')
     const meta = await toolDocumentMeta(docId)
     if (meta === null) throw new Error(t('PDF를 열 수 없습니다'))
     setPdfToolJob({ docId, label: 'OCR 준비 중', done: 0, total: meta.pageCount })
@@ -2496,8 +2496,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setPdfToolJob({ docId, label: '글자 입히는 중', done: meta.pageCount, total: meta.pageCount })
       const result = await applyDocumentTool(docId, { kind: 'searchable', pages })
       const message = result.report.skipped > 0
-        ? t('OCR 글자 {count}줄을 입혔습니다(한글 글꼴이 없어 {skipped}줄 제외). 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다', { count: result.report.written, skipped: result.report.skipped })
-        : t('OCR 글자 {count}줄을 입혔습니다. 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다', { count: result.report.written })
+        ? t('OCR 글자 {count}줄을 넣었습니다. 한글 글꼴이 없어 {skipped}줄은 제외했습니다. 원본은 .iwae/history/pdf-edits에 남아 있습니다', { count: result.report.written, skipped: result.report.skipped })
+        : t('OCR 글자 {count}줄을 넣었습니다. 원본은 .iwae/history/pdf-edits에 남아 있습니다', { count: result.report.written })
       announceAction(message)
       return message
     } finally {
@@ -2553,7 +2553,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         }
         const node = find(tree)
         if (node !== null) void openMarkdown(node).then(() => setMarkdownJumpRequest(request))
-        else announceAction(t('Vault 에 없는 문서입니다: {path}', { path: request.path }))
+        else announceAction(t('Vault에 없는 문서입니다: {path}', { path: request.path }))
         return
       }
       openInPane({ id: request.path, title, kind: 'markdown' })
@@ -2794,7 +2794,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     setCanvasEpoch((epoch) => epoch + 1)
     // 쪽 편집 화면에서 저장했을 때만 닫는다(빈 쪽 삭제·방향 바로잡기는 왼쪽 바에서 펼친 채 결과를 보인다)
     setPdfToolsTarget((current) => (current?.tool === 'pageEdit' ? null : current))
-    announceAction(t('쪽 편집을 저장했습니다. 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다'))
+    announceAction(t('쪽 편집을 저장했습니다. 원본은 .iwae/history/pdf-edits에 남아 있습니다'))
   }
   /** 쪽 편집 화면: 큰 편집기라 PDF 창 자리를 대신한다 */
   const renderPageEdit = (target: { docId: string; tool?: PdfToolViewId }) => {
@@ -2844,7 +2844,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           ocr: () => ocrDocument(docId),
           applyInPlace: async (op) => {
             await applyDocumentTool(docId, op)
-            const message = t('원본에 적용했습니다. 덮기 전 원본은 .iwae/history/pdf-edits 에 남겨 두었습니다')
+            const message = t('원본에 적용했습니다. 이전 원본은 .iwae/history/pdf-edits에 남아 있습니다')
             announceAction(message)
             return message
           },
@@ -2881,11 +2881,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
                 if (rotation !== 0) rotations.set(page, rotation)
               }
               if (scanned === 0) return t('글자 없는 스캔 쪽이 없습니다')
-              if (rotations.size === 0) return t('{count}쪽을 살폈지만 돌릴 쪽이 없습니다', { count: scanned })
+              if (rotations.size === 0) return t('{count}쪽을 확인했지만 회전할 쪽이 없습니다', { count: scanned })
               setPdfToolJob({ docId, label: '쪽 돌리는 중', done: meta.pageCount, total: meta.pageCount })
               const items = Array.from({ length: meta.pageCount }, (_, page) => ({ key: `p${page}`, page, rotate: rotations.get(page) ?? (0 as PageRotation) }))
               await savePageEdit(docId, meta.pageSizes, items)
-              return t('{count}쪽을 돌렸습니다', { count: rotations.size })
+              return t('{count}쪽을 회전했습니다', { count: rotations.size })
             } finally {
               setPdfToolJob({ docId, clear: true })
             }
@@ -2896,7 +2896,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           },
           importMarks: async () => interop.importMarksMessage(await interop.importPdfMarks(docId)),
           exportNotesMarkdown: async (scope) => {
-            if (vault === null) throw new Error(t('먼저 Vault 를 열어 주세요'))
+            if (vault === null) throw new Error(t('먼저 Vault를 여세요'))
             const result = await exportNotesAsMarkdown(vault, scope === 'doc' ? { kind: 'doc', docId } : { kind: 'vault' })
             return result === null ? t('취소했습니다') : t('Markdown {count}개를 내보냈습니다: {folder}', { count: result.files.length, folder: result.folder })
           },
@@ -2909,7 +2909,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               parts.push(`## p.${page + 1}`, '', text === '' ? t('(글자 없음)') : text, '')
             }
             const path = await writeDocumentMarkdown(docId, parts.join('\n'))
-            return t('Markdown 을 저장했습니다: {name}', { name: fileName(path) })
+            return t('Markdown을 저장했습니다: {name}', { name: fileName(path) })
           },
           compare: async (otherDocId) => {
             const other = await toolDocumentMeta(otherDocId)
@@ -2993,7 +2993,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const opened = await openAppWindow('detached', windowQuery({ role: 'detached', docId, page, zoom, vaultRoot: vault.root }), docId)
       if (opened === null) return
       if (opened.existing) {
-        announceAction(t('이미 떼어 낸 창이 있어 그 창을 앞으로 가져왔습니다'))
+        announceAction(t('이미 분리된 창이 있어 그 창을 앞으로 가져왔습니다'))
         return
       }
       closePaneTab(id)
@@ -3003,7 +3003,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   /** 세션에 붙는 새 앱 창(new-client). 같은 세션이면 다음 화면(없으면 같은 화면)을, 다른 세션이면 그 세션이 보던 화면을 보인다 */
   const openNewClient = async (wanted?: string): Promise<CommandResult> => {
-    if (vault === null) return { ok: false, message: t('Vault 를 연 뒤에 쓸 수 있습니다') }
+    if (vault === null) return { ok: false, message: t('Vault를 연 뒤에 쓸 수 있습니다') }
     const plan = newClientPlan({
       wanted,
       current: sessionName,
@@ -3023,7 +3023,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   /** 이 앱 창을 뗀다(detach). 세션은 남는다. 마지막 앱 창이면 앱을 닫을지 접두키 칩(「앱을 닫을까요? y/n」)으로 묻는다 */
   const detachThisClient = async (): Promise<CommandResult> => {
-    if (isDetachedWindow) return { ok: false, message: t('떼어 낸 PDF 창은 「다시 붙이기」로 닫습니다') }
+    if (isDetachedWindow) return { ok: false, message: t('분리한 PDF 창은 「다시 붙이기」로 닫습니다') }
     if (detachPlan(clients.registry, clients.selfId) === 'confirm-quit') {
       confirmKindRef.current = 'quit'
       prefixApiRef.current.startConfirm()
@@ -3175,7 +3175,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       })
       if (began === null) return false
       if (began.existing) {
-        announceAction(t('이미 떼어 낸 창이 있어 그 창을 앞으로 가져왔습니다'))
+        announceAction(t('이미 분리된 창이 있어 그 창을 앞으로 가져왔습니다'))
         return true
       }
       tearRef.current = { label: began.label, mode: 'new', docId, page, zoom }
@@ -3208,7 +3208,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           ? acceptTabAttachRef.current({ ...request, source: torn.label })
           : await requestTabAttach(target, request)
         if (attached) await destroyAppWindow(torn.label)
-        else announceAction(t('탭을 붙이지 못해 떼어 낸 창을 그대로 두었습니다'))
+        else announceAction(t('탭을 붙이지 못해 분리한 창을 그대로 두었습니다'))
       } catch (cause) {
         announceAction(t('창을 열지 못했습니다: {error}', { error: errorText(cause) }))
       }
@@ -3413,7 +3413,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       return null
     }
     const node = find(tree)
-    if (node === null) announceAction(t('Vault 에 없는 문서입니다: {path}', { path }))
+    if (node === null) announceAction(t('Vault에 없는 문서입니다: {path}', { path }))
     else void openMarkdown(node)
   }
   /**
@@ -3544,8 +3544,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   /** 이 패널의 탭을 옮길 곳: 다른 칸들 + (칸이 상한 전까지) 이 칸 오른쪽에 새로 여는 칸 */
   const paneMoveTargets = (pane: PaneId) => {
     const targets = paneOrder.filter((target) => target !== pane)
-      .map((target) => ({ pane: target, label: t('{index}번 패널로 옮기기', { index: paneOrder.indexOf(target) + 1 }) }))
-    if (paneCount < MAX_PANES) targets.push({ pane: NEW_PANE_TARGET, label: t('새 오른쪽 패널로 옮기기') })
+      .map((target) => ({ pane: target, label: t('{index}번 칸으로 이동', { index: paneOrder.indexOf(target) + 1 }) }))
+    if (paneCount < MAX_PANES) targets.push({ pane: NEW_PANE_TARGET, label: t('새 오른쪽 칸으로 이동') })
     return targets
   }
   /** 판 묶음의 문서는 탭 이름을 「묶음 이름 판 이름」으로(같은 문서의 두 판이 열려도 구별된다) */
@@ -3695,7 +3695,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       <>
         {renderPaneTabs(pane, undefined)}
         <span className="pane-float-grip" aria-hidden="true" />
-        <button type="button" className="pane-float-button" aria-label={collapsed ? t('펼치기') : t('접기')} title={collapsed ? t('펼치기') : t('접기 (머리만 남깁니다)')} aria-pressed={collapsed} onClick={() => collapseFloatPane(pane)}>
+        <button type="button" className="pane-float-button" aria-label={collapsed ? t('펼치기') : t('접기')} title={collapsed ? t('펼치기') : t('접기 (제목만 남김)')} aria-pressed={collapsed} onClick={() => collapseFloatPane(pane)}>
           <Minus size={14} weight="bold" aria-hidden="true" />
         </button>
         <button type="button" className="pane-float-button" aria-label={t('칸으로 넣기')} title={t('칸으로 넣기 (embed-pane)')} onClick={() => embedFloatPane(pane)}>
@@ -3880,7 +3880,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onMarkdownHighlightRemoved={markdownHighlights.remove}
         markdownJumpRequest={markdownJumpRequest}
         onMarkdownJumpHandled={() => setMarkdownJumpRequest(null)}
-        placeholder={t('문서를 불러올 수 없습니다. 사이드바에서 문서를 다시 연결해 주세요')}
+        placeholder={t('문서를 불러올 수 없습니다. 사이드바에서 문서를 다시 연결하세요')}
         fullTitle={documentHeading(tab, meta).main}
         subtitle={documentHeading(tab, meta).sub}
         overlays={pdfOverlays.overlays[tabDocId(tab)]}
@@ -4069,7 +4069,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               const shownTitle = folderName ?? docTitles[docId] ?? searchRecords.find((record) => record.id === docId)?.displayName ?? docId
               const label = guessVersionLabel(fileName, folderName ?? docTitles[docId])
               const ok = versionGroups.start({ docId, title: groupTitleFromDocTitle(shownTitle, label), label })
-              announceAction(ok ? t('버전 묶음을 만들었습니다({label}). 새 버전은 이 문서 위로 끌어 놓거나 우클릭 「이 묶음에 버전 추가…」로 넣습니다', { label }) : t('이미 버전 묶음에 있는 문서입니다'))
+              announceAction(ok ? t('버전 묶음을 만들었습니다: {label}. 새 버전은 이 문서 위로 끌어 놓거나 우클릭 메뉴의 「이 묶음에 버전 추가…」로 추가합니다', { label }) : t('이미 버전 묶음에 있는 문서입니다'))
             }}
             onOpenSources={setSourcesDocId}
             onOpenFirstSource={(docId: string) => { const first = docSources.sources[docId]?.[0]; if (first !== undefined) openDocSource(first) }}
@@ -4127,7 +4127,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           <div className="side-search-tab">
             <SearchScopeSwitch scope={searchScope} onChange={setSearchScope} />
             <div className="side-pdf-search" ref={setPdfSearchSlot} aria-label={t('PDF 검색')} hidden={searchScope === 'vault'}>
-              {activePdfDoc === null && activeDocumentTab?.kind !== 'markdown' ? <p className="side-section-empty">{t('PDF·Markdown 을 열면 여기서 검색합니다')}</p> : null}
+              {activePdfDoc === null && activeDocumentTab?.kind !== 'markdown' ? <p className="side-section-empty">{t('PDF·Markdown을 열면 여기서 검색할 수 있습니다')}</p> : null}
             </div>
             {searchScope === 'vault' ? (
               <div className="side-pdf-search side-vault-search" aria-label={t('모든 문서 검색')}>
@@ -4232,12 +4232,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               ...(isDetachedWindow
                 ? [{ id: 'reattach', label: t('다시 붙이기'), onSelect: () => windowActionsRef.current.reattach() }]
                 : activeDocumentTab?.kind === 'pdf'
-                  ? [{ id: 'detach', label: t('창으로 떼어 내기'), onSelect: () => windowActionsRef.current.detachActive() }]
+                  ? [{ id: 'detach', label: t('창으로 분리'), onSelect: () => windowActionsRef.current.detachActive() }]
                   : []),
             ],
             [
-              { id: 'zotero-import', label: t('Zotero 에서 가져오기…'), onSelect: () => { void interop.runZotero() } },
-              { id: 'export-markdown', label: t('모든 노트를 Markdown 으로 내보내기…'), onSelect: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
+              { id: 'zotero-import', label: t('Zotero에서 가져오기…'), onSelect: () => { void interop.runZotero() } },
+              { id: 'export-markdown', label: t('모든 노트를 Markdown으로 내보내기…'), onSelect: () => { void interop.exportMarkdown({ kind: 'vault' }) } },
             ],
             // 마우스로도 명령 팔레트 · 키 목록에 닿게(맨 위 줄의 ⌘ 단추는 없앴다)
             [
@@ -4389,7 +4389,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               { docId: baseDocId, title: groupTitleFromDocTitle(docTitles[baseDocId] ?? baseDocId, baseLabel ?? addedLabel), label: baseLabel ?? addedLabel },
               { docId: added.docId, label: addedLabel },
             )
-            if (!ok) announceAction(t('버전으로 묶을 수 없습니다(이미 다른 묶음에 있는 문서입니다)'))
+            if (!ok) announceAction(t('버전으로 묶을 수 없습니다. 이미 다른 묶음에 있는 문서입니다'))
             else {
               if (makeDefault) versionGroups.setDefault(added.docId)
               announceAction(t('「{title}」를 {label} 버전으로 묶었습니다', { title: docTitles[added.docId] ?? added.docId, label: addedLabel }))
@@ -4426,7 +4426,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           const source = await githubClone(vault.root, url, target)
           putGithubSource(source)
           await refreshVault()
-          announceAction(t('「{target}」 에 받았습니다 ({ref} · {date})', { target: source.target, ref: source.branch ?? source.detached ?? '', date: source.headDate }))
+          announceAction(t('「{target}」에 받았습니다 ({ref} · {date})', { target: source.target, ref: source.branch ?? source.detached ?? '', date: source.headDate }))
         }}
       />
     ) : null}
@@ -4465,7 +4465,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         }}
         onCancel={() => setSessionToKill(null)}
       >
-        <p>{t('세션 「{name}」 을(를) 지웁니다. 세션 파일은 .iwae/sessions/.trash 폴더로 옮겨 두고, 열려 있는 문서와 노트는 그대로입니다.', { name: sessionToKill })}</p>
+        <p>{t('세션을 지웁니다: {name}. 세션 파일은 .iwae/sessions/.trash 폴더로 옮겨지며, 열려 있는 문서와 노트는 그대로 둡니다.', { name: sessionToKill })}</p>
       </ConfirmDialog>
     ) : null}
     {memoNotes.conflict !== null ? (
@@ -4479,19 +4479,19 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onCancel={() => void memoNotes.resolveConflict('file')}
       >
         <p>{t('「{name}」 노트를 다른 프로그램이 바꿨고, 이 앱에도 아직 저장하지 않은 변경이 있습니다. 어느 쪽을 남길까요?', { name: memoNotes.conflict.title })}</p>
-        <p>{t('정할 때까지 이 노트는 파일에 저장하지 않습니다. 「파일의 것으로 되돌리기」는 이 앱의 저장하지 않은 변경을 버립니다.')}</p>
+        <p>{t('선택할 때까지 이 노트는 파일에 저장되지 않습니다. 「파일의 것으로 되돌리기」를 고르면 이 앱의 저장하지 않은 변경이 사라집니다.')}</p>
       </ConfirmDialog>
     ) : null}
     {pendingSlides !== null ? (
       <ConfirmDialog
-        title={t('PowerPoint 를 PDF 로 바꿔 넣을까요?')}
-        confirmLabel={convertingSlides ? t('바꾸는 중…') : t('PDF 로 바꿔 넣기')}
+        title={t('PowerPoint를 PDF로 바꿔 넣을까요?')}
+        confirmLabel={convertingSlides ? t('바꾸는 중…') : t('PDF로 바꿔 넣기')}
         busy={convertingSlides}
         onConfirm={() => void convertSlides(pendingSlides)}
         onCancel={() => setPendingSlides(null)}
       >
         <p>
-          {t('{files}를 이 PC 의 PowerPoint 로 PDF 로 바꿔 {place}에 넣습니다. 원본 PPT 는 그대로 둡니다. 형광펜·메모·검색은 PDF 처럼 쓸 수 있습니다. 한 파일에 몇 초 걸립니다.', {
+          {t('{files}를 이 PC의 PowerPoint로 PDF로 바꿔 {place}에 넣습니다. 원본 PPT는 바뀌지 않으며, 형광펜·메모·검색은 PDF처럼 쓸 수 있습니다. 파일마다 몇 초 걸립니다.', {
             files: pendingSlides.paths.length === 1
               ? `「${pendingSlides.paths[0]!.split(/[\\/]/u).at(-1)}」`
               : t('PowerPoint {count}개', { count: pendingSlides.paths.length }),
@@ -4575,24 +4575,24 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
               {isMacPlatform() ? (
                 <p>
                   {pick({
-                    ko: <>Finder 에서 PDF 하나를 고르고 <b>정보 가져오기</b>(⌘I)를 연 뒤, <b>다음으로 열기</b>에서 IWAE 를 고르고 <b>모두 변경…</b>을 누르면
-                      모든 PDF 가 IWAE 로 열립니다.</>,
+                    ko: <>Finder에서 PDF를 하나 선택하고 <b>정보 가져오기</b>(⌘I)를 엽니다. <b>다음으로 열기</b>에서 IWAE를 고른 뒤 <b>모두 변경…</b>을 누르면
+                      모든 PDF가 IWAE로 열립니다.</>,
                     en: <>In Finder, select a PDF and choose <b>Get Info</b> (⌘I). Under <b>Open with</b>, pick IWAE and click <b>Change All…</b> to open every PDF with IWAE.</>,
                   })}
                 </p>
               ) : (
               <p>
                 {pick({
-                  ko: <>IWAE 를 설치하면 PDF 를 여는 앱 목록에 IWAE 가 들어갑니다. Windows 는 앱이 스스로 기본 앱을 바꾸지 못하게 하므로,
-                    아래 단추로 「기본 앱」 설정을 열어 <b>.pdf</b> 의 기본 앱을 IWAE 로 골라 주세요.</>,
+                  ko: <>IWAE를 설치하면 PDF를 여는 앱 목록에 IWAE가 추가됩니다. Windows에서는 앱이 기본 앱을 직접 바꿀 수 없으므로,
+                    아래 단추로 「기본 앱」 설정을 열어 <b>.pdf</b>의 기본 앱을 IWAE로 선택하세요.</>,
                   en: <>Installing IWAE adds it to the list of apps that can open PDFs. Windows does not let apps change the default app themselves,
                     so use the button below to open Default apps and choose IWAE for <b>.pdf</b>.</>,
                 })}
               </p>
               )}
               <p>{isMacPlatform()
-                ? t('Finder 에서 연 PDF 는 Vault 로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 남습니다. 끌어서 Vault 폴더에 놓으면 그 폴더로 가져옵니다.')
-                : t('탐색기에서 연 PDF 는 Vault 로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 남습니다. 끌어서 Vault 폴더에 놓으면 그 폴더로 가져옵니다.')}</p>
+                ? t('Finder에서 연 PDF는 Vault로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 표시됩니다. Vault 폴더로 끌어 놓으면 그 폴더로 가져옵니다.')
+                : t('탐색기에서 연 PDF는 Vault로 가져오지 않고 열리며, 왼쪽 바 아래 「최근 연 PDF」에 표시됩니다. Vault 폴더로 끌어 놓으면 그 폴더로 가져옵니다.')}</p>
               {isMacPlatform() ? null : (
                 <button type="button" onClick={() => void openDefaultAppsSettings().catch((cause: unknown) => window.alert(errorText(cause)))}>
                   {t('Windows 기본 앱 설정 열기')}

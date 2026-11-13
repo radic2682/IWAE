@@ -276,9 +276,9 @@ describe('App — 껍데기 배선', () => {
     await waitFor(() => expect(fileDropMocks.listen).toHaveBeenCalledOnce())
 
     fileDropMocks.activeListener?.(true)
-    expect(await screen.findByText('놓으면 Vault 에 복사 · 줄 사이에 놓으면 그 자리, 폴더 위면 그 폴더 안')).toBeDefined()
+    expect(await screen.findByText('놓으면 Vault에 복사합니다. 줄 사이면 그 위치에, 폴더 위면 폴더 안에 넣습니다')).toBeDefined()
     fileDropMocks.dropListener?.(['C:/External/drop.pdf'])
-    expect((await screen.findByRole('alert')).textContent).toContain('Vault를 열어')
+    expect((await screen.findByRole('alert')).textContent).toContain('Vault를 여세요')
 
     view.unmount()
     expect(fileDropMocks.unlisten).toHaveBeenCalledOnce()
@@ -286,7 +286,7 @@ describe('App — 껍데기 배선', () => {
 
   it('처음에는 한 칸이 비어 있다', () => {
     const { container } = renderApp()
-    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')).toBeDefined()
     // 빈 칸에는 조용한 명령 목록이 있다(한 칸뿐이라 「이 칸 닫기」 는 없다. 번역기 · 캔버스 줄도 없다)
     expect(screen.getByText('빈 칸')).toBeDefined()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
@@ -310,7 +310,7 @@ describe('App — 껍데기 배선', () => {
     // 문서도 노트도 없는 처음: 빈 창에 캔버스 탭으로 열린다(안내 문구는 사라진다)
     fireEvent.click(screen.getByRole('button', { name: 'OPTIONS' }))
     expect(screen.getByRole('tab', { name: 'OPTIONS' })).toBeDefined()
-    expect(screen.queryByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeNull()
+    expect(screen.queryByText('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')).toBeNull()
   })
 
   it('같은 문서를 두 번 눌러도 탭은 하나다', () => {
@@ -328,7 +328,7 @@ describe('App — 껍데기 배선', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /탭 목록/ })[0]!)
     fireEvent.click(screen.getByRole('button', { name: 'Team Onboarding Guide (Rev C) 목록에서 닫기' }))
     expect(screen.getAllByRole('group', { name: '열린 탭 없음' })[0]).toBeDefined()
-    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')).toBeDefined()
   })
 })
 
@@ -602,7 +602,7 @@ describe('App — 문서 추가', () => {
 
   const addDocumentByReference = () => {
     fireEvent.click(screen.getByRole('button', { name: '문서 추가' }))
-    fireEvent.click(screen.getByRole('button', { name: /원본 위치 참조/ }))
+    fireEvent.click(screen.getByRole('button', { name: /원본 위치를 참조/ }))
   }
 
   it('버튼을 누르면 파일 대화상자를 연다', async () => {
@@ -655,7 +655,7 @@ describe('App — 문서 추가', () => {
     fireEvent.click(screen.getByRole('button', { name: '테스트 스크롤 보고' }))
 
     expect(screen.getByLabelText('페이지 이동 요청 nonce').textContent).toBe(nonceBeforeScroll)
-    expect((screen.getByRole('textbox', { name: '페이지' }) as HTMLInputElement).value).toBe('2')
+    expect((screen.getByRole('textbox', { name: '쪽' }) as HTMLInputElement).value).toBe('2')
   })
 
   it('다른 PDF를 열면 이전 문서의 페이지 이동 요청을 이어받지 않고 1쪽에서 시작한다', async () => {
@@ -663,7 +663,7 @@ describe('App — 문서 추가', () => {
     vi.mocked(openPdf).mockResolvedValue(meta)
     render(<App developmentPreview />)
 
-    const pageInput = screen.getByRole('textbox', { name: '페이지' })
+    const pageInput = screen.getByRole('textbox', { name: '쪽' })
     fireEvent.change(pageInput, { target: { value: '5' } })
     fireEvent.blur(pageInput)
     expect(screen.getByLabelText('페이지 이동 요청 쪽').textContent).toBe('5')
@@ -689,7 +689,7 @@ describe('App — 문서 추가', () => {
     expect(openPdf).not.toHaveBeenCalled()
     expect(screen.getAllByRole('group', { name: '열린 탭 없음' })[0]).toBeDefined()
     expect(screen.getAllByRole('button')).toHaveLength(before)
-    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')).toBeDefined()
   })
 
   it('같은 문서를 두 번 추가해도 목록과 탭은 하나다', async () => {
@@ -720,7 +720,7 @@ describe('App — 문서 추가', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('PDF 가 아닙니다')
 
     expect(screen.getAllByRole('group', { name: '열린 탭 없음' })[0]).toBeDefined()
-    expect(screen.getByText('문서를 열거나, 다른 칸의 탭을 끌어 오세요')).toBeDefined()
+    expect(screen.getByText('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')).toBeDefined()
   })
 })
 
@@ -792,7 +792,7 @@ describe('App — 라이브러리 모드와 문서 전체 화면', () => {
 describe('App — 점프 기록', () => {
   it('목차로 점프한 뒤 뒤로·앞으로·Alt+← 로 오간다', async () => {
     render(<App developmentPreview />)
-    const pageInput = () => screen.getByRole('textbox', { name: '페이지' }) as HTMLInputElement
+    const pageInput = () => screen.getByRole('textbox', { name: '쪽' }) as HTMLInputElement
     fireEvent.click(screen.getByRole('radio', { name: '목록' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Review Checklist 6쪽' }))
     await waitFor(() => expect(pageInput().value).toBe('6'))
@@ -809,7 +809,7 @@ describe('App — 점프 기록', () => {
 describe('App — PDF 링크', () => {
   it('문서 안 링크는 점프 기록에 남고, 외부 링크는 확인을 거친다', async () => {
     render(<App developmentPreview />)
-    const pageInput = () => screen.getByRole('textbox', { name: '페이지' }) as HTMLInputElement
+    const pageInput = () => screen.getByRole('textbox', { name: '쪽' }) as HTMLInputElement
     fireEvent.click(screen.getByRole('button', { name: '테스트 링크 이동' }))
     await waitFor(() => expect(pageInput().value).toBe('4'))
     fireEvent.click(screen.getByRole('button', { name: '뒤로' }))
@@ -826,7 +826,7 @@ describe('App — PDF 링크', () => {
 describe('App — 읽던 위치', () => {
   it('다른 문서를 보고 돌아오면 마지막으로 보던 쪽에서 다시 시작한다', async () => {
     render(<App developmentPreview />)
-    const pageInput = () => screen.getByRole('textbox', { name: '페이지' }) as HTMLInputElement
+    const pageInput = () => screen.getByRole('textbox', { name: '쪽' }) as HTMLInputElement
     fireEvent.click(screen.getByRole('button', { name: '테스트 스크롤 보고' }))
     await waitFor(() => expect(pageInput().value).toBe('2'))
 
@@ -961,11 +961,11 @@ describe('App — 서지 정보', () => {
     const pdfButton = within(documents).getAllByRole('button').find((button) => button.textContent?.includes(SAMPLE_TITLE))!
     fireEvent.contextMenu(pdfButton)
     fireEvent.click(screen.getByRole('menuitem', { name: '논문 정보…' }))
-    const dialog = await screen.findByRole('dialog', { name: `논문 정보 — ${SAMPLE_TITLE}` })
+    const dialog = await screen.findByRole('dialog', { name: `논문 정보: ${SAMPLE_TITLE}` })
     fireEvent.change(within(dialog).getByRole('textbox', { name: '저자 (한 줄에 한 명)' }), { target: { value: 'Ada Lovelace' } })
     fireEvent.change(within(dialog).getByRole('spinbutton', { name: '연도' }), { target: { value: '1843' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '저장' }))
-    expect(screen.queryByRole('dialog', { name: `논문 정보 — ${SAMPLE_TITLE}` })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: `논문 정보: ${SAMPLE_TITLE}` })).toBeNull()
 
     fireEvent.contextMenu(pdfButton)
     fireEvent.click(screen.getByRole('menuitem', { name: '인용 정보 복사 (BibTeX)' }))
@@ -984,7 +984,7 @@ describe('App — 바깥 AI가 보낸 위치', () => {
     const card = await screen.findByRole('alert')
     expect(within(card).getByText(SAMPLE_TITLE)).toBeDefined()
     fireEvent.click(within(card).getByRole('button', { name: '이동' }))
-    await waitFor(() => expect((screen.getByRole('textbox', { name: '페이지' }) as HTMLInputElement).value).toBe('3'))
+    await waitFor(() => expect((screen.getByRole('textbox', { name: '쪽' }) as HTMLInputElement).value).toBe('3'))
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
@@ -1021,7 +1021,7 @@ describe('App — PDF 도구', () => {
     // 도구는 팝업이 아니라 왼쪽 바 「PDF 도구」 목록 안(그 줄 아래)으로 펼쳐진다. 메뉴가 그 탭을 열어 준다
     expect(screen.getByRole('radio', { name: 'PDF 도구' }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(await screen.findByRole('button', { name: 'OCR (스캔 글자 인식)' }))
-    const dialog = await screen.findByRole('region', { name: /PDF 도구 —/ })
+    const dialog = await screen.findByRole('region', { name: /PDF 도구:/ })
     expect(dialog.closest('.pdf-tools-body')).not.toBeNull()
     fireEvent.click(within(dialog).getByRole('button', { name: 'OCR 시작' }))
     expect((await within(dialog).findAllByText('이 PDF는 이미 모든 쪽에 글자가 있습니다')).length).toBeGreaterThan(0)
@@ -1059,7 +1059,7 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     openMenu(0)
     const menu = screen.getByRole('menu', { name: '칸 메뉴' })
     expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-      '오른쪽으로 나누기Ctrl+B %', '아래로 나누기Ctrl+B "', '이 칸만 크게Ctrl+B z', '새 화면으로 떼기Ctrl+B !', '띄우기', '칸 자리 바꾸기Ctrl+B { }', '색 바꾸기파랑', '칸 닫기Ctrl+B x',
+      '오른쪽으로 나누기Ctrl+B %', '아래로 나누기Ctrl+B "', '이 칸 확대Ctrl+B z', '새 화면으로 분리Ctrl+B !', '띄우기', '칸 자리 바꾸기Ctrl+B { }', '색 바꾸기파랑', '칸 닫기Ctrl+B x',
     ])
     pick(/오른쪽으로 나누기/u)
     expect(cells(container)).toHaveLength(3)
@@ -1084,10 +1084,10 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     expect(screen.getByRole('tab', { name: 'Evidence Map — Sample Research Note' })).toBeDefined()
   })
 
-  it('칸이 하나뿐이면 칸 닫기 · 새 화면으로 떼기 · 칸 자리 바꾸기 · 크게는 쓸 수 없다', () => {
+  it('칸이 하나뿐이면 칸 닫기 · 새 화면으로 분리 · 칸 자리 바꾸기 · 크게는 쓸 수 없다', () => {
     renderApp()
     openMenu(0)
-    for (const name of [/칸 닫기/u, /새 화면으로 떼기/u, /띄우기/u, /칸 자리 바꾸기/u, /크게/u]) {
+    for (const name of [/칸 닫기/u, /새 화면으로 분리/u, /띄우기/u, /칸 자리 바꾸기/u, /확대/u]) {
       expect((screen.getByRole('menuitem', { name }) as HTMLButtonElement).disabled).toBe(true)
     }
   })
@@ -1095,7 +1095,7 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
   it('크게: 그 칸만 화면에 남고 머리에 「Z」가 붙는다. 다시 누르면 되돌린다', () => {
     const { container } = render(<App developmentPreview />)
     openMenu(0)
-    pick(/크게/u)
+    pick(/확대/u)
     expect(container.querySelectorAll('.pane-zoom-hidden')).toHaveLength(1)
     expect((cells(container)[0] as HTMLElement).classList.contains('pane-zoom-hidden')).toBe(false)
     const mark = screen.getByRole('button', { name: '원래 크기로' })
@@ -1114,10 +1114,10 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
     expect(order()).toEqual([before[1], before[0]])
   })
 
-  it('새 화면으로 떼기: 그 칸이 새 화면이 되어 그리로 가고, 원래 화면은 한 칸 줄어 있다', () => {
+  it('새 화면으로 분리: 그 칸이 새 화면이 되어 그리로 가고, 원래 화면은 한 칸 줄어 있다', () => {
     const { container } = render(<App developmentPreview />)
     openMenu(1)
-    pick(/새 화면으로 떼기/u)
+    pick(/새 화면으로 분리/u)
     expect(screen.getAllByRole('tab', { name: /^\d/u }).map((tab) => tab.textContent)).toEqual(['0읽기', '1화면 1'])
     expect(cells(container)).toHaveLength(1)
     fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
@@ -1295,7 +1295,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(cells(container)).toHaveLength(before + 2))
   })
 
-  it('z(ㅋ) 는 이 칸만 크게, 한 번 더 누르면 되돌린다. x 는 칸을 닫는다', async () => {
+  it('z(ㅋ) 는 이 칸 확대, 한 번 더 누르면 되돌린다. x 는 칸을 닫는다', async () => {
     const { container } = render(<App developmentPreview />)
     const before = cells(container).length
     after({ key: '%', code: 'Digit5', shiftKey: true })
@@ -1378,19 +1378,19 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     await waitFor(() => expect(screen.getByRole('dialog', { name: '키와 명령' })).toBeDefined())
     fireEvent.keyDown(screen.getByRole('dialog', { name: '키와 명령' }), { key: 'Escape' })
     after({ key: 'j', code: 'KeyJ' })
-    expect(statusMessage()).toContain('모르는 키: j — ? 로 목록')
+    expect(statusMessage()).toContain('알 수 없는 키: j. ?를 누르면 목록이 나옵니다')
   })
 
   it('세션 명령: Vault 가 없으면 알리고(바꾸기 · 만들기), 하나뿐인 세션은 지우지 않으며, 세션 이름은 맨 위 줄에 보인다', async () => {
     render(<App developmentPreview />)
     expect(screen.getByRole('button', { name: '기본' })).toBeDefined()
     await runLine('switch-client -t 없는세션')
-    await waitFor(() => expect(statusMessage()).toContain('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('Vault를 연 뒤에 쓸 수 있습니다'))
     await runLine('kill-session')
     await waitFor(() => expect(statusMessage()).toContain('마지막 세션은 지울 수 없습니다'))
     expect(screen.queryByRole('alertdialog')).toBeNull()
     await runLine('new-session 둘째')
-    await waitFor(() => expect(statusMessage()).toContain('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('Vault를 연 뒤에 쓸 수 있습니다'))
     await runLine('list-sessions')
     await waitFor(() => expect(screen.getByRole('menu', { name: '세션' })).toBeDefined())
   })
@@ -1406,7 +1406,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
   it('앱 창 명령: Vault 가 없으면 new-client 는 알리고, detach 는 마지막 앱 창이라 앱을 닫을지 칩으로 묻는다', async () => {
     render(<App developmentPreview />)
     await runLine('new-client')
-    await waitFor(() => expect(statusMessage()).toContain('Vault 를 연 뒤에 쓸 수 있습니다'))
+    await waitFor(() => expect(statusMessage()).toContain('Vault를 연 뒤에 쓸 수 있습니다'))
     await runLine('detach')
     await waitFor(() => expect(chipText()).toBe('앱을 닫을까요? y/n'))
     press({ key: 'Escape', code: 'Escape' })
@@ -1448,7 +1448,7 @@ describe('App — 접두키 · 명령줄 · 명령 팔레트', () => {
     fireEvent.click(screen.getByRole('tab', { name: /읽기/u }))
     await waitFor(() => expect(cells(container)).toHaveLength(before + 1))
     await runLine('모르는명령')
-    await waitFor(() => expect(statusMessage()).toContain('모르는 명령: 모르는명령 — ? 로 목록'))
+    await waitFor(() => expect(statusMessage()).toContain('알 수 없는 명령: 모르는명령. ?를 입력하면 목록이 나옵니다'))
     await runLine('next')
     after({ key: ':', code: 'Semicolon', shiftKey: true })
     fireEvent.keyDown(commandInput(), { key: 'ArrowUp' })
