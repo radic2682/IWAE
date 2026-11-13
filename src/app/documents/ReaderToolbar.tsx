@@ -81,6 +81,7 @@ export function ReaderToolbar({
               className={`reader-tool-button${buttonClassName ? ` ${buttonClassName}` : ''}${active ? ' reader-tool-button-active toolbar-tool-btn-active' : ''}`}
               aria-label={label}
               title={label}
+              data-tour={mode === 'region-select' ? 'region-capture' : undefined}
               aria-pressed={active}
               onClick={(event) => {
                 // 초점 테두리가 남아 두 도구가 켜진 것처럼 보이지 않게

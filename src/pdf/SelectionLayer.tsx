@@ -736,6 +736,7 @@ export function SelectionLayer({
                   className={className}
                   data-persistent-highlight={id}
                   data-hl={color}
+                  data-tour="pdf-highlight"
                   d={rectsPath(coalesceHighlightRects(persistentAnchor.rects), renderScale)}
                 />
               )

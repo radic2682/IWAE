@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { compareVersions } from './releaseNotes'
-import { latestFeatureTour, planTours, TOURS, tourById, type Tour } from './tours'
+import { latestFeatureTour, planTours, shownStepIndexes, TOURS, tourById, type Tour } from './tours'
 
 const step = (id: string) => ({ id, title: id, body: id })
 const fixture: readonly Tour[] = [
@@ -77,8 +77,46 @@ describe('둘러보기 등록부', () => {
     }
   })
 
-  it('처음 사용 안내는 9단계, 새 기능 안내는 7단계다', () => {
-    expect(tourById('onboarding')?.steps).toHaveLength(9)
+  it('처음 사용 안내는 13단계(선택 4단계 포함), 새 기능 안내는 7단계다', () => {
+    const steps = tourById('onboarding')?.steps ?? []
+    expect(steps).toHaveLength(13)
+    expect(steps.filter((s) => s.optional === true).map((s) => s.id)).toEqual(['pdf-highlight', 'memo-card', 'region-capture', 'format-bar'])
     expect(latestFeatureTour()?.steps).toHaveLength(7)
+  })
+
+  it('처음 사용 안내의 처음과 끝은 목표 없는 카드이고, 선택 단계는 모두 목표가 있다', () => {
+    const steps = tourById('onboarding')?.steps ?? []
+    expect(steps[0]?.target).toBeUndefined()
+    expect(steps.at(-1)?.target).toBeUndefined()
+    for (const s of steps.filter((candidate) => candidate.optional === true)) expect(s.target).toBeDefined()
+    // 칸을 먼저 만져야 목표가 생기는 단계는 선택 단계여야 한다
+    for (const s of steps.filter((candidate) => candidate.focus !== undefined)) expect(s.optional).toBe(true)
+  })
+
+  it('글 규칙: 「판」 · 말줄임 괄호 · 줄표를 쓰지 않는다', () => {
+    for (const tour of TOURS) {
+      for (const s of tour.steps) {
+        for (const text of [s.title, s.body, s.bodyWhenTranslationOn ?? '']) {
+          expect(text).not.toMatch(/[—–]/u)
+          expect(text).not.toMatch(/\([^)]*·[^)]*\)/u)
+        }
+      }
+    }
+    for (const s of tourById('onboarding')?.steps ?? []) expect(`${s.title}${s.body}`).not.toMatch(/판(?!매)/u)
+  })
+})
+
+describe('shownStepIndexes', () => {
+  const steps = [
+    { id: 'a', title: 'a', body: 'a' },
+    { id: 'b', title: 'b', body: 'b', target: 'b', optional: true },
+    { id: 'c', title: 'c', body: 'c', target: 'c' },
+    { id: 'd', title: 'd', body: 'd', target: 'd', optional: true },
+  ] as const
+
+  it('선택이 아닌 단계는 목표가 없어도 늘 들고, 선택 단계는 목표가 있을 때만 든다', () => {
+    expect(shownStepIndexes(steps, () => false)).toEqual([0, 2])
+    expect(shownStepIndexes(steps, (s) => s.id === 'd')).toEqual([0, 2, 3])
+    expect(shownStepIndexes(steps, () => true)).toEqual([0, 1, 2, 3])
   })
 })

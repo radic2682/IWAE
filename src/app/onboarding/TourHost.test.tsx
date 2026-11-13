@@ -69,7 +69,7 @@ describe('TourOverlay', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '다음' }))
     fireEvent.click(screen.getByRole('button', { name: '다음' }))
     expect(screen.getByText('2 / 9')).not.toBeNull()
-    expect(document.getElementById('tour-card-title')?.textContent).toBe('왼쪽 바')
+    expect(document.getElementById('tour-card-title')?.textContent).toBe('문서 열기')
     fireEvent.click(screen.getByRole('button', { name: '이전' }))
     expect(screen.getByText('1 / 9')).not.toBeNull()
   })
@@ -94,7 +94,7 @@ describe('TourOverlay', () => {
   it('마지막 단계의 주 단추는 「마치기」이고 누르면 끝낸다', () => {
     const onFinish = vi.fn()
     render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={onFinish} />)
-    for (let index = 1; index < onboarding.steps.length; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    for (let index = 1; index < 9; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
     expect(screen.getByText('9 / 9')).not.toBeNull()
     expect(screen.queryByRole('button', { name: '다음' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '마치기' }))
@@ -104,7 +104,7 @@ describe('TourOverlay', () => {
   it('목표가 화면에 없으면 가운데 카드로 보이고 구멍이 없다', () => {
     render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: '다음' }))
-    expect(document.getElementById('tour-card-title')?.textContent).toBe('왼쪽 바')
+    expect(document.getElementById('tour-card-title')?.textContent).toBe('문서 열기')
     expect(card()?.getAttribute('data-side')).toBe('center')
     expect(document.querySelector('.tour-hole')).toBeNull()
     expect(document.querySelector('.tour-arrow')).toBeNull()
@@ -113,10 +113,10 @@ describe('TourOverlay', () => {
   it('목표가 있으면 둘레를 뚫고 카드를 옆에 붙이며, 사라지면 가운데로 돌아간다', () => {
     vi.useFakeTimers()
     try {
-      const target = addTarget('sidebar-tabs', { left: 100, top: 20, width: 160, height: 30 })
+      const target = addTarget('sidebar-docs', { left: 100, top: 20, width: 160, height: 30 })
       render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
       fireEvent.click(screen.getByRole('button', { name: '다음' }))
-      expect(card()?.getAttribute('data-side')).toBe('bottom')
+      expect(card()?.getAttribute('data-side')).toBe('right')
       const hole = document.querySelector<HTMLElement>('.tour-hole')!
       expect(hole.hasAttribute('data-on')).toBe(true)
       expect(hole.style.width).toBe('172px')
@@ -134,19 +134,19 @@ describe('TourOverlay', () => {
 
   it('본문의 {prefix} 자리에 지금 접두키가 키캡으로 들어간다', () => {
     render(<TourOverlay tour={onboarding} prefixText="Ctrl+A" onFinish={vi.fn()} />)
-    for (let index = 0; index < 6; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    for (let index = 0; index < 4; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
     const caps = [...document.querySelectorAll('#tour-card-body kbd.tour-keycap')].map((element) => element.textContent)
-    expect(caps).toEqual(['Ctrl+A', '%', 'Ctrl+A', '?'])
+    expect(caps).toEqual(['Ctrl+A', '%', '"', 'c', 'Ctrl+A', '?'])
     expect(document.getElementById('tour-card-body')?.textContent).not.toContain('{prefix}')
   })
 
   it('번역기 단계의 둘째 문장은 번역이 꺼져 있을 때만 설정을 안내한다', () => {
     const { unmount } = render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
-    for (let index = 0; index < 8; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    for (let index = 0; index < 7; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
     expect(document.getElementById('tour-card-body')?.textContent).toContain('설정에서 번역을 켜면')
     unmount()
     render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" translationOn onFinish={vi.fn()} />)
-    for (let index = 0; index < 8; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    for (let index = 0; index < 7; index += 1) fireEvent.click(screen.getByRole('button', { name: '다음' }))
     expect(document.getElementById('tour-card-body')?.textContent).toContain('이 단추로 번역기를 엽니다')
   })
 
@@ -167,6 +167,111 @@ describe('TourOverlay', () => {
     fireEvent.click(document.querySelector('.tour-dim')!)
     fireEvent.click(screen.getByRole('button', { name: '다음' }))
     expect(outer).not.toHaveBeenCalled()
+  })
+})
+
+describe('TourOverlay 선택 단계', () => {
+  const onboarding = tourById('onboarding')!
+  const titles = () => document.getElementById('tour-card-title')?.textContent
+  const next = () => fireEvent.click(screen.getByRole('button', { name: '다음' }))
+
+  it('목표가 없는 선택 단계는 건너뛰고, 진행 표시는 보이는 단계만 센다', () => {
+    render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
+    expect(screen.getByText('1 / 9')).not.toBeNull()
+    next()
+    next()
+    // 문서 열기 다음은 형광펜 · 메모 카드를 건너뛴 색 채널
+    expect(titles()).toBe('색 채널')
+    expect(screen.getByText('3 / 9')).not.toBeNull()
+    next()
+    expect(titles()).toBe('칸 나누기와 옮기기')
+    expect(screen.getByText('4 / 9')).not.toBeNull()
+  })
+
+  it('선택 단계의 목표가 화면에 있으면 보이고, 전체 수와 이전 · 다음이 같은 목록을 쓴다', () => {
+    addTarget('pdf-highlight', { left: 100, top: 100, width: 200, height: 14 })
+    addTarget('memo-card', { left: 700, top: 100, width: 300, height: 80 })
+    render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
+    expect(screen.getByText('1 / 11')).not.toBeNull()
+    next()
+    next()
+    expect(titles()).toBe('형광펜 칠하기')
+    expect(screen.getByText('3 / 11')).not.toBeNull()
+    expect(card()?.getAttribute('data-side')).not.toBe('center')
+    next()
+    expect(titles()).toBe('메모 카드')
+    next()
+    expect(titles()).toBe('색 채널')
+    expect(screen.getByText('5 / 11')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '이전' }))
+    expect(titles()).toBe('메모 카드')
+    fireEvent.click(screen.getByRole('button', { name: '이전' }))
+    expect(titles()).toBe('형광펜 칠하기')
+    for (let index = 0; index < 8; index += 1) next()
+    expect(screen.getByText('11 / 11')).not.toBeNull()
+  })
+
+  it('보던 선택 단계의 목표가 사라지면 건너뛰고 전체 수도 줄어든다', () => {
+    vi.useFakeTimers()
+    try {
+      const highlight = addTarget('pdf-highlight', { left: 100, top: 100, width: 200, height: 14 })
+      render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
+      next()
+      next()
+      expect(titles()).toBe('형광펜 칠하기')
+      expect(screen.getByText('3 / 10')).not.toBeNull()
+      highlight.remove()
+      act(() => { vi.advanceTimersByTime(500) })
+      expect(titles()).toBe('색 채널')
+      expect(screen.getByText('3 / 9')).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('focus 단계는 그 종류의 칸이 있으면 센다: 오면 그 칸을 만지고, 목표가 계속 안 나오면 건너뛴다', () => {
+    vi.useFakeTimers()
+    try {
+      const focus = vi.fn()
+      const panes = { has: (kind: 'pdf' | 'note') => kind === 'pdf', focus }
+      render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" panes={panes} onFinish={vi.fn()} />)
+      expect(screen.getByText('1 / 10')).not.toBeNull()
+      next()
+      next()
+      next()
+      expect(titles()).toBe('영역 캡처')
+      expect(focus).toHaveBeenCalledWith('pdf')
+      // 칸을 만져도 단추가 안 나오면 두 번 재 본 뒤 건너뛴다
+      act(() => { vi.advanceTimersByTime(900) })
+      expect(titles()).toBe('칸 나누기와 옮기기')
+      expect(screen.getByText('4 / 9')).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('focus 단계의 목표가 칸을 만진 뒤에 나타나면 그대로 보인다', () => {
+    vi.useFakeTimers()
+    try {
+      const panes = { has: () => true, focus: (kind: 'pdf' | 'note') => { if (kind === 'pdf') addTarget('region-capture', { left: 400, top: 6, width: 30, height: 28 }) } }
+      render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" panes={panes} onFinish={vi.fn()} />)
+      next()
+      next()
+      next()
+      expect(titles()).toBe('영역 캡처')
+      act(() => { vi.advanceTimersByTime(900) })
+      expect(titles()).toBe('영역 캡처')
+      expect(document.querySelector('.tour-hole')?.hasAttribute('data-on')).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('선택이 아닌 단계는 목표가 없어도 가운데 카드로 남는다', () => {
+    render(<TourOverlay tour={onboarding} prefixText="Ctrl+B" onFinish={vi.fn()} />)
+    next()
+    expect(titles()).toBe('문서 열기')
+    expect(card()?.getAttribute('data-side')).toBe('center')
   })
 })
 

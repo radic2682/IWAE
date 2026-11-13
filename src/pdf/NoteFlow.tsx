@@ -1368,6 +1368,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
       data-memo-id={highlight.id}
       data-hl={highlight.color}
       data-note-block={item.key}
+      data-tour="memo-card"
       // 키보드로도 닿는다: Tab 으로 카드에 와서 Enter 면 원문으로 점프(연결선도 함께 켜진다)
       tabIndex={draft ? undefined : 0}
       role="group"

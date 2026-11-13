@@ -171,7 +171,7 @@ export function TopBar({
             <button type="button" className={`topbar-navbtn${sidebarMode === 'tools' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 도구')} title={t('PDF 도구')} role="radio" aria-checked={sidebarMode === 'tools'} onClick={() => onSidebarModeChange('tools')}>
               <Toolbox size={15} weight="regular" aria-hidden="true" />
             </button>
-            <button type="button" className={`topbar-navbtn${sidebarMode === 'search' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 검색')} title={t('PDF 검색 (Ctrl+F)')} role="radio" aria-checked={sidebarMode === 'search'} onClick={() => onSidebarModeChange('search')}>
+            <button type="button" className={`topbar-navbtn${sidebarMode === 'search' ? ' topbar-navbtn-active' : ''}`} aria-label={t('PDF 검색')} title={t('PDF 검색 (Ctrl+F)')} data-tour="sidebar-search" role="radio" aria-checked={sidebarMode === 'search'} onClick={() => onSidebarModeChange('search')}>
               <MagnifyingGlass size={15} weight="regular" aria-hidden="true" />
             </button>
           </div>

@@ -75,6 +75,8 @@ export interface FormatBarProps {
   readonly className?: string
   /** 주인 종류(자리를 종류별로 기억한다). 안 넘기면 놓인 자리를 보고 알아낸다 */
   readonly hostKind?: FormatHostKind
+  /** 안내 둘러보기가 가리키는 이름(`data-tour`) */
+  readonly tourTarget?: string
   /** 문단 모양(본문 · 제목 · 인용 …) */
   readonly block?: FormatChoiceConfig
   readonly fontFamily?: FormatChoiceConfig
@@ -641,6 +643,7 @@ export function FormatBar(props: FormatBarProps) {
       role="toolbar"
       aria-label={label}
       aria-disabled={disabled || undefined}
+      data-tour={props.tourTarget}
     >
       {grip}
       {clusters.slice(0, visible)}

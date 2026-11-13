@@ -152,6 +152,7 @@ export function MemoFormatBar({ onCommand, disabled = false }: { readonly onComm
     <FormatBar
       label={t('메모 서식')}
       className="memo-format-bar"
+      tourTarget="format-bar"
       disabled={disabled}
       onCommand={after}
       block={{

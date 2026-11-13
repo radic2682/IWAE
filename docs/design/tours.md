@@ -25,6 +25,20 @@
 - 팔레트(「처음 사용 안내」 · 「새 기능 둘러보기」)와 로고 메뉴에서는 본 적이 있어도 언제든 연다.
 - 마치거나 건너뛰면(Esc · ×) 본 것으로 적는다.
 
+## 처음 사용 안내의 모양
+
+읽기 → 형광펜 → 메모 → 카드 눌러 원문으로 → 영역 캡처 → 칸 나누기 순서로 짠다(13단계, 그중 4단계는 선택).
+
+- 첫 실행의 예시 배치: `seedSampleVaultInto` 가 예시를 넣었을 때만 `sampleLayout` 요청(예시 PDF docId · 노트 경로 · 첫 메모 쪽)을 남긴다(`src/app/vault/sampleLayout.ts`).
+  App 이 한 번만 꺼내 예시 PDF 를 왼쪽 칸, 예시 노트를 그 오른쪽 칸(같은 기본 파랑 채널)에 열고 PDF 를 첫 메모의 쪽에 둔다.
+  형광펜(`pdf-highlight`)과 메모 카드(`memo-card`)가 그려질 때까지(최대 8초) 둘러보기의 `enabled` 를 미룬다.
+  칸에 탭이 이미 있으면 아무것도 하지 않는다. 쓰던 사람의 배치는 건드리지 않는다.
+- 선택 단계(`optional: true`): 목표를 못 찾으면 가운데 카드로 보이지 않고 건너뛴다. 진행 표시(`n / 전체`)와 이전 · 다음은 보이는 단계만 센다(`shownStepIndexes`).
+  보이는 목록은 400ms 마다 다시 잰다. 보던 선택 단계의 목표가 사라지면 가던 쪽의 다음 보이는 단계로 넘어간다.
+- `focus: 'pdf' | 'note'`: 그 단계에 오면 그 종류의 첫 칸을 만진다(`TourHost` 의 `panes` 손잡이). 도구줄 · 서식바는 만지는 칸 것만 나오기 때문이다.
+  focus 단계는 그 종류의 칸이 있으면 센다. 칸을 만지고도 목표가 두 번 재도록 안 나오면 건너뛴다. focus 단계는 선택 단계여야 한다.
+- 목표 이름: `sidebar-docs` · `pdf-highlight`(PDF 글 형광펜 path) · `memo-card`(노트의 메모 카드) · `channel-dot` · `region-capture`(영역 캡처 단추) · `format-bar`(노트 서식바) · `pane-head` · `screen-tabs` · `sidebar-search` · `app-menu` · `translator`.
+
 ## 새 버전에 둘러보기 더하기
 
 1. `src/core/tours.ts` 의 `TOURS` 에 `kind: 'feature'`, `version`(그 버전이 처음 들어간 릴리스, 'v' 없이), `name: '새 기능 둘러보기'` 로 `Tour` 를 더한다. id 는 `v0.1.21` 꼴.

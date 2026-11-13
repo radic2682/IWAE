@@ -149,6 +149,7 @@ import { OutlinePanel, ThumbnailPanel } from './sidebar/SidePanels'
 import { MarkdownOutline, MarkdownSectionPreview } from './documents/MarkdownOutline'
 import { VaultPicker } from './vault/VaultPicker'
 import { seedSampleVaultInto } from './vault/sampleVaultDesktop'
+import { mayApplySampleLayout, pendingSampleLayout, takeSampleLayout, type SampleLayoutRequest } from './vault/sampleLayout'
 import { StartupShell } from './StartupShell'
 import { useVault } from './vault/useVault'
 import type { DocZoom } from '../core/windowMode'
@@ -226,7 +227,8 @@ import { errorText } from '../core/errorText'
 import { UpdateSettings } from './settings/UpdateSettings'
 import { WhatsNewHost } from './onboarding/WhatsNewDialog'
 import { PrefixKeyHost } from './workspace/PrefixKeyDialog'
-import { TourHost } from './onboarding/TourHost'
+import { TourHost, type TourPanes } from './onboarding/TourHost'
+import type { TourFocus } from '../core/tours'
 import { requestTour } from './onboarding/tourState'
 import { latestFeatureTour, ONBOARDING_TOUR_ID } from '../core/tours'
 import { useUpdater } from './onboarding/useUpdater'
@@ -1718,6 +1720,70 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const landed = anchor
     setActivePaneId(landed)
     setPaneRoute('doc', landed)
+  }
+  // ---------- 처음 설치의 예시 배치 ----------
+  // 예시를 방금 넣은 Vault(sampleLayout 요청이 있다)면 예시 PDF 는 왼쪽 칸, 예시 노트는 그 오른쪽 칸(같은 색 채널)에 연다.
+  // 이 배치가 그려지고 형광펜 · 메모 카드가 나올 때까지 처음 사용 안내를 미룬다(sampleLayoutBusy). 칸에 탭이 이미 있으면 아무것도 하지 않는다.
+  const sampleLayoutRef = useRef<{ request: SampleLayoutRequest; phase: 'note' | 'wait' | 'ready'; timers: number[] } | null>(null)
+  const [, setSampleLayoutTick] = useState(0)
+  const sampleLayoutBusy = sampleLayoutRef.current !== null || pendingSampleLayout() !== null
+  useEffect(() => {
+    if (!isMainWindow || initializing || vault === null) return
+    const settle = () => {
+      const state = sampleLayoutRef.current
+      if (state !== null) state.timers.forEach((timer) => window.clearTimeout(timer))
+      sampleLayoutRef.current = null
+      setSampleLayoutTick((tick) => tick + 1)
+    }
+    let state = sampleLayoutRef.current
+    if (state === null) {
+      const request = takeSampleLayout()
+      const doc = request === null ? undefined : shownLibrary.find((item) => item.docId === request.docId)
+      if (request === null || doc === undefined || !mayApplySampleLayout(allPaneTabs(panes).length)) {
+        if (request !== null) setSampleLayoutTick((tick) => tick + 1)
+        return
+      }
+      state = { request, phase: 'note', timers: [] }
+      sampleLayoutRef.current = state
+      // 못 열면(파일 오류 등) 안내가 영영 미뤄지지 않게 끝낸다
+      state.timers.push(window.setTimeout(settle, 8000))
+      if (request.page !== undefined) pendingDocPageRef.current = { docId: request.docId, page: request.page }
+      void openDocument(doc)
+      return
+    }
+    const docPane = paneOfTab(panes, state.request.docId)
+    if (docPane === null) return
+    if (state.phase === 'note') {
+      state.phase = 'wait'
+      void openNoteBeside(docPane, state.request.notePath)
+      return
+    }
+    const notePane = paneOfTab(panes, state.request.notePath)
+    if (state.phase === 'wait' && notePane !== null) {
+      state.phase = 'ready'
+      setActivePaneId(docPane)
+      setPaneRoute('doc', docPane)
+      setPaneRoute('note', notePane)
+      // 형광펜과 메모 카드가 그려질 때까지 기다린 뒤(안내가 가리킬 자리) 끝낸다
+      const poll = window.setInterval(() => {
+        if (document.querySelector('[data-tour="pdf-highlight"]') !== null && document.querySelector('[data-tour="memo-card"]') !== null) settle()
+      }, 150)
+      state.timers.push(poll)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMainWindow, initializing, vault, panes, shownLibrary])
+  useEffect(() => () => {
+    const state = sampleLayoutRef.current
+    if (state !== null) state.timers.forEach((timer) => window.clearTimeout(timer))
+  }, [])
+  // 안내가 칸을 만지는 손잡이: 그 종류의 첫 칸(칸 차례대로)을 고른다
+  const tourPaneOf = (kind: TourFocus): PaneId | null => leaves(layoutRoot).find((pane) => {
+    const tab = activeTab(tabsOf(panes, pane))
+    return tab !== null && (kind === 'note' ? tab.kind === 'memoNote' : isDocumentKind(tab.kind))
+  }) ?? null
+  const tourPanes: TourPanes = {
+    has: (kind) => tourPaneOf(kind) !== null,
+    focus: (kind) => { const pane = tourPaneOf(kind); if (pane !== null) focusPane(pane) },
   }
   /** 노트를 보이는 같은 색 창이 있는가(상단바 단추의 눌림 표시) */
   const noteBesideShown = docPaneId !== null && visibleNotePathsIn(panes, channels, paneOrder, channelOf(channels, docPaneId), paneMru).length > 0
@@ -4603,7 +4669,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     ) : null}
     {aboutOpen ? <AboutDialog version={packageMetadata.version} onClose={() => setAboutOpen(false)} onShowHistory={() => { setAboutOpen(false); openUpdateHistory(packageMetadata.version) }} /> : null}
     <WhatsNewHost enabled={isMainWindow && !initializing} version={packageMetadata.version} onShowHistory={openUpdateHistory} />
-    <TourHost enabled={isMainWindow && !initializing && vault !== null} version={packageMetadata.version} prefixText={prefixHint} translationOn={translation.settings.enabled} />
+    <TourHost enabled={isMainWindow && !initializing && vault !== null && !sampleLayoutBusy} version={packageMetadata.version} prefixText={prefixHint} translationOn={translation.settings.enabled} panes={tourPanes} />
     <PrefixKeyHost
       enabled={isMainWindow && !initializing && keysConfPrefix !== null && keysConfPrefix.root === (vault?.root ?? null) && !keysConfPrefix.sets}
       onChooseCustom={() => { setSettingsSection('input'); setSettingsOpen(true) }}
