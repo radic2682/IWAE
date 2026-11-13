@@ -35,13 +35,13 @@
 .format-bar-select.format-bar-select:disabled { opacity: .45; }
 .format-bar-idle .format-bar-select.format-bar-select:disabled { opacity: .35; }
 .format-bar-select .app-select-caret { width: 11px; height: 11px; }
-.format-bar-block.format-bar-block { min-width: 64px; }
+.format-bar-block.format-bar-block { justify-content: flex-start; }
 .format-bar-font.format-bar-font { width: 128px; font-weight: 500; }
 /* 문단 모양 목록: 제목은 그 크기로 미리 보인다 */
 .format-bar-block-h2 .app-select-option-label { font-size: 16px; font-weight: 750; }
 .format-bar-block-h3 .app-select-option-label { font-size: 14.5px; font-weight: 750; }
 .format-bar-block-h4 .app-select-option-label { font-weight: 750; }
-.format-bar-block-pre .app-select-option-label { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 12.5px; }
+.format-bar-block-pre .app-select-option-label { font-size: 12.5px; }
 
 /* 글자 크기 칸: 숫자를 직접 쓰고 ▾ 로 자주 쓰는 크기를 고른다 */
 .format-bar-size {

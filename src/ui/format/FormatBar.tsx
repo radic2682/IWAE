@@ -132,8 +132,10 @@ export function formatTitle(label: string, shortcut: string | undefined): string
  * 서식 줄의 단추 하나(28px, 아이콘 16px). 누를 때 초점을 가져오지 않는다.
  * active 를 넘기면 눌림(aria-pressed)을 보이고, 넘기지 않으면(모름) 눌림 표시가 없다.
  */
-export function FormatButton({ label, shortcut, active, disabled = false, onPress, children, className, haspopup, expanded, buttonRef }: {
+export function FormatButton({ label, title, shortcut, active, disabled = false, onPress, children, className, haspopup, expanded, buttonRef }: {
   readonly label: string
+  /** 풍선 도움말(없으면 label) */
+  readonly title?: string
   readonly shortcut?: string
   readonly active?: boolean
   readonly disabled?: boolean
@@ -150,7 +152,7 @@ export function FormatButton({ label, shortcut, active, disabled = false, onPres
       type="button"
       className={`format-bar-btn${active === true ? ' format-bar-btn-on' : ''}${className === undefined ? '' : ` ${className}`}`}
       aria-label={label}
-      title={formatTitle(label, shortcut)}
+      title={formatTitle(title ?? label, shortcut)}
       aria-pressed={active}
       aria-haspopup={haspopup}
       aria-expanded={expanded}
@@ -176,9 +178,9 @@ function releasePopover(close: () => void) {
 /** 서식 줄이 띄운 것(팔레트 · 목록 · 메뉴)인가 — 「⋯」 메뉴와 팔레트가 서로를 바깥으로 보지 않게 */
 const FORMAT_FLOATING = '[data-format-popover], .app-select-list'
 
-/** 팔레트 폭(px): 칸 28px · 사이 5px · 안쪽 여백 8px · 테두리 1px, 한 줄에 일곱까지 */
+/** 팔레트 폭(px): 칸 28px · 사이 5px · 안쪽 여백 8px · 테두리 1px. 여덟 칸까지는 한 줄, 그보다 많으면 한 줄에 일곱(캔버스의 세 줄 팔레트) */
 export function paletteWidth(count: number): number {
-  const columns = Math.max(1, Math.min(count, 7))
+  const columns = Math.max(1, count <= 8 ? count : 7)
   return columns * 28 + (columns - 1) * 5 + 18
 }
 const POPOVER_GUTTER = 8
@@ -204,7 +206,7 @@ export function FormatColorButton({ label, icon, config, disabled = false, onCom
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const closeRef = useRef(() => setPlace(null))
   const open = place !== null
-  const width = paletteWidth(config.colors.length)
+  const width = paletteWidth(config.colors.length + (config.custom === true ? 1 : 0))
   useEffect(() => {
     if (!open) return undefined
     const close = closeRef.current
@@ -238,6 +240,7 @@ export function FormatColorButton({ label, icon, config, disabled = false, onCom
       <FormatButton
         buttonRef={triggerRef}
         label={t('{label} 선택', { label })}
+        title={label}
         className="format-bar-color"
         disabled={disabled}
         haspopup="dialog"

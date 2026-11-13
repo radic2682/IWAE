@@ -145,6 +145,8 @@ describe('FormatBar — 단추 · 상태 · 명령', () => {
   it('팔레트는 화면 안으로 들인다: 오른쪽 끝 단추면 왼쪽으로 민다(한 줄 일곱 칸 = 244px)', () => {
     expect(paletteWidth(21)).toBe(244)
     expect(paletteWidth(5)).toBe(5 * 28 + 4 * 5 + 18)
+    expect(paletteWidth(8)).toBe(8 * 28 + 7 * 5 + 18)
+    expect(paletteWidth(9)).toBe(244)
     expect(popoverLeft(980, 244, 1024)).toBe(772)
     expect(popoverLeft(2, 244, 1024)).toBe(8)
   })
