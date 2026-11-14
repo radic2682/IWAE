@@ -17,7 +17,7 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
 </p>
 
-<p align="center"><a href="README.ko.md">한국어</a></p>
+<p align="center"><a href="https://sunhong.dev/en/apps/iwae/">Website</a> · <a href="README.ko.md">한국어</a></p> <!-- release-scan-allow: the author publishes this blog address on purpose -->
 
 <p align="center">
   <img src="docs/images/hero.gif" width="900" alt="Selecting a sentence in a paper to get a memo in the note pane, scrolling away and clicking the memo to jump back, splitting the pane with Ctrl+B % to open a second paper, and switching to the light theme and back">

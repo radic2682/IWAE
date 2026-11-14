@@ -17,7 +17,7 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-16a34a">
 </p>
 
-<p align="center"><a href="README.md">English</a></p>
+<p align="center"><a href="https://sunhong.dev/apps/iwae/">웹사이트</a> · <a href="README.md">English</a></p> <!-- release-scan-allow: 사용자가 일부러 공개하는 블로그 주소 -->
 
 <p align="center">
   <img src="docs/images/hero.ko.gif" width="900" alt="논문의 문장을 고르면 노트 칸에 메모가 생기고, 다른 곳으로 내려갔다가 메모를 누르면 그 자리로 돌아오고, Ctrl+B %로 칸을 나눠 두 번째 논문을 열고, 밝은 테마로 바꿨다 돌아오는 모습">
