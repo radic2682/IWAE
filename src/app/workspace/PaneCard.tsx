@@ -3,6 +3,7 @@ import type { PaneChannel } from './workspaceChannels'
 import { usePaneReaction } from './paneReaction'
 import { TAB_DRAG_THRESHOLD_PX } from './tabDrag'
 import { TopBarToolbarContext, eventInTopBarSlot } from '../topBarToolbar'
+import { focusCameFromKeyboard } from './paneFocus'
 
 /** 지금 기다리는 탭 누름 하나의 정리(새 누름이 오면 먼저 것을 접는다) */
 let cancelPendingPress: (() => void) | null = null
@@ -72,6 +73,8 @@ export function PaneCard({ paneId, channel, active, empty = false, className = '
       className={`pane-card${active ? ' pane-card-active' : ''}${className === '' ? '' : ` ${className}`}`}
       data-card-pane={paneId}
       onPointerDownCapture={onFocusPane === undefined ? undefined : (event) => focusOnPress(event, paneId, onFocusPane, toolbarSlot)}
+      // Tab 으로 다른 칸에 들어가도 그 칸이 만지는 칸이 된다(누름은 위에서 따로 처리하므로 키보드로 온 초점만)
+      onFocusCapture={onFocusPane === undefined ? undefined : (event) => { if (!eventInTopBarSlot(event, toolbarSlot) && focusCameFromKeyboard(event.target)) onFocusPane(paneId) }}
       data-channel={channel ?? 'none'}
       data-empty={empty ? '' : undefined}
       data-reacting={reacting ?? undefined}

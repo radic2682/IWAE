@@ -20,6 +20,19 @@ describe('useExclusivePopover', () => {
     expect(result.current.openId).toBeNull()
   })
 
+  it('Escape 로 닫으면 연 단추로 초점이 돌아간다', () => {
+    const trigger = document.createElement('button')
+    trigger.dataset.exclusivePopover = 'note-options'
+    document.body.append(trigger)
+    const { result } = renderHook(() => useExclusivePopover())
+    act(() => result.current.open('note-options'))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    fireEventOn(document, 'keydown', { key: 'Escape' })
+    expect(result.current.openId).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+    trigger.remove()
+  })
+
   it('현재 팝오버 내부 클릭은 닫지 않는다', () => {
     const owner = document.createElement('button')
     owner.dataset.exclusivePopover = 'text-color'

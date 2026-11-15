@@ -39,4 +39,21 @@ describe('useAppShortcuts', () => {
     expect(undo).not.toHaveBeenCalled()
     expect(save).toHaveBeenCalledTimes(1)
   })
+
+  it('scope 가 false 면 이 묶음은 키를 받지 않고 브라우저 기본 동작도 막지 않는다', () => {
+    const undo = vi.fn()
+    let inScope = false
+    function Scoped() {
+      useAppShortcuts({ undo }, () => inScope)
+      return null
+    }
+    render(<Scoped />)
+    const event = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })
+    document.dispatchEvent(event)
+    expect(undo).not.toHaveBeenCalled()
+    expect(event.defaultPrevented).toBe(false)
+    inScope = true
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+    expect(undo).toHaveBeenCalledTimes(1)
+  })
 })

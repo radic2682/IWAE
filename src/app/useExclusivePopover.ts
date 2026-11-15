@@ -24,7 +24,11 @@ export function useExclusivePopover(): ExclusivePopoverController {
       setOpenId(null)
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenId(null)
+      if (event.key !== 'Escape') return
+      setOpenId(null)
+      // 연 단추로 초점을 돌려준다(팝오버가 사라지며 초점이 body 로 떨어지지 않게)
+      const trigger = document.querySelector<HTMLElement>(`button[data-exclusive-popover="${openId}"]`)
+      if (trigger !== null && (document.activeElement === null || document.activeElement === document.body || document.activeElement.closest('.note-options-popover') !== null || trigger.contains(document.activeElement))) trigger.focus({ preventScroll: true })
     }
     document.addEventListener('mousedown', closeOutside)
     document.addEventListener('keydown', closeOnEscape)

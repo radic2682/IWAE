@@ -27,6 +27,7 @@ import {
   useNodesState,
   useOnViewportChange,
   useReactFlow,
+  useStoreApi,
   useUpdateNodeInternals,
   useViewport,
   type Connection,
@@ -111,6 +112,7 @@ import {
   type PointableHighlight,
 } from './canvasWorkspace'
 import { useAppShortcuts } from '../useAppShortcuts'
+import { isCanvasShortcutScope } from './canvasShortcutScope'
 import type { CanvasSaveStatus } from './useCanvasAutosave'
 import type { WorkspaceSourceState } from '../sidebar/useWorkspaceSources'
 import { deriveCanvasNodeState } from './canvasDerivations'
@@ -955,6 +957,7 @@ function NoteFlow({
   const [edges, setEdges, onEdgesChange] = useEdgesState<NoteCanvasEdge>(restoredEdges(initialDocument))
   const [matchPdfTextSize, setMatchPdfTextSize] = useState(readMatchPdfTextSize)
   const { getViewport, screenToFlowPosition, setViewport, zoomIn, zoomOut, zoomTo } = useReactFlow()
+  const flowStore = useStoreApi()
   const updateNodeInternals = useUpdateNodeInternals()
   const nextExcerptId = useRef(nextExcerptSequence(initialDocument))
   const nextImageId = useRef(nextBlockSequence(initialDocument, 'image'))
@@ -1757,6 +1760,10 @@ function NoteFlow({
     pasteClipboard()
   }, [copySelected, pasteClipboard])
 
+  const flowHasSize = () => {
+    const { width, height } = flowStore.getState()
+    return width > 0 && height > 0
+  }
   useAppShortcuts({
     save: () => emitDocument(nodes, edges, viewportRef.current),
     undo: () => restoreHistory('undo'),
@@ -1784,10 +1791,11 @@ function NoteFlow({
       setNodes((current) => current.map((node) => ({ ...node, selected: false }) as NoteCanvasNode))
       setEdges((current) => current.map((edge) => ({ ...edge, selected: false })))
     },
-    zoomIn: () => void zoomIn({ duration: 120 }),
-    zoomOut: () => void zoomOut({ duration: 120 }),
-    zoomReset: () => void zoomTo(1, { duration: 120 }),
-  })
+    // 크기가 0 인 가려진 캔버스를 배율 바꾸면 보기 영역이 NaN 이 된다
+    zoomIn: () => { if (flowHasSize()) void zoomIn({ duration: 120 }) },
+    zoomOut: () => { if (flowHasSize()) void zoomOut({ duration: 120 }) },
+    zoomReset: () => { if (flowHasSize()) void zoomTo(1, { duration: 120 }) },
+  }, () => isCanvasShortcutScope(flowStore.getState().domNode?.closest('.note-canvas') ?? null))
 
   const handleSourceTraceChange = useCallback((active: ActiveSourceTrace | null) => {
     setHoveredSourceId(active?.blockId ?? null)

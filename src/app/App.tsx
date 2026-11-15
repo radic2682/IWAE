@@ -52,6 +52,7 @@ import { PaneHead } from './workspace/PaneHead'
 import { EmptyPane, type EmptyPaneRecent } from './workspace/EmptyPane'
 import { PrefixChip } from './workspace/PrefixChip'
 import { prunePaneToolbarMemory } from './workspace/paneToolbarMemory'
+import { focusPaneMain } from './workspace/paneFocus'
 import { TopBarToolbarContext, eventInTopBarSlot, toolbarOwnerOf } from './topBarToolbar'
 import { flashReaction, reactingPanes } from './workspace/paneReaction'
 import { touchMru } from './workspace/paneRecency'
@@ -110,6 +111,7 @@ import type { MarkdownExcerptDragPayload, MarkdownSourceJumpRequest } from '../c
 import type { MarkdownSelectionTranslation } from './documents/MarkdownPane'
 import type { SourceOpenRequest } from './notes/CanvasBlockShell'
 import { useAppShortcuts, type AppShortcutActions } from './useAppShortcuts'
+import { hasShortcutCanvas } from './notes/canvasShortcutScope'
 import { useNavigationHistory } from './workspace/useNavigationHistory'
 import type { NavLocation } from '../core/navigationHistory'
 import { normalizeSelectionText } from '../core/translationText'
@@ -763,6 +765,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const focusedPane: FocusedPane = zoomedPane !== null ? 'zoom' : 'split'
   const setFocusedPane = useCallback((mode: FocusedPane) => { if (mode === 'split') screenOps.setZoomed(null) }, [screenOps])
   const [libraryExpanded, setLibraryExpanded] = useState(false)
+  /** 키보드 명령이 만지는 칸을 바꾸거나 칸 · 탭을 닫은 뒤 초점을 그 칸으로 보내 달라는 요청(올라갈 때마다 한 번) */
+  const [paneFocusRequest, setPaneFocusRequest] = useState(0)
+  const requestPaneFocus = useCallback(() => setPaneFocusRequest((count) => count + 1), [])
   /** 펼친 라이브러리가 올라갈 자리(왼쪽 바 오른쪽 영역). Sidebar 가 여기에 그린다 */
   const [libraryHost, setLibraryHost] = useState<HTMLElement | null>(null)
   // 저장하면 열린 노트 캔버스를 새로 읽게 canvasEpoch 를 올린다(쪽 편집).
@@ -1195,8 +1200,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     nextTab: () => paneShortcutsRef.current.cycleTab(1),
     prevTab: () => paneShortcutsRef.current.cycleTab(-1),
     closeTab: () => paneShortcutsRef.current.closeActiveTab(),
-    focusLeftPane: () => paneShortcutsRef.current.focus(0),
-    focusRightPane: () => { if (SPLIT_PANES_ENABLED) paneShortcutsRef.current.focus(1) },
+    focusLeftPane: () => { paneShortcutsRef.current.focus(0); requestPaneFocus() },
+    focusRightPane: () => { if (SPLIT_PANES_ENABLED) { paneShortcutsRef.current.focus(1); requestPaneFocus() } },
     goTo: () => window.dispatchEvent(new CustomEvent('iwae:goto')),
     print: () => window.dispatchEvent(new CustomEvent('iwae:print')),
     openSettings: () => { setSettingsSection(undefined); setSettingsOpen(true) },
@@ -1205,19 +1210,19 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     // 형광펜·메모·박스 메모·그림·노트 블록 되돌리기. 글 칸 안에서는 브라우저의 글자 되돌리기가 먼저다.
     // 예전 캔버스 노트가 열려 있으면 그쪽 기록을 쓴다(NoteCanvas)
     undo: () => {
-      if (document.querySelector('.note-canvas') !== null) return
+      if (hasShortcutCanvas()) return
       if (!undoChange()) announceAction(t('되돌릴 것이 없습니다'))
     },
     redo: () => {
-      if (document.querySelector('.note-canvas') !== null) return
+      if (hasShortcutCanvas()) return
       if (!redoChange()) announceAction(t('다시 할 것이 없습니다'))
     },
     commandPalette: () => { setPaletteInitial(''); setPaletteOpen((open) => !open) },
     showShortcuts: () => setShortcutsOpen((open) => !open),
     // 마지막으로 만진 문서 칸(PDF·Markdown)의 확대. 옛 캔버스 노트는 NoteCanvas 가 따로 받는다
-    zoomIn: () => { if (document.querySelector('.note-canvas') === null) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'in' })) },
-    zoomOut: () => { if (document.querySelector('.note-canvas') === null) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'out' })) },
-    zoomReset: () => { if (document.querySelector('.note-canvas') === null) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'fit' })) },
+    zoomIn: () => { if (!hasShortcutCanvas()) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'in' })) },
+    zoomOut: () => { if (!hasShortcutCanvas()) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'out' })) },
+    zoomReset: () => { if (!hasShortcutCanvas()) window.dispatchEvent(new CustomEvent('iwae:zoom', { detail: 'fit' })) },
   }
   useAppShortcuts(shortcutActions)
   const shortcutActionsRef = useRef(shortcutActions)
@@ -1446,6 +1451,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const tab = tabsOf(panes, activePaneId).tabs.find((candidate) => candidate.id === id)
       if (tab?.kind === 'canvas') closeNoteTabSafely(id)
       else setPanes((current) => closeTabEverywhere(current, id))
+      requestPaneFocus()
     },
     // 칸 번호(왼쪽 위부터 0)로 옮긴다
     focus: (index) => { const pane = paneOrder[index]; if (pane !== undefined) setActivePaneId(pane) },
@@ -1504,6 +1510,32 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     // 빈 창을 눌렀다: 다음에 여는 문서·노트가 이 창으로 온다
     for (const kind of routes) setPaneRoute(kind, pane)
   }, [panes, activePaneId, setPaneRoute, paneRouteRef])
+  // 요청이 오면 만지는 칸의 주 초점 자리로 초점을 보낸다(새 상태가 그려진 뒤, 칸 안에 이미 초점이 있으면 그대로 둔다)
+  const activePaneIdNowRef = useRef(activePaneId)
+  activePaneIdNowRef.current = activePaneId
+  useEffect(() => {
+    if (paneFocusRequest === 0) return
+    // 닫힌 탭 자리의 단추가 다시 만들어지며 초점을 잃는 일이 있어, 한 번 더 확인한다
+    const run = () => { focusPaneMain(activePaneIdNowRef.current) }
+    const handle = window.requestAnimationFrame(run)
+    const later = [120, 350].map((delay) => window.setTimeout(run, delay))
+    return () => { window.cancelAnimationFrame(handle); later.forEach((timer) => window.clearTimeout(timer)) }
+  }, [paneFocusRequest])
+  // 라이브러리를 펴면 그 안(검색 칸)으로, 접으면 만지는 칸으로 초점을 보낸다(칸이 inert 가 되며 초점이 body 로 떨어지지 않게)
+  const libraryWasOpenRef = useRef(false)
+  useEffect(() => {
+    const wasOpen = libraryWasOpenRef.current
+    libraryWasOpenRef.current = libraryExpanded
+    if (libraryExpanded) {
+      const handle = window.requestAnimationFrame(() => {
+        if (libraryHost === null || libraryHost.contains(document.activeElement)) return
+        libraryHost.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled)')?.focus({ preventScroll: true })
+      })
+      return () => window.cancelAnimationFrame(handle)
+    }
+    if (wasOpen) requestPaneFocus()
+    return undefined
+  }, [libraryExpanded, libraryHost, requestPaneFocus])
   openDroppedPdfsRef.current = (paths, pane) => {
     // 놓은 칸이 다음에 여는 문서의 자리가 된다. 여러 개면 모두 탭으로 열고 첫 번째를 보여 준다
     if (pane !== null) { setActivePaneId(pane); setPaneRoute('doc', pane) }
@@ -2003,6 +2035,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       if (model.screens.activeScreen !== previous.screens.activeScreen) setLibraryExpanded(false)
       screenOps.replace(model.screens)
       setActivePaneId(model.activePane)
+      requestPaneFocus()
       // 만진 칸이 비어 있으면 다음에 여는 문서·노트가 그 칸으로 온다(칸을 눌렀을 때와 같다)
       const tab = activeTab(tabsOf(workspaceOf(activeScreenOf(model.screens)).panes, model.activePane))
       if (tab === null) { setPaneRoute('doc', model.activePane); setPaneRoute('note', model.activePane) }

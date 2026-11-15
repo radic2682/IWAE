@@ -815,6 +815,27 @@ describe('NoteCanvas', () => {
     })
   })
 
+  it('만지는 칸이 아니면 캔버스는 Ctrl+A · Delete · Ctrl+Z 를 받지 않는다', async () => {
+    const onDocumentChange = vi.fn()
+    const card = document.createElement('div')
+    card.className = 'pane-card'
+    document.body.appendChild(card)
+    try {
+      render(<NoteCanvas noteId="HTTP/OPTIONS.canvas" title="OPTIONS" onDocumentChange={onDocumentChange} />, { container: card.appendChild(document.createElement('div')) })
+      fireEvent.keyDown(document.body, { key: 'a', ctrlKey: true })
+      fireEvent.keyDown(document.body, { key: 'Delete' })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect((flowHooks.props as { nodes: Node[] }).nodes.some((node) => node.selected)).toBe(false)
+      expect(onDocumentChange).not.toHaveBeenCalledWith(expect.objectContaining({ nodes: [] }))
+      // 만지는 칸이 되면 받는다
+      card.classList.add('pane-card-active')
+      fireEvent.keyDown(document.body, { key: 'a', ctrlKey: true })
+      await waitFor(() => expect((flowHooks.props as { nodes: Node[] }).nodes.every((node) => node.selected)).toBe(true))
+    } finally {
+      card.remove()
+    }
+  })
+
   it('블록 배경 명령은 텍스트 highlight를 보존해 별도 속성으로 저장한다', async () => {
     const onDocumentChange = vi.fn()
     const view = render(<NoteCanvas noteId="HTTP/OPTIONS.canvas" title="OPTIONS" onDocumentChange={onDocumentChange} />)
