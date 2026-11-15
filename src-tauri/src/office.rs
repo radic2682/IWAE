@@ -14,6 +14,14 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+/// PowerShell 의 출력 인코딩을 UTF-8 로 맞추는 앞머리. 안 맞추면 한국어 Windows 에서 오류 글이 CP949 로 나와
+/// UTF-8 로 읽을 때 깨진다.
+const UTF8_PREAMBLE: &str = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8
+";
+
+/// 변환 한 번에 줄 시간. 큰 발표 자료도 끝나게 넉넉히 두되, 응답 없는 PowerPoint 가 영영 붙잡지는 못하게 한다
+const CONVERT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+
 const SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
 $source = $env:IWAE_PPT_SOURCE
@@ -40,6 +48,44 @@ try {
 }
 "#;
 
+/// 명령을 돌리고 `timeout` 안에 안 끝나면 죽인다. 출력은 따로 읽어 파이프가 차서 멈추는 일이 없게 한다
+fn run_with_timeout(mut command: Command, timeout: std::time::Duration) -> Result<std::process::Output, String> {
+    use std::io::Read;
+    use std::process::Stdio;
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command.spawn().map_err(|err| tr!("PowerShell 을 실행하지 못했습니다: {err}", "Could not run PowerShell: {err}"))?;
+    let read_all = |mut pipe: Box<dyn Read + Send>| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let _ = pipe.read_to_end(&mut bytes);
+            let _ = tx.send(bytes);
+        });
+        rx
+    };
+    let stdout = read_all(Box::new(child.stdout.take().expect("piped")));
+    let stderr = read_all(Box::new(child.stderr.take().expect("piped")));
+    let started = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if started.elapsed() >= timeout => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let minutes = (timeout.as_secs() / 60).max(1);
+                return Err(tr!(
+                    "PowerPoint 가 {minutes}분 안에 끝나지 않아 변환을 멈췄습니다. PowerPoint 에서 이 파일을 직접 열어 보세요.",
+                    "PowerPoint did not finish within {minutes} minutes, so the conversion was stopped. Try opening the file in PowerPoint yourself."
+                ));
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(50)),
+            Err(err) => return Err(tr!("PowerShell 을 실행하지 못했습니다: {err}", "Could not run PowerShell: {err}")),
+        }
+    };
+    let wait = std::time::Duration::from_secs(5);
+    Ok(std::process::Output { status, stdout: stdout.recv_timeout(wait).unwrap_or_default(), stderr: stderr.recv_timeout(wait).unwrap_or_default() })
+}
+
 fn convert(source: &Path, target: &Path) -> Result<(), String> {
     if !source.is_file() {
         return Err(tr!("PowerPoint 파일을 찾지 못했습니다.", "PowerPoint file not found."));
@@ -47,15 +93,16 @@ fn convert(source: &Path, target: &Path) -> Result<(), String> {
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent).map_err(|err| tr!("변환 폴더를 만들지 못했습니다: {err}", "Could not create the conversion folder: {err}"))?;
     }
+    let script = format!("{UTF8_PREAMBLE}{SCRIPT}");
     let mut command = Command::new("powershell.exe");
     command
-        .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", SCRIPT])
+        .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script.as_str()])
         // -Command 뒤의 인자는 명령 글에 그대로 붙어 버려 경로(빈칸·괄호)가 깨진다. 환경 변수로 넘긴다
         .env("IWAE_PPT_SOURCE", source)
         .env("IWAE_PPT_TARGET", target);
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
-    let output = command.output().map_err(|err| tr!("PowerShell 을 실행하지 못했습니다: {err}", "Could not run PowerShell: {err}"))?;
+    let output = run_with_timeout(command, CONVERT_TIMEOUT)?;
     if !output.status.success() || !target.is_file() {
         let detail = String::from_utf8_lossy(&output.stderr);
         let detail = detail.trim();
@@ -89,6 +136,30 @@ pub async fn office_to_pdf(app: tauri::AppHandle, source: String, target: String
 
 #[cfg(test)]
 mod tests {
+    /// 한국어 Windows 에서도 PowerShell 오류 글이 UTF-8 로 나와 한글이 안 깨진다
+    #[cfg(windows)]
+    #[test]
+    fn powershell_errors_come_back_as_utf8() {
+        let script = format!("{}{}", super::UTF8_PREAMBLE, "$ErrorActionPreference = 'Stop'; throw '한글 오류 메시지'");
+        let mut command = std::process::Command::new("powershell.exe");
+        command.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script.as_str()]);
+        let output = super::run_with_timeout(command, std::time::Duration::from_secs(60)).unwrap();
+        assert!(!output.status.success());
+        let text = String::from_utf8(output.stderr).expect("UTF-8 이어야 한다");
+        assert!(text.contains("한글 오류 메시지"), "{text}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_hung_powershell_is_killed_after_the_time_limit() {
+        let mut command = std::process::Command::new("powershell.exe");
+        command.args(["-NoProfile", "-NonInteractive", "-Command", "Start-Sleep -Seconds 60"]);
+        let started = std::time::Instant::now();
+        let error = super::run_with_timeout(command, std::time::Duration::from_millis(800)).expect_err("시간 초과");
+        assert!(started.elapsed() < std::time::Duration::from_secs(20));
+        assert!(error.contains("PowerPoint"), "{error}");
+    }
+
     #[test]
     fn script_disables_macros_before_opening_the_file() {
         let security = super::SCRIPT.find("$app.AutomationSecurity = 3").expect("macros must be force-disabled");
