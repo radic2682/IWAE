@@ -195,6 +195,8 @@ export async function moveVaultEntry(
   }
   const nextRelativePath = [folder, filename(entry.path)].filter(Boolean).join('/')
   const sourcePath = await vaultAbsolutePath(vault, entry.path)
+  // 이미 그 폴더에 있으면 옮길 것이 없다(여러 개를 끌어 놓을 때 일괄 작업이 멈추지 않게)
+  if (nextRelativePath.toLocaleLowerCase() === entry.path.toLocaleLowerCase()) return entry
   const targetPath = await vaultAbsolutePath(vault, nextRelativePath)
   await ensureAvailable(targetPath)
   const { mkdir, rename } = await import('@tauri-apps/plugin-fs')

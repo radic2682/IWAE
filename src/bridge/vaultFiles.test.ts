@@ -93,6 +93,13 @@ describe('vault file operations', () => {
     await expect(moveVaultEntry(vault, stored.id, '../Outside')).rejects.toThrow('경로')
   })
 
+  it('이미 그 폴더에 있는 파일을 옮기면 아무것도 하지 않는다', async () => {
+    vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [stored] })
+    await expect(moveVaultEntry(vault, stored.id, 'Notes')).resolves.toMatchObject({ id: stored.id, path: 'Notes/a.canvas' })
+    expect(fsMocks.rename).not.toHaveBeenCalled()
+    expect(writeVaultIndex).not.toHaveBeenCalled()
+  })
+
   it('이동 후 인덱스 저장이 실패하면 원래 위치로 되돌린다', async () => {
     vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [stored] })
     vi.mocked(writeVaultIndex).mockRejectedValueOnce(new Error('index write failed'))

@@ -22,6 +22,13 @@ async function fetchAsset(file: string): Promise<ArrayBuffer> {
   return response.arrayBuffer()
 }
 
+const OS_LITTER = new Set(['.ds_store', 'desktop.ini', 'thumbs.db'])
+
+/** 사용자 파일이 아닌 것: 숨김 이름(.으로 시작)이거나 운영체제가 만든 파일 */
+function isOsLitter(path: string): boolean {
+  return path.replaceAll('\\', '/').split('/').some((part) => part.startsWith('.') || OS_LITTER.has(part.toLowerCase()))
+}
+
 /** 빈 Vault 에 예시를 넣는다(데스크톱만). 넣었으면 true. 넣었으면 첫 배치 요청(sampleLayout)도 남긴다 */
 export async function seedSampleVaultInto(vault: VaultHandle): Promise<boolean> {
   if (!isDesktop()) return false
@@ -30,7 +37,7 @@ export async function seedSampleVaultInto(vault: VaultHandle): Promise<boolean> 
   const manifest = JSON.parse(new TextDecoder().decode(await fetchAsset(manifestFile))) as SampleManifest
   let sampleDocId: string | null = null
   const seeded = await seedSampleVault({
-    isEmpty: async () => (await listVaultTree(vault)).every((entry) => entry.path.replaceAll('\\', '/').split('/').some((part) => part.startsWith('..'))),
+    isEmpty: async () => (await listVaultTree(vault)).every((entry) => isOsLitter(entry.path)),
     fetchAsset,
     writeBinary: async (relativePath, data) => {
       const { join } = await import('@tauri-apps/api/path')

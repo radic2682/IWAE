@@ -19,6 +19,9 @@ export function useAutoBackup(vaultRoot: string | null) {
   const [settings, setSettings] = useState<AutoBackupSettings | null>(null)
   const [running, setRunning] = useState(false)
   const runningRef = useRef(false)
+  // 백업이 끝날 때 지금 열린 Vault 가 시작한 Vault 와 같은지 본다(그 사이 Vault 를 바꿨을 수 있다)
+  const currentRootRef = useRef(vaultRoot)
+  currentRootRef.current = vaultRoot
 
   useEffect(() => {
     if (vaultRoot === null) {
@@ -67,7 +70,7 @@ export function useAutoBackup(vaultRoot: string | null) {
       const result = await backupAuto(current.folder, backupStamp(), current.keep, current.includeIndex)
       const next = { ...readAutoBackup(vaultRoot), lastAt: new Date().toISOString(), lastError: null }
       writeAutoBackup(vaultRoot, next)
-      setSettings(next)
+      if (currentRootRef.current === vaultRoot) setSettings(next)
       announceAction(result.removed.length > 0 ? t('자동 백업을 만들었습니다 ({size}, 이전 백업 {count}개 정리)', { size: formatBytes(result.backup.archiveBytes), count: result.removed.length }) : t('자동 백업을 만들었습니다 ({size})', { size: formatBytes(result.backup.archiveBytes) }))
     } catch (cause) {
       const message = errorText(cause)
@@ -75,7 +78,7 @@ export function useAutoBackup(vaultRoot: string | null) {
       if (!/진행 중|in progress/iu.test(message)) {
         const next = { ...readAutoBackup(vaultRoot), lastError: message }
         writeAutoBackup(vaultRoot, next)
-        setSettings(next)
+        if (currentRootRef.current === vaultRoot) setSettings(next)
         announceAction(t('자동 백업을 만들지 못했습니다: {message}', { message }))
       }
     } finally {

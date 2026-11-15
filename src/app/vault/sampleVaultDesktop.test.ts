@@ -46,6 +46,19 @@ afterEach(() => {
   takeSampleLayout()
 })
 
+describe('예시를 넣을 빈 Vault 판단', () => {
+  it('운영체제가 만든 파일만 있으면 빈 Vault 로 본다', async () => {
+    const lib = await import('../../bridge/vault')
+    let empty: boolean | null = null
+    seed.run.mockImplementation(async (io) => { empty = await io.isEmpty(); return false })
+    for (const [path, expected] of [['.DS_Store', true], ['desktop.ini', true], ['Thumbs.db', true], ['메모.md', false]] as const) {
+      vi.mocked(lib.listVaultTree).mockResolvedValueOnce([{ path, isDirectory: false }] as never)
+      await seedSampleVaultInto({ root: 'C:/v' })
+      expect(empty).toBe(expected)
+    }
+  })
+})
+
 describe('예시 첫 배치 요청', () => {
   it('예시를 넣었을 때만 PDF · 노트 · 첫 메모 쪽을 담은 요청을 남긴다', async () => {
     seed.run.mockImplementation(async (io) => {
