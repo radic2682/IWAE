@@ -37,7 +37,7 @@ export function ExternalLinkConfirm({ url, onOpen, onCancel }: ExternalLinkConfi
         <div className="external-link-actions">
           <button type="button" onClick={onCancel}>{t('취소')}</button>
           <button type="button" className="external-link-open" autoFocus onClick={() => onOpen(url)}>
-            {t('브라우저에서 열기')}
+            {/^mailto:/iu.test(url.trim()) ? t('메일 앱에서 열기') : t('브라우저에서 열기')}
           </button>
         </div>
       </div>

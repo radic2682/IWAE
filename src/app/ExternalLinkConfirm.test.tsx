@@ -15,6 +15,12 @@ describe('ExternalLinkConfirm', () => {
     expect(onOpen).toHaveBeenCalledWith('https://www.nature.com/articles/x')
   })
 
+  it('offers the mail app for mailto links', () => {
+    render(<ExternalLinkConfirm url="mailto:a@b.com" onOpen={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByRole('button', { name: '메일 앱에서 열기' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '브라우저에서 열기' })).toBeNull()
+  })
+
   it('cancels with the button or Escape', () => {
     const onCancel = vi.fn()
     render(<ExternalLinkConfirm url="https://example.com" onOpen={vi.fn()} onCancel={onCancel} />)
