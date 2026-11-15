@@ -18,10 +18,24 @@ fn validate(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// PowerShell 작은따옴표 문자열: 안의 ' 는 '' 로
+/// 경로는 글에 끼워 넣지 않고 환경 변수로 넘긴다. PowerShell 은 ' 말고도 ‘ ’ ‚ ‛ 를 따옴표로 보므로
+/// (파일 이름에 있으면 명령이 깨지거나 코드가 실행된다) 따옴표를 막는 방식으로는 안전하지 않다
 #[cfg_attr(not(windows), allow(dead_code))]
-fn ps_quote(text: &str) -> String {
-    format!("'{}'", text.replace('\'', "''"))
+const CLIPBOARD_PATH_ENV: &str = "IWAE_CLIPBOARD_PATH";
+
+#[cfg_attr(not(windows), allow(dead_code))]
+const COPY_SCRIPT: &str = "Set-Clipboard -LiteralPath $env:IWAE_CLIPBOARD_PATH";
+
+#[cfg(windows)]
+fn powershell_with_path(script: &str, path: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut command = std::process::Command::new("powershell.exe");
+    command
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .env(CLIPBOARD_PATH_ENV, path)
+        .creation_flags(CREATE_NO_WINDOW);
+    command
 }
 
 #[tauri::command]
@@ -31,12 +45,7 @@ pub fn copy_file_to_clipboard(app: tauri::AppHandle, path: String) -> Result<(),
     validate(file)?;
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let script = format!("Set-Clipboard -LiteralPath {}", ps_quote(&path));
-        let output = std::process::Command::new("powershell.exe")
-            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-            .creation_flags(CREATE_NO_WINDOW)
+        let output = powershell_with_path(COPY_SCRIPT, &path)
             .output()
             .map_err(|err| tr!("클립보드에 넣지 못했습니다: {err}", "Could not copy to the clipboard: {err}"))?;
         if !output.status.success() {
@@ -106,8 +115,29 @@ mod tests {
     }
 
     #[test]
-    fn quotes_single_quotes_for_powershell() {
-        assert_eq!(ps_quote(r"C:\a\it's.pdf"), r"'C:\a\it''s.pdf'");
+    fn copy_script_never_embeds_the_path() {
+        assert!(COPY_SCRIPT.contains("$env:IWAE_CLIPBOARD_PATH"));
+        assert!(!COPY_SCRIPT.contains('\''));
+    }
+
+    /// 스마트 따옴표가 든 이름이 PowerShell 에서 코드로 풀리지 않고 그대로 경로로 쓰인다
+    #[cfg(windows)]
+    #[test]
+    fn smart_quote_file_names_stay_data_in_powershell() {
+        let dir = std::env::temp_dir().join(format!("iwae-clip-quote-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for (index, name) in ["Smith\u{2019}s paper.pdf", "x\u{2019};ni pwned.txt;\u{2019}.pdf"].iter().enumerate() {
+            let file = dir.join(name);
+            std::fs::write(&file, "%PDF").unwrap();
+            // Set-Clipboard 대신 같은 방식(환경 변수 + -LiteralPath)으로 경로가 맞는지만 본다
+            let script = "if (-not (Test-Path -LiteralPath $env:IWAE_CLIPBOARD_PATH)) { exit 3 }; Get-Item -LiteralPath $env:IWAE_CLIPBOARD_PATH | Out-Null";
+            let output = powershell_with_path(script, &file.to_string_lossy()).output().unwrap();
+            assert!(output.status.success(), "case {index}: {}", String::from_utf8_lossy(&output.stderr));
+        }
+        assert!(!dir.join("pwned.txt").exists());
+        assert!(!std::path::Path::new("pwned.txt").exists());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
