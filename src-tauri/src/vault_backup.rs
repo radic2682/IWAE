@@ -750,8 +750,15 @@ fn is_inside_vault(dir: &Path, root: &Path) -> bool {
 
 /// `dir` 안의 자동 백업 중 새것 `keep` 개만 남기고 지운다. 지운 파일 경로
 pub fn prune_auto_backups(dir: &Path, prefix: &str, keep: usize) -> Vec<String> {
+    prune_auto_backups_except(dir, prefix, keep, None)
+}
+
+/// [`prune_auto_backups`] 와 같되 `protect`(방금 만든 백업)는 무슨 일이 있어도 지우지 않고 남길 개수에 센다.
+/// 새것인지는 파일 수정 시각으로 가린다(수정 시각이 같거나 못 읽으면 이름순). 이름의 시각은 그 PC 의 벽시계라
+/// 서쪽으로 시간대를 옮기거나 일광절약시간이 끝나거나 시계를 고치면 나중에 만든 백업이 이름으로는 더 옛것이 된다.
+pub fn prune_auto_backups_except(dir: &Path, prefix: &str, keep: usize, protect: Option<&Path>) -> Vec<String> {
     let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
-    let mut found: Vec<PathBuf> = entries
+    let found: Vec<PathBuf> = entries
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| {
@@ -759,14 +766,31 @@ pub fn prune_auto_backups(dir: &Path, prefix: &str, keep: usize) -> Vec<String> 
             path.is_file() && name.starts_with(prefix) && name.ends_with(".zip")
         })
         .collect();
-    // 이름에 시각이 들어 있어 이름순 = 시간순
+    let modified = |path: &Path| std::fs::metadata(path).and_then(|meta| meta.modified()).ok();
+    let mut found: Vec<(Option<std::time::SystemTime>, PathBuf)> = found.into_iter().map(|path| (modified(&path), path)).collect();
+    // 오래된 것부터. 시각을 못 읽은 것은 가장 오래된 쪽에 두고, 같은 시각이면 이름순
     found.sort();
     let excess = found.len().saturating_sub(keep.max(1));
     found
         .into_iter()
+        .filter(|(_, path)| protect.is_none_or(|protected| !same_path(path, protected)))
         .take(excess)
+        .map(|(_, path)| path)
         .filter_map(|path| std::fs::remove_file(&path).ok().map(|_| path.to_string_lossy().into_owned()))
         .collect()
+}
+
+/// 이름의 시각은 분 단위라 같은 분(또는 일광절약시간이 끝나 되풀이되는 시각)에 만든 백업이 서로 덮어쓰지 않게,
+/// 이미 있으면 `-2`, `-3` … 을 붙인다.
+fn unused_backup_path(dir: &Path, prefix: &str, stamp: &str) -> PathBuf {
+    let first = dir.join(format!("{prefix}{stamp}.zip"));
+    if !first.exists() {
+        return first;
+    }
+    (2..1000)
+        .map(|n| dir.join(format!("{prefix}{stamp}-{n}.zip")))
+        .find(|path| !path.exists())
+        .unwrap_or(first)
 }
 
 /// 자동 백업: `dir` 폴더(없으면 만든다)에 전체 백업을 하나 만들고, 자동 백업을 `keep` 개만 남긴다.
@@ -815,11 +839,11 @@ pub async fn vault_backup_auto(
     tauri::async_runtime::spawn_blocking(move || {
         std::fs::create_dir_all(&dir).map_err(|err| tr!("자동 백업 폴더를 만들지 못했습니다: {err}", "Could not create the auto-backup folder: {err}"))?;
         let prefix = auto_backup_prefix(&root);
-        let dest = dir.join(format!("{prefix}{stamp}.zip"));
+        let dest = unused_backup_path(&dir, &prefix, &stamp);
         let backup = create_backup(&root, &dest, include_index, utc_offset_minutes.unwrap_or(0).clamp(-14 * 60, 14 * 60), &cancel, &|progress| {
             let _ = app.emit(PROGRESS_EVENT, progress);
         })?;
-        let removed = prune_auto_backups(&dir, &prefix, keep.clamp(1, 100) as usize);
+        let removed = prune_auto_backups_except(&dir, &prefix, keep.clamp(1, 100) as usize, Some(&dest));
         Ok(AutoBackupResult { backup, removed })
     })
     .await
@@ -829,6 +853,99 @@ pub async fn vault_backup_auto(
 #[cfg(test)]
 mod auto_tests {
     use super::*;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("iwae-{name}-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// 이름의 시각(현지 시계)과 상관없이 `hours` 시간 전에 만든 백업처럼 수정 시각을 정한다
+    fn backup_made(dir: &Path, name: &str, hours_ago: u64) -> PathBuf {
+        let path = dir.join(name);
+        std::fs::write(&path, name).unwrap();
+        let when = SystemTime::now() - Duration::from_secs(hours_ago * 3600);
+        std::fs::OpenOptions::new().write(true).open(&path).unwrap().set_modified(when).unwrap();
+        path
+    }
+
+    #[test]
+    fn a_backup_made_after_moving_west_is_not_pruned_as_the_oldest() {
+        // 서울에서 21:00, 23:00 에 만든 뒤 시간대가 서쪽으로 옮겨 가 이름의 시각이 10:00 인 새 백업이 생겼다
+        let dir = scratch("prune-west");
+        let prefix = "Vault-0123abcd-auto-";
+        backup_made(&dir, &format!("{prefix}2026-11-15-2100.zip"), 6);
+        backup_made(&dir, &format!("{prefix}2026-11-15-2300.zip"), 4);
+        let newest = backup_made(&dir, &format!("{prefix}2026-11-15-1000.zip"), 0);
+        let removed = prune_auto_backups_except(&dir, prefix, 2, Some(&newest));
+        assert_eq!(removed.len(), 1);
+        assert!(removed[0].ends_with("2026-11-15-2100.zip"), "{removed:?}");
+        assert!(newest.exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_backup_made_after_the_dst_fall_back_survives() {
+        let dir = scratch("prune-dst");
+        let prefix = "Vault-0123abcd-auto-";
+        backup_made(&dir, &format!("{prefix}2026-11-01-0120.zip"), 3);
+        backup_made(&dir, &format!("{prefix}2026-11-01-0150.zip"), 2);
+        let newest = backup_made(&dir, &format!("{prefix}2026-11-01-0110.zip"), 0);
+        // 보호하지 않아도 수정 시각으로 새것이 가려진다
+        let removed = prune_auto_backups(&dir, prefix, 2);
+        assert_eq!(removed.len(), 1);
+        assert!(removed[0].ends_with("2026-11-01-0120.zip"), "{removed:?}");
+        assert!(newest.exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_backup_just_written_is_never_pruned_even_with_an_older_modified_time() {
+        // 시계를 앞으로 돌려 놓았다가 고쳤다면 방금 만든 파일의 시각이 다른 것보다 옛것일 수 있다
+        let dir = scratch("prune-protect");
+        let prefix = "Vault-0123abcd-auto-";
+        backup_made(&dir, &format!("{prefix}2026-11-15-0900.zip"), 1);
+        backup_made(&dir, &format!("{prefix}2026-11-15-0800.zip"), 2);
+        let just_written = backup_made(&dir, &format!("{prefix}2026-11-15-0700.zip"), 30);
+        let removed = prune_auto_backups_except(&dir, prefix, 2, Some(&just_written));
+        assert!(just_written.exists(), "방금 만든 백업은 남는다: {removed:?}");
+        assert_eq!(removed.len(), 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn prune_still_orders_by_name_when_modified_times_are_equal() {
+        let dir = scratch("prune-tie");
+        let prefix = "V-auto-";
+        let when = SystemTime::now() - Duration::from_secs(60);
+        for name in ["V-auto-2026-03-01-0000.zip", "V-auto-2026-01-01-0000.zip", "V-auto-2026-02-01-0000.zip"] {
+            let path = dir.join(name);
+            std::fs::write(&path, b"x").unwrap();
+            std::fs::OpenOptions::new().write(true).open(&path).unwrap().set_modified(when).unwrap();
+        }
+        let removed = prune_auto_backups(&dir, prefix, 2);
+        assert_eq!(removed.len(), 1);
+        assert!(removed[0].ends_with("V-auto-2026-01-01-0000.zip"), "{removed:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn two_backups_in_the_same_minute_get_different_names() {
+        let dir = scratch("same-minute");
+        let first = unused_backup_path(&dir, "V-auto-", "2026-11-01-0130");
+        assert!(first.ends_with("V-auto-2026-11-01-0130.zip"));
+        std::fs::write(&first, b"first").unwrap();
+        let second = unused_backup_path(&dir, "V-auto-", "2026-11-01-0130");
+        assert!(second.ends_with("V-auto-2026-11-01-0130-2.zip"), "{second:?}");
+        std::fs::write(&second, b"second").unwrap();
+        let third = unused_backup_path(&dir, "V-auto-", "2026-11-01-0130");
+        assert!(third.ends_with("V-auto-2026-11-01-0130-3.zip"));
+        assert_eq!(std::fs::read(&first).unwrap(), b"first", "먼저 만든 백업은 덮이지 않는다");
+        // 이 이름들은 모두 자동 백업으로 알아본다
+        assert_eq!(prune_auto_backups(&dir, "V-auto-", 1).len(), 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn prune_keeps_the_newest_auto_backups_only() {
