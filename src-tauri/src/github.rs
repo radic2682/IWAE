@@ -120,15 +120,6 @@ struct Place {
     in_place: bool,
 }
 
-impl Place {
-    fn source_root(&self, path: Option<&str>) -> PathBuf {
-        match path {
-            Some(path) if !self.in_place => self.clone.join(path),
-            _ => self.clone.clone(),
-        }
-    }
-}
-
 /// 이름으로 연결을 찾는다(숨긴 것 먼저, 없으면 예전 방식 GitHub/<name>)
 fn place_of(vault_root: &str, name: &str) -> Result<Place, String> {
     if name.is_empty() || name.contains(['/', '\\']) || name == "." || name == ".." {

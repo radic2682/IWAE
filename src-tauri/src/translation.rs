@@ -1498,7 +1498,6 @@ mod cloud_translator_tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn google_translates_all_of_a_long_text_in_order() {
-        use std::io::Read as _;
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let port = server.server_addr().to_ip().unwrap().port();
         let worker = std::thread::spawn(move || {

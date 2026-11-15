@@ -7,3 +7,4 @@ Local changes to tiny_http 0.12.0 (upstream: https://github.com/tiny-http/tiny-h
    middle of headers or a body can no longer hold a thread forever (the existing 408 path handles it).
 3. TLS support (ssl features) removed from `Cargo.toml`; IWAE only serves plain HTTP on 127.0.0.1.
 4. `src/client.rs`: a non-ASCII header line answers 400 instead of closing the socket with no reply.
+5. `Cargo.toml`: `[lints.rust]` allows `unused_imports` and `dead_code` (and `unexpected_cfgs`), so upstream code we do not edit stops warning in every build.

@@ -21,3 +21,6 @@ ssl-rustls = []
 
 [lints.rust]
 unexpected_cfgs = { level = "allow" }
+# Upstream code kept as is: its unused imports and dead code would otherwise warn in every IWAE build.
+unused_imports = { level = "allow" }
+dead_code = { level = "allow" }
