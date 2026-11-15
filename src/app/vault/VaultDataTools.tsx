@@ -269,7 +269,7 @@ export function TrashEmptyControl({ count, onEmptied }: TrashEmptyControlProps) 
         >
           <p>{pick({
             ko: <>항목 <strong>{items.toLocaleString()}개</strong>{stats !== null ? <> (파일 {stats.files.toLocaleString()}개, <strong>{formatBytes(stats.bytes)}</strong>)</> : null}를 영구히 지웁니다.</>,
-            en: <>Permanently delete <strong>{items.toLocaleString()} {items === 1 ? 'item' : 'items'}</strong>{stats !== null ? <> ({stats.files.toLocaleString()} files, <strong>{formatBytes(stats.bytes)}</strong>)</> : null}.</>,
+            en: <>Permanently delete <strong>{items.toLocaleString()} {items === 1 ? 'item' : 'items'}</strong>{stats !== null ? <> ({stats.files.toLocaleString()} {stats.files === 1 ? 'file' : 'files'}, <strong>{formatBytes(stats.bytes)}</strong>)</> : null}.</>,
           })}</p>
           <p>{t('지운 뒤에는 복원할 수 없습니다.')}</p>
         </ConfirmDialog>

@@ -344,12 +344,21 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
           {primary(t('{count}개로 나누기', { count: chapters.length }), () => void run(t('나누는 중…'), async () => {
             const folder = `${props.title} ${t('나눔')}`
             let notice = ''
+            let made = 0
+            let firstFailure: unknown = null
             for (const [index, chapter] of chapters.entries()) {
               const pages = Array.from({ length: chapter.to - chapter.from + 1 }, (_, at) => chapter.from + at)
-              const saved = await actions.saveCopy({ kind: 'extract', pages }, `${String(index + 1).padStart(2, '0')} ${chapter.title}`, folder)
-              if (typeof saved !== 'string') notice = saved.notice
+              try {
+                const saved = await actions.saveCopy({ kind: 'extract', pages }, `${String(index + 1).padStart(2, '0')} ${chapter.title}`, folder)
+                if (typeof saved !== 'string') notice = saved.notice
+                made += 1
+              } catch (cause) {
+                firstFailure ??= cause
+              }
             }
-            const done = t('PDF {count}개를 「{folder}」 폴더에 만들었습니다', { count: chapters.length, folder })
+            if (firstFailure !== null && made === 0) throw firstFailure
+            const done = t('PDF {count}개를 「{folder}」 폴더에 만들었습니다', { count: made, folder })
+            if (firstFailure !== null) return t('{done}. {failed}개는 만들지 못했습니다: {reason}', { done, failed: chapters.length - made, reason: errorText(firstFailure) })
             return notice === '' ? done : `${done}. ${notice}`
           }), chapters.length === 0)}
         </>

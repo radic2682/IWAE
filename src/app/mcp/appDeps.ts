@@ -1,7 +1,7 @@
 import { pageTextIndex, type PdfToolOp } from '../../bridge/pdf'
 import { buildAnchor, type Anchor } from '../../core/anchor'
 import { findTextRange } from '../../core/canvasOps'
-import { parsePageRanges } from '../../core/pdfToolOps'
+import { compactPageList, parsePageRanges } from '../../core/pdfToolOps'
 import type { PdfBookmark } from '../../core/pdfBookmarks'
 import type { VaultSearchRecord } from '../../core/vaultSearch'
 import type { LibraryDoc } from '../../core/vaultTree'
@@ -333,7 +333,7 @@ export function buildMcpAppDeps(input: McpAppInput): McpAppDeps {
       if (tool.kind === 'extract') {
         const pages = parsePageRanges(tool.pages, pageCount)
         if (pages === null || pages.length === 0) throw new Error(`pages could not be read: ${tool.pages}`)
-        const suffix = tool.outputName ?? `(p.${tool.pages.replace(/\s+/gu, '')})`
+        const suffix = tool.outputName ?? `(p.${compactPageList(pages)})`
         const path = await input.toolCopy(docId, { kind: 'extract', pages }, suffix)
         return { path, docId: null, pageCount: pages.length }
       }

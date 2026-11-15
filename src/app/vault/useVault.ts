@@ -63,6 +63,7 @@ import {
 import type { VaultIndexEntry } from '../../core/vaultIndex'
 import { partitionDroppedDocumentPaths } from '../../core/documentDrop'
 import { reconcileLibraryPdfEntries, reconcileMissingVaultPdfs, reconcileVaultIndexFiles, type VaultIndexFile } from '../../core/vaultIndex'
+import { safeFileStem, toolCopyStem } from '../../core/pdfToolOps'
 import { errorText } from '../../core/errorText'
 import { t } from '../../i18n'
 import { folderAccessText, isFolderAccessDenied } from '../../core/vaultAccess'
@@ -1444,8 +1445,8 @@ export function useVault(options: UseVaultOptions = {}) {
     const { dirname, join } = await import('@tauri-apps/api/path')
     const { exists } = await import('@tauri-apps/plugin-fs')
     const parent = await dirname(entry.path)
-    const folder = subfolder === undefined ? parent : await join(parent, subfolder.replace(/[\\/:*?"<>|]/gu, '').trim() || 'PDF')
-    const base = `${entry.title} ${suffix}`.replace(/[\\/:*?"<>|]/gu, '').trim()
+    const folder = subfolder === undefined ? parent : await join(parent, safeFileStem(subfolder, 80))
+    const base = toolCopyStem(entry.title, suffix)
     let path = await join(folder, `${base}.pdf`)
     for (let n = 2; await exists(path); n += 1) path = await join(folder, `${base} (${n}).pdf`)
     const result = await runPdfTool(docId, op, { kind: 'newFile', path })

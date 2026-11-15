@@ -1,5 +1,6 @@
 import type { ExportPdfHighlight, PdfFlatOverlay, PdfToolOp } from '../bridge/pdf'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
+import { t } from '../i18n'
 import { DEFAULT_HIGHLIGHT_COLORS, highlightExportRgb, type HighlightColorDef } from './highlightColors'
 import { isRedaction, type PdfOverlay } from './pdfOverlays'
 
@@ -123,12 +124,12 @@ export function chapterRanges(
 ): { title: string; from: number; to: number }[] {
   const top = outline
     .filter((entry) => entry.depth === 0 && entry.page !== null && entry.page >= 0 && entry.page < pageCount)
-    .map((entry) => ({ title: entry.title.trim() || '장', page: entry.page! }))
+    .map((entry) => ({ title: entry.title.trim() || t('장'), page: entry.page! }))
     .sort((a, b) => a.page - b.page)
   const starts = top.filter((entry, index) => index === 0 || entry.page !== top[index - 1]!.page)
   if (starts.length === 0) return []
   const ranges: { title: string; from: number; to: number }[] = []
-  if (starts[0]!.page > 0) ranges.push({ title: '앞부분', from: 0, to: starts[0]!.page - 1 })
+  if (starts[0]!.page > 0) ranges.push({ title: t('앞부분'), from: 0, to: starts[0]!.page - 1 })
   starts.forEach((entry, index) => {
     const next = starts[index + 1]
     ranges.push({ title: entry.title, from: entry.page, to: next === undefined ? pageCount - 1 : next.page - 1 })
@@ -136,8 +137,52 @@ export function chapterRanges(
   return ranges
 }
 
-/** 파일 이름에 못 쓰는 글자를 지우고 줄인다 */
-export function safeFileStem(name: string, max = 60): string {
-  const cleaned = name.replace(/[\\/:*?"<>|\u0000-\u001f]/gu, '').replace(/\s+/gu, ' ').trim()
-  return (cleaned === '' ? 'PDF' : cleaned).slice(0, max).trim()
+const RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/iu
+
+/** 글자(코드 포인트) 수로 자른다. 짝을 이루는 글자 중간은 자르지 않는다 */
+function cutChars(text: string, max: number): string {
+  const chars = Array.from(text)
+  return chars.length <= max ? text : chars.slice(0, max).join('')
+}
+
+/** UTF-8 로 maxBytes 를 넘지 않게 자른다(macOS·Linux 는 이름이 255바이트까지) */
+function cutBytes(text: string, maxBytes: number): string {
+  const encoder = new TextEncoder()
+  let bytes = 0
+  let out = ''
+  for (const char of text) {
+    bytes += encoder.encode(char).length
+    if (bytes > maxBytes) break
+    out += char
+  }
+  return out
+}
+
+/**
+ * 파일 이름(확장자 앞부분)으로 쓸 수 있게 다듬는다: 못 쓰는 글자·제어 문자를 빼고, 끝의 점·공백을 없애고,
+ * 윈도우 예약 이름(CON, NUL, COM1…)을 피하고, 길이를 줄인다. 비면 fallback.
+ */
+export function safeFileStem(name: string, max = 60, fallback = 'PDF'): string {
+  const cleaned = cutBytes(cutChars(name.replace(/[\\/:*?"<>|]/gu, '').replace(/[\s\u0000-\u001f\u007f]+/gu, ' ').trim(), max), 100).replace(/[.\s]+$/u, '')
+  if (cleaned === '') return fallback
+  return RESERVED_NAME.test(cleaned) ? `_${cleaned}` : cleaned
+}
+
+/** 도구 결과 PDF 의 이름 줄기 「제목 덧붙임」. 어느 쪽이 길어도 전체가 255바이트를 넘지 않는다 */
+export function toolCopyStem(title: string, suffix: string): string {
+  const head = safeFileStem(title, 60)
+  const tail = safeFileStem(suffix, 40, '')
+  return tail === '' ? head : `${head} ${tail}`
+}
+
+/** 0 부터의 쪽 번호 목록을 사람이 쓰는 모양으로: [0,1,2,6] → 「1-3,7」 */
+export function compactPageList(pages: readonly number[]): string {
+  const parts: string[] = []
+  for (let at = 0; at < pages.length;) {
+    let end = at
+    while (end + 1 < pages.length && pages[end + 1] === pages[end]! + 1) end += 1
+    parts.push(end > at ? `${pages[at]! + 1}-${pages[end]! + 1}` : String(pages[at]! + 1))
+    at = end + 1
+  }
+  return parts.join(',')
 }

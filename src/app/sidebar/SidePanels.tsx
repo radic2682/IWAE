@@ -210,7 +210,7 @@ export function ThumbnailPanel({ activeDoc, currentPage, onSelectPage, viewportP
   return (
     <div className="side-scroll thumb-panel" ref={scrollRef} style={{ '--preview-columns': columns } as CSSProperties}>
       <div className="outline-preview-bar thumb-panel-bar">
-        <span className="thumb-panel-count">{pick({ ko: `${activeDoc.pageCount}쪽`, en: `${activeDoc.pageCount} pages` })}</span>
+        <span className="thumb-panel-count">{pick({ ko: `${activeDoc.pageCount}쪽`, en: `${activeDoc.pageCount} ${activeDoc.pageCount === 1 ? 'page' : 'pages'}` })}</span>
         <PreviewColumnsSwitch columns={columns} onChange={changeColumns} />
       </div>
       <div className="thumb-grid">

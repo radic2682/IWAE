@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildFlattenOp, chapterRanges, countMarks, parsePageRanges, safeFileStem } from './pdfToolOps'
+import { buildFlattenOp, chapterRanges, compactPageList, countMarks, parsePageRanges, safeFileStem, toolCopyStem } from './pdfToolOps'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
 import type { PdfOverlay } from './pdfOverlays'
 
@@ -72,5 +72,28 @@ describe('safeFileStem', () => {
   it('파일 이름에 못 쓰는 글자를 뺀다', () => {
     expect(safeFileStem('a/b:c*?"<>|d')).toBe('abcd')
     expect(safeFileStem('   ')).toBe('PDF')
+  })
+})
+
+describe('파일 이름 만들기', () => {
+  it('제어 문자·끝의 점·예약 이름을 없애고 길이를 줄인다', () => {
+    expect(safeFileStem('1 장\tA\r\nB.. ')).toBe('1 장 A B')
+    expect(safeFileStem('CON')).toBe('_CON')
+    expect(safeFileStem('nul.txt')).toBe('_nul.txt')
+    expect(safeFileStem('가'.repeat(200)).length).toBeLessThanOrEqual(33)
+    const emoji = safeFileStem('😀'.repeat(100), 60)
+    expect(new TextEncoder().encode(emoji).length).toBeLessThanOrEqual(100)
+    expect(emoji).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/u)
+  })
+
+  it('쪽 범위를 짧게 줄인다', () => {
+    expect(compactPageList(Array.from({ length: 100 }, (_, i) => i))).toBe('1-100')
+    expect(compactPageList([0, 1, 2, 6, 8, 9])).toBe('1-3,7,9-10')
+  })
+
+  it('제목과 덧붙임이 아무리 길어도 이름이 255바이트를 넘지 않는다', () => {
+    const stem = toolCopyStem('긴제목'.repeat(100), `(p.${compactPageList([...Array(50).keys()].map((i) => i * 2))})`)
+    expect(new TextEncoder().encode(`${stem} (99).pdf`).length).toBeLessThanOrEqual(255)
+    expect(toolCopyStem('Paper', '')).toBe('Paper')
   })
 })
