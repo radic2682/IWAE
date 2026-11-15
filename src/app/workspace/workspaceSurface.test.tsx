@@ -690,13 +690,21 @@ describe('D2 · 탭 닫기 × 와 좁은 탭', () => {
     const minWidth = /min-width:\s*(?:min\()?(\d+)px/u.exec(rulesMatching(active, allRules).filter((rule) => rule.selectors.some((selector) => selector.includes('.pane-top-tab-active'))).map((rule) => rule.body).join(';'))
     expect(Number(minWidth?.[1])).toBeGreaterThan(76)
     // 안 보이는 탭: 이름 감춤 · 알약 바탕 · 올리면 진하게, 최소 폭 40px · 높이 28px
-    const labelRule = narrow.find((rule) => rule.selectors.includes('.pane-head .pane-top-tab-label'))
+    const labelRule = narrow.find((rule) => rule.selectors.includes('.pane-head .pane-top-tab:not(.pane-top-tab-active) .pane-top-tab-label'))
     expect(labelRule?.body).toContain('display: none')
     expect(narrow.some((rule) => rule.selectors.some((selector) => selector.includes(':not(.pane-top-tab-active) .pane-top-tab-title')) && /border-radius: var\(--r-sm\)/u.test(rule.body) && /5%/u.test(rule.body))).toBe(true)
     expect(narrow.some((rule) => rule.selectors.some((selector) => selector.includes(':hover .pane-top-tab-title')) && /9%/u.test(rule.body))).toBe(true)
     const pill = rulesMatching(inactive, allRules).map((rule) => rule.body).join(';')
     expect(pill).toMatch(/min-width:\s*40px/u)
     expect(pill).toMatch(/height:\s*var\(--icon-btn\)/u)
+  })
+
+  it('아주 좁은 칸에서도 보는 탭은 아이콘과 줄임표로 잘린 이름을 지킨다(이름을 감추는 규칙은 안 보이는 탭에만)', () => {
+    const hiding = allRules.filter((rule) => /display:\s*none/u.test(rule.body) && rule.selectors.some((selector) => selector.endsWith('.pane-top-tab-label')))
+    for (const rule of hiding) expect(rule.selectors.every((selector) => selector.includes(':not(.pane-top-tab-active)'))).toBe(true)
+    const compact = allRules.filter((rule) => rule.at === '@container (max-width: 96px)')
+    expect(compact.some((rule) => rule.selectors.some((selector) => selector.endsWith('.pane-top-tab-active .pane-top-tab-label')) && /min-width/u.test(rule.body))).toBe(true)
+    expect(allRules.some((rule) => rule.at === '@container pane-head (max-width: 199px)' && rule.selectors.some((selector) => selector.includes('.pane-head-number')))).toBe(true)
   })
 
   it('좁은 탭의 닫기 ×: 안 보이는 탭에서만 평소 display:none(눈에도 없고 초점도 못 받는다)이고, 올리거나(:hover) 탭 안에 초점이 있으면(:focus-within) 나타난다. 보는 탭의 ×는 늘 있다', () => {
