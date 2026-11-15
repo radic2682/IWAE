@@ -53,7 +53,7 @@ describe('붙여 넣은 서식 거르기(N14)', () => {
 
   it('링크는 http(s) · mailto 만 남기고 rel 을 붙인다. 그림은 버린다', () => {
     expect(sanitizeMemoHtml('<a href="https://a.com/x" onclick="x()">링크</a>')).toBe('<a href="https://a.com/x" rel="noopener noreferrer">링크</a>')
-    expect(sanitizeMemoHtml('<a href="mailto:a@b.com">메일</a>')).toBe('<a href="mailto:a@b.com" rel="noopener noreferrer">메일</a>')
+    expect(sanitizeMemoHtml('<a href="mailto:a@b.com">메일</a>')).toBe('<a href="mailto:a@b.com" rel="noopener noreferrer">메일</a>') // release-scan-allow: 시험용 가짜 주소
     expect(sanitizeMemoHtml('<a href="javascript:alert(1)">나쁜 링크</a>')).toBe('나쁜 링크')
     expect(sanitizeMemoHtml('<a href="file:///C:/x">파일</a>')).toBe('파일')
     expect(sanitizeMemoHtml('앞<img src="data:image/png;base64,AAAA">뒤')).toBe('앞뒤')
