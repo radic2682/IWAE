@@ -56,6 +56,24 @@ fn is_openable(path: &Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf") || ext.eq_ignore_ascii_case("iwtheme"))
 }
 
+/// `.`·`..` 를 글자 기준으로 걷어 낸다(`C:\a\b` + `..\x.pdf` → `C:\a\x.pdf`). 파일 시스템은 보지 않는다
+fn normalize_lexically(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for part in path.components() {
+        match part {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !matches!(out.components().next_back(), Some(Component::Normal(_))) || !out.pop() {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
 /// 인자 가운데 실제로 있는 PDF·테마 파일만. 첫 인자(실행 파일)는 뺀다. 상대 경로는 cwd 기준
 pub fn pdf_args<I: IntoIterator<Item = String>>(args: I, cwd: Option<&Path>) -> Vec<String> {
     args.into_iter()
@@ -64,7 +82,7 @@ pub fn pdf_args<I: IntoIterator<Item = String>>(args: I, cwd: Option<&Path>) -> 
         .map(|arg| {
             let path = PathBuf::from(&arg);
             match (path.is_absolute(), cwd) {
-                (false, Some(base)) => base.join(path),
+                (false, Some(base)) => normalize_lexically(&base.join(path)),
                 _ => path,
             }
         })
@@ -348,6 +366,24 @@ pub fn take_open_files<R: Runtime>(app: AppHandle<R>, state: tauri::State<'_, Pe
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn relative_arguments_with_dot_dot_are_normalized_against_the_cwd() {
+        let base = std::env::temp_dir().join(format!("iwae-open-files-dotdot-{}", std::process::id()));
+        let sub = base.join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        let pdf = base.join("file.pdf");
+        std::fs::write(&pdf, b"%PDF").unwrap();
+        for arg in ["../file.pdf", r"..\file.pdf", "./../file.pdf"] {
+            if arg.contains('\\') && !cfg!(windows) {
+                continue;
+            }
+            let files = pdf_args(vec!["iwae.exe".to_string(), arg.to_string()], Some(&sub));
+            assert_eq!(files, vec![pdf.to_string_lossy().into_owned()], "arg {arg}");
+        }
+        assert!(pdf_args(vec!["iwae.exe".to_string(), "../../../../nope.pdf".to_string()], Some(&sub)).is_empty());
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn keeps_only_existing_pdf_arguments() {
