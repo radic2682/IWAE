@@ -1,7 +1,7 @@
 # Clean-Windows scenarios for the setup window
 
 `run-vm-tests.ps1` installs, updates and uninstalls IWAE with the new setup exe and the old
-v0.2.6 NSIS installer, and writes `results.json` (`[{ name, passed, detail }]`).
+v0.2.6 NSIS installer, and writes `results.json` (`[{ name, status, passed, detail }]`).
 
 It downloads nothing. You pass it:
 
@@ -25,9 +25,12 @@ that `uninstall.exe` / `uninstall-ui.exe` remain (expected with `_?=`). The wind
 scenario 7 only checks that the uninstall window appears.
 
 Scenarios 3, 4 and 7 need an interactive desktop session (they start GUI apps and read window
-titles). If the session is not interactive they are recorded as `skipped: ...` (passed). GitHub
-Actions `windows-latest` runs as a service, so expect those three to be skipped there; use Windows
-Sandbox for full coverage. Scenario 8 is recorded as failed with detail `inconclusive` if the inner
+titles). If the session is not interactive they are recorded with status `skip`. GitHub Actions
+Windows runners usually report an interactive session, so these three may run there, or may be
+skipped, or may need a desktop session with WebView2 to work at all. Use Windows Sandbox as the
+primary environment. Results are `{ name, status, passed, detail }` with `status` of `pass`, `fail`
+or `skip` (`passed` is true only for `pass`). The script exits 0 only when nothing failed and
+nothing was skipped; pass `-AllowSkip` to accept skips. Scenario 8 is recorded as failed with detail `inconclusive` if the inner
 NSIS process never appears before the outer one is killed.
 
 ## Safety: never run this on a real PC
@@ -42,7 +45,7 @@ install dirs, and deletes `HKCU\Software\iwae`. It refuses to start (exit 2) unl
 
 Set the variable **inside the VM only**, never in your own profile or system environment.
 
-Exit codes: 0 all passed, 1 some scenario failed, 2 refused to run.
+Exit codes: 0 no failures and no skips (skips allowed with `-AllowSkip`), 1 a scenario failed or was skipped, 2 refused to run.
 
 ## Windows Sandbox
 
@@ -71,7 +74,7 @@ installers in `C:\vm\in` and create `C:\vm\out`, then open it:
 
 Copy `run-vm-tests.ps1` into the input folder too. `results.json` and `run.log` appear in the output
 folder on the host. Defender may be unavailable in the sandbox; scenario 9 then records
-`skipped: <reason>` and still passes.
+`skipped: <reason>` (status `skip`; needs `-AllowSkip` for exit 0).
 
 ## GitHub Actions
 

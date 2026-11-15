@@ -8,7 +8,8 @@ param(
     [Parameter(Mandatory = $true)][string]$OldSetup,
     [string]$Results = '.\results.json',
     [int]$TimeoutSec = 300,
-    [string]$ExpectedVersion = ''
+    [string]$ExpectedVersion = '',
+    [switch]$AllowSkip
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,11 +47,9 @@ $Sentinel = Join-Path $AppData 'vm-sentinel.txt'
 $ResultList = New-Object System.Collections.ArrayList
 
 # ---------- helpers ----------
-function Add-Result([string]$name, [bool]$passed, [string]$detail) {
-    [void]$ResultList.Add([pscustomobject]@{ name = $name; passed = $passed; detail = $detail })
-    $mark = 'FAIL'
-    if ($passed) { $mark = 'PASS' }
-    Write-Host "[$mark] $name - $detail"
+function Add-Result([string]$name, [string]$status, [string]$detail) {
+    [void]$ResultList.Add([pscustomobject]@{ name = $name; status = $status; passed = ($status -eq 'pass'); detail = $detail })
+    Write-Host "[$($status.ToUpper())] $name - $detail"
 }
 
 function Save-Results {
@@ -86,7 +85,8 @@ function Get-AppProcs([string]$dir) {
     foreach ($p in @(Get-Process -Name 'app' -ErrorAction SilentlyContinue)) {
         $path = $null
         try { $path = $p.Path } catch { }
-        if ($path -and $path.StartsWith($dir, [StringComparison]::OrdinalIgnoreCase)) { $found += $p }
+        $prefix = $dir.TrimEnd('\') + '\'
+        if ($path -and $path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { $found += $p }
     }
     return $found
 }
@@ -163,9 +163,11 @@ function Assert-NoDesktopLnk {
 function Run-Scenario([string]$name, [scriptblock]$body) {
     try {
         $detail = & $body
-        Add-Result $name $true ([string]$detail)
+        $detail = [string]$detail
+        if ($detail.StartsWith('skipped:')) { Add-Result $name 'skip' $detail }
+        else { Add-Result $name 'pass' $detail }
     } catch {
-        Add-Result $name $false ($_.Exception.Message)
+        Add-Result $name 'fail' ($_.Exception.Message)
     }
     try { Stop-App } catch { }
     Save-Results
@@ -323,7 +325,10 @@ Run-Scenario '9 Defender scan of setup exe' {
 
 Ensure-Uninstalled
 Save-Results
-$failed = @($ResultList | Where-Object { -not $_.passed }).Count
-Write-Host "Done: $($ResultList.Count) scenarios, $failed failed. Results: $Results"
+$nPass = @($ResultList | Where-Object { $_.status -eq 'pass' }).Count
+$failed = @($ResultList | Where-Object { $_.status -eq 'fail' }).Count
+$skipped = @($ResultList | Where-Object { $_.status -eq 'skip' }).Count
+Write-Host "Done: $nPass passed, $failed failed, $skipped skipped. Results: $Results"
 if ($failed -gt 0) { exit 1 }
+if (($skipped -gt 0) -and (-not $AllowSkip)) { exit 1 }
 exit 0
