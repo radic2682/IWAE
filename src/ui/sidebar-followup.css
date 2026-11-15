@@ -547,6 +547,8 @@
 .markdown-pane {
   position: relative;
   z-index: 1;
+  /* 문서 안 인라인 style 의 position:fixed 가 앱 화면 전체로 번지지 않게, 칸 안으로 가둔다 */
+  contain: paint;
   height: 100%;
   overflow: auto;
   padding: clamp(28px, 5vw, 64px);
