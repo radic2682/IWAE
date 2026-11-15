@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import {
   REPOSITORY, UPDATER_ENDPOINT, buildSteps, distDir, fixedEnv, ghCreateArgs, ghUploadArgs, manifestEnv,
-  parseArgs, parseEnvFile, resolveSecrets, selectMacArtifacts, selectWindowsArtifacts, uploadList,
+  parseArgs, parseEnvFile, resolveSecrets, selectMacArtifacts, selectWindowsArtifacts, selectWindowsFromBundle, uploadList,
 } from './release-local.mjs'
 
 test('parses KEY=VALUE lines, comments, quotes and CRLF', () => {
@@ -64,6 +64,17 @@ test('selects Windows artifacts and requires the NSIS signature', () => {
   assert.throws(() => selectWindowsArtifacts(['IWAE_0.1.9_x64-setup.exe'], [], '0.1.9'), /signature/u)
   assert.throws(() => selectWindowsArtifacts(['IWAE_0.1.8_x64-setup.exe', 'IWAE_0.1.8_x64-setup.exe.sig'], [], '0.1.9'), /not generated/u)
   assert.equal(selectWindowsArtifacts(['a_0.1.9-setup.exe', 'a_0.1.9-setup.exe.sig'], [], '0.1.9').msi, null)
+})
+
+test('Windows exe and sig come from bundle/setup, never the inner NSIS exe', () => {
+  const sel = selectWindowsFromBundle({
+    setup: ['IWAE_0.2.7_x64-setup.exe', 'IWAE_0.2.7_x64-setup.exe.sig'],
+    nsis: ['IWAE_0.2.7_x64-setup.exe', 'IWAE_0.2.7_x64-setup.exe.sig', 'IWAE_0.2.7_other-setup.exe'],
+    msi: ['IWAE_0.2.7_x64_en-US.msi'],
+  }, '0.2.7')
+  assert.deepEqual(sel, { nsis: 'IWAE_0.2.7_x64-setup.exe', nsisSig: 'IWAE_0.2.7_x64-setup.exe.sig', msi: 'IWAE_0.2.7_x64_en-US.msi', msiSig: null })
+  // an exe present only in bundle/nsis is not enough
+  assert.throws(() => selectWindowsFromBundle({ setup: [], nsis: ['IWAE_0.2.7_x64-setup.exe', 'IWAE_0.2.7_x64-setup.exe.sig'], msi: [] }, '0.2.7'), /not generated/u)
 })
 
 test('selects mac artifacts', () => {

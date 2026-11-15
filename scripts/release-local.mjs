@@ -114,6 +114,11 @@ export function selectWindowsArtifacts(nsisNames, msiNames, version) {
   return result
 }
 
+/** 설치 창(bundle/setup)이 올리는 exe 다. bundle/nsis 의 안쪽 NSIS exe 는 절대 고르지 않는다. */
+export function selectWindowsFromBundle({ setup, msi }, version) {
+  return selectWindowsArtifacts(setup, msi, version)
+}
+
 export function selectMacArtifacts(names) {
   const dmgs = names.filter((name) => name.endsWith('.dmg'))
   const archives = names.filter((name) => name.endsWith('.app.tar.gz'))
@@ -165,7 +170,7 @@ export function buildSteps({ publish, clobber, hasMac }) {
     'npm test',
     'npm run release:build',
     'npm run verify:ocr-dist',
-    'check NSIS -setup.exe and .sig',
+    'check setup window -setup.exe and .sig (bundle/setup)',
     'collect files into dist-release/v<version>/',
     'write latest.json',
   ]
@@ -287,12 +292,12 @@ async function main() {
   run('npm', ['run', 'verify:ocr-dist'], { env, cwd: root })
 
   const bundle = join(root, 'src-tauri', 'target', 'release', 'bundle')
-  const windows = selectWindowsArtifacts(listDir(join(bundle, 'nsis')), listDir(join(bundle, 'msi')), version)
+  const windows = selectWindowsFromBundle({ setup: listDir(join(bundle, 'setup')), msi: listDir(join(bundle, 'msi')) }, version)
 
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(dir, { recursive: true })
-  copyFileSync(join(bundle, 'nsis', windows.nsis), join(dir, windows.nsis))
-  copyFileSync(join(bundle, 'nsis', windows.nsisSig), join(dir, windows.nsisSig))
+  copyFileSync(join(bundle, 'setup', windows.nsis), join(dir, windows.nsis))
+  copyFileSync(join(bundle, 'setup', windows.nsisSig), join(dir, windows.nsisSig))
   if (windows.msi) copyFileSync(join(bundle, 'msi', windows.msi), join(dir, windows.msi))
   if (windows.msiSig) copyFileSync(join(bundle, 'msi', windows.msiSig), join(dir, windows.msiSig))
   if (macSel) for (const name of [...macSel.dmgs, macSel.archive, macSel.archiveSig]) copyFileSync(join(macDir, name), join(dir, basename(name)))

@@ -113,7 +113,8 @@ components. Direct dependencies worth naming:
   pulled in by React Flow.
 - **Rust:** `reqwest`, `rustls`, `ring`, `webpki-roots` (CDLA-Permissive-2.0),
   `keyring`, `zip`, `image`, `encoding_rs` (Apache-2.0 OR MIT, with BSD-3-Clause
-  parts), `serde`, `sha2`, `getrandom`, `tiny_http`, `rusqlite` and the Tauri
+  parts), `serde`, `serde_json`, `winreg` (MIT) and `windows` (MIT OR Apache-2.0, both used by
+  the setup window), `sha2`, `getrandom`, `tiny_http`, `rusqlite` and the Tauri
   dependency tree. `ring` is licensed under Apache-2.0 and ISC terms with
   historical OpenSSL-derived portions.
 
