@@ -7,6 +7,7 @@ import {
   clampRatioForSize,
   findNode,
   findParent,
+  fitRootToWidth,
   hasPane,
   indexOfPane,
   layoutForCount,
@@ -33,6 +34,7 @@ import {
   splitRefusal,
   swapChildren,
   swapLeaves,
+  widthNeededForRatios,
   type LayoutNode,
   type RelayoutKind,
 } from './layoutTree'
@@ -289,6 +291,42 @@ describe('상한과 최소 크기', () => {
     // 자리가 모자라면 가운데 근처로만
     expect(clampRatioForSize(node, 0.01, 300)).toBeCloseTo(0.2)
     expect(clampRatioForSize(node, 0.4, 0)).toBe(0.4)
+  })
+})
+
+describe('창이 좁아졌을 때의 보정(fitRootToWidth)', () => {
+  it('칸이 최소 너비 밑으로 내려가면 비율을 옮겨 최소 너비를 지키게 한다', () => {
+    const root = split('s', 'h', P('a'), P('b'), 0.87)
+    const fitted = fitRootToWidth(root, 573) as ReturnType<typeof sample> & { ratio: number }
+    expect(fitted.ratio * 573).toBeCloseTo(573 - MIN_PANE_WIDTH, 5)
+    // 저장된 트리는 그대로다
+    expect((root as { ratio: number }).ratio).toBe(0.87)
+  })
+
+  it('넓은 창이면 같은 객체를 돌려준다', () => {
+    const root = split('s', 'h', P('a'), P('b'), 0.3)
+    expect(fitRootToWidth(root, 1600)).toBe(root)
+  })
+
+  it('칸을 다 담을 자리가 없으면 그 나누기의 비율은 그대로 둔다', () => {
+    const root = split('s', 'h', P('a'), P('b'), 0.7)
+    expect(fitRootToWidth(root, MIN_PANE_WIDTH * 2 - 1)).toBe(root)
+  })
+
+  it('안쪽 나누기도 자기 너비로 따진다', () => {
+    const root = split('s1', 'h', P('a'), split('s2', 'h', P('b'), P('c'), 0.9), 0.5)
+    const fitted = fitRootToWidth(root, 900) as { a: unknown; b: { ratio: number } }
+    // 오른쪽 몫은 450px: b 는 450*ratio, c 는 450*(1-ratio) 가 모두 240 이상이어야 하는데 450 < 480 이라 못 담는다 → 그대로
+    expect(fitted.b.ratio).toBe(0.9)
+    const wide = fitRootToWidth(root, 1200) as { b: { ratio: number } }
+    expect(600 * wide.b.ratio).toBeLessThanOrEqual(600 - MIN_PANE_WIDTH + 1e-9)
+    expect(600 * (1 - wide.b.ratio)).toBeGreaterThanOrEqual(MIN_PANE_WIDTH - 1e-9)
+  })
+
+  it('지금 비율에 필요한 너비를 센다', () => {
+    expect(widthNeededForRatios(P('a'))).toBe(MIN_PANE_WIDTH)
+    expect(widthNeededForRatios(split('s', 'h', P('a'), P('b'), 0.5))).toBe(MIN_PANE_WIDTH * 2)
+    expect(widthNeededForRatios(split('s', 'v', P('a'), P('b'), 0.9))).toBe(MIN_PANE_WIDTH)
   })
 })
 

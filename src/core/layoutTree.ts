@@ -306,6 +306,35 @@ export function splitRefusal(root: LayoutNode, paneId: string, dir: SplitDir, si
     : (size.height / 2 < MIN_PANE_HEIGHT ? 'small' : null)
 }
 
+/** 지금 비율 그대로 모든 칸이 최소 너비(MIN_PANE_WIDTH)를 지키려면 트리에 필요한 너비(px) */
+export function widthNeededForRatios(node: LayoutNode): number {
+  if (node.kind === 'pane') return MIN_PANE_WIDTH
+  if (node.dir === 'v') return Math.max(widthNeededForRatios(node.a), widthNeededForRatios(node.b))
+  return Math.max(widthNeededForRatios(node.a) / node.ratio, widthNeededForRatios(node.b) / (1 - node.ratio))
+}
+
+/**
+ * 창이 좁아졌을 때의 보정: 좌우 나누기의 비율을 칸이 최소 너비(MIN_PANE_WIDTH) 밑으로 내려가지 않게 옮긴 새 트리(보정할 것이 없으면 같은 객체).
+ * width 는 트리가 차지한 너비(px). 칸을 다 담을 자리가 없으면(최소 너비의 합이 width 보다 크다) 그 나누기의 비율은 그대로 둔다.
+ * 저장된 트리를 바꾸지 않고 그릴 때만 쓴다(창이 다시 넓어지면 저장된 비율대로 돌아간다).
+ */
+export function fitRootToWidth(root: LayoutNode, width: number): LayoutNode {
+  if (!Number.isFinite(width) || width <= 0) return root
+  const walk = (node: LayoutNode, w: number): LayoutNode => {
+    if (node.kind === 'pane') return node
+    let ratio = node.ratio
+    if (node.dir === 'h') {
+      const low = minSize(node.a).width / w
+      const high = 1 - minSize(node.b).width / w
+      if (low < high) ratio = Math.min(Math.max(ratio, low), high)
+    }
+    const a = walk(node.a, node.dir === 'h' ? w * ratio : w)
+    const b = walk(node.b, node.dir === 'h' ? w * (1 - ratio) : w)
+    return ratio === node.ratio && a === node.a && b === node.b ? node : { ...node, ratio, a, b }
+  }
+  return walk(root, width)
+}
+
 /** 끌기: 나누기 하나의 비율을 두 쪽이 최소 크기를 지키는 범위로 가둔다. total 은 그 나누기가 차지한 길이(px, dir 방향) */
 export function clampRatioForSize(node: SplitNode, ratio: number, total: number): number {
   if (!Number.isFinite(total) || total <= 0) return clampRatio(ratio)

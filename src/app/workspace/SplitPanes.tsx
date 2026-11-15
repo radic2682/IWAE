@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { SIDEBAR_DEFAULT, clampLeftFrac, clampSidebar } from './splitLayout'
-import { applyRatios, clampRatioForSize, layoutRects, leaves, paneCount, type LayoutNode, type UnitRect } from '../../core/layoutTree'
+import { SIDEBAR_DEFAULT, SIDEBAR_MIN, clampLeftFrac, clampSidebar } from './splitLayout'
+import { applyRatios, clampRatioForSize, fitRootToWidth, layoutRects, leaves, paneCount, widthNeededForRatios, type LayoutNode, type UnitRect } from '../../core/layoutTree'
 import { WorkspaceLinkLayer } from './WorkspaceLinkLayer'
 import { FloatLayer, type AnchorRect } from './FloatLayer'
 import { PaneCard } from './PaneCard'
@@ -128,10 +128,36 @@ export function SplitPanes({
   const [sidebarUserSized, setSidebarUserSized] = useState(readSidebarUserSized)
   const [fitSidebarPx, setFitSidebarPx] = useState<number | null>(null)
   const shellRef = useRef<HTMLDivElement | null>(null)
-  const sidebarPx = sidebarUserSized || fitSidebarPx === null ? storedSidebarPx : fitSidebarPx
+  /** 저장된(사용자가 정한) 사이드바 폭. 저장과 끌기는 이 값을 쓴다 */
+  const rawSidebarPx = sidebarUserSized || fitSidebarPx === null ? storedSidebarPx : fitSidebarPx
   // 예전 세션의 leftFrac 는 칸 비율이 트리로 옮겨 가서 여기서는 쓰지 않는다. 저장 형식을 바꾸지 않으려 그대로 이어 준다
   const leftFracRef = useRef(clampLeftFrac(layout?.leftFrac ?? 0.5))
   const panesRef = useRef<HTMLDivElement>(null)
+  // 창 너비와 칸 영역의 테두리 두께(px). 창이 작아졌을 때 사이드바 · 칸 비율을 칸 최소 너비에 맞추려고 잰다
+  const [shellMetrics, setShellMetrics] = useState({ width: 0, chrome: 0 })
+  useLayoutEffect(() => {
+    const shell = shellRef.current
+    if (shell === null) return undefined
+    const measure = () => {
+      const panes = panesRef.current
+      const chrome = panes === null ? 0 : panes.offsetWidth - panes.clientWidth
+      setShellMetrics((current) => (current.width === shell.clientWidth && current.chrome === chrome ? current : { width: shell.clientWidth, chrome }))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(shell)
+    return () => observer.disconnect()
+  }, [])
+  // 창이 좁아지면 먼저 사이드바를 줄이고(지금 칸 비율대로 칸이 최소 너비를 지킬 만큼, 사이드바 최소 폭까지), 그래도 모자라면 칸 비율을 옮겨 어느 칸도 최소 너비 밑으로 가지 않게 한다.
+  // 저장된 값은 건드리지 않고 그릴 때만 보정한다: 창이 다시 넓어지면 사용자가 정한 폭 · 비율로 돌아간다. 칸을 다 담을 자리가 없으면 비율을 그대로 둔다
+  const sidebarHiddenNow = sidebarCollapsed || focusedPane !== 'split'
+  const maxSidebarPx = shellMetrics.width > 0 ? Math.max(SIDEBAR_MIN, shellMetrics.width - 1 - shellMetrics.chrome - widthNeededForRatios(root)) : Number.POSITIVE_INFINITY
+  const sidebarPx = sidebarHiddenNow ? rawSidebarPx : Math.min(rawSidebarPx, maxSidebarPx)
+  const maxSidebarPxRef = useRef(maxSidebarPx)
+  maxSidebarPxRef.current = maxSidebarPx
+  const panesInnerWidth = shellMetrics.width > 0 && focusedPane === 'split' ? shellMetrics.width - (sidebarHiddenNow ? 0 : sidebarPx + 1) - shellMetrics.chrome : 0
+  const fittedRoot = useMemo(() => fitRootToWidth(root, panesInnerWidth), [root, panesInnerWidth])
   const dragController = useRef<AbortController | null>(null)
 
   useEffect(() => () => dragController.current?.abort(), [])
@@ -165,18 +191,18 @@ export function SplitPanes({
     return () => observer.disconnect()
   }, [sidebarUserSized])
 
-  const layoutRef = useRef({ sidebarPx, leftFrac: leftFracRef.current })
-  layoutRef.current = { sidebarPx, leftFrac: leftFracRef.current }
+  const layoutRef = useRef({ sidebarPx: rawSidebarPx, leftFrac: leftFracRef.current })
+  layoutRef.current = { sidebarPx: rawSidebarPx, leftFrac: leftFracRef.current }
 
   // 경계선을 끄는 동안의 비율(나누기 id → 비율). 놓을 때 한 번만 바깥(onRootChange)에 알린다
   const [liveRatios, setLiveRatios] = useState<Readonly<Record<string, number>>>({})
   const liveRatiosRef = useRef<Readonly<Record<string, number>>>({})
-  const rootRef = useRef(root)
-  rootRef.current = root
+  const rootRef = useRef(fittedRoot)
+  rootRef.current = fittedRoot
   const onRootChangeRef = useRef(onRootChange)
   onRootChangeRef.current = onRootChange
   const directPaintRef = useRef(false)
-  const shownRoot = useMemo(() => (Object.keys(liveRatios).length === 0 ? root : applyRatios(root, liveRatios)), [root, liveRatios])
+  const shownRoot = useMemo(() => (Object.keys(liveRatios).length === 0 ? fittedRoot : applyRatios(fittedRoot, liveRatios)), [fittedRoot, liveRatios])
 
   /**
    * 구분선 하나의 드래그를 시작한다. 구분선들이 같은 수명주기를 쓰므로
@@ -249,7 +275,8 @@ export function SplitPanes({
   const dragSidebar = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       startDrag(e, (clientX) => {
-        const nextSidebarPx = clampSidebar(clientX)
+        // 칸이 최소 너비를 지킬 만큼의 자리는 남긴다
+        const nextSidebarPx = Math.min(clampSidebar(clientX), Math.max(SIDEBAR_MIN, maxSidebarPxRef.current))
         layoutRef.current = { ...layoutRef.current, sidebarPx: nextSidebarPx }
         setSidebarPx(nextSidebarPx)
         setSidebarUserSized(true)
@@ -320,7 +347,7 @@ export function SplitPanes({
 
   const zoomed = focusedPane === 'zoom' && zoomedPane !== null
   directPaintRef.current = canPaintDragDirectly(floats.length, zoomed)
-  const sidebarHidden = sidebarCollapsed || focusedPane !== 'split'
+  const sidebarHidden = sidebarHiddenNow
   const order = leaves(shownRoot)
   const multi = order.length > 1
   // 만지는 칸을 또렷이 하는 것은 구별할 칸이 있을 때만(칸 하나 · 떠 있는 칸 없음이면 늘 그 칸이라 강조하지 않는다)
