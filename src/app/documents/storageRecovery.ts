@@ -6,17 +6,28 @@ import { t } from '../../i18n'
 /**
  * .iwae 저장 파일을 읽는다. 내용이 깨져 있으면 지우지 않고 `.corrupt-<시각>` 이름으로 따로 옮겨 두고,
  * 한 번 알린 뒤 비어 있는 것으로 시작한다(그러지 않으면 이번 실행에서 만든 것이 하나도 저장되지 않는다).
- * 잠김 같은 읽기 실패는 그대로 던진다.
+ * 잠김 같은 읽기 실패는 잠깐 뒤 다시 읽어 보고(모두 3번, 약 2초), 끝까지 안 되면 그대로 던진다.
  */
+export const LOAD_RETRY_DELAYS_MS: readonly number[] = [700, 1300]
+
 export async function loadOrQuarantine<T>(
   vault: VaultHandle,
   fileName: string,
   label: string,
   empty: T,
   read: () => Promise<T>,
+  retryDelaysMs: readonly number[] = LOAD_RETRY_DELAYS_MS,
 ): Promise<T> {
   try {
-    return await read()
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await read()
+      } catch (cause) {
+        const delay = retryDelaysMs[attempt]
+        if (cause instanceof VaultFileCorruptError || delay === undefined) throw cause
+        await new Promise<void>((resolve) => { setTimeout(resolve, delay) })
+      }
+    }
   } catch (cause) {
     if (!(cause instanceof VaultFileCorruptError)) throw cause
     const aside = await quarantineVaultMetaFile(vault, fileName)

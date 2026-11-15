@@ -15,22 +15,39 @@ type Overlays = Readonly<Record<string, readonly PdfOverlay[]>>
 export function usePdfOverlays(vault: VaultHandle | null) {
   const [overlays, setOverlays] = useState<Overlays>({})
   const ref = useRef<Overlays>({})
+  // 처음 읽기를 마칠 때까지(잠겨서 다시 읽는 동안 포함) 저장하지 않는다. 읽기 전에 쓰면 있던 내용을 덮을 수 있다
+  const readyRef = useRef(false)
   const notifySave = useMemo(() => createSaveNotifier((error) => t('PDF 편집 내용을 저장하지 못했습니다: {error}', { error })), [])
+  const persist = useCallback((next: Overlays) => {
+    if (vault === null || !readyRef.current) return
+    notifySave(writePdfOverlays(vault, { version: 1, overlays: next }))
+  }, [notifySave, vault])
 
   useEffect(() => {
     let active = true
-    ref.current = {}
-    setOverlays({})
+    const initial: Overlays = {}
+    ref.current = initial
+    readyRef.current = false
+    setOverlays(initial)
     if (vault === null) return () => { active = false }
     void loadOrQuarantine(vault, 'pdf-overlays.json', t('PDF 편집 기록'), { version: 1 as const, overlays: {} as Overlays }, () => readPdfOverlays(vault))
       .then((file) => {
         if (!active) return
+        // 읽는 동안(잠겨서 다시 읽는 동안 포함) 고친 것이 있으면 읽은 내용에 합쳐 저장한다
+        readyRef.current = true
+        if (ref.current !== initial) {
+          const merged = applySnapshotChange(initial, ref.current, file.overlays)
+          ref.current = merged
+          setOverlays(merged)
+          persist(merged)
+          return
+        }
         ref.current = file.overlays
         setOverlays(file.overlays)
       })
       .catch(reportLoadFailure)
     return () => { active = false }
-  }, [vault])
+  }, [persist, vault])
 
   // 다른 창이 그림·글 상자를 고치면 이 창에 합친다
   useEffect(() => {
@@ -47,9 +64,8 @@ export function usePdfOverlays(vault: VaultHandle | null) {
   const write = useCallback((next: Overlays) => {
     ref.current = next
     setOverlays(next)
-    if (vault === null) return
-    notifySave(writePdfOverlays(vault, { version: 1, overlays: next }))
-  }, [notifySave, vault])
+    persist(next)
+  }, [persist])
 
   const commit = useCallback((next: Overlays, key = 'all', undoable = true) => {
     if (next === ref.current) return
@@ -57,9 +73,8 @@ export function usePdfOverlays(vault: VaultHandle | null) {
     if (undoable) recordUndo({ key: `overlay:${key}`, undo: () => write(applySnapshotChange(next, before, ref.current)), redo: () => write(applySnapshotChange(before, next, ref.current)) })
     ref.current = next
     setOverlays(next)
-    if (vault === null) return
-    notifySave(writePdfOverlays(vault, { version: 1, overlays: next }))
-  }, [notifySave, vault])
+    persist(next)
+  }, [persist])
 
   return {
     overlays,

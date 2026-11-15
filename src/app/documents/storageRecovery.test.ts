@@ -46,3 +46,38 @@ describe('createSaveNotifier', () => {
     expect(notices.filter((text) => text.startsWith('fail'))).toEqual(['fail a', 'fail c'])
   })
 })
+
+describe('loadOrQuarantine retries', () => {
+  it('retries a locked read with a short backoff and returns the first success', async () => {
+    vi.useFakeTimers()
+    try {
+      const read = vi.fn()
+        .mockRejectedValueOnce(new Error('EBUSY'))
+        .mockRejectedValueOnce(new Error('EBUSY'))
+        .mockResolvedValueOnce(['ok'])
+      const promise = loadOrQuarantine({ root: 'C:/v' }, 'highlights.json', 'x', [] as string[], read)
+      await vi.advanceTimersByTimeAsync(2500)
+      await expect(promise).resolves.toEqual(['ok'])
+      expect(read).toHaveBeenCalledTimes(3)
+      expect(bridge.quarantineVaultMetaFile).not.toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('gives up after three tries and throws the last error', async () => {
+    vi.useFakeTimers()
+    try {
+      const read = vi.fn(async () => { throw new Error('EBUSY') })
+      const promise = loadOrQuarantine({ root: 'C:/v' }, 'highlights.json', 'x', [] as string[], read)
+      const settled = promise.catch((error: unknown) => error)
+      await vi.advanceTimersByTimeAsync(2500)
+      expect(((await settled) as Error).message).toBe('EBUSY')
+      expect(read).toHaveBeenCalledTimes(3)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('does not retry a corrupt file', async () => {
+    const read = vi.fn(async () => { throw new bridge.VaultFileCorruptError('bad') })
+    await loadOrQuarantine({ root: 'C:/v' }, 'highlights.json', 'x', [] as string[], read)
+    expect(read).toHaveBeenCalledTimes(1)
+  })
+})
