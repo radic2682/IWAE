@@ -50,15 +50,72 @@ li > p { margin: 0.2em 0; }
 /** 인쇄 화면이 읽을 수 있는 것: 이 PC 의 파일·data 그림뿐. 원격 주소는 불러오지 않는다(추적 그림·원격 CSS 방지) */
 export const PRINT_CSP = "default-src 'none'; img-src file: data:; style-src 'unsafe-inline'; font-src file: data:"
 
+/** HTML 속성 값 안의 문자 참조(&#92; &bsol; &amp; …)를 풀고, URL 파서가 지우는 공백·제어 문자를 뺀다 */
+function decodeAttribute(value: string): string {
+  const named: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', bsol: '\\', sol: '/', colon: ':', period: '.', tab: '', newline: '' }
+  const decoded = value
+    .replace(/&#x([0-9a-f]+);?/giu, (_, hex: string) => String.fromCodePoint(Math.min(Number.parseInt(hex, 16), 0x10ffff)))
+    .replace(/&#(\d+);?/gu, (_, digits: string) => String.fromCodePoint(Math.min(Number.parseInt(digits, 10), 0x10ffff)))
+    .replace(/&([a-z]+);/giu, (whole, name: string) => named[name.toLowerCase()] ?? whole)
+  // eslint-disable-next-line no-control-regex
+  return decoded.replace(/[\u0000-\u001f\u007f]/gu, '').trim()
+}
+
+function pathParts(path: string): string[] {
+  return path.replaceAll('\\', '/').split('/').filter((part) => part !== '')
+}
+
+/** 그림 주소가 인쇄해도 되는 것인가: data 그림, 또는 원문 폴더 기준으로 풀었을 때 이 PC 의 로컬 경로(Vault 안)로 끝나는 것 */
+export function isPrintableImageSource(rawSource: string, absoluteFilePath: string, vaultRoot?: string): boolean {
+  const value = decodeAttribute(rawSource)
+  if (value === '') return false
+  if (/^data:image\//iu.test(value)) return true
+  // 앞이 \ 나 / 면 서버(\\host\share, /\host, //host)나 드라이브 루트다. file://host/… 의 host 도 같다
+  if (/^[\\/]/u.test(value)) return false
+  const scheme = /^([a-z][a-z0-9+.-]*):/iu.exec(value)
+  let parts: string[]
+  if (scheme !== null) {
+    // file:///C:/x.png 만. file://host/x.png(호스트 있는 것)·그 밖의 주소는 안 된다
+    if (scheme[1]!.toLowerCase() !== 'file') return false
+    const rest = value.slice('file:'.length).replaceAll('\\', '/')
+    if (!rest.startsWith('///')) return false
+    parts = []
+    for (const part of pathParts(rest.slice(3))) parts.push(part)
+  } else {
+    parts = [...pathParts(absoluteFilePath).slice(0, -1)]
+    for (const part of pathParts(value.split(/[?#]/u)[0]!)) {
+      let name: string
+      try { name = decodeURIComponent(part) } catch { return false }
+      // 퍼센트로 숨긴 \ 나 드라이브(C:)·호스트 흔적은 거절한다
+      if (/[\\/:]/u.test(name)) return false
+      if (name === '.') continue
+      if (name === '..') {
+        if (parts.length === 0) return false
+        parts.pop()
+        continue
+      }
+      parts.push(part)
+    }
+  }
+  if (parts.some((part) => part === '..')) return false
+  if (vaultRoot === undefined || vaultRoot === '') return true
+  const root = pathParts(vaultRoot).map((part) => part.toLowerCase())
+  const target = parts.map((part) => { try { return decodeURIComponent(part).toLowerCase() } catch { return part.toLowerCase() } })
+  return root.length <= target.length && root.every((part, index) => target[index] === part)
+}
+
 /**
- * 원격(http·https·//) 주소의 그림은 인쇄하지 않는다: PDF 를 만드는 순간 그 주소로 요청이 나가 읽은 때와 IP 가 알려진다.
- * 그림 자리에는 대체 글(alt)만 남긴다. 상대 경로·file:·data: 그림은 그대로 둔다.
+ * 인쇄해도 되는 그림만 남긴다. 원격(http·https·//) 주소는 PDF 를 만드는 순간 요청이 나가 IP 가 알려지고,
+ * \\host\share 나 /\host 꼴은 file://host/ 로 풀려 SMB 로 나가며 Windows 로그인 정보(NTLM)까지 새므로 모두 뺀다.
+ * 그림 자리에는 대체 글(alt)만 남긴다. 원문 폴더 기준 상대 경로·file:///·data: 그림은 그대로 둔다(\`vaultRoot\` 를 주면 Vault 밖으로 나가는 것도 뺀다).
  */
-export function stripRemoteImages(html: string): string {
-  return html.replace(/<img\b[^>]*>/giu, (tag) => {
+export function stripRemoteImages(html: string, absoluteFilePath = 'C:/note.md', vaultRoot?: string): string {
+  return html.replace(/<source\b[^>]*>/giu, '').replace(/<img\b[^>]*>/giu, (tag) => {
     const src = /\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu.exec(tag)
-    const value = (src?.[1] ?? src?.[2] ?? src?.[3] ?? '').trim()
-    if (!/^(?:https?:)?\/\//iu.test(value)) return tag
+    const value = src?.[1] ?? src?.[2] ?? src?.[3] ?? ''
+    // srcset 의 후보 주소도 같은 길로 나가므로 속성째 뺀다
+    const plain = tag.replace(/\ssrcset\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/giu, '')
+    if (src === null || isPrintableImageSource(value, absoluteFilePath, vaultRoot)) return plain
     const alt = /\salt\s*=\s*(?:"([^"]*)"|'([^']*)')/iu.exec(tag)
     const text = alt?.[1] ?? alt?.[2] ?? ''
     return text === '' ? '' : `<span class="md-remote-image">${text}</span>`
@@ -66,9 +123,9 @@ export function stripRemoteImages(html: string): string {
 }
 
 /** PDF 로 인쇄할 HTML 문서 전체 */
-export function markdownPdfHtml(source: string, title: string, absoluteFilePath: string): string {
+export function markdownPdfHtml(source: string, title: string, absoluteFilePath: string, vaultRoot?: string): string {
   // renderMarkdown 은 상대 그림을 data-md-src 로 옮겨 둔다(앱 안에서 직접 읽으려고) — 인쇄할 때는 <base> 로 바로 읽는다
-  const body = stripRemoteImages(renderMarkdown(source).replaceAll('data-md-src=', 'src='))
+  const body = stripRemoteImages(renderMarkdown(source).replaceAll('data-md-src=', 'src='), absoluteFilePath, vaultRoot)
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>`
     + `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(PRINT_CSP)}">`
     + `<base href="${escapeHtml(folderFileUrl(absoluteFilePath))}"><style>${STYLE}</style></head>`

@@ -1960,7 +1960,7 @@ export function useVault(options: UseVaultOptions = {}) {
     try {
       const { join } = await import('@tauri-apps/api/path')
       const absolute = storage === 'reference' ? path : await join(handle.root, ...path.split('/'))
-      const pdfPath = await markdownToPdf(handle.root, markdownPdfKey(indexId, source), markdownPdfHtml(source, title, absolute))
+      const pdfPath = await markdownToPdf(handle.root, markdownPdfKey(indexId, source), markdownPdfHtml(source, title, absolute, storage === 'vault' ? handle.root : undefined))
       const meta = await openPdf(pdfPath, indexId)
       return { ...meta, title }
     } catch (err) {
