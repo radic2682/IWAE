@@ -63,6 +63,13 @@ const POLL: Duration = Duration::from_millis(150);
 
 pub fn run_install(env: &Env, req: &InstallRequest, on: &mut dyn FnMut(InstallEvent)) {
     let log = SetupLog::create(&env.temp).unwrap_or_else(|_| SetupLog::fallback(&env.temp));
+    // A build without the payload (uninstall-ui.exe, debug) must never reach the old uninstall:
+    // removing the app and then failing to install would leave nothing behind (R14).
+    if env.nsis_exe.is_empty() {
+        log.line("no installer payload in this build; nothing was changed");
+        on(InstallEvent::Failed { reason: FailReason::Extract, log: log.path().to_path_buf() });
+        return;
+    }
     let work = env.temp.join(format!("iwae-setup-{}", std::process::id()));
 
     let result = run_steps(env, req, on, &log, &work);
@@ -117,9 +124,12 @@ fn run_steps(
     }
     log.line(&format!("extracted {} bytes to {}", env.nsis_exe.len(), exe.display()));
 
-    // 2. Remove the old version in place. A missing uninstall.exe (folder deleted by hand)
-    //    just means a fresh install into that folder.
-    if existing.is_some() {
+    // 2. Remove the old version in place, for manual installs and upgrades only. In update mode
+    //    Tauri's NSIS skips uninstall-first too, so we match it (R13). A missing uninstall.exe
+    //    (folder deleted by hand) just means a fresh install into that folder.
+    if existing.is_some() && req.mode_update {
+        log.line("update mode: old uninstall skipped (R13)");
+    } else if existing.is_some() {
         let old = target.join("uninstall.exe");
         if old.exists() {
             let args = old_uninstall_args(&target);
@@ -245,6 +255,11 @@ pub fn run_fallback(env: &Env, update: bool, lang: Lang) -> (i32, PathBuf) {
     log.line(&format!("fallback passive install: update={update} lang={}", lang.code()));
 
     let mut target = pick_target(env, None);
+    // Same guard as run_install: no payload, no NSIS run at all.
+    if env.nsis_exe.is_empty() {
+        log.line("no installer payload in this build; nothing was changed");
+        return (1, target);
+    }
     let exe = work.join("IWAE-inner-setup.exe");
     let code = if let Err(e) = fs::create_dir_all(&work).and_then(|_| fs::write(&exe, env.nsis_exe)) {
         log.line(&format!("extract failed: {e}"));
@@ -453,8 +468,8 @@ mod tests {
         fs::write(f.install_dir.join("uninstall.exe"), b"old").unwrap();
         let reg = installed_reg(&f);
         let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest());
-        // Even if a dir_override is passed, the existing install's folder wins.
-        let mut r = req(true);
+        // Manual upgrade. Even if a dir_override is passed, the existing install's folder wins.
+        let mut r = req(false);
         r.dir_override = Some(f.root.join("elsewhere"));
         let events = run(&env(&f, &reg, &nsis), &r);
 
@@ -464,10 +479,32 @@ mod tests {
         let mut dir_arg = OsString::from("_?=");
         dir_arg.push(&f.install_dir);
         assert_eq!(calls[0].1, vec![OsString::from("/S"), OsString::from("/UPDATE"), dir_arg]);
+        assert_eq!(calls[1].1, vec![OsString::from("/S"), d_arg(&f.install_dir)]);
         assert_eq!(
-            calls[1].1,
+            events.last(),
+            Some(&InstallEvent::Done { install_dir: f.install_dir.clone() })
+        );
+        let _ = fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn update_mode_never_runs_the_old_uninstall() {
+        // R13: in-app updates leave the old files to NSIS, like Tauri's own update mode.
+        let f = fx("update-skip");
+        fs::create_dir_all(&f.install_dir).unwrap();
+        fs::write(f.install_dir.join("uninstall.exe"), b"old").unwrap();
+        let reg = installed_reg(&f);
+        let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest());
+        let events = run(&env(&f, &reg, &nsis), &req(true));
+
+        let calls = nsis.calls();
+        assert_eq!(calls.len(), 1);
+        assert_ne!(calls[0].0, f.install_dir.join("uninstall.exe"));
+        assert_eq!(
+            calls[0].1,
             vec![OsString::from("/S"), OsString::from("/UPDATE"), d_arg(&f.install_dir)]
         );
+        assert!(f.install_dir.join("uninstall.exe").exists());
         assert_eq!(
             events.last(),
             Some(&InstallEvent::Done { install_dir: f.install_dir.clone() })
@@ -481,14 +518,11 @@ mod tests {
         // The registry points at the folder but it does not exist (deleted by hand).
         let reg = installed_reg(&f);
         let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest());
-        let events = run(&env(&f, &reg, &nsis), &req(true));
+        let events = run(&env(&f, &reg, &nsis), &req(false));
 
         let calls = nsis.calls();
         assert_eq!(calls.len(), 1);
-        assert_eq!(
-            calls[0].1,
-            vec![OsString::from("/S"), OsString::from("/UPDATE"), d_arg(&f.install_dir)]
-        );
+        assert_eq!(calls[0].1, vec![OsString::from("/S"), d_arg(&f.install_dir)]);
         assert!(matches!(events.last(), Some(InstallEvent::Done { .. })));
         let _ = fs::remove_dir_all(&f.root);
     }
@@ -561,13 +595,56 @@ mod tests {
         fs::write(f.install_dir.join("uninstall.exe"), b"old").unwrap();
         let reg = installed_reg(&f);
         let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest()).with_codes(&[1]);
-        let events = run(&env(&f, &reg, &nsis), &req(true));
+        let events = run(&env(&f, &reg, &nsis), &req(false));
 
         assert!(matches!(
             events.last(),
             Some(InstallEvent::Failed { reason: FailReason::OldUninstall(1), .. })
         ));
         assert_eq!(nsis.calls().len(), 1); // only the old uninstall ran
+        let _ = fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn empty_payload_fails_extract_before_touching_anything() {
+        // uninstall-ui.exe / debug build: an existing install with uninstall.exe must survive.
+        let f = fx("nopayload");
+        fs::create_dir_all(&f.install_dir).unwrap();
+        fs::write(f.install_dir.join("uninstall.exe"), b"old").unwrap();
+        let reg = installed_reg(&f);
+        let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest());
+        let mut e = env(&f, &reg, &nsis);
+        e.nsis_exe = b"";
+        for update in [false, true] {
+            match run(&e, &req(update)).last() {
+                Some(InstallEvent::Failed { reason, log }) => {
+                    assert_eq!(*reason, FailReason::Extract);
+                    assert!(log.exists());
+                }
+                other => panic!("unexpected {:?}", other),
+            }
+        }
+        assert!(nsis.calls().is_empty());
+        assert!(f.install_dir.join("uninstall.exe").exists());
+        assert!(!f.temp.join(format!("iwae-setup-{}", std::process::id())).exists());
+        assert_eq!(
+            reg.get_str(Hive::Hkcu, UNINSTALL_KEY, "UninstallString").unwrap(),
+            "orig-uninstall"
+        );
+        let _ = fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn empty_payload_fallback_runs_nothing() {
+        let f = fx("nopayload-fallback");
+        let reg = installed_reg(&f);
+        let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest());
+        let mut e = env(&f, &reg, &nsis);
+        e.nsis_exe = b"";
+        let (code, target) = run_fallback(&e, true, Lang::Ko);
+        assert_eq!(code, 1);
+        assert_eq!(target, f.install_dir);
+        assert!(nsis.calls().is_empty());
         let _ = fs::remove_dir_all(&f.root);
     }
 
