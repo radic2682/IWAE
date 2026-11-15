@@ -65,11 +65,17 @@ pub fn parse_mode(args: &[OsString]) -> Mode {
     }
 
     if own.iter().any(|a| is_flag(a, "/S")) {
-        // NSIS: /D= is the last parameter and takes the rest of the element, spaces included.
-        let install_dir = own.iter().find_map(|a| {
+        // NSIS: /D= is last and unquoted, so Windows argv splitting may cut the path at
+        // spaces. Rejoin the remainder with every following element, single-space separated.
+        let install_dir = own.iter().enumerate().find_map(|(i, a)| {
             let t = text(a);
             if t.len() >= 3 && t.is_char_boundary(3) && t[..3].eq_ignore_ascii_case("/D=") {
-                Some(PathBuf::from(&t[3..]))
+                let mut path = t[3..].to_string();
+                for rest in &own[i + 1..] {
+                    path.push(' ');
+                    path.push_str(&text(rest));
+                }
+                Some(PathBuf::from(path))
             } else {
                 None
             }
@@ -149,6 +155,14 @@ mod tests {
         assert_eq!(
             parse_mode(&v(&["/S", "/D=D:\\테스트 폴더\\IWAE"])),
             Mode::Silent { install_dir: Some(PathBuf::from("D:\\테스트 폴더\\IWAE")) }
+        );
+    }
+
+    #[test]
+    fn silent_dir_split_by_argv_is_rejoined() {
+        assert_eq!(
+            parse_mode(&v(&["/S", "/D=C:\\Program", "Files\\IWAE"])),
+            Mode::Silent { install_dir: Some(PathBuf::from("C:\\Program Files\\IWAE")) }
         );
     }
 
