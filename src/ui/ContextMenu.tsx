@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { fitMenuInViewport } from './fitMenu'
 import { createPortal } from 'react-dom'
 import './context-menu.css'
+import { useStableCallback } from './useStableCallback'
+import { useMenuKeyboard } from './useMenuKeyboard'
 
 export interface ContextMenuItem {
   readonly key: string
@@ -22,12 +24,14 @@ export type ContextMenuEntry = ContextMenuItem | { readonly key: string; readonl
  * 문서 위에 뜨는 우클릭 메뉴(왼쪽 바 메뉴와 같은 꼴). 바깥을 누르거나 Esc·창 전환이면 닫힌다.
  * 창 끝에서 열면 창 안으로 들어오게 옮긴다.
  */
-export function ContextMenu({ x, y, label, entries, onClose }: {
+export function ContextMenu({ x, y, label, entries, onClose, autoFocus = false }: {
   readonly x: number
   readonly y: number
   readonly label: string
   readonly entries: readonly ContextMenuEntry[]
   readonly onClose: () => void
+  /** 열리면 첫 항목(고른 항목)에 초점을 준다. 단추에서 여는 메뉴용(우클릭 메뉴는 글 쓰는 칸의 초점을 빼앗지 않는다) */
+  readonly autoFocus?: boolean
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
   useLayoutEffect(() => {
@@ -35,21 +39,21 @@ export function ContextMenu({ x, y, label, entries, onClose }: {
     if (element === null) return
     fitMenuInViewport(element)
   }, [x, y])
+  const close = useStableCallback(() => onClose())
+  // 초점이 메뉴 안에 있으면 ↑↓ · Home · End 로 옮기고 Tab 은 닫는다. Esc 는 연 곳으로 초점을 돌려준다
+  const restoreFocus = useMenuKeyboard({ open: true, menuRef: ref, onClose: () => onClose(), autoFocus, capture: true })
   useEffect(() => {
     const onDown = (event: PointerEvent) => {
       if (event.target instanceof Node && ref.current?.contains(event.target)) return
-      onClose()
+      close()
     }
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose() } }
     window.addEventListener('pointerdown', onDown, true)
-    window.addEventListener('keydown', onKey, true)
-    window.addEventListener('blur', onClose)
+    window.addEventListener('blur', close)
     return () => {
       window.removeEventListener('pointerdown', onDown, true)
-      window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('blur', onClose)
+      window.removeEventListener('blur', close)
     }
-  }, [onClose])
+  }, [close])
   return createPortal(
     <div ref={ref} className="app-context-menu" role="menu" aria-label={label} style={{ left: x, top: y }} onContextMenu={(event) => event.preventDefault()}>
       {entries.map((entry) => {
@@ -63,7 +67,7 @@ export function ContextMenu({ x, y, label, entries, onClose }: {
             disabled={entry.disabled}
             className={[entry.danger === true ? 'app-context-danger' : '', entry.current === true ? 'app-context-current' : ''].filter(Boolean).join(' ') || undefined}
             aria-checked={entry.current === undefined ? undefined : entry.current}
-            onClick={() => { onClose(); entry.onSelect?.() }}
+            onClick={() => { if (autoFocus) restoreFocus(); onClose(); entry.onSelect?.() }}
           >
             <span className="app-context-icon" aria-hidden="true">{entry.icon}</span>
             <span className="app-context-label">{entry.label}</span>

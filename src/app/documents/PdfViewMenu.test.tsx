@@ -40,4 +40,25 @@ describe('PdfViewMenu', () => {
     fireEvent.keyDown(screen.getByRole('dialog', { name: '배경 모드' }), { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: '배경 모드' })).toBeNull()
   })
+
+  it('moves focus into the panel on open and closes on Escape from wherever focus is, returning focus to the button', () => {
+    setup()
+    const button = screen.getByRole('button', { name: '배경 모드' })
+    button.focus()
+    fireEvent.click(button)
+    const panel = screen.getByRole('dialog', { name: '배경 모드' })
+    expect(panel.contains(document.activeElement)).toBe(true)
+    // 실제 경로: 키는 초점 요소(또는 body)에서 시작해 문서로 올라간다
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: '배경 모드' })).toBeNull()
+    expect(document.activeElement).toBe(button)
+  })
+
+  it('closes on Escape even when focus is on the body', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: '배경 모드' }))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: '배경 모드' })).toBeNull()
+  })
 })

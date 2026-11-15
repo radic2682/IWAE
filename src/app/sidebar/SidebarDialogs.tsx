@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Select } from '../../ui/Select'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -6,6 +6,7 @@ import { Copy, FilePlus, Folder, FolderOpen, FolderSimple, HouseSimple, LinkSimp
 import { errorText } from '../../core/errorText'
 import { cleanEntryName } from '../../bridge/vaultFiles'
 import { pick, t } from '../../i18n'
+import { useFocusTrap } from '../../ui/useFocusTrap'
 import '../../ui/sidebar-dialog.css'
 
 /** Escape 는 대화상자만 닫는다 — 위로 올라가면 라이브러리 모드까지 접힌다 */
@@ -35,6 +36,15 @@ function DialogFrame({
   readonly onClose: () => void
   readonly children: ReactNode
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // 처음 초점: 입력 칸 > 고른 항목 > 주 단추. 닫기 단추가 먼저 잡히지 않게 한다(이미 안에 초점이 있으면 그대로)
+  useLayoutEffect(() => {
+    const root = dialogRef.current
+    if (root === null || root.contains(document.activeElement)) return
+    root.querySelector<HTMLElement>('input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [role="radio"][aria-checked="true"], .side-dialog-primary:not(:disabled)')?.focus({ preventScroll: true })
+  }, [])
+  // Tab 이 대화상자 밖으로 나가지 않게 가두고, 닫으면 연 요소로 초점을 돌려준다
+  useFocusTrap(dialogRef)
   return createPortal(
     <div
       className="side-dialog-backdrop"
@@ -44,6 +54,7 @@ function DialogFrame({
       }}
     >
       <div
+        ref={dialogRef}
         className="side-dialog"
         role="dialog"
         aria-modal="true"

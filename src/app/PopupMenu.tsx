@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
+import { useStableCallback } from '../ui/useStableCallback'
 
 /**
  * 단추 곁에 뜨는 작은 메뉴(칸 ⋯ 메뉴 · 화면 탭 우클릭 · 새 화면 ＋ · 세션 이름). 탭 우클릭 메뉴(.pane-tab-context)와 같은 모양이다.
@@ -19,13 +20,20 @@ export function PopupMenu({ label, left, right, top, onClose, anchorRef, autoFoc
   readonly children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
+  // 호출하는 쪽이 매번 새 함수를 건네도 구독이 풀렸다 다시 걸리지 않게(같은 키 입력 도중 다시 걸린 핸들러는 그 입력을 놓친다)
+  const onCloseStable = useStableCallback(onClose)
   useEffect(() => {
     const close = (event: Event) => {
-      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      if (event instanceof KeyboardEvent) {
+        // Esc 는 초점이 메뉴 안에 있어도 닫고 연 단추로 돌아간다. Tab 은 메뉴 밖으로 나가는 것이니 닫는다(ARIA 메뉴: 초점은 자연스럽게 다음으로)
+        if (event.key === 'Escape') onCloseStable(true)
+        else if (event.key === 'Tab' && event.target instanceof Node && ref.current?.contains(event.target)) onCloseStable(false)
+        return
+      }
       if (event.target instanceof Node && (ref.current?.contains(event.target) || anchorRef?.current?.contains(event.target))) return
-      onClose(event instanceof KeyboardEvent)
+      onCloseStable(false)
     }
-    const blur = () => onClose(false)
+    const blur = () => onCloseStable(false)
     window.addEventListener('pointerdown', close, true)
     window.addEventListener('keydown', close)
     window.addEventListener('blur', blur)
@@ -34,7 +42,7 @@ export function PopupMenu({ label, left, right, top, onClose, anchorRef, autoFoc
       window.removeEventListener('keydown', close)
       window.removeEventListener('blur', blur)
     }
-  }, [anchorRef, onClose])
+  }, [anchorRef, onCloseStable])
   return (
     <div
       ref={(element) => {

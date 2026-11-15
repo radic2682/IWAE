@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowClockwise, Sun } from '@phosphor-icons/react'
 import { backgroundOf, withBackground, type PdfBackground, type PdfRotation, type PdfViewPrefs } from '../../core/pdfViewPrefs'
@@ -25,6 +25,23 @@ export function PdfViewMenu({ prefs, rotation, onPrefsChange, onRotate }: PdfVie
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState<{ right: number; bottom: number }>({ right: 8, bottom: 56 })
   const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const closeMenu = (restoreFocus: boolean) => {
+    setOpen(false)
+    if (restoreFocus) buttonRef.current?.focus({ preventScroll: true })
+  }
+  // 초점이 어디 있든 Esc 로 닫고, 연 단추로 초점을 돌려준다
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      closeMenu(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeMenu 는 ref 와 setState 만 쓴다
+  }, [open])
   const toggle = () => {
     const rect = buttonRef.current?.getBoundingClientRect()
     if (rect !== undefined) setAnchor({ right: Math.max(window.innerWidth - rect.right, 8), bottom: window.innerHeight - rect.top + 8 })
@@ -45,17 +62,15 @@ export function PdfViewMenu({ prefs, rotation, onPrefsChange, onRotate }: PdfVie
       </button>
       {open ? createPortal(
         <>
-          <div className="pdf-view-menu-backdrop" onClick={() => setOpen(false)} />
+          <div className="pdf-view-menu-backdrop" onClick={() => closeMenu(false)} />
           <div
             className="pdf-view-menu-panel"
             style={{ right: anchor.right, bottom: anchor.bottom }}
             role="dialog"
             aria-label={t('배경 모드')}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return
-              event.preventDefault()
-              event.stopPropagation()
-              setOpen(false)
+            ref={(element) => {
+              // 열리면 지금 고른 배경으로 초점을 보낸다(없으면 첫 항목)
+              if (element !== null && !element.contains(document.activeElement)) element.querySelector<HTMLElement>('[role="radio"][aria-checked="true"], button')?.focus({ preventScroll: true })
             }}
           >
             <div className="pdf-view-menu-row pdf-view-menu-backgrounds" role="radiogroup" aria-label={t('배경')}>

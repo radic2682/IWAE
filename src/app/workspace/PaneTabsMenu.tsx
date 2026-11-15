@@ -13,6 +13,7 @@ import { startTabDrag, reducedMotion, tabFlipSuppressed, type TabDragHost, type 
 import type { DockEdge } from './tabDock'
 import { fadeIn, slideFrom } from '../motion'
 import { onTitleEditRequest, takeTitleEdit } from '../../pdf/memoNoteContext'
+import { fitMenuInViewport } from '../../ui/fitMenu'
 import '../../ui/tab-menu.css'
 import '../../ui/tab-drag.css'
 
@@ -489,7 +490,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
           setContextMenu(null)
           action()
         }
-        const left = Math.min(contextMenu.x, window.innerWidth - 230)
+        const left = contextMenu.x
         return (
           <div
             className="pane-tab-context"
@@ -498,7 +499,10 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
             style={{ left, top: contextMenu.y + 4 }}
             // 열리면 첫 항목에 초점을 두어 ↑↓·Escape 가 듣게 한다(마우스로 열면 칠하지는 않는다)
             ref={(element) => {
-              if (element !== null && !element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]:not(:disabled)')?.focus({ preventScroll: true })
+              if (element === null) return
+              // 메뉴 너비를 재서 오른쪽 · 아래 끝이 창 밖으로 나가지 않게 들인다(고정 값으로 빼면 실제 너비와 어긋난다)
+              fitMenuInViewport(element)
+              if (!element.contains(document.activeElement)) element.querySelector<HTMLButtonElement>('[role=menuitem]:not(:disabled)')?.focus({ preventScroll: true })
             }}
             onKeyDown={(event) => {
               const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem]:not(:disabled)'))

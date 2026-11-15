@@ -5,6 +5,7 @@ import { PDF_SPLIT_LAYOUTS, pdfSplitLayout, type PdfSplitLayout, type PdfSplitLa
 import type { LayoutPresetDef, LayoutPresetId } from '../workspace/layoutPresets'
 import type { PdfSpread } from '../../core/pdfViewPrefs'
 import { t } from '../../i18n'
+import { useMenuKeyboard } from '../../ui/useMenuKeyboard'
 
 export interface PdfPageLayout {
   readonly spread: PdfSpread
@@ -141,27 +142,24 @@ export function PdfSplitPicker({
   const [open, setOpen] = useState<{ readonly top: number; readonly right?: number; readonly left?: number } | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (open === null) return
     const close = (event: PointerEvent) => {
       if (event.target instanceof Node && (rootRef.current?.contains(event.target) || menuRef.current?.contains(event.target))) return
       setOpen(null)
     }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(null)
-    }
     window.addEventListener('pointerdown', close, true)
-    window.addEventListener('keydown', escape)
-    return () => {
-      window.removeEventListener('pointerdown', close, true)
-      window.removeEventListener('keydown', escape)
-    }
+    return () => window.removeEventListener('pointerdown', close, true)
   }, [open])
+  // 열리면 항목에 초점, ↑↓←→ · Home · End 로 옮기고, Esc 는 닫고 단추로 돌아간다
+  useMenuKeyboard({ open: open !== null, menuRef, returnTo: buttonRef, onClose: () => setOpen(null), grid: true })
   const current = value === null ? null : pdfSplitLayout(value)
   const split = value !== 'single'
   return (
     <div className="pdf-split-picker" ref={rootRef}>
       <button
+        ref={buttonRef}
         type="button"
         className={`${buttonClassName}${split ? ` ${activeClassName}` : ''}`}
         aria-label={label}
@@ -192,6 +190,7 @@ export function PdfSplitPicker({
                 onClick={() => {
                   onChange(layout.id)
                   setOpen(null)
+                  buttonRef.current?.focus({ preventScroll: true })
                 }}
               >
                 <SplitLayoutPreview layout={layout} />
@@ -211,6 +210,7 @@ export function PdfSplitPicker({
                   onClick={() => {
                     presets.onApply(preset.id)
                     setOpen(null)
+                    buttonRef.current?.focus({ preventScroll: true })
                   }}
                 >
                   <span className="pdf-split-preset-name">{preset.label}</span>

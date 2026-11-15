@@ -9,6 +9,7 @@ import { scrollHorizontalStrip } from '../horizontalScroll'
 import { useUsageMeterEnabled } from '../../core/usageMeterPref'
 import { UsageMeter } from '../../pdf/UsageMeter'
 import { isDesktop } from '../../bridge/window'
+import { useMenuKeyboard } from '../../ui/useMenuKeyboard'
 
 /**
  * 폭이 모자라면 접는 묶음. 앞에 있는 것부터 막대에서 빠져 오른쪽 끝 「…」 메뉴로 들어간다(크롬 도구줄처럼).
@@ -126,14 +127,13 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
 
   // ---------- 「…」 메뉴 ----------
   const [moreOpen, setMoreOpen] = useState<{ right: number; bottom: number } | null>(null)
-  useEffect(() => {
-    if (moreOpen === null) return
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setMoreOpen(null) }
-    window.addEventListener('keydown', close)
-    return () => window.removeEventListener('keydown', close)
-  }, [moreOpen])
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null)
+  const moreMenuRef = useRef<HTMLDivElement | null>(null)
+  // 열리면 항목에 초점, ↑↓ · Home · End 로 옮기고, Esc 는 닫고 「더 보기」 단추로 돌아간다
+  useMenuKeyboard({ open: moreOpen !== null, menuRef: moreMenuRef, returnTo: moreButtonRef, onClose: () => setMoreOpen(null) })
   const runMore = (action: () => void) => () => {
     setMoreOpen(null)
+    moreButtonRef.current?.focus({ preventScroll: true })
     action()
   }
 
@@ -244,6 +244,7 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
       {usageMeter && shown('usage') ? <div className="pdf-usage-slot" data-collapse="usage"><UsageMeter /></div> : null}
       {collapsed.size > 0 ? (
         <button
+          ref={moreButtonRef}
           type="button"
           className="bottombar-btn pdf-bottom-more"
           aria-label={t('더 보기')}
@@ -265,7 +266,7 @@ export function PdfBottomBar({ zoomPercent, page, pageCount, onZoomIn, onZoomOut
       {moreOpen !== null && collapsed.size > 0 ? createPortal(
         <>
           <div className="pdf-bottom-more-backdrop" onPointerDown={() => setMoreOpen(null)} />
-          <div className="pdf-bottom-more-menu" role="menu" aria-label={t('접힌 단추')} style={{ right: moreOpen.right, bottom: moreOpen.bottom }}>
+          <div ref={moreMenuRef} className="pdf-bottom-more-menu" role="menu" aria-label={t('접힌 단추')} style={{ right: moreOpen.right, bottom: moreOpen.bottom }}>
             {collapsed.has('history') ? (
               <>
                 {onBack !== undefined ? <button type="button" role="menuitem" disabled={!canGoBack} onClick={runMore(onBack)}><ArrowLeft size={16} aria-hidden="true" />{t('뒤로')} <kbd>Alt+←</kbd></button> : null}
