@@ -107,3 +107,23 @@ describe('applySnapshotChange (undo / redo as a merge)', () => {
     expect(undo([{ id: 'a' }], [{ id: 'a' }, { id: 'b' }], [{ id: 'a' }, { id: 'b' }])).toEqual([{ id: 'a' }])
   })
 })
+
+describe('mergeValue list order', () => {
+  const list = (...items: string[]) => ({ blocks: items.map((id) => ({ id, t: id })) })
+  const order = (value: unknown) => (value as { blocks: { id: string }[] }).blocks.map((item) => item.id)
+  it('keeps a local reorder when only another item was edited remotely', () => {
+    const remote = list('a', 'b', 'c')
+    remote.blocks[1]!.t = 'edited'
+    const merged = mergeValue(list('a', 'b', 'c'), list('c', 'a', 'b'), remote)
+    expect(order(merged)).toEqual(['c', 'a', 'b'])
+    expect((merged as ReturnType<typeof list>).blocks.find((item) => item.id === 'b')?.t).toBe('edited')
+  })
+  it('keeps the remote order when only remote reordered', () => {
+    const local = list('a', 'b', 'c')
+    local.blocks[0]!.t = 'mine'
+    expect(order(mergeValue(list('a', 'b', 'c'), local, list('b', 'c', 'a')))).toEqual(['b', 'c', 'a'])
+  })
+  it('places a remote addition next to its remote neighbour when local reordered', () => {
+    expect(order(mergeValue(list('a', 'b'), list('b', 'a'), list('a', 'x', 'b')))).toEqual(['b', 'a', 'x'])
+  })
+})

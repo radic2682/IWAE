@@ -83,7 +83,42 @@ function mergeById(
     if (baseItem !== undefined && jsonEqual(baseItem, localItem)) continue
     result.push(localItem)
   }
-  return result
+  return keepLocalOrder(base, local, remote, result, key)
+}
+
+/** 공통 항목끼리의 상대 순서가 a 와 b 에서 다른가 */
+function reordered(a: readonly string[], b: readonly string[]): boolean {
+  const inB = new Set(b)
+  const inA = new Set(a)
+  const left = a.filter((id) => inB.has(id))
+  const right = b.filter((id) => inA.has(id))
+  return left.some((id, index) => id !== right[index])
+}
+
+/** 순서는 세 갈래로 합친다: local 만 순서를 바꿨으면 local 순서, 그 밖에는 remote 순서(합친 결과 그대로) */
+function keepLocalOrder(
+  base: readonly Record<string, Json>[],
+  local: readonly Record<string, Json>[],
+  remote: readonly Record<string, Json>[],
+  merged: Json[],
+  key: (item: Record<string, Json>) => string,
+): Json[] {
+  const baseIds = base.map(key)
+  const localIds = local.map(key)
+  const remoteIds = remote.map(key)
+  if (!reordered(baseIds, localIds) || reordered(baseIds, remoteIds)) return merged
+  const byId = new Map((merged as Record<string, Json>[]).map((item) => [key(item), item]))
+  const ordered: string[] = localIds.filter((id) => byId.has(id))
+  const placed = new Set(ordered)
+  // local 에 없는 항목(remote 가 더한 것)은 remote 에서 바로 앞에 있던 항목 뒤에 끼운다
+  remoteIds.forEach((id, at) => {
+    if (placed.has(id) || !byId.has(id)) return
+    const before = remoteIds.slice(0, at).reverse().find((candidate) => placed.has(candidate))
+    ordered.splice(before === undefined ? 0 : ordered.indexOf(before) + 1, 0, id)
+    placed.add(id)
+  })
+  for (const id of byId.keys()) if (!placed.has(id)) ordered.push(id)
+  return ordered.map((id) => byId.get(id)!)
 }
 
 function mergeAsSets(base: readonly Json[], local: readonly Json[], remote: readonly Json[]): Json {
