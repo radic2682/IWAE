@@ -150,7 +150,18 @@ fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
 fn write_journal(path: &Path, record: &RecoveryRecord) -> Result<(), StorageError> {
     let bytes = serde_json::to_vec_pretty(record)
         .map_err(|error| StorageError::Invalid(tr!("저널을 직렬화하지 못했습니다: {error}", "Could not serialize the journal: {error}")))?;
-    write_synced(path, &bytes)
+    // 제자리에서 자르며 쓰면 도중에 멈출 때 빈 저널이 남는다 — 임시 파일에 쓰고 이름을 바꾼다
+    let mut temporary_name = path.as_os_str().to_owned();
+    temporary_name.push(".tmp");
+    let temporary = PathBuf::from(temporary_name);
+    let result = write_synced(&temporary, &bytes).and_then(|()| {
+        fs::rename(&temporary, path)
+            .map_err(|error| io_error(&tr!("파일을 쓰지 못했습니다", "Could not write the file"), error))
+    });
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 fn preserve_conflict(request: &AtomicWriteRequest, current: &[u8]) -> Result<(), StorageError> {
@@ -181,6 +192,21 @@ fn preserve_conflict(request: &AtomicWriteRequest, current: &[u8]) -> Result<(),
     write_synced(&conflict_root.join(format!("{prefix}.json")), &bytes)
 }
 
+/// 같은 파일의 기록은 이 간격 안에서는 다시 만들지 않는다(메모는 400ms 마다 자동 저장된다)
+const MIN_SNAPSHOT_INTERVAL_MILLIS: u64 = 60 * 1_000;
+
+fn newest_snapshot(directory: &Path) -> Option<(u64, PathBuf)> {
+    fs::read_dir(directory)
+        .ok()?
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| {
+            let path = entry.path();
+            let timestamp = path.file_stem()?.to_str()?.parse::<u64>().ok()?;
+            (path.extension().and_then(|value| value.to_str()) == Some("bak")).then_some((timestamp, path))
+        })
+        .max_by_key(|(timestamp, _)| *timestamp)
+}
+
 fn snapshot_current(
     request: &AtomicWriteRequest,
     current: &[u8],
@@ -190,6 +216,12 @@ fn snapshot_current(
         return Ok(());
     }
     let directory = Path::new(&request.history_root).join(safe_component(&request.file_id));
+    if let Some((newest_time, newest_path)) = newest_snapshot(&directory) {
+        let too_soon = timestamp.saturating_sub(newest_time) < MIN_SNAPSHOT_INTERVAL_MILLIS;
+        if too_soon || fs::read(&newest_path).is_ok_and(|bytes| bytes == current) {
+            return Ok(());
+        }
+    }
     fs::create_dir_all(&directory)
         .map_err(|error| io_error(&tr!("버전 기록 폴더를 만들지 못했습니다", "Could not create the version history folder"), error))?;
     write_synced(&directory.join(format!("{timestamp}.bak")), current)?;
@@ -228,6 +260,12 @@ pub fn atomic_write(request: &AtomicWriteRequest) -> Result<WriteReceipt, Storag
     fs::create_dir_all(&request.journal_root)
         .map_err(|error| io_error(&tr!("저널 폴더를 만들지 못했습니다", "Could not create the journal folder"), error))?;
 
+    if fs::metadata(&target).is_ok_and(|metadata| metadata.permissions().readonly()) {
+        return Err(StorageError::Invalid(tr!(
+            "읽기 전용 파일이라 저장하지 않았습니다. 읽기 전용을 풀고 다시 저장해 주세요.",
+            "This file is read-only, so it was not saved. Clear the read-only flag and save again."
+        )));
+    }
     let current = if target.exists() {
         fs::read(&target).map_err(|error| io_error(&tr!("현재 파일을 읽지 못했습니다", "Could not read the current file"), error))?
     } else {
@@ -268,29 +306,45 @@ pub fn atomic_write(request: &AtomicWriteRequest) -> Result<WriteReceipt, Storag
     };
     write_journal(&journal_path, &record)?;
 
-    write_synced(&temporary, request.contents.as_bytes())?;
+    // 대상을 건드리기 전에 실패하면 임시 파일과 저널을 남기지 않는다(자동 저장이 반복될 때마다 쌓이지 않게)
+    let abandon = |error: StorageError| {
+        let _ = fs::remove_file(&temporary);
+        let _ = fs::remove_file(&journal_path);
+        error
+    };
+    write_synced(&temporary, request.contents.as_bytes()).map_err(abandon)?;
     let verified = fs::read(&temporary)
-        .map_err(|error| io_error(&tr!("임시 파일을 다시 읽지 못했습니다", "Could not re-read the temporary file"), error))?;
+        .map_err(|error| io_error(&tr!("임시 파일을 다시 읽지 못했습니다", "Could not re-read the temporary file"), error))
+        .map_err(abandon)?;
     if verified != request.contents.as_bytes() {
-        return Err(StorageError::Invalid(
+        return Err(abandon(StorageError::Invalid(
             tr!("임시 파일 검증에 실패했습니다.", "Temporary file verification failed."),
-        ));
+        )));
     }
     record.stage = "temporary-written".into();
-    write_journal(&journal_path, &record)?;
+    write_journal(&journal_path, &record).map_err(abandon)?;
 
-    snapshot_current(request, &current, created_at)?;
     if target.exists() {
         fs::rename(&target, &backup)
-            .map_err(|error| io_error(&tr!("현재 파일을 백업하지 못했습니다", "Could not back up the current file"), error))?;
+            .map_err(|error| io_error(&tr!("현재 파일을 백업하지 못했습니다", "Could not back up the current file"), error))
+            .map_err(abandon)?;
         record.stage = "backup-created".into();
         write_journal(&journal_path, &record)?;
     }
     if let Err(error) = fs::rename(&temporary, &target) {
+        let mut restored = true;
         if backup.exists() && !target.exists() {
-            let _ = fs::rename(&backup, &target);
+            restored = fs::rename(&backup, &target).is_ok();
+        }
+        if restored {
+            let _ = fs::remove_file(&temporary);
+            let _ = fs::remove_file(&journal_path);
         }
         return Err(io_error(&tr!("검증된 파일로 교체하지 못했습니다", "Could not replace it with the verified file"), error));
+    }
+    // 기록은 저장이 끝난 뒤에만 남긴다. 기록 실패가 이미 끝난 저장을 실패로 만들지는 않는다
+    if let Err(error) = snapshot_current(request, &current, created_at) {
+        eprintln!("[storage] version history skipped: {error}");
     }
     if backup.exists() {
         fs::remove_file(&backup)
@@ -323,11 +377,18 @@ pub fn scan_recovery(root: impl AsRef<Path>) -> Result<Vec<RecoveryRecord>, Stor
         if path.extension().and_then(|value| value.to_str()) != Some("json") {
             continue;
         }
-        let bytes =
-            fs::read(&path).map_err(|error| io_error(&tr!("저널 파일을 읽지 못했습니다", "Could not read the journal file"), error))?;
-        let mut record: RecoveryRecord = serde_json::from_slice(&bytes).map_err(|error| {
-            StorageError::Invalid(tr!("저널 형식이 올바르지 않습니다: {error}", "Invalid journal format: {error}"))
-        })?;
+        // 저널 하나가 깨졌다고 나머지 복구까지 막지 않는다 — 옆으로 치워 두고 건너뛴다
+        let parsed = fs::read(&path)
+            .map_err(|error| error.to_string())
+            .and_then(|bytes| serde_json::from_slice::<RecoveryRecord>(&bytes).map_err(|error| error.to_string()));
+        let mut record = match parsed {
+            Ok(record) => record,
+            Err(reason) => {
+                eprintln!("[storage] unreadable journal {}: {reason}", path.display());
+                let _ = fs::rename(&path, path.with_extension("corrupt"));
+                continue;
+            }
+        };
         record.journal_path = path.to_string_lossy().into_owned();
         records.push(record);
     }
@@ -423,6 +484,16 @@ pub fn recover_transaction(
         return Ok(RecoveryResult {
             preserved_path: None,
         });
+    }
+
+    // 임시 파일을 다 쓰고 검증하기 전(started)에 멈췄다면 그 파일은 잘렸을 수 있다 — 적용하거나 사본으로 남기지 않는다
+    if matches!(action, RecoveryAction::Retry | RecoveryAction::PreserveCopy)
+        && !matches!(record.stage.as_str(), "temporary-written" | "backup-created")
+    {
+        return Err(StorageError::Invalid(tr!(
+            "저장이 중간에 끊겨 임시 파일이 완전하지 않을 수 있습니다. 기존 파일을 그대로 두려면 「저장 취소」를 선택해 주세요.",
+            "The save was interrupted early, so the temporary file may be incomplete. Choose Cancel save to keep the existing file."
+        )));
     }
 
     let preserved_path = match action {

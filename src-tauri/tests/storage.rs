@@ -223,8 +223,8 @@ fn interrupted_before_backup(root: &std::path::Path, stage: &str) -> PathBuf {
 }
 
 #[test]
-fn early_interruption_stages_preserve_old_or_incoming_content_for_every_action() {
-    for stage in ["started", "temporary-written"] {
+fn verified_interruption_stages_preserve_old_or_incoming_content_for_every_action() {
+    for stage in ["temporary-written", "backup-created"] {
         let retry_root = fixture_dir(&format!("{stage}-retry"));
         let retry_journal = interrupted_before_backup(&retry_root, stage);
         recover_transaction(&retry_journal, RecoveryAction::Retry).unwrap();
@@ -265,4 +265,140 @@ fn early_interruption_stages_preserve_old_or_incoming_content_for_every_action()
             .is_empty());
         fs::remove_dir_all(cancel_root).unwrap();
     }
+}
+
+fn history_files(root: &std::path::Path) -> usize {
+    fs::read_dir(root.join(".iwae/history/note-1")).map(|dir| dir.count()).unwrap_or(0)
+}
+
+#[test]
+fn unverified_started_stage_refuses_retry_and_preserve_but_cancel_still_works() {
+    for action in [RecoveryAction::Retry, RecoveryAction::PreserveCopy] {
+        let root = fixture_dir("started-refused");
+        let journal = interrupted_before_backup(&root, "started");
+        fs::write(root.join(".iwae-tx-early.tmp"), "ne").unwrap(); // torn write
+        let error = recover_transaction(&journal, action).expect_err("torn temp must not be applied");
+        assert!(matches!(error, StorageError::Invalid(_)));
+        assert_eq!(fs::read_to_string(root.join("note.canvas")).unwrap(), "old");
+        assert!(journal.exists(), "the journal stays so Cancel can still clean up");
+        recover_transaction(&journal, RecoveryAction::Cancel).unwrap();
+        assert_eq!(fs::read_to_string(root.join("note.canvas")).unwrap(), "old");
+        assert!(!root.join(".iwae-tx-early.tmp").exists());
+        assert!(!journal.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[test]
+fn scan_recovery_skips_a_corrupt_journal_and_moves_it_aside() {
+    let root = fixture_dir("scan-corrupt");
+    let journal = interrupted_before_backup(&root, "temporary-written");
+    let journal_dir = journal.parent().unwrap().to_path_buf();
+    fs::write(journal_dir.join("1700000000001-1-f2.json"), "").unwrap();
+    fs::write(journal_dir.join("garbage.json"), "{not json").unwrap();
+
+    let records = scan_recovery(&journal_dir).expect("one bad journal must not fail the scan");
+
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].transaction_id, "tx-early");
+    assert!(journal_dir.join("garbage.corrupt").exists());
+    assert!(!journal_dir.join("garbage.json").exists());
+    assert_eq!(scan_recovery(&journal_dir).unwrap().len(), 1);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn journals_are_written_without_leaving_temporary_files() {
+    let root = fixture_dir("journal-atomic");
+    fs::write(root.join("note.canvas"), "old").unwrap();
+    atomic_write(&request(&root, "new", Some(sha256_hex(b"old")))).unwrap();
+    assert_eq!(fs::read_dir(root.join(".iwae/journal")).unwrap().count(), 0);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn rapid_saves_make_one_history_snapshot_and_keep_the_oldest_version() {
+    let root = fixture_dir("history-throttle");
+    fs::write(root.join("note.canvas"), "yesterday").unwrap();
+    let mut hash = sha256_hex(b"yesterday");
+    for i in 0..60 {
+        hash = atomic_write(&request(&root, &format!("typing {i}"), Some(hash))).unwrap().content_hash;
+        thread::sleep(std::time::Duration::from_millis(2));
+    }
+    assert_eq!(history_files(&root), 1);
+    let only = fs::read_dir(root.join(".iwae/history/note-1")).unwrap().next().unwrap().unwrap().path();
+    assert_eq!(fs::read_to_string(only).unwrap(), "yesterday");
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn saving_after_the_throttle_window_skips_a_snapshot_equal_to_the_newest() {
+    let root = fixture_dir("history-same");
+    fs::write(root.join("note.canvas"), "same").unwrap();
+    let history = root.join(".iwae/history/note-1");
+    fs::create_dir_all(&history).unwrap();
+    fs::write(history.join("1000.bak"), "same").unwrap(); // old snapshot, equal to the current content
+    atomic_write(&request(&root, "different", Some(sha256_hex(b"same")))).unwrap();
+    assert_eq!(history_files(&root), 1);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn history_older_than_the_throttle_window_is_snapshotted_and_capped_at_fifty() {
+    let root = fixture_dir("history-cap");
+    let history = root.join(".iwae/history/note-1");
+    fs::create_dir_all(&history).unwrap();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+    for i in 0..60u64 {
+        fs::write(history.join(format!("{}.bak", now - 3_600_000 + i)), format!("old {i}")).unwrap();
+    }
+    fs::write(root.join("note.canvas"), "current").unwrap();
+    atomic_write(&request(&root, "next", Some(sha256_hex(b"current")))).unwrap();
+    assert_eq!(history_files(&root), 50);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn a_read_only_note_is_refused_and_left_untouched() {
+    let root = fixture_dir("readonly");
+    let target = root.join("note.canvas");
+    fs::write(&target, "old").unwrap();
+    let mut permissions = fs::metadata(&target).unwrap().permissions();
+    permissions.set_readonly(true);
+    fs::set_permissions(&target, permissions).unwrap();
+
+    let error = atomic_write(&request(&root, "new", Some(sha256_hex(b"old")))).expect_err("read-only must be refused");
+
+    assert!(matches!(error, StorageError::Invalid(_)));
+    assert_eq!(fs::read_to_string(&target).unwrap(), "old");
+    assert!(fs::metadata(&target).unwrap().permissions().readonly());
+    assert!(!root.join(".iwae/journal").exists() || fs::read_dir(root.join(".iwae/journal")).unwrap().count() == 0);
+    let mut permissions = fs::metadata(&target).unwrap().permissions();
+    #[allow(clippy::permissions_set_readonly_false)]
+    permissions.set_readonly(false);
+    fs::set_permissions(&target, permissions).unwrap();
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn a_locked_target_leaves_no_temporary_or_journal_and_no_history() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let root = fixture_dir("locked");
+    let target = root.join("note.canvas");
+    fs::write(&target, "old").unwrap();
+    // another program holds the file open without FILE_SHARE_DELETE
+    let holder = fs::OpenOptions::new().read(true).share_mode(0x1 | 0x2).open(&target).unwrap();
+    for i in 0..3 {
+        let result = atomic_write(&request(&root, &format!("new{i}"), Some(sha256_hex(b"old"))));
+        assert!(result.is_err());
+        thread::sleep(std::time::Duration::from_millis(3));
+    }
+    drop(holder);
+    let names: Vec<String> = fs::read_dir(&root).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+    assert!(names.iter().all(|name| !name.starts_with(".iwae-")), "debris left: {names:?}");
+    assert!(scan_recovery(root.join(".iwae/journal")).unwrap().is_empty());
+    assert_eq!(history_files(&root), 0, "failed saves must not snapshot");
+    assert_eq!(fs::read_to_string(&target).unwrap(), "old");
+    fs::remove_dir_all(root).unwrap();
 }
