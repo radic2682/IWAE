@@ -57,6 +57,18 @@ export function canStart(phase: Phase): boolean {
   return phase === 'start' || phase === 'appRunning' || phase === 'appStuck' || phase === 'failed' || phase === 'uninstallStart'
 }
 
+/** Screens that keep checking whether IWAE is still open and move on by themselves once it is not. */
+export function watchesApp(phase: Phase): boolean {
+  return phase === 'appRunning' || phase === 'appStuck'
+}
+
+/** First screen. Update mode is already running in Rust, or has already failed before the page loaded. */
+export function bootPhase(mode: SetupState['mode'], failed: boolean): Phase {
+  if (mode === 'uninstall') return 'uninstallStart'
+  if (mode === 'update') return failed ? 'failed' : 'installing'
+  return 'start'
+}
+
 const MAX_PATH = 34
 
 /** At most 34 characters; a longer path keeps its end behind a leading ellipsis. */

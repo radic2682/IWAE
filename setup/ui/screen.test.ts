@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canStart, screenFor, shortPath, type SetupState } from './screen'
+import { bootPhase, canStart, screenFor, shortPath, watchesApp, type SetupState } from './screen'
 import { stepProgress } from './ease'
 
 const base: SetupState = {
@@ -138,5 +138,24 @@ describe('canStart', () => {
   it('only allows starting from idle or failed screens', () => {
     for (const p of ['start', 'appRunning', 'appStuck', 'failed', 'uninstallStart'] as const) expect(canStart(p)).toBe(true)
     for (const p of ['installing', 'uninstalling', 'done', 'uninstalled'] as const) expect(canStart(p)).toBe(false)
+  })
+})
+
+describe('watchesApp', () => {
+  it('watches only the two "IWAE is open" screens', () => {
+    for (const p of ['appRunning', 'appStuck'] as const) expect(watchesApp(p)).toBe(true)
+    for (const p of ['start', 'installing', 'done', 'failed', 'uninstallStart', 'uninstalling', 'uninstalled'] as const)
+      expect(watchesApp(p)).toBe(false)
+  })
+})
+
+describe('bootPhase', () => {
+  it('starts each mode on its own screen', () => {
+    expect(bootPhase('install', false)).toBe('start')
+    expect(bootPhase('uninstall', false)).toBe('uninstallStart')
+    expect(bootPhase('update', false)).toBe('installing')
+  })
+  it('shows a failed update that finished before the page loaded', () => {
+    expect(bootPhase('update', true)).toBe('failed')
   })
 })

@@ -3,7 +3,7 @@
 //! wizard, and the temp-copy relaunch that lets uninstall-ui.exe delete itself.
 
 use crate::nsis::{uninstall_args, NsisRunner};
-use crate::registry::{remove_leftover_keys, RegStore};
+use crate::registry::{existing_install, remove_leftover_keys, RegStore};
 use crate::setup_log::SetupLog;
 use std::ffi::OsString;
 use std::fs;
@@ -32,6 +32,11 @@ pub fn relaunch_from_temp(current_exe: &Path, install_dir: &Path, temp: &Path) -
     fs::copy(current_exe, &copy)?;
     let mut cmd = Command::new(&copy);
     cmd.arg("--uninstall-from-temp").arg(install_dir);
+    // The caller's cwd is often the install dir; inheriting it would keep the dir alive.
+    cmd.current_dir(temp);
+    // Debug builds refuse the real backend without --real (R14); we only got here with it.
+    #[cfg(debug_assertions)]
+    cmd.arg("--real");
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -40,6 +45,18 @@ pub fn relaunch_from_temp(current_exe: &Path, install_dir: &Path, temp: &Path) -
     }
     cmd.spawn()?;
     Ok(())
+}
+
+/// Which folder `--uninstall` works on: the folder of this exe when uninstall.exe sits beside it
+/// (uninstall-ui.exe inside the install dir), otherwise the registered install (the main setup
+/// exe run with `--uninstall` from anywhere). None when neither applies.
+pub fn uninstall_target(exe_dir: Option<&Path>, reg: &dyn RegStore) -> Option<PathBuf> {
+    if let Some(dir) = exe_dir {
+        if dir.join("uninstall.exe").is_file() {
+            return Some(dir.to_path_buf());
+        }
+    }
+    existing_install(reg).map(|e| e.dir)
 }
 
 pub fn run_uninstall(
@@ -116,6 +133,7 @@ pub fn schedule_self_delete(exe: &Path) {
         line.push(exe);
         line.push("\"");
         cmd.raw_arg(line);
+        cmd.current_dir(std::env::temp_dir());
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         let _ = cmd.spawn();
     }
@@ -125,10 +143,35 @@ pub fn schedule_self_delete(exe: &Path) {
     }
 }
 
+/// In-place uninstall (the temp copy could not start): after we exit, delete `exe`
+/// (`<dir>\uninstall-ui.exe`, ourselves) and then `dir` if it is empty. Plain `rmdir` without
+/// /s never removes user files. Call it only once uninstall.exe is gone (uninstall finished),
+/// or Apps & features would point at a deleted uninstall-ui.exe.
+pub fn schedule_in_place_cleanup(exe: &Path, dir: &Path) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = Command::new("cmd.exe");
+        let mut line = OsString::from("/c ping -n 3 127.0.0.1 >nul & del /f /q \"");
+        line.push(exe);
+        line.push("\" & rmdir \"");
+        line.push(dir);
+        line.push("\"");
+        cmd.raw_arg(line);
+        cmd.current_dir(std::env::temp_dir());
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        let _ = cmd.spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (exe, dir);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::registry::{Hive, MemReg, PREVIOUS_LOCATION_KEY};
+    use crate::registry::{Hive, MemReg, PREVIOUS_LOCATION_KEY, UNINSTALL_KEY};
     use std::sync::Mutex;
 
     type Call = (PathBuf, Vec<OsString>);
@@ -255,6 +298,27 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].0, f.dir.join("uninstall.exe"));
         assert_eq!(calls[0].1, args);
+        let _ = fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn uninstall_target_prefers_the_exe_folder_with_uninstall_exe() {
+        let f = fx("target-here");
+        let reg = MemReg::new().with(Hive::Hkcu, UNINSTALL_KEY, "InstallLocation", r"E:\다른 곳\IWAE");
+        assert_eq!(uninstall_target(Some(f.dir.as_path()), &reg), Some(f.dir.clone()));
+        let _ = fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn uninstall_target_falls_back_to_registry_then_none() {
+        let f = fx("target-reg");
+        // A folder without uninstall.exe (e.g. Downloads with the main setup exe).
+        let downloads = f.root.join("Downloads");
+        fs::create_dir_all(&downloads).unwrap();
+        let reg = MemReg::new().with(Hive::Hkcu, UNINSTALL_KEY, "InstallLocation", r"E:\다른 곳\IWAE");
+        assert_eq!(uninstall_target(Some(downloads.as_path()), &reg), Some(PathBuf::from(r"E:\다른 곳\IWAE")));
+        assert_eq!(uninstall_target(Some(downloads.as_path()), &MemReg::new()), None);
+        assert_eq!(uninstall_target(None, &MemReg::new()), None);
         let _ = fs::remove_dir_all(&f.root);
     }
 

@@ -4,7 +4,16 @@ import { listen } from '@tauri-apps/api/event'
 import logo from '../../public/iwae-logo.png'
 import { t, type Lang } from './copy'
 import { stepProgress } from './ease'
-import { canStart, screenFor, type Action, type Phase, type ScreenModel, type SetupState } from './screen'
+import {
+  bootPhase,
+  canStart,
+  screenFor,
+  watchesApp,
+  type Action,
+  type Phase,
+  type ScreenModel,
+  type SetupState,
+} from './screen'
 import { startStarfield } from './starfield'
 
 interface Context {
@@ -14,6 +23,8 @@ interface Context {
   existing: SetupState['existing']
   installDir: string
   defaultDir: string
+  /** Update mode starts before the listeners exist; a run that already failed is reported here. */
+  failed: boolean
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -141,6 +152,40 @@ function render(): void {
 function setState(patch: Partial<SetupState>): void {
   state = { ...state, ...patch }
   render()
+  syncAppWatch()
+}
+
+// ---------- auto-advance while IWAE is open ----------
+
+// On the "IWAE is open" screens the user may close IWAE by hand; once it is gone the work starts
+// by itself. Runs only while one of those screens shows.
+let watchId = 0
+let watchInFlight = false
+
+function syncAppWatch(): void {
+  if (watchesApp(state.phase)) {
+    if (!watchId) watchId = window.setInterval(() => void watchTick(), 500)
+  } else if (watchId) {
+    window.clearInterval(watchId)
+    watchId = 0
+  }
+}
+
+async function watchTick(): Promise<void> {
+  // close_app has its own poll while it runs; a start already in flight wins too.
+  if (watchInFlight || waiting || starting || !watchesApp(state.phase)) return
+  watchInFlight = true
+  try {
+    const running = await invoke<boolean>('app_running')
+    if (!running && !waiting && !starting && watchesApp(state.phase)) {
+      starting = true
+      await startWork()
+    }
+  } catch {
+    /* keep watching */
+  } finally {
+    watchInFlight = false
+  }
 }
 
 // ---------- progress easing (only while installing) ----------
@@ -325,7 +370,7 @@ async function bootInner(): Promise<void> {
   await listen<{ reason: string }>('setup://failed', () => setState({ phase: 'failed' }))
 
   const ctx = await invoke<Context>('get_context')
-  const phase: Phase = ctx.mode === 'uninstall' ? 'uninstallStart' : ctx.mode === 'update' ? 'installing' : 'start'
+  const phase: Phase = bootPhase(ctx.mode, ctx.failed)
   state = {
     mode: ctx.mode,
     phase,
@@ -339,12 +384,11 @@ async function bootInner(): Promise<void> {
   render()
   if (phase === 'installing') startEasing()
 
-  // Show the window only after the first frame so it never opens blank.
+  // Show the window only after the first frame so it never opens blank. Update mode needs no
+  // start call: Rust starts it when the window is built. A late `start_install` here could only
+  // get "busy", or start an unasked second run after a quick failure, so none is sent.
   requestAnimationFrame(() => {
-    void invoke('ready').then(() => {
-      // Update mode starts by itself; Rust waits for the old app to exit first.
-      if (ctx.mode === 'update') void invoke('start_install', { dir: null }).catch(() => setState({ phase: 'failed' }))
-    })
+    void invoke('ready').catch(() => {})
   })
 }
 

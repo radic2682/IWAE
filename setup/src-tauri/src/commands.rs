@@ -10,8 +10,9 @@
 //!   setup://progress {percent}      setup://uninstall-progress {}
 //!   setup://done {}                 setup://failed {reason, log}
 //!
-//! Update mode has no separate start command: the UI calls `start_install(null)` right after
-//! `ready`, and Rust waits for the old app to exit before running the pipeline.
+//! Update mode has no start command: main calls `start_update` as soon as the window exists
+//! (the update never depends on the page script), and Rust waits for the old app to exit before
+//! running the pipeline. A `start_install` from the UI meanwhile just gets Err("busy").
 
 use crate::apprun::{
     close_and_wait, wait_for_exit, CloseOutcome, ProcessControl, CLOSE_TIMEOUT, POLL,
@@ -179,6 +180,9 @@ pub struct Context {
     pub existing: Option<ExistingInfo>,
     pub install_dir: String,
     pub default_dir: String,
+    /// The last run already failed. Update mode starts before the page listens for events, so a
+    /// quick failure would otherwise be missed and leave the progress screen up forever.
+    pub failed: bool,
 }
 
 /// Pure: everything `get_context` reports. `fixed_dir` is the folder uninstall mode works on.
@@ -215,6 +219,7 @@ pub fn context_for(
         existing,
         install_dir: install_dir.display().to_string(),
         default_dir: default_dir.display().to_string(),
+        failed: false,
     }
 }
 
@@ -309,6 +314,10 @@ pub struct SetupState {
     /// Set while an install or uninstall runs; every start_* takes it, the worker releases it
     /// BEFORE its final event so the UI's retry can never see "busy".
     pub busy: AtomicBool,
+    /// The last install/update run ended in a failure screen (cleared when a run starts).
+    pub failed: AtomicBool,
+    /// The previous app was already started once after a failed update (no double launch).
+    pub relaunched: AtomicBool,
     pub app_args: Vec<OsString>,
     /// Uninstall mode: the folder from `--uninstall-from-temp`.
     pub fixed_dir: Option<PathBuf>,
@@ -317,18 +326,21 @@ pub struct SetupState {
 }
 
 impl SetupState {
+    /// `backend` is shared so main can still run the no-window fallback if the window fails.
     pub fn new(
         mode: UiMode,
         lang: Lang,
-        backend: Backend,
+        backend: Arc<Backend>,
         app_args: Vec<OsString>,
         fixed_dir: Option<PathBuf>,
     ) -> Self {
         SetupState {
             mode,
             lang: Mutex::new(lang),
-            backend: Arc::new(backend),
+            backend,
             busy: AtomicBool::new(false),
+            failed: AtomicBool::new(false),
+            relaunched: AtomicBool::new(false),
             app_args,
             fixed_dir,
             install_dir: Mutex::new(None),
@@ -390,14 +402,16 @@ fn emit_failed(app: &AppHandle, reason: &str, log: &Path) {
 #[tauri::command]
 pub fn get_context(state: State<'_, SetupState>) -> Context {
     let reg = (state.backend.reg)();
-    context_for(
+    let mut ctx = context_for(
         state.mode,
         state.lang(),
         &*reg,
         crate::APP_VERSION,
         &state.backend.default_dir,
         state.fixed_dir.as_deref(),
-    )
+    );
+    ctx.failed = state.failed.load(Ordering::SeqCst);
+    ctx
 }
 
 #[tauri::command]
@@ -469,9 +483,22 @@ pub fn start_install(app: AppHandle, dir: Option<String>) -> Result<(), String> 
     Ok(())
 }
 
+/// Update mode: called by main right after the window is built, before the page loads, so the
+/// update runs even if the page script never does. Takes the busy guard synchronously, so a
+/// `start_install` from the UI can only get Err("busy") while this run lasts.
+pub fn start_update(app: &AppHandle) {
+    let st = app.state::<SetupState>();
+    if st.mode != UiMode::Update || !st.take_busy() {
+        return;
+    }
+    let worker = app.clone();
+    thread::spawn(move || install_worker(worker, None));
+}
+
 fn install_worker(app: AppHandle, dir_override: Option<PathBuf>) {
     let st = app.state::<SetupState>();
     let update = st.mode == UiMode::Update;
+    st.failed.store(false, Ordering::SeqCst);
 
     if update {
         // IWAE quits itself before launching us; only wait, never send WM_CLOSE.
@@ -501,6 +528,14 @@ fn install_worker(app: AppHandle, dir_override: Option<PathBuf>) {
         st.backend.run_install(&req, &mut on);
     }
 
+    // Mark the failure before releasing the guard: a close that slips in between must already
+    // see it (m9 relaunches the previous app on close after a failed update). R11: a Finish
+    // failure counts as done.
+    let failed = !matches!(
+        outcome,
+        Some(InstallEvent::Done { .. }) | Some(InstallEvent::Failed { reason: FailReason::Finish, .. })
+    );
+    st.failed.store(failed, Ordering::SeqCst);
     // Release the guard first so a retry right after the failed event is accepted.
     st.busy.store(false, Ordering::SeqCst);
 
@@ -595,12 +630,21 @@ pub fn open_app(app: AppHandle) -> Result<(), String> {
 /// Update failed: start the previous app (if it is still there) with the original arguments.
 #[tauri::command]
 pub fn quit_relaunch_previous(app: AppHandle) {
+    relaunch_previous(&app);
+    app.exit(0);
+}
+
+/// Starts the previous app.exe with the updater's arguments, at most once per process. Shared by
+/// 「닫기」 on the failed-update screen and the window's own close (Alt+F4).
+pub fn relaunch_previous(app: &AppHandle) {
     let st = app.state::<SetupState>();
+    if st.relaunched.swap(true, Ordering::SeqCst) {
+        return;
+    }
     let exe = st.backend.target_dir(None).join("app.exe");
     if exe.exists() {
         let _ = st.backend.procs.launch(&exe, &st.app_args);
     }
-    app.exit(0);
 }
 
 /// `explorer.exe /select,"<log>"`: raw_arg keeps the comma form unquoted around `/select,`.
@@ -733,6 +777,7 @@ mod tests {
         assert!(v["existing"].is_null());
         assert_eq!(v["installDir"], r"D:\테스트 폴더\Default\IWAE");
         assert!(v.get("defaultDir").is_some());
+        assert_eq!(v["failed"], false);
         let with = ctx(UiMode::Install, &installed("0.2.6", r"D:\IWAE"), "0.2.7");
         let v = serde_json::to_value(&with).unwrap();
         assert_eq!(v["existing"]["kind"], "upgrade");

@@ -66,6 +66,8 @@ pub struct RealNsis;
 impl NsisRunner for RealNsis {
     fn run(&self, exe: &Path, args: &[OsString]) -> io::Result<i32> {
         let mut cmd = Command::new(exe);
+        // Never inherit our cwd: it is often the install dir, which then could not be removed.
+        cmd.current_dir(std::env::temp_dir());
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;

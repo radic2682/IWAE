@@ -28,6 +28,8 @@ pub enum Mode {
     UninstallSync { args: Vec<OsString> },
     /// `--uninstall-from-temp <dir>`: self-copy relaunch.
     UninstallTemp { install_dir: PathBuf },
+    /// Nothing sensible to do; main logs the reason and exits 1.
+    Invalid { reason: &'static str },
 }
 
 fn text(a: &OsString) -> String {
@@ -38,22 +40,36 @@ fn is_flag(a: &OsString, flag: &str) -> bool {
     text(a).eq_ignore_ascii_case(flag)
 }
 
-pub fn parse_mode(args: &[OsString]) -> Mode {
-    // Everything after /ARGS belongs to the app, so it must not be interpreted here.
-    let args_pos = args.iter().position(|a| is_flag(a, "/ARGS"));
-    let own = match args_pos {
+/// Our own arguments: everything after /ARGS belongs to the app and is never interpreted here.
+fn own_args(args: &[OsString]) -> &[OsString] {
+    match args.iter().position(|a| is_flag(a, "/ARGS")) {
         Some(i) => &args[..i],
         None => args,
-    };
+    }
+}
 
+pub fn parse_mode(args: &[OsString]) -> Mode {
+    let args_pos = args.iter().position(|a| is_flag(a, "/ARGS"));
+    let own = own_args(args);
+
+    // An old NSIS wizard runs `<UninstallString> [/UPDATE] [/P] _?=<dir>`, and UninstallString
+    // is `"...\uninstall-ui.exe" --uninstall`, so `_?=` wins over every other flag. Our own
+    // flags are dropped; uninstall.exe gets exactly the wizard's arguments.
     if own.iter().any(|a| text(a).starts_with("_?=")) {
-        return Mode::UninstallSync { args: args.to_vec() };
+        let forwarded = args
+            .iter()
+            .filter(|a| !is_flag(a, "--uninstall") && !is_flag(a, "--real"))
+            .cloned()
+            .collect();
+        return Mode::UninstallSync { args: forwarded };
     }
 
     if let Some(i) = own.iter().position(|a| is_flag(a, "--uninstall-from-temp")) {
-        if let Some(dir) = own.get(i + 1) {
-            return Mode::UninstallTemp { install_dir: PathBuf::from(dir) };
-        }
+        return match own.get(i + 1) {
+            Some(dir) => Mode::UninstallTemp { install_dir: PathBuf::from(dir) },
+            // Never fall through to Install: this flag only comes from our own relaunch.
+            None => Mode::Invalid { reason: "--uninstall-from-temp without a folder" },
+        };
     }
 
     if own.iter().any(|a| is_flag(a, "--uninstall")) {
@@ -121,6 +137,30 @@ fn parse_demo(args: &[OsString]) -> DemoFlags {
 #[cfg(not(debug_assertions))]
 fn parse_demo(_args: &[OsString]) -> DemoFlags {
     DemoFlags::default()
+}
+
+/// R14: a debug build only touches the real machine (registry, installers, app processes) when
+/// `--real` is among our own arguments. Without it main refuses to start outside `--demo`.
+#[cfg(debug_assertions)]
+pub fn real_allowed(args: &[OsString]) -> bool {
+    own_args(args).iter().any(|a| text(a) == "--real")
+}
+
+// Release builds always use the real backend.
+#[cfg(not(debug_assertions))]
+pub fn real_allowed(_args: &[OsString]) -> bool {
+    true
+}
+
+/// R14: a build without the installer payload (uninstall-ui.exe by design, or a debug build)
+/// can only uninstall. A double-click (Install) or an update means "uninstall"; `/S` stays a
+/// silent install request, which this build cannot do, so it is refused instead of uninstalling.
+pub fn without_payload(mode: Mode) -> Mode {
+    match mode {
+        Mode::Install { .. } | Mode::Update { .. } => Mode::Uninstall,
+        Mode::Silent { .. } => Mode::Invalid { reason: "silent install needs the installer payload" },
+        other => other,
+    }
 }
 
 #[cfg(test)]
@@ -192,6 +232,84 @@ mod tests {
         assert_eq!(
             parse_mode(&v(&["--uninstall-from-temp", "D:\\테스트 폴더\\IWAE"])),
             Mode::UninstallTemp { install_dir: PathBuf::from("D:\\테스트 폴더\\IWAE") }
+        );
+    }
+
+    #[test]
+    fn uninstall_from_temp_keeps_dir_with_trailing_real_flag() {
+        // relaunch_from_temp appends --real in debug builds, after the folder.
+        assert_eq!(
+            parse_mode(&v(&["--uninstall-from-temp", "D:\\테스트 폴더\\IWAE", "--real"])),
+            Mode::UninstallTemp { install_dir: PathBuf::from("D:\\테스트 폴더\\IWAE") }
+        );
+    }
+
+    #[test]
+    fn uninstall_from_temp_without_dir_is_invalid_not_install() {
+        assert!(matches!(
+            parse_mode(&v(&["--uninstall-from-temp"])),
+            Mode::Invalid { .. }
+        ));
+    }
+
+    #[test]
+    fn old_wizard_form_with_uninstall_flag_is_sync() {
+        // `<UninstallString> /S _?=<dir>` with UninstallString = `"...\uninstall-ui.exe" --uninstall`.
+        assert_eq!(
+            parse_mode(&v(&["--uninstall", "/S", "_?=D:\\테스트 폴더\\IWAE"])),
+            Mode::UninstallSync { args: v(&["/S", "_?=D:\\테스트 폴더\\IWAE"]) }
+        );
+        assert_eq!(
+            parse_mode(&v(&["--uninstall", "/P", "/UPDATE", "_?=C:\\x"])),
+            Mode::UninstallSync { args: v(&["/P", "/UPDATE", "_?=C:\\x"]) }
+        );
+    }
+
+    #[test]
+    fn sync_wins_over_temp_relaunch_flag() {
+        assert!(matches!(
+            parse_mode(&v(&["--uninstall-from-temp", "D:\\x", "_?=D:\\x"])),
+            Mode::UninstallSync { .. }
+        ));
+    }
+
+    #[test]
+    fn real_flag_alone_is_install() {
+        assert_eq!(parse_mode(&v(&["--real"])), Mode::Install { demo: DemoFlags::default() });
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn real_needs_flag_in_debug() {
+        assert!(!real_allowed(&[]));
+        assert!(!real_allowed(&v(&["/S"])));
+        assert!(real_allowed(&v(&["--real"])));
+        assert!(real_allowed(&v(&["/P", "/R", "/UPDATE", "--real", "/ARGS"])));
+        // After /ARGS it belongs to the app.
+        assert!(!real_allowed(&v(&["/UPDATE", "/ARGS", "--real"])));
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn real_always_allowed_in_release() {
+        assert!(real_allowed(&[]));
+        assert!(real_allowed(&v(&["/S"])));
+    }
+
+    #[test]
+    fn without_payload_maps_install_and_update_to_uninstall() {
+        assert_eq!(without_payload(Mode::Install { demo: DemoFlags::default() }), Mode::Uninstall);
+        assert_eq!(without_payload(Mode::Update { app_args: v(&["a"]) }), Mode::Uninstall);
+        assert!(matches!(
+            without_payload(Mode::Silent { install_dir: None }),
+            Mode::Invalid { .. }
+        ));
+        assert_eq!(without_payload(Mode::Uninstall), Mode::Uninstall);
+        let sync = Mode::UninstallSync { args: v(&["/S", "_?=C:\\x"]) };
+        assert_eq!(without_payload(sync), Mode::UninstallSync { args: v(&["/S", "_?=C:\\x"]) });
+        assert_eq!(
+            without_payload(Mode::UninstallTemp { install_dir: PathBuf::from("C:\\x") }),
+            Mode::UninstallTemp { install_dir: PathBuf::from("C:\\x") }
         );
     }
 
