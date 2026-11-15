@@ -2,6 +2,7 @@
 
 mod args;
 mod lang;
+mod registry;
 mod version;
 
 /// Same version as the main app (set by build.rs from the root package.json).
