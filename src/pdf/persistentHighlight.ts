@@ -133,6 +133,36 @@ export function createPersistentPdfHighlight(
   return withExtras({ id: persistentHighlightId(anchor, extras.kind), anchor, color }, extras)
 }
 
+/**
+ * 형광펜의 지금 자리로 지은 이름. 쪽을 옮기거나 지우면 형광펜의 id 는 그대로(옛 자리 이름)라서, 지금 자리의 이름과 다를 수 있다.
+ * 새로 칠하는 곳이 이미 칠한 곳인지는 id 가 아니라 이 이름으로 가린다.
+ */
+export const highlightSpotId = (highlight: Pick<PersistentPdfHighlight, 'anchor' | 'kind'>): string =>
+  persistentHighlightId(highlight.anchor, highlight.kind === 'region' ? 'region' : undefined)
+
+/**
+ * 이미 있는 형광펜들 사이에 새 형광펜을 만든다. 지금 자리의 이름을 옮겨 간 형광펜(쪽 순서를 바꾼 뒤 옛 자리 이름을 그대로 가진 것)이
+ * 쓰고 있으면 겹치지 않게 번호를 붙인다. 같은 자리의 형광펜이 이미 있으면 이름은 그대로 둔다(호출한 쪽이 그 형광펜을 찾아 쓴다).
+ */
+export function createPersistentPdfHighlightAmong(
+  existing: readonly Pick<PersistentPdfHighlight, 'id' | 'anchor' | 'kind'>[],
+  anchor: Anchor,
+  color: PdfHighlightColor = 'yellow',
+  extras: HighlightExtras = {},
+): PersistentPdfHighlight {
+  return withUniqueHighlightId(existing, createPersistentPdfHighlight(anchor, color, extras))
+}
+
+/** createPersistentPdfHighlightAmong 의 이름 고르기만(이미 만든 형광펜에) */
+export function withUniqueHighlightId<T extends Pick<PersistentPdfHighlight, 'id' | 'anchor' | 'kind'>>(existing: readonly Pick<PersistentPdfHighlight, 'id' | 'anchor' | 'kind'>[], created: T): T {
+  const takenByMoved = existing.some((item) => item.id === created.id && highlightSpotId(item) !== created.id)
+  if (!takenByMoved) return created
+  const taken = new Set(existing.map((item) => item.id))
+  let n = 2
+  while (taken.has(`${created.id}~${n}`)) n += 1
+  return { ...created, id: `${created.id}~${n}` }
+}
+
 /** 글자 형광펜은 글자 범위로, 영역(표·그림)은 그 네모로 이름을 짓는다 */
 export function persistentHighlightId(anchor: Anchor, kind?: 'region'): string {
   if (kind === 'region') {

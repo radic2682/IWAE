@@ -42,7 +42,7 @@ import { sourceTargetItems } from '../app/workspace/sourceLinkItems'
 import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, type AttachRequest } from '../app/workspace/workspaceContext'
 import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, memoNoteTitleOf, type MemoNote, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
-import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
+import { createPersistentPdfHighlightAmong, highlightSpotId, withUniqueHighlightId, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
 import { markFreshHighlight } from './freshHighlight'
 import { filterToOpenNotes } from './openNoteFilter'
 import type { PdfSelectionTranslation } from './SelectionActions'
@@ -454,7 +454,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   // 만드는 중인 메모·방금 만든 형광펜·깜빡이는 것·고치는 중인 것은 늘 보인다. 노트 기능이 없는 쪽(noteApi 없음)은 거르지 않는다
   const [createdHere, setCreatedHere] = useState<ReadonlySet<string>>(() => new Set())
   // 이 칸에서 만든 형광펜은 노트에 담기기 전에도(메모 없는 형광펜은 끝내) 사라지지 않게 기억한다
-  const reportCreated = (highlight: PersistentPdfHighlight) => {
+  const reportCreated = (made: PersistentPdfHighlight) => {
+    // 선택 레이어는 그 쪽의 형광펜만 알아서, 쪽을 옮긴 뒤 옛 자리 이름과 겹치는 것은 여기서 가려낸다
+    const highlight = withUniqueHighlightId(persistentHighlights, made)
     setCreatedHere((ids) => (ids.has(highlight.id) ? ids : new Set(ids).add(highlight.id)))
     onPersistentHighlightCreated?.(highlight)
   }
@@ -597,7 +599,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     if (interactionMode !== 'text' && !(interactionMode === 'lasso' && region)) return
     if (!region && selection.anchor.quote.trim() === '') return
     const pageSize = pageSizes[selection.anchor.page]
-    const highlight = createPersistentPdfHighlight(selection.anchor, selectedHighlightColor, {
+    const highlight = createPersistentPdfHighlightAmong(persistentHighlights, selection.anchor, selectedHighlightColor, {
       kind: region ? 'region' : undefined,
       pageSize: region ? pageSize : undefined,
       createdAt: new Date().toISOString(),
@@ -606,7 +608,8 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     // 이미 칠한 곳과 겹치면 새로 칠하지 않는다(형광펜 안에 또 형광펜 금지) — 그 메모를 노트에서 보인다
     const rectsOverlap = (left: readonly { x: number; y: number; w: number; h: number }[], right: readonly { x: number; y: number; w: number; h: number }[]) =>
       left.some((a) => right.some((b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h))
-    const existing = persistentHighlights.find(({ id }) => id === highlight.id)
+    // 같은 자리는 id 가 아니라 지금 자리로 찾는다(쪽을 옮긴 뒤에는 옛 자리 이름을 가진 다른 형광펜이 있을 수 있다)
+    const existing = persistentHighlights.find((item) => highlightSpotId(item) === highlightSpotId(highlight))
       ?? persistentHighlights.find((item) => item.anchor.docId === docId && item.anchor.page === selection.anchor.page && (
         !region && item.kind !== 'region'
           ? item.anchor.charRange[0] < selection.anchor.charRange[1] && selection.anchor.charRange[0] < item.anchor.charRange[1]
@@ -664,7 +667,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
     const textRects = (pageIndexes.get(page)?.chars ?? []).filter((char) => char.w > 0 && char.h > 0).map((char) => ({ x: char.x, y: char.y, w: char.w, h: char.h }))
     const box = placeBoxMemo(pageSize, selection.anchor.rects, textRects, BOX_DEFAULT_WIDTH)
-    const created = createPersistentPdfHighlight(selection.anchor, selectedHighlightColor, { createdAt: new Date().toISOString(), source: 'iwae' })
+    const created = createPersistentPdfHighlightAmong(persistentHighlights, selection.anchor, selectedHighlightColor, { createdAt: new Date().toISOString(), source: 'iwae' })
     setDraftMemo(null)
     setDraftBox({ ...created, box })
     setEditingBoxId(created.id)
@@ -718,13 +721,13 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   const attachSelection = (selection: PdfExcerptSelection, request: AttachRequest) => {
     const region = selection.mode === 'region'
     if (!region && selection.anchor.quote.trim() === '') return
-    const highlight = createPersistentPdfHighlight(selection.anchor, selectedHighlightColor, {
+    const highlight = createPersistentPdfHighlightAmong(persistentHighlights, selection.anchor, selectedHighlightColor, {
       kind: region ? 'region' : undefined,
       pageSize: region ? pageSizes[selection.anchor.page] : undefined,
       createdAt: new Date().toISOString(),
       source: 'iwae',
     })
-    const existing = persistentHighlights.find((item) => item.id === highlight.id)
+    const existing = persistentHighlights.find((item) => highlightSpotId(item) === highlightSpotId(highlight))
     if (existing === undefined) reportCreated(highlight)
     noteApi?.updateNoteAt(request.path, (note) => addMemoRef(note, request.key, existing?.id ?? highlight.id))
     setAttachRequest(null)

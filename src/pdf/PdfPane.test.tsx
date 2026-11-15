@@ -319,6 +319,28 @@ describe('PdfPane — 텍스트 선택 배선', () => {
     expect(onAnchorCreated).not.toHaveBeenCalled()
   })
 
+  it('쪽을 옮긴 뒤에는 옛 자리 이름을 가진 다른 형광펜이 있어도 그 자리에 새 형광펜을 칠한다(id 가 겹치지 않는다)', async () => {
+    const spot: Anchor = {
+      docId: '0123456789ab', page: 0, coordSpace: 'pdfium-page',
+      rects: [{ x: 10, y: 10, w: 10, h: 10 }], charRange: [0, 1], quote: 'A', prefix: '', suffix: '',
+    }
+    // 쪽 순서를 바꿔 이 형광펜은 2쪽으로 옮겨 갔지만 id 는 옛 자리 이름(0쪽 0–1)을 그대로 가진다
+    const moved = { id: '0123456789ab:0:0:1', anchor: { ...spot, page: 2 }, color: 'yellow' }
+    const onPersistentHighlightCreated = vi.fn()
+    const { container } = mount({ pageCount: 3, interactionMode: 'highlight', persistentHighlights: [moved], onPersistentHighlightCreated })
+    await waitFor(() => {
+      expect(container.querySelector('.selection-layer[data-page="0"]')).not.toBeNull()
+    })
+    const layer = container.querySelector('.selection-layer[data-page="0"]')!
+    fireEvent.pointerDown(layer, { clientX: 15, clientY: 15, pointerId: 1 })
+    fireEvent.pointerMove(layer, { clientX: 18, clientY: 18, pointerId: 1 })
+    fireEvent.pointerUp(layer, { clientX: 18, clientY: 18, pointerId: 1 })
+    expect(onPersistentHighlightCreated).toHaveBeenCalledTimes(1)
+    const created = onPersistentHighlightCreated.mock.calls[0]![0] as { id: string; anchor: Anchor }
+    expect(created.anchor.page).toBe(0)
+    expect(created.id).not.toBe(moved.id)
+  })
+
   it('전달된 영구 형광펜을 문서와 페이지별로 렌더한다', async () => {
     const pageZero: Anchor = {
       docId: '0123456789ab', page: 0, coordSpace: 'pdfium-page',

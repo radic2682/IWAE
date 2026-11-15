@@ -8,7 +8,8 @@ import { createRegionExcerptSelection } from '../../core/pdfExcerpt'
 import { memoBlock, memoHighlightIds, removeHighlightBlocks, safeNoteTitle, setMemoTicket, type MemoNote, type MemoNoteBlock, type MemoTicket } from '../../core/memoNote'
 import { sanitizeMemoHtml } from '../../pdf/memoRichText'
 import {
-  createPersistentPdfHighlight,
+  createPersistentPdfHighlightAmong,
+  highlightSpotId,
   updatePersistentPdfHighlight,
   type PdfHighlightColor,
   type PersistentPdfHighlight,
@@ -143,11 +144,11 @@ async function buildHighlight(input: MemoInput, ctx: OpContext): Promise<BuiltMe
         : undefined
     if (rect === undefined) throw new Error('표·그림(region) 메모에는 rect 또는 from_text가 필요합니다.')
     const selection = createRegionExcerptSelection({ docId: meta.docId, page, rect, index, pageSize })
-    highlight = createPersistentPdfHighlight(selection.anchor, color, { ...extras, kind: 'region', pageSize })
+    highlight = createPersistentPdfHighlightAmong(currentHighlights(deps), selection.anchor, color, { ...extras, kind: 'region', pageSize })
   } else {
     if (typeof input.from_text !== 'string') throw new Error('글 메모에는 from_text(칠할 글의 처음)가 필요합니다.')
     const [start, end] = findTextRange(index, input.from_text, typeof input.to_text === 'string' ? input.to_text : undefined)
-    highlight = createPersistentPdfHighlight(buildAnchor(meta.docId, page, index, start, end), color, extras)
+    highlight = createPersistentPdfHighlightAmong(currentHighlights(deps), buildAnchor(meta.docId, page, index, start, end), color, extras)
   }
   const rating = typeof input.rating === 'number' && Number.isFinite(input.rating) ? Math.round(input.rating) : undefined
   const topic = noteTitleOf(input)
@@ -194,8 +195,10 @@ export async function createMemoHighlights(inputs: readonly MemoInput[], ctx: Op
   for (const [index, input] of inputs.entries()) {
     try {
       const built = await buildHighlight(input, ctx)
-      const { highlight } = built
-      const existing = currentHighlights(ctx.deps).some(({ id }) => id === highlight.id) || plans.some((plan) => plan.highlight.id === highlight.id)
+      // 같은 자리는 id 가 아니라 지금 자리로 찾는다(쪽 순서를 바꾼 뒤에는 옛 자리 이름을 가진 다른 형광펜이 있을 수 있다)
+      const spotMatch = currentHighlights(ctx.deps).find((item) => highlightSpotId(item) === highlightSpotId(built.highlight))
+      const highlight = spotMatch === undefined ? built.highlight : { ...built.highlight, id: spotMatch.id }
+      const existing = spotMatch !== undefined || plans.some((plan) => plan.highlight.id === highlight.id)
       if (options.dryRun !== true) {
         if (existing) {
           // 같은 자리에 이미 형광펜이 있으면 메모·카테고리·색만 고친다

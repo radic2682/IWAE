@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { Anchor } from '../core/anchor'
 import {
   createPersistentPdfHighlight,
+  createPersistentPdfHighlightAmong,
+  highlightSpotId,
+  persistentHighlightId,
   parsePersistentPdfHighlights,
   persistentPdfHighlightFile,
   removePersistentPdfHighlight,
@@ -96,5 +99,24 @@ describe('persistentHighlight — Markdown 영역 메모의 모습', () => {
     expect(updatePersistentPdfHighlight(made, { note: '설명' }).snapshot).toEqual(snapshot)
     // 글자 메모에는 붙지 않는다
     expect(createPersistentPdfHighlight(anchor, 'yellow', { snapshot }).snapshot).toBeUndefined()
+  })
+
+  it('쪽을 옮겨 옛 자리 이름을 가진 형광펜이 있으면 새 형광펜은 겹치지 않는 id 를 받는다', () => {
+    const moved = { ...createPersistentPdfHighlight(anchor), anchor: { ...anchor, page: anchor.page + 2 } }
+    expect(highlightSpotId(moved)).not.toBe(moved.id)
+    const fresh = createPersistentPdfHighlightAmong([moved], anchor)
+    expect(fresh.id).not.toBe(moved.id)
+    expect(fresh.anchor).toEqual(anchor)
+    expect(highlightSpotId(fresh)).toBe(persistentHighlightId(anchor))
+    // 또 겹치면 다음 번호
+    const second = createPersistentPdfHighlightAmong([moved, fresh], anchor)
+    expect(second.id).not.toBe(fresh.id)
+    expect(new Set([moved.id, fresh.id, second.id]).size).toBe(3)
+  })
+
+  it('같은 자리의 형광펜이 이미 있으면 id 는 그대로다(찾아 쓰도록)', () => {
+    const same = createPersistentPdfHighlight(anchor)
+    expect(createPersistentPdfHighlightAmong([same], anchor).id).toBe(same.id)
+    expect(createPersistentPdfHighlightAmong([], anchor).id).toBe(same.id)
   })
 })
