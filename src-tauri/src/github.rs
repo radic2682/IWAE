@@ -59,6 +59,42 @@ fn safe_vault_path(path: &str) -> bool {
     !path.split('/').any(|part| part.is_empty() || part == "." || part == "..") && !path.starts_with(".iwae")
 }
 
+/// 심볼릭 링크·Windows 정션 등 다시 해석되는 항목인가(Windows 는 reparse point 전부)
+fn is_link(metadata: &std::fs::Metadata) -> bool {
+    if metadata.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// `root` 아래 `relative` 로 가는 길에 바로가기가 하나도 없는 실제 파일인가(저장소 밖으로 새지 않게)
+fn real_file_within(root: &Path, relative: &str) -> bool {
+    let mut current = root.to_path_buf();
+    let mut parts = relative.split('/').peekable();
+    while let Some(part) = parts.next() {
+        if part.is_empty() || part == "." || part == ".." {
+            return false;
+        }
+        current.push(part);
+        let Ok(metadata) = std::fs::symlink_metadata(&current) else { return false };
+        if is_link(&metadata) {
+            return false;
+        }
+        if parts.peek().is_none() {
+            return metadata.is_file();
+        }
+    }
+    false
+}
+
 /// 받은 폴더(저장소 안 경로) 아래의 파일을 이어진 Vault 폴더로 복사한다(.git 은 빼고). 복사한 파일 수
 fn copy_tree(from: &Path, to: &Path) -> Result<usize, String> {
     std::fs::create_dir_all(to).map_err(|err| tr!("폴더를 만들지 못했습니다: {err}", "Could not create the folder: {err}"))?;
@@ -70,9 +106,14 @@ fn copy_tree(from: &Path, to: &Path) -> Result<usize, String> {
         }
         let path = entry.path();
         let target = to.join(&name);
-        if path.is_dir() {
+        // 바로가기(심볼릭 링크·정션)는 따라가지 않는다: 저장소에 `x.md -> C:\비밀` 이 들어 있으면 PC 의 다른 파일이 Vault 로 복사된다
+        let Ok(metadata) = std::fs::symlink_metadata(&path) else { continue };
+        if is_link(&metadata) {
+            continue;
+        }
+        if metadata.is_dir() {
             count += copy_tree(&path, &target)?;
-        } else {
+        } else if metadata.is_file() {
             std::fs::copy(&path, &target).map_err(|err| tr!("{} 을 복사하지 못했습니다: {err}", "Could not copy {}: {err}", name.to_string_lossy()))?;
             count += 1;
         }
@@ -119,23 +160,30 @@ fn apply_changes(vault_root: &str, place: &Place, path: Option<&str>, from: &str
     if place.in_place {
         return changed_files(&place.clone, from, to, path, &place.target);
     }
-    let mut args = vec!["diff", "--name-status", "--no-renames", from, to];
+    // -z: 경로를 따옴표로 감싸지 않고 NUL 로 나눠 준다(한글 같은 비 ASCII 경로가 "\354\203…" 로 오지 않는다)
+    let mut args = vec!["diff", "-z", "--name-status", "--no-renames", from, to];
     if let Some(path) = path {
         args.push("--");
         args.push(path);
     }
-    let Ok(text) = git(Some(&place.clone), &args) else { return Vec::new() };
+    let Ok(text) = git_raw(Some(&place.clone), &args) else { return Vec::new() };
     let prefix = path.map(|value| format!("{}/", value.trim_end_matches('/'))).unwrap_or_default();
     let target_root = Path::new(vault_root).join(&place.target);
     let mut changed = Vec::new();
-    for line in text.lines() {
-        let mut fields = line.splitn(2, '\t');
-        let (Some(status), Some(file)) = (fields.next(), fields.next()) else { continue };
+    let mut fields = text.split('\0').filter(|field| !field.is_empty());
+    while let (Some(status), Some(file)) = (fields.next(), fields.next()) {
         let Some(relative) = file.strip_prefix(prefix.as_str()) else { continue };
+        if relative.split('/').any(|part| part.is_empty() || part == "." || part == "..") {
+            continue;
+        }
         let target = target_root.join(relative);
         if status.starts_with('D') {
             let _ = std::fs::remove_file(&target);
         } else {
+            // 저장소 밖으로 이어지는 바로가기는 복사하지 않는다
+            if !real_file_within(&place.clone, file) {
+                continue;
+            }
             if let Some(parent) = target.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
@@ -156,6 +204,24 @@ pub struct GithubUrl {
     pub path: Option<String>,
 }
 
+/// 퍼센트 인코딩(`%20`, `%EB%AC%B8`)을 푼다. 잘못된 인코딩이거나 UTF-8 이 아니면 None
+fn percent_decode(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let hex = text.get(index + 1..index + 3)?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            index += 3;
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
 /// `https://github.com/<owner>/<repo>[.git][/tree/<ref>/<path>]` 를 읽는다
 pub fn parse_github_url(url: &str) -> Result<GithubUrl, String> {
     let trimmed = url.trim().trim_end_matches('/');
@@ -164,7 +230,17 @@ pub fn parse_github_url(url: &str) -> Result<GithubUrl, String> {
         .or_else(|| trimmed.strip_prefix("http://github.com/"))
         .or_else(|| trimmed.strip_prefix("github.com/"))
         .ok_or_else(|| tr!("github.com 주소를 넣어 주세요 (예: https://github.com/<소유자>/<저장소>/tree/main/docs)", "Enter a github.com URL (e.g. https://github.com/<owner>/<repo>/tree/main/docs)"))?;
-    let parts: Vec<&str> = rest.split('/').filter(|part| !part.is_empty()).collect();
+    // 브라우저에서 복사한 주소는 공백·한글이 %20·%EB%AC%B8 처럼 인코딩돼 있다. 풀어서 쓴다(풀고 나서 `/`·`..` 가 생기면 거절한다)
+    let decoded: Vec<String> = rest
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .map(percent_decode)
+        .collect::<Option<_>>()
+        .ok_or_else(|| tr!("주소를 읽지 못했습니다.", "Could not read the URL."))?;
+    if decoded.iter().any(|part| part.contains(['/', '\\']) || part.chars().any(char::is_control)) {
+        return Err(tr!("폴더 경로가 올바르지 않습니다.", "Invalid folder path."));
+    }
+    let parts: Vec<&str> = decoded.iter().map(String::as_str).collect();
     if parts.len() < 2 {
         return Err(tr!("주소에 저장소 이름이 없습니다.", "The URL has no repository name."));
     }
@@ -196,7 +272,21 @@ pub fn parse_github_url(url: &str) -> Result<GithubUrl, String> {
     Ok(GithubUrl { owner, repo, reference, path })
 }
 
+/// git 한 번에 줄 시간. 받기(clone·fetch)가 느린 망에서도 끝나게 넉넉히 두되, 응답 없는 서버가 영영 붙잡지는 못하게 한다
+const GIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+
 fn git(dir: Option<&Path>, args: &[&str]) -> Result<String, String> {
+    git_raw(dir, args).map(|text| text.trim_end().to_string())
+}
+
+fn git_raw(dir: Option<&Path>, args: &[&str]) -> Result<String, String> {
+    git_with_timeout(dir, args, GIT_TIMEOUT)
+}
+
+/// 시간이 지나도 안 끝나면 git 을 멈추고(죽이고) 오류를 돌려준다
+fn git_with_timeout(dir: Option<&Path>, args: &[&str], timeout: std::time::Duration) -> Result<String, String> {
+    use std::io::Read;
+    use std::process::Stdio;
     let mut command = Command::new("git");
     if let Some(dir) = dir {
         command.current_dir(dir);
@@ -206,18 +296,54 @@ fn git(dir: Option<&Path>, args: &[&str]) -> Result<String, String> {
         // 로그인 창·질문을 띄우지 않는다(공개 저장소만). 글은 영어로 받아 판단한다
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
-        .env("LC_ALL", "C");
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
-    let output = command.output().map_err(|err| {
+    let mut child = command.spawn().map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
             tr!("이 PC 에 git 이 없습니다. Git for Windows 를 설치해 주세요.", "git is not installed on this PC. Please install Git for Windows.")
         } else {
             tr!("git 을 실행하지 못했습니다: {err}", "Could not run git: {err}")
         }
     })?;
+    // 출력은 따로 읽는다(꽉 차서 git 이 멈추지 않게). 끝나기를 기다리다 시간이 넘으면 죽이고 읽는 쪽은 기다리지 않는다
+    let read_all = |mut pipe: Box<dyn Read + Send>| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let _ = pipe.read_to_end(&mut bytes);
+            let _ = tx.send(bytes);
+        });
+        rx
+    };
+    let stdout = read_all(Box::new(child.stdout.take().expect("piped")));
+    let stderr_reader = read_all(Box::new(child.stderr.take().expect("piped")));
+    let started = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if started.elapsed() >= timeout => {
+                let seconds = timeout.as_secs();
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(tr!(
+                    "git 이 {seconds}초 안에 끝나지 않아 멈췄습니다. 네트워크를 확인하고 다시 시도해 주세요.",
+                    "git did not finish within {seconds} seconds and was stopped. Check the network and try again."
+                ));
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(20)),
+            Err(err) => return Err(tr!("git 을 실행하지 못했습니다: {err}", "Could not run git: {err}")),
+        }
+    };
+    // git 이 끝났으면 출력도 곧 끝난다. 손자 프로세스가 파이프를 쥐고 있어도 오래 기다리지 않는다
+    let stdout_bytes = stdout.recv_timeout(std::time::Duration::from_secs(5)).unwrap_or_default();
+    let stderr_bytes = stderr_reader.recv_timeout(std::time::Duration::from_secs(5)).unwrap_or_default();
+    let output = std::process::Output { status, stdout: stdout_bytes, stderr: stderr_bytes };
     if output.status.success() {
-        return Ok(String::from_utf8_lossy(&output.stdout).trim_end().to_string());
+        return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
     }
     let stderr = String::from_utf8_lossy(&output.stderr);
     let message = stderr.lines().filter(|line| !line.trim().is_empty()).last().unwrap_or("").trim().to_string();
@@ -434,14 +560,14 @@ pub struct GithubFetchResult {
 /// 바뀐(바뀔) 파일을 이어진 Vault 폴더 기준 경로로. 예전 방식은 작업 폴더 경로 그대로, 숨긴 방식은 받은 폴더 앞부분을 뗀다
 fn changed_files(dir: &Path, from: &str, to: &str, path: Option<&str>, target: &str) -> Vec<String> {
     let legacy = target.starts_with(&format!("{GITHUB_DIR}/")) && dir.parent().and_then(|parent| parent.file_name()).is_some_and(|value| value == GITHUB_DIR);
-    let mut args = vec!["diff", "--name-only", from, to];
+    let mut args = vec!["diff", "-z", "--name-only", from, to];
     if let Some(path) = path {
         args.push("--");
         args.push(path);
     }
     let prefix = match path { Some(path) if !legacy => format!("{}/", path.trim_end_matches('/')), _ => String::new() };
-    git(Some(dir), &args)
-        .map(|text| text.lines().filter(|line| !line.is_empty()).map(|line| format!("{target}/{}", line.strip_prefix(prefix.as_str()).unwrap_or(line))).collect())
+    git_raw(Some(dir), &args)
+        .map(|text| text.split('\0').filter(|line| !line.is_empty()).map(|line| format!("{target}/{}", line.strip_prefix(prefix.as_str()).unwrap_or(line))).collect())
         .unwrap_or_default()
 }
 
@@ -607,5 +733,159 @@ mod tests {
         assert!(!safe_vault_path("../x"));
         assert!(!safe_vault_path(".iwae/github"));
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    // ---- 아래: 라운드 2 버그 회귀 시험(로컬 git 저장소만 쓴다, 네트워크 없음) ----
+
+    fn temp(name: &str) -> PathBuf {
+        let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("iwae-gh-{name}-{unique}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn run(dir: &Path, args: &[&str]) -> String {
+        git(Some(dir), args).unwrap_or_else(|err| panic!("git {args:?}: {err}"))
+    }
+
+    fn commit_all(repo: &Path, message: &str) -> String {
+        run(repo, &["add", "-A"]);
+        run(repo, &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", message]);
+        run(repo, &["rev-parse", "HEAD"])
+    }
+
+    #[test]
+    fn pull_applies_changes_to_korean_file_names() {
+        let vault = temp("vault");
+        let clone = vault.join(".iwae/github/repo");
+        std::fs::create_dir_all(clone.join("docs")).unwrap();
+        run(&clone, &["init", "-q"]);
+        std::fs::write(clone.join("docs/한글 메모.md"), "v1").unwrap();
+        std::fs::write(clone.join("docs/plain.md"), "v1").unwrap();
+        std::fs::write(clone.join("docs/지울 파일.md"), "bye").unwrap();
+        let first = commit_all(&clone, "one");
+        let target_root = vault.join("Imported");
+        copy_tree(&clone.join("docs"), &target_root).unwrap();
+        std::fs::write(clone.join("docs/한글 메모.md"), "v2").unwrap();
+        std::fs::write(clone.join("docs/plain.md"), "v2").unwrap();
+        std::fs::write(clone.join("docs/새 파일.md"), "new").unwrap();
+        std::fs::remove_file(clone.join("docs/지울 파일.md")).unwrap();
+        let second = commit_all(&clone, "two");
+
+        let place = Place { clone: clone.clone(), target: "Imported".into(), in_place: false };
+        let changed = apply_changes(&vault.to_string_lossy(), &place, Some("docs"), &first, &second);
+        assert_eq!(std::fs::read_to_string(target_root.join("plain.md")).unwrap(), "v2");
+        assert_eq!(std::fs::read_to_string(target_root.join("한글 메모.md")).unwrap(), "v2");
+        assert_eq!(std::fs::read_to_string(target_root.join("새 파일.md")).unwrap(), "new");
+        assert!(!target_root.join("지울 파일.md").exists());
+        assert!(changed.contains(&"Imported/한글 메모.md".to_string()), "{changed:?}");
+        // 「새 소식 확인」 미리보기도 따옴표 없는 이름이다
+        let preview = changed_files(&clone, &first, &second, Some("docs"), "Imported");
+        assert!(preview.contains(&"Imported/새 파일.md".to_string()), "{preview:?}");
+        assert!(preview.iter().all(|path| !path.contains('"') && !path.contains('\\')), "{preview:?}");
+        let _ = std::fs::remove_dir_all(&vault);
+    }
+
+    #[test]
+    fn percent_encoded_folder_urls_are_decoded() {
+        let spaced = parse_github_url("https://github.com/owner/repo/tree/main/my%20docs").unwrap();
+        assert_eq!(spaced.path.as_deref(), Some("my docs"));
+        let korean = parse_github_url("https://github.com/owner/repo/tree/main/%EB%AC%B8%EC%84%9C/%ED%95%98%EC%9C%84").unwrap();
+        assert_eq!(korean.path.as_deref(), Some("문서/하위"));
+        // 풀고 나서 위로 올라가거나 구분자가 생기는 것은 거절한다
+        assert!(parse_github_url("https://github.com/owner/repo/tree/main/%2E%2E/x").is_err());
+        assert!(parse_github_url("https://github.com/owner/repo/tree/main/a%2F..%2Fb").is_err());
+        assert!(parse_github_url("https://github.com/owner/repo/tree/main/a%5Cb").is_err());
+        assert!(parse_github_url("https://github.com/owner/repo/tree/main/%zz").is_err());
+        assert!(parse_github_url("https://github.com/owner/repo/tree/main/%FF").is_err());
+        assert!(parse_github_url("https://github.com/owner/repo/tree/main/a%00b").is_err());
+    }
+
+    #[test]
+    fn a_decoded_folder_path_can_be_sparse_checked_out_and_copied() {
+        let origin = temp("origin");
+        std::fs::create_dir_all(origin.join("my docs")).unwrap();
+        run(&origin, &["init", "-q"]);
+        std::fs::write(origin.join("my docs/a.md"), "# a").unwrap();
+        commit_all(&origin, "one");
+        let base = temp("clone");
+        let dir = base.join("repo");
+        let url = format!("file:///{}", origin.to_string_lossy().replace('\\', "/"));
+        let dir_text = dir.to_string_lossy().into_owned();
+        run(&base, &["clone", "-q", "--no-checkout", "--sparse", "--", url.as_str(), dir_text.as_str()]);
+        let parsed = parse_github_url("https://github.com/owner/repo/tree/main/my%20docs").unwrap();
+        let pattern = format!("/{}/", parsed.path.clone().unwrap());
+        run(&dir, &["sparse-checkout", "set", "--no-cone", pattern.as_str()]);
+        run(&dir, &["checkout", "-q"]);
+        assert_eq!(copy_tree(&dir.join(parsed.path.as_deref().unwrap()), &base.join("vault-target")).unwrap(), 1);
+        let _ = std::fs::remove_dir_all(&origin);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn copy_tree_skips_a_directory_junction_pointing_outside_the_repo() {
+        let outside = temp("outside-j");
+        std::fs::write(outside.join("secret.txt"), "PRIVATE KEY").unwrap();
+        let repo = temp("repo-j");
+        std::fs::write(repo.join("keep.md"), "ok").unwrap();
+        let made = std::process::Command::new("cmd").args(["/C", "mklink", "/J"]).arg(repo.join("linkdir")).arg(&outside).output().unwrap();
+        assert!(made.status.success(), "mklink /J: {}", String::from_utf8_lossy(&made.stderr));
+        let target = temp("target-j");
+        let count = copy_tree(&repo, &target.join("Imported")).unwrap();
+        let _ = std::fs::remove_dir(repo.join("linkdir"));
+        assert_eq!(count, 1, "정션 안의 파일은 세지도 복사하지도 않는다");
+        assert!(target.join("Imported/keep.md").exists());
+        assert!(!target.join("Imported/linkdir").exists());
+    }
+
+    #[test]
+    fn copy_tree_skips_symlinks_when_they_can_be_made() {
+        let outside = temp("outside-s");
+        std::fs::write(outside.join("secret.txt"), "PRIVATE KEY").unwrap();
+        let repo = temp("repo-s");
+        #[cfg(windows)]
+        let made = std::os::windows::fs::symlink_file(outside.join("secret.txt"), repo.join("link.md")).and_then(|_| std::os::windows::fs::symlink_dir(&outside, repo.join("linkdir")));
+        #[cfg(unix)]
+        let made = std::os::unix::fs::symlink(outside.join("secret.txt"), repo.join("link.md")).and_then(|_| std::os::unix::fs::symlink(&outside, repo.join("linkdir")));
+        if let Err(err) = made {
+            eprintln!("SKIPPED: cannot create symlinks here: {err}");
+            return;
+        }
+        let target = temp("target-s");
+        assert_eq!(copy_tree(&repo, &target.join("Imported")).unwrap(), 0);
+        assert!(!target.join("Imported/link.md").exists());
+        assert!(!target.join("Imported/linkdir").exists());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_file_reached_through_a_junction_is_not_a_real_file_of_the_checkout() {
+        let clone = temp("checkout-pj");
+        std::fs::create_dir_all(clone.join("docs")).unwrap();
+        std::fs::write(clone.join("docs/a.md"), "v1").unwrap();
+        let outside = temp("outside-pj");
+        std::fs::write(outside.join("secret.txt"), "PRIVATE KEY").unwrap();
+        let made = std::process::Command::new("cmd").args(["/C", "mklink", "/J"]).arg(clone.join("linked")).arg(&outside).output().unwrap();
+        assert!(made.status.success(), "mklink /J: {}", String::from_utf8_lossy(&made.stderr));
+        assert!(real_file_within(&clone, "docs/a.md"));
+        assert!(!real_file_within(&clone, "linked/secret.txt"));
+        assert!(!real_file_within(&clone, "docs/../linked/secret.txt"));
+        let _ = std::fs::remove_dir(clone.join("linked"));
+    }
+
+    #[test]
+    fn git_is_stopped_when_it_does_not_finish_in_time() {
+        let started = std::time::Instant::now();
+        // git 의 별칭으로 오래 자는 명령을 돌린다
+        let result = git_with_timeout(None, &["-c", "alias.hang=!sleep 30", "hang"], std::time::Duration::from_millis(600));
+        assert!(started.elapsed() < std::time::Duration::from_secs(15), "시간 제한이 듣지 않았다");
+        let error = result.expect_err("시간이 넘으면 오류");
+        assert!(error.contains("git"), "{error}");
+    }
+
+    #[test]
+    fn git_output_is_still_returned_for_quick_commands() {
+        assert!(git(None, &["--version"]).unwrap().starts_with("git version"));
     }
 }
