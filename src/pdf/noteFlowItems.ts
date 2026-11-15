@@ -27,7 +27,7 @@ export interface NoteFlowItemsOptions {
 export function buildNoteFlowItems(blocks: readonly MemoNoteBlock[], options: NoteFlowItemsOptions): NoteFlowItem[] {
   const { highlightById, docId, title, docTitles, otherLabel, draft = null, draftIndex } = options
   const items: NoteFlowItem[] = []
-  const draftItem = (): NoteFlowItem | null => draft === null ? null : { kind: 'memo', key: 'draft', highlight: draft, draft: true, sourceLabel: title ?? otherLabel }
+  const draftItem = (): NoteFlowItem | null => draft === null ? null : { kind: 'memo', key: 'draft', highlight: draft, draft: true, sourceLabel: docTitles?.[draft.anchor.docId] ?? title ?? otherLabel }
   let hidden = false
   blocks.forEach((block, index) => {
     if (draftIndex === index) {
