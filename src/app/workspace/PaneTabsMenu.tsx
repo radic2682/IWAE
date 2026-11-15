@@ -198,10 +198,20 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   useEffect(() => {
     if (contextMenu === null) return
+    const opener = contextMenu.id
     const close = (event: Event) => {
       if (event instanceof KeyboardEvent && event.key !== 'Escape') return
-      if (event.target instanceof Node && document.querySelector('.pane-tab-context')?.contains(event.target)) return
+      // 메뉴 안을 누른 것은 닫지 않는다(항목이 스스로 닫는다). 키보드 Escape 는 메뉴 안 초점에서도 닫아야 한다
+      if (event.type === 'pointerdown' && event.target instanceof Node && document.querySelector('.pane-tab-context')?.contains(event.target)) return
+      const fromKeyboard = event instanceof KeyboardEvent
       setContextMenu(null)
+      // Escape 로 닫으면 메뉴를 연 탭으로 초점을 돌려 보낸다
+      if (fromKeyboard) {
+        requestAnimationFrame(() => {
+          const holder = [...document.querySelectorAll<HTMLElement>('[data-tab-id]')].find((element) => element.dataset.tabId === opener)
+          holder?.querySelector<HTMLElement>('[role=tab]')?.focus({ preventScroll: true })
+        })
+      }
     }
     window.addEventListener('pointerdown', close, true)
     window.addEventListener('keydown', close)

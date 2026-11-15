@@ -41,6 +41,19 @@ describe('PaneTabsMenu', () => {
     expect(onClose).not.toHaveBeenCalledWith(state.tabs.find((tab) => tab.title === 'Rust Handbook')!.id)
   })
 
+  it('탭 우클릭 메뉴는 첫 항목에 초점이 있어도 Escape 로 닫히고 초점이 탭으로 돌아간다', async () => {
+    render(<PaneTabsMenu state={state} label="PDF" onActivate={vi.fn()} onClose={vi.fn()} />)
+
+    const tab = screen.getByRole('tab', { name: 'Rust Handbook' })
+    fireEvent.contextMenu(tab)
+    const first = screen.getAllByRole('menuitem')[0]!
+    expect(document.activeElement).toBe(first)
+    fireEvent.keyDown(first, { key: 'Escape' })
+
+    expect(screen.queryByRole('menu', { name: /탭 메뉴/ })).toBeNull()
+    await vi.waitFor(() => expect(document.activeElement).toBe(tab))
+  })
+
   it('목록에서 탭을 닫을 수 있다', () => {
     const onClose = vi.fn()
     render(<PaneTabsMenu state={state} label="PDF" onActivate={vi.fn()} onClose={onClose} />)
