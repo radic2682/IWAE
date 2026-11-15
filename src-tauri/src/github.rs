@@ -59,20 +59,12 @@ fn safe_vault_path(path: &str) -> bool {
     !path.split('/').any(|part| part.is_empty() || part == "." || part == "..") && !path.starts_with(".iwae")
 }
 
-/// 심볼릭 링크·Windows 정션 등 다시 해석되는 항목인가(Windows 는 reparse point 전부)
+/// 심볼릭 링크·Windows 정션(마운트 지점)처럼 다른 곳을 가리키는 항목인가.
+/// Rust 는 Windows 에서 재해석 태그가 "이름 대리자"(심볼릭 링크·마운트 지점)일 때만 `is_symlink()` 를 참으로 준다.
+/// reparse point 속성이 붙은 모든 것을 링크로 보면 OneDrive 파일 주문형 자리 표시 파일·중복 제거 파일까지 건너뛰어
+/// OneDrive 안의 Vault 에서 아무것도 복사하지 못한다.
 fn is_link(metadata: &std::fs::Metadata) -> bool {
-    if metadata.file_type().is_symlink() {
-        return true;
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
-        if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-            return true;
-        }
-    }
-    false
+    metadata.file_type().is_symlink()
 }
 
 /// `root` 아래 `relative` 로 가는 길에 바로가기가 하나도 없는 실제 파일인가(저장소 밖으로 새지 않게)
