@@ -42,7 +42,7 @@ import { useFollowMovedMemoNotes, useSyncMemoNoteTabs } from './notes/useMemoNot
 import { blocksForTarget, pickCanvasPane, visibleCanvasPanes, type PointableHighlight } from './notes/canvasWorkspace'
 import { createNoteBesideOpener, pickNotePath, placeNoteTab, type NoteBesideOpener, type NoteBesideHost } from './workspace/noteBeside'
 import { applyLayoutPreset, availableScreenTemplates, buildTemplateScreen, templateScreenName, type LayoutPresetId, type ScreenTemplateId } from './workspace/layoutPresets'
-import { activeScreenOf, allScreenPaneIds, newScreenId, workspaceOf } from './workspace/screens'
+import { activeScreenOf, allScreenPaneIds, freeScreenNumber, newScreenId, workspaceOf } from './workspace/screens'
 import { attachTabToPane, tearTabToScreen } from './workspace/tabTearOff'
 import { pickByName, runCommandLine, type CommandHost, type CommandResult, type PaneRect, type WorkspaceModel } from './workspace/workspaceCommands'
 import { usePrefixMode } from './workspace/usePrefixMode'
@@ -411,6 +411,8 @@ function AutosavedNoteCanvas({
 
 /** 칸이 늘거나 줄어 자리가 잡히는 움직임(280ms)이 끝난 뒤 */
 const PANE_RESIZE_SETTLE_MS = 280
+/** 기본 화면 이름(「화면 N」) */
+const defaultScreenName = (n: number): string => t('화면 {n}', { n })
 
 /** 칸 수가 바뀌었다: 자리가 잡힌 뒤 창 크기 변화를 알려 연결선 · 문서 보기가 새 크기를 다시 재게 한다 */
 function notifyPaneResizeSoon(): void {
@@ -1465,10 +1467,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const last = paneOrder[paneOrder.length - 1]!
     const usable = (pane: PaneId) => paneOrder.includes(pane) || (floatKey !== '' && floatKey.split(' ').includes(pane))
     if (orphanKey !== '') setPanes((current) => orphanKey.split(' ').reduce((next, pane) => closePaneInto(next, pane, last), current))
-    if (!usable(activePaneId)) setActivePaneId(paneOrder[0]!)
+    // 크게 보는 중에는 가려진 칸이 아니라 크게 보는 칸(또는 보이는 떠 있는 칸)이 만지는 칸이다
+    if (!usable(activePaneId)) setActivePaneId(zoomedPane ?? paneOrder[0]!)
+    else if (zoomedPane !== null && activePaneId !== zoomedPane && !(floatKey !== '' && floatKey.split(' ').includes(activePaneId))) setActivePaneId(zoomedPane)
     if (!usable(paneRouteRef.current.doc)) setPaneRoute('doc', paneOrder[0]!)
     if (!usable(paneRouteRef.current.note)) setPaneRoute('note', paneOrder[1] ?? paneOrder[0]!)
-  }, [orphanKey, floatKey, paneOrder, activePaneId, setPanes, setPaneRoute, paneRouteRef])
+  }, [orphanKey, floatKey, paneOrder, activePaneId, zoomedPane, setPanes, setPaneRoute, paneRouteRef])
   // 닫힌 칸의 도구줄 기억(넘침 단계 · 검색 단추)은 버린다. 다른 화면의 칸은 살아 있다: 화면을 옮겨도 그 칸들의 기억은 남아야 한다(칸 id 는 화면끼리 겹치지 않는다)
   const livePaneKey = [...new Set([...allScreenPaneIds(screensState), ...paneOrder, ...floatIds])].join(' ')
   useEffect(() => { prunePaneToolbarMemory(livePaneKey === '' ? [] : livePaneKey.split(' ')) }, [livePaneKey])
@@ -1845,7 +1849,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const fallbacks = id === 'blank' ? { fallbackNote: null, fallbackCanvas: null } : await resolveTemplateFallbacks(id, {}, document === null ? null : tabDocId(document))
     const built = buildTemplateScreen({
       id,
-      name: nameOverride ?? templateScreenName(id, screens.length),
+      name: nameOverride ?? templateScreenName(id, freeScreenNumber(screens.map((screen) => screen.name), defaultScreenName)),
       document,
       documentChannel: anchor === null ? null : channelOf(now.channels, anchor),
       lastTouched: memoNotesRef.current.openPath,
@@ -1884,7 +1888,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const breakPaneToScreen = (pane: PaneId) => {
     if (paneCount <= 1) { announceAction(t('칸이 하나뿐입니다')); return }
     setLibraryExpanded(false)
-    screenOps.breakPane(pane, t('화면 {n}', { n: screens.length }))
+    screenOps.breakPane(pane, defaultScreenName(freeScreenNumber(screens.map((screen) => screen.name), defaultScreenName)))
     setActivePaneId(pane)
   }
   /** 빈 칸의 빠른 단추(PDF · MD · 노트. 캔버스는 꺼 두어 단추가 없다). 누른 칸이 다음에 여는 것을 받는다 */
@@ -1996,7 +2000,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       }
       return rects
     },
-    blankScreenName: (count) => t('화면 {n}', { n: count }),
+    blankScreenName: defaultScreenName,
     templates: () => availableScreenTemplates(CANVAS_ENABLED).map((template) => ({ id: template.id, label: template.label })),
     settle: () => new Promise((resolve) => { window.setTimeout(resolve, 40) }),
     newWindowFromTemplate: async (id, name) => { await newScreenFromTemplate(id, name) },
@@ -2878,13 +2882,14 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       items.map((item) => ({ ...(item.source === undefined ? {} : { source: item.source }), page: item.page, rotate: item.rotate })),
       (document) => remapDocumentReferences(document, docId, moves, sizes),
     )
+    // 쪽 편집 저장은 되돌리기에 남지 않는다: 그것을 따라가는 옮기기도 되돌리기에 남기지 않는다(Ctrl+Z 가 PDF 는 그대로 두고 형광펜만 옛 쪽으로 돌리지 않게)
     pdfHighlights.mapAll((highlight) => {
       if (highlight.anchor.docId !== docId) return highlight
       const anchor = remapAnchor(highlight.anchor, moves, sizes)
       return anchor === null ? null : { ...highlight, anchor }
-    })
+    }, { undoable: false })
     // 쪽이 옮겨지면 그 쪽 위의 글 상자·선도 같이 옮긴다(없어진 쪽의 것은 뺀다)
-    pdfOverlays.remapPages(docId, new Map([...moves].map(([from, move]) => [from, move.to] as const)))
+    pdfOverlays.remapPages(docId, new Map([...moves].map(([from, move]) => [from, move.to] as const)), { undoable: false })
     pdfBookmarks.mapAll((bookmark) => {
       if (bookmark.docId !== docId) return bookmark
       const move = moves.get(bookmark.page)
@@ -3243,7 +3248,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const tearOffToNewClient = async (tab: Tab, fromPane: PaneId | undefined, released = false): Promise<boolean> => {
     if (vault === null || isDetachedWindow) return false
     const state = commandModelRef.current.screens
-    const screenName = t('화면 {n}', { n: state.screens.length })
+    const screenName = defaultScreenName(freeScreenNumber(state.screens.map((screen) => screen.name), defaultScreenName))
     const screenId = newScreenId(state.screens.map((screen) => screen.id))
     if (tearTabToScreen(state, tab.id, screenName, screenId, fromPane) === null) return false
     const ratio = window.devicePixelRatio || 1
