@@ -23,8 +23,8 @@
 .panes-tree > .pane-grid-cell:not(.pane-float) { background: transparent; }
 
 /* ── 맨 위 줄 ──────────────────────────────────────────────────────────────
-   아래에 1px 가로선(--divider)이 전체 폭(왼쪽 바 위 포함)에 걸쳐 있다(2026-11-13 다시 둠: 한때 없앴다). 모든 항목이 줄 높이의 세로 가운데에 선다 */
-.topbar { height: var(--bar-h); box-sizing: border-box; align-items: center; border-bottom: 1px solid var(--divider); }
+   아래 칸과의 사이에 선이 없다(바탕 색 차이만. 사용자 요청으로 2026-11-15 다시 없앰). 모든 항목이 줄 높이의 세로 가운데에 선다 */
+.topbar { height: var(--bar-h); box-sizing: border-box; align-items: center; border-bottom: 0; }
 .topbar-leftcluster-actions { align-items: center; gap: var(--space-1); padding: 0 var(--space-2) 0 var(--space-2); }
 .topbar .topbar-leftcluster-actions { align-items: center; }
 .topbar .topbar-leftcluster-actions > .topbar-app-menu,

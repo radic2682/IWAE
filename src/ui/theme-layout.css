@@ -2829,7 +2829,7 @@
    상자 모양 탭(사방 테두리 + 회색 채움)이 단추처럼 보여, 어느 탭이 아래 문서와 이어지는지
    읽히지 않았다. 활성 탭만 아래 패널과 같은 색으로 상단바 밑선을 덮어 문서와 한 면이 되고,
    위에 파란 선을 둔다. 나머지 탭은 글자만, 사이는 얇은 구분선. */
-.topbar { border-bottom: 1px solid var(--divider); }
+.topbar { border-bottom: 0; }
 .topbar-panetab-zone { align-items: flex-end; }
 .topbar-panetab-zone .pane-tabs-menu { align-self: stretch; align-items: flex-end; padding-inline: 6px 0; }
 .topbar-panetab-zone .pane-tabs-empty { align-self: center; padding-left: 12px; color: var(--text-strong); font-size: 12.5px; }

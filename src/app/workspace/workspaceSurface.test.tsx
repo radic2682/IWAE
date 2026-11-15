@@ -81,9 +81,9 @@ describe('아래 상태 줄 · 「⌘ 명령」 단추 · 접두키 칩', () => 
     expect(css('whale-theme.css')).toContain('border-radius: var(--r-md) var(--r-md) 0 0;')
   })
 
-  it('맨 위 줄 아래에 1px --divider 가로선이 있다(칸 윗면은 그 아래 y=36)', () => {
+  it('맨 위 줄과 아래 칸 사이에는 선이 없고, 아래 상태 줄 위에만 1px --divider 선이 있다', () => {
     const surface = css('workspace-surface.css')
-    expect(rule(surface, '.topbar')).toContain('border-bottom: 1px solid var(--divider);')
+    expect(rule(surface, '.topbar')).toContain('border-bottom: 0;')
     expect(rule(surface, '.pane-bottom-bar')).toContain('border-top: 1px solid var(--divider);')
   })
 })
