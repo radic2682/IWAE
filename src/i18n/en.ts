@@ -3,6 +3,7 @@
  * 새 문장은 그 화면 묶음의 파일에 넣는다. 열쇠가 겹치면 뒤의 것이 이긴다.
  */
 import { COMMON } from './en/common'
+import { DATA_SAFETY } from './en/dataSafety'
 import { GROUP_1 } from './en/group1'
 import { GROUP_2 } from './en/group2'
 import { GROUP_3 } from './en/group3'
@@ -37,5 +38,6 @@ export const EN: Readonly<Record<string, string>> = {
   ...SUPPORT,
   ...RELEASE_NOTES,
   ...TOURS,
+  ...DATA_SAFETY,
   ...COMMON,
 }

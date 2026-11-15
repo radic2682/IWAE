@@ -88,11 +88,9 @@ export async function hasPendingVaultRecovery(vault: VaultHandle): Promise<boole
   return journals.length > 0 || conflicts.length > 0
 }
 
-function parseTrash(value: unknown): TrashFile {
-  if (!isRecord(value) || value.version !== TRASH_VERSION || !Array.isArray(value.entries)) {
-    throw new Error(t('휴지통 인덱스 형식이 올바르지 않습니다.'))
-  }
-  const entries = value.entries.map((entry) => {
+/** 휴지통 항목 하나를 읽는다. 모양이 틀리면 던진다(호출한 쪽이 그 항목만 건너뛴다) */
+function parseTrashEntry(entry: unknown): TrashEntry {
+  {
     if (
       !isRecord(entry)
       || typeof entry.id !== 'string'
@@ -104,7 +102,7 @@ function parseTrash(value: unknown): TrashFile {
     }
     pathParts(entry.originalPath)
     pathParts(entry.trashedPath)
-    const indexEntry = entry.indexEntry === undefined
+    const indexEntry = entry.indexEntry === undefined || entry.indexEntry === null
       ? null
       : parseVaultIndex({ version: 1, entries: [entry.indexEntry] }).entries[0] ?? null
     if (indexEntry !== null && indexEntry.id !== entry.id) {
@@ -137,8 +135,41 @@ function parseTrash(value: unknown): TrashFile {
       deletedAt: entry.deletedAt,
       indexEntry,
     }
-  })
-  return { version: 1, entries }
+  }
+}
+
+/** 휴지통 인덱스를 읽은 결과: 읽을 수 있는 항목과, 읽지 못해 건너뛴 항목(원래 모양 그대로 — 다시 쓸 때 되돌려 쓴다) */
+interface TrashLoad {
+  readonly entries: TrashEntry[]
+  readonly unreadable: unknown[]
+  /** 인덱스 파일 전체를 읽지 못했을 때의 원문. 덮어쓰기 전에 따로 복사해 둔다 */
+  readonly damagedText: string | null
+}
+
+async function loadTrash(vault: VaultHandle): Promise<TrashLoad> {
+  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  const path = await trashIndexPath(vault)
+  if (!(await exists(path))) return { entries: [], unreadable: [], damagedText: null }
+  const text = await readTextFile(path)
+  let value: unknown
+  try {
+    value = JSON.parse(text) as unknown
+  } catch {
+    return { entries: [], unreadable: [], damagedText: text }
+  }
+  if (!isRecord(value) || value.version !== TRASH_VERSION || !Array.isArray(value.entries)) {
+    return { entries: [], unreadable: [], damagedText: text }
+  }
+  const entries: TrashEntry[] = []
+  const unreadable: unknown[] = []
+  for (const raw of value.entries) {
+    try {
+      entries.push(parseTrashEntry(raw))
+    } catch {
+      unreadable.push(raw)
+    }
+  }
+  return { entries, unreadable, damagedText: null }
 }
 
 function kindFromPath(path: string): VaultFileKind {
@@ -189,12 +220,13 @@ async function trashIndexPath(vault: VaultHandle): Promise<string> {
   return metadataPath(vault, 'trash', 'index.json')
 }
 
-async function writeTrash(vault: VaultHandle, entries: readonly TrashEntry[]): Promise<void> {
+async function writeTrash(vault: VaultHandle, entries: readonly TrashEntry[], load: Pick<TrashLoad, 'unreadable' | 'damagedText'> = { unreadable: [], damagedText: null }): Promise<void> {
   const { writeTextFile } = await import('@tauri-apps/plugin-fs')
-  await writeTextFile(
-    await trashIndexPath(vault),
-    `${JSON.stringify({ version: 1, entries }, null, 2)}\n`,
-  )
+  const path = await trashIndexPath(vault)
+  // 인덱스를 통째로 읽지 못했던 것을 덮어쓰기 전에 따로 복사해 둔다
+  if (load.damagedText !== null) await writeTextFile(path.replace(/index\.json$/u, `index.unreadable-${Date.now()}.json`), load.damagedText)
+  // 읽지 못해 건너뛴 항목은 지우지 않고 그대로 되돌려 쓴다
+  await writeTextFile(path, `${JSON.stringify({ version: 1, entries: [...entries, ...load.unreadable] }, null, 2)}\n`)
 }
 
 export async function listHistory(vault: VaultHandle, fileId: string): Promise<HistorySnapshot[]> {
@@ -250,14 +282,18 @@ export async function restoreHistory(
 }
 
 export async function listTrash(vault: VaultHandle): Promise<TrashEntry[]> {
-  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
-  const path = await trashIndexPath(vault)
-  if (!(await exists(path))) return []
-  return parseTrash(JSON.parse(await readTextFile(path)) as unknown).entries
+  return (await loadTrash(vault)).entries
+}
+
+/** 휴지통 목록과, 읽지 못해 건너뛴 항목 수(인덱스 파일을 통째로 못 읽었으면 1) */
+export async function listTrashReport(vault: VaultHandle): Promise<{ readonly entries: TrashEntry[]; readonly skipped: number }> {
+  const load = await loadTrash(vault)
+  return { entries: load.entries, skipped: load.unreadable.length + (load.damagedText === null ? 0 : 1) }
 }
 
 export async function restoreTrash(vault: VaultHandle, id: string): Promise<void> {
-  const entries = await listTrash(vault)
+  const trash = await loadTrash(vault)
+  const entries = trash.entries
   const entry = entries.find((candidate) => candidate.id === id)
   if (entry === undefined) throw new Error(t('복원할 휴지통 항목을 찾지 못했습니다.'))
   const index = await readVaultIndex(vault)
@@ -281,7 +317,7 @@ export async function restoreTrash(vault: VaultHandle, id: string): Promise<void
       const libraryIds = new Set(library.map((candidate) => candidate.docId))
       await writeLibrary(vault, [...library, ...libraryEntries.filter((candidate) => !libraryIds.has(candidate.docId))])
     }
-    await writeTrash(vault, entries.filter((candidate) => candidate.id !== id))
+    await writeTrash(vault, entries.filter((candidate) => candidate.id !== id), trash)
     return
   }
   const restoredEntry = entry.indexEntry ?? legacyTrashIndexEntry(entry)
@@ -291,34 +327,53 @@ export async function restoreTrash(vault: VaultHandle, id: string): Promise<void
     await joinVault(vault, entry.originalPath),
   )
   await writeVaultIndex(vault, { version: 1, entries: [...index.entries, restoredEntry] })
-  await writeTrash(vault, entries.filter((candidate) => candidate.id !== id))
+  await writeTrash(vault, entries.filter((candidate) => candidate.id !== id), trash)
 }
 
 export async function emptyExpiredTrash(vault: VaultHandle, now: Date): Promise<number> {
-  const entries = await listTrash(vault)
+  const trash = await loadTrash(vault)
+  const entries = trash.entries
+  // 지운 시각이 지금보다 뒤인 항목이 있으면 시계가 틀렸다는 뜻이라(autoBackupDue 와 같다: 미래 시각은 믿지 않는다), 아무것도 영구히 지우지 않는다
+  if (entries.some((entry) => Date.parse(entry.deletedAt) > now.getTime())) return 0
   const expired = entries.filter((entry) => {
     const deletedAt = Date.parse(entry.deletedAt)
-    return Number.isFinite(deletedAt) && now.getTime() - deletedAt > TRASH_MAX_AGE_MS
+    return Number.isFinite(deletedAt) && deletedAt <= now.getTime() && now.getTime() - deletedAt > TRASH_MAX_AGE_MS
   })
   const { remove } = await import('@tauri-apps/plugin-fs')
-  for (const entry of expired) {
-    await remove(await joinVault(vault, entry.trashedPath))
+  const removed: TrashEntry[] = []
+  try {
+    for (const entry of expired) {
+      await remove(await joinVault(vault, entry.trashedPath))
+      removed.push(entry)
+    }
+  } finally {
+    // 중간에 실패해도 이미 지운 항목은 인덱스에서 뺀다(그대로 두면 없는 파일을 가리킨다)
+    if (removed.length > 0) await writeTrash(vault, entries.filter((entry) => !removed.includes(entry)), trash)
   }
-  await writeTrash(vault, entries.filter((entry) => !expired.includes(entry)))
-  return expired.length
+  return removed.length
 }
 
 export async function listConflicts(vault: VaultHandle): Promise<ConflictRecord[]> {
+  return (await listConflictsReport(vault)).records
+}
+
+/** 충돌 기록 목록과, 읽지 못해 건너뛴 기록 수(0바이트·깨진 파일 하나가 목록 전체를 막지 않게) */
+export async function listConflictsReport(vault: VaultHandle): Promise<{ readonly records: ConflictRecord[]; readonly skipped: number }> {
   const { exists, readDir, readTextFile } = await import('@tauri-apps/plugin-fs')
   const directory = await metadataPath(vault, 'conflicts')
-  if (!(await exists(directory))) return []
+  if (!(await exists(directory))) return { records: [], skipped: 0 }
   const records: ConflictRecord[] = []
+  let skipped = 0
   for (const entry of await readDir(directory)) {
     if (entry.isDirectory || !entry.name.endsWith('.json')) continue
     const recordPath = `${directory}/${entry.name}`
-    records.push(parseConflict(JSON.parse(await readTextFile(recordPath)) as unknown, recordPath))
+    try {
+      records.push(parseConflict(JSON.parse(await readTextFile(recordPath)) as unknown, recordPath))
+    } catch {
+      skipped += 1
+    }
   }
-  return records.sort((left, right) => right.createdAt - left.createdAt)
+  return { records: records.sort((left, right) => right.createdAt - left.createdAt), skipped }
 }
 
 export async function resolveConflict(

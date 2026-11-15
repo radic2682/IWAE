@@ -2,7 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { VaultRecoveryDialog } from './VaultRecoveryDialog'
-import { listConflicts, listHistory, listTrash, resolveConflict, restoreHistory, restoreTrash } from '../../bridge/vaultRecovery'
+import { listConflictsReport, listHistory, listTrashReport, resolveConflict, restoreHistory, restoreTrash } from '../../bridge/vaultRecovery'
 import { readVaultIndex } from '../../bridge/vault'
 
 const storageMocks = vi.hoisted(() => ({
@@ -11,11 +11,14 @@ const storageMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../../bridge/vaultRecovery', () => ({
-  listConflicts: vi.fn(), listHistory: vi.fn(), listTrash: vi.fn(), resolveConflict: vi.fn(), restoreHistory: vi.fn(), restoreTrash: vi.fn(),
+  listConflictsReport: vi.fn(), listHistory: vi.fn(), listTrashReport: vi.fn(), resolveConflict: vi.fn(), restoreHistory: vi.fn(), restoreTrash: vi.fn(),
 }))
 vi.mock('../../bridge/vault', () => ({ readVaultIndex: vi.fn() }))
 vi.mock('../../bridge/storage', () => storageMocks)
 vi.mock('@tauri-apps/api/path', () => ({ join: vi.fn(async (...parts: string[]) => parts.join('/')) }))
+
+const mockConflicts = (records: Awaited<ReturnType<typeof listConflictsReport>>['records'], skipped = 0) => vi.mocked(listConflictsReport).mockResolvedValue({ records, skipped })
+const mockTrash = (entries: Awaited<ReturnType<typeof listTrashReport>>['entries'], skipped = 0) => vi.mocked(listTrashReport).mockResolvedValue({ entries, skipped })
 
 describe('VaultRecoveryDialog', () => {
   beforeEach(() => {
@@ -26,11 +29,11 @@ describe('VaultRecoveryDialog', () => {
   })
 
   it('충돌과 휴지통을 보여주고 원본을 지우지 않는 해결 동작을 제공한다', async () => {
-    vi.mocked(listConflicts).mockResolvedValue([{
+    mockConflicts([{
       version: 1, id: 'c1', targetPath: 'C:/Vault/a.canvas', currentPath: 'current', incomingPath: 'incoming',
       createdAt: 1, recordPath: 'record',
     }])
-    vi.mocked(listTrash).mockResolvedValue([{ id: 't1', originalPath: 'a.md', trashedPath: '.iwae/trash/a.md', deletedAt: '2026-09-27T00:00:00Z' }])
+    mockTrash([{ id: 't1', originalPath: 'a.md', trashedPath: '.iwae/trash/a.md', deletedAt: '2026-09-27T00:00:00Z' }])
     vi.mocked(resolveConflict).mockResolvedValue(undefined)
     vi.mocked(restoreTrash).mockResolvedValue(undefined)
 
@@ -43,8 +46,8 @@ describe('VaultRecoveryDialog', () => {
   })
 
   it('완료되지 않은 저장을 재시도하거나 사본으로 보존하거나 취소할 수 있다', async () => {
-    vi.mocked(listConflicts).mockResolvedValue([])
-    vi.mocked(listTrash).mockResolvedValue([])
+    mockConflicts([])
+    mockTrash([])
     storageMocks.scanStorageRecovery
       .mockResolvedValueOnce([{
         version: 1,
@@ -70,8 +73,8 @@ describe('VaultRecoveryDialog', () => {
   })
 
   it('파일별 버전의 시각·크기·미리보기를 보여주고 현재 파일로 복원한다', async () => {
-    vi.mocked(listConflicts).mockResolvedValue([])
-    vi.mocked(listTrash).mockResolvedValue([])
+    mockConflicts([])
+    mockTrash([])
     vi.mocked(readVaultIndex).mockResolvedValue({
       version: 1,
       entries: [{
@@ -96,4 +99,14 @@ describe('VaultRecoveryDialog', () => {
       { fileId: 'note-1', snapshotId: '2000.bak', targetPath: 'C:/Vault/Notes/a.canvas' },
     ))
   })
+
+  it('한 목록을 읽지 못해도 나머지 목록은 보이고, 건너뛴 기록은 알려 준다', async () => {
+    vi.mocked(listConflictsReport).mockRejectedValue(new Error('conflicts dir locked'))
+    mockTrash([{ id: 't1', originalPath: 'a.md', trashedPath: '.iwae/trash/a.md', deletedAt: '2026-09-27T00:00:00Z' }], 2)
+    render(<VaultRecoveryDialog vault={{ root: 'C:/Vault' }} />)
+    await screen.findByRole('button', { name: 'a.md 복원' })
+    expect(screen.getAllByRole('alert').map((node) => node.textContent).join(' ')).toContain('conflicts dir locked')
+    expect(screen.getByText(/읽을 수 없는 휴지통 항목 2개/u)).toBeDefined()
+  })
+
 })

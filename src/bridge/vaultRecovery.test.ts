@@ -3,8 +3,10 @@ import {
   emptyExpiredTrash,
   hasPendingVaultRecovery,
   listConflicts,
+  listConflictsReport,
   listHistory,
   listTrash,
+  listTrashReport,
   resolveConflict,
   restoreHistory,
   restoreTrash,
@@ -198,4 +200,47 @@ describe('vault recovery bridge', () => {
     }))
     expect(fsMocks.remove).toHaveBeenCalledTimes(3)
   })
+
+  it('skips an unreadable conflict record and counts it instead of failing the whole list', async () => {
+    fsMocks.readDir.mockResolvedValue([{ name: 'empty.json', isDirectory: false }, { name: 'tx-2.json', isDirectory: false }])
+    fsMocks.readTextFile.mockImplementation(async (path: string) => (
+      path.endsWith('empty.json') ? '' : JSON.stringify({
+        version: 1, id: 'tx-2', targetPath: 'C:/Vault/a.md', currentPath: 'c', incomingPath: 'i', createdAt: 5,
+      })
+    ))
+    await expect(listConflictsReport(vault)).resolves.toMatchObject({ records: [{ id: 'tx-2' }], skipped: 1 })
+    await expect(listConflicts(vault)).resolves.toHaveLength(1)
+    scanStorageRecovery.mockResolvedValue([])
+    await expect(hasPendingVaultRecovery(vault)).resolves.toBe(true)
+  })
+
+  it('lists good trash entries around one with a numeric deletedAt and writes the bad one back untouched', async () => {
+    const bad = { id: 'bad', originalPath: 'b.md', trashedPath: '.iwae/trash/b.md', deletedAt: 1790000000000 }
+    const good = { id: 'ok', originalPath: 'a.md', trashedPath: '.iwae/trash/a.md', deletedAt: '2026-09-20T00:00:00.000Z' }
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({ version: 1, entries: [bad, good] }))
+    await expect(listTrashReport(vault)).resolves.toMatchObject({ entries: [{ id: 'ok' }], skipped: 1 })
+    vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [] })
+    await restoreTrash(vault, 'ok')
+    const written = JSON.parse(fsMocks.writeTextFile.mock.calls.at(-1)![1] as string) as { entries: unknown[] }
+    expect(written.entries).toEqual([bad])
+  })
+
+  it('keeps a trash index it cannot parse (copy aside) instead of failing the listing', async () => {
+    fsMocks.readTextFile.mockResolvedValue('')
+    await expect(listTrashReport(vault)).resolves.toMatchObject({ entries: [], skipped: 1 })
+    await expect(listTrash(vault)).resolves.toEqual([])
+  })
+
+  it('never permanently deletes when the clock looks wrong (entries dated in the future)', async () => {
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({
+      version: 1,
+      entries: [
+        { id: 'old', originalPath: 'old.canvas', trashedPath: '.iwae/trash/old.canvas', deletedAt: '2026-08-01T00:00:00.000Z' },
+        { id: 'future', originalPath: 'f.canvas', trashedPath: '.iwae/trash/f.canvas', deletedAt: '2027-01-01T00:00:00.000Z' },
+      ],
+    }))
+    await expect(emptyExpiredTrash(vault, new Date('2026-09-27T00:00:00.000Z'))).resolves.toBe(0)
+    expect(fsMocks.remove).not.toHaveBeenCalled()
+  })
+
 })

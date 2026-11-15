@@ -2,9 +2,9 @@ import { dateLocale, t } from '../../i18n'
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowCounterClockwise, WarningCircle } from '@phosphor-icons/react'
 import {
-  listConflicts,
+  listConflictsReport,
   listHistory,
-  listTrash,
+  listTrashReport,
   resolveConflict,
   restoreHistory,
   restoreTrash,
@@ -39,35 +39,62 @@ export function VaultRecoveryDialog({ vault }: VaultRecoveryDialogProps) {
   const [journals, setJournals] = useState<readonly RecoveryRecord[]>([])
   const [history, setHistory] = useState<readonly HistoryItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  /** 읽지 못해 건너뛴 기록이 있다는 안내 */
+  const [notes, setNotes] = useState<readonly string[]>([])
 
+  // 목록마다 따로 읽는다: 한 목록이 안 읽혀도(0바이트 기록 하나, 깨진 휴지통 항목 등) 나머지는 그대로 보인다
   const refresh = useCallback(async () => {
     setError(null)
-    try {
-      const { join } = await import('@tauri-apps/api/path')
-      const [nextConflicts, nextTrash, nextJournals, index] = await Promise.all([
-        listConflicts(vault),
-        listTrash(vault),
-        scanStorageRecovery(await join(vault.root, '.iwae', 'journal')),
-        readVaultIndex(vault),
-      ])
-      const historyGroups = await Promise.all(index.entries.map(async (entry) => ({
-        entry,
-        snapshots: await listHistory(vault, entry.id),
-        targetPath: entry.storage === 'vault'
+    const { join } = await import('@tauri-apps/api/path')
+    const loadHistory = async (): Promise<{ items: HistoryItem[]; skipped: number }> => {
+      const index = await readVaultIndex(vault)
+      let skipped = 0
+      const groups = await Promise.all(index.entries.map(async (entry) => {
+        const snapshots = await listHistory(vault, entry.id).catch(() => { skipped += 1; return [] as HistorySnapshot[] })
+        const targetPath = entry.storage === 'vault'
           ? await join(vault.root, ...entry.path.replaceAll('\\', '/').split('/').filter(Boolean))
-          : entry.path,
-      })))
-      setConflicts(nextConflicts)
-      setTrash(nextTrash)
-      setJournals(nextJournals)
-      setHistory(historyGroups.flatMap((group) => group.snapshots.map((snapshot) => ({
-        entry: group.entry,
-        snapshot,
-        targetPath: group.targetPath,
-      }))))
-    } catch (err) {
-      setError(errorText(err))
+          : entry.path
+        return { entry, snapshots, targetPath }
+      }))
+      return { items: groups.flatMap((group) => group.snapshots.map((snapshot) => ({ entry: group.entry, snapshot, targetPath: group.targetPath }))), skipped }
     }
+    const [nextConflicts, nextTrash, nextJournals, nextHistory] = await Promise.allSettled([
+      listConflictsReport(vault),
+      listTrashReport(vault),
+      join(vault.root, '.iwae', 'journal').then((path) => scanStorageRecovery(path)),
+      loadHistory(),
+    ])
+    const errors: string[] = []
+    const nextNotes: string[] = []
+    if (nextConflicts.status === 'fulfilled') {
+      setConflicts(nextConflicts.value.records)
+      if (nextConflicts.value.skipped > 0) nextNotes.push(t('읽을 수 없는 충돌 기록 {count}개는 건너뛰었습니다.', { count: nextConflicts.value.skipped }))
+    } else {
+      setConflicts([])
+      errors.push(t('충돌 기록을 읽지 못했습니다: {error}', { error: errorText(nextConflicts.reason) }))
+    }
+    if (nextTrash.status === 'fulfilled') {
+      setTrash(nextTrash.value.entries)
+      if (nextTrash.value.skipped > 0) nextNotes.push(t('읽을 수 없는 휴지통 항목 {count}개는 건너뛰었습니다.', { count: nextTrash.value.skipped }))
+    } else {
+      setTrash([])
+      errors.push(t('휴지통을 읽지 못했습니다: {error}', { error: errorText(nextTrash.reason) }))
+    }
+    if (nextJournals.status === 'fulfilled') {
+      setJournals(nextJournals.value)
+    } else {
+      setJournals([])
+      errors.push(t('완료되지 않은 저장 기록을 읽지 못했습니다: {error}', { error: errorText(nextJournals.reason) }))
+    }
+    if (nextHistory.status === 'fulfilled') {
+      setHistory(nextHistory.value.items)
+      if (nextHistory.value.skipped > 0) nextNotes.push(t('읽을 수 없는 버전 기록은 건너뛰었습니다.'))
+    } else {
+      setHistory([])
+      errors.push(t('버전 기록을 읽지 못했습니다: {error}', { error: errorText(nextHistory.reason) }))
+    }
+    setNotes(nextNotes)
+    setError(errors.length > 0 ? errors.join(' ') : null)
   }, [vault])
 
   useEffect(() => { void refresh() }, [refresh])
@@ -119,6 +146,7 @@ export function VaultRecoveryDialog({ vault }: VaultRecoveryDialogProps) {
         <button type="button" aria-label={t('복구 상태 새로고침')} onClick={() => void refresh()}><ArrowCounterClockwise size={15} /></button>
       </div>
       {error !== null && <p role="alert">{error}</p>}
+      {notes.map((note) => <p key={note}>{note}</p>)}
       {journals.length > 0 && (
         <div className="vault-recovery-group"><h3><WarningCircle size={15} />{t('완료되지 않은 저장')}</h3>
           {journals.map((record) => (
