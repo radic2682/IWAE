@@ -392,7 +392,7 @@ export function updateTextBlock(note: MemoNote, blockId: string, text: string, h
 
 /** 파일 이름으로 쓸 수 없는 글자를 바꾸고 다듬는다 */
 export function safeNoteTitle(title: string): string {
-  const cleaned = title.replace(/[\\/:*?"<>|]/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 80)
+  const cleaned = title.replace(/[\\/:*?"<>|\u0000-\u001f]/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 80)
   return cleaned === '' ? t('새 노트') : cleaned
 }
 

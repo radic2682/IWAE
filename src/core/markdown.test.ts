@@ -78,3 +78,34 @@ describe('Markdown 링크 풀기', () => {
     expect(githubSlug('3.1 Reset & Boot', used)).toBe('31-reset--boot-1')
   })
 })
+
+describe('Markdown 앞머리 · 제목 id · 깨진 주소', () => {
+  it('맨 앞의 YAML 앞머리는 그리지 않는다(IWAE 내보내기 포함)', () => {
+    const exported = '---\ntitle: "노트"\ndocuments:\n  - "A.pdf"\nexported: 2026-11-15\nsource: IWAE\n---\n\n# 노트\n\n본문\n'
+    const html = renderMarkdown(exported)
+    expect(html).not.toContain('<hr')
+    expect(html).not.toContain('title:')
+    expect(html).toContain('<h1')
+    expect(html).toContain('본문')
+  })
+  it('YAML 이 아닌 --- 구분선은 그대로 둔다', () => {
+    const html = renderMarkdown('---\n그냥 글\n---\n\n끝')
+    expect(html).toContain('그냥 글')
+  })
+  it('본문 중간의 --- 는 구분선이다', () => {
+    expect(renderMarkdown('가\n\n---\n\n나')).toContain('<hr')
+  })
+  it('같은 제목이 이어져도 id 가 겹치지 않는다', () => {
+    const used = new Map<string, number>()
+    const ids = ['a', 'a', 'a-1', 'a', 'a-1'].map((heading) => githubSlug(heading, used))
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids.slice(0, 2)).toEqual(['a', 'a-1'])
+  })
+  it('%가 깨진 주소도 던지지 않고 그대로 쓴다', () => {
+    expect(resolveMarkdownLink('%E0%A4%A.md', 'a.md')).toEqual({ kind: 'document', path: '%E0%A4%A.md', anchor: null })
+    expect(resolveMarkdownLink('%C7%D1.md', 'docs/a.md')).toEqual({ kind: 'document', path: 'docs/%C7%D1.md', anchor: null })
+    expect(resolveMarkdownLink('#100%', 'a.md')).toEqual({ kind: 'anchor', id: '100%' })
+    expect(resolveMarkdownLink('50%.md#x%', 'a.md')).toEqual({ kind: 'document', path: '50%.md', anchor: 'x%' })
+    expect(resolveMarkdownLink('%ED%95%9C.md', 'a.md')).toEqual({ kind: 'document', path: '한.md', anchor: null })
+  })
+})

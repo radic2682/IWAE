@@ -7,6 +7,7 @@
  */
 
 import type { MemoNote, MemoTicket } from './memoNote'
+import { memoToMarkdown } from './memoMarkdown'
 import { memoHighlightIds, normalizeTicket } from './memoNote'
 import { pick, t } from '../i18n'
 import type { PersistentPdfHighlight } from '../pdf/persistentHighlight'
@@ -29,11 +30,13 @@ export type MarkdownBlock =
     readonly ticket?: MemoTicket
     readonly quotes: readonly MarkdownQuote[]
     readonly note?: string
+    /** 내 메모의 서식 HTML(있으면 서식을 Markdown 으로 옮긴다) */
+    readonly noteHtml?: string
     readonly translation?: string
     readonly topic?: string
     readonly rating?: number
   }
-  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'text'; readonly text: string; readonly html?: string }
   | { readonly kind: 'section'; readonly title: string }
 
 export interface MarkdownNoteInput {
@@ -87,7 +90,8 @@ export function renderNoteMarkdown(input: MarkdownNoteInput): string {
       continue
     }
     if (block.kind === 'text') {
-      if (block.text.trim() !== '') out.push(block.text.trim(), '')
+      const body = memoToMarkdown(block.text, block.html)
+      if (body.trim() !== '') out.push(body.trim(), '')
       continue
     }
     const heading = ticketHeading(block.ticket)
@@ -97,7 +101,7 @@ export function renderNoteMarkdown(input: MarkdownNoteInput): string {
       if (quote.text.trim() !== '') out.push(blockquote(quote.text), '')
       out.push(sourceLine(quote), '')
     }
-    if (block.note !== undefined && block.note.trim() !== '') out.push(block.note.trim(), '')
+    if (block.note !== undefined && block.note.trim() !== '') out.push(memoToMarkdown(block.note, block.noteHtml).trim(), '')
     if (block.translation !== undefined && block.translation.trim() !== '') {
       out.push(`**${t('번역')}**`, '', blockquote(block.translation), '')
     }
@@ -126,7 +130,7 @@ export function buildMarkdownBlocks(note: MemoNote, context: BuildContext): Mark
   const blocks: MarkdownBlock[] = []
   for (const block of note.blocks) {
     if (block.kind === 'section') blocks.push({ kind: 'section', title: block.title })
-    else if (block.kind === 'text') blocks.push({ kind: 'text', text: block.text })
+    else if (block.kind === 'text') blocks.push({ kind: 'text', text: block.text, ...(block.html === undefined ? {} : { html: block.html }) })
     else {
       const highlights = memoHighlightIds(block).flatMap((id) => context.highlights.get(id) ?? [])
       const first = highlights[0]
@@ -149,6 +153,7 @@ export function buildMarkdownBlocks(note: MemoNote, context: BuildContext): Mark
         ...(block.ticket === undefined ? {} : { ticket: block.ticket }),
         quotes,
         ...(first.note === undefined ? {} : { note: first.note }),
+        ...(first.note === undefined || first.noteHtml === undefined ? {} : { noteHtml: first.noteHtml }),
         ...(translation === undefined || first.kind === 'region' ? {} : { translation }),
         ...(first.topic === undefined ? {} : { topic: first.topic }),
         ...(first.rating === undefined ? {} : { rating: first.rating }),

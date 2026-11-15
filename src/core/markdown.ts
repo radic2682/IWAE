@@ -20,9 +20,16 @@ export function githubSlug(text: string, used: Map<string, number>): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s_-]/gu, '')
     .replace(/\s/gu, '-')
-  const count = used.get(base) ?? 0
+  let count = used.get(base) ?? 0
+  let id = count === 0 ? base : `${base}-${count}`
+  // 앞서 만든 -1 같은 id 와 겹치면 비어 있는 번호까지 올린다
+  while (count > 0 && used.has(id)) {
+    count += 1
+    id = `${base}-${count}`
+  }
   used.set(base, count + 1)
-  return count === 0 ? base : `${base}-${count}`
+  if (id !== base) used.set(id, 1)
+  return id
 }
 
 const defaultImage = parser.renderer.rules.image
@@ -87,13 +94,39 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   node.removeAttribute('src')
 })
 
+/** 문서 맨 앞의 YAML 앞머리(--- … ---). Obsidian·Jekyll·IWAE 내보내기가 쓴다 */
+const FRONT_MATTER = /^---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/u
+/** 앞머리 안의 줄: 주석, 들여쓴 줄, `- 항목`, `키: 값`, 빈 줄 */
+const YAML_LINE = /^(?:\s*#.*|\s+\S.*|-(?:\s.*)?|[^\s:#-][^:]*:(?:\s.*)?|\s*)$/u
+
+/** 앞머리는 본문이 아니므로 그리지 않는다. 줄 수는 그대로 둔다(빈 줄로 바꾼다). YAML 로 읽히지 않는 --- 는 건드리지 않는다 */
+function stripFrontMatter(markdown: string): string {
+  if (markdown.charCodeAt(0) === 0xfeff) markdown = markdown.slice(1)
+  const match = FRONT_MATTER.exec(markdown)
+  if (match === null) return markdown
+  const lines = (match[1] ?? '').split(/\r?\n/u)
+  if (!lines.every((line) => YAML_LINE.test(line))) return markdown
+  const first = lines.find((line) => line.trim() !== '' && !line.trimStart().startsWith('#'))
+  if (first !== undefined && !/^[^\s:#-][^:]*:/u.test(first)) return markdown
+  return '\n'.repeat(match[0].split('\n').length - 1) + markdown.slice(match[0].length)
+}
+
 export function renderMarkdown(markdown: string): string {
-  const html = parser.render(markdown)
+  const html = parser.render(stripFrontMatter(markdown))
   return DOMPurify.sanitize(html, {
     ADD_ATTR: ['data-md-src', 'loading', 'target'],
     ALLOWED_URI_REGEXP: ALLOWED_URI,
     FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'iframe', 'object', 'embed'],
   })
+}
+
+/** %XX 가 깨진 주소(EUC-KR 이름, 50% 같은 글)는 풀지 않고 그대로 쓴다 */
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
 }
 
 /** 링크가 가리키는 곳: 바깥 주소, 같은 문서 안 제목, 다른 문서(상대 경로) */
@@ -110,12 +143,12 @@ export function resolveMarkdownLink(href: string, currentPath: string): Markdown
   const target = href.trim()
   if (target === '') return null
   if (/^(?:https?:|mailto:)/iu.test(target)) return { kind: 'external', url: target }
-  if (target.startsWith('#')) return { kind: 'anchor', id: decodeURIComponent(target.slice(1)) }
+  if (target.startsWith('#')) return { kind: 'anchor', id: safeDecode(target.slice(1)) }
   if (/^[a-z][a-z0-9+.-]*:/iu.test(target)) return null
   const [rawPath = '', rawAnchor] = target.split('#', 2)
-  const path = resolveRelativePath(decodeURIComponent(rawPath.split('?')[0] ?? ''), currentPath)
+  const path = resolveRelativePath(safeDecode(rawPath.split('?')[0] ?? ''), currentPath)
   if (path === null) return null
-  return { kind: 'document', path, anchor: rawAnchor === undefined || rawAnchor === '' ? null : decodeURIComponent(rawAnchor) }
+  return { kind: 'document', path, anchor: rawAnchor === undefined || rawAnchor === '' ? null : safeDecode(rawAnchor) }
 }
 
 /** 상대 경로를 지금 파일의 폴더 기준으로 푼다. '/' 로 시작하면 currentPath 의 맨 위(저장소 뿌리 대신 Vault 뿌리) 기준 */

@@ -265,3 +265,11 @@ describe('memoNote — PDF 별 노트', () => {
     expect(memoNoteOwner('y', new Set(['x']), [])).toBeNull()
   })
 })
+
+describe('safeNoteTitle 제어 문자', () => {
+  it('U+0001~U+001F 를 공백으로 바꾼다', async () => {
+    const { safeNoteTitle } = await import('./memoNote')
+    expect(safeNoteTitle('가\u0001나\u001f다\t라')).toBe('가 나 다 라')
+    expect(safeNoteTitle('\u0002')).not.toMatch(/[\u0000-\u001f]/u)
+  })
+})
