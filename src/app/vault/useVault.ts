@@ -1,4 +1,5 @@
 import { getAppPrefs } from '../appPrefs'
+import { announceVaultFileNotice, loadOrQuarantine } from '../documents/storageRecovery'
 import { isMarkdownPath } from '../../core/markdownPath'
 import { emptyVaultSearchTextCache } from '../../core/vaultSearchCache'
 import type { FolderColor } from '../../core/folderColors'
@@ -52,6 +53,7 @@ import {
   writeCanvas,
   updateLibraryPageCount,
   writeLibrary,
+  setVaultFileNoticeHandler,
   writeSessionNamed,
   writeVaultIndex,
   writeVaultTreeOrder,
@@ -351,12 +353,13 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
   const restoredDocumentRecords = await Promise.all(documentTabIds.map(async (id) => {
     if (isMarkdownPath(id)) {
       const external = externalMarkdownByPath.get(id.replaceAll('\\', '/').toLocaleLowerCase())
-      const title = external?.displayName ?? markdownTitles.get(id)
+      // 탭 제목은 사이드바와 같은 표시 이름이다(Vault 안 Markdown 도). 파일 이름은 표시 이름이 없을 때만 쓴다
+      const indexed = external ?? reconciledIndex.entries.find((entry) => entry.kind === 'markdown' && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
+      const title = (indexed?.displayName === undefined || indexed.displayName === '' ? undefined : indexed.displayName) ?? markdownTitles.get(id)
       if (title === undefined) return null
       try {
         const source = await readMarkdown(handle, external?.id ?? id)
         // 예전 세션의 Markdown 탭도 PDF 화면으로 연다(탭 id 가 색인 id 로 바뀐다)
-        const indexed = external ?? reconciledIndex.entries.find((entry) => entry.kind === 'markdown' && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
         if (indexed !== undefined) {
           const document = await markdownAsPdf(handle, indexed.id, indexed.path, indexed.storage === 'reference' ? 'reference' : 'vault', title, source)
           if (document !== null) return { tab: { id: indexed.id, title, kind: 'pdf' as const }, document, source: null }
@@ -621,6 +624,7 @@ export function useVault(options: UseVaultOptions = {}) {
     setInitializing(true)
     setSessionReady(false)
     setError(null)
+    setVaultFileNoticeHandler(announceVaultFileNotice)
     try {
       // 처음 여는 폴더(또는 탐색기로 PDF 를 넣은 뒤)도 PDF 가 목록·검색에 바로 오르게, 새로 고침과 같이 먼저 등록한다.
       // 떼어 낸 창은 메인 창이 이미 한 일이라 건너뛴다
@@ -634,12 +638,13 @@ export function useVault(options: UseVaultOptions = {}) {
         metadata,
         searchTextCache,
       ] = await Promise.all([
-        readLibrary(handle),
+        // 문서 목록·트리 순서·설정은 없어도 Vault 는 열린다. 깨졌으면 따로 보관하고 기본값으로 열어, 파일 하나 때문에 Vault 를 못 열지 않게 한다
+        loadOrQuarantine(handle, 'library.json', t('문서 목록'), [] as VaultLibraryEntry[], () => readLibrary(handle)),
         listVaultTree(handle),
         loadSessions(handle, t('기본')),
-        readVaultTreeOrder(handle),
+        loadOrQuarantine(handle, 'tree-order.json', t('트리 순서'), {} as Record<string, string[]>, () => readVaultTreeOrder(handle)),
         readVaultIndex(handle),
-        readVaultMetadata(handle),
+        loadOrQuarantine(handle, 'metadata.json', t('Vault 설정'), parseVaultMetadata(null), () => readVaultMetadata(handle)),
         readVaultSearchTextCache(handle),
       ])
       const groups = buildNotebookTree(nextTreeEntries)

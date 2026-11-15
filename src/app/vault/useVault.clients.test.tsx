@@ -11,6 +11,9 @@ import { emitPointSignal, REMOTE_PANE_ID, resetPointSignals, subscribePointSigna
 
 vi.mock('../../bridge/pdf', () => ({ invalidateDocument: vi.fn(), openPdf: vi.fn(), pageTextIndex: vi.fn(), pickPdfFile: vi.fn() }))
 vi.mock('../../bridge/vault', () => ({
+  setVaultFileNoticeHandler: vi.fn(),
+  quarantineVaultMetaFile: vi.fn(),
+  VaultFileCorruptError: class VaultFileCorruptError extends Error {},
   addToLibrary: vi.fn(),
   registerUnlistedVaultPdfs: vi.fn().mockResolvedValue([]),
   updateLibraryPageCount: vi.fn().mockResolvedValue(null),

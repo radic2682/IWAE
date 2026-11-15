@@ -24,6 +24,8 @@ import {
   writeVaultMetadata,
   attachPdfToLibrary,
   attachMarkdownReference,
+  quarantineVaultMetaFile,
+  VaultFileCorruptError,
 } from '../../bridge/vault'
 import { useVault } from './useVault'
 import { leaves, shapeOf } from '../../core/layoutTree'
@@ -53,6 +55,9 @@ vi.mock('../../bridge/pdf', () => ({
 }))
 
 vi.mock('../../bridge/vault', () => ({
+  setVaultFileNoticeHandler: vi.fn(),
+  quarantineVaultMetaFile: vi.fn(),
+  VaultFileCorruptError: class VaultFileCorruptError extends Error {},
   addToLibrary: vi.fn(),
   registerUnlistedVaultPdfs: vi.fn().mockResolvedValue([]),
   updateLibraryPageCount: vi.fn().mockResolvedValue(null),
@@ -481,6 +486,18 @@ describe('useVault — 시작 복원', () => {
       activeId: external.path,
     })
     expect(result.current.markdownSources).toEqual({ [external.path]: '# External' })
+  })
+
+  it('문서 목록·트리 순서·설정 파일이 깨져 있어도 Vault 는 열리고, 깨진 파일은 따로 옮겨 둔다', async () => {
+    vi.mocked(readLibrary).mockRejectedValue(new VaultFileCorruptError('empty'))
+    vi.mocked(readVaultTreeOrder).mockRejectedValue(new VaultFileCorruptError('empty'))
+    vi.mocked(readVaultMetadata).mockRejectedValue(new VaultFileCorruptError('truncated'))
+    vi.mocked(quarantineVaultMetaFile).mockResolvedValue('aside.json')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(result.current.vault).not.toBeNull()
+    expect(result.current.error).toBeNull()
+    expect(vi.mocked(quarantineVaultMetaFile).mock.calls.map(([, name]) => name).sort()).toEqual(['library.json', 'metadata.json', 'tree-order.json'])
   })
 
   it('재정렬 상태를 즉시 반영하고 안정 ID 순서를 vault에 저장한다', async () => {

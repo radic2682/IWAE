@@ -2715,10 +2715,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const title = existing?.title ?? request.path.split(/[\\/]/u).at(-1) ?? request.path
       // 아직 읽지 않은 Markdown 은 목록에서 여는 것과 같은 길로 연다(본문 없이 빈 탭이 열리지 않게)
       if (markdownSources[request.path] === undefined) {
-        const wanted = request.path.replaceAll('\\', '/').toLocaleLowerCase()
+        const wanted = request.path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase()
         const find = (nodes: readonly VaultTreeNode[]): VaultMarkdownNode | null => {
           for (const node of nodes) {
-            if (node.kind === 'markdown' && node.path.replaceAll('\\', '/').toLocaleLowerCase() === wanted) return node
+            if (node.kind === 'markdown' && node.path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase() === wanted) return node
             if (node.kind === 'folder') {
               const found = find(node.children)
               if (found !== null) return found
@@ -3636,9 +3636,10 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   }
   /** Markdown 안의 상대 링크: 그 경로의 문서를 왼쪽 바 목록에서 찾아 연다. 없으면 알린다 */
   const openMarkdownPath = (path: string, anchor: string | null = null) => {
-    const wanted = path.replaceAll('\\', '/').toLocaleLowerCase()
+    // 맥에서 동기화된 Vault 의 한글 파일 이름은 분해형(NFD)일 수 있어, 유니코드 정규화(NFC)를 맞춰 견준다
+    const wanted = path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase()
     if (/\.pdf$/iu.test(wanted)) {
-      const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').toLocaleLowerCase() === wanted)
+      const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase() === wanted)
       const doc = record === undefined ? undefined : shownLibrary.find((item) => item.docId === record.id)
       if (doc === undefined) announceAction(t('Vault에 없는 문서입니다: {path}', { path }))
       else {
@@ -3650,7 +3651,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     }
     const find = (nodes: readonly VaultTreeNode[]): VaultMarkdownNode | null => {
       for (const node of nodes) {
-        if (node.kind === 'markdown' && node.path.replaceAll('\\', '/').toLocaleLowerCase() === wanted) return node
+        if (node.kind === 'markdown' && node.path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase() === wanted) return node
         if (node.kind === 'folder') {
           const found = find(node.children)
           if (found !== null) return found
@@ -3678,7 +3679,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           return
         }
         if (/\.pdf$/iu.test(relative)) {
-          const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').toLocaleLowerCase() === relative.toLocaleLowerCase())
+          const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase() === relative.normalize('NFC').toLocaleLowerCase())
           const doc = record === undefined ? undefined : shownLibrary.find((item) => item.docId === record.id)
           if (doc !== undefined) {
             const page = pdfPageFromFragment(link.fragment)

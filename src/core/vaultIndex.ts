@@ -59,6 +59,14 @@ function normalizePath(path: string): string {
   return path.replaceAll('\\', '/').replace(/\/{2,}/gu, '/')
 }
 
+/**
+ * 경로를 견주는 열쇠: 구분자를 맞추고, 유니코드 정규화(NFC)와 대소문자를 무시한다.
+ * 맥에서 동기화된 Vault 는 한글 파일 이름이 분해형(NFD)으로 와서, 그냥 견주면 같은 파일이 다른 파일로 보여 ID·아이콘·즐겨찾기를 잃는다.
+ */
+export function indexPathKey(path: string): string {
+  return normalizePath(path).normalize('NFC').toLocaleLowerCase()
+}
+
 function filename(path: string): string {
   return normalizePath(path).split('/').filter(Boolean).at(-1) ?? path
 }
@@ -161,6 +169,27 @@ export function parseVaultIndex(value: unknown): VaultIndexFile {
   return { version: 1, entries }
 }
 
+/**
+ * 더 새 버전이 쓴 색인을 읽을 수 있는 만큼 읽는다: 버전은 따지지 않고, 모양이 틀린 항목·겹친 ID 는 건너뛴다.
+ * (읽기 전용으로만 쓴다. 되쓰지 않는다)
+ */
+export function parseVaultIndexLenient(value: unknown): VaultIndexFile {
+  if (!isRecord(value) || !Array.isArray(value.entries)) return { version: 1, entries: [] }
+  const entries: VaultIndexEntry[] = []
+  const ids = new Set<string>()
+  for (const item of value.entries) {
+    try {
+      const entry = parseEntry(item)
+      if (ids.has(entry.id)) continue
+      ids.add(entry.id)
+      entries.push(entry)
+    } catch {
+      // 모르는 모양의 항목
+    }
+  }
+  return { version: 1, entries }
+}
+
 export function migrateLibraryToIndex(value: unknown, now: string): VaultIndexFile {
   if (isRecord(value) && value.version === 1 && Array.isArray(value.entries)) {
     return parseVaultIndex(value)
@@ -257,17 +286,21 @@ export function reconcileVaultIndexFiles(
     .filter((entry) => !entry.isDirectory)
     .map((entry) => ({ path: normalizePath(entry.path), kind: kindFromPath(entry.path) }))
     .filter((entry) => entry.kind !== 'pdf')
-  const presentPaths = new Set(userFiles.map((entry) => entry.path.toLocaleLowerCase()))
+  const presentPaths = new Map(userFiles.map((entry) => [indexPathKey(entry.path), entry.path] as const))
   const indexedPaths = new Set(parsed.entries
     .filter((entry) => entry.storage === 'vault')
-    .map((entry) => entry.path.toLocaleLowerCase()))
+    .map((entry) => indexPathKey(entry.path)))
   const entries = parsed.entries.map((entry) => {
     if (entry.storage !== 'vault' || entry.kind === 'pdf') return entry
-    return { ...entry, missing: !presentPaths.has(entry.path.toLocaleLowerCase()) }
+    const onDisk = presentPaths.get(indexPathKey(entry.path))
+    const missing = onDisk === undefined
+    // 같은 이름을 다른 모양(NFC/NFD, 대소문자)으로 적어 둔 것은 디스크에 있는 모양으로 맞춘다(그대로 두면 파일을 열지 못한다)
+    const path = onDisk ?? entry.path
+    return entry.missing === missing && entry.path === path ? entry : { ...entry, missing, path }
   })
 
   for (const file of userFiles) {
-    if (indexedPaths.has(file.path.toLocaleLowerCase())) continue
+    if (indexedPaths.has(indexPathKey(file.path))) continue
     entries.push(createVaultIndexEntry({
       id: createId(),
       kind: file.kind,
@@ -276,7 +309,27 @@ export function reconcileVaultIndexFiles(
       addedAt: now,
     }))
   }
-  return parseVaultIndex({ version: 1, entries })
+  return parseVaultIndex({ version: 1, entries: capMissingEntries(entries) })
+}
+
+/** 파일이 없어진 채 남는 PDF 아닌 항목(노트·Markdown·그림)의 상한. 돌아올 수 있는 파일(끊긴 드라이브 등)의 항목은 지우지 않고, 이보다 많아질 때만 오래된 것부터 뺀다 */
+export const MAX_MISSING_INDEX_ENTRIES = 500
+
+/** 저장 도중 생기는 임시·백업 파일 이름(`.iwae-<번호>.tmp`, `.iwae-<번호>.bak`) */
+function isAtomicWriteLeftover(path: string): boolean {
+  return /^\.iwae-.*\.(?:tmp|bak)$/iu.test(filename(path))
+}
+
+function capMissingEntries(all: VaultIndexEntry[]): VaultIndexEntry[] {
+  // 예전에 목록에 잘못 올라 「없는 파일」로 남은 임시 파일 항목은 걷어 낸다
+  const entries = all.filter((entry) => !(entry.missing && entry.kind !== 'pdf' && isAtomicWriteLeftover(entry.path)))
+  const missing = entries.filter((entry) => entry.missing && entry.kind !== 'pdf' && entry.storage === 'vault')
+  if (missing.length <= MAX_MISSING_INDEX_ENTRIES) return entries
+  const drop = new Set(missing
+    .sort((left, right) => right.addedAt.localeCompare(left.addedAt))
+    .slice(MAX_MISSING_INDEX_ENTRIES)
+    .map((entry) => entry.id))
+  return entries.filter((entry) => !drop.has(entry.id))
 }
 
 /**
@@ -292,12 +345,12 @@ export function reconcileMissingVaultPdfs(
 ): { index: VaultIndexFile; library: LegacyPdfEntry[]; absentDocIds: string[] } {
   const present = new Set(treeEntries
     .filter((entry) => !entry.isDirectory)
-    .map((entry) => normalizePath(entry.path).toLocaleLowerCase()))
+    .map((entry) => indexPathKey(entry.path)))
   const drop = new Set<string>()
   const absent: string[] = []
   const entries = index.entries.map((entry) => {
     if (entry.kind !== 'pdf' || entry.storage !== 'vault') return entry
-    const gone = !present.has(entry.path.toLocaleLowerCase())
+    const gone = !present.has(indexPathKey(entry.path))
     if (gone && !hasUserData(entry.id)) {
       drop.add(entry.id)
       return entry

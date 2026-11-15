@@ -1,4 +1,4 @@
-import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, type PdfOverlaysFile } from '../core/pdfOverlays'
+import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, serializePdfOverlays, type PdfOverlaysFile } from '../core/pdfOverlays'
 import { isMarkdownPath } from '../core/markdownPath'
 import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from '../core/versionGroups'
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'
@@ -15,6 +15,7 @@ import {
   libraryEntryVaultPath,
   migrateLibraryToIndex,
   parseVaultIndex,
+  parseVaultIndexLenient,
   type VaultIndexEntry,
   type VaultIndexFile,
 } from '../core/vaultIndex'
@@ -82,6 +83,60 @@ interface LibraryFile {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 저장 파일을 읽다 알릴 일(더 새 버전·깨진 파일)이 생겼다: 앱 쪽이 한 번 알리게 건네는 알림 */
+export interface VaultFileNotice {
+  readonly kind: 'newer' | 'damaged'
+  readonly name: string
+}
+
+let vaultFileNoticeHandler: ((notice: VaultFileNotice) => void) | null = null
+
+export function setVaultFileNoticeHandler(handler: ((notice: VaultFileNotice) => void) | null): void {
+  vaultFileNoticeHandler = handler
+}
+
+/**
+ * 더 새 버전의 IWAE 가 쓴 .iwae 파일(파일 이름 → 읽기만). 읽을 수 있는 만큼 읽되 이번 실행에서는 되쓰지 않는다 —
+ * 되쓰면 이 버전이 모르는 내용이 지워진다. 새 버전이 아니게 되면(파일을 바꾸거나 다시 열면) 풀린다.
+ */
+const readOnlyFiles = new Set<string>()
+
+function readOnlyKey(vault: VaultHandle, name: string): string {
+  return `${normalizeSyncKey(vault.root)}|${name}`
+}
+
+export function isVaultFileReadOnly(vault: VaultHandle, name: string): boolean {
+  return readOnlyFiles.has(readOnlyKey(vault, name))
+}
+
+/** 파일의 version 이 이 버전이 아는 것보다 높은가. 높으면 읽기 전용으로 표시하고(처음 한 번 알린다) true */
+function noteNewerVersion(vault: VaultHandle, name: string, version: unknown, supported: number): boolean {
+  const key = readOnlyKey(vault, name)
+  const newer = typeof version === 'number' && Number.isFinite(version) && version > supported
+  if (!newer) {
+    readOnlyFiles.delete(key)
+    return false
+  }
+  if (!readOnlyFiles.has(key)) {
+    readOnlyFiles.add(key)
+    vaultFileNoticeHandler?.({ kind: 'newer', name })
+  }
+  return true
+}
+
+/** 파일에서 못 읽어 건너뛴 항목(파일 이름 → 원래 모양 그대로). 다시 쓸 때 되돌려 쓴다 */
+const keptRawItems = new Map<string, unknown[]>()
+
+function setKeptItems(vault: VaultHandle, name: string, items: readonly unknown[]): void {
+  const key = readOnlyKey(vault, name)
+  if (items.length === 0) keptRawItems.delete(key)
+  else keptRawItems.set(key, [...items])
+}
+
+function keptItems(vault: VaultHandle, name: string): readonly unknown[] {
+  return keptRawItems.get(readOnlyKey(vault, name)) ?? []
 }
 
 function isLibraryEntry(value: unknown): value is VaultLibraryEntry {
@@ -210,6 +265,8 @@ function iwaeKey(vault: VaultHandle, name: string): string {
  * 요청이 기다리는 사이 다른 창의 변경이 합쳐져도 이 요청은 자기 바탕으로 병합된다.
  */
 function writeIwaeFile(vault: VaultHandle, name: string, contents: string, fileId: string): Promise<void> {
+  // 더 새 버전이 쓴 파일은 되쓰지 않는다(그 버전이 쓴 내용이 지워진다)
+  if (isVaultFileReadOnly(vault, name)) return Promise.resolve()
   const key = iwaeKey(vault, name)
   const mergeable = isDesktop() && isMergeableVaultPath(vault.root, key)
   const ticket = mergeable ? fileSync.beginWrite(key, contents) : undefined
@@ -225,6 +282,12 @@ function writeIwaeFile(vault: VaultHandle, name: string, contents: string, fileI
   })
 }
 
+/** 파일이 없다: 이 파일에 대해 기억하던 읽기 전용·건너뛴 항목을 지운다 */
+function forgetFileState(vault: VaultHandle, name: string): void {
+  readOnlyFiles.delete(readOnlyKey(vault, name))
+  keptRawItems.delete(readOnlyKey(vault, name))
+}
+
 /** 읽은 내용을 이 창이 아는 디스크 내용으로 기억한다(다음 저장의 병합 바탕). 읽지 못했거나 깨졌으면 부르지 않는다 */
 function trackRead(path: string, text: string | null): void {
   if (isDesktop()) fileSync.observeRead(path, text)
@@ -235,7 +298,17 @@ export class VaultFileCorruptError extends Error {
   override readonly name = 'VaultFileCorruptError'
 }
 
-async function readTrackedJson<T>(path: string, parse: (raw: unknown) => T, message: (error: string) => string): Promise<T> {
+interface TrackedJsonOptions {
+  readonly vault: VaultHandle
+  /** `.iwae` 안 파일 이름 */
+  readonly name: string
+  /** 이 버전이 아는 파일 version. 더 높으면 읽기만 하고 되쓰지 않는다 */
+  readonly supportedVersion: number
+  /** 모양이 맞지 않아 건너뛴 항목을 받는다. 있으면 파일에 되돌려 쓸 수 있게 따로 들고 있는다 */
+  readonly keepSkipped?: boolean
+}
+
+async function readTrackedJson<T>(path: string, parse: (raw: unknown, onSkipped: (item: unknown) => void) => T, message: (error: string) => string, options?: TrackedJsonOptions): Promise<T> {
   const { readTextFile } = await import('@tauri-apps/plugin-fs')
   let text: string
   try {
@@ -244,11 +317,19 @@ async function readTrackedJson<T>(path: string, parse: (raw: unknown) => T, mess
     throw new Error(message(errorText(err)))
   }
   let parsed: T
+  const skipped: unknown[] = []
   try {
-    parsed = parse(JSON.parse(text) as unknown)
+    let raw = JSON.parse(text) as unknown
+    if (options !== undefined && isRecord(raw) && noteNewerVersion(options.vault, options.name, raw.version, options.supportedVersion)) {
+      raw = { ...raw, version: options.supportedVersion }
+    } else if (options !== undefined) {
+      noteNewerVersion(options.vault, options.name, undefined, options.supportedVersion)
+    }
+    parsed = parse(raw, (item) => { skipped.push(item) })
   } catch (err) {
     throw new VaultFileCorruptError(message(errorText(err)))
   }
+  if (options?.keepSkipped === true) setKeptItems(options.vault, options.name, skipped)
   trackRead(path, text)
   return parsed
 }
@@ -374,24 +455,27 @@ async function recentVaultsPath(): Promise<string> {
   return join(await appDataDir(), 'recent-vaults.json')
 }
 
-function parseLibrary(raw: unknown): VaultLibraryEntry[] {
-  if (!isRecord(raw) || raw.version !== REGISTRY_VERSION || !isRecord(raw.documents)) {
+/** 문서 항목 하나가 모양이 맞지 않아도 파일 전체를 거부하지 않는다: 그 항목만 건너뛰고(skipped) 파일에는 그대로 남긴다 */
+function parseLibrary(raw: unknown, skipped: [string, unknown][] = []): VaultLibraryEntry[] {
+  if (!isRecord(raw) || typeof raw.version !== 'number' || raw.version < REGISTRY_VERSION || !isRecord(raw.documents)) {
     throw new Error(t('library.json 형식을 읽을 수 없습니다.'))
   }
 
-  const entries = Object.values(raw.documents)
-  if (!entries.every(isLibraryEntry)) {
-    throw new Error(t('library.json에 잘못된 문서 항목이 있습니다.'))
+  const entries: VaultLibraryEntry[] = []
+  for (const [key, value] of Object.entries(raw.documents)) {
+    if (isLibraryEntry(value)) entries.push(value)
+    else skipped.push([key, value])
   }
   return entries.sort((left, right) => left.addedAt.localeCompare(right.addedAt))
 }
 
-function libraryFile(entries: readonly VaultLibraryEntry[]): LibraryFile {
-  const documents: Record<string, VaultLibraryEntry> = {}
+function libraryFile(entries: readonly VaultLibraryEntry[], skipped: readonly (readonly [string, unknown])[] = []): LibraryFile {
+  const documents: Record<string, unknown> = {}
+  for (const [key, value] of skipped) documents[key] = value
   for (const entry of [...entries].sort((left, right) => left.docId.localeCompare(right.docId))) {
     documents[entry.docId] = entry
   }
-  return { version: REGISTRY_VERSION, documents }
+  return { version: REGISTRY_VERSION, documents: documents as Record<string, VaultLibraryEntry> }
 }
 
 /** Vault 폴더를 고르게 한다. `defaultPath` 를 주면 그 폴더에서 선택 창이 열린다 */
@@ -417,16 +501,26 @@ export async function readLibrary(vault: VaultHandle): Promise<VaultLibraryEntry
   const path = await iwaePath(vault, 'library.json')
   if (!(await exists(path))) {
     trackRead(path, null)
+    forgetFileState(vault, 'library.json')
     return []
   }
 
+  let text: string
   try {
-    const text = await readTextFile(path)
-    const parsed = parseLibrary(JSON.parse(text) as unknown)
+    text = await readTextFile(path)
+  } catch (err) {
+    throw new Error(t('문서 목록을 읽지 못했습니다: {error}', { error: errorText(err) }))
+  }
+  try {
+    const raw = JSON.parse(text) as unknown
+    noteNewerVersion(vault, 'library.json', isRecord(raw) ? raw.version : undefined, REGISTRY_VERSION)
+    const skipped: [string, unknown][] = []
+    const parsed = parseLibrary(raw, skipped)
+    setKeptItems(vault, 'library.json', skipped)
     trackRead(path, text)
     return parsed
   } catch (err) {
-    throw new Error(t('문서 목록을 읽지 못했습니다: {error}', { error: errorText(err) }))
+    throw new VaultFileCorruptError(t('문서 목록을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
@@ -434,7 +528,7 @@ export async function writeLibrary(
   vault: VaultHandle,
   entries: readonly VaultLibraryEntry[],
 ): Promise<void> {
-  const content = `${JSON.stringify(libraryFile(entries), null, 2)}\n`
+  const content = `${JSON.stringify(libraryFile(entries, keptItems(vault, 'library.json') as readonly (readonly [string, unknown])[]), null, 2)}\n`
   await writeIwaeFile(vault, 'library.json', content, 'metadata:library.json')
 }
 
@@ -476,15 +570,33 @@ async function preserveLegacyMetadata(vault: VaultHandle): Promise<void> {
 export async function readVaultIndex(vault: VaultHandle): Promise<VaultIndexFile> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'index.json')
+  let damaged = false
   if (await exists(path)) {
     const contents = await readTextFile(path)
+    let raw: unknown
+    let readable = true
     try {
-      const parsed = parseVaultIndex(JSON.parse(contents) as unknown)
-      trackRead(path, contents)
-      return parsed
+      raw = JSON.parse(contents) as unknown
     } catch {
-      await preserveDamagedMetadata(vault, 'index', contents)
+      readable = false
     }
+    if (readable && isRecord(raw) && noteNewerVersion(vault, 'index.json', raw.version, 1)) {
+      // 더 새 버전이 쓴 색인: 다시 만들거나 덮어쓰지 않는다(파일마다의 ID·아이콘·색·즐겨찾기가 새로 매겨져 사라진다). 읽을 수 있는 만큼만 읽는다
+      trackRead(path, contents)
+      return parseVaultIndexLenient(raw)
+    }
+    if (readable) {
+      try {
+        const parsed = parseVaultIndex(raw)
+        trackRead(path, contents)
+        return parsed
+      } catch {
+        // 모양이 틀렸다: 아래에서 따로 복사해 두고 다시 만든다
+      }
+    }
+    damaged = true
+    await preserveDamagedMetadata(vault, 'index', contents)
+    vaultFileNoticeHandler?.({ kind: 'damaged', name: 'index.json' })
   }
 
   const libraryPath = await iwaePath(vault, 'library.json')
@@ -498,6 +610,8 @@ export async function readVaultIndex(vault: VaultHandle): Promise<VaultIndexFile
     await writeVaultIndex(vault, index)
     return index
   } catch (err) {
+    // 색인이 깨져서 문서 목록(library.json)으로 다시 만들려는데 그것도 못 읽으면, Vault 를 못 여는 대신 파일 목록에서 다시 만든다
+    if (damaged) return { version: 1, entries: [] }
     throw new Error(t('Vault 인덱스를 새 형식으로 바꾸지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
@@ -516,15 +630,23 @@ export async function readVaultMetadata(vault: VaultHandle): Promise<VaultMetada
   const path = await iwaePath(vault, 'metadata.json')
   if (!(await exists(path))) {
     trackRead(path, null)
+    forgetFileState(vault, 'metadata.json')
     return parseVaultMetadata(null)
   }
+  let text: string
   try {
-    const text = await readTextFile(path)
-    const parsed = parseVaultMetadata(JSON.parse(text) as unknown)
+    text = await readTextFile(path)
+  } catch (err) {
+    throw new Error(t('Vault 설정을 읽지 못했습니다: {error}', { error: errorText(err) }))
+  }
+  try {
+    const raw = JSON.parse(text) as unknown
+    noteNewerVersion(vault, 'metadata.json', isRecord(raw) ? raw.version : undefined, 1)
+    const parsed = parseVaultMetadata(raw)
     trackRead(path, text)
     return parsed
   } catch (err) {
-    throw new Error(t('Vault 설정을 읽지 못했습니다: {error}', { error: errorText(err) }))
+    throw new VaultFileCorruptError(t('Vault 설정을 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
@@ -694,25 +816,31 @@ export async function readVaultTreeOrder(vault: VaultHandle): Promise<Record<str
   const path = await iwaePath(vault, 'tree-order.json')
   if (!(await exists(path))) {
     trackRead(path, null)
+    forgetFileState(vault, 'tree-order.json')
     return {}
   }
+  let text: string
   try {
-    const text = await readTextFile(path)
+    text = await readTextFile(path)
+  } catch (err) {
+    throw new Error(t('트리 순서를 읽지 못했습니다: {error}', { error: errorText(err) }))
+  }
+  try {
     const raw: unknown = JSON.parse(text)
-    if (!isRecord(raw) || raw.version !== TREE_ORDER_VERSION || !isRecord(raw.parents)) {
+    if (!isRecord(raw) || typeof raw.version !== 'number' || raw.version < TREE_ORDER_VERSION || !isRecord(raw.parents)) {
       throw new Error(t('트리 순서 형식이 올바르지 않습니다.'))
     }
+    noteNewerVersion(vault, 'tree-order.json', raw.version, TREE_ORDER_VERSION)
+    // 순서는 보기 좋게 하려는 것일 뿐이라, 모양이 틀린 항목은 그것만 버리고 나머지로 연다(Vault 를 못 열게 하지 않는다)
     const parents: Record<string, string[]> = {}
     for (const [parentPath, ids] of Object.entries(raw.parents)) {
-      if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
-        throw new Error(t('트리 순서 항목이 올바르지 않습니다.'))
-      }
-      parents[parentPath] = [...new Set(ids)]
+      if (!Array.isArray(ids)) continue
+      parents[parentPath] = [...new Set(ids.filter((id): id is string => typeof id === 'string'))]
     }
     trackRead(path, text)
     return parents
   } catch (err) {
-    throw new Error(t('트리 순서를 읽지 못했습니다: {error}', { error: errorText(err) }))
+    throw new VaultFileCorruptError(t('트리 순서를 읽지 못했습니다: {error}', { error: errorText(err) }))
   }
 }
 
@@ -916,16 +1044,21 @@ export async function readPdfHighlights(vault: VaultHandle): Promise<PersistentP
   const path = await iwaePath(vault, 'highlights.json')
   if (!(await exists(path))) {
     trackRead(path, null)
+    forgetFileState(vault, 'highlights.json')
     return []
   }
-  return readTrackedJson(path, parsePersistentPdfHighlights, (error) => t('PDF 형광펜을 읽지 못했습니다: {error}', { error }))
+  return readTrackedJson(path, parsePersistentPdfHighlights, (error) => t('PDF 형광펜을 읽지 못했습니다: {error}', { error }), { vault, name: 'highlights.json', supportedVersion: 1, keepSkipped: true })
 }
 
 export async function writePdfHighlights(
   vault: VaultHandle,
   highlights: readonly PersistentPdfHighlight[],
 ): Promise<void> {
-  await writeIwaeFile(vault, 'highlights.json', `${JSON.stringify(persistentPdfHighlightFile(highlights), null, 2)}\n`, 'metadata:highlights.json')
+  // 읽을 때 모양이 맞지 않아 건너뛴 항목(더 새 버전이 쓴 것 등)은 파일에 그대로 돌려 쓴다
+  const file = persistentPdfHighlightFile(highlights)
+  const kept = keptItems(vault, 'highlights.json')
+  const content = kept.length === 0 ? file : { ...file, highlights: [...file.highlights, ...kept] }
+  await writeIwaeFile(vault, 'highlights.json', `${JSON.stringify(content, null, 2)}\n`, 'metadata:highlights.json')
 }
 
 export async function readMarkdownHighlights(vault: VaultHandle): Promise<PersistentMarkdownHighlight[]> {
@@ -933,9 +1066,10 @@ export async function readMarkdownHighlights(vault: VaultHandle): Promise<Persis
   const path = await iwaePath(vault, 'markdown-highlights.json')
   if (!(await exists(path))) {
     trackRead(path, null)
+    forgetFileState(vault, 'markdown-highlights.json')
     return []
   }
-  return readTrackedJson(path, parsePersistentMarkdownHighlights, (error) => t('Markdown 형광펜을 읽지 못했습니다: {error}', { error }))
+  return readTrackedJson(path, parsePersistentMarkdownHighlights, (error) => t('Markdown 형광펜을 읽지 못했습니다: {error}', { error }), { vault, name: 'markdown-highlights.json', supportedVersion: 1 })
 }
 
 export async function writeMarkdownHighlights(
@@ -950,13 +1084,17 @@ export async function readPdfBookmarks(vault: VaultHandle): Promise<PdfBookmark[
   const path = await iwaePath(vault, 'bookmarks.json')
   if (!(await exists(path))) {
     trackRead(path, null)
+    forgetFileState(vault, 'bookmarks.json')
     return []
   }
-  return readTrackedJson(path, parsePdfBookmarks, (error) => t('PDF 책갈피를 읽지 못했습니다: {error}', { error }))
+  return readTrackedJson(path, parsePdfBookmarks, (error) => t('PDF 책갈피를 읽지 못했습니다: {error}', { error }), { vault, name: 'bookmarks.json', supportedVersion: 1, keepSkipped: true })
 }
 
 export async function writePdfBookmarks(vault: VaultHandle, bookmarks: readonly PdfBookmark[]): Promise<void> {
-  await writeIwaeFile(vault, 'bookmarks.json', `${JSON.stringify(pdfBookmarkFile(bookmarks), null, 2)}\n`, 'metadata:bookmarks.json')
+  const file = pdfBookmarkFile(bookmarks)
+  const kept = keptItems(vault, 'bookmarks.json')
+  const content = kept.length === 0 ? file : { ...file, bookmarks: [...file.bookmarks, ...kept] }
+  await writeIwaeFile(vault, 'bookmarks.json', `${JSON.stringify(content, null, 2)}\n`, 'metadata:bookmarks.json')
 }
 
 export async function readBibliography(vault: VaultHandle): Promise<BibliographyFile> {
@@ -1029,13 +1167,14 @@ export async function readPdfOverlays(vault: VaultHandle): Promise<PdfOverlaysFi
   const path = await iwaePath(vault, 'pdf-overlays.json')
   if (!(await exists(path))) {
     trackRead(path, null)
+    forgetFileState(vault, 'pdf-overlays.json')
     return EMPTY_PDF_OVERLAYS
   }
-  return readTrackedJson(path, parsePdfOverlays, (error) => t('PDF 편집 내용을 읽지 못했습니다: {error}', { error }))
+  return readTrackedJson(path, parsePdfOverlays, (error) => t('PDF 편집 내용을 읽지 못했습니다: {error}', { error }), { vault, name: 'pdf-overlays.json', supportedVersion: 1 })
 }
 
 export async function writePdfOverlays(vault: VaultHandle, file: PdfOverlaysFile): Promise<void> {
-  await writeIwaeFile(vault, 'pdf-overlays.json', `${JSON.stringify(file, null, 2)}
+  await writeIwaeFile(vault, 'pdf-overlays.json', `${JSON.stringify(serializePdfOverlays(file), null, 2)}
 `, 'metadata:pdf-overlays.json')
 }
 
@@ -1085,6 +1224,8 @@ export async function listVaultTree(vault: VaultHandle): Promise<VaultTreeEntry[
       if (child.name === '.iwae' || child.name === 'assets') continue
       // git 저장소 정보(.git, .github 등 점으로 시작하는 폴더)는 목록에 넣지 않는다 — GitHub 에서 가져온 문서 폴더 안에 있다
       if (child.isDirectory && child.name.startsWith('.')) continue
+      // 저장 도중 생기는 임시·백업 파일(`.iwae-<번호>.tmp`, `.iwae-<번호>.bak`)은 문서가 아니다. 목록에 오르면 색인에 영영 「없는 파일」로 남는다
+      if (!child.isDirectory && /^\.iwae-.*\.(?:tmp|bak)$/iu.test(child.name)) continue
       // `.md`, `.canvas`, ` .pdf` 처럼 이름이 확장자뿐인 파일은 표시 이름을 만들 수 없다. 하나 때문에 Vault 가 안 열리면 안 되므로 건너뛴다
       if (!child.isDirectory && /^\s*\.(?:canvas|md|markdown|pdf)$/iu.test(child.name)) continue
       const childParts = [...relativeParts, child.name]
@@ -1312,18 +1453,20 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
   const tree = await listVaultTree(vault)
   const library = await readLibrary(vault)
   const index = await readVaultIndex(vault)
-  const known = new Set(index.entries.filter((entry) => entry.kind === 'pdf').map((entry) => entry.path.replaceAll('\\', '/').toLocaleLowerCase()))
+  // 경로는 유니코드 정규화(NFC)를 맞춰 견준다: 맥에서 동기화된 한글 파일 이름(NFD)이 다른 파일로 보여 PDF 가 새 ID 로 또 등록되지 않게
+  const pathKey = (path: string) => path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase()
+  const known = new Set(index.entries.filter((entry) => entry.kind === 'pdf').map((entry) => pathKey(entry.path)))
   const nextLibrary = [...library]
-  const presentPaths = new Set(tree.filter((entry) => !entry.isDirectory).map((entry) => entry.path.replaceAll('\\', '/').toLocaleLowerCase()))
+  const presentPaths = new Set(tree.filter((entry) => !entry.isDirectory).map((entry) => pathKey(entry.path)))
   const ownerOf = (sha256: string) => nextLibrary.find((entry) => entry.sha256 === sha256)
   // 같은 내용으로 등록된 문서의 파일이 아직 Vault 에 있나(Vault 밖을 가리키는 참조 문서는 있는 것으로 본다)
   const ownerFileExists = (owner: VaultLibraryEntry) => {
     const ownerPath = libraryEntryVaultPath(owner)
-    return ownerPath === null || presentPaths.has(ownerPath.toLocaleLowerCase())
+    return ownerPath === null || presentPaths.has(pathKey(ownerPath))
   }
   const candidates = tree.filter((entry) => !entry.isDirectory
     && /\.pdf$/iu.test(entry.path)
-    && !known.has(entry.path.replaceAll('\\', '/').toLocaleLowerCase()))
+    && !known.has(pathKey(entry.path)))
   const added: VaultLibraryEntry[] = []
   const relinked: string[] = []
   const indexEntries = [...index.entries]
@@ -1522,7 +1665,7 @@ export const versionGroupsCodec: SyncCodec<VersionGroupsFile> = {
   parse: (text) => parseVersionGroups(JSON.parse(text) as unknown),
 }
 export const pdfOverlaysCodec: SyncCodec<PdfOverlaysFile> = {
-  serialize: pretty,
+  serialize: (file) => pretty(serializePdfOverlays(file)),
   parse: (text) => parsePdfOverlays(JSON.parse(text) as unknown),
 }
 export const translationCacheCodec: SyncCodec<readonly TranslationCacheEntry[]> = {

@@ -1,5 +1,5 @@
 import { announceAction } from '../actionFeedback'
-import { quarantineVaultMetaFile, VaultFileCorruptError, type VaultHandle } from '../../bridge/vault'
+import { quarantineVaultMetaFile, VaultFileCorruptError, type VaultFileNotice, type VaultHandle } from '../../bridge/vault'
 import { errorText } from '../../core/errorText'
 import { t } from '../../i18n'
 
@@ -34,6 +34,13 @@ export async function loadOrQuarantine<T>(
     announceAction(t('{label} 파일이 깨져 있어 {aside} 이름으로 따로 보관하고 새로 시작합니다.', { label, aside }))
     return empty
   }
+}
+
+/** 저장 파일을 읽다 생긴 일(더 새 버전이 쓴 파일·깨진 색인)을 한 번 알린다 */
+export function announceVaultFileNotice(notice: VaultFileNotice): void {
+  announceAction(notice.kind === 'newer'
+    ? t('{name} 파일은 더 새로운 버전의 IWAE가 만든 것이라, 이번에는 읽기만 하고 저장하지 않습니다.', { name: notice.name })
+    : t('{name} 파일이 깨져 있어 .iwae/conflicts/diagnostics 폴더에 복사해 두고 다시 만듭니다.', { name: notice.name }))
 }
 
 /** 저장 결과를 알린다. 연달아 실패해도 한 번만 알리고, 성공하면 다시 알릴 수 있게 한다 */

@@ -277,26 +277,39 @@ function isAnchor(value: unknown): value is Anchor {
     && typeof value.suffix === 'string'
 }
 
-export function parsePersistentPdfHighlights(value: unknown): PersistentPdfHighlight[] {
+const KNOWN_HIGHLIGHT_KEYS = new Set(['id', 'anchor', 'color', 'note', 'noteHtml', 'createdAt', 'source', 'topic', 'kind', 'pageSize', 'collapsed', 'rating', 'order', 'box', 'snapshot'])
+
+/**
+ * 형광펜 목록을 읽는다. 항목 하나의 모양이 틀려도(예: 더 새 버전이 쓴 항목) 파일 전체를 거부하지 않는다:
+ * onSkipped 가 있으면 그 항목만 건너뛰고 원래 모양을 넘겨 준다(호출한 쪽이 파일에 남겨 둔다). 없으면 예전처럼 던진다.
+ */
+export function parsePersistentPdfHighlights(value: unknown, onSkipped?: (item: unknown) => void): PersistentPdfHighlight[] {
   if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.highlights)) {
     throw new Error(t('PDF 형광펜 저장 형식이 잘못되었습니다.'))
   }
   const highlights: PersistentPdfHighlight[] = []
   const ids = new Set<string>()
   for (const item of value.highlights) {
-    if (!isRecord(item) || typeof item.id !== 'string' || !isAnchor(item.anchor)) {
-      throw new Error(t('PDF 형광펜 항목이 잘못되었습니다.'))
-    }
-    const color = item.color === undefined ? 'yellow' : item.color
-    if (!isHighlightColor(color)) throw new Error(t('PDF 형광펜 색상이 잘못되었습니다.'))
-    const kind = item.kind === 'region' ? 'region' as const : undefined
     // id 는 만들 때 정해진 이름표일 뿐이다. 쪽을 옮기거나 영역을 키워도 노트가 id 로 가리키므로 그대로 두어,
     // 지금 앵커에서 다시 만든 id 와 달라도 읽는다(예전엔 여기서 던져 파일 전체가 안 열렸다).
-    if (item.id === '') throw new Error(t('PDF 형광펜 항목이 잘못되었습니다.'))
+    if (!isRecord(item) || typeof item.id !== 'string' || item.id === '' || !isAnchor(item.anchor)) {
+      if (onSkipped === undefined) throw new Error(t('PDF 형광펜 항목이 잘못되었습니다.'))
+      onSkipped(item)
+      continue
+    }
+    const color = item.color === undefined ? 'yellow' : item.color
+    if (!isHighlightColor(color)) {
+      if (onSkipped === undefined) throw new Error(t('PDF 형광펜 색상이 잘못되었습니다.'))
+      onSkipped(item)
+      continue
+    }
+    const kind = item.kind === 'region' ? 'region' as const : undefined
     if (ids.has(item.id)) continue
     ids.add(item.id)
     // 메모·시각·출처는 덧붙은 정보라, 모양이 틀리면 항목을 버리지 않고 그 값만 버린다.
-    highlights.push(withExtras({ id: item.id, anchor: structuredClone(item.anchor), color }, {
+    // 모르는 값(더 새 버전이 덧붙인 것)은 그대로 들고 있다가 다시 쓸 때 돌려준다.
+    const unknown = Object.fromEntries(Object.entries(item).filter(([key]) => !KNOWN_HIGHLIGHT_KEYS.has(key)))
+    highlights.push(withUnknownFields(unknown, withExtras({ id: item.id, anchor: structuredClone(item.anchor), color }, {
       note: typeof item.note === 'string' ? item.note : undefined,
       noteHtml: typeof item.noteHtml === 'string' ? item.noteHtml : undefined,
       createdAt: typeof item.createdAt === 'string' ? item.createdAt : undefined,
@@ -311,9 +324,14 @@ export function parsePersistentPdfHighlights(value: unknown): PersistentPdfHighl
       order: typeof item.order === 'number' ? item.order : undefined,
       box: parseMemoBox(item.box),
       snapshot: parseSnapshot(item.snapshot),
-    }))
+    })))
   }
   return highlights
+}
+
+/** 알려진 값이 모르는 값을 덮는다(모르는 열쇠가 알려진 열쇠를 가리지 않게) */
+function withUnknownFields(unknown: Record<string, unknown>, known: PersistentPdfHighlight): PersistentPdfHighlight {
+  return Object.keys(unknown).length === 0 ? known : { ...unknown, ...known }
 }
 
 export function persistentPdfHighlightFile(

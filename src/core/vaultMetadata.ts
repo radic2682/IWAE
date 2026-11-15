@@ -50,6 +50,8 @@ export function parseVaultMetadata(value: unknown): VaultMetadata {
         || typeof activity.favorite !== 'boolean'
         || (activity.lastOpenedAt !== null && typeof activity.lastOpenedAt !== 'string')) continue
       fileActivity[id] = {
+        // 더 새 버전이 항목에 덧붙인 값은 그대로 들고 있다가 다시 쓸 때 돌려준다
+        ...Object.fromEntries(Object.entries(activity).filter(([key]) => key !== 'favorite' && key !== 'lastOpenedAt' && key !== 'lastPage')),
         favorite: activity.favorite,
         lastOpenedAt: activity.lastOpenedAt,
         ...(Number.isInteger(activity.lastPage) && (activity.lastPage as number) > 0

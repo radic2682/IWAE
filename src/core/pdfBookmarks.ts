@@ -34,6 +34,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+const KNOWN_BOOKMARK_KEYS = new Set(['id', 'docId', 'page', 'title', 'createdAt', 'y', 'emoji'])
+
 function parseBookmark(value: unknown): PdfBookmark {
   if (!isRecord(value)
     || typeof value.id !== 'string'
@@ -47,6 +49,8 @@ function parseBookmark(value: unknown): PdfBookmark {
   const y = typeof value.y === 'number' && Number.isFinite(value.y) && value.y > 0 ? Math.min(value.y, 1) : undefined
   const emoji = typeof value.emoji === 'string' && value.emoji.trim() !== '' ? value.emoji : undefined
   return {
+    // 더 새 버전이 덧붙인 값은 그대로 들고 있다가 다시 쓸 때 돌려준다
+    ...Object.fromEntries(Object.entries(value).filter(([key]) => !KNOWN_BOOKMARK_KEYS.has(key))),
     id: value.id,
     docId: value.docId,
     page: value.page as number,
@@ -74,9 +78,19 @@ export function pdfBookmarkFile(bookmarks: readonly PdfBookmark[]): PdfBookmarkF
   return { version: 1, bookmarks }
 }
 
-export function parsePdfBookmarks(value: unknown): PdfBookmark[] {
+/** 책갈피 하나가 모양이 맞지 않아도 파일 전체를 거부하지 않는다: 그것만 건너뛰고 onSkipped 로 알린다(파일에는 남겨 둔다) */
+export function parsePdfBookmarks(value: unknown, onSkipped?: (item: unknown) => void): PdfBookmark[] {
   if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.bookmarks)) {
     throw new Error(t('PDF 책갈피 파일 형식이 잘못되었습니다.'))
   }
-  return value.bookmarks.map(parseBookmark).sort(pdfBookmarkOrder)
+  const bookmarks: PdfBookmark[] = []
+  for (const item of value.bookmarks) {
+    try {
+      bookmarks.push(parseBookmark(item))
+    } catch (error) {
+      if (onSkipped === undefined) throw error
+      onSkipped(item)
+    }
+  }
+  return bookmarks.sort(pdfBookmarkOrder)
 }
