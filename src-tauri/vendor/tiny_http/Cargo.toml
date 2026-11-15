@@ -1,0 +1,23 @@
+# Vendored tiny_http 0.12.0 with local hardening (see PATCHES.md). TLS features are removed.
+[package]
+edition = "2018"
+name = "tiny_http"
+version = "0.12.0"
+description = "Low level HTTP server library"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tiny-http/tiny-http"
+
+[dependencies]
+ascii = "1.0"
+chunked_transfer = "1"
+httpdate = "1.0.2"
+log = "0.4.4"
+
+[features]
+default = []
+# Only so that the original cfg checks stay quiet; the TLS code is not vendored.
+ssl-openssl = []
+ssl-rustls = []
+
+[lints.rust]
+unexpected_cfgs = { level = "allow" }

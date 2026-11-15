@@ -68,12 +68,25 @@ fn decode_body(body: &[u8]) -> std::borrow::Cow<'_, str> {
     }
 }
 
+/// 거절한 요청에는 `Connection: close` 를 붙인다. 읽지 않은 본문이 남은 연결을 다시 쓰지 않게 한다.
 fn respond(request: tiny_http::Request, status: u16, body: String) {
-    let response = tiny_http::Response::from_string(body)
+    let mut response = tiny_http::Response::from_string(body)
         .with_status_code(status)
         .with_header(json_header());
+    if status >= 400 {
+        if let Ok(header) = tiny_http::Header::from_bytes(&b"Connection"[..], &b"close"[..]) {
+            response = response.with_header(header);
+        }
+    }
     let _ = request.respond(response);
 }
+
+/// `rpc::handle` 는 한 번에 하나씩만 돈다(예전의 단일 작업 스레드와 같은 보장).
+/// 본문을 읽는 동안은 잠그지 않으므로, 느린 클라이언트 하나가 다른 요청을 막지 못한다.
+static HANDLE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// 동시에 처리하는 요청 수의 상한. 넘으면 503 으로 바로 돌려보낸다.
+const MAX_IN_FLIGHT: usize = 32;
 
 fn serve_one(mut request: tiny_http::Request, token: &str, ctx: &dyn ToolContext, version: &str, port: u16) {
     let headers: Vec<(String, String)> = request
@@ -97,13 +110,17 @@ fn serve_one(mut request: tiny_http::Request, token: &str, ctx: &dyn ToolContext
     // 길이를 밝히지 않은 본문도 상한까지만 읽는다.
     let mut body = Vec::new();
     let limit = (http::MAX_BODY_BYTES + 1) as u64;
-    if request
-        .as_reader()
-        .take(limit)
-        .read_to_end(&mut body)
-        .is_err()
-        || body.len() > http::MAX_BODY_BYTES
-    {
+    let read = request.as_reader().take(limit).read_to_end(&mut body);
+    if read.is_err() {
+        // 본문이 끝까지 오지 않았다(느리거나 끊긴 클라이언트). 소켓 읽기 시간 제한에 걸린 경우다.
+        respond(
+            request,
+            408,
+            serde_json::json!({ "error": tr!("요청 본문을 끝까지 받지 못했습니다.", "The request body did not arrive in full.") }).to_string(),
+        );
+        return;
+    }
+    if body.len() > http::MAX_BODY_BYTES {
         respond(
             request,
             413,
@@ -112,7 +129,11 @@ fn serve_one(mut request: tiny_http::Request, token: &str, ctx: &dyn ToolContext
         return;
     }
     let text = decode_body(&body);
-    match rpc::handle(&text, ctx, version) {
+    let outcome = {
+        let _guard = HANDLE_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        rpc::handle(&text, ctx, version)
+    };
+    match outcome {
         Outcome::Json(response) => respond(request, 200, response),
         Outcome::Accepted => {
             let _ = request.respond(tiny_http::Response::empty(202));
@@ -140,8 +161,26 @@ pub fn start(
     let thread = std::thread::Builder::new()
         .name("iwae-mcp".into())
         .spawn(move || {
+            let in_flight = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let token = Arc::new(token);
+            let version = Arc::new(version);
             for request in worker.incoming_requests() {
-                serve_one(request, &token, ctx.as_ref(), &version, bound);
+                use std::sync::atomic::Ordering;
+                if in_flight.fetch_add(1, Ordering::SeqCst) >= MAX_IN_FLIGHT {
+                    in_flight.fetch_sub(1, Ordering::SeqCst);
+                    respond(request, 503, serde_json::json!({ "error": tr!("요청이 너무 많습니다.", "Too many requests.") }).to_string());
+                    continue;
+                }
+                let (token, version, ctx, slot) =
+                    (token.clone(), version.clone(), ctx.clone(), in_flight.clone());
+                let spawned = std::thread::Builder::new().name("iwae-mcp-req".into()).spawn(move || {
+                    serve_one(request, &token, ctx.as_ref(), &version, bound);
+                    slot.fetch_sub(1, Ordering::SeqCst);
+                });
+                if spawned.is_err() {
+                    // 스레드를 만들지 못하면 요청은 버려지고(연결이 닫힘) 자리만 돌려준다.
+                    in_flight.fetch_sub(1, Ordering::SeqCst);
+                }
             }
         })
         .map_err(|err| tr!("MCP 서버 스레드를 만들지 못했습니다: {err}", "Couldn't start the MCP server thread: {err}"))?;
@@ -151,6 +190,9 @@ pub fn start(
         port: bound,
     })
 }
+
+#[cfg(test)]
+mod hardening_tests;
 
 #[cfg(test)]
 mod tests {
