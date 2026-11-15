@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
+import { StrictMode } from 'react'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import { hasMemoFormatting, literalHtmlIfNeeded, memoDisplayHtml, plainMemoTextToHtml, readsAsMarkdown, sanitizeMemoHtml } from './memoRichText'
@@ -82,6 +83,16 @@ describe('칸이 사라질 때 쓴 글 저장(N1)', () => {
   it('쓰던 칸이 포커스를 잃지 않고 사라져도 쓴 글을 저장한다', async () => {
     const onSave = vi.fn()
     const { container, unmount } = render(<MemoEditor initialText="hello" onSave={onSave} onCancel={vi.fn()} />)
+    type(container.querySelector('.pdf-memo-editor') as HTMLElement, 'hello world')
+    await Promise.resolve()
+    unmount()
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.calls[0]![0]).toMatchObject({ text: 'hello world' })
+  })
+
+  it('StrictMode 가 효과를 한 번 더 돌려도(마운트 → 정리 → 마운트) 쓴 글을 저장한다', async () => {
+    const onSave = vi.fn()
+    const { container, unmount } = render(<StrictMode><MemoEditor initialText="hello" onSave={onSave} onCancel={vi.fn()} /></StrictMode>)
     type(container.querySelector('.pdf-memo-editor') as HTMLElement, 'hello world')
     await Promise.resolve()
     unmount()

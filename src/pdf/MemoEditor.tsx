@@ -302,6 +302,8 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
   const commitRef = useRef(commitPending)
   commitRef.current = commitPending
   useLayoutEffect(() => {
+    // 다시 붙을 때(StrictMode 의 마운트 → 정리 → 마운트) 정리에서 세운 「끝남」을 되돌린다. 안 그러면 쓰기 전부터 저장이 막힌다
+    doneRef.current = false
     const element = ref.current
     if (element !== null && typeof MutationObserver !== 'undefined') {
       const observer = new MutationObserver(() => { dirtyRef.current = true })
