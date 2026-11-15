@@ -9,6 +9,7 @@ mod nsis;
 mod payload;
 mod progress;
 mod registry;
+mod uninstall;
 mod version;
 
 /// Same version as the main app (set by build.rs from the root package.json).

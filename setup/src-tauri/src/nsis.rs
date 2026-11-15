@@ -47,6 +47,14 @@ pub fn old_uninstall_args(dir: &Path) -> Vec<OsString> {
     vec!["/S".into(), "/UPDATE".into(), a]
 }
 
+/// Plain uninstall. `_?=` keeps uninstall.exe from copying itself to %TEMP% and returning at once,
+/// so waiting on it really waits for the uninstall (and it can no longer delete itself).
+pub fn uninstall_args(dir: &Path) -> Vec<OsString> {
+    let mut a = OsString::from("_?=");
+    a.push(dir);
+    vec!["/S".into(), a]
+}
+
 /// Blocks until the process exits and returns its exit code.
 /// `Send + Sync` because the install pipeline runs it on a worker thread while it polls progress.
 pub trait NsisRunner: Send + Sync {
@@ -106,6 +114,12 @@ mod tests {
     fn passive_args() {
         assert_eq!(nsis_args(&NsisRun::Passive { update: true }), v(&["/P", "/UPDATE"]));
         assert_eq!(nsis_args(&NsisRun::Passive { update: false }), v(&["/P"]));
+    }
+
+    #[test]
+    fn uninstall_args_dir_is_last_unquoted_element() {
+        let args = uninstall_args(Path::new(r"D:\테스트 폴더\IWAE"));
+        assert_eq!(args, v(&["/S", r"_?=D:\테스트 폴더\IWAE"]));
     }
 
     #[test]
