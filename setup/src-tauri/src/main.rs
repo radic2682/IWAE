@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod apprun;
 mod args;
 mod install;
 mod lang;
