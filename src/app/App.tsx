@@ -203,6 +203,7 @@ import { useVersionGroups } from './sidebar/useVersionGroups'
 import { usePdfOverlays } from './documents/usePdfOverlays'
 import { findVersionSibling, groupOfDoc, groupTitleFromDocTitle, guessVersionLabel, matchVersionPage, type VersionGroup } from '../core/versionGroups'
 import { useDocSources } from './sidebar/useDocSources'
+import { parseFileLink, pdfPageFromFragment } from '../core/vaultFileLink'
 import { isSourceInsideVault, sourceTargetKind, type DocSource } from '../core/docSources'
 import { AutoBackupSettings } from './settings/AutoBackupSettings'
 import { useAutoBackup } from './vault/useAutoBackup'
@@ -3628,13 +3629,17 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (tab !== undefined) setPaneRoute(paneRouteOf(tab.kind), landed)
   }
   /** Markdown 안의 상대 링크: 그 경로의 문서를 왼쪽 바 목록에서 찾아 연다. 없으면 알린다 */
-  const openMarkdownPath = (path: string) => {
+  const openMarkdownPath = (path: string, anchor: string | null = null) => {
     const wanted = path.replaceAll('\\', '/').toLocaleLowerCase()
     if (/\.pdf$/iu.test(wanted)) {
       const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').toLocaleLowerCase() === wanted)
       const doc = record === undefined ? undefined : shownLibrary.find((item) => item.docId === record.id)
       if (doc === undefined) announceAction(t('Vault에 없는 문서입니다: {path}', { path }))
-      else void openDocument(doc)
+      else {
+        const page = pdfPageFromFragment(anchor)
+        if (page === null) void openDocument(doc)
+        else navigateToPdfLocation({ docId: doc.docId, page })
+      }
       return
     }
     const find = (nodes: readonly VaultTreeNode[]): VaultMarkdownNode | null => {
@@ -3657,8 +3662,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
    */
   const openPdfLink = (url: string) => {
     if (vault !== null && /^file:/iu.test(url)) {
-      let absolute = decodeURIComponent(url.replace(/^file:\/+/iu, '')).split('#')[0] ?? ''
-      absolute = absolute.replaceAll('\\', '/')
+      const link = parseFileLink(url)
+      const absolute = link.path.replaceAll('\\', '/')
       const root = vault.root.replaceAll('\\', '/').replace(/\/+$/u, '')
       if (absolute.toLocaleLowerCase().startsWith(`${root.toLocaleLowerCase()}/`)) {
         const relative = absolute.slice(root.length + 1)
@@ -3670,7 +3675,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').toLocaleLowerCase() === relative.toLocaleLowerCase())
           const doc = record === undefined ? undefined : shownLibrary.find((item) => item.docId === record.id)
           if (doc !== undefined) {
-            void openDocument(doc)
+            const page = pdfPageFromFragment(link.fragment)
+            if (page === null) void openDocument(doc)
+            else navigateToPdfLocation({ docId: doc.docId, page })
             return
           }
         }
