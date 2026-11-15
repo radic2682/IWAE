@@ -1,5 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod args;
+mod lang;
+mod version;
+
 /// Same version as the main app (set by build.rs from the root package.json).
 #[allow(dead_code)]
 const APP_VERSION: &str = env!("IWAE_APP_VERSION");
