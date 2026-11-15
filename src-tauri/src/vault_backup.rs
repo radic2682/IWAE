@@ -95,6 +95,8 @@ struct SourceFile {
     relative: String,
     size: u64,
     modified: Option<SystemTime>,
+    /// 비어 있는 폴더(항목만 만든다). 파일 수·크기에는 세지 않는다
+    is_dir: bool,
 }
 
 fn vault_root(ai: &AiState) -> Result<PathBuf, String> {
@@ -141,6 +143,20 @@ fn collect(root: &Path, include_rebuildable: bool, skip: &[PathBuf]) -> io::Resu
                 continue;
             }
             if meta.is_dir() {
+                // 비어 있는 폴더는 항목으로 남겨야 복원해도 그대로다(다시 만들 수 있는 캐시 폴더는 뺀다)
+                let is_empty = fs::read_dir(&path).is_ok_and(|mut inner| inner.next().is_none());
+                if is_empty && !skip.iter().any(|item| same_path(item, &path)) {
+                    let relative = path
+                        .strip_prefix(root)
+                        .map_err(|err| io::Error::other(err.to_string()))?
+                        .components()
+                        .map(|part| part.as_os_str().to_string_lossy().into_owned())
+                        .collect::<Vec<_>>()
+                        .join("/");
+                    if include_rebuildable || !is_rebuildable(&format!("{relative}/")) {
+                        files.push(SourceFile { absolute: path.clone(), relative, size: 0, modified: meta.modified().ok(), is_dir: true });
+                    }
+                }
                 stack.push(path);
                 continue;
             }
@@ -160,7 +176,7 @@ fn collect(root: &Path, include_rebuildable: bool, skip: &[PathBuf]) -> io::Resu
                     continue;
                 }
             }
-            files.push(SourceFile { absolute: path, relative, size: meta.len(), modified: meta.modified().ok() });
+            files.push(SourceFile { absolute: path, relative, size: meta.len(), modified: meta.modified().ok(), is_dir: false });
         }
     }
     files.sort_by(|a, b| a.relative.cmp(&b.relative));
@@ -169,7 +185,7 @@ fn collect(root: &Path, include_rebuildable: bool, skip: &[PathBuf]) -> io::Resu
 
 pub fn estimate(root: &Path, include_rebuildable: bool) -> Result<BackupEstimate, String> {
     let (files, rebuildable_bytes) = collect(root, include_rebuildable, &[]).map_err(|err| tr!("Vault 를 읽지 못했습니다: {err}", "Could not read the vault: {err}"))?;
-    Ok(BackupEstimate { files: files.len() as u64, bytes: files.iter().map(|file| file.size).sum(), rebuildable_bytes })
+    Ok(BackupEstimate { files: files.iter().filter(|file| !file.is_dir).count() as u64, bytes: files.iter().map(|file| file.size).sum(), rebuildable_bytes })
 }
 
 /// 유닉스 초 → zip(MS-DOS) 날짜. 1980 이전이나 범위 밖이면 기본값.
@@ -242,6 +258,11 @@ pub fn create_backup(
             if cancel.load(Ordering::Relaxed) {
                 return Err(tr!("백업을 취소했습니다.", "Backup canceled."));
             }
+            if file.is_dir {
+                let options = SimpleFileOptions::default().last_modified_time(zip_time(file.modified, utc_offset_minutes));
+                zip.add_directory(format!("{prefix}/{}/", file.relative), options).map_err(|err| format!("{}: {err}", file.relative))?;
+                continue;
+            }
             // 열지 못하는 파일(다른 프로그램이 잠금) 하나로 전체 백업을 멈추지 않는다 — 항목을 만들기 전에 열어 보고 건너뛴다
             let source = match File::open(&file.absolute) {
                 Ok(source) => source,
@@ -292,7 +313,7 @@ pub fn create_backup(
     let archive_bytes = fs::metadata(dest).map(|meta| meta.len()).unwrap_or(0);
     Ok(BackupResult {
         path: dest.to_string_lossy().into_owned(),
-        files: (files.len() - skipped.len()) as u64,
+        files: (files.iter().filter(|file| !file.is_dir).count() - skipped.len()) as u64,
         bytes: bytes_total - files.iter().filter(|file| skipped.contains(&file.relative)).map(|file| file.size).sum::<u64>(),
         archive_bytes,
         millis: started.elapsed().as_millis() as u64,
@@ -395,7 +416,18 @@ pub fn restore_backup(archive: &Path, dest: &Path, cancel: &AtomicBool, progress
 /// Windows 가 이름을 바꿔 버리거나(끝의 `.`·공백) 다른 곳에 쓰거나(`:` = 대체 데이터 스트림) 거부하는 이름 조각.
 /// 어느 PC 에서 풀어도 같은 결과가 되게 모든 플랫폼에서 같은 규칙을 쓴다
 fn unusable_name(part: &str) -> bool {
-    part.ends_with('.') || part.ends_with(' ') || part.chars().any(|ch| ch.is_control() || ":*?\"<>|".contains(ch))
+    is_device_name(part)
+        || part.ends_with('.') || part.ends_with(' ') || part.chars().any(|ch| ch.is_control() || ":*?\"<>|".contains(ch))
+}
+
+/// `nul`, `CON.txt` 처럼 Windows 가 장치로 여기는 이름(확장자·끝의 점·공백이 붙어도 같다).
+/// 이런 이름의 파일을 만들면 실제로는 장치에 써서 아무것도 남지 않는다.
+fn is_device_name(part: &str) -> bool {
+    let stem = part.split('.').next().unwrap_or("").trim_end_matches(' ').to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$")
+        || ["COM", "LPT"].iter().any(|prefix| {
+            stem.strip_prefix(prefix).is_some_and(|rest| matches!(rest, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"))
+        })
 }
 
 /// 이 경로를 쓰기로 하고 true. 앞서 쓰기로 한 파일과 이름이 겹치면(대소문자 무시) 쓰지 않고 false.
@@ -1085,5 +1117,56 @@ mod restore_and_skip_tests {
         assert!(names.contains(&"V/ok.md".to_string()) && !names.contains(&"V/locked.md".to_string()), "{names:?}");
         drop(holder);
         let _ = fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn empty_folders_survive_a_backup_and_restore_and_are_not_counted_as_files() {
+        let root = temp_dir("empty-dirs").join("V");
+        fs::create_dir_all(root.join(".iwae/index")).unwrap();
+        fs::create_dir_all(root.join(".iwae/cache/pages")).unwrap();
+        fs::write(root.join(".iwae/index.json"), "{}").unwrap();
+        fs::create_dir_all(root.join("빈 폴더")).unwrap();
+        fs::create_dir_all(root.join("Projects/2026/drafts")).unwrap();
+        fs::write(root.join("Projects/a.md"), "a").unwrap();
+        let dest = root.parent().unwrap().join("out.zip");
+        let estimate = estimate(&root, false).unwrap();
+        assert_eq!(estimate.files, 2);
+        let result = create_backup(&root, &dest, false, 0, &AtomicBool::new(false), &|_| {}).unwrap();
+        assert_eq!(result.files, 2);
+        let restored = root.parent().unwrap().join("restored");
+        let outcome = restore_backup(&dest, &restored, &AtomicBool::new(false), &|_| {}).unwrap();
+        assert_eq!(outcome.files, 2);
+        assert!(restored.join("빈 폴더").is_dir());
+        assert!(restored.join("Projects/2026/drafts").is_dir());
+        assert!(restored.join(".iwae/index").is_dir(), "empty folders inside .iwae come back too");
+        assert!(!restored.join(".iwae/cache").exists(), "rebuildable cache folders are left out");
+        let _ = fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn dos_device_names_are_skipped_on_restore_instead_of_written_to_the_device() {
+        let out = temp_dir("devices");
+        let archive = out.join("b.zip");
+        write_zip(
+            &archive,
+            &[
+                ("V/.iwae/index.json", "{}"),
+                ("V/nul", "x"),
+                ("V/NUL.txt", "x"),
+                ("V/notes/Con.md", "x"),
+                ("V/aux .md", "x"),
+                ("V/COM1", "x"),
+                ("V/lpt9.log", "x"),
+                ("V/com0.md", "kept"),
+                ("V/null.md", "kept"),
+                ("V/console.md", "kept"),
+            ],
+        );
+        let restored = out.join("r");
+        let result = restore_backup(&archive, &restored, &AtomicBool::new(false), &|_| {}).unwrap();
+        assert_eq!(result.skipped, vec!["nul", "NUL.txt", "notes/Con.md", "aux .md", "COM1", "lpt9.log"]);
+        assert_eq!(result.files, 4); // index.json, com0.md, null.md, console.md
+        assert!(restored.join("com0.md").is_file() && restored.join("null.md").is_file());
+        let _ = fs::remove_dir_all(out);
     }
 }
