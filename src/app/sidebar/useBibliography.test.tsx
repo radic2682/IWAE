@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { useEffect } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBibliography } from './useBibliography'
 import { readBibliography, writeBibliography, type VaultHandle } from '../../bridge/vault'
@@ -42,6 +43,25 @@ describe('useBibliography', () => {
     let filled: Awaited<ReturnType<typeof result.current.fetchCrossref>> | undefined
     await act(async () => { filled = await result.current.fetchCrossref('10.1/x') })
     expect(filled).toMatchObject({ title: 'From Crossref', authors: ['A B'], source: 'crossref' })
+  })
+
+  it('does not auto-extract before the stored entries are read when the vault opens', async () => {
+    // 디스크 읽기는 PDF 정보를 읽는 것보다 늦다
+    vi.mocked(readBibliography).mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ version: 1, entries: { doc4: { title: 'Linked Paper', authors: ['Kim', 'Lee'], year: 2023, doi: '10.1000/xyz123', source: 'pdf', updatedAt: 'old' } } }), 30)))
+    // App 처럼 준비되면 곧바로 자동 추출하는 쪽
+    const { result, rerender } = renderHook(({ v }: { v: VaultHandle | null }) => {
+      const bibliography = useBibliography(v)
+      const { ready, autoExtract } = bibliography
+      useEffect(() => { if (ready) void autoExtract('doc4', 3) }, [ready, autoExtract])
+      return bibliography
+    }, { initialProps: { v: null as VaultHandle | null } })
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    rerender({ v: vault })
+    await waitFor(() => expect(readBibliography).toHaveBeenCalled())
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)) })
+    expect(writeBibliography).not.toHaveBeenCalled()
+    expect(result.current.entries.doc4?.updatedAt).toBe('old')
   })
 
   it('works in memory without a vault', async () => {

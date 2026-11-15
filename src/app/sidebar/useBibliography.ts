@@ -13,18 +13,20 @@ const IDENTIFIER_PAGES = 2
  */
 export function useBibliography(vault: VaultHandle | null) {
   const [entries, setEntries] = useState<Readonly<Record<string, BibEntry>>>({})
-  const [ready, setReady] = useState(false)
+  // 어느 Vault 의 서지를 다 읽었는가. Vault 가 바뀐 그 렌더에서 곧바로 준비 안 됨으로 보이게 Vault 와 견준다
+  const [loadedFor, setLoadedFor] = useState<VaultHandle | null | undefined>(undefined)
+  const ready = loadedFor !== undefined && loadedFor === vault
   const entriesRef = useRef<Readonly<Record<string, BibEntry>>>({})
   const attemptedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     let active = true
-    setReady(false)
+    setLoadedFor(undefined)
     attemptedRef.current = new Set()
     entriesRef.current = {}
     setEntries({})
     if (vault === null) {
-      setReady(true)
+      setLoadedFor(null)
       return () => { active = false }
     }
     void readBibliography(vault)
@@ -34,7 +36,7 @@ export function useBibliography(vault: VaultHandle | null) {
         setEntries(file.entries)
       })
       .catch(() => undefined)
-      .finally(() => { if (active) setReady(true) })
+      .finally(() => { if (active) setLoadedFor(vault) })
     return () => { active = false }
   }, [vault])
 
