@@ -402,3 +402,107 @@ fn a_locked_target_leaves_no_temporary_or_journal_and_no_history() {
     assert_eq!(fs::read_to_string(&target).unwrap(), "old");
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn a_file_with_a_utf8_bom_can_be_saved_with_the_hash_of_the_decoded_text() {
+    let root = fixture_dir("bom");
+    fs::write(root.join("note.canvas"), b"\xEF\xBB\xBF{\"a\":1}").unwrap();
+    // The webview hashes what TextDecoder returned: no BOM.
+    let hash = sha256_hex(b"{\"a\":1}");
+
+    atomic_write(&request(&root, "{\"a\":2}", Some(hash))).expect("BOM file is saveable");
+
+    assert_eq!(fs::read_to_string(root.join("note.canvas")).unwrap(), "{\"a\":2}");
+    assert!(!root.join(".iwae/conflicts").exists());
+}
+
+#[test]
+fn a_file_with_invalid_utf8_can_be_saved_with_the_hash_of_the_lossy_text() {
+    let root = fixture_dir("invalid-utf8");
+    fs::write(root.join("note.canvas"), b"a\xFFb\xE2\x82").unwrap();
+    let hash = sha256_hex("a\u{FFFD}b\u{FFFD}".as_bytes());
+
+    atomic_write(&request(&root, "fixed", Some(hash))).expect("lossy-decoded hash is accepted");
+
+    assert_eq!(fs::read_to_string(root.join("note.canvas")).unwrap(), "fixed");
+}
+
+#[test]
+fn a_wrong_hash_still_conflicts_for_bom_files() {
+    let root = fixture_dir("bom-conflict");
+    fs::write(root.join("note.canvas"), b"\xEF\xBB\xBFold").unwrap();
+
+    let error = atomic_write(&request(&root, "new", Some(sha256_hex(b"something else")))).unwrap_err();
+
+    assert!(matches!(error, StorageError::Conflict { .. }));
+    assert_eq!(fs::read(root.join("note.canvas")).unwrap(), b"\xEF\xBB\xBFold");
+}
+
+#[test]
+fn a_future_dated_snapshot_does_not_stop_history_and_is_not_what_gets_throttled_against() {
+    let root = fixture_dir("future-history");
+    let directory = root.join(".iwae/history/note-1");
+    fs::create_dir_all(&directory).unwrap();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+    let future = format!("{}.bak", now + 86_400_000);
+    fs::write(directory.join(&future), "from a fast clock").unwrap();
+    fs::write(root.join("note.canvas"), "v1").unwrap();
+
+    atomic_write(&request(&root, "v2", None)).unwrap();
+    let names = |directory: &std::path::Path| {
+        let mut v: Vec<String> = fs::read_dir(directory)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        v.sort();
+        v
+    };
+    let after_first = names(&directory);
+    assert_eq!(after_first.len(), 2, "the old version was recorded: {after_first:?}");
+    assert!(after_first.contains(&future));
+
+    // An immediate second save is still throttled against the real (non-future) snapshot.
+    atomic_write(&request(&root, "v3", None)).unwrap();
+    assert_eq!(names(&directory).len(), 2);
+}
+
+#[test]
+fn many_future_dated_snapshots_never_delete_the_one_just_written() {
+    let root = fixture_dir("future-prune");
+    let directory = root.join(".iwae/history/note-1");
+    fs::create_dir_all(&directory).unwrap();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+    for i in 0..200u64 {
+        fs::write(directory.join(format!("{}.bak", now + 1_000_000 + i)), "future").unwrap();
+    }
+    fs::write(root.join("note.canvas"), "v1").unwrap();
+
+    atomic_write(&request(&root, "v2", None)).unwrap();
+
+    let kept_old_version = fs::read_dir(&directory)
+        .unwrap()
+        .any(|e| fs::read(e.unwrap().path()).is_ok_and(|b| b == b"v1"));
+    assert!(kept_old_version, "the snapshot of v1 must survive pruning");
+}
+
+#[test]
+fn conflict_records_are_complete_json_and_leave_no_temporary_files() {
+    let root = fixture_dir("conflict-atomic");
+    fs::write(root.join("note.canvas"), "current").unwrap();
+
+    atomic_write(&request(&root, "mine", Some(sha256_hex(b"stale")))).unwrap_err();
+
+    let conflicts = root.join(".iwae/conflicts");
+    let mut json = 0;
+    for entry in fs::read_dir(&conflicts).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(!name.ends_with(".tmp"), "left a temporary file: {name}");
+        if name.ends_with(".json") {
+            json += 1;
+            let value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            assert!(value.get("targetPath").is_some() || value.get("target_path").is_some());
+        }
+    }
+    assert_eq!(json, 1);
+}

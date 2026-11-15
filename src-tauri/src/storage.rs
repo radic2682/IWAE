@@ -150,11 +150,15 @@ fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
 fn write_journal(path: &Path, record: &RecoveryRecord) -> Result<(), StorageError> {
     let bytes = serde_json::to_vec_pretty(record)
         .map_err(|error| StorageError::Invalid(tr!("저널을 직렬화하지 못했습니다: {error}", "Could not serialize the journal: {error}")))?;
-    // 제자리에서 자르며 쓰면 도중에 멈출 때 빈 저널이 남는다 — 임시 파일에 쓰고 이름을 바꾼다
+    write_atomically(path, &bytes)
+}
+
+/// 제자리에서 자르며 쓰면 도중에 멈출 때 빈 파일이 남는다 — 임시 파일에 쓰고 이름을 바꾼다
+fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
     let mut temporary_name = path.as_os_str().to_owned();
     temporary_name.push(".tmp");
     let temporary = PathBuf::from(temporary_name);
-    let result = write_synced(&temporary, &bytes).and_then(|()| {
+    let result = write_synced(&temporary, bytes).and_then(|()| {
         fs::rename(&temporary, path)
             .map_err(|error| io_error(&tr!("파일을 쓰지 못했습니다", "Could not write the file"), error))
     });
@@ -189,20 +193,23 @@ fn preserve_conflict(request: &AtomicWriteRequest, current: &[u8]) -> Result<(),
     let bytes = serde_json::to_vec_pretty(&record).map_err(|error| {
         StorageError::Invalid(tr!("충돌 기록을 직렬화하지 못했습니다: {error}", "Could not serialize the conflict record: {error}"))
     })?;
-    write_synced(&conflict_root.join(format!("{prefix}.json")), &bytes)
+    // 기록은 마지막에, 임시 파일에 쓰고 이름을 바꿔서 둔다 — 도중에 멈춰도 빈 .json 이 남지 않는다
+    write_atomically(&conflict_root.join(format!("{prefix}.json")), &bytes)
 }
 
 /// 같은 파일의 기록은 이 간격 안에서는 다시 만들지 않는다(메모는 400ms 마다 자동 저장된다)
 const MIN_SNAPSHOT_INTERVAL_MILLIS: u64 = 60 * 1_000;
 
-fn newest_snapshot(directory: &Path) -> Option<(u64, PathBuf)> {
+/// `not_after` 보다 늦은 이름(시계가 앞서 간 PC 가 동기화 폴더에 남긴 기록)은 건너뛴다.
+fn newest_snapshot(directory: &Path, not_after: u64) -> Option<(u64, PathBuf)> {
     fs::read_dir(directory)
         .ok()?
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let path = entry.path();
             let timestamp = path.file_stem()?.to_str()?.parse::<u64>().ok()?;
-            (path.extension().and_then(|value| value.to_str()) == Some("bak")).then_some((timestamp, path))
+            (timestamp <= not_after && path.extension().and_then(|value| value.to_str()) == Some("bak"))
+                .then_some((timestamp, path))
         })
         .max_by_key(|(timestamp, _)| *timestamp)
 }
@@ -216,8 +223,8 @@ fn snapshot_current(
         return Ok(());
     }
     let directory = Path::new(&request.history_root).join(safe_component(&request.file_id));
-    if let Some((newest_time, newest_path)) = newest_snapshot(&directory) {
-        let too_soon = timestamp.saturating_sub(newest_time) < MIN_SNAPSHOT_INTERVAL_MILLIS;
+    if let Some((newest_time, newest_path)) = newest_snapshot(&directory, timestamp) {
+        let too_soon = timestamp - newest_time < MIN_SNAPSHOT_INTERVAL_MILLIS;
         if too_soon || fs::read(&newest_path).is_ok_and(|bytes| bytes == current) {
             return Ok(());
         }
@@ -243,12 +250,26 @@ fn prune_history(directory: &Path, now: u64) -> Result<(), StorageError> {
     revisions.sort_by_key(|(timestamp, _)| std::cmp::Reverse(*timestamp));
 
     for (index, (timestamp, path)) in revisions.into_iter().enumerate() {
-        if index >= MAX_HISTORY_FILES || timestamp < cutoff {
+        // 방금 쓴 기록은 개수·나이 규칙에 걸려도 지우지 않는다(앞선 시계가 남긴 기록이 자리를 차지해도)
+        if timestamp != now && (index >= MAX_HISTORY_FILES || timestamp < cutoff) {
             fs::remove_file(path)
                 .map_err(|error| io_error(&tr!("오래된 버전 기록을 정리하지 못했습니다", "Could not clean up old version history"), error))?;
         }
     }
     Ok(())
+}
+
+/// 화면 쪽은 plugin-fs 의 readTextFile(TextDecoder)로 읽은 글자의 해시를 보낸다. TextDecoder 는 맨 앞 UTF-8 BOM 을
+/// 떼고, 잘못된 바이트는 U+FFFD 로 바꾼다. 바깥 도구가 BOM 이나 깨진 바이트가 든 파일을 만들면 디스크 바이트의
+/// 해시와 영원히 달라 저장이 막히므로, 같은 방식으로 읽은 글자의 해시도 받아 준다. (Rust 의 from_utf8_lossy 도
+/// 최대 부분열 단위로 U+FFFD 하나를 쓰므로 WHATWG 디코딩과 같다.)
+fn matches_expected_hash(current: &[u8], expected: &str) -> bool {
+    if sha256_hex(current) == expected {
+        return true;
+    }
+    let without_bom = current.strip_prefix(&[0xEF, 0xBB, 0xBF][..]).unwrap_or(current);
+    let decoded = String::from_utf8_lossy(without_bom);
+    sha256_hex(decoded.as_bytes()) == expected
 }
 
 pub fn atomic_write(request: &AtomicWriteRequest) -> Result<WriteReceipt, StorageError> {
@@ -272,7 +293,7 @@ pub fn atomic_write(request: &AtomicWriteRequest) -> Result<WriteReceipt, Storag
         Vec::new()
     };
     if let Some(expected_hash) = &request.expected_hash {
-        if sha256_hex(&current) != *expected_hash {
+        if !matches_expected_hash(&current, expected_hash) {
             if request.preserve_conflict {
                 preserve_conflict(request, &current)?;
             }
