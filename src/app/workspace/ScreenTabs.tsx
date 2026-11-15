@@ -98,6 +98,24 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
     onRename(id, value)
   }
 
+  // 줄이 옆으로 밀릴 만큼 좁아도 보는 화면 탭은 늘 보이게 민다(탭이 바뀔 때 · 줄 크기가 바뀔 때)
+  useEffect(() => {
+    const list = listRef.current
+    if (list === null) return undefined
+    const reveal = () => {
+      const tab = list.querySelector<HTMLElement>('.screen-tab-active')
+      if (tab === null || list.scrollWidth <= list.clientWidth) return
+      const left = tab.getBoundingClientRect().left - list.getBoundingClientRect().left + list.scrollLeft
+      if (left < list.scrollLeft) list.scrollLeft = left
+      else if (left + tab.getBoundingClientRect().width > list.scrollLeft + list.clientWidth) list.scrollLeft = left + tab.getBoundingClientRect().width - list.clientWidth
+    }
+    reveal()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(reveal)
+    observer.observe(list)
+    return () => observer.disconnect()
+  }, [activeId, screens.length])
+
   const menuTab = menu?.kind === 'tab' ? screens.find((screen) => screen.id === menu.id) : undefined
 
   return (

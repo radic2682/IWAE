@@ -803,6 +803,17 @@ describe('상단바 도구줄 묶음 테두리 · 맨 윗줄 칸 위 틈', () =>
     expect(rule(surface, '.topbar-toolbar-host .note-format-dock .format-bar')).toContain('clip-path: inset(-1000px 0 -1000px 11px);')
   })
 
+  it('화면 탭은 좁아져도 겹치지 않는다: 단추가 줄고(min-width 0) 탭은 44px 아래로 안 줄며, 모자라면 줄이 옆으로 밀린다(막대 없음). 노트 묶음은 검색 묶음까지 들어가는 폭을 지킨다', () => {
+    const surface = css('workspace-surface.css')
+    expect(rule(surface, '.screen-tab-button')).toContain('min-width: 0;')
+    expect(rule(surface, '.screen-tab-button')).toContain('overflow: hidden;')
+    expect(rule(surface, '.screen-tab')).toContain('min-width: 44px;')
+    expect(rule(surface, '.screen-tabs')).toContain('overflow-x: auto;')
+    expect(rule(surface, '.screen-tabs')).toContain('scrollbar-width: none;')
+    expect(rule(surface, ".topbar-toolbar-host[data-owner='memoNote']:not([data-floating])")).toContain('min-width: 276px;')
+    expect(rule(surface, '.topbar-toolbar-placeholder')).toContain('overflow: hidden;')
+  })
+
   it('칸 영역의 윗 테두리와 맨 윗줄 칸의 윗 안쪽 여백은 0 이고 다른 틈은 그대로', () => {
     expect(ruleDecl('screens.css', '.panes.panes-tree', 'border-top-width')).toBe('0')
     expect(ruleDecl('screens.css', ".panes-tree > .pane-grid-cell[data-top-edge]", 'padding-top')).toBe('0')
