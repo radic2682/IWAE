@@ -5,7 +5,7 @@ import type { Anchor } from '../core/anchor'
 import type { PageTextIndex } from '../core/textIndex'
 import type { PdfExcerptSelection } from '../core/pdfExcerpt'
 import * as visualTextHeight from './visualTextHeight'
-import { SelectionLayer, resizedRegion } from './SelectionLayer'
+import { SelectionLayer, regionDragTooSmall, resizedRegion } from './SelectionLayer'
 
 const INDEX: PageTextIndex = {
   text: 'AB\r\nCD',
@@ -687,5 +687,15 @@ describe('resizedRegion', () => {
     expect(resizedRegion(start, edges({ left: true }), 500, 0, [600, 800]).w).toBe(8)
     expect(resizedRegion(start, edges({ top: true }), -500, 0, [600, 800]).y).toBe(100)
     expect(resizedRegion(start, edges({ top: true }), 0, -500, [600, 800]).y).toBe(0)
+  })
+})
+
+describe('regionDragTooSmall', () => {
+  it('rejects wobbles but allows deliberate drags', () => {
+    expect(regionDragTooSmall({ x: 0, y: 0 }, { x: 4, y: 40 }, 1)).toBe(true)
+    expect(regionDragTooSmall({ x: 0, y: 0 }, { x: 40, y: 5 }, 1)).toBe(true)
+    expect(regionDragTooSmall({ x: 0, y: 0 }, { x: 40, y: 40 }, 1)).toBe(false)
+    expect(regionDragTooSmall({ x: 0, y: 0 }, { x: 8, y: 8 }, 4)).toBe(true)
+    expect(regionDragTooSmall({ x: 0, y: 0 }, { x: 20, y: 20 }, 4)).toBe(false)
   })
 })

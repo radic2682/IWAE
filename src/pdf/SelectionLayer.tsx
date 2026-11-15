@@ -207,6 +207,15 @@ function regionRect(from: Point, to: Point, renderScale: number) {
   }
 }
 
+/** 끌기가 너무 작으면(손 떨림) 영역을 만들지 않는다: 화면에서 가로·세로 6px, 쪽에서 4pt 미만 */
+const MIN_DRAG_PX = 6
+const MIN_DRAG_PT = 4
+export function regionDragTooSmall(from: Point, to: Point, renderScale: number): boolean {
+  const dx = Math.abs(to.x - from.x)
+  const dy = Math.abs(to.y - from.y)
+  return dx < MIN_DRAG_PX || dy < MIN_DRAG_PX || dx / renderScale < MIN_DRAG_PT || dy / renderScale < MIN_DRAG_PT
+}
+
 const TIP_GAP = 12
 const TIP_MARGIN = 6
 
@@ -552,7 +561,7 @@ export function SelectionLayer({
     if (gesture.pointerId !== event.pointerId) return
     if (gesture.mode === 'region') {
       const to = localPoint(event)
-      const next = Math.abs(to.x - gesture.from.x) < 2 || Math.abs(to.y - gesture.from.y) < 2
+      const next = regionDragTooSmall(gesture.from, to, renderScale)
         ? null
         : regionRect(gesture.from, to, renderScale)
       if (gesture.button === 2 && next !== null) {
