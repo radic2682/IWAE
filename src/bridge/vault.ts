@@ -312,6 +312,16 @@ export function forgetObservedFile(absolutePath: string): void {
 }
 
 /**
+ * 앱이 파일을 옮겼다(이름 바꾸기 · 폴더 옮기기): 이 창이 아는 「마지막으로 읽거나 쓴 내용」을 새 경로로 넘긴다.
+ * 안 넘기면 옮긴 파일이 「밖에서 바뀌었다」로 보여 다시 불러오고 알림이 뜨며, 그 사이에 쓴 글이 충돌로 막힌다.
+ */
+export function carryObservedFile(fromAbsolute: string, toAbsolute: string): void {
+  const text = fileSync.observedText(fromAbsolute)
+  fileSync.forget(fromAbsolute)
+  if (text !== undefined && isDesktop()) fileSync.observeRead(toAbsolute, text)
+}
+
+/**
  * 디스크의 파일이 이 앱이 마지막으로 쓴 내용과 같은가. 파일 감시는 앱 자신의 저장도 알려 오므로,
  * 저장 중에 또 고친 파일(예: MCP 가 잇달아 고친 캔버스)을 '외부 변경 충돌'로 오인하지 않게 쓴다.
  */

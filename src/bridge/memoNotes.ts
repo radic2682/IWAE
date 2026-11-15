@@ -1,5 +1,5 @@
 import { t } from '../i18n'
-import { forgetObservedFile, inspectVaultRelativeFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
+import { carryObservedFile, forgetObservedFile, inspectVaultRelativeFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
 import type { SyncCodec } from '../core/vaultSync'
 import type { TrashSource } from './vaultFiles'
 import {
@@ -144,7 +144,7 @@ export async function renameMemoNote(vault: VaultHandle, from: string, to: strin
   if (await exists(target)) throw new Error(t('같은 이름의 노트가 이미 있습니다.'))
   const source = await absolute(vault, from)
   await rename(source, target)
-  forgetObservedFile(source)
+  carryObservedFile(source, target)
   await announceNotesChanged(vault)
 }
 
@@ -184,7 +184,14 @@ export async function renameMemoNoteFolder(vault: VaultHandle, from: string, to:
   const target = await absolute(vault, to)
   if (await exists(target)) throw new Error(t('같은 이름의 폴더가 이미 있습니다.'))
   await rename(await absolute(vault, from), target)
-  for (const path of notePaths) forgetObservedFile(await absolute(vault, path))
+  const fromPrefix = from.replaceAll('\\', '/').replace(/\/+$/u, '')
+  const toPrefix = to.replaceAll('\\', '/').replace(/\/+$/u, '')
+  for (const path of notePaths) {
+    const normalized = path.replaceAll('\\', '/')
+    const moved = normalized.startsWith(`${fromPrefix}/`) ? `${toPrefix}${normalized.slice(fromPrefix.length)}` : null
+    if (moved === null) forgetObservedFile(await absolute(vault, path))
+    else carryObservedFile(await absolute(vault, path), await absolute(vault, moved))
+  }
   await announceNotesChanged(vault)
 }
 
