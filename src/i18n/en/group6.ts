@@ -215,13 +215,13 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   // memoNote · libraryItems
   '새 소제목': 'New section',
   '새 노트': 'New note',
-  '{first} 외 {count}명': '{first} and {count} others',
+  '{first} 외 {count}명': '{first} and {count} {count|other|others}',
   // NoteFlow
   '블록 메뉴': 'Block menu',
   '메뉴': 'Menu',
   '끌어 옮기기': 'Drag to move',
   '여기에 글 넣기': 'Insert text here',
-  '별 {count}개': '{count} stars',
+  '별 {count}개': '{count} {count|star|stars}',
   '{title} 펼치기': 'Expand {title}',
   '{title} 접기': 'Collapse {title}',
   '소제목': 'Section',

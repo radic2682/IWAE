@@ -13,7 +13,7 @@ export const TICKETS: Readonly<Record<string, string>> = {
   '이 노트에 있음': 'In this note',
   '{note} 외 {count}곳': '{note} and {count} more',
   '{n}번째 블록': 'Block {n}',
-  '{count}곳': '{count} places',
+  '{count}곳': '{count} {count|place|places}',
   '여기': 'Here',
   '같은 ID를 서로 다른 메모가 쓰고 있습니다': 'Different memos use the same ID',
   '이 ID가 있는 곳 보기': 'Show where this ID is used',

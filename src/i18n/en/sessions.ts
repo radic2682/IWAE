@@ -3,7 +3,7 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   // 이름 검사
   '세션 이름을 입력하세요': 'Enter a session name',
   '세션 이름은 . 또는 _로 시작할 수 없습니다': 'A session name cannot start with . or _',
-  '세션 이름이 너무 깁니다 ({max}자까지)': 'The session name is too long (up to {max} characters)',
+  '세션 이름이 너무 깁니다 ({max}자까지)': 'The session name is too long (up to {max} {max|character|characters})',
   '같은 이름의 세션이 이미 있습니다: {name}': 'A session with this name already exists: {name}',
   '세션': 'Session',
   '방금': 'just now',
@@ -32,7 +32,7 @@ export const SESSIONS: Readonly<Record<string, string>> = {
   '확인': 'OK',
   '불러오는 중…': 'Loading…',
   '지금': 'current',
-  '화면 {n}개': '{n} screens',
+  '화면 {n}개': '{n} {n|screen|screens}',
   '삭제': 'Delete',
   '다음 단계': 'Next step',
   '앱 창으로 띄우기': 'Open in an app window',

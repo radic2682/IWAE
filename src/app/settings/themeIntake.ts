@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { t } from '../../i18n'
 import { isDesktop } from '../../bridge/window'
 import {
   THEME_FILE_MAX_BYTES,
@@ -119,7 +120,7 @@ export function importThemeFile(content: ThemeFileContent, options: { readonly a
     name = same.name
     id = same.id
   } else {
-    if (state.themes.length >= MAX_USER_THEMES) return { ok: false, error: `내 테마는 ${MAX_USER_THEMES}개까지 둘 수 있습니다. 안 쓰는 테마를 지운 뒤 다시 해 주세요.` }
+    if (state.themes.length >= MAX_USER_THEMES) return { ok: false, error: t('내 테마는 {max}개까지 둘 수 있습니다. 안 쓰는 테마를 지운 뒤 다시 해 주세요.', { max: MAX_USER_THEMES }) }
     name = uniqueThemeName(content.theme.name, [...state.themes, ...state.folderThemes].map((theme) => theme.name))
     saveUserTheme({ ...content.theme, name })
     added = true

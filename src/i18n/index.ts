@@ -71,7 +71,10 @@ export function useLocale(): Locale {
 
 function fill(template: string, vars?: Vars): string {
   if (vars === undefined) return template
-  return template.replace(/\{(\w+)\}/gu, (whole, name: string) => (name in vars ? String(vars[name]) : whole))
+  // 영어 사전의 단수·복수: `{count|item|items}` 는 count 가 1 이면 item, 아니면 items (한국어 문장에는 쓰지 않는다)
+  const plural = template.replace(/\{(\w+)\|([^|{}]*)\|([^|{}]*)\}/gu, (whole, name: string, one: string, many: string) =>
+    (name in vars ? (Number(vars[name]) === 1 ? one : many) : whole))
+  return plural.replace(/\{(\w+)\}/gu, (whole, name: string) => (name in vars ? String(vars[name]) : whole))
 }
 
 /** 한국어 문장 → 지금 언어의 문장. 글 안의 단축키(`Ctrl+F` 등)는 맥에서 `⌘F` 처럼 바꿔 보인다 */

@@ -251,7 +251,7 @@ export function newHighlightColorId(existing: readonly string[], random: () => n
 /** 색 이름이 비면 안 되므로 비었을 때의 이름 */
 export function colorNameOrDefault(name: string): string {
   const trimmed = name.trim().slice(0, MAX_HIGHLIGHT_NAME_LENGTH)
-  return trimmed === '' ? '색' : trimmed
+  return trimmed === '' ? t('색') : trimmed
 }
 
 /** id 로 색을 찾는다. 목록에 없으면 undefined(= 「기타」로 그린다) */
@@ -381,7 +381,7 @@ export function addHighlightColor(colors: readonly HighlightColorDef[], fill?: s
   if (colors.length >= MAX_HIGHLIGHT_COLORS) return colors
   const used = new Set(colors.map((color) => color.fill.toLowerCase()))
   const picked = normalizeHex(fill) ?? SUGGESTED_HIGHLIGHT_FILLS.find((candidate) => !used.has(candidate)) ?? SUGGESTED_HIGHLIGHT_FILLS[0]!
-  return [...colors, { id: newHighlightColorId(colors.map((color) => color.id), random), name: '새 색', fill: picked }]
+  return [...colors, { id: newHighlightColorId(colors.map((color) => color.id), random), name: t('새 색'), fill: picked }]
 }
 
 export function renameHighlightColor(colors: readonly HighlightColorDef[], id: string, name: string): readonly HighlightColorDef[] {
