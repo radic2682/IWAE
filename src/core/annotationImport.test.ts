@@ -83,3 +83,20 @@ describe('annotationImport', () => {
     expect(annotationOfferCount('doc', [annotation()], [], true)).toBe(0)
   })
 })
+
+describe('annotationImport sticky note ids', () => {
+  const sticky = (y: number, contents: string) => annotation({ kind: 'text', rects: [{ x: 0, y, w: 8, h: 8 }], contents })
+  it('two sticky notes nearest the same character both import, and re-import is idempotent', () => {
+    const first = importedToHighlights('doc', [sticky(90, 'one'), sticky(110, 'two')], () => PAGE, [])
+    expect(first.highlights).toHaveLength(2)
+    expect(new Set(first.highlights.map((item) => item.id)).size).toBe(2)
+    const again = importedToHighlights('doc', [sticky(90, 'one'), sticky(110, 'two')], () => PAGE, first.highlights)
+    expect(again.highlights).toHaveLength(0)
+    expect(again.skipped).toBe(2)
+  })
+  it('a sticky note does not collide with a tiny markup at the same character', () => {
+    const tiny = annotation({ rects: [{ x: 10, y: 99, w: 10, h: 14 }] })
+    const result = importedToHighlights('doc', [tiny, annotation({ kind: 'text', rects: [{ x: 0, y: 90, w: 8, h: 8 }], contents: 'n' })], () => PAGE, [])
+    expect(result.highlights).toHaveLength(2)
+  })
+})

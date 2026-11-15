@@ -67,6 +67,12 @@ function withoutQuote(anchor: Anchor): Anchor {
   return { ...anchor, charRange: [at, at], quote: '', prefix: '', suffix: '' }
 }
 
+function stickyNoteId(anchor: Anchor): string {
+  const rect = anchor.rects[0]
+  const n = (value: number | undefined) => Math.round((value ?? 0) * 10) / 10
+  return `${anchor.docId}:${anchor.page}:note:${anchor.charRange[0]}:${n(rect?.x)}:${n(rect?.y)}`
+}
+
 /**
  * PDF 에서 읽은 주석을 형광펜으로 바꾼다. 글자 층이 없는 페이지(스캔본)의 주석과 이미
  * 같은 글자에 칠해진 형광펜은 건너뛰고 그 수를 돌려준다.
@@ -109,11 +115,13 @@ export function importedToHighlights(
       anchor = from === to ? buildAnchor(docId, annotation.page, index, range[0], range[1]) : buildAnchor(docId, annotation.page, index, from, to)
       if (!hasMeaningfulQuote(anchor.quote)) anchor = withoutQuote(anchor)
     }
-    const highlight = createPersistentPdfHighlight(
+    const created = createPersistentPdfHighlight(
       anchor,
       nearestHighlightColor(annotation.color, colors),
       { note: annotation.contents ?? undefined, createdAt: importedAt, source: 'imported' },
     )
+    // 쪽지는 글자 범위가 [끝,끝] 이라 id 가 같은 글자의 쪽지·짧은 표시와 겹친다. 자기 네모로 이름을 짓는다(다시 가져와도 같은 id)
+    const highlight = annotation.kind === 'text' ? { ...created, id: stickyNoteId(anchor) } : created
     if (seen.has(highlight.id)) {
       skipped += 1
       continue
