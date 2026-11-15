@@ -1,7 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod args;
+mod install;
 mod lang;
+mod log;
+mod nsis;
+mod payload;
+mod progress;
 mod registry;
 mod version;
 
