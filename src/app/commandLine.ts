@@ -76,21 +76,65 @@ function commonPrefix(words: readonly string[]): string {
   return prefix
 }
 
+interface ScannedWord {
+  /** 입력에 쓴 그대로(따옴표 포함) */
+  readonly raw: string
+  /** 따옴표를 벗긴 낱말 */
+  readonly value: string
+  /** 따옴표를 열고 아직 닫지 않았으면 그 따옴표 */
+  readonly open: '"' | "'" | null
+}
+
+/** 따옴표(' ")를 지키며 마지막 `;`(따옴표 밖) 뒤의 낱말들을 읽는다. 마지막 낱말은 쓰는 중일 수 있다 */
+function scanLastCommand(input: string): { readonly head: string; readonly lead: string; readonly words: readonly ScannedWord[]; readonly typing: boolean } {
+  let headEnd = 0
+  let words: ScannedWord[] = []
+  let quote: '"' | "'" | null = null
+  let start = -1
+  let value = ''
+  const finish = (end: number) => {
+    if (start < 0) return
+    words.push({ raw: input.slice(start, end), value, open: quote })
+    start = -1
+    value = ''
+  }
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index]!
+    if (quote !== null) {
+      if (char === quote) quote = null
+      else value += char
+      continue
+    }
+    if (char === '"' || char === "'") { quote = char; if (start < 0) start = index; continue }
+    if (char === ';') { finish(index); words = []; headEnd = index + 1; continue }
+    if (/\s/u.test(char)) { finish(index); continue }
+    if (start < 0) start = index
+    value += char
+  }
+  const typing = start >= 0
+  finish(input.length)
+  const segment = input.slice(headEnd)
+  return { head: input.slice(0, headEnd), lead: /^\s*/u.exec(segment)![0], words, typing }
+}
+
 /**
- * Tab 완성: 줄의 마지막 `;` 뒤에서, 첫 낱말은 명령 이름으로, `-t`/`-s` 뒤나 템플릿·배치·색을 받는 명령의 인자는 그 목록으로 채운다.
- * 후보가 하나면 끝에 빈칸을 붙인다. 여럿이면 공통 앞부분까지만 채우고 후보를 돌려준다.
+ * Tab 완성: 줄의 마지막 `;`(따옴표 밖) 뒤에서, 첫 낱말은 명령 이름으로, `-t`/`-s` 뒤나 템플릿·배치·색을 받는 명령의 인자는 그 목록으로 채운다.
+ * 후보가 하나면 끝에 빈칸을 붙인다. 여럿이면 공통 앞부분까지만 채우고 후보를 돌려준다. 따옴표 안의 글도 이어서 완성한다.
  */
 export function completeCommandLine(input: string, context: CompletionContext): Completion {
-  const semicolon = input.lastIndexOf(';')
-  const head = input.slice(0, semicolon + 1)
-  const segment = input.slice(semicolon + 1)
-  const lead = /^\s*/u.exec(segment)![0]
-  const body = segment.slice(lead.length)
-  const endsWithSpace = /\s$/u.test(body)
-  const words = body.split(/\s+/u).filter((word) => word !== '')
-  const current = endsWithSpace || words.length === 0 ? '' : words[words.length - 1]!
-  const before = endsWithSpace || words.length === 0 ? words : words.slice(0, -1)
-  const rebuild = (completed: string, close: boolean) => `${head}${lead}${[...before, completed].join(' ')}${close ? ' ' : ''}`
+  const { head, lead, words, typing } = scanLastCommand(input)
+  const last = typing ? words[words.length - 1] : undefined
+  const current = last?.value ?? ''
+  const open = last?.open ?? null
+  const done = typing ? words.slice(0, -1) : words
+  const before = done.map((word) => word.value)
+  const rebuild = (completed: string, close: boolean) => `${head}${lead}${[...done.map((word) => word.raw), completed].join(' ')}${close ? ' ' : ''}`
+  // 이름에 빈칸이 든 후보(「읽기 2」)는 따옴표로 감싼다(이미 연 따옴표가 있으면 그것을 이어 쓴다)
+  const spell = (word: string, close: boolean): string => {
+    const quote = open ?? (/\s|;/u.test(word) ? '"' : null)
+    if (quote === null) return word
+    return close ? `${quote}${word}${quote}` : `${quote}${word}`
+  }
 
   let pool: readonly string[] = []
   if (before.length === 0) {
@@ -110,7 +154,6 @@ export function completeCommandLine(input: string, context: CompletionContext): 
   const needle = current.toLocaleLowerCase()
   const candidates = pool.filter((word) => word.toLocaleLowerCase().startsWith(needle))
   if (candidates.length === 0) return { text: input, candidates: [] }
-  const text = candidates.length === 1 ? rebuild(candidates[0]!, !/\s/u.test(candidates[0]!)) : rebuild(commonPrefix(candidates), false)
-  // 이름에 빈칸이 든 후보(「읽기 2」)는 따옴표로 감싼다
-  return { text: candidates.length === 1 && /\s/u.test(candidates[0]!) ? rebuild(`"${candidates[0]!}"`, true) : text, candidates }
+  const text = candidates.length === 1 ? rebuild(spell(candidates[0]!, true), true) : rebuild(spell(commonPrefix(candidates), false), false)
+  return { text, candidates }
 }

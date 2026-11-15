@@ -119,4 +119,17 @@ describe('탭 완성', () => {
     expect(completeCommandLine('selectw -t 비', CONTEXT).text).toBe('selectw -t 비교 ')
     expect(completeCommandLine('neww -t 정', CONTEXT).text).toBe('neww -t 정리 ')
   })
+
+  it('따옴표 안의 ; 는 명령을 가르지 않는다', () => {
+    expect(completeCommandLine('open "a;sel', CONTEXT)).toEqual({ text: 'open "a;sel', candidates: [] })
+    expect(completeCommandLine('split-window ; sel', CONTEXT).text).toBe('split-window ; select-')
+    expect(completeCommandLine('open "a;b" ; rename-w', CONTEXT).text).toBe('open "a;b" ; rename-window ')
+  })
+
+  it('따옴표를 연 이름도 이어서 완성한다', () => {
+    const named = { ...CONTEXT, screenNames: ['읽기 2', '읽기 3', 'alpha'] }
+    expect(completeCommandLine('select-window "읽', named)).toEqual({ text: 'select-window "읽기 ', candidates: ['읽기 2', '읽기 3'] })
+    expect(completeCommandLine('select-window "읽기 2', named).text).toBe('select-window "읽기 2" ')
+    expect(completeCommandLine('select-window -t "읽기 2" ; select-window al', named).text).toBe('select-window -t "읽기 2" ; select-window alpha ')
+  })
 })
