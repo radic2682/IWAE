@@ -17,11 +17,11 @@ mod version;
 
 use args::{parse_mode, DemoFlags, Mode};
 use commands::{Backend, SetupState, UiMode};
-use install::{plan_fallback, run_fallback, run_install, InstallRequest};
+use install::{plan_fallback, run_fallback, InstallRequest};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 /// Same version as the main app (set by build.rs from the root package.json).
 const APP_VERSION: &str = env!("IWAE_APP_VERSION");
@@ -80,7 +80,18 @@ fn main() {
             let code = result.as_ref().map(commands::silent_exit_code).unwrap_or(1);
             std::process::exit(code);
         }
-        Mode::Install { demo } => start_install_mode(make_backend(&demo), demo.enabled, UiMode::Install, Vec::new(), current_exe),
+        Mode::Install { demo } => {
+            let backend = make_backend(&demo);
+            // Demo-only modes; the flags are never set in release builds.
+            if demo.enabled && demo.uninstall {
+                let dir = backend.demo_root.clone().unwrap_or_default().join("IWAE");
+                let lang = backend.startup_lang();
+                run_window(backend, UiMode::Uninstall, lang, Vec::new(), Some(dir), current_exe);
+            } else {
+                let mode = if demo.enabled && demo.update { UiMode::Update } else { UiMode::Install };
+                start_install_mode(backend, demo.enabled, mode, Vec::new(), current_exe);
+            }
+        }
         Mode::Update { app_args } => {
             start_install_mode(make_backend(&DemoFlags::default()), false, UiMode::Update, app_args, current_exe)
         }
@@ -119,12 +130,21 @@ fn run_window(
     let webview_dir = backend
         .temp
         .join(format!("iwae-setup-webview-{}", std::process::id()));
-    let state = SetupState::new(mode, lang, backend, app_args, fixed_dir, current_exe.clone());
+    let demo = backend.demo_root.is_some();
+    let state = SetupState::new(mode, lang, backend, app_args, fixed_dir);
 
     let setup_dir = webview_dir.clone();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(state)
+        .on_window_event(|window, event| {
+            // Closing mid-install or mid-uninstall would leave a half-done state.
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.state::<SetupState>().busy.load(std::sync::atomic::Ordering::SeqCst) {
+                    api.prevent_close();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_context,
             commands::set_lang,
@@ -143,7 +163,7 @@ fn run_window(
             // Created here (not in tauri.conf.json) so it can get its own WebView2 data folder.
             // Hidden until the UI calls `ready` after its first paint (no white flash).
             WebviewWindowBuilder::new(app.handle(), "main", WebviewUrl::App("index.html".into()))
-                .title(commands::window_title(mode, lang))
+                .title(commands::window_title(lang))
                 .inner_size(480.0, 320.0)
                 .resizable(false)
                 .center()
@@ -172,7 +192,7 @@ fn run_window(
     app.run(move |_app, event| {
         if let RunEvent::Exit = event {
             remove_webview_dir(&webview_dir);
-            if mode == UiMode::Uninstall {
+            if mode == UiMode::Uninstall && !demo {
                 // Our temp copy cannot delete itself while running.
                 uninstall::schedule_self_delete(&current_exe);
             }

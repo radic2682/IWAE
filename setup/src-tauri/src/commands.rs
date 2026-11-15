@@ -17,9 +17,7 @@ use crate::apprun::{
     close_and_wait, wait_for_exit, CloseOutcome, ProcessControl, CLOSE_TIMEOUT, POLL,
     UPDATE_EXIT_TIMEOUT,
 };
-use crate::install::{
-    self, pick_target, Env, FailReason, InstallEvent, InstallRequest,
-};
+use crate::install::{self, pick_target, Env, FailReason, InstallEvent, InstallRequest};
 use crate::lang::{default_lang, read_installer_language, windows_ui_language, Lang};
 use crate::nsis::NsisRunner;
 use crate::payload::ManifestEntry;
@@ -56,6 +54,8 @@ pub struct Backend {
     pub manifest: Vec<ManifestEntry>,
     pub nsis_exe: &'static [u8],
     pub uninstall_ui: &'static [u8],
+    /// Demo sandbox root (debug builds only); None for the real backend.
+    pub demo_root: Option<PathBuf>,
 }
 
 impl Backend {
@@ -92,6 +92,7 @@ impl Backend {
             manifest: crate::payload::manifest(),
             nsis_exe: crate::payload::nsis_bytes(),
             uninstall_ui: crate::payload::uninstall_ui_bytes(),
+            demo_root: None,
         }
     }
 
@@ -217,13 +218,22 @@ pub fn context_for(
     }
 }
 
-pub fn window_title(mode: UiMode, lang: Lang) -> &'static str {
-    match (mode, lang) {
-        (UiMode::Uninstall, Lang::Ko) => "IWAE 지우기",
-        (UiMode::Uninstall, Lang::En) => "IWAE Uninstall",
-        (_, Lang::Ko) => "IWAE 설치",
-        (_, Lang::En) => "IWAE Setup",
+/// Same title in every mode (install, update, uninstall).
+pub fn window_title(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Ko => "IWAE 설치",
+        Lang::En => "IWAE Setup",
     }
+}
+
+/// Demo only: where a user-picked install folder really goes, so the fake installer can never
+/// write into a real folder. The UI keeps showing the picked string.
+pub fn sandbox_dir(root: &Path, picked: &Path) -> PathBuf {
+    let leaf = picked
+        .file_name()
+        .map(|n| n.to_os_string())
+        .unwrap_or_else(|| OsString::from("IWAE"));
+    root.join("picked").join(leaf)
 }
 
 fn parse_lang(s: &str) -> Option<Lang> {
@@ -253,8 +263,8 @@ pub fn fail_reason_str(r: FailReason) -> &'static str {
         FailReason::Extract => "extract",
         FailReason::OldUninstall(_) => "oldUninstall",
         FailReason::Nsis(_) => "nsis",
-        // Only reachable in silent mode, where nothing is shown.
-        FailReason::Finish => "finish",
+        // Handled as done before this is called; never emitted.
+        FailReason::Finish => "extract",
     }
 }
 
@@ -302,7 +312,6 @@ pub struct SetupState {
     pub app_args: Vec<OsString>,
     /// Uninstall mode: the folder from `--uninstall-from-temp`.
     pub fixed_dir: Option<PathBuf>,
-    pub current_exe: PathBuf,
     pub install_dir: Mutex<Option<PathBuf>>,
     pub last_log: Mutex<Option<PathBuf>>,
 }
@@ -314,7 +323,6 @@ impl SetupState {
         backend: Backend,
         app_args: Vec<OsString>,
         fixed_dir: Option<PathBuf>,
-        current_exe: PathBuf,
     ) -> Self {
         SetupState {
             mode,
@@ -323,7 +331,6 @@ impl SetupState {
             busy: AtomicBool::new(false),
             app_args,
             fixed_dir,
-            current_exe,
             install_dir: Mutex::new(None),
             last_log: Mutex::new(None),
         }
@@ -402,7 +409,7 @@ pub fn set_lang(
     let l = parse_lang(&lang).ok_or_else(|| format!("unknown language: {lang}"))?;
     *state.lang.lock().unwrap() = l;
     window
-        .set_title(window_title(state.mode, l))
+        .set_title(window_title(l))
         .map_err(|e| e.to_string())
 }
 
@@ -453,7 +460,10 @@ pub fn start_install(app: AppHandle, dir: Option<String>) -> Result<(), String> 
     if !st.take_busy() {
         return Err("busy".to_string());
     }
-    let dir_override = dir.filter(|d| !d.trim().is_empty()).map(PathBuf::from);
+    let mut dir_override = dir.filter(|d| !d.trim().is_empty()).map(PathBuf::from);
+    if let (Some(root), Some(d)) = (&st.backend.demo_root, &dir_override) {
+        dir_override = Some(sandbox_dir(root, d));
+    }
     let worker = app.clone();
     thread::spawn(move || install_worker(worker, dir_override));
     Ok(())
@@ -624,7 +634,10 @@ pub fn show_log(state: State<'_, SetupState>) -> Result<(), String> {
 
 #[tauri::command]
 pub fn quit(app: AppHandle) {
-    app.exit(0);
+    // No quitting in the middle of an install or uninstall.
+    if !app.state::<SetupState>().busy.load(Ordering::SeqCst) {
+        app.exit(0);
+    }
 }
 
 /// The window is created hidden; the UI calls this after its first paint.
@@ -734,9 +747,23 @@ mod tests {
 
     #[test]
     fn titles_follow_language() {
-        assert_eq!(window_title(UiMode::Install, Lang::Ko), "IWAE 설치");
-        assert_eq!(window_title(UiMode::Update, Lang::En), "IWAE Setup");
-        assert_eq!(window_title(UiMode::Uninstall, Lang::En), "IWAE Uninstall");
+        assert_eq!(window_title(Lang::Ko), "IWAE 설치");
+        assert_eq!(window_title(Lang::En), "IWAE Setup");
+    }
+
+    #[test]
+    fn demo_sandbox_keeps_only_the_leaf() {
+        let root = Path::new(r"D:\demo-root");
+        assert_eq!(
+            sandbox_dir(root, Path::new(r"C:\Program Files\IWAE")),
+            PathBuf::from(r"D:\demo-root\picked\IWAE")
+        );
+        assert_eq!(
+            sandbox_dir(root, Path::new(r"E:\테스트 폴더\내 IWAE")),
+            PathBuf::from(r"D:\demo-root\picked\내 IWAE")
+        );
+        assert_eq!(sandbox_dir(root, Path::new(r"E:\")), PathBuf::from(r"D:\demo-root\picked\IWAE"));
+        assert!(sandbox_dir(root, Path::new(r"C:\Windows\System32")).starts_with(root));
     }
 
     #[test]

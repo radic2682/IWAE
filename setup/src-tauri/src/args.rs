@@ -10,6 +10,10 @@ pub struct DemoFlags {
     pub existing: Option<String>,
     pub running: bool,
     pub fail: bool,
+    /// Open the uninstall window on a fake install folder.
+    pub uninstall: bool,
+    /// Open the update window (installing straight away).
+    pub update: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -102,6 +106,12 @@ fn parse_demo(args: &[OsString]) -> DemoFlags {
         } else if t == "--demo-fail" {
             d.enabled = true;
             d.fail = true;
+        } else if t == "--demo-uninstall" {
+            d.enabled = true;
+            d.uninstall = true;
+        } else if t == "--demo-update" {
+            d.enabled = true;
+            d.update = true;
         }
     }
     d
@@ -190,6 +200,21 @@ mod tests {
     fn demo_ignored_in_release() {
         match parse_mode(&v(&["--demo"])) {
             Mode::Install { demo } => assert!(!demo.enabled),
+            other => panic!("unexpected {:?}", other),
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn demo_mode_flags_in_debug() {
+        match parse_mode(&v(&["--demo-uninstall"])) {
+            Mode::Install { demo } => assert!(demo.enabled && demo.uninstall && !demo.update),
+            other => panic!("unexpected {:?}", other),
+        }
+        match parse_mode(&v(&["--demo-update", "--demo-running"])) {
+            Mode::Install { demo } => {
+                assert!(demo.enabled && demo.update && demo.running && !demo.uninstall)
+            }
             other => panic!("unexpected {:?}", other),
         }
     }
