@@ -261,7 +261,6 @@ export function PaneToolbar({
             aria-haspopup="menu"
             aria-expanded={drawMenu !== null}
             onClick={(event) => {
-              event.currentTarget.blur()
               const rect = event.currentTarget.parentElement?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect()
               setDrawMenu(drawMenu === null ? { x: rect.left, y: rect.bottom + 6 } : null)
             }}
@@ -276,6 +275,7 @@ export function PaneToolbar({
           x={drawMenu.x}
           y={drawMenu.y}
           label={t('그리기')}
+          autoFocus
           onClose={() => setDrawMenu(null)}
           entries={[
             { key: 'title', note: t('그리기') },
