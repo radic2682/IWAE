@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.2.3" src="https://img.shields.io/badge/version-0.2.3-2563eb">
+  <img alt="Version 0.2.4" src="https://img.shields.io/badge/version-0.2.4-2563eb">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca">
   <img alt="Platform: Windows (macOS coming soon)" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20soon-0078d4">
@@ -114,7 +114,7 @@ PDF 뷰어는 대개 파일을 하나씩 열 뿐이고, 정리는 탐색기에 �
 
 ### 원문과 이어진 노트
 
-노트는 블록으로 이루어지고, 한 노트에 여러 PDF·Markdown의 메모를 섞을 수 있습니다. 노트도 탭이라 자기 칸에서 따로 스크롤되고, 자기만의 확대 배율이 있습니다. 메모 블록은 다른 노트 칸으로 끌어 옮길 수 있고, `Alt`를 누른 채 놓으면 링크됩니다. `Ctrl+Shift+M`은 문서 옆 칸에 노트를 열고 닫습니다. 메모, Markdown·PDF 글 상자, 캔버스 글은 서식바 하나를 함께 씁니다. 서식바 왼쪽 손잡이를 끌면 띄우고, 다시 붙이고, 가운데로 놓을 수 있습니다.
+노트는 블록으로 이루어지고, 한 노트에 여러 PDF·Markdown의 메모를 섞을 수 있습니다. 노트도 탭이라 자기 칸에서 따로 스크롤되고, 자기만의 확대 배율이 있습니다. 메모 블록은 다른 노트 칸으로 끌어 옮길 수 있고, `Alt`를 누른 채 놓으면 링크됩니다. `Ctrl+Shift+M`은 문서 옆 칸에 노트를 열고 닫습니다. 메모, Markdown·PDF 글 상자, 캔버스 글은 서식바 하나를 함께 씁니다. 맨 위 줄 도구 맨 왼쪽의 손잡이를 끌면 PDF·Markdown·노트 도구줄이 통째로 떠서, 다시 붙일 때까지 그 자리에 있습니다.
 
 <p align="center">
   <img src="docs/images/memo-drag.ko.gif" width="900" alt="노트 칸 두 개를 나란히 놓고, 메모 카드를 다른 노트로 끌어 놓는 선을 보며 옮기고, 다른 카드는 Alt를 누른 채 끌어 링크 배지가 붙는 모습">

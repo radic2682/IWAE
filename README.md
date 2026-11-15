@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.2.3" src="https://img.shields.io/badge/version-0.2.3-2563eb">
+  <img alt="Version 0.2.4" src="https://img.shields.io/badge/version-0.2.4-2563eb">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca">
   <img alt="Platform: Windows (macOS coming soon)" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20soon-0078d4">
@@ -114,7 +114,7 @@ Box a chart or table to add it to the note as an image, with your description:
 
 ### Notes that stay linked
 
-A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. A note is a tab like any other, so it opens in its own pane, scrolls on its own and has its own zoom. Drag memo blocks onto another note pane to move them, or hold `Alt` when you drop to link them. `Ctrl+Shift+M` opens or closes a note beside the document. Memos, Markdown and PDF text boxes, and canvas text share one **format bar**; the grip on its left floats it, docks it back or centres it.
+A note is built from blocks, and one note can mix memos from several PDFs and Markdown files. A note is a tab like any other, so it opens in its own pane, scrolls on its own and has its own zoom. Drag memo blocks onto another note pane to move them, or hold `Alt` when you drop to link them. `Ctrl+Shift+M` opens or closes a note beside the document. Memos, Markdown and PDF text boxes, and canvas text share one **format bar**. The grip at the far left of the top bar tools floats the whole toolbar, for PDFs, Markdown and notes alike, and it stays where you put it until you dock it back.
 
 <p align="center">
   <img src="docs/images/memo-drag.gif" width="900" alt="Two note panes side by side: dragging a memo card into the other note with a drop line, then Alt-dragging another card to link it, marked with a link badge">
