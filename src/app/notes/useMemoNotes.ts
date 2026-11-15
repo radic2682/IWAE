@@ -140,6 +140,23 @@ export function useMemoNotes(
   onErrorRef.current = onError
   const onMovedRef = useRef(onMoved)
   onMovedRef.current = onMoved
+  /** 이름을 바꾸거나 옮기기 전 경로 → 지금 경로. 되돌리기 기록이 옛 경로를 쥐고 있어도 같은 노트를 찾는다 */
+  const movedFromRef = useRef(new Map<string, string>())
+  const rememberMoved = (moved: ReadonlyMap<string, string>) => {
+    for (const [from, to] of moved) {
+      movedFromRef.current.delete(to)
+      movedFromRef.current.set(from, to)
+    }
+  }
+  const currentPathOf = (path: string): string => {
+    let current = path
+    for (let hops = 0; hops < 20 && !notesRef.current.has(current); hops += 1) {
+      const next = movedFromRef.current.get(current)
+      if (next === undefined) break
+      current = next
+    }
+    return current
+  }
 
   // Vault 를 열면 노트를 모두 읽는다
   useEffect(() => {
@@ -397,8 +414,8 @@ export function useMemoNotes(
     if (before !== undefined && before !== note) {
       recordUndo({
         key: `note:${path}`,
-        undo: () => { const current = notesRef.current.get(path); if (current !== undefined) writeNote(path, applySnapshotChange(note, before, current)) },
-        redo: () => { const current = notesRef.current.get(path); if (current !== undefined) writeNote(path, applySnapshotChange(before, note, current)) },
+        undo: () => { const at = currentPathOf(path); const current = notesRef.current.get(at); if (current !== undefined) writeNote(at, applySnapshotChange(note, before, current)) },
+        redo: () => { const at = currentPathOf(path); const current = notesRef.current.get(at); if (current !== undefined) writeNote(at, applySnapshotChange(before, note, current)) },
       })
     }
     writeNote(path, note)
@@ -538,6 +555,7 @@ export function useMemoNotes(
   /** 바뀐 경로대로 노트 목록·폴더·열린 노트를 고친다 */
   const applyMoved = useCallback((moved: ReadonlyMap<string, string>) => {
     if (moved.size === 0) return
+    rememberMoved(moved)
     const map = new Map<string, MemoNote>()
     for (const [key, value] of notesRef.current) map.set(moved.get(key) ?? key, value)
     notesRef.current = map
@@ -626,6 +644,7 @@ export function useMemoNotes(
     assertNoConflict([path])
     await flushPending([path])
     await renameMemoNote(vault, path, next)
+    rememberMoved(new Map([[path, next]]))
     applyNotes((current) => {
       const map = new Map<string, MemoNote>()
       for (const [key, value] of current) map.set(key === path ? next : key, value)
