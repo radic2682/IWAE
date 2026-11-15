@@ -275,6 +275,7 @@ export const GROUP_4: Readonly<Record<string, string>> = {
   'Vault를 열면 백업과 복구 기록을 확인할 수 있습니다.': 'Open a vault to see backups and recovery history.',
   '다른 프로그램이 노트를 바꿔 다시 불러왔습니다': 'Another program changed this note, so it was reloaded',
   '{name} (충돌 사본)': '{name} (conflict copy)',
+  '다른 프로그램이 바꾼 글을 아래에 함께 남겼습니다.': 'Kept the text another program changed below yours.',
   '내 변경은 「{name}」 노트로 따로 저장했습니다': 'Your changes were saved separately as the note "{name}"',
   '다른 프로그램이 바꾼 파일을 읽을 수 없습니다. 「내 것으로 덮어쓰기」를 고르거나 파일을 고친 뒤 다시 시도하세요.': 'The file changed by another program cannot be read. Choose "Overwrite with mine" or fix the file and try again.',
   '이 노트는 다른 프로그램이 바꾼 내용과 충돌해 저장하지 않았습니다. 어느 쪽을 남길지 먼저 정하세요.': 'This note conflicts with changes made by another program, so it was not saved. Decide which version to keep first.',

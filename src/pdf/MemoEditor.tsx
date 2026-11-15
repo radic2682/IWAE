@@ -3,6 +3,7 @@ import { Table } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { restoreInlineStyles } from '../app/runtimeStyle'
 import { registerEditorFlusher } from '../app/editorFlush'
+import { announceAction } from '../app/actionFeedback'
 import { isOpenableUrl, requestExternalLink } from '../bridge/external'
 import { useHasTopBarSlot } from '../app/topBarToolbar'
 import { hasMemoFormatting, literalHtmlIfNeeded, memoDisplayHtml, plainMemoTextToHtml, sanitizeMemoHtml, togglePlainCheck } from './memoRichText'
@@ -308,6 +309,7 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
     baselineRef.current = external.text
     if (external.text === mine.text) return mine
     const html = mine.html === '' && external.html === '' ? '' : sanitizeMemoHtml(`${memoDisplayHtml(mine.text, mine.html)}${memoDisplayHtml(external.text, external.html)}`)
+    announceAction(t('다른 프로그램이 바꾼 글을 아래에 함께 남겼습니다.'))
     return { text: mine.text + '\n\n' + external.text, html }
   }
 

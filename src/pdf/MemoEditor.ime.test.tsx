@@ -45,3 +45,19 @@ describe('MemoEditor when the stored text changes while typing', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('MemoEditor keep-both notice', () => {
+  it('announces when the external text is kept below the typed text', async () => {
+    const heard: string[] = []
+    const listen = (event: Event) => heard.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:action-feedback', listen)
+    const { getByRole, rerender } = render(<MemoEditor initialText="old" onSave={vi.fn()} onCancel={vi.fn()} />)
+    const editor = getByRole('textbox')
+    editor.textContent = 'mine'
+    rerender(<MemoEditor initialText="theirs" onSave={vi.fn()} onCancel={vi.fn()} />)
+    await Promise.resolve()
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
+    window.removeEventListener('iwae:action-feedback', listen)
+    expect(heard).toHaveLength(1)
+  })
+})
