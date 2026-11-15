@@ -1,3 +1,4 @@
+import { floatingExtraWidth } from '../../ui/format/floatingToolbar'
 import { useContext, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Printer, LinkSimple, StackSimple, CaretDown, Copy, DotsThree, SquaresFour, GithubLogo, ArrowsClockwise, DownloadSimple, ClockCounterClockwise, ArrowSquareOut } from '@phosphor-icons/react'
@@ -184,20 +185,25 @@ export function PaneToolbar({
   useLayoutEffect(() => {
     const bar = leftRef.current?.parentElement
     if (bar == null) return
-    if (bar.scrollWidth > bar.clientWidth + 1 && overflowLevel < 3) {
+    // 떠 있는 도구줄 카드는 내용 폭만큼만 차지하므로, 카드가 더 커질 수 있는 만큼(extra)까지가 쓸 수 있는 폭이다
+    const extra = floatingExtraWidth(bar)
+    if (bar.scrollWidth > bar.clientWidth + extra + 1 && overflowLevel < 3) {
       needWidthRef.current[overflowLevel] = bar.scrollWidth
       setOverflowLevel(overflowLevel + 1)
       return
     }
     const need = needWidthRef.current[overflowLevel - 1]
-    if (overflowLevel > 0 && need !== undefined && bar.clientWidth >= need) setOverflowLevel(overflowLevel - 1)
+    if (overflowLevel > 0 && need !== undefined && bar.clientWidth + extra >= need) setOverflowLevel(overflowLevel - 1)
   })
   useEffect(() => {
     const bar = leftRef.current?.parentElement
     if (bar == null || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => setResizeTick((tick) => tick + 1))
+    const bump = () => setResizeTick((tick) => tick + 1)
+    const observer = new ResizeObserver(bump)
     observer.observe(bar)
-    return () => observer.disconnect()
+    // 떠 있는 카드는 창이 넓어져도 자기 폭이 그대로라 위 관찰이 못 알아챈다
+    window.addEventListener('resize', bump)
+    return () => { observer.disconnect(); window.removeEventListener('resize', bump) }
   }, [])
   useEffect(() => {
     if (moreOpen === null) return

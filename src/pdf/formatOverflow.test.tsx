@@ -47,6 +47,22 @@ describe('서식 줄 용량: 나중에 생긴 곁의 묶음도 다시 잰다', (
     await waitFor(() => expect(moreButton()).toBeNull())
   })
 
+  it('자리가 첫 묶음 + 「⋯」 에도 모자라면(0 이하여도) 「⋯」 만 남기고 묶음은 모두 메뉴로 간다 — 줄 상자 밖으로 넘쳐 곁의 단추와 겹치지 않는다', async () => {
+    const { container } = render(<div className="note-format-dock"><MemoFormatBar onCommand={vi.fn()} /></div>)
+    expect(moreButton()).toBeNull()
+    const dock = container.querySelector<HTMLElement>('.note-format-dock')!
+    const side = document.createElement('div')
+    side.dataset.w = '700'
+    await act(async () => { dock.append(side) })
+    await waitFor(() => expect(moreButton()).not.toBeNull())
+    expect(container.querySelectorAll('.format-bar > [data-cluster]')).toHaveLength(0)
+    expect(container.querySelector('.format-bar')?.className).toContain('format-bar-folded')
+    // 자리가 다시 생기면 다시 펼친다
+    await act(async () => { side.remove() })
+    await waitFor(() => expect(moreButton()).toBeNull())
+    expect(container.querySelector('.format-bar')?.className).not.toContain('format-bar-folded')
+  })
+
   it('크기 관찰자가 알려 오지 않아도 렌더마다 재지 않는다: 같은 값으로 다시 그려도 재는 일이 늘지 않는다', () => {
     const view = render(<div className="note-format-dock"><MemoFormatBar onCommand={vi.fn()} /></div>)
     const rect = vi.mocked(HTMLElement.prototype.getBoundingClientRect)

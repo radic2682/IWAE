@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { cssRules, cssSource, rulesMatching } from '../app/cssRules.testutil'
@@ -42,6 +42,21 @@ describe('formatCapacity — 서식 줄이 쓸 수 있는 폭', () => {
     const narrow = formatCapacity(bar)
     setWidth(dock, 900)
     expect(formatCapacity(bar)).toBe(narrow + 400)
+  })
+
+  it('떠 있는 도구줄 카드 안에서는 카드가 더 커질 수 있는 폭(창 − 16px − 카드 폭)을 쓸 수 있는 폭에 더한다: 접어서 카드가 줄어도 창이 넓으면 다시 펼쳐진다', () => {
+    document.body.innerHTML = '<div class="topbar-toolbar-host" data-floating=""><div class="note-format-dock"><div class="note-format-slot"><div class="bar"></div></div></div></div>'
+    const card = document.querySelector<HTMLElement>('.topbar-toolbar-host')!
+    const dock = document.querySelector<HTMLElement>('.note-format-dock')!
+    const bar = document.querySelector<HTMLElement>('.bar')!
+    setWidth(dock, 200)
+    setWidth(card, 260)
+    vi.stubGlobal('innerWidth', 1000)
+    // 200 + (1000 − 16 − 260) − 1(여유) = 923 (붙어 있을 때는 200 − 1 = 199)
+    expect(formatCapacity(bar)).toBe(923)
+    card.removeAttribute('data-floating')
+    expect(formatCapacity(bar)).toBe(199)
+    vi.unstubAllGlobals()
   })
 
   it('소수 폭을 그대로 더한다: 반올림한 offsetWidth 가 아니라 실제 폭(110.4)과 도구줄 폭(600.5)으로 잰다', () => {

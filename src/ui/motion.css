@@ -169,3 +169,6 @@ li[role='treeitem'][aria-expanded='false'] > .side-item:focus .side-tree-chevron
 
 /* 상단바 도구줄의 도구 단추: 색 · 바탕만 120ms 로 바뀐다(움직임 없음) */
 .topbar-toolbar-host .pdf-compact-tool { transition: color 0.12s ease, background-color 0.12s ease; }
+/* 떼어 낸 도구줄 카드: 나타날 때 120ms 불투명도 페이드(떠 있던 서식 줄과 같다). 끄는 동안은 없다. 줄어든 움직임 설정이면 위 전역 규칙이 없앤다 */
+.topbar-toolbar-host[data-floating] { animation: motion-fade-in 120ms ease-out backwards; }
+.topbar-toolbar-host[data-floating][data-dragging] { animation: none; }

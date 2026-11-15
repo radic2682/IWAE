@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   CaretDown,
+  DotsSixVertical,
   ImagesSquare, MagnifyingGlass,
   ListBullets,
+  PushPin,
   SidebarSimple,
   TreeStructure,
   Toolbox,
@@ -19,6 +21,7 @@ import { TranslatorContext } from './translation/translatorContext'
 import { toggleTranslatorWindow, useTranslatorWindow } from './translation/translatorPanelState'
 import { FilePdf, FileText, NotePencil } from '@phosphor-icons/react'
 import { useToolbarClusterOutline, type ToolbarOwner } from './topBarToolbar'
+import { useToolbarFloat } from './toolbarFloat'
 import '../ui/screens.css'
 import { t } from '../i18n'
 
@@ -94,6 +97,10 @@ export function TopBar({
   const translatorWindow = useTranslatorWindow()
   const toolbarHostRef = useRef<HTMLDivElement | null>(null)
   useToolbarClusterOutline(toolbarHostRef, toolbarOwner !== null)
+  // 도구줄 묶음(손잡이 · 주인 칩 · 도구)을 떼어 내는 일: 자리 하나를 모든 칸이 같이 쓴다. 떠 있는 동안 상단바에는 점선 자리 틀(dockRef)이 남는다
+  const toolbarGripRef = useRef<HTMLButtonElement | null>(null)
+  const toolbarDockRef = useRef<HTMLDivElement | null>(null)
+  const toolbarFloat = useToolbarFloat(toolbarHostRef, toolbarGripRef, toolbarDockRef)
   const [sessionMenu, setSessionMenu] = useState<{ left: number; top: number } | null>(null)
   const sessionRef = useRef<HTMLButtonElement | null>(null)
   // 접두키 + s: 세션 메뉴를 연다
@@ -227,10 +234,32 @@ export function TopBar({
           />
         )}
         {/* 지금 만지는 칸의 도구줄(MD · PDF 도구 · 노트 서식 줄). 남는 폭을 다 쓰고, 모자라면 도구줄이 스스로 「⋯」 로 접는다.
+            맨 앞의 손잡이(묶음 맨 왼쪽, 주인 칩 앞)를 끌면 묶음 전체가 떠 있는 카드가 된다(이 요소 자신이 카드가 되고, 상단바에는 자리 틀이 남는다 — 칸들이 도구를 넣는 자리 요소는 그대로다).
             앞의 주인 칩(색 점 · 칸 번호 · 문서 종류)은 어느 칸의 도구인지 보이고, 도구 단추 규칙은 이 자리의 자기 규칙(.topbar-toolbar-host …)이다 */}
-        <div ref={toolbarHostRef} className="topbar-toolbar-host" data-tour="toolbar" data-tauri-drag-region="deep" data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}>
-          {/* 서식 줄 손잡이 자리: 서식 줄이 상단바에 붙어 있으면 손잡이가 포털로 여기(묶음 맨 왼쪽, 주인 칩 앞)에 앉는다. 비면 폭이 없다 */}
-          <span className="topbar-grip-slot" />
+        <div
+          ref={toolbarHostRef}
+          className="topbar-toolbar-host"
+          data-tour="toolbar"
+          // 떠 있는 카드는 창 끌기 자리가 아니다("false": 바깥 줄의 deep 이 카드까지 내려오지 않게)
+          data-tauri-drag-region={toolbarFloat.floating ? 'false' : 'deep'}
+          data-owner={toolbarOwner === null ? undefined : toolbarOwner.kind}
+          data-floating={toolbarFloat.floating ? '' : undefined}
+          data-dragging={toolbarFloat.dragging ? '' : undefined}
+        >
+          {toolbarOwner === null ? null : (
+            <button
+              ref={toolbarGripRef}
+              type="button"
+              className="format-bar-grip topbar-toolbar-grip"
+              aria-label={t('도구줄 옮기기')}
+              title={t('도구줄 옮기기')}
+              onPointerDown={toolbarFloat.onGripPointerDown}
+              onKeyDown={toolbarFloat.onGripKeyDown}
+              onClick={(event) => event.preventDefault()}
+            >
+              <DotsSixVertical size={16} weight="bold" aria-hidden="true" />
+            </button>
+          )}
           {toolbarOwner === null ? null : (
             <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 현재 선택한 칸에 적용됩니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />
@@ -239,7 +268,26 @@ export function TopBar({
             </span>
           )}
           <div className="pane-toolbar topbar-toolbar-slot" ref={toolbarSlotRef} />
+          {toolbarFloat.floating && toolbarOwner !== null ? (
+            <button
+              type="button"
+              className="format-bar-btn topbar-toolbar-dock-btn"
+              aria-label={t('도구줄 붙이기')}
+              title={t('도구줄 붙이기')}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={toolbarFloat.dock}
+            >
+              <PushPin size={16} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
+        {toolbarFloat.floating ? (
+          // 떠 있는 동안 상단바에 남는 자리 틀: 남는 폭을 그대로 차지해 뒤의 것들(상태 칩 · 번역기)이 밀리지 않고, 다시 붙일 곳을 점선으로 보인다
+          <div ref={toolbarDockRef} className="topbar-toolbar-placeholder" data-tauri-drag-region="deep" data-owned={toolbarOwner === null ? undefined : ''} />
+        ) : null}
+        {toolbarFloat.snap === null ? null : (
+          <div className="format-bar-snap" style={{ left: toolbarFloat.snap.left, top: toolbarFloat.snap.top, width: toolbarFloat.snap.width, height: toolbarFloat.snap.height }} />
+        )}
         {statusChip}
         {translatorService === null ? null : (
           <div className="topbar-app-group" role="group" aria-label={t('앱')}>

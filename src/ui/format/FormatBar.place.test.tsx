@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { FormatBar } from './FormatBar'
 import { getPlace, resetPlacesForTest, setPlace } from './formatBarPlace'
 
@@ -8,6 +8,8 @@ beforeEach(() => resetPlacesForTest())
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 const bar = (kind: 'notes' | 'canvas' | 'textbox' = 'notes') => <FormatBar label="서식" hostKind={kind} marks={{ bold: { onToggle: vi.fn() } }} />
+/** 주인 종류를 안 넘긴 줄(앱의 노트 서식 줄과 같다): 놓인 자리를 보고 종류를 알아낸다 */
+const detectedBar = () => <FormatBar label="서식" marks={{ bold: { onToggle: vi.fn() } }} />
 const grip = () => screen.getByRole('button', { name: '서식바 옮기기' })
 
 describe('FormatBar — 손잡이', () => {
@@ -69,54 +71,41 @@ describe('FormatBar — 손잡이', () => {
   })
 })
 
-/** 상단바 도구줄 자리의 모양: 손잡이 자리(.topbar-grip-slot) · 주인 칩 · 서식 줄이 앉는 자리 */
-const topBarHost = () => (
-  <div className="topbar-toolbar-host" data-testid="host">
-    <span className="topbar-grip-slot" data-testid="grip-slot" />
+/** 상단바 도구줄 자리의 모양: 손잡이(상단바가 가진다) · 주인 칩 · 서식 줄이 앉는 자리 */
+const topBarHost = (floating = false) => (
+  <div className="topbar-toolbar-host" data-testid="host" data-floating={floating ? '' : undefined}>
     <span className="topbar-owner-chip" />
-    <div className="pane-toolbar topbar-toolbar-slot"><div className="note-format-dock">{bar()}</div></div>
+    <div className="pane-toolbar topbar-toolbar-slot"><div className="note-format-dock">{detectedBar()}</div></div>
   </div>
 )
 
-describe('FormatBar — 상단바에 붙으면 손잡이는 도구 묶음 맨 왼쪽', () => {
-  it('붙어 있으면 손잡이가 줄 안이 아니라 손잡이 자리(주인 칩 앞)에 있고 줄의 첫 자식은 묶음이다', () => {
+describe('FormatBar — 상단바 도구줄 안에서는 손잡이도 자기 자리도 없다(상단바의 묶음 손잡이가 대신한다)', () => {
+  it('줄에도 손잡이 자리에도 서식바 손잡이가 없고, 줄의 첫 자식은 묶음이다', () => {
     render(topBarHost())
-    const slot = screen.getByTestId('grip-slot')
-    expect(within(slot).getByRole('button', { name: '서식바 옮기기' })).toBe(grip())
-    expect(screen.getByRole('toolbar', { name: '서식' }).contains(grip())).toBe(false)
+    expect(screen.queryByRole('button', { name: '서식바 옮기기' })).toBeNull()
     expect(screen.getByRole('toolbar', { name: '서식' }).firstElementChild?.classList.contains('format-bar-cluster')).toBe(true)
-    expect(slot.nextElementSibling?.classList.contains('topbar-owner-chip')).toBe(true)
-    expect(screen.getAllByRole('button', { name: '서식바 옮기기' })).toHaveLength(1)
   })
 
-  it('가운데 붙음에서도 손잡이는 맨 왼쪽 자리에 남는다', () => {
+  it('도구줄 묶음이 떠 있어도(카드) 줄은 카드 안에서 그냥 묶음을 그린다: 자기 떠 있는 카드도 붙이기 단추도 없다', () => {
+    setPlace('toolbar', { mode: 'float', x: 100, y: 100 })
+    setPlace('notes', { mode: 'float', x: 10, y: 10 })
+    render(topBarHost(true))
+    expect(document.querySelector('.format-bar-float')).toBeNull()
+    expect(screen.queryByRole('button', { name: '서식바 붙이기' })).toBeNull()
+    expect(screen.getByRole('toolbar', { name: '서식' }).className).not.toContain('format-bar-floating')
+  })
+
+  it('가운데 붙음 저장값이 있어도 상단바 안에서는 가운데로 가지 않는다', () => {
     setPlace('notes', { mode: 'center' })
+    setPlace('toolbar', { mode: 'center' })
     render(topBarHost())
-    expect(within(screen.getByTestId('grip-slot')).getByRole('button', { name: '서식바 옮기기' })).toBe(grip())
-    expect(screen.getByRole('toolbar', { name: '서식' }).className).toContain('format-bar-center')
+    expect(screen.getByRole('toolbar', { name: '서식' }).className).not.toContain('format-bar-center')
   })
 
-  it('손잡이 자리의 손잡이도 같은 동작을 한다: 누를 때 초점을 가져오지 않고, Enter 로 뜨면 손잡이가 줄 안으로 돌아오고 자리는 비며, 다시 Enter 로 붙으면 자리로 간다', () => {
-    render(topBarHost())
-    expect(fireEvent.pointerDown(grip(), { button: 0 })).toBe(false)
-    fireEvent.pointerUp(window)
-    fireEvent.keyDown(grip(), { key: 'Enter' })
-    expect(getPlace('notes').mode).toBe('float')
-    expect(screen.getByTestId('grip-slot').childNodes.length).toBe(0)
-    const floating = document.querySelector('.format-bar-float') as HTMLElement
-    expect(floating.querySelector('.format-bar')?.firstElementChild).toBe(grip())
-    fireEvent.keyDown(grip(), { key: 'Enter' })
-    expect(getPlace('notes').mode).toBe('left')
-    expect(within(screen.getByTestId('grip-slot')).getByRole('button', { name: '서식바 옮기기' })).toBe(grip())
-    expect(document.activeElement).toBe(grip())
-  })
-
-  it('끌어 떼면 손잡이가 줄 안으로 돌아온다(손잡이 자리는 비어 폭이 없다)', () => {
-    render(topBarHost())
-    fireEvent.pointerDown(grip(), { button: 0, clientX: 50, clientY: 20 })
-    fireEvent.pointerMove(window, { clientX: 300, clientY: 400 })
-    expect(screen.getByTestId('grip-slot').childNodes.length).toBe(0)
-    expect(document.querySelector('.format-bar-float .format-bar')?.firstElementChild).toBe(grip())
-    fireEvent.pointerUp(window, { clientX: 300, clientY: 400 })
+  it('상단바 밖의 같은 줄(종류 notes)은 그대로 손잡이가 있고 뜬다', () => {
+    setPlace('toolbar', { mode: 'float', x: 5, y: 5 })
+    render(bar('notes'))
+    expect(grip()).toBeDefined()
+    expect(screen.queryByRole('button', { name: '서식바 붙이기' })).toBeNull()
   })
 })

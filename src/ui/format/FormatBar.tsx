@@ -11,6 +11,7 @@ import { fitMenuInViewport } from '../fitMenu'
 import { t } from '../../i18n'
 import type { FormatHostKind } from './formatBarPlace'
 import { useFormatBarPlace } from './useFormatBarPlace'
+import { floatingExtraWidth } from './floatingToolbar'
 
 /**
  * 서식 줄 하나(노트 메모 · 캔버스 글 블록 · PDF/MD 글 상자 · 박스 메모가 같이 쓴다).
@@ -419,11 +420,15 @@ export function formatCapacity(bar: HTMLElement): number {
     const own = getComputedStyle(child)
     beside += child.getBoundingClientRect().width + number(own.marginLeft) + number(own.marginRight)
   }
-  const inner = host.getBoundingClientRect().width - number(style.paddingLeft) - number(style.paddingRight)
+  // 떠 있는 도구줄 카드는 내용 폭만큼만 차지한다(접으면 카드가 줄어 접는 자리도 줄어든다): 카드가 더 커질 수 있는 만큼을 쓸 수 있는 폭에 더한다
+  const inner = host.getBoundingClientRect().width + floatingExtraWidth(bar) - number(style.paddingLeft) - number(style.paddingRight)
   return inner - beside - number(getComputedStyle(bar).marginLeft) - FORMAT_SLACK_PX
 }
 
-/** 묶음 폭들(앞에서부터)이 capacity 안에 몇 개 들어가는가. 다 안 들어가면 「⋯」 자리(moreWidth)를 남기고, 첫 묶음은 늘 남긴다 */
+/**
+ * 묶음 폭들(앞에서부터)이 capacity 안에 몇 개 들어가는가. 다 안 들어가면 「⋯」 자리(moreWidth)를 남긴다.
+ * 첫 묶음과 「⋯」 이 함께 들어갈 자리도 없으면 0 — 「⋯」 만 남고 묶음은 모두 메뉴로 간다(좁은 줄에서 묶음이 곁의 단추 위로 넘치지 않게).
+ */
 export function fitFormatClusters(widths: readonly number[], capacity: number, moreWidth: number): number {
   const all = widths.reduce((sum, width) => sum + width, 0)
   if (all <= capacity) return widths.length
@@ -434,11 +439,11 @@ export function fitFormatClusters(widths: readonly number[], capacity: number, m
     used += width
     count += 1
   }
-  return Math.max(count, 1)
+  return count
 }
 
 /**
- * 접는 자리 안의 서식 줄은 늘 한 줄이다: 폭이 모자라면 뒤쪽 묶음부터 「⋯」 메뉴로 옮긴다. 첫 묶음과 「⋯」 은 늘 줄에 있다.
+ * 접는 자리 안의 서식 줄은 늘 한 줄이다: 폭이 모자라면 뒤쪽 묶음부터 「⋯」 메뉴로 옮긴다(자리가 첫 묶음 + 「⋯」 에도 모자라면 「⋯」 만 남는다).
  * 묶음 폭은 줄에 있을 때 재어 두고(처음엔 모두 줄에 그린다) 그 폭으로 몇 개가 들어가는지 정한다. 접는 자리 밖의 서식 줄은 건드리지 않는다.
  */
 function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number, floating: boolean, gripWidth: number): [number, boolean, Dispatch<SetStateAction<boolean>>] {
@@ -476,7 +481,9 @@ function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number, 
     const mutation = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { observeAll(); bump() })
     if (host !== null) mutation?.observe(host, { childList: true })
     mutation?.observe(bar, { childList: true })
-    return () => { resize?.disconnect(); mutation?.disconnect() }
+    // 떠 있는 도구줄 카드는 창이 넓어져도 자기 크기가 그대로라 위 관찰이 못 알아챈다: 창 크기를 직접 본다
+    window.addEventListener('resize', bump)
+    return () => { resize?.disconnect(); mutation?.disconnect(); window.removeEventListener('resize', bump) }
   }, [barRef, floating])
   // 재는 것은 필요할 때만: 크기 · 구성이 바뀌어 tick 이 오르거나, 보이는 묶음 수 · 전체 수가 바뀔 때(렌더마다 재지 않는다)
   useLayoutEffect(() => {
@@ -492,8 +499,9 @@ function useFormatFold(barRef: RefObject<HTMLDivElement | null>, total: number, 
     widths.current.length = total
     const capacity = formatCapacity(bar)
     const known = widths.current
-    if (capacity <= 0 || known.length < total || known.some((width) => !(width > 0))) return
-    const next = fitFormatClusters(known, capacity - gripWidth, FORMAT_MORE_W)
+    if (known.length < total || known.some((width) => !(width > 0))) return
+    // 자리가 0 이하여도(상단바가 아주 좁다) 접는다: 모두 줄에 두면 묶음이 곁의 단추 위로 넘친다
+    const next = fitFormatClusters(known, Math.max(capacity - gripWidth, 0), FORMAT_MORE_W)
     if (next !== visible) setVisible(next)
   }, [barRef, tick, visible, total, floating, gripWidth])
   return [visible, moreOpen, setMoreOpen]
@@ -507,20 +515,8 @@ export function FormatBar(props: FormatBarProps) {
   const floatRef = useRef<HTMLDivElement | null>(null)
   const gripRef = useRef<HTMLButtonElement | null>(null)
   const placed = useFormatBarPlace(props.hostKind, barRef, anchorRef, floatRef, gripRef)
-  // 상단바에 붙어 있으면 손잡이는 줄 안이 아니라 상단바 도구 묶음의 맨 왼쪽(주인 칩 앞) 자리로 포털로 옮겨 앉는다(떠 있을 때는 줄 안 그대로)
-  const [gripSlot, setGripSlot] = useState<HTMLElement | null>(null)
-  const regrip = useRef(false)
-  useLayoutEffect(() => {
-    const next = placed.floating ? null : barRef.current?.closest('.topbar-toolbar-host')?.querySelector<HTMLElement>(':scope > .topbar-grip-slot') ?? null
-    if (next === gripSlot) return
-    if (document.activeElement === gripRef.current) regrip.current = true
-    setGripSlot(next)
-  })
-  useLayoutEffect(() => {
-    if (!regrip.current) return
-    regrip.current = false
-    gripRef.current?.focus()
-  }, [gripSlot])
+  // 상단바 도구줄 안이면 손잡이는 상단바가 가진다(묶음 맨 왼쪽, 주인 칩 앞: TopBar). 이 줄은 손잡이도 자기 자리도 없이 묶음만 그린다
+  const inTopBar = placed.kind === 'toolbar'
   const moreRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const run = (action: () => void) => () => {
@@ -610,7 +606,7 @@ export function FormatBar(props: FormatBarProps) {
   ].map((cluster, index) => (
     <span key={cluster.key} className="format-bar-cluster" data-cluster={index} data-group={cluster.group}>{cluster.node}</span>
   ))
-  const [visible, moreOpen, setMoreOpen] = useFormatFold(barRef, clusters.length, placed.floating, gripSlot === null ? FORMAT_GRIP_W : 0)
+  const [visible, moreOpen, setMoreOpen] = useFormatFold(barRef, clusters.length, placed.floating, inTopBar ? 0 : FORMAT_GRIP_W)
   const folded = visible < clusters.length
   const [panelAt, setPanelAt] = useState<CSSProperties | null>(null)
   useEffect(() => {
@@ -653,13 +649,13 @@ export function FormatBar(props: FormatBarProps) {
   const bar = (
     <div
       ref={barRef}
-      className={`format-bar${disabled ? ' format-bar-idle' : ''}${centered ? ' format-bar-center' : ''}${placed.floating ? ' format-bar-floating' : ''}${className === undefined ? '' : ` ${className}`}`}
+      className={`format-bar${disabled ? ' format-bar-idle' : ''}${centered ? ' format-bar-center' : ''}${folded && !placed.floating ? ' format-bar-folded' : ''}${placed.floating ? ' format-bar-floating' : ''}${className === undefined ? '' : ` ${className}`}`}
       role="toolbar"
       aria-label={label}
       aria-disabled={disabled || undefined}
       data-tour={props.tourTarget}
     >
-      {gripSlot === null ? grip : null}
+      {inTopBar ? null : grip}
       {clusters.slice(0, visible)}
       {folded && !placed.floating ? (
         <button
@@ -695,8 +691,7 @@ export function FormatBar(props: FormatBarProps) {
       ) : null}
     </div>
   )
-  const gripInSlot = gripSlot === null || placed.floating ? null : createPortal(grip, gripSlot)
-  if (!placed.floating) return gripInSlot === null ? bar : <>{gripInSlot}{bar}</>
+  if (!placed.floating) return bar
   const snap = placed.drag?.snap ?? null
   return (
     <>

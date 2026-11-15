@@ -110,6 +110,8 @@ export const WORKSPACE_COMMANDS: Readonly<Record<string, string>> = {
   '서식 더 보기': 'More formatting',
   '서식바 옮기기': 'Move format bar',
   '서식바 붙이기': 'Dock format bar',
+  '도구줄 옮기기': 'Move toolbar',
+  '도구줄 붙이기': 'Dock toolbar',
   '배치: 나란히': 'Layout: side by side',
   '배치: 위아래로': 'Layout: stacked',
   '배치: 큰 칸 + 세로': 'Layout: main pane + column',

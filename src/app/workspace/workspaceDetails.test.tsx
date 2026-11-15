@@ -197,13 +197,15 @@ describe('라운드 2', () => {
     expect(relayoutMessage('tiled')).toBe('배치: 바둑판')
   })
 
-  it('서식 줄: 들어가는 만큼만 줄에 두고 나머지는 ⋯ 로, 첫 묶음은 늘 남는다', () => {
+  it('서식 줄: 들어가는 만큼만 줄에 두고 나머지는 ⋯ 로, 첫 묶음 + ⋯ 도 안 들어가면 ⋯ 만 남는다', () => {
     const widths = [76, 170, 80, 170]
     expect(fitFormatClusters(widths, 600, 34)).toBe(4)
     expect(fitFormatClusters(widths, 400, 34)).toBe(3)
     expect(fitFormatClusters(widths, 300, 34)).toBe(2)
     expect(fitFormatClusters(widths, 130, 34)).toBe(1)
-    expect(fitFormatClusters(widths, 10, 34)).toBe(1)
+    expect(fitFormatClusters(widths, 100, 34)).toBe(0)
+    expect(fitFormatClusters(widths, 10, 34)).toBe(0)
+    expect(fitFormatClusters(widths, 0, 34)).toBe(0)
   })
 
   it('보조 글은 제목과 함께 통째로 들어갈 때만 보인다', () => {

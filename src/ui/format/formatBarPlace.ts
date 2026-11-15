@@ -3,9 +3,13 @@
  * 순수한 계산(상태 전이 · 가두기 · 놓을 자리 정하기 · 방향키)과 자리별(노트 · 캔버스 · 글 상자) 저장만 여기에 둔다 — 그리는 일은 FormatBar.tsx.
  */
 
-/** 서식 줄을 쓰는 주인의 종류: 자리는 종류마다 따로 기억한다 */
-export type FormatHostKind = 'notes' | 'canvas' | 'textbox'
-export const FORMAT_HOST_KINDS: readonly FormatHostKind[] = ['notes', 'canvas', 'textbox']
+/**
+ * 서식 줄을 쓰는 주인의 종류: 자리는 종류마다 따로 기억한다.
+ * 'toolbar' 는 서식 줄이 아니라 상단바 도구줄 묶음 전체(PDF · Markdown · 노트가 한 자리를 같이 쓴다) — 한 번 떼면 칸이 바뀌어도 거기 남는다.
+ * 그 안의 노트 서식 줄은 자기 손잡이도 자기 자리도 갖지 않는다.
+ */
+export type FormatHostKind = 'notes' | 'canvas' | 'textbox' | 'toolbar'
+export const FORMAT_HOST_KINDS: readonly FormatHostKind[] = ['notes', 'canvas', 'textbox', 'toolbar']
 
 export type FormatDockSide = 'left' | 'center'
 export type FormatPlace =
@@ -145,10 +149,32 @@ const browserStorage = (): Storage | null => {
   try { return typeof localStorage === 'undefined' ? null : localStorage } catch { return null }
 }
 
+/**
+ * 도구줄 묶음의 자리가 아직 없으면 예전 노트 서식 줄의 자리(떠 있음)를 한 번 이어받는다. 예전엔 노트 서식 줄만 뗄 수 있었고 그 자리가 'notes' 에 있다.
+ * 가운데 붙음은 도구줄 묶음에 없으므로(붙음 = 왼쪽뿐) 이어받지 않는다. 이어받은 값은 'notes' 와 따로 저장되어, 이후 서로 영향이 없다.
+ */
+export function migrateToolbarPlace(places: Partial<Record<FormatHostKind, FormatPlace>>): Partial<Record<FormatHostKind, FormatPlace>> {
+  const legacy = places.notes
+  if (places.toolbar !== undefined || legacy === undefined || legacy.mode !== 'float') return places
+  return { ...places, toolbar: legacy }
+}
+
+/** 도구줄 묶음의 자리: 붙음(왼쪽) 아니면 떠 있음. 저장소에 가운데가 들어 있어도 왼쪽으로 본다 */
+export function toolbarPlaceOf(place: FormatPlace): { readonly mode: 'left' } | { readonly mode: 'float'; readonly x: number; readonly y: number } {
+  return place.mode === 'float' ? place : { mode: 'left' }
+}
+
 /** 자리 저장소: 종류별 자리를 모든 서식 줄이 같이 본다(한 곳에서 바꾸면 같은 종류가 다 따라온다) */
 let store: Partial<Record<FormatHostKind, FormatPlace>> | null = null
 const listeners = new Set<() => void>()
-const ensure = () => (store ??= readPlaces(browserStorage()))
+const ensure = () => {
+  if (store !== null) return store
+  const read = readPlaces(browserStorage())
+  const migrated = migrateToolbarPlace(read)
+  if (migrated !== read) writePlaces(browserStorage(), migrated)
+  store = migrated
+  return store
+}
 
 export function getPlace(kind: FormatHostKind): FormatPlace {
   return ensure()[kind] ?? DEFAULT_PLACE

@@ -1,7 +1,8 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  FORMAT_PLACE_KEY, clampFloat, decideDrop, getPlace, initialPlaceState, keyDelta, parsePlace, passedDragThreshold, placeReducer, readPlaces,
-  resetPlacesForTest, setPlace, snapZone, writePlaces,
+  FORMAT_PLACE_KEY, clampFloat, decideDrop, getPlace, initialPlaceState, keyDelta, migrateToolbarPlace, parsePlace, passedDragThreshold, placeReducer, readPlaces,
+  resetPlacesForTest, setPlace, snapZone, toolbarPlaceOf, writePlaces,
 } from './formatBarPlace'
 
 const memory = () => {
@@ -93,5 +94,42 @@ describe('서식 줄 자리 — 저장', () => {
     setPlace('canvas', { mode: 'center' })
     expect(getPlace('canvas')).toEqual({ mode: 'center' })
     expect(getPlace('textbox')).toEqual({ mode: 'left' })
+  })
+})
+
+describe('서식 줄 자리 — 상단바 도구줄 묶음(toolbar)', () => {
+  beforeEach(() => {
+    resetPlacesForTest()
+    localStorage.clear()
+  })
+
+  it('종류에 toolbar 가 있고, 도구줄 묶음의 자리는 붙음(왼쪽) 아니면 떠 있음이다(가운데는 왼쪽으로 본다)', () => {
+    expect(toolbarPlaceOf({ mode: 'left' })).toEqual({ mode: 'left' })
+    expect(toolbarPlaceOf({ mode: 'center' })).toEqual({ mode: 'left' })
+    expect(toolbarPlaceOf({ mode: 'float', x: 3, y: 4 })).toEqual({ mode: 'float', x: 3, y: 4 })
+    const storage = memory()
+    writePlaces(storage, { toolbar: { mode: 'float', x: 7, y: 8 } })
+    expect(readPlaces(storage)).toEqual({ toolbar: { mode: 'float', x: 7, y: 8 } })
+  })
+
+  it('예전 노트 서식 줄이 떠 있었으면 그 자리를 한 번 이어받는다. 가운데 · 붙음은 이어받지 않고, 이미 도구줄 자리가 있으면 건드리지 않는다', () => {
+    expect(migrateToolbarPlace({ notes: { mode: 'float', x: 5, y: 6 } })).toEqual({ notes: { mode: 'float', x: 5, y: 6 }, toolbar: { mode: 'float', x: 5, y: 6 } })
+    expect(migrateToolbarPlace({ notes: { mode: 'center' } })).toEqual({ notes: { mode: 'center' } })
+    expect(migrateToolbarPlace({ notes: { mode: 'left' } })).toEqual({ notes: { mode: 'left' } })
+    expect(migrateToolbarPlace({})).toEqual({})
+    const already = { notes: { mode: 'float', x: 5, y: 6 }, toolbar: { mode: 'left' } } as const
+    expect(migrateToolbarPlace(already)).toBe(already)
+  })
+
+  it('저장소를 처음 읽을 때 이어받은 값이 저장되고, 그 뒤 노트 자리와 도구줄 자리는 따로 바뀐다', () => {
+    localStorage.setItem(FORMAT_PLACE_KEY, JSON.stringify({ notes: { mode: 'float', x: 40, y: 50 } }))
+    resetPlacesForTest()
+    expect(getPlace('toolbar')).toEqual({ mode: 'float', x: 40, y: 50 })
+    expect(JSON.parse(localStorage.getItem(FORMAT_PLACE_KEY) ?? '{}').toolbar).toEqual({ mode: 'float', x: 40, y: 50 })
+    setPlace('toolbar', { mode: 'left' })
+    expect(getPlace('toolbar')).toEqual({ mode: 'left' })
+    expect(getPlace('notes')).toEqual({ mode: 'float', x: 40, y: 50 })
+    resetPlacesForTest()
+    expect(getPlace('toolbar')).toEqual({ mode: 'left' })
   })
 })

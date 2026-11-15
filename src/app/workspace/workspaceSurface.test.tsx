@@ -761,6 +761,48 @@ describe('상단바 도구줄 묶음 테두리 · 맨 윗줄 칸 위 틈', () =>
     expect(ruleDecl('workspace-surface.css', '.topbar-toolbar-host[data-owner]', 'padding-left')).toBe('3px')
   })
 
+  it('묶음 손잡이는 상단바가 가진다(전엔 비어 있는 .topbar-grip-slot 에 서식 줄이 포털했다): 칩 바로 앞이면 칩 왼쪽 안쪽 여백을 줄이고, 구분선은 칩 뒤의 하나뿐이다', () => {
+    const surface = css('workspace-surface.css')
+    expect(surface).not.toContain('topbar-grip-slot')
+    expect(rule(surface, '.topbar-toolbar-host > .topbar-toolbar-grip + .topbar-owner-chip')).toContain('padding-left: var(--space-1);')
+    // 칩의 구분선(::after)만 있다: 손잡이에는 구분선이 없다
+    expect(surface).not.toMatch(/topbar-toolbar-grip[^{]*::(before|after)/u)
+    // 붙어 있는 묶음의 왼쪽 · 오른쪽 안쪽 여백은 같다(3px): 도구가 자리를 꽉 채워도 마지막 단추와 바탕 끝 사이가 같다
+    expect(rule(surface, '.topbar-toolbar-host[data-owner]:not([data-floating])')).toContain('padding-right: 3px;')
+  })
+
+  it('떠 있는 카드: 같은 요소가 fixed 카드가 된다 — 종이 바탕 · 1px 구분선 · 메뉴 그림자 · --r-md, 칸 위(900) 메뉴 · 대화상자(1000+) 아래, 내용 폭, 창 − 16px 이하', () => {
+    const surface = css('workspace-surface.css')
+    const card = rule(surface, '.topbar-toolbar-host.topbar-toolbar-host[data-floating]')
+    for (const declaration of [
+      'position: fixed;', 'z-index: 900;', 'width: max-content;', 'max-width: calc(100vw - 16px);', 'height: auto;', 'margin: 0;', 'padding: 3px;',
+      'border: 1px solid var(--divider-strong);', 'border-radius: var(--r-md);', 'background: var(--paper);', 'box-shadow: 0 8px 24px var(--shadow-soft);',
+    ]) expect(card, declaration).toContain(declaration)
+    // 주인이 없으면 감춘다(떠 있는 상태는 그대로)
+    expect(rule(surface, '.topbar-toolbar-host.topbar-toolbar-host[data-floating]:not([data-owner])')).toContain('display: none;')
+    // 묶음 바탕(옅은 칠)은 카드에 없다
+    expect(rule(surface, '.topbar-toolbar-host[data-floating][data-owner][style]::before')).toContain('display: none;')
+    // 도구줄 자리(slot)는 내용 폭만큼만
+    expect(rule(surface, '.topbar-toolbar-host[data-floating] > .topbar-toolbar-slot.pane-toolbar')).toContain('width: auto;')
+    // 떠 있는 카드의 움직임은 motion.css 에만 있다(이 파일은 움직임을 두지 않는다)
+    expect(css('motion.css')).toContain('.topbar-toolbar-host[data-floating] { animation: motion-fade-in 120ms ease-out backwards; }')
+  })
+
+  it('떠 있는 동안 상단바에는 자리 틀이 남아 남는 폭을 그대로 차지하고, 주인이 있을 때만 점선 칸을 보인다', () => {
+    const surface = css('workspace-surface.css')
+    expect(rule(surface, '.topbar-toolbar-placeholder')).toContain('flex: 1 1 0;')
+    expect(rule(surface, '.topbar-toolbar-placeholder[data-owned]::before')).toContain('border: 1px dashed var(--divider-strong);')
+  })
+
+  it('아주 좁은 자리에서도 묶음이 곁의 단추 위로 넘치지 않는다: 붙은 묶음은 132px 아래로 줄지 않고 자르며, 접힌 서식 줄은 줄어들지 않고 줄 오른쪽 밖은 자른다', () => {
+    const surface = css('workspace-surface.css')
+    const docked = rule(surface, '.topbar-toolbar-host[data-owner]:not([data-floating])')
+    expect(docked).toContain('min-width: 132px;')
+    expect(docked).toContain('overflow: hidden;')
+    expect(rule(surface, '.topbar-toolbar-host .note-format-dock .format-bar-folded')).toContain('flex-shrink: 0;')
+    expect(rule(surface, '.topbar-toolbar-host .note-format-dock .format-bar')).toContain('clip-path: inset(-1000px 0 -1000px 11px);')
+  })
+
   it('칸 영역의 윗 테두리와 맨 윗줄 칸의 윗 안쪽 여백은 0 이고 다른 틈은 그대로', () => {
     expect(ruleDecl('screens.css', '.panes.panes-tree', 'border-top-width')).toBe('0')
     expect(ruleDecl('screens.css', ".panes-tree > .pane-grid-cell[data-top-edge]", 'padding-top')).toBe('0')

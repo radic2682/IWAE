@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { HighlighterStrip } from '../../pdf/HighlighterTool'
 import { PaneToolbar } from './PaneToolbar'
@@ -284,6 +284,51 @@ describe('PaneToolbar', () => {
     fireEvent.click(screen.getByRole('button', { name: '뒤로' }))
     expect(onBack).toHaveBeenCalled()
     expect((screen.getByRole('button', { name: '앞으로' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('PaneToolbar — 떠 있는 도구줄 카드 안에서의 접기', () => {
+  const widths = { scrollWidth: 600, clientWidth: 300 } as const
+  const tree = (floating: boolean) => (
+    <div className="topbar-toolbar-host" data-testid="card" data-floating={floating ? '' : undefined}>
+      <div className="pane-toolbar topbar-toolbar-slot">
+        <PaneToolbar kind="markdown" mode="text" onModeChange={vi.fn()} query="" onQueryChange={vi.fn()} />
+      </div>
+    </div>
+  )
+  beforeEach(() => {
+    resetPaneToolbarMemory()
+    for (const [key, value] of Object.entries(widths)) Object.defineProperty(HTMLElement.prototype, key, { configurable: true, get: () => value })
+  })
+  afterEach(() => {
+    for (const key of Object.keys(widths)) Reflect.deleteProperty(HTMLElement.prototype, key)
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('붙어 있으면 넘치는 만큼 「⋯」 로 접는다', () => {
+    render(tree(false))
+    expect(screen.getByRole('button', { name: '도구 더 보기' })).toBeTruthy()
+  })
+
+  it('떠 있는 카드는 내용 폭만큼 차지하므로 카드가 더 커질 수 있는 만큼(창 − 16px − 카드 폭)까지는 접지 않는다 — 창이 넓으면 모두 펼친다', () => {
+    vi.stubGlobal('innerWidth', 1024)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rect(this: HTMLElement) {
+      const width = this.classList.contains('topbar-toolbar-host') ? 400 : 0
+      return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: 0, width, height: 0, toJSON: () => ({}) } as DOMRect
+    })
+    render(tree(true))
+    expect(screen.queryByRole('button', { name: '도구 더 보기' })).toBeNull()
+  })
+
+  it('떠 있어도 창이 좁아 카드가 더 커질 수 없으면(카드 폭 ≈ 창 − 16px) 접는다', () => {
+    vi.stubGlobal('innerWidth', 416)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rect(this: HTMLElement) {
+      const width = this.classList.contains('topbar-toolbar-host') ? 400 : 0
+      return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: 0, width, height: 0, toJSON: () => ({}) } as DOMRect
+    })
+    render(tree(true))
+    expect(screen.getByRole('button', { name: '도구 더 보기' })).toBeTruthy()
   })
 })
 
