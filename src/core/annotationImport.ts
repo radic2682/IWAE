@@ -7,6 +7,7 @@ import {
   type PdfHighlightColor,
   type PersistentPdfHighlight,
 } from '../pdf/persistentHighlight'
+import { literalHtmlIfNeeded } from '../pdf/memoRichText'
 
 /** 다른 프로그램의 색을 내 형광펜 색 목록 중 가장 가까운 것으로 바꾼다 */
 export function nearestHighlightColor(color: readonly [number, number, number] | null, colors: readonly HighlightColorDef[] = DEFAULT_HIGHLIGHT_COLORS): PdfHighlightColor {
@@ -118,7 +119,8 @@ export function importedToHighlights(
     const created = createPersistentPdfHighlight(
       anchor,
       nearestHighlightColor(annotation.color, colors),
-      { note: annotation.contents ?? undefined, createdAt: importedAt, source: 'imported' },
+      // 다른 프로그램의 쪽지 글은 Markdown 이 아니다: 「2026. 11. 15.」 · 「---」 같은 글이 목록 · 선으로 바뀌지 않게 글 그대로의 서식도 남긴다
+      { note: annotation.contents ?? undefined, noteHtml: annotation.contents == null ? undefined : literalHtmlIfNeeded(annotation.contents), createdAt: importedAt, source: 'imported' },
     )
     // 쪽지는 글자 범위가 [끝,끝] 이라 id 가 같은 글자의 쪽지·짧은 표시와 겹친다. 자기 네모로 이름을 짓는다(다시 가져와도 같은 id)
     const highlight = annotation.kind === 'text' ? { ...created, id: stickyNoteId(anchor) } : created

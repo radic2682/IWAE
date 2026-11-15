@@ -34,6 +34,14 @@ describe('annotationImport', () => {
     expect(result.highlights[0]).toMatchObject({ color: 'yellow', note: '메모', source: 'imported' })
     expect(result.highlights[0]?.anchor.quote).toBe('Hello')
     expect(result.highlights[0]?.anchor.docId).toBe('doc')
+    expect(result.highlights[0]?.noteHtml).toBeUndefined()
+  })
+
+  it('keeps a note that only looks like Markdown as literal text', () => {
+    const result = importedToHighlights('doc', [annotation({ contents: '2026. 11. 15. 회의록\n---' })], () => PAGE, [])
+    const html = result.highlights[0]?.noteHtml ?? ''
+    expect(html).toContain('2026. 11. 15. 회의록')
+    expect(html).not.toMatch(/<(ol|hr)\b/u)
   })
 
   it('anchors a sticky note to the nearest character', () => {
