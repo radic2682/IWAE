@@ -22,6 +22,9 @@ export function useVaultWatcher({
 }: UseVaultWatcherOptions): void {
   const callbacksRef = useRef({ onReload, onConflict, onReindex })
   callbacksRef.current = { onReload, onConflict, onReindex }
+  // 색인·수정 중 목록이 바뀔 때마다 OS 감시를 다시 만들면 그 사이 알림을 놓친다. 최신 값만 ref 로 읽는다
+  const stateRef = useRef({ index, dirtyIds })
+  stateRef.current = { index, dirtyIds }
 
   useEffect(() => {
     if (vaultPath === null || !isDesktop()) return
@@ -32,8 +35,8 @@ export function useVaultWatcher({
       const stop = await watch(vaultPath, (event) => {
         const result = classifyVaultEvents(
           [event as VaultWatchEvent],
-          index,
-          dirtyIds,
+          stateRef.current.index,
+          stateRef.current.dirtyIds,
           vaultPath,
         )
         for (const id of result.reloadIds) callbacksRef.current.onReload(id)
@@ -48,6 +51,6 @@ export function useVaultWatcher({
       disposed = true
       unwatch?.()
     }
-  }, [dirtyIds, index, vaultPath])
+  }, [vaultPath])
 }
 

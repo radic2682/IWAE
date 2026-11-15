@@ -2136,6 +2136,7 @@ export function useVault(options: UseVaultOptions = {}) {
     ))?.id
     if (id === undefined) return
     setDirtyFileIds((current) => {
+      if (current.has(id) === dirty) return current
       const next = new Set(current)
       if (dirty) next.add(id)
       else next.delete(id)

@@ -35,4 +35,11 @@ describe('vault watch classification', () => {
     expect(result.conflictIds).toEqual(['md-1'])
     expect(result.shouldReindex).toBe(true)
   })
+
+  it('a removed indexed file reindexes instead of reloading', () => {
+    const remove = { type: { remove: { kind: 'file' } }, paths: ['C:/Vault/Notes/readme.md'] }
+    const result = classifyVaultEvents([remove], index, new Set(), 'C:/Vault')
+    expect(result.reloadIds).toEqual([])
+    expect(result.shouldReindex).toBe(true)
+  })
 })

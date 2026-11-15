@@ -64,4 +64,21 @@ describe('useVaultWatcher', () => {
     expect(onReload).not.toHaveBeenCalled()
     view.unmount()
   })
+
+  it('keeps the OS watch when the dirty set or index changes, and still sees the latest dirty set', async () => {
+    const onConflict = vi.fn()
+    const base = { vaultPath: 'C:/Vault', onReload: vi.fn(), onConflict, onReindex: vi.fn() }
+    const view = renderHook((p: { dirtyIds: ReadonlySet<string> }) => useVaultWatcher({ ...base, index: [entry], dirtyIds: p.dirtyIds }), {
+      initialProps: { dirtyIds: new Set<string>() },
+    })
+    await waitFor(() => expect(watch).toHaveBeenCalledOnce())
+    for (let i = 0; i < 5; i += 1) view.rerender({ dirtyIds: new Set(['note-1']) })
+    await act(async () => { await Promise.resolve() })
+    expect(watch).toHaveBeenCalledOnce()
+    expect(unwatch).not.toHaveBeenCalled()
+    const callback = watch.mock.calls[0]?.[1] as (event: { paths: string[] }) => void
+    act(() => callback({ paths: ['C:/Vault/Notes/a.canvas'] }))
+    expect(onConflict).toHaveBeenCalledWith('note-1')
+    view.unmount()
+  })
 })

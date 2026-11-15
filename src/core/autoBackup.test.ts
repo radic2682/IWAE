@@ -29,3 +29,12 @@ describe('자동 백업 일정', () => {
     expect(backupStamp(new Date(2026, 10, 3, 9, 5))).toBe('2026-11-03-0905')
   })
 })
+
+describe('자동 백업 일정: 시계가 앞섰던 기록', () => {
+  it('미래의 lastAt 은 바로 할 차례로 본다', () => {
+    const now = new Date('2026-11-10T12:00:00')
+    const future = { ...on, lastAt: '2027-05-01T12:00:00' }
+    expect(autoBackupDue(future, now)).toBe(true)
+    expect(nextAutoBackupAt(future, now)?.toISOString()).toBe(now.toISOString())
+  })
+})

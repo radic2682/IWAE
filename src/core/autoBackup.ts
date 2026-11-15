@@ -69,6 +69,8 @@ export function autoBackupDue(settings: AutoBackupSettings, now: Date = new Date
   if (settings.lastAt === null) return true
   const last = Date.parse(settings.lastAt)
   if (!Number.isFinite(last)) return true
+  // 시계가 앞서 있던 때 적힌 미래 시각은 믿지 않는다
+  if (last > now.getTime()) return true
   return now.getTime() - last >= settings.everyDays * DAY_MS
 }
 
@@ -76,7 +78,9 @@ export function autoBackupDue(settings: AutoBackupSettings, now: Date = new Date
 export function nextAutoBackupAt(settings: AutoBackupSettings, now: Date = new Date()): Date | null {
   if (!settings.enabled || settings.folder.trim() === '') return null
   if (settings.lastAt === null || !Number.isFinite(Date.parse(settings.lastAt))) return now
-  return new Date(Date.parse(settings.lastAt) + settings.everyDays * DAY_MS)
+  const last = Date.parse(settings.lastAt)
+  if (last > now.getTime()) return now
+  return new Date(last + settings.everyDays * DAY_MS)
 }
 
 /** 파일 이름에 넣을 현지 시각 YYYY-MM-DD-HHMM */

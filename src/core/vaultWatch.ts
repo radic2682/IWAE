@@ -2,6 +2,13 @@ import type { VaultIndexEntry } from './vaultIndex'
 
 export interface VaultWatchEvent {
   paths: string[]
+  /** tauri-plugin-fs 의 이벤트 종류. 삭제는 { remove: { kind } } */
+  type?: unknown
+}
+
+function isRemoveEvent(event: VaultWatchEvent): boolean {
+  const kind = event.type
+  return typeof kind === 'object' && kind !== null && 'remove' in kind
 }
 
 export interface VaultWatchClassification {
@@ -48,11 +55,17 @@ export function classifyVaultEvents(
   const conflictIds = new Set<string>()
   let shouldReindex = false
 
-  for (const path of events.flatMap((event) => event.paths)) {
+  for (const event of events) for (const path of event.paths) {
     if (isIgnoredVaultEvent(path)) continue
     const entry = byPath.get(normalize(path))
     if (entry === undefined) {
       shouldReindex = true
+      continue
+    }
+    if (isRemoveEvent(event)) {
+      // 지워진 파일은 다시 읽을 수 없다. 색인을 새로 맞춰 없는 파일로 표시한다
+      shouldReindex = true
+      if (dirtyIds.has(entry.id)) conflictIds.add(entry.id)
       continue
     }
     if (dirtyIds.has(entry.id)) conflictIds.add(entry.id)
