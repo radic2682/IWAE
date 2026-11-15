@@ -3,17 +3,18 @@
 //! version when needed, run NSIS silently while reporting progress, then do the after-steps.
 
 use crate::lang::{write_installer_language, Lang};
-use crate::log::SetupLog;
+use crate::setup_log::SetupLog;
 use crate::nsis::{nsis_args, old_uninstall_args, NsisRun, NsisRunner};
 use crate::payload::ManifestEntry;
-use crate::progress::percent;
+use crate::progress::{percent, snapshot};
 use crate::registry::{
-    existing_install, msi_install_present, point_uninstall_to_ui, webview2_present, RegStore,
+    existing_install, msi_install_present, point_uninstall_to_ui, previous_install_location,
+    webview2_present, RegStore,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 pub struct InstallRequest {
     pub mode_update: bool,
@@ -94,14 +95,17 @@ fn run_steps(
         req.lang.code()
     ));
 
-    // An existing install wins: NSIS restores its own previous location, so no /D= then.
+    // Same folder NSIS would pick on its own: existing install, then the chosen folder, then the
+    // location NSIS remembers (it survives the old uninstall), then the default. It is always
+    // passed as /D= so setup's after-steps and NSIS can never disagree.
     let existing = existing_install(env.reg);
-    let (target, nsis_dir) = match &existing {
-        Some(e) => (e.dir.clone(), None),
-        None => (
-            req.dir_override.clone().unwrap_or_else(|| env.default_dir.clone()),
-            req.dir_override.clone(),
-        ),
+    let target = match &existing {
+        Some(e) => e.dir.clone(),
+        None => req
+            .dir_override
+            .clone()
+            .or_else(|| previous_install_location(env.reg))
+            .unwrap_or_else(|| env.default_dir.clone()),
     };
     log.line(&format!("target dir: {}", target.display()));
 
@@ -141,16 +145,16 @@ fn run_steps(
     let lnk_existed = lnk.exists();
 
     // 4. Run NSIS on a worker thread and report progress from this one.
-    let args = nsis_args(&NsisRun::Silent { update: req.mode_update, dir: nsis_dir });
+    let args = nsis_args(&NsisRun::Silent { update: req.mode_update, dir: Some(target.clone()) });
     log.line(&format!("nsis: {:?}", args));
-    let since = SystemTime::now();
+    let before = snapshot(&env.manifest, &target);
     let runner = env.nsis;
     let exe_ref: &Path = &exe;
     let args_ref: &[std::ffi::OsString] = &args;
     let outcome = thread::scope(|s| {
         let worker = s.spawn(move || runner.run(exe_ref, args_ref));
         loop {
-            on(InstallEvent::Progress(percent(&env.manifest, &target, since, false)));
+            on(InstallEvent::Progress(percent(&env.manifest, &target, &before, false)));
             if worker.is_finished() {
                 break;
             }
@@ -173,7 +177,7 @@ fn run_steps(
     if code != 0 {
         return Err(FailReason::Nsis(code));
     }
-    on(InstallEvent::Progress(percent(&env.manifest, &target, since, true)));
+    on(InstallEvent::Progress(percent(&env.manifest, &target, &before, true)));
 
     // 5. After-steps. The user did not ask for a desktop icon unless it was there before.
     if !lnk_existed && lnk.exists() {
@@ -183,24 +187,32 @@ fn run_steps(
         }
     }
 
+    // Run every after-step even when one fails, then report Finish once.
+    let mut finish_ok = true;
     if let Err(e) = write_installer_language(&target, req.lang) {
         log.line(&format!("installer-language write failed: {e}"));
-        return Err(FailReason::Finish);
+        finish_ok = false;
     }
 
     let ui = target.join("uninstall-ui.exe");
     if let Err(e) = fs::write(&ui, env.uninstall_ui) {
         log.line(&format!("uninstall-ui write failed: {e}"));
+        finish_ok = false;
     }
     // Only point Apps & features at the UI when it is really there.
     if ui.exists() {
-        if let Err(e) = point_uninstall_to_ui(env.reg, &target) {
-            log.line(&format!("registry UninstallString update failed: {e}"));
-            return Err(FailReason::Finish);
+        match point_uninstall_to_ui(env.reg, &target) {
+            Ok(()) => log.line("UninstallString now points at uninstall-ui.exe"),
+            Err(e) => {
+                log.line(&format!("registry UninstallString update failed: {e}"));
+                finish_ok = false;
+            }
         }
-        log.line("UninstallString now points at uninstall-ui.exe");
     } else {
         log.line("uninstall-ui.exe missing, UninstallString left as is");
+    }
+    if !finish_ok {
+        return Err(FailReason::Finish);
     }
 
     Ok(target)
@@ -330,12 +342,14 @@ mod tests {
         events
     }
 
-    fn os(items: &[&str]) -> Vec<OsString> {
-        items.iter().map(|s| OsString::from(*s)).collect()
+    fn d_arg(dir: &Path) -> OsString {
+        let mut a = OsString::from("/D=");
+        a.push(dir);
+        a
     }
 
     #[test]
-    fn fresh_install_runs_plain_silent_and_finishes() {
+    fn fresh_install_runs_silent_with_target_and_finishes() {
         let f = fx("fresh");
         let reg = MemReg::new();
         let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest());
@@ -343,7 +357,7 @@ mod tests {
 
         let calls = nsis.calls();
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].1, os(&["/S"]));
+        assert_eq!(calls[0].1, vec![OsString::from("/S"), d_arg(&f.install_dir)]);
         assert_eq!(
             fs::read_to_string(f.install_dir.join("installer-language")).unwrap(),
             "1042"
@@ -370,9 +384,7 @@ mod tests {
         r.dir_override = Some(chosen.clone());
         let events = run(&env(&f, &reg, &nsis), &r);
 
-        let mut expect = OsString::from("/D=");
-        expect.push(&chosen);
-        assert_eq!(nsis.calls()[0].1, vec![OsString::from("/S"), expect]);
+        assert_eq!(nsis.calls()[0].1, vec![OsString::from("/S"), d_arg(&chosen)]);
         assert_eq!(events.last(), Some(&InstallEvent::Done { install_dir: chosen.clone() }));
         assert!(chosen.join("uninstall-ui.exe").exists());
         let _ = fs::remove_dir_all(&f.root);
@@ -385,7 +397,7 @@ mod tests {
         fs::write(f.install_dir.join("uninstall.exe"), b"old").unwrap();
         let reg = installed_reg(&f);
         let nsis = FakeNsis::new(&f.install_dir, &f.desktop, manifest());
-        // Even if a dir_override is passed, the existing install's folder wins and there is no /D=.
+        // Even if a dir_override is passed, the existing install's folder wins.
         let mut r = req(true);
         r.dir_override = Some(f.root.join("elsewhere"));
         let events = run(&env(&f, &reg, &nsis), &r);
@@ -396,7 +408,10 @@ mod tests {
         let mut dir_arg = OsString::from("_?=");
         dir_arg.push(&f.install_dir);
         assert_eq!(calls[0].1, vec![OsString::from("/S"), OsString::from("/UPDATE"), dir_arg]);
-        assert_eq!(calls[1].1, os(&["/S", "/UPDATE"]));
+        assert_eq!(
+            calls[1].1,
+            vec![OsString::from("/S"), OsString::from("/UPDATE"), d_arg(&f.install_dir)]
+        );
         assert_eq!(
             events.last(),
             Some(&InstallEvent::Done { install_dir: f.install_dir.clone() })
@@ -414,8 +429,39 @@ mod tests {
 
         let calls = nsis.calls();
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].1, os(&["/S", "/UPDATE"]));
+        assert_eq!(
+            calls[0].1,
+            vec![OsString::from("/S"), OsString::from("/UPDATE"), d_arg(&f.install_dir)]
+        );
         assert!(matches!(events.last(), Some(InstallEvent::Done { .. })));
+        let _ = fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn previous_location_is_used_when_uninstall_key_is_gone() {
+        // Interrupted upgrade: the old uninstall removed the Uninstall key but NSIS still
+        // remembers the folder under SoftwareiwaeIWAE.
+        let f = fx("prevloc");
+        let prev = f.root.join("테스트 폴더").join("IWAE");
+        let reg = MemReg::new().with(
+            Hive::Hkcu,
+            crate::registry::PREVIOUS_LOCATION_KEY,
+            "",
+            &prev.display().to_string(),
+        );
+        // default_dir differs from the remembered folder.
+        let nsis = FakeNsis::new(&prev, &f.desktop, manifest());
+        let mut e = env(&f, &reg, &nsis);
+        e.default_dir = f.root.join("default").join("IWAE");
+        let events = run(&e, &req(true));
+
+        assert_eq!(
+            nsis.calls()[0].1,
+            vec![OsString::from("/S"), OsString::from("/UPDATE"), d_arg(&prev)]
+        );
+        assert_eq!(fs::read_to_string(prev.join("installer-language")).unwrap(), "1042");
+        assert!(prev.join("uninstall-ui.exe").exists());
+        assert_eq!(events.last(), Some(&InstallEvent::Done { install_dir: prev.clone() }));
         let _ = fs::remove_dir_all(&f.root);
     }
 

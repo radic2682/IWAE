@@ -3,7 +3,7 @@
 mod args;
 mod install;
 mod lang;
-mod log;
+mod setup_log;
 mod nsis;
 mod payload;
 mod progress;

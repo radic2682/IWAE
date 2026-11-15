@@ -50,6 +50,21 @@ pub fn existing_install(reg: &dyn RegStore) -> Option<ExistingInstall> {
     })
 }
 
+/// Where NSIS remembers the install folder (default value). It survives the old uninstall, and
+/// NSIS without /D= restores it, so setup must know it too.
+pub const PREVIOUS_LOCATION_KEY: &str = r"Software\iwae\IWAE";
+
+pub fn previous_install_location(reg: &dyn RegStore) -> Option<PathBuf> {
+    // Empty value name = the key's default value (winreg `get_value("")` reads it too).
+    let loc = reg.get_str(Hive::Hkcu, PREVIOUS_LOCATION_KEY, "")?;
+    let loc = loc.trim().trim_matches('"').trim();
+    if loc.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(loc))
+    }
+}
+
 /// True when an old per-machine (MSI) IWAE install is registered.
 pub fn msi_install_present(reg: &dyn RegStore) -> bool {
     [Hive::Hklm, Hive::Hklm32].into_iter().any(|hive| {
@@ -291,6 +306,23 @@ mod tests {
         let e = existing_install(&seeded()).unwrap();
         assert_eq!(e.dir, PathBuf::from(r"D:\테스트 폴더\IWAE"));
         assert_eq!(e.version, "0.2.6");
+    }
+
+    #[test]
+    fn previous_location_reads_default_value() {
+        let reg = MemReg::new().with(
+            Hive::Hkcu,
+            PREVIOUS_LOCATION_KEY,
+            "",
+            r#""D:\테스트 폴더\IWAE""#,
+        );
+        assert_eq!(
+            previous_install_location(&reg),
+            Some(PathBuf::from(r"D:\테스트 폴더\IWAE"))
+        );
+        assert_eq!(previous_install_location(&MemReg::new()), None);
+        let empty = MemReg::new().with(Hive::Hkcu, PREVIOUS_LOCATION_KEY, "", "  ");
+        assert_eq!(previous_install_location(&empty), None);
     }
 
     #[test]
