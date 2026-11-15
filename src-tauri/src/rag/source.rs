@@ -60,6 +60,9 @@ struct CacheFile {
     documents: std::collections::HashMap<String, CacheDocument>,
 }
 
+/// 검색 캐시에서 받아들이는 가장 큰 쪽 수(이보다 큰 쪽 번호는 깨진 값으로 보고 버린다)
+const MAX_PDF_PAGES: usize = 100_000;
+
 pub fn iwae_dir(root: &Path) -> PathBuf {
     root.join(".iwae")
 }
@@ -94,14 +97,11 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
                 if entry.content_hash.is_some() && document.content_hash != entry.content_hash {
                     continue;
                 }
-                let count = document
-                    .pages
-                    .iter()
-                    .map(|page| page.page + 1)
-                    .max()
-                    .unwrap_or(0);
+                // 캐시 파일은 디스크의 글이라 깨졌을 수 있다 — 터무니없이 큰 쪽 번호가 배열을 부풀리지 못하게 거른다
+                let valid = || document.pages.iter().filter(|page| page.page < MAX_PDF_PAGES);
+                let count = valid().map(|page| page.page + 1).max().unwrap_or(0);
                 let mut pages = vec![String::new(); count];
-                for page in &document.pages {
+                for page in valid() {
                     pages[page.page] = page.text.clone();
                 }
                 sources.push(SourceDoc {
@@ -142,6 +142,26 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_corrupt_huge_page_index_in_the_cache_is_ignored_not_allocated() {
+        let root = std::env::temp_dir().join(format!("iwae-source-huge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".iwae/cache")).unwrap();
+        std::fs::write(
+            root.join(".iwae/index.json"),
+            r#"{"version":1,"entries":[{"id":"p1","kind":"pdf","storage":"reference","path":"C:/x.pdf","displayName":"x","contentHash":"h1","size":1,"modifiedAt":null,"addedAt":"","missing":false}]}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            root.join(".iwae/cache/search-text.json"),
+            r#"{"version":2,"documents":{"p1":{"contentHash":"h1","complete":true,"pages":[{"page":0,"text":"ok"},{"page":4000000000,"text":"boom"}]}}}"#,
+        )
+        .unwrap();
+        let sources = load_sources(&root);
+        assert_eq!(sources[0].pages, vec!["ok".to_string()]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn reads_pdfs_from_the_search_cache_and_markdown_from_disk() {
