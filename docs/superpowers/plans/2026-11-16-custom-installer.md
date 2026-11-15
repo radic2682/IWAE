@@ -17,7 +17,7 @@
 
 - **Never install, update or uninstall IWAE on this PC.** Do not run the real setup exe without `--demo`, do not run any `IWAE_*-setup.exe` or `uninstall.exe`, and do not touch `%LOCALAPPDATA%\IWAE` or `HKCU\...\Uninstall\IWAE`. The owner's installed IWAE lives there.
 - Never touch CDP ports 9223 or 9224. Use 9225 for the setup window audit.
-- Build Rust with `CARGO_TARGET_DIR=C:/Users/ash86/AppData/Local/Temp/claude/65042131baae434c/96de63b7-1ec8-4a94-9486-e987eb76c8c6/scratchpad/cargo-target-setup` while developing. Never build into `src-tauri/target`, except the final release script run done by the lead.
+- Build Rust with `CARGO_TARGET_DIR=<session scratchpad>/cargo-target-setup` (the lead gives the exact path) while developing. Never build into `src-tauri/target`, except the final release script run done by the lead.
 - Setup Tauri identifier: `dev.iwae.setup`. Window title: `IWAE 설치` / `IWAE Setup`. No executable this app produces or copies may be named `app.exe`.
 - Window: no decorations, 480×320 logical px, not resizable, centred, shadow on (Windows 11 rounded corners).
 - UI colours and fonts:
@@ -32,7 +32,7 @@
   - English messages, with no mention of Claude and no Co-Authored-By line.
   - Stage explicit paths only (never `git add -A`).
   - Never push.
-- Never print or open signing secrets (`C:\Users\ash86\.iwae-release`, `C:\Workspace\.iwae-release\release.env`). Scripts read them from the environment only.
+- Never print or open signing secrets (the updater key folder and release.env named in the lead's brief). Scripts read them from the environment only.
 - Tauri NSIS facts the code relies on (§3):
   - The updater runs the exe with `/P /R /UPDATE /ARGS <escaped app args>`.
   - NSIS `/D=<dir>` must be the last argument and is unquoted.
@@ -43,7 +43,7 @@
 
 ## Review Focus
 
-1. **Install path with spaces or non-ASCII characters** (`C:\Users\김 지원\AppData\Local\IWAE`). Every command line we build (`/D=`, `_?=`, `UninstallString`, the relaunch args) must survive it. Pinned by tests in Tasks 2, 4 and 6.
+1. **Install path with spaces or non-ASCII characters** (`D:\테스트 폴더\IWAE`). Every command line we build (`/D=`, `_?=`, `UninstallString`, the relaunch args) must survive it. Pinned by tests in Tasks 2, 4 and 6.
 2. **The updater passes app args containing quotes, spaces or `/`** (a PDF path opened at update time). They must reach the relaunched app unchanged. Pinned in Task 2.
 3. **The setup window is closed or killed mid-install.** The next run must succeed and must not run the old uninstaller twice against a half-written folder. Pinned in Task 4 (old uninstaller skipped when `uninstall.exe` is missing) and Task 10 scenario 8.
 4. **The registry points at a folder that no longer exists** (the user deleted the folder by hand). Treat it as a fresh install into that path and do not fail. Pinned in Task 3.
@@ -167,7 +167,7 @@ Modified:
     - `["/P","/R","/UPDATE","/ARGS"]` gives `Update{app_args: []}`.
     - `["/P","/R","/UPDATE","/ARGS","C:\\문서 폴더\\a b.pdf","--flag=/x"]` gives `Update` with exactly those two args.
     - `["/S"]` gives `Silent{None}`.
-    - `["/S","/D=C:\\Users\\김 지원\\AppData\\Local\\IWAE"]` gives `Silent{Some(that path with the space)}`.
+    - `["/S","/D=D:\\테스트 폴더\\IWAE"]` gives `Silent{Some(that path with the space)}`.
     - `["--uninstall"]` gives `Uninstall`.
     - `["/S","/UPDATE","_?=C:\\x y"]` gives `UninstallSync` with all three args kept.
     - In release (`not(debug_assertions)`), `["--demo"]` gives `Install` with `demo.enabled == false`.
@@ -218,12 +218,12 @@ Modified:
   ```
 
 - [ ] **Step 1: Write failing tests on `MemReg`**
-  - `existing_install` returns dir `C:\Users\김 지원\AppData\Local\IWAE` (outer quotes stripped) and version `0.2.6`.
+  - `existing_install` returns dir `D:\테스트 폴더\IWAE` (outer quotes stripped) and version `0.2.6`.
   - It returns `None` when the key is missing.
   - It still returns `Some` when the folder doesn't exist. Folder existence is decided in Task 4.
   - `point_uninstall_to_ui` writes:
-    - `UninstallString` = `"C:\Users\김 지원\AppData\Local\IWAE\uninstall-ui.exe" --uninstall`
-    - `QuietUninstallString` = `"C:\Users\김 지원\AppData\Local\IWAE\uninstall.exe" /S`
+    - `UninstallString` = `"D:\테스트 폴더\IWAE\uninstall-ui.exe" --uninstall`
+    - `QuietUninstallString` = `"D:\테스트 폴더\IWAE\uninstall.exe" /S`
   - `remove_leftover_keys`:
     - It deletes `Software\iwae\IWAE`.
     - It keeps `Software\iwae` when another subkey exists and deletes it when empty.
@@ -276,7 +276,7 @@ Modified:
   6. Log every step and exit code via `log.rs`.
 
 - [ ] **Step 1: Write failing tests** with `MemReg`, a `FakeNsis` that records args and writes the manifest files into the dir, and temp dirs:
-  - `nsis_args` exact vectors as above. The dir with spaces and Korean characters stays a single element `/D=C:\Users\김 지원\IWAE`.
+  - `nsis_args` exact vectors as above. The dir with spaces and Korean characters stays a single element `/D=D:\테스트 폴더\IWAE`.
   - `percent`:
     - 0 with no files.
     - 50 when half the bytes are written after `since`.
@@ -370,7 +370,7 @@ Modified:
     - `Software\iwae\IWAE` is deleted in MemReg.
   - With exit 3: `Failed{code:3}`, and the registry is untouched.
   - The dir holds a user file: the dir is kept.
-  - `run_sync_passthrough` forwards `["/S","/UPDATE","_?=C:\\김 지원\\IWAE"]` unchanged and returns the fake's exit code.
+  - `run_sync_passthrough` forwards `["/S","/UPDATE","_?=D:\\테스트 폴더\\IWAE"]` unchanged and returns the fake's exit code.
 - [ ] **Step 2:** Run the tests. Expected: FAIL.
 - [ ] **Step 3:** Implement.
 - [ ] **Step 4:** Run the tests. Expected: PASS.
