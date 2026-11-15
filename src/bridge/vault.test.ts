@@ -674,6 +674,22 @@ describe('vault session and notes', () => {
     expect(fsMocks.readDir).not.toHaveBeenCalledWith('C:/Vault/.iwae')
   })
 
+  it('이름이 확장자뿐인 파일은 목록에서 빼서 Vault 가 열리게 한다', async () => {
+    fsMocks.readDir.mockImplementation(async (path: string) => path === 'C:/Vault'
+      ? [
+        { name: '.md', isDirectory: false },
+        { name: ' .md', isDirectory: false },
+        { name: '.canvas', isDirectory: false },
+        { name: '.PDF', isDirectory: false },
+        { name: '.md', isDirectory: true },
+        { name: 'ok.md', isDirectory: false },
+      ]
+      : [])
+    await expect(listVaultTree(vault)).resolves.toEqual([
+      { path: 'ok.md', isDirectory: false },
+    ])
+  })
+
   it('Markdown 파일을 만들고 같은 이름이 있으면 번호를 붙인다', async () => {
     fsMocks.exists.mockImplementation(async (path: string) => path === 'C:/Vault/주석/논문 주석.md')
     await expect(createMarkdownFile(vault, '주석', '논문 주석', '# 내용\n')).resolves.toBe('주석/논문 주석 (2).md')

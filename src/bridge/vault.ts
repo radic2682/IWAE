@@ -1067,6 +1067,8 @@ export async function listVaultTree(vault: VaultHandle): Promise<VaultTreeEntry[
       if (child.name === '.iwae' || child.name === 'assets') continue
       // git 저장소 정보(.git, .github 등 점으로 시작하는 폴더)는 목록에 넣지 않는다 — GitHub 에서 가져온 문서 폴더 안에 있다
       if (child.isDirectory && child.name.startsWith('.')) continue
+      // `.md`, `.canvas`, ` .pdf` 처럼 이름이 확장자뿐인 파일은 표시 이름을 만들 수 없다. 하나 때문에 Vault 가 안 열리면 안 되므로 건너뛴다
+      if (!child.isDirectory && /^\s*\.(?:canvas|md|markdown|pdf)$/iu.test(child.name)) continue
       const childParts = [...relativeParts, child.name]
       entries.push({ path: childParts.join('/'), isDirectory: child.isDirectory })
       if (child.isDirectory) await visit(await join(absolute, child.name), childParts)
