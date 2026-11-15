@@ -15,4 +15,10 @@ describe('parsePageRange', () => {
     expect(parsePageRange('11', 10)).toBeNull()
     expect(parsePageRange('', 10)).toBeNull()
   })
+
+  it('accepts spaced dashes and en dashes', () => {
+    expect(parsePageRange('1 - 3', 10)).toEqual([0, 1, 2])
+    expect(parsePageRange('1–3, 5', 10)).toEqual([0, 1, 2, 4])
+    expect(parsePageRange('8 -', 10)).toEqual([7, 8, 9])
+  })
 })

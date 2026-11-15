@@ -3,7 +3,8 @@
  * 읽을 수 없는 조각이 있거나 남는 쪽이 없으면 null.
  */
 export function parsePageRange(text: string, pageCount: number): number[] | null {
-  const parts = text.split(/[,\s]+/u).filter((part) => part !== '')
+  // 「1 - 5」·「1–5」(긴 줄표)·「1~5」 도 「1-5」 로 본다
+  const parts = text.replace(/\s*[-–—~]\s*/gu, '-').split(/[,，\s]+/u).filter((part) => part !== '')
   if (parts.length === 0 || pageCount <= 0) return null
   const pages = new Set<number>()
   for (const part of parts) {
