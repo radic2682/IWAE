@@ -62,11 +62,31 @@ export function installUnloadCleanup(target: Window = window): () => void {
   }
   target.fetch = wrapped
 
+  // 닫히는 웹뷰에서는 fetch 길이 막혀 Tauri 가 호출마다 "IPC custom protocol failed" 를 찍고 postMessage 길로 넘어간다(호출은 그대로 간다).
+  // 구독 수만큼 경고가 쌓이므로 풀어 내는 동안만 그 경고를 거른다. 다른 경고는 그대로 둔다
+  const quietIpcWarnings = () => {
+    const consoleRef = target.console
+    const originalWarn = consoleRef.warn
+    consoleRef.warn = (...args: unknown[]) => {
+      if (typeof args[0] === 'string' && args[0].startsWith('IPC custom protocol failed')) return
+      originalWarn.apply(consoleRef, args)
+    }
+    let restored = false
+    const restore = () => {
+      if (restored) return
+      restored = true
+      if (consoleRef.warn !== originalWarn) consoleRef.warn = originalWarn
+    }
+    // 웹뷰가 닫히지 않고 되살아나는 경우(pageshow)와, 닫히지 않은 채 늦게 실패하는 호출을 위해 잠시 뒤에 되돌린다
+    target.addEventListener('pageshow', restore, { once: true })
+    target.setTimeout(restore, 3000)
+  }
   const release = () => {
     const openWatchers = [...watchers]
     const openListeners = [...listeners]
     watchers.clear()
     listeners.clear()
+    if (openWatchers.length + openListeners.length > 0) quietIpcWarnings()
     for (const rid of openWatchers) void internals.invoke('plugin:resources|close', { rid }).catch(() => undefined)
     for (const [eventId, event] of openListeners) void internals.invoke('plugin:event|unlisten', { event, eventId }).catch(() => undefined)
   }

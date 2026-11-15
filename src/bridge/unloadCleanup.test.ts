@@ -39,6 +39,29 @@ describe('installUnloadCleanup', () => {
     uninstall()
   })
 
+  it('drops only the expected IPC fallback warnings while releasing', async () => {
+    window.fetch = (async () => new Response(JSON.stringify(7))) as typeof fetch
+    ;(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = { invoke: async () => undefined }
+    const warned: unknown[][] = []
+    const realWarn = console.warn
+    console.warn = (...args: unknown[]) => { warned.push(args) }
+    const uninstall = installUnloadCleanup()
+    try {
+      await (await window.fetch(ipc('plugin:event|listen'), { method: 'POST', body: JSON.stringify({ event: 'a' }) })).json()
+      await flush()
+      window.dispatchEvent(new Event('pagehide'))
+      console.warn('IPC custom protocol failed, Tauri will now use the postMessage interface instead', new Error('x'))
+      console.warn('something else')
+      expect(warned.map((args) => args[0])).toEqual(['something else'])
+      window.dispatchEvent(new Event('pageshow'))
+      console.warn('IPC custom protocol failed, again')
+      expect(warned).toHaveLength(2)
+    } finally {
+      uninstall()
+      console.warn = realWarn
+    }
+  })
+
   it('does nothing outside Tauri', () => {
     expect(() => installUnloadCleanup()()).not.toThrow()
   })
