@@ -199,4 +199,19 @@ describe('MarkdownPane', () => {
     fireEvent.click(screen.getByRole('button', { name: '형광펜 삭제' }))
     expect(onPersistentHighlightRemoved).toHaveBeenCalledWith(highlight.id)
   })
+
+  it('relative PDF links open the document and unsupported links show a notice', () => {
+    const onOpenDocument = vi.fn()
+    const notices: string[] = []
+    const listen = (event: Event) => notices.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:action-feedback', listen)
+    const { container } = render(<MarkdownPane title="a" path="docs/a.md" source={'[논문](paper.pdf) [밖](//host/x) [그림](pic.png)'} onOpenDocument={onOpenDocument} />)
+    const links = container.querySelectorAll('a')
+    fireEvent.click(links[0]!)
+    expect(onOpenDocument).toHaveBeenCalledWith('docs/paper.pdf', null)
+    fireEvent.click(links[1]!)
+    fireEvent.click(links[2]!)
+    window.removeEventListener('iwae:action-feedback', listen)
+    expect(notices).toEqual(['열 수 없는 링크입니다', '열 수 없는 링크입니다'])
+  })
 })

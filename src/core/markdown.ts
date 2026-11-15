@@ -145,6 +145,8 @@ export function resolveMarkdownLink(href: string, currentPath: string): Markdown
   if (/^(?:https?:|mailto:)/iu.test(target)) return { kind: 'external', url: target }
   if (target.startsWith('#')) return { kind: 'anchor', id: safeDecode(target.slice(1)) }
   if (/^[a-z][a-z0-9+.-]*:/iu.test(target)) return null
+  // `//host/x` 는 다른 호스트를 가리키는 주소다(Vault 안 경로가 아니다)
+  if (target.startsWith('//')) return null
   const [rawPath = '', rawAnchor] = target.split('#', 2)
   const path = resolveRelativePath(safeDecode(rawPath.split('?')[0] ?? ''), currentPath)
   if (path === null) return null

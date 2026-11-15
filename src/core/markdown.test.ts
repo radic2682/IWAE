@@ -69,6 +69,8 @@ describe('Markdown 링크 풀기', () => {
   it('바깥 주소·같은 문서 제목·다른 문서를 가른다', () => {
     expect(resolveMarkdownLink('https://github.com', 'docs/a.md')).toEqual({ kind: 'external', url: 'https://github.com' })
     expect(resolveMarkdownLink('#boot-flow', 'docs/a.md')).toEqual({ kind: 'anchor', id: 'boot-flow' })
+    expect(resolveMarkdownLink('//host/x', 'docs/a.md')).toBeNull()
+    expect(resolveMarkdownLink('paper.pdf', 'docs/a.md')).toEqual({ kind: 'document', path: 'docs/paper.pdf', anchor: null })
     expect(resolveMarkdownLink('./sub/b.md#reset', 'docs/a.md')).toEqual({ kind: 'document', path: 'docs/sub/b.md', anchor: 'reset' })
     expect(resolveMarkdownLink('javascript:alert(1)', 'docs/a.md')).toBeNull()
   })

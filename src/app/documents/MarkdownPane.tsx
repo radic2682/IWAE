@@ -1272,12 +1272,16 @@ export function MarkdownPane({
         if (link !== null && articleRef.current?.contains(link)) {
           event.preventDefault()
           const resolved = resolveMarkdownLink(link.getAttribute('href') ?? '', path.replaceAll('\\', '/'))
-          if (resolved?.kind === 'external') onExternalLink?.(resolved.url)
-          else if (resolved?.kind === 'anchor') {
+          const href = link.getAttribute('href') ?? ''
+          if (resolved === null) { if (href.trim() !== '') announceAction(t('열 수 없는 링크입니다')) }
+          else if (resolved.kind === 'external') onExternalLink?.(resolved.url)
+          else if (resolved.kind === 'anchor') {
             const heading = articleRef.current.querySelector(`[id="${CSS.escape(resolved.id)}"]`)
             heading?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-          } else if (resolved?.kind === 'document') {
-            if (isMarkdownPath(resolved.path)) onOpenDocument?.(resolved.path, resolved.anchor)
+          } else if (resolved.kind === 'document') {
+            // Markdown 과 PDF 는 Vault 안 문서를 연다. 그 밖의 파일은 열 수 없다고 알린다
+            if (isMarkdownPath(resolved.path) || /\.pdf$/iu.test(resolved.path)) onOpenDocument?.(resolved.path, resolved.anchor)
+            else announceAction(t('열 수 없는 링크입니다'))
           }
           return
         }

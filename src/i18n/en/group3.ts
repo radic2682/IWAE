@@ -259,6 +259,7 @@ export const GROUP_3: Readonly<Record<string, string>> = {
   '외부 링크 열기': 'Open external link',
   '브라우저에서 열기': 'Open in browser',
   '메일 앱에서 열기': 'Open in mail app',
+  '열 수 없는 링크입니다': "Can't open this link",
   '열 수 없는 주소입니다: {url}': "Can't open this address: {url}",
 
   // PDF 검색 묶음 (pdfSearchGroups)
