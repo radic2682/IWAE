@@ -843,3 +843,17 @@ describe('크게 보는 화면의 만지는 칸', () => {
     expect(h.model().activePane).not.toBe('pH')
   })
 })
+
+describe('기본 화면 이름', () => {
+  it('화면을 닫은 뒤 새 화면은 겹치지 않는 가장 작은 번호를 쓴다', async () => {
+    const h = harness()
+    await h.run('new-window')
+    await h.run('new-window')
+    expect(h.model().screens.screens.map((s) => s.name)).toEqual(['읽기', '화면 1', '화면 2'])
+    await h.run('kill-window -t "화면 1"')
+    await h.run('new-window')
+    const names = h.model().screens.screens.map((s) => s.name)
+    expect(new Set(names).size).toBe(names.length)
+    expect(names[names.length - 1]).toBe('화면 1')
+  })
+})

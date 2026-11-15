@@ -240,3 +240,11 @@ export function screenLabel(screen: Screen, index: number): string {
   return screen.name.trim() === '' ? String(index) : screen.name
 }
 
+
+/** 기본 이름(「화면 N」)에 쓸 가장 작은 빈 번호: 화면을 닫은 뒤에도 같은 이름이 겹치지 않는다 */
+export function freeScreenNumber(existingNames: readonly string[], nameOf: (n: number) => string): number {
+  const used = new Set(existingNames)
+  let n = 1
+  while (used.has(nameOf(n))) n += 1
+  return n
+}

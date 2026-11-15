@@ -3,7 +3,7 @@ import {
   type RelayoutKind, type SplitDir, type SplitRefusal,
 } from '../../core/layoutTree'
 import { t } from '../../i18n'
-import { blankScreen, normalizeFloats, activeScreenOf, addScreen, breakPane, closeScreen, lastScreenOf, renameScreen, setZoomed, stepScreen, switchScreen, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
+import { blankScreen, freeScreenNumber, normalizeFloats, activeScreenOf, addScreen, breakPane, closeScreen, lastScreenOf, renameScreen, setZoomed, stepScreen, switchScreen, withActiveWorkspace, workspaceOf, type Screen, type ScreensState } from './screens'
 import { closePaneTree, type PaneSizer } from './tabDock'
 import { selectLayout, splitPane } from './paneLayoutOps'
 import { addFloat, closeFloat, embedPane, floatOf, floatPane, isFloatPane, selectableOrder, toggleFloating, type FloatOutcome } from './floatingPanes'
@@ -637,7 +637,7 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     case 'swap-pane':
       return apply(swapPane(model, flags.U === true ? -1 : 1))
     case 'break-pane':
-      return apply(breakPaneOut(model, host.blankScreenName(model.screens.screens.length)))
+      return apply(breakPaneOut(model, host.blankScreenName(freeScreenNumber(model.screens.screens.map((screen) => screen.name), host.blankScreenName))))
     case 'join-pane': {
       const source = flags.s
       if (source === undefined) return fail(t('join-pane -s N (가져올 화면 번호)'))
@@ -654,7 +654,7 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
           return ok()
         }
       }
-      return apply(newBlankWindow(model, name ?? host.blankScreenName(model.screens.screens.length)))
+      return apply(newBlankWindow(model, name ?? host.blankScreenName(freeScreenNumber(model.screens.screens.map((screen) => screen.name), host.blankScreenName))))
     }
     case 'select-window': {
       const ref = flags.t ?? firstArg(command)

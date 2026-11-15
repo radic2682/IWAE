@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { leaves, paneNode, splitLeaf, type LayoutNode } from '../../core/layoutTree'
 import {
-  activeScreenOf, addScreen, allScreenPaneIds, blankScreen, breakPane, closeScreen, lastScreenOf, renameScreen, reorderScreen,
+  activeScreenOf, addScreen, allScreenPaneIds, blankScreen, breakPane, closeScreen, freeScreenNumber, lastScreenOf, renameScreen, reorderScreen,
   setZoomed, stepScreen, switchScreen, switchScreenAt, withActiveWorkspace, workspaceOf, type Screen, type ScreensState,
 } from './screens'
 import type { TabsState } from './tabs'
@@ -94,5 +94,15 @@ describe('화면 묶음', () => {
     expect(created.panes.c!.tabs.map((tab) => tab.id)).toEqual(['d3'])
     expect(next).toMatchObject({ activeScreen: created.id, lastScreen: 'w2' })
     expect(breakPane(three(), 'a', 'x')).toBeNull()
+  })
+})
+
+describe('freeScreenNumber', () => {
+  const name = (n: number) => `화면 ${n}`
+  it('비어 있는 가장 작은 번호를 돌려준다', () => {
+    expect(freeScreenNumber(['읽기'], name)).toBe(1)
+    expect(freeScreenNumber(['읽기', '화면 1', '화면 2'], name)).toBe(3)
+    // 화면 1 을 닫은 뒤: 남은 화면 수(2)가 아니라 빈 번호(1)
+    expect(freeScreenNumber(['읽기', '화면 2'], name)).toBe(1)
   })
 })
