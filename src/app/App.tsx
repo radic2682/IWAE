@@ -1035,11 +1035,25 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       window.alert(t('노트를 저장하지 못해 Vault를 전환하지 않았습니다: {error}', { error: cause instanceof Error ? cause.message : String(cause) }))
     })
   }, [openVaultPath])
+  // 창을 닫는 길(onCloseRequested)이 저장을 끝내고, 실패하면 「그래도 종료」를 묻는다. 여기서 먼저 저장하면 같은 질문이 두 번 나온다
   const closeWindowSafely = useCallback(() => {
-    void runAfterCanvasFlush(undefined, flushCanvasSaves, closeWindow).catch((cause: unknown) => {
-      window.alert(t('노트를 저장하지 못해 앱을 종료하지 않았습니다: {error}', { error: cause instanceof Error ? cause.message : String(cause) }))
-    })
+    closeWindow()
   }, [])
+  // 저장이 계속 실패할 때 앱을 끝낼 수 있게 하는 물음. decide(true) 면 저장하지 못한 채 종료한다
+  const [quitAnyway, setQuitAnyway] = useState<{ readonly message: string; readonly decide: (quit: boolean) => void } | null>(null)
+  const quitAnywayPendingRef = useRef<((quit: boolean) => void) | null>(null)
+  const askQuitAnyway = useCallback((message: string) => new Promise<boolean>((resolve) => {
+    quitAnywayPendingRef.current?.(false)
+    const decide = (quit: boolean) => {
+      if (quitAnywayPendingRef.current === decide) quitAnywayPendingRef.current = null
+      setQuitAnyway(null)
+      resolve(quit)
+    }
+    quitAnywayPendingRef.current = decide
+    setQuitAnyway({ message, decide })
+  }), [])
+  const askQuitAnywayRef = useRef(askQuitAnyway)
+  askQuitAnywayRef.current = askQuitAnyway
   // 떼어 낸 창이 닫힐 때 탭을 메인 창으로 돌려보낸다(아래에서 최신 함수로 채운다)
   const sendTabsBackRef = useRef<() => Promise<void>>(async () => undefined)
   // 메인 창이 닫히면서 돌려받은 탭을 세션에 싣는다(최신 함수를 ref 로 부른다)
@@ -1051,8 +1065,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   clientsNowRef.current = clients
   const beforeCloseRef = useRef<() => Promise<void | 'keep'>>(async () => undefined)
   beforeCloseRef.current = async () => {
-    // 노트·메모 저장을 끝낸다. 이 창이 쓴 것은 파일에 있으니 다른 창이 이어서 쓴다
-    await flushCanvasSaves()
+    // 노트·메모 저장을 끝낸다. 이 창이 쓴 것은 파일에 있으니 다른 창이 이어서 쓴다.
+    // 저장이 실패하면 그대로 닫을지 묻는다(묻지 않으면 디스크 문제가 계속될 때 앱을 끝낼 수 없다). 취소하면 창을 닫지 않아 다시 시도할 수 있다
+    try {
+      await flushCanvasSaves()
+    } catch (cause) {
+      if (!(await askQuitAnywayRef.current(cause instanceof Error ? cause.message : String(cause)))) return 'keep'
+    }
     const { registry, selfId, engine } = clientsNowRef.current
     const action = isMainWindow || !isDetachedWindow ? closePlan(registry, selfId, isMainWindow, quittingRef.current) : 'close'
     if (isMainWindow) {
@@ -4614,6 +4633,18 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         onOpen={(path) => openMarkdownPath(path)}
         onPull={() => githubPullAndShow(githubDialog.source.name)}
       />
+    ) : null}
+    {quitAnyway !== null ? (
+      <ConfirmDialog
+        title={t('저장하지 못한 변경이 있습니다')}
+        confirmLabel={t('저장하지 않고 종료')}
+        tone="danger"
+        onConfirm={() => quitAnyway.decide(true)}
+        onCancel={() => quitAnyway.decide(false)}
+      >
+        <p>{t('노트를 저장하지 못했습니다: {error}', { error: quitAnyway.message })}</p>
+        <p>{t('그대로 종료하면 저장하지 못한 변경이 사라집니다. 취소하면 앱이 열려 있어 다시 저장해 볼 수 있습니다.')}</p>
+      </ConfirmDialog>
     ) : null}
     {sessionToKill !== null ? (
       <ConfirmDialog
