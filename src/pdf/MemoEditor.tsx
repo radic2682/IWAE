@@ -286,6 +286,31 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
     return { text, html: hasMemoFormatting(html) ? html : literalHtmlIfNeeded(text) }
   }
 
+  // 이 칸이 아는 저장된 글. 쓰는 사이 다른 프로그램이 같은 글을 바꾸면(initialText 가 달라진다) 그 글을 덮어쓰지 않는다
+  const latestRef = useRef<MemoContent>({ text: initialText, html: initialHtml ?? '' })
+  latestRef.current = { text: initialText, html: initialHtml ?? '' }
+  const baselineRef = useRef(initialText)
+  const dirtyRef = useRef(false)
+  const observerRef = useRef<MutationObserver | null>(null)
+  const isDirty = () => {
+    if (observerRef.current?.takeRecords().length) dirtyRef.current = true
+    return dirtyRef.current
+  }
+  /** 저장할 내용. null 이면 저장하지 않는다: 쓴 것이 없는데 글이 밖에서 바뀌었으면 바뀐 글이 이긴다. 쓴 것이 있으면 둘을 이어서 둘 다 남긴다 */
+  const contentToSave = (): MemoContent | null => {
+    const mine = snapshot()
+    const external = latestRef.current
+    if (external.text === baselineRef.current) {
+      baselineRef.current = mine.text
+      return mine
+    }
+    if (!isDirty()) return null
+    baselineRef.current = external.text
+    if (external.text === mine.text) return mine
+    const html = mine.html === '' && external.html === '' ? '' : sanitizeMemoHtml(`${memoDisplayHtml(mine.text, mine.html)}${memoDisplayHtml(external.text, external.html)}`)
+    return { text: mine.text + '\n\n' + external.text, html }
+  }
+
   const finish = (save: boolean) => {
     if (doneRef.current) return
     doneRef.current = true
@@ -293,19 +318,20 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
       onCancel()
       return
     }
-    onSave(snapshot())
+    const content = contentToSave()
+    if (content === null) onCancel()
+    else onSave(content)
   }
 
   // 포커스를 잃지 않고 칸이 사라지는 길(화면 전환 · 칸 닫기)과 창 닫기 · Vault 바꾸기 전에도 쓴 글을 저장한다. 고친 것이 없으면 아무것도 하지 않는다
-  const dirtyRef = useRef(false)
-  const observerRef = useRef<MutationObserver | null>(null)
   const commitPending = () => {
-    if (observerRef.current?.takeRecords().length) dirtyRef.current = true
+    const dirty = isDirty()
     const element = ref.current
-    if (doneRef.current || !dirtyRef.current || element === null) return
+    if (doneRef.current || !dirty || element === null) return
     if (discardEmptyOnBlur && memoPlainText(element).trim() === '') return
+    const content = contentToSave()
     dirtyRef.current = false
-    onSave(snapshot())
+    if (content !== null) onSave(content)
   }
   const commitRef = useRef(commitPending)
   commitRef.current = commitPending

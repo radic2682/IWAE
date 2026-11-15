@@ -18,3 +18,30 @@ describe('MemoEditor while composing', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('MemoEditor when the stored text changes while typing', () => {
+  it('keeps both the typed text and the external text on save', () => {
+    const onSave = vi.fn(); const onCancel = vi.fn()
+    const { getByRole, rerender } = render(<MemoEditor initialText="old" onSave={onSave} onCancel={onCancel} />)
+    const editor = getByRole('textbox')
+    editor.textContent = 'old plus mine'
+    rerender(<MemoEditor initialText="theirs" onSave={onSave} onCancel={onCancel} />)
+    return Promise.resolve().then(() => {
+      fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
+      expect(onSave).toHaveBeenCalledTimes(1)
+      const saved = onSave.mock.calls[0]![0] as { text: string }
+      expect(saved.text).toContain('old plus mine')
+      expect(saved.text).toContain('theirs')
+    })
+  })
+
+  it('does not overwrite an external change when nothing was typed', () => {
+    const onSave = vi.fn(); const onCancel = vi.fn()
+    const { getByRole, rerender } = render(<MemoEditor initialText="old" onSave={onSave} onCancel={onCancel} />)
+    const editor = getByRole('textbox')
+    rerender(<MemoEditor initialText="theirs" onSave={onSave} onCancel={onCancel} />)
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
+    expect(onSave).not.toHaveBeenCalled()
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+})
