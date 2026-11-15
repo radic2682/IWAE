@@ -7,7 +7,7 @@ export default defineConfig({
     // 순수 TS 테스트는 가벼운 node 환경에서 돈다. React 를 실제로
     // 렌더해야 하는 .tsx 테스트만 파일 첫 줄 주석으로 jsdom 을 쓴다.
     environment: 'node',
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'setup/ui/**/*.test.ts'],
     setupFiles: ['src/ui/test-setup.ts'],
   },
 })

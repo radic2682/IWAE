@@ -10,6 +10,9 @@ src-tauri/tauri.updater.conf.json
 src-tauri/icons/64x64.png
 src-tauri/icons/android/
 src-tauri/icons/ios/
+setup/dist/
+setup/src-tauri/target/
+setup/src-tauri/gen/
 
 # PDFium runtime library (프리빌드 바이너리, 빌드 시 내려받음)
 src-tauri/binaries/

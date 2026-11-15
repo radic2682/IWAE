@@ -20,6 +20,8 @@
     "test:watch": "vitest",
     "pdfium:fetch": "node scripts/fetch-pdfium.mjs",
     "tauri": "tauri",
+    "setup:ui": "vite build --config setup/vite.config.ts",
+    "setup:dev": "node scripts/setup-dev.mjs",
     "emoji:data": "node scripts/build-emoji-data.mjs"
   },
   "type": "module",
