@@ -179,7 +179,30 @@ fn run_steps(
     }
     on(InstallEvent::Progress(percent(&env.manifest, &target, &before, true)));
 
-    // 5. After-steps. The user did not ask for a desktop icon unless it was there before.
+    // 5. After-steps.
+    if !finish_steps(env, req.lang, &target, lnk_existed, log) {
+        return Err(FailReason::Finish);
+    }
+
+    Ok(target)
+}
+
+/// Where NSIS puts the app: existing install, then the chosen folder, then the remembered
+/// location, then the default. Shared with the no-window fallback (which passes no override).
+pub fn pick_target(env: &Env, dir_override: Option<&Path>) -> PathBuf {
+    match existing_install(env.reg) {
+        Some(e) => e.dir,
+        None => dir_override
+            .map(Path::to_path_buf)
+            .or_else(|| previous_install_location(env.reg))
+            .unwrap_or_else(|| env.default_dir.clone()),
+    }
+}
+
+/// After-steps once NSIS exited 0 (spec 6.2 step 6). Runs every step even when one fails and
+/// returns false if any did. The user did not ask for a desktop icon unless it was there before.
+pub fn finish_steps(env: &Env, lang: Lang, target: &Path, lnk_existed: bool, log: &SetupLog) -> bool {
+    let lnk = env.desktop.join("IWAE.lnk");
     if !lnk_existed && lnk.exists() {
         match fs::remove_file(&lnk) {
             Ok(()) => log.line("removed desktop shortcut created by NSIS"),
@@ -187,9 +210,8 @@ fn run_steps(
         }
     }
 
-    // Run every after-step even when one fails, then report Finish once.
     let mut finish_ok = true;
-    if let Err(e) = write_installer_language(&target, req.lang) {
+    if let Err(e) = write_installer_language(target, lang) {
         log.line(&format!("installer-language write failed: {e}"));
         finish_ok = false;
     }
@@ -201,7 +223,7 @@ fn run_steps(
     }
     // Only point Apps & features at the UI when it is really there.
     if ui.exists() {
-        match point_uninstall_to_ui(env.reg, &target) {
+        match point_uninstall_to_ui(env.reg, target) {
             Ok(()) => log.line("UninstallString now points at uninstall-ui.exe"),
             Err(e) => {
                 log.line(&format!("registry UninstallString update failed: {e}"));
@@ -211,11 +233,45 @@ fn run_steps(
     } else {
         log.line("uninstall-ui.exe missing, UninstallString left as is");
     }
-    if !finish_ok {
-        return Err(FailReason::Finish);
-    }
+    finish_ok
+}
 
-    Ok(target)
+/// No-window path (WebView2 missing or MSI install present): NSIS runs Passive and shows its own
+/// progress window. Returns the process exit code: NSIS's code, or 1 when an extract or
+/// after-step failed.
+pub fn run_fallback(env: &Env, update: bool, lang: Lang) -> (i32, PathBuf) {
+    let log = SetupLog::create(&env.temp).unwrap_or_else(|_| SetupLog::fallback(&env.temp));
+    let work = env.temp.join(format!("iwae-setup-{}", std::process::id()));
+    log.line(&format!("fallback passive install: update={update} lang={}", lang.code()));
+
+    let mut target = pick_target(env, None);
+    let exe = work.join("IWAE-inner-setup.exe");
+    let code = if let Err(e) = fs::create_dir_all(&work).and_then(|_| fs::write(&exe, env.nsis_exe)) {
+        log.line(&format!("extract failed: {e}"));
+        1
+    } else {
+        let lnk_existed = env.desktop.join("IWAE.lnk").exists();
+        let args = nsis_args(&NsisRun::Passive { update });
+        log.line(&format!("nsis: {:?}", args));
+        match env.nsis.run(&exe, &args) {
+            Ok(0) => {
+                log.line("nsis exit 0");
+                // NSIS has just written its Uninstall key, so this now names the real folder.
+                target = pick_target(env, None);
+                if finish_steps(env, lang, &target, lnk_existed, &log) { 0 } else { 1 }
+            }
+            Ok(code) => {
+                log.line(&format!("nsis exit {code}"));
+                code
+            }
+            Err(e) => {
+                log.line(&format!("nsis could not start: {e}"));
+                1
+            }
+        }
+    };
+    let _ = fs::remove_dir_all(&work);
+    (code, target)
 }
 
 #[cfg(test)]
