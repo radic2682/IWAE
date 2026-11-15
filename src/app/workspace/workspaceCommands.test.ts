@@ -786,3 +786,60 @@ describe('명령 줄 전체', () => {
     expect(leaves(h.screen().layout)).toHaveLength(1)
   })
 })
+
+describe('join-pane 이 떠 있는 칸을 가진 화면에서 가져올 때', () => {
+  it('트리의 칸이 하나뿐인 화면에서 가져와도 떠 있는 칸과 그 탭을 잃지 않는다', async () => {
+    const tabs = (ids: string[]) => ({ tabs: ids.map((id) => ({ id, title: id, kind: 'pdf' as const })), activeId: ids[0] ?? null })
+    const s0 = blankScreen('zero')
+    const a = leaves(s0.layout)[0]!
+    const screen0 = { ...s0, panes: { [a]: tabs(['a']), pF: tabs(['f']) }, channels: { [a]: 'blue' as const, pF: 'blue' as const }, floats: [{ paneId: 'pF', anchor: { kind: 'screen' as const }, x: 0.1, y: 0.1, w: 300, h: 300, collapsed: false }] }
+    const s1 = blankScreen('one')
+    const b = leaves(s1.layout)[0]!
+    const screen1 = { ...s1, panes: { [b]: tabs(['b']) } }
+    const h = harness({ screens: { screens: [screen0, screen1], activeScreen: screen1.id, lastScreen: screen0.id }, activePane: b })
+    expect((await h.run('join-pane -s 0')).ok).toBe(true)
+    const ids = h.model().screens.screens.flatMap((s) => Object.values(s.panes).flatMap((p) => p.tabs.map((x) => x.id)))
+    expect(ids.sort()).toEqual(['a', 'b', 'f'])
+    const left = h.model().screens.screens.find((s) => s.id === screen0.id)!
+    expect(leaves(left.layout)).toEqual(['pF'])
+    expect(left.floats).toEqual([])
+  })
+})
+
+describe('크게 보는 화면의 만지는 칸', () => {
+  it('크게 본 화면으로 돌아오면 크게 보는 칸을 만진다(가려진 첫 칸이 아니다)', async () => {
+    const h = harness()
+    await split(h)
+    await h.run('resize-pane -Z')
+    const zoomed = h.screen().zoomed
+    await h.run('new-window')
+    await h.run('last-window')
+    expect(zoomed).not.toBeNull()
+    expect(h.model().activePane).toBe(zoomed)
+  })
+
+  it('다른 칸이 크게 보이는 동안 떠 있는 칸을 닫으면 크게 보는 칸에 내려앉는다', async () => {
+    const h = harness()
+    await split(h)
+    await split(h)
+    await h.run('float-pane')
+    await h.run('select-pane -t 1')
+    await h.run('resize-pane -Z')
+    const zoomed = h.screen().zoomed
+    await h.run('select-pane')
+    await h.run('kill-pane')
+    expect(h.screen().floats).toHaveLength(0)
+    expect(h.model().activePane).toBe(zoomed)
+  })
+
+  it('select-pane 순환은 크게 보는 동안 가려진 칸에 붙은 떠 있는 칸을 건너뛴다', async () => {
+    const h = harness()
+    await split(h)
+    const [p0, p1] = leaves(h.screen().layout)
+    const hidden = { paneId: 'pH', anchor: { kind: 'pane' as const, paneId: p0! }, x: 0.1, y: 0.1, w: 300, h: 300, collapsed: false }
+    const screen = { ...h.screen(), floats: [hidden], panes: { ...h.screen().panes, pH: emptyTabs }, channels: { ...h.screen().channels, pH: 'blue' as const }, zoomed: p1! }
+    h.host.setModel({ screens: { ...h.model().screens, screens: [screen] }, activePane: p1! })
+    await h.run('select-pane')
+    expect(h.model().activePane).not.toBe('pH')
+  })
+})

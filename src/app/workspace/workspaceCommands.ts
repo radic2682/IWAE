@@ -1,5 +1,5 @@
 import {
-  leaves, MAX_PANES, parseRelayoutKind, RELAYOUT_KINDS, layoutRects, removeLeaf, splitLeaf, splitRefusal, swapLeaves,
+  leaves, MAX_PANES, paneNode, parseRelayoutKind, RELAYOUT_KINDS, layoutRects, removeLeaf, splitLeaf, splitRefusal, swapLeaves,
   type RelayoutKind, type SplitDir, type SplitRefusal,
 } from '../../core/layoutTree'
 import { t } from '../../i18n'
@@ -383,9 +383,12 @@ function firstPaneOf(screen: Screen): string {
   return leaves(screen.layout)[0]!
 }
 
+/** 화면으로 돌아왔을 때 만질 칸: 크게 보는 칸이 있으면 그 칸(가려진 칸을 만지지 않는다), 없으면 첫 칸 */
+const landingPaneOf = (screen: Screen): string => screen.zoomed ?? firstPaneOf(screen)
+
 /** 화면을 바꾼 뒤의 모델: 그 화면의 첫 칸을 만진다 */
 function viewing(screens: ScreensState): WorkspaceModel {
-  return { screens, activePane: firstPaneOf(activeScreenOf(screens)) }
+  return { screens, activePane: landingPaneOf(activeScreenOf(screens)) }
 }
 
 function splitWindow(model: WorkspaceModel, dir: SplitDir, sizeOf?: PaneSizer): Outcome {
@@ -494,13 +497,18 @@ function joinPane(model: WorkspaceModel, ref: string, dir: SplitDir, sizeOf?: Pa
     channels: { ...active.channels, [pane]: channelOf(source.channels, pane) },
     zoomed: null,
   }
-  const shrunkLayout = removeLeaf(source.layout, pane)
   const { [pane]: _gone, ...restPanes } = source.panes
+  // 트리의 칸이 이것 하나뿐이면 떠 있는 칸 하나를 트리로 올려 화면(과 떠 있는 칸의 탭)을 남긴다
+  const removed = removeLeaf(source.layout, pane)
+  const promoted = removed === null ? source.floats[0] : undefined
+  const shrunkLayout = promoted === undefined ? removed : paneNode(promoted.paneId)
+  const sourceFloats = promoted === undefined ? source.floats : source.floats.filter((float) => float !== promoted)
   const shrunk: Screen | null = shrunkLayout === null ? null : normalizeFloats({
     ...source,
     layout: shrunkLayout,
     panes: restPanes,
-    channels: pruneChannels(source.channels, [...leaves(shrunkLayout), ...source.floats.map((float) => float.paneId)]),
+    floats: sourceFloats,
+    channels: pruneChannels(source.channels, [...leaves(shrunkLayout), ...sourceFloats.map((float) => float.paneId)]),
     zoomed: source.zoomed === pane ? null : source.zoomed,
   }, source.layout)
   const screens = state.screens.flatMap((screen) => (screen.id === active.id ? [joined] : screen.id === source.id ? (shrunk === null ? [] : [shrunk]) : [screen]))

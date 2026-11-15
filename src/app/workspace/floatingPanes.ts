@@ -120,8 +120,15 @@ export const visibleFloats = (screen: Screen): readonly FloatingPane[] => (scree
 
 /** select-pane · o 가 도는 칸들: 트리의 칸 + 보이는 떠 있는 칸. 칸 번호(q · -t N)는 트리의 칸만 센다 */
 export function selectableOrder(screen: Screen): string[] {
-  return [...leaves(screen.layout), ...visibleFloats(screen).map((float) => float.paneId)]
+  return [...leaves(screen.layout), ...shownFloatsOf(screen).map((float) => float.paneId)]
 }
+
+/** 크게 보는 칸이 있으면 화면에 붙었거나 그 칸에 붙은 떠 있는 칸만 보인다(다른 칸에 붙은 것은 가려진다) */
+export const shownFloatsOf = (screen: Screen): readonly FloatingPane[] =>
+  visibleFloats(screen).filter((float) => screen.zoomed === null || float.anchor.kind === 'screen' || float.anchor.paneId === screen.zoomed)
+
+/** 크게 보는 중이면 가려진 트리 칸 대신 크게 보는 칸에 내려앉는다 */
+const landingTree = (screen: Screen, home: string): string => screen.zoomed ?? home
 
 // ── 동작 ──────────────────────────────────────────────────────────────────────
 
@@ -217,7 +224,7 @@ export function toggleFloating(model: FloatModel): FloatOutcome {
   const active = activeScreenOf(model.screens)
   if (active.floats.length === 0) return { error: t('떠 있는 칸이 없습니다') }
   const hide = active.floatsHidden !== true
-  const landed = hide && isFloatPane(active, model.activePane) ? homeFor(active, floatOf(active, model.activePane)!, leaves(active.layout)[0]!) : model.activePane
+  const landed = hide && isFloatPane(active, model.activePane) ? landingTree(active, homeFor(active, floatOf(active, model.activePane)!, leaves(active.layout)[0]!)) : model.activePane
   return { model: put(model, { ...active, floatsHidden: hide }, landed), message: hide ? t('떠 있는 칸을 숨겼습니다') : t('떠 있는 칸을 보입니다') }
 }
 
@@ -237,7 +244,7 @@ export function closeFloat(model: FloatModel, paneId: string): FloatOutcome {
     channels,
     floats: active.floats.filter((candidate) => candidate.paneId !== paneId),
   }
-  return { model: put(model, next, model.activePane === paneId ? home : model.activePane) }
+  return { model: put(model, next, model.activePane === paneId ? landingTree(active, home) : model.activePane) }
 }
 
 export interface FloatInput {
