@@ -54,6 +54,13 @@ describe('bibliography', () => {
     expect(mergeEntry(fromPdf, manual)).toBe(manual)
   })
 
+  it('keeps the existing pdf entry when only updatedAt would change', () => {
+    const existing: BibEntry = { title: 'Auto', authors: ['X'], year: 2020, source: 'pdf', updatedAt: 'a' }
+    expect(mergeEntry(existing, { ...existing, updatedAt: 'b' })).toBe(existing)
+    const changed: BibEntry = { ...existing, title: 'New', updatedAt: 'b' }
+    expect(mergeEntry(existing, changed)).toBe(changed)
+  })
+
   it('makes a BibTeX entry with a readable key', () => {
     const bibtex = toBibtex({ title: 'Attention Is All You Need', authors: ['Ashish Vaswani', 'Noam Shazeer'], year: 2017, doi: '10.5555/3295222', journal: 'NeurIPS', source: 'manual', updatedAt: '' })
     expect(bibtex).toBe([

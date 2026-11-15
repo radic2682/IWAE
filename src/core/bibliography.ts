@@ -71,10 +71,19 @@ export function entryFromPdf(info: PdfInfo, firstPagesText: string, now: string)
   }
 }
 
+function sameExceptUpdatedAt(a: BibEntry, b: BibEntry): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  keys.delete('updatedAt')
+  const record = (entry: BibEntry) => entry as unknown as Readonly<Record<string, unknown>>
+  return [...keys].every((key) => JSON.stringify(record(a)[key]) === JSON.stringify(record(b)[key]))
+}
+
 /** 자동(pdf) 값은 이미 있는 다른 출처를 덮지 않는다. 그 밖에는 새 값이 이긴다 */
 export function mergeEntry(existing: BibEntry | undefined, incoming: BibEntry): BibEntry {
   if (existing === undefined) return incoming
   if (incoming.source === 'pdf' && existing.source !== 'pdf') return existing
+  // 같은 내용을 다시 읽었을 뿐이면(시각만 다르다) 저장하지 않게 기존 항목을 그대로 돌려준다
+  if (incoming.source === 'pdf' && sameExceptUpdatedAt(existing, incoming)) return existing
   return incoming
 }
 
