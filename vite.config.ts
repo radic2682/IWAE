@@ -9,6 +9,7 @@ import {
   buildChunkGroups,
   filterInitialModulePreloads,
 } from './src/core/buildChunks.ts'
+import { pruneBrowserPreviewAssets } from './src/core/desktopBuildPrune.ts'
 import {
   OCR_EMITTED_RUNTIME_FILES,
   OCR_RUNTIME_FILES,
@@ -62,8 +63,19 @@ function localOcrWasm(): Plugin {
   }
 }
 
+/** 데스크톱(tauri) 빌드에서는 브라우저 미리보기용 샘플(public/dev-pdf)을 dist 에서 뺀다 */
+function pruneDesktopBuild(): Plugin {
+  let outDir = ''
+  return {
+    name: 'iwae-prune-desktop-build',
+    apply: 'build',
+    configResolved(config) { outDir = resolve(config.root, config.build.outDir) },
+    closeBundle() { pruneBrowserPreviewAssets(outDir, process.env) },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), localOcrWasm()],
+  plugins: [react(), localOcrWasm(), pruneDesktopBuild()],
   // Tauri 가 콘솔을 쓰므로 Vite 가 화면을 지우면 로그가 섞여 사라진다.
   clearScreen: false,
   // tauri.conf.json 의 devUrl 과 반드시 같아야 한다. 포트가 밀리면
