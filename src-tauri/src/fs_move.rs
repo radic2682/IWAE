@@ -63,8 +63,15 @@ fn move_files(from: &Path, to: &Path, moved: &mut Vec<(PathBuf, PathBuf)>, creat
         } else {
             if std::fs::rename(&source, &target).is_err() {
                 // 다른 드라이브면 복사 후 지운다
-                std::fs::copy(&source, &target)?;
-                std::fs::remove_file(&source)?;
+                // 복사가 됐는데 원본을 못 지우면(누가 잡고 있는 파일) 사본을 지워야 되돌렸을 때 두 곳에 남지 않는다
+                if let Err(err) = std::fs::copy(&source, &target) {
+                    let _ = std::fs::remove_file(&target);
+                    return Err(err);
+                }
+                if let Err(err) = std::fs::remove_file(&source) {
+                    let _ = std::fs::remove_file(&target);
+                    return Err(err);
+                }
             }
             moved.push((source, target));
         }
@@ -132,6 +139,30 @@ mod tests {
         // 자기 안으로, Vault 밖으로는 안 된다
         assert!(move_dir(&root, &to, &to.join("inner")).is_err());
         assert!(move_dir(&root, &to, Path::new("C:/outside-iwae-test")).is_err());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// 폴더 안 파일 하나를 다른 프로그램이 잡고 있으면: 이동은 실패하고, 파일은 원래 자리에만 남는다
+    #[cfg(windows)]
+    #[test]
+    fn a_locked_file_rolls_the_whole_move_back_without_leaving_copies() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let root = std::env::temp_dir().join(format!("iwae-move-locked-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let from = root.join("A/Docs");
+        std::fs::create_dir_all(&from).unwrap();
+        for name in ["a.md", "b.md", "c.md"] {
+            std::fs::write(from.join(name), name).unwrap();
+        }
+        // 읽기·쓰기 공유만 허용(삭제·이름 바꾸기는 막힘)
+        let holder = std::fs::OpenOptions::new().read(true).share_mode(0x1 | 0x2).open(from.join("b.md")).unwrap();
+        let to = root.join("B/Docs");
+        assert!(move_dir(&root, &from, &to).is_err());
+        drop(holder);
+        for name in ["a.md", "b.md", "c.md"] {
+            assert!(from.join(name).exists(), "{name} must stay in the source");
+            assert!(!to.join(name).exists(), "{name} must not be duplicated in the target");
+        }
         std::fs::remove_dir_all(&root).ok();
     }
 
