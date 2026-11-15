@@ -42,10 +42,13 @@ export function prefixComboOf(word: string): string | null {
 }
 
 /** 따옴표('"')를 지키며 낱말로 자른다(주석 `#` 는 따옴표 밖에서만) */
-function words(line: string): string[] {
-  const out: string[] = []
+interface Word { readonly text: string; readonly quoted: boolean }
+
+function words(line: string): Word[] {
+  const out: Word[] = []
   let token = ''
   let started = false
+  let quotedAny = false
   let quote: '"' | "'" | null = null
   for (const char of line) {
     if (quote !== null) {
@@ -53,19 +56,31 @@ function words(line: string): string[] {
       else token += char
       continue
     }
-    if (char === '"' || char === "'") { quote = char; started = true; continue }
+    if (char === '"' || char === "'") { quote = char; started = true; quotedAny = true; continue }
     if (char === '#' && !started) break
     if (/\s/u.test(char)) {
-      if (started) out.push(token)
+      if (started) out.push({ text: token, quoted: quotedAny })
       token = ''
       started = false
+      quotedAny = false
       continue
     }
     token += char
     started = true
   }
-  if (started) out.push(token)
+  if (started) out.push({ text: token, quoted: quotedAny })
   return out
+}
+
+/** 묶음(binding)에 쓸 한 낱말: 비었거나 공백 · 따옴표 · ; · \ 가 있으면 다시 따옴표로 감싼다(명령 줄 파서가 한 낱말로 읽는다) */
+function requote(word: string): string {
+  if (word !== '' && !/[\s"';\\]/u.test(word)) return word
+  return word.includes('"') && !word.includes("'") ? `'${word}'` : `"${word}"`
+}
+
+/** 따옴표 밖의 `\;` 는 tmux 처럼 명령을 잇는다(`;`). 나머지 낱말은 따옴표를 되살려 한 줄로 잇는다 */
+function bindingLine(line: readonly Word[]): string {
+  return line.map((word) => (!word.quoted && (word.text === ';' || word.text === '\\;') ? ';' : requote(word.text))).join(' ')
 }
 
 export function parseKeysConf(text: string): KeysConf {
@@ -73,16 +88,18 @@ export function parseKeysConf(text: string): KeysConf {
   let prefix: string | null = null
   const errors: string[] = []
   text.split(/\r?\n/u).forEach((raw, index) => {
-    const parts = words(raw)
+    const wordList = words(raw)
+    const parts = wordList.map((word) => word.text)
     if (parts.length === 0) return
     const [command, ...rest] = parts as [string, ...string[]]
     const where = `${index + 1}`
     if (command === 'bind-key' || command === 'bind') {
       // -T table / -n 같은 tmux 옵션은 받지 않는다(접두키 표 하나뿐이다)
-      const [keyName, ...line] = rest
+      const [keyName] = rest
+      const line = wordList.slice(2)
       const token = keyName === undefined ? null : keyTokenOf(keyName)
       if (token === null || line.length === 0) { errors.push(`${where}: bind-key <키> <명령>`); return }
-      bindings[token] = line.join(' ')
+      bindings[token] = bindingLine(line)
     } else if (command === 'unbind-key' || command === 'unbind') {
       const token = rest[0] === undefined ? null : keyTokenOf(rest[0])
       if (token === null) { errors.push(`${where}: unbind-key <키>`); return }

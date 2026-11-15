@@ -20,7 +20,7 @@ describe('keys.conf', () => {
       ArrowLeft: 'select-pane -L',
       '%': 'split-window -v',
       x: '',
-      o: 'open 노트 A ; select-pane -R',
+      o: 'open "노트 A" ; select-pane -R',
     })
   })
 
@@ -51,5 +51,12 @@ describe('keys.conf', () => {
   it('빈 글과 주석만이면 아무것도 바꾸지 않는다. CRLF 도 읽는다', () => {
     expect(parseKeysConf('')).toEqual({ bindings: {}, prefix: null, errors: [] })
     expect(parseKeysConf('# 주석\r\n\r\nbind-key v split-window -h\r\n').bindings).toEqual({ v: 'split-window -h' })
+  })
+
+  it('묶음의 따옴표를 지킨다: 이름의 공백 · 따옴표 안의 ; 는 한 낱말, 따옴표 밖의 \; 는 명령을 잇는다', () => {
+    const conf = parseKeysConf('bind-key s select-window -t "읽기 2"\nbind-key o open "a;b"\nbind-key m split-window -h \; select-pane -L')
+    expect(conf.bindings.s).toBe('select-window -t "읽기 2"')
+    expect(conf.bindings.o).toBe('open "a;b"')
+    expect(conf.bindings.m).toBe('split-window -h ; select-pane -L')
   })
 })
