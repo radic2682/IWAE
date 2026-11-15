@@ -1766,12 +1766,13 @@ impl PdfEngine {
         let page_count = pages.len();
 
         // 페이지를 로드하지 않고 크기만 긁는다(FPDF_GetPageSizeByIndexF).
-        let page_sizes = pages
-            .page_sizes()
-            .map_err(|err| tr!("페이지 크기를 읽지 못했습니다: {err}", "Could not read page sizes: {err}"))?
-            .into_iter()
-            .map(|rect| (rect.width().value, rect.height().value))
-            .collect();
+        // 크기를 못 읽는 쪽 하나 때문에 문서 전체가 안 열리면 안 된다 — 그 쪽은 앞 쪽의 크기(없으면 A4)로 둔다
+        let mut page_sizes: Vec<(f32, f32)> = Vec::with_capacity(usize::try_from(page_count).unwrap_or(0));
+        for index in 0..page_count {
+            let size = pages.page_size(index).ok().map(|rect| (rect.width().value, rect.height().value));
+            let size = size.unwrap_or_else(|| page_sizes.last().copied().unwrap_or(FALLBACK_PAGE_SIZE));
+            page_sizes.push(size);
+        }
 
         let has_text = probe_has_text(pages);
 
@@ -1786,6 +1787,9 @@ impl PdfEngine {
         })
     }
 }
+
+/// 쪽 크기를 읽지 못했고 앞 쪽도 없을 때 쓰는 크기(A4, points)
+const FALLBACK_PAGE_SIZE: (f32, f32) = (595.0, 842.0);
 
 /// 이 비율 이상을 한 장의 그림이 덮은 쪽은 「그림이 주인인 쪽」(스캔한 쪽)으로 본다.
 const IMAGE_DOMINATED_COVERAGE: f32 = 0.6;

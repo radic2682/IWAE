@@ -125,3 +125,36 @@ fn a_full_page_image_without_text_is_a_scan() {
         .expect("열기");
     assert!(!meta.has_text);
 }
+
+/// /Count 가 실제 쪽 수보다 크다 — 크기를 못 읽는 쪽이 있어도 문서는 열린다
+#[test]
+fn a_page_with_unreadable_size_does_not_stop_the_document_from_opening() {
+    if !pdfium_present() {
+        return;
+    }
+    let objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 5 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 500] >>",
+    ];
+    let mut pdf = String::from("%PDF-1.4\n");
+    let mut offsets = Vec::new();
+    for (i, body) in objects.iter().enumerate() {
+        offsets.push(pdf.len());
+        pdf.push_str(&format!("{} 0 obj\n{}\nendobj\n", i + 1, body));
+    }
+    let xref_at = pdf.len();
+    pdf.push_str(&format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1));
+    for offset in &offsets {
+        pdf.push_str(&format!("{offset:010} 00000 n \n"));
+    }
+    pdf.push_str(&format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{}\n%%EOF\n", objects.len() + 1, xref_at));
+    let path = fixture_dir().join("count-lies.pdf");
+    fs::write(&path, pdf).unwrap();
+
+    let meta = PdfThread::shared().open_blocking(path).expect("크기를 못 읽는 쪽이 있어도 열려야 한다");
+
+    assert_eq!(meta.page_sizes.len(), usize::try_from(meta.page_count).unwrap());
+    assert_eq!(meta.page_sizes[0], (300.0, 500.0));
+    assert!(meta.page_sizes.iter().all(|&(w, h)| w > 0.0 && h > 0.0), "{:?}", meta.page_sizes);
+}

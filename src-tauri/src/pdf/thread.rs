@@ -905,14 +905,33 @@ fn replace_in_place(
 ) -> Result<PdfDocMeta, String> {
     // 원본 핸들을 놓아야 Windows 에서 파일을 바꿀 수 있다.
     drop(cache.remove(doc_id));
-    if let Some(parent) = backup.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|err| tr!("백업 폴더를 만들지 못했습니다: {err}", "Could not create the backup folder: {err}"))?;
-    }
-    std::fs::copy(&path, backup).map_err(|err| tr!("원본을 백업하지 못했습니다: {err}", "Could not back up the original: {err}"))?;
     let temporary = path.with_extension("pdf.iwae-edit");
-    std::fs::write(&temporary, bytes).map_err(|err| tr!("편집본을 쓰지 못했습니다: {err}", "Could not write the edited copy: {err}"))?;
-    std::fs::rename(&temporary, &path).map_err(|err| tr!("원본을 바꾸지 못했습니다: {err}", "Could not replace the original: {err}"))?;
+    let written = (|| -> Result<(), String> {
+        if let Some(parent) = backup.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|err| tr!("백업 폴더를 만들지 못했습니다: {err}", "Could not create the backup folder: {err}"))?;
+        }
+        std::fs::copy(&path, backup).map_err(|err| tr!("원본을 백업하지 못했습니다: {err}", "Could not back up the original: {err}"))?;
+        std::fs::write(&temporary, bytes).map_err(|err| tr!("편집본을 쓰지 못했습니다: {err}", "Could not write the edited copy: {err}"))?;
+        std::fs::rename(&temporary, &path).map_err(|err| tr!("원본을 바꾸지 못했습니다: {err}", "Could not replace the original: {err}"))
+    })();
+    if let Err(error) = written {
+        // 쓰기가 실패해도(읽기 전용, 다른 프로그램이 잠금, 디스크 가득) 원본은 그대로다 — 임시 파일을 치우고 원본을 다시 열어 둔다
+        let _ = std::fs::remove_file(&temporary);
+        let _ = reopen_original(engine, cache, passwords, doc_id, path);
+        return Err(error);
+    }
+    reopen_original(engine, cache, passwords, doc_id, path)
+}
+
+/// 같은 doc_id 로 `path` 를 다시 연다(암호가 있던 문서는 그 암호로).
+fn reopen_original(
+    engine: &PdfEngine,
+    cache: &mut DocCache<OpenDocument>,
+    passwords: &HashMap<String, String>,
+    doc_id: &str,
+    path: PathBuf,
+) -> Result<PdfDocMeta, String> {
     let mut identity = engine::file_identity(&path)?;
     identity.doc_id = doc_id.to_string();
     let password = passwords.get(doc_id).cloned();

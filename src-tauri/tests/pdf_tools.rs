@@ -272,3 +272,36 @@ fn compress_refuses_when_nothing_can_shrink() {
     let target = new_file("tool-two-compress-out.pdf");
     assert!(pdf.tool_blocking(text_only.doc_id, ToolOp::Compress { max_dpi: 96.0, quality: 65 }, target).is_err());
 }
+
+/// 읽기 전용 파일이라 덮지 못해도: 원본은 그대로 열려 있고 임시 파일이 남지 않는다
+#[cfg(windows)]
+#[test]
+fn a_failed_in_place_write_keeps_the_document_open_and_leaves_no_temporary_file() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    let source = write_two_page_pdf("tool-readonly-in-place.pdf");
+    let original = std::fs::read(&source).unwrap();
+    let meta = pdf.open_blocking(source.clone()).expect("열기");
+    let backup = fixture_dir().join("backups").join("tool-readonly-in-place.pdf");
+
+    let mut permissions = std::fs::metadata(&source).unwrap().permissions();
+    permissions.set_readonly(true);
+    std::fs::set_permissions(&source, permissions).unwrap();
+
+    let op = ToolOp::PageNumbers { position: NumberPosition::BottomCenter, start: 1, template: "{n}".into(), size: 10.0, skip_first: false };
+    let result = pdf.tool_blocking(meta.doc_id.clone(), op, ToolTarget::InPlace { path: source.clone(), backup });
+
+    let mut permissions = std::fs::metadata(&source).unwrap().permissions();
+    #[allow(clippy::permissions_set_readonly_false)]
+    permissions.set_readonly(false);
+    std::fs::set_permissions(&source, permissions).unwrap();
+
+    assert!(result.is_err(), "읽기 전용 파일은 덮을 수 없다");
+    assert_eq!(std::fs::read(&source).unwrap(), original, "원본은 그대로");
+    assert!(!source.with_extension("pdf.iwae-edit").exists(), "임시 파일이 남으면 안 된다");
+    // 문서가 닫히지 않았다 — 같은 doc_id 로 계속 그릴 수 있다
+    let image = pdf.render_raw_blocking(meta.doc_id.clone(), 0, 200, None).expect("실패한 뒤에도 문서가 열려 있어야 한다");
+    assert!(image.width > 0);
+}
