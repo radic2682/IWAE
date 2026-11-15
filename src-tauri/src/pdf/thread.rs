@@ -343,8 +343,11 @@ impl PdfThread {
                         } => {
                             let result = caught(&tr!("PDF 쪽 편집", "PDF page edit"),|| {
                                 let engine = engine.as_ref().map_err(Clone::clone)?;
+                                let lookup = |other: &str| passwords.get(&path_key(Path::new(other))).cloned();
                                 let bytes = match cache.get(&doc_id) {
-                                    Some(document) => engine.rebuild_pages(document.document(), &plan)?,
+                                    // PDFium 은 암호를 다시 쓰지 못한다. 새 문서로 옮겨 덮으면 암호·권한 제한이 사라지므로 거절한다.
+                                    Some(document) if document.is_encrypted() => return Err(engine::encrypted_rewrite_refused()),
+                                    Some(document) => engine.rebuild_pages(document.document(), &plan, &lookup)?,
                                     None => return Err(PdfRenderError::UnknownDocument.to_string()),
                                 };
                                 replace_in_place(engine, &mut cache, &passwords, &doc_id, path, &backup, &bytes)
@@ -478,7 +481,9 @@ impl PdfThread {
                                     }
                                     None => return Err(PdfRenderError::UnknownDocument.to_string()),
                                 };
-                                engine.export_annotated(source, &highlights, &path)
+                                // 원본 바이트는 암호가 걸린 채로 나온다 — 열었던 암호로 다시 연다
+                                let password = passwords.get(&doc_id).cloned();
+                                engine.export_annotated(source, password.as_deref(), &highlights, &path)
                             })
                             .unwrap_or_else(Err);
                             let _ = reply.send(result);
@@ -497,7 +502,8 @@ impl PdfThread {
                                     }
                                     None => return Err(PdfRenderError::UnknownDocument.to_string()),
                                 };
-                                engine.export_searchable(source, &pages, &path)
+                                let password = passwords.get(&doc_id).cloned();
+                                engine.export_searchable(source, password.as_deref(), &pages, &path)
                             })
                             .unwrap_or_else(Err);
                             let _ = reply.send(result);
@@ -506,16 +512,20 @@ impl PdfThread {
                             let result = caught(&tr!("PDF 도구", "PDF tool"), || {
                                 let engine = engine.as_ref().map_err(Clone::clone)?;
                                 let password = passwords.get(&doc_id).cloned();
+                                let lookup = |other: &str| passwords.get(&path_key(Path::new(other))).cloned();
                                 let (bytes, report) = match cache.get(&doc_id) {
                                     Some(document) => engine.run_tool(
                                         document.document(),
                                         || document.to_bytes().map_err(|err| err.to_string()),
                                         password.as_deref(),
+                                        &lookup,
                                         &op,
                                     )?,
                                     None => return Err(PdfRenderError::UnknownDocument.to_string()),
                                 };
                                 match target {
+                                    // 암호가 걸린 문서를 새 문서로 다시 쓴 결과(뽑기·합치기·모아찍기)는 암호가 없다 — 원본을 그것으로 덮지 않는다
+                                    ToolTarget::InPlace { .. } if report.unencrypted_copy => Err(engine::encrypted_rewrite_refused()),
                                     ToolTarget::InPlace { path, backup } => {
                                         let shown = path.display().to_string();
                                         let meta = replace_in_place(engine, &mut cache, &passwords, &doc_id, path, &backup, &bytes)?;
@@ -890,7 +900,7 @@ impl PdfThread {
 }
 
 fn path_key(path: &Path) -> String {
-    path.display().to_string().to_lowercase()
+    path.display().to_string().replace('/', "\\").to_lowercase()
 }
 
 /// 새 바이트로 원본을 덮고(덮기 전 원본은 backup 으로) 같은 doc_id 로 다시 연다.

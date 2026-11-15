@@ -69,6 +69,7 @@ export const GROUP_7: Readonly<Record<string, string>> = {
   '원본에 적용': 'Apply to original',
   '사본으로': 'As a copy',
   '새 PDF를 만들었습니다: {name}': 'Created a new PDF: {name}',
+  '원본의 암호와 권한 제한은 새 PDF에 이어지지 않습니다': 'The password and permission limits of the original do not carry over to the new PDF',
   '사본': 'Copy',
   '글자 층이 없는 스캔 쪽을 이 PC에서 읽어 보이지 않는 글자로 입힙니다. 겉모습은 그대로이고 글자 선택, 검색, 형광펜, 번역을 쓸 수 있습니다. 글자가 있는 쪽은 건드리지 않습니다.': 'Reads pages without a text layer (scanned pages) on this PC and adds invisible text. The look stays the same, and selecting, searching, highlighting and translating start to work. Pages that already have text are left alone.',
   '원본에 적용합니다. 덮어쓰기 전 원본은 .iwae/history/pdf-edits에 남습니다.': 'Applies to the original. The version before overwriting is kept in .iwae/history/pdf-edits.',

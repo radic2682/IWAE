@@ -47,6 +47,8 @@ export interface PdfDocMeta {
   pageSizes: readonly (readonly [number, number])[]
   /** false 면 스캔본이다 — 텍스트 발췌가 원천적으로 불가능하다(M5). */
   hasText: boolean
+  /** 암호가 걸린 PDF(열기 암호든 권한만 막는 소유자 암호든). 쪽 편집은 암호를 지우므로 할 수 없다 */
+  encrypted?: boolean
 }
 
 export interface PdfOutlineEntry {
@@ -141,10 +143,16 @@ const PASSWORD_WRONG = 'IWAE_PDF_PASSWORD_WRONG'
 /** 암호를 묻는 창. App 이 하나 걸어 둔다. 취소하면 null */
 export type PdfPasswordPrompt = (request: { readonly path: string; readonly wrong: boolean }) => Promise<string | null>
 let passwordPrompt: PdfPasswordPrompt | null = null
-/** 암호로 연 문서(이 세션). 「암호 해제한 PDF 저장」을 보일지 정한다 */
+/** 암호가 걸린 문서(이 세션). 열기 암호로 연 것과 소유자 암호만 있는 것(권한 제한)을 다 담는다. 「암호 푼 사본」을 보이고 쪽 편집을 막는 데 쓴다 */
 const passwordDocIds = new Set<string>()
 export function isPasswordProtectedDoc(docId: string): boolean {
   return passwordDocIds.has(docId)
+}
+/** Rust 가 알려 준 암호 여부를 기억한다(다시 열거나 도구로 바뀐 메타도 같은 길로 지나간다) */
+function noteEncryption(meta: PdfDocMeta): PdfDocMeta {
+  if (meta.encrypted === true) passwordDocIds.add(meta.docId)
+  else if (meta.encrypted === false) passwordDocIds.delete(meta.docId)
+  return meta
 }
 export function setPdfPasswordPrompt(prompt: PdfPasswordPrompt | null): void {
   passwordPrompt = prompt
@@ -184,7 +192,7 @@ export async function openPdf(path: string, docId?: string, options: { readonly 
   const { invoke } = await import('@tauri-apps/api/core')
   const args = docId === undefined ? { path } : { path, docId }
   try {
-    return await invoke<PdfDocMeta>('pdf_open', args)
+    return noteEncryption(await invoke<PdfDocMeta>('pdf_open', args))
   } catch (error) {
     let problem = passwordProblem(error)
     if (problem === null) throw error
@@ -195,7 +203,7 @@ export async function openPdf(path: string, docId?: string, options: { readonly 
       try {
         const meta = await invoke<PdfDocMeta>('pdf_open', { ...args, password })
         passwordDocIds.add(meta.docId)
-        return meta
+        return noteEncryption(meta)
       } catch (retry) {
         problem = passwordProblem(retry)
         if (problem === null) throw retry
@@ -215,10 +223,20 @@ export interface PdfPageEditOp {
 /** 문서가 바뀐 횟수. 쪽 그림 주소에 붙여 예전 그림이 캐시에서 나오지 않게 한다 */
 const docRevisions = new Map<string, number>()
 
+/**
+ * 쪽을 끼우거나 합칠 다른 PDF 의 암호를 미리 푼다. Rust 는 이 세션에서 푼 암호를 경로별로 기억하므로,
+ * 암호 PDF 면 여기서 한 번 열어 묻고(취소하면 PdfPasswordError) 이후 편집·합치기가 그 암호를 쓴다.
+ */
+async function unlockSources(paths: readonly (string | undefined)[]): Promise<void> {
+  const unique = [...new Set(paths.filter((path): path is string => path !== undefined && path !== ''))]
+  for (const path of unique) await openPdf(path)
+}
+
 /** 편집을 원본에 덮어쓰고 같은 docId 로 다시 연다. 덮기 전 원본은 backup 경로에 남는다 */
 export async function editPdfPages(docId: string, path: string, backup: string, plan: readonly PdfPageEditOp[]): Promise<PdfDocMeta> {
   const { invoke } = await import('@tauri-apps/api/core')
-  const meta = await invoke<PdfDocMeta>('pdf_edit_pages', { docId, path, backup, plan })
+  await unlockSources(plan.map((op) => op.source))
+  const meta = noteEncryption(await invoke<PdfDocMeta>('pdf_edit_pages', { docId, path, backup, plan }))
   forgetDocumentCaches(docId)
   return meta
 }
@@ -276,6 +294,8 @@ export interface PdfToolResult {
     /** 압축 전·후 크기(바이트). 압축 도구만 채운다 */
     readonly sizeBefore: number
     readonly sizeAfter: number
+    /** 암호 PDF 에서 새 파일을 만들었다: 결과에는 암호·권한 제한이 없다 */
+    readonly unencryptedCopy?: boolean
   }
 }
 
@@ -283,6 +303,7 @@ export interface PdfToolResult {
 export async function runPdfTool(docId: string, op: PdfToolOp, output: PdfToolOutput): Promise<PdfToolResult | null> {
   if (!isDesktop()) throw new Error(t('PDF 도구는 데스크톱 앱에서만 쓸 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
+  if (op.kind === 'merge') await unlockSources(op.sources)
   const result = await invoke<PdfToolResult | null>('pdf_tool', { docId, op, output })
   if (result !== null && output.kind === 'inPlace') forgetDocumentCaches(docId)
   return result

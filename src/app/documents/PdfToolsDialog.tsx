@@ -29,8 +29,8 @@ export interface PdfToolActions {
   readonly ocr: () => Promise<string>
   /** 원본에 적용(백업을 남긴다) */
   readonly applyInPlace: (op: PdfToolOp) => Promise<string>
-  /** 원본 옆 새 PDF. 만든 파일 경로 */
-  readonly saveCopy: (op: PdfToolOp, suffix: string, folder?: string) => Promise<string>
+  /** 원본 옆 새 PDF. 만든 파일 경로. 암호 PDF 에서 만들어 결과에 암호가 없으면 그 사실을 `notice` 로 함께 돌려준다 */
+  readonly saveCopy: (op: PdfToolOp, suffix: string, folder?: string) => Promise<string | { readonly path: string; readonly notice: string }>
   /** 그림을 줄인 새 PDF 를 원본 옆에 만든다. 만든 경로와 전·후 크기. 줄지 않으면 만들지 않고 던진다 */
   readonly compress: (maxDpi: number, quality: number) => Promise<{ readonly path: string; readonly sizeBefore: number; readonly sizeAfter: number }>
   /** 쪽 빼기(쪽 편집과 같다: 형광펜·메모가 따라 옮겨진다) */
@@ -184,8 +184,10 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
   )
   const applyOrCopy = (output: 'inPlace' | 'copy', op: PdfToolOp, suffix: string, doing: string) => run(doing, async () => {
     if (output === 'inPlace') return actions.applyInPlace(op)
-    const path = await actions.saveCopy(op, suffix)
-    return { text: t('새 PDF를 만들었습니다: {name}', { name: path.split(/[\\/]/u).at(-1) ?? path }), path }
+    const saved = await actions.saveCopy(op, suffix)
+    const path = typeof saved === 'string' ? saved : saved.path
+    const text = t('새 PDF를 만들었습니다: {name}', { name: path.split(/[\\/]/u).at(-1) ?? path })
+    return { text: typeof saved === 'string' ? text : `${text}. ${saved.notice}`, path }
   })
 
   // ---- 도구마다 ----
@@ -341,11 +343,14 @@ function ToolPane({ tool, props, busy, run, setTool }: { readonly tool: PdfToolI
           )}
           {primary(t('{count}개로 나누기', { count: chapters.length }), () => void run(t('나누는 중…'), async () => {
             const folder = `${props.title} ${t('나눔')}`
+            let notice = ''
             for (const [index, chapter] of chapters.entries()) {
               const pages = Array.from({ length: chapter.to - chapter.from + 1 }, (_, at) => chapter.from + at)
-              await actions.saveCopy({ kind: 'extract', pages }, `${String(index + 1).padStart(2, '0')} ${chapter.title}`, folder)
+              const saved = await actions.saveCopy({ kind: 'extract', pages }, `${String(index + 1).padStart(2, '0')} ${chapter.title}`, folder)
+              if (typeof saved !== 'string') notice = saved.notice
             }
-            return t('PDF {count}개를 「{folder}」 폴더에 만들었습니다', { count: chapters.length, folder })
+            const done = t('PDF {count}개를 「{folder}」 폴더에 만들었습니다', { count: chapters.length, folder })
+            return notice === '' ? done : `${done}. ${notice}`
           }), chapters.length === 0)}
         </>
       )

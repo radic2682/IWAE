@@ -3005,7 +3005,12 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             announceAction(message)
             return message
           },
-          saveCopy: (op, suffix, folder) => writeDocumentToolCopy(docId, op, suffix, folder),
+          saveCopy: async (op, suffix, folder) => {
+            let unencrypted = false
+            const path = await writeDocumentToolCopy(docId, op, suffix, folder, (report) => { unencrypted = report.unencryptedCopy === true })
+            // PDFium 은 암호를 쓰지 못한다: 암호 PDF 에서 만든 새 파일에는 암호와 권한 제한이 없다
+            return unencrypted ? { path, notice: t('원본의 암호와 권한 제한은 새 PDF에 이어지지 않습니다') } : path
+          },
           compress: async (maxDpi, quality) => {
             let report: { sizeBefore: number; sizeAfter: number } = { sizeBefore: 0, sizeAfter: 0 }
             const path = await writeDocumentToolCopy(docId, { kind: 'compress', maxDpi, quality }, t('(압축)'), undefined, (next) => { report = next })

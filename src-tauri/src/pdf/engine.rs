@@ -148,6 +148,9 @@ pub struct PdfDocMeta {
     pub page_sizes: Vec<(f32, f32)>,
     /// 스캔본 판별. false 면 텍스트 발췌가 원천적으로 불가능하다.
     pub has_text: bool,
+    /// 암호(열기 암호든 권한만 막는 소유자 암호든)가 걸린 PDF. PDFium 은 암호를 다시 쓰지 못하므로
+    /// 이런 문서의 쪽 편집은 거절하고, 새 파일로 만드는 도구는 결과에 암호가 없다고 알린다.
+    pub encrypted: bool,
 }
 
 /// 글자 하나와 그 글자가 페이지에서 차지하는 자리.
@@ -570,6 +573,7 @@ pub struct OpenDocument {
     page_count: i32,
     page_sizes: Vec<(f32, f32)>,
     has_text: bool,
+    encrypted: bool,
 }
 
 /// 쪽 편집 계획의 한 줄: 새 문서의 이 자리에 어느 문서의 몇 쪽을, 얼마나 더 돌려서 놓는가.
@@ -620,7 +624,13 @@ impl OpenDocument {
             page_count: self.page_count,
             page_sizes: self.page_sizes.clone(),
             has_text: self.has_text,
+            encrypted: self.encrypted,
         }
+    }
+
+    /// 암호(소유자 암호 포함)가 걸린 문서인가.
+    pub fn is_encrypted(&self) -> bool {
+        self.encrypted
     }
 
     /// 페이지 하나를 PNG 로 그린다. `page` 는 0-기반(PDFium 과 같다).
@@ -1513,8 +1523,17 @@ impl PdfEngine {
         self.pdfium
     }
 
+    /// 다른 PDF 를 연다. 이 세션에서 이미 푼 암호가 있으면 그것으로 열고, 암호가 필요한데 모르면
+    /// 웹뷰가 암호를 물을 수 있게 [`PASSWORD_REQUIRED`] 오류를 돌려준다.
+    pub(crate) fn load_other(&self, path: &Path, passwords: PasswordLookup) -> Result<PdfDocument<'static>, String> {
+        let password = passwords(&path.display().to_string());
+        self.pdfium
+            .load_pdf_from_file(path, password.as_deref())
+            .map_err(|err| describe_load_error(path, &err, password.is_some()))
+    }
+
     /// 쪽 순서·회전·끼워 넣기를 적용한 새 PDF 를 바이트로 만든다. 원본은 건드리지 않는다.
-    pub fn rebuild_pages(&self, source: &PdfDocument, plan: &[PageEditOp]) -> Result<Vec<u8>, String> {
+    pub fn rebuild_pages(&self, source: &PdfDocument, plan: &[PageEditOp], passwords: PasswordLookup) -> Result<Vec<u8>, String> {
         if plan.is_empty() {
             return Err(tr!("쪽이 하나도 없는 PDF 는 만들 수 없습니다", "Cannot create a PDF with no pages"));
         }
@@ -1529,10 +1548,7 @@ impl PdfEngine {
                 None => output.pages_mut().copy_page_from_document(source, op.page, destination),
                 Some(path) => {
                     if !others.contains_key(path) {
-                        let other = self
-                            .pdfium
-                            .load_pdf_from_file(Path::new(path), None)
-                            .map_err(|err| describe_load_error(Path::new(path), &err, false))?;
+                        let other = self.load_other(Path::new(path), passwords)?;
                         others.insert(path.clone(), other);
                     }
                     let other = others.get(path).expect("방금 넣었다");
@@ -1583,12 +1599,13 @@ impl PdfEngine {
     pub fn export_annotated(
         &self,
         source: Vec<u8>,
+        password: Option<&str>,
         highlights: &[ExportHighlight],
         path: &Path,
     ) -> Result<(), String> {
         let document = self
             .pdfium
-            .load_pdf_from_byte_vec(source, None)
+            .load_pdf_from_byte_vec(source, password)
             .map_err(|err| tr!("PDF 사본을 열지 못했습니다: {err}", "Could not open the PDF copy: {err}"))?;
         let page_count = document.pages().len();
 
@@ -1665,12 +1682,13 @@ impl PdfEngine {
     pub fn export_searchable(
         &self,
         source: Vec<u8>,
+        password: Option<&str>,
         pages: &[SearchablePage],
         path: &Path,
     ) -> Result<SearchableReport, String> {
         let mut document = self
             .pdfium
-            .load_pdf_from_byte_vec(source, None)
+            .load_pdf_from_byte_vec(source, password)
             .map_err(|err| tr!("PDF 사본을 열지 못했습니다: {err}", "Could not open the PDF copy: {err}"))?;
         let unicode_font = find_unicode_font().and_then(|font| {
             document
@@ -1775,6 +1793,7 @@ impl PdfEngine {
         }
 
         let has_text = probe_has_text(pages);
+        let encrypted = is_encrypted(&document);
 
         Ok(OpenDocument {
             document,
@@ -1784,8 +1803,26 @@ impl PdfEngine {
             page_count,
             page_sizes,
             has_text,
+            encrypted,
         })
     }
+}
+
+/// 경로를 주면 그 PDF 를 이 세션에서 푼 암호를 돌려주는 함수(PDFium 스레드가 기억하는 암호를 보여 준다).
+pub(crate) type PasswordLookup<'a> = &'a dyn Fn(&str) -> Option<String>;
+
+/// 암호가 걸린 문서인가(열기 암호든 소유자 암호든). PDFium 은 암호를 다시 쓰지 못하므로 쪽을 새 문서로
+/// 옮겨 만든 파일에는 암호가 없다.
+pub(crate) fn is_encrypted(document: &PdfDocument) -> bool {
+    !matches!(document.permissions().security_handler_revision(), Ok(PdfSecurityHandlerRevision::Unprotected))
+}
+
+/// 암호가 걸린 PDF 를 제자리에서 새 문서로 다시 쓰려 할 때의 거절 문구.
+pub(crate) fn encrypted_rewrite_refused() -> String {
+    tr!(
+        "암호가 걸린 PDF 는 쪽 편집을 할 수 없습니다. 편집하면 암호와 권한 제한이 사라지기 때문입니다. 「암호 푼 사본 만들기」로 사본을 만든 뒤 그 사본을 편집해 주세요.",
+        "Pages cannot be edited in a password-protected PDF, because editing would remove its password and permission limits. Make an unlocked copy first, then edit the copy."
+    )
 }
 
 /// 쪽 크기를 읽지 못했고 앞 쪽도 없을 때 쓰는 크기(A4, points)

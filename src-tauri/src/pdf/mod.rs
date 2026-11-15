@@ -10,7 +10,7 @@ mod thread;
 mod tools;
 
 pub use engine::{
-    find_unicode_font, pdf_space_rect, sanitize_uri, CharBox, CharStyle, CropRect, ExportHighlight,
+    find_unicode_font, PageEditOp, pdf_space_rect, sanitize_uri, CharBox, CharStyle, CropRect, ExportHighlight,
     ImportedAnnotation, LayoutChar, LayoutRect, LayoutSegment, LinkRect, PageLayout, PageTextIndex, PdfDocMeta, PdfLink, PdfLinkTarget, PdfMetadata,
     PdfOutlineEntry, PdfRenderError, SearchableLine, SearchablePage, SearchableReport,
     CROP_PIXELS_PER_POINT, MAX_RENDER_PIXELS, MAX_RENDER_WIDTH, MAX_TILE_PAGE_WIDTH, MAX_TILE_SIDE, MIN_RENDER_WIDTH,

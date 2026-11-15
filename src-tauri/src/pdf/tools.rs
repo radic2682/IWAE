@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use super::engine::{
     find_unicode_font, page_origin, pdf_space_rect, quarter_turns, ExportHighlight, LinkRect, PdfEngine,
-    SearchablePage, SearchableReport,
+    SearchablePage, SearchableReport, PasswordLookup, is_encrypted,
 };
 
 /// 도구 하나. 웹뷰에서 `{ kind: "...", ... }` 로 온다.
@@ -166,6 +166,8 @@ pub struct ToolReport {
     /// 압축 전·후 파일 크기(바이트). 압축 도구만 채운다
     pub size_before: u64,
     pub size_after: u64,
+    /// 암호가 걸린 PDF 에서 새 파일을 만들었다: PDFium 은 암호를 쓰지 못해 결과에는 암호·권한 제한이 없다
+    pub unencrypted_copy: bool,
 }
 
 /// 가린 쪽을 그림으로 바꿀 때의 해상도(dpi)
@@ -221,7 +223,7 @@ fn geometry_of(page: &PdfPage) -> PageGeometry {
 
 impl PdfEngine {
     /// 열린 문서의 바이트 사본을 고쳐 새 PDF 바이트를 만든다. `password` 는 암호 PDF 를 열었던 그 암호.
-    pub fn run_tool(&self, source: &PdfDocument, source_bytes: impl FnOnce() -> Result<Vec<u8>, String>, password: Option<&str>, op: &ToolOp) -> Result<(Vec<u8>, ToolReport), String> {
+    pub fn run_tool(&self, source: &PdfDocument, source_bytes: impl FnOnce() -> Result<Vec<u8>, String>, password: Option<&str>, others: PasswordLookup, op: &ToolOp) -> Result<(Vec<u8>, ToolReport), String> {
         let pdfium = self.pdfium();
         match op {
             ToolOp::Extract { pages } => {
@@ -237,19 +239,20 @@ impl PdfEngine {
                         .copy_page_from_document(source, *page, index as PdfPageIndex)
                         .map_err(|err| tr!("{}쪽을 옮기지 못했습니다: {err}", "Could not copy page {}: {err}", page + 1))?;
                 }
-                let report = ToolReport { written: picked.len(), ..ToolReport::default() };
+                let report = ToolReport { written: picked.len(), unencrypted_copy: is_encrypted(source), ..ToolReport::default() };
                 Ok((output.save_to_bytes().map_err(tool_err("save"))?, report))
             }
             ToolOp::Merge { sources } => {
                 let mut output = pdfium.create_new_pdf().map_err(tool_err("new PDF"))?;
                 output.pages_mut().append(source).map_err(tool_err("append"))?;
+                let mut unencrypted_copy = is_encrypted(source);
                 for path in sources {
-                    let other = pdfium
-                        .load_pdf_from_file(Path::new(path), None)
-                        .map_err(|err| tr!("합칠 PDF 를 열지 못했습니다: {path} ({err})", "Could not open a PDF to merge: {path} ({err})"))?;
+                    // 이미 암호를 푼 PDF 는 기억한 암호로 연다. 모르면 암호 요청 오류가 그대로 올라가 웹뷰가 묻는다.
+                    let other = self.load_other(Path::new(path), others)?;
+                    unencrypted_copy |= is_encrypted(&other);
                     output.pages_mut().append(&other).map_err(tool_err("append"))?;
                 }
-                let report = ToolReport { written: output.pages().len() as usize, ..ToolReport::default() };
+                let report = ToolReport { written: output.pages().len() as usize, unencrypted_copy, ..ToolReport::default() };
                 Ok((output.save_to_bytes().map_err(tool_err("save"))?, report))
             }
             ToolOp::NUp { columns, rows, landscape } => {
@@ -260,7 +263,7 @@ impl PdfEngine {
                     .pages()
                     .tile_into_new_document(rows, columns, paper)
                     .map_err(|err| tr!("모아찍기를 만들지 못했습니다: {err}", "Could not create the N-up layout: {err}"))?;
-                let report = ToolReport { written: tiled.pages().len() as usize, ..ToolReport::default() };
+                let report = ToolReport { written: tiled.pages().len() as usize, unencrypted_copy: is_encrypted(source), ..ToolReport::default() };
                 Ok((tiled.save_to_bytes().map_err(tool_err("save"))?, report))
             }
             ToolOp::Unlock => {
