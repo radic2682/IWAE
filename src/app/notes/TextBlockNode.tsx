@@ -12,6 +12,7 @@ import { CanvasBlockShell, useCanvasBlockRuntime } from './CanvasBlockShell'
 import { CanvasMemoCard } from './CanvasMemoCard'
 import type { CanvasSide } from '../../core/canvasPorts'
 import { t } from '../../i18n'
+import { registerEditorFlusher } from '../editorFlush'
 
 export interface TextBlockNodeData extends Record<string, unknown> {
   readonly block: TextCanvasBlock | ArrowCanvasBlock
@@ -36,6 +37,12 @@ export function textBlockCss(style: TextBlockStyle): CSSProperties {
     listStyleType,
     listStylePosition: listStyleType === undefined ? undefined : 'inside',
   }
+}
+
+/** 쓴 글 그대로: 줄바꿈(Enter 로 생긴 문단 · <br>)을 살린다. 폭 없는 글자와 끝의 빈 줄은 뗀다 */
+export function editableText(target: HTMLElement): string {
+  const raw = target.innerText ?? target.textContent ?? ''
+  return raw.replace(/\u200b/gu, '').replace(/\r\n?/gu, '\n').replace(/\n+$/u, '')
 }
 
 export function CanvasTextEditor({
@@ -70,11 +77,43 @@ export function CanvasTextEditor({
     runtime.onAutoEditStarted?.(id)
   }, [id, runtime, selected])
 
+  // 쓰는 중에 포커스를 잃지 않고 사라지는 길(칸 닫기 · 화면 전환)과 창 닫기 전에도 쓴 글을 저장한다
+  const editingRef = useRef(false)
+  const committedRef = useRef(true)
+  const runtimeRef = useRef(runtime)
+  runtimeRef.current = runtime
+  editingRef.current = editing
+
   const commit = (target: HTMLDivElement) => {
-    const text = target.textContent ?? ''
+    const text = editableText(target)
+    committedRef.current = true
     target.replaceChildren()
     runtime.onTextCommit?.(id, text)
   }
+
+  useLayoutEffect(() => {
+    if (editing) committedRef.current = false
+  }, [editing])
+
+  useLayoutEffect(() => {
+    const flush = () => {
+      const editor = editorRef.current
+      if (!editingRef.current || committedRef.current || editor === null) return
+      // 창을 닫는 길: 글은 내려 보내되 칸은 그대로 둔다(창이 안 닫히면 이어 쓴다)
+      runtimeRef.current.onTextCommit?.(id, editableText(editor))
+    }
+    const unregister = registerEditorFlusher(flush)
+    return () => {
+      unregister()
+      const editor = editorRef.current
+      if (editor !== null && editingRef.current && !committedRef.current) {
+        committedRef.current = true
+        runtimeRef.current.onTextCommit?.(id, editableText(editor))
+      }
+    }
+    // id 는 이 칸이 사는 동안 바뀌지 않는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const exitWithKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!editing && selected && event.key === 'Enter') {

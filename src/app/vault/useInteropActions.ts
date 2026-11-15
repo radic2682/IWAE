@@ -13,6 +13,7 @@ import {
 import { errorText } from '../../core/errorText'
 import type { PageTextIndex } from '../../core/textIndex'
 import { docNoteTitle, insertBlock, memoBlock, memoHighlightIds, textBlock, type MemoNote } from '../../core/memoNote'
+import { literalHtmlIfNeeded } from '../../pdf/memoRichText'
 import type { PersistentPdfHighlight } from '../../pdf/persistentHighlight'
 import { announceAction } from '../actionFeedback'
 import { getHighlightColors } from '../documents/highlightColorStyle'
@@ -80,7 +81,7 @@ export function useInteropActions(deps: InteropDeps) {
       }
       for (const text of texts) {
         if (haveText.has(text.trim())) continue
-        next = insertBlock(next, textBlock(text), next.blocks.length)
+        next = insertBlock(next, textBlock(text, literalHtmlIfNeeded(text)), next.blocks.length)
       }
       return next
     }, true)

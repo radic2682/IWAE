@@ -804,3 +804,7 @@
 /* 영역 메모(표·그림) 잘라 보이기: 큰 쪽 그림을 칸 안에서 잘라 내고, 칸 폭을 넘지 않는다(f597864 에서 빠졌던 바탕 규칙) */
 .pdf-memo-list-crop { position: relative; max-width: 100%; overflow: hidden; border: 1px solid var(--divider); border-radius: var(--r-xs); background: var(--page-white); box-sizing: border-box; }
 .pdf-memo-list-crop img { position: absolute; max-width: none; user-select: none; }
+
+/* 메모 안의 링크: 누르면 앱의 바깥 링크 확인을 거쳐 연다 */
+.pdf-memo-card-text a,
+.pdf-memo-editor a { color: var(--accent); text-decoration: underline; cursor: pointer; }

@@ -6,7 +6,9 @@
 /** 문단 모양. p 는 보통 글 */
 export type MemoBlockKind = 'p' | 'h2' | 'h3' | 'h4' | 'blockquote' | 'pre'
 
-const LINE_BLOCK = /^(DIV|P|LI|H2|H3|H4|BLOCKQUOTE|PRE)$/u
+const LINE_BLOCK = /^(DIV|P|LI|H2|H3|H4|BLOCKQUOTE|PRE|TD|TH)$/u
+/** 이 요소를 만나면 그 뒤에서 새 줄이 시작된다 */
+const LINE_BREAKER = /^(BR|DIV|P|UL|OL|PRE|BLOCKQUOTE|H2|H3|H4|HR|TABLE|TD|TH|TR)$/u
 const SPECIAL_BLOCK = /^(H2|H3|H4|BLOCKQUOTE|PRE)$/u
 const ZERO_WIDTH = '​'
 
@@ -52,20 +54,52 @@ export function currentBlockKind(editor: HTMLElement): MemoBlockKind {
 /** 문단 모양을 바꾼다. 이미 그 모양이면 보통 글로 되돌린다 */
 export function setBlockKind(editor: HTMLElement, kind: MemoBlockKind) {
   const target = currentBlockKind(editor) === kind ? 'p' : kind
+  const range = editorRange(editor)
+  const item = range === null ? null : closestIn(range.startContainer, editor, (element) => element.tagName === 'LI')
+  if (item !== null) {
+    // 목록 칸은 이미 보통 글이다
+    if (target === 'p') return
+    // 목록 칸에 그대로 걸면 목록 전체가 제목·인용·코드 블록으로 감싸여 되돌릴 수 없다. 먼저 그 칸(들)을 목록에서 뺀다
+    const endItem = closestIn(range!.endContainer, editor, (element) => element.tagName === 'LI')
+    if (endItem !== null) exec(item.parentElement?.tagName === 'OL' ? 'insertOrderedList' : 'insertUnorderedList')
+  }
   exec('formatBlock', target === 'p' ? 'div' : target)
 }
 
 /** 커서가 있는 줄의 처음부터 커서까지(줄은 문단 요소나 <br> 로 나뉜다) */
-function lineBeforeCaret(editor: HTMLElement, caret: Range): Range {
+export function lineBeforeCaret(editor: HTMLElement, caret: Range): Range {
   const block = closestIn(caret.startContainer, editor, (element) => LINE_BLOCK.test(element.tagName)) ?? editor
   const range = document.createRange()
-  range.setStart(block, 0)
+  const boundary = lineBreakBefore(block, caret.startContainer, caret.startOffset)
+  if (boundary === null) range.setStart(block, 0)
+  else range.setStartAfter(boundary)
   range.setEnd(caret.startContainer, caret.startOffset)
-  for (const element of block.querySelectorAll('br, div, p, ul, ol, pre, blockquote, h2, h3, h4, hr')) {
-    if (element.contains(caret.startContainer)) continue
-    if (range.intersectsNode(element) && range.comparePoint(element, 0) >= 0) range.setStartAfter(element)
-  }
   return range
+}
+
+/**
+ * 커서 바로 앞의 줄바꿈(<br> 이나 앞 문단 요소). 커서에서 거꾸로 걸어 처음 만나는 것에서 멈추므로 글이 길어도 이 줄만 본다.
+ * block 안에 없으면 null(block 맨 앞이 줄의 처음)
+ */
+function lineBreakBefore(block: Node, container: Node, offset: number): Element | null {
+  let parent: Node = container.nodeType === Node.TEXT_NODE ? container.parentNode! : container
+  let node: Node | null = container.nodeType === Node.TEXT_NODE ? container.previousSibling : offset > 0 ? container.childNodes[offset - 1] ?? null : null
+  for (;;) {
+    while (node === null) {
+      if (parent === block || parent.parentNode === null) return null
+      node = parent.previousSibling
+      parent = parent.parentNode
+    }
+    if (node instanceof Element) {
+      if (LINE_BREAKER.test(node.tagName)) return node
+      if (node.lastChild !== null) {
+        parent = node
+        node = node.lastChild
+        continue
+      }
+    }
+    node = node.previousSibling
+  }
 }
 
 /** 커서 앞 글자를 지운다(되돌리기가 되게 execCommand 로) */
@@ -88,8 +122,7 @@ export function toggleChecklist(editor: HTMLElement) {
   if (range === null) return
   const list = closestIn(range.startContainer, editor, (element) => element.tagName === 'UL' || element.tagName === 'OL')
   if (list?.getAttribute('data-type') === 'check') {
-    list.removeAttribute('data-type')
-    for (const item of list.querySelectorAll(':scope > li')) item.removeAttribute('data-checked')
+    // 지금 칸(들)만 목록에서 뺀다. 나머지는 그대로 할 일 목록이다(브라우저가 목록을 둘로 나누며 표시를 복사해 둔다)
     exec('insertUnorderedList')
     return
   }
@@ -97,31 +130,49 @@ export function toggleChecklist(editor: HTMLElement) {
     markChecklist(list)
     return
   }
-  if (list !== null) {
-    // 번호 목록은 글머리 목록으로 바꾼 뒤 할 일로
-    exec('insertUnorderedList')
-    const after = editorRange(editor)
-    const made = after === null ? null : closestIn(after.startContainer, editor, (element) => element.tagName === 'UL')
-    if (made !== null) markChecklist(made)
+  // 번호 목록 칸이나 목록 밖의 줄(<br> 로 나뉜 글, 문단)은 브라우저의 글머리 목록 명령으로 감싼다(되돌리기가 이어지게). 그 뒤 할 일로 표시한다
+  exec('insertUnorderedList')
+  markFreshChecklist(editor)
+}
+
+/** 방금 만든(바꾼) 글머리 목록 칸을 할 일로 표시한다. 위·아래 글머리 목록에 붙었으면 그 칸들만 따로 떼어 낸다 */
+function markFreshChecklist(editor: HTMLElement) {
+  const now = editorRange(editor)
+  if (now === null) return
+  const made = closestIn(now.startContainer, editor, (element) => element.tagName === 'UL')
+  if (made === null) return
+  const items = [...made.children].filter((child): child is HTMLLIElement => child instanceof HTMLLIElement)
+  const first = closestIn(now.startContainer, editor, (element) => element.tagName === 'LI')
+  const targets = new Set(items.filter((item) => item === first || (!now.collapsed && now.intersectsNode(item))))
+  if (made.getAttribute('data-type') === 'check') {
+    for (const item of targets) if (!item.hasAttribute('data-checked')) item.setAttribute('data-checked', 'false')
     return
   }
-  // 새 할 일 목록은 손으로 만든다(insertUnorderedList 는 바로 위 목록에 붙여 버린다)
-  const checklist = document.createElement('ul')
-  checklist.setAttribute('data-type', 'check')
-  const item = document.createElement('li')
-  item.setAttribute('data-checked', 'false')
-  checklist.appendChild(item)
-  const line = closestIn(range.startContainer, editor, (element) => element.tagName === 'DIV' || element.tagName === 'P')
-  if (line !== null) {
-    item.append(...line.childNodes)
-    line.replaceWith(checklist)
-  } else {
-    range.collapse(true)
-    range.insertNode(checklist)
+  if (targets.size === 0 || targets.size === items.length) {
+    markChecklist(made)
+    return
   }
-  if (item.textContent === '') item.replaceChildren(document.createElement('br'))
-  const end = item.lastChild instanceof HTMLBRElement ? 0 : item.childNodes.length
-  placeCaret(item, end)
+  // 칸을 옮기면 선택이 풀리므로 끝점을 적어 두었다가 되돌린다
+  const saved = { start: [now.startContainer, now.startOffset] as const, end: [now.endContainer, now.endOffset] as const }
+  const pieces: HTMLElement[] = []
+  for (const item of items) {
+    const check = targets.has(item)
+    let piece = pieces[pieces.length - 1]
+    if (piece === undefined || (piece.getAttribute('data-type') === 'check') !== check) {
+      piece = document.createElement('ul')
+      if (check) piece.setAttribute('data-type', 'check')
+      pieces.push(piece)
+    }
+    if (check && !item.hasAttribute('data-checked')) item.setAttribute('data-checked', 'false')
+    piece.appendChild(item)
+  }
+  made.replaceWith(...pieces)
+  const restored = document.createRange()
+  restored.setStart(...saved.start)
+  restored.setEnd(...saved.end)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(restored)
 }
 
 /** 할 일 칸(글 왼쪽의 네모)을 눌렀는가 */
@@ -149,24 +200,90 @@ export function toggleInlineCode(editor: HTMLElement) {
   if (closestIn(range.startContainer, editor, (element) => element.tagName === 'PRE') !== null) return
   const code = closestIn(range.commonAncestorContainer, editor, (element) => element.tagName === 'CODE')
   if (code !== null) {
-    const text = document.createTextNode((code.textContent ?? '').replaceAll(ZERO_WIDTH, ''))
-    code.replaceWith(text)
-    const selection = window.getSelection()
-    const all = document.createRange()
-    all.selectNodeContents(text)
-    selection?.removeAllRanges()
-    selection?.addRange(all)
+    unwrapCode(editor, code, range)
     return
   }
-  const selected = range.toString()
-  range.deleteContents()
-  const element = document.createElement('code')
-  element.textContent = selected === '' ? ZERO_WIDTH : selected
-  const after = document.createTextNode(ZERO_WIDTH)
-  range.insertNode(after)
-  range.insertNode(element)
-  if (selected === '') placeCaret(element.firstChild!, 1)
-  else placeCaret(after, 1)
+  // 줄을 넘는 선택은 코드로 만들지 않는다(줄이 한 줄로 합쳐지고 HTML 이 깨진다)
+  if (!range.collapsed && !withinOneLine(editor, range)) return
+  const selected = range.toString().replaceAll(ZERO_WIDTH, '')
+  // 되돌리기가 이어지도록 execCommand 로 넣는다. 만든 <code> 는 표시를 달아 두었다가 찾는다
+  exec('insertHTML', `<code data-iwae-new="1">${escapeHtml(selected === '' ? ZERO_WIDTH : selected)}</code>${ZERO_WIDTH}`)
+  const made = editor.querySelector('code[data-iwae-new]')
+  if (made === null) return
+  made.removeAttribute('data-iwae-new')
+  const text = made.firstChild
+  if (selected === '' && text !== null) {
+    placeCaret(text, text.textContent?.length ?? 1)
+    return
+  }
+  // 고른 글은 코드 안에서 그대로 고른 채로 둔다(한 번 더 누르면 풀린다)
+  const inside = document.createRange()
+  inside.selectNodeContents(made)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(inside)
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>]/gu, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char] ?? char))
+}
+
+/** 선택이 한 줄(한 문단) 안에 드는가 */
+function withinOneLine(editor: HTMLElement, range: Range): boolean {
+  const owner = (node: Node) => closestIn(node, editor, (element) => LINE_BLOCK.test(element.tagName))
+  if (owner(range.startContainer) !== owner(range.endContainer)) return false
+  return range.cloneContents().querySelector('br, div, p, li, ul, ol, pre, blockquote, h2, h3, h4, hr, table') === null
+}
+
+/** 코드를 풀어 보통 글로 되돌린다. 고른 글(커서)은 되돌린 글 위에 그대로 둔다 */
+function unwrapCode(editor: HTMLElement, code: HTMLElement, range: Range) {
+  const textOffset = (container: Node, offset: number): number => {
+    if (!code.contains(container)) return container.compareDocumentPosition(code) & Node.DOCUMENT_POSITION_FOLLOWING ? 0 : Number.POSITIVE_INFINITY
+    const before = document.createRange()
+    before.setStart(code, 0)
+    before.setEnd(container, offset)
+    return before.toString().replaceAll(ZERO_WIDTH, '').length
+  }
+  const text = (code.textContent ?? '').replaceAll(ZERO_WIDTH, '')
+  const from = Math.min(textOffset(range.startContainer, range.startOffset), text.length)
+  const to = Math.min(textOffset(range.endContainer, range.endOffset), text.length)
+  const selection = window.getSelection()
+  // 코드 요소만 고르면 브라우저가 선택을 코드 안으로 접어서 글이 코드 안에 남는다. 옆 글자 하나씩을 함께 골라 코드가 통째로 지워지게 한다
+  const previous = code.previousSibling instanceof Text && code.previousSibling.length > 0 ? code.previousSibling : null
+  const next = code.nextSibling instanceof Text && code.nextSibling.length > 0 ? code.nextSibling : null
+  if (previous === null && next === null) {
+    // 옆에 글이 없으면 직접 푼다
+    const plain = document.createTextNode(text)
+    code.replaceWith(plain)
+    const restored = document.createRange()
+    restored.setStart(plain, from)
+    restored.setEnd(plain, to)
+    selection?.removeAllRanges()
+    selection?.addRange(restored)
+    return
+  }
+  const prefix = previous === null ? '' : previous.data.slice(-1)
+  const suffix = next === null ? '' : next.data.slice(0, 1)
+  const wide = document.createRange()
+  if (previous === null) wide.setStartBefore(code)
+  else wide.setStart(previous, previous.length - 1)
+  if (next === null) wide.setEndAfter(code)
+  else wide.setEnd(next, 1)
+  selection?.removeAllRanges()
+  selection?.addRange(wide)
+  const inserted = prefix + text + suffix
+  exec('insertText', inserted)
+  const now = editorRange(editor)
+  const node = now?.startContainer
+  if (!(node instanceof Text)) return
+  // 글을 넣은 뒤 커서는 넣은 글 끝에 있다
+  const begin = now!.startOffset - inserted.length + prefix.length
+  if (begin < 0) return
+  const restored = document.createRange()
+  restored.setStart(node, begin + from)
+  restored.setEnd(node, begin + to)
+  selection?.removeAllRanges()
+  selection?.addRange(restored)
 }
 
 /** 코드 끝에서 ` 를 한 번 더 누르면 코드 밖으로 나간다 */
@@ -219,13 +336,14 @@ export function applyInlineMarkdown(editor: HTMLElement, key: string): boolean {
     // 폭 없는 글자를 뺀 위치를 원래 글의 위치로 되돌린다
     let start = 0
     for (let seen = 0; start < raw.length && seen < startInBefore; start += 1) if (raw[start] !== ZERO_WIDTH) seen += 1
-    const rest = node.data.slice(range.startOffset)
-    node.data = raw.slice(0, start)
-    const element = document.createElement(rule.tag)
-    element.textContent = inner
-    const after = document.createTextNode(ZERO_WIDTH + rest)
-    node.after(element, after)
-    placeCaret(after, 1)
+    // 여는 표시부터 커서까지를 골라 execCommand 로 바꿔 넣는다(DOM 을 직접 고치면 브라우저의 되돌리기가 어긋난다)
+    const marked = document.createRange()
+    marked.setStart(node, start)
+    marked.setEnd(node, range.startOffset)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(marked)
+    exec('insertHTML', `<${rule.tag}>${escapeHtml(inner)}</${rule.tag}>${ZERO_WIDTH}`)
     return true
   }
   return false
@@ -247,7 +365,16 @@ export function applyBlockMarkdown(editor: HTMLElement, trigger: 'space' | 'ente
   if (trigger === 'space') {
     if (/^#{1,3}$/u.test(text)) action = () => exec('formatBlock', `h${text.length + 1}`)
     else if (/^[-*+]$/u.test(text) && inList === null) action = () => exec('insertUnorderedList')
-    else if (/^\d+[.)]$/u.test(text) && inList === null) action = () => exec('insertOrderedList')
+    else if (/^\d+[.)]$/u.test(text) && inList === null) {
+      const start = Number.parseInt(text, 10)
+      action = () => {
+        exec('insertOrderedList')
+        // 3. 으로 시작했으면 3 부터 센다. 위 번호 목록에 붙은 것(이어 세기)은 건드리지 않는다
+        const now = editorRange(editor)
+        const made = now === null ? null : closestIn(now.startContainer, editor, (element) => element.tagName === 'OL')
+        if (made !== null && start > 1 && start <= 99999 && made.children.length === 1) made.setAttribute('start', String(start))
+      }
+    }
     else if (text === '>') action = () => exec('formatBlock', 'blockquote')
     else if (/^\[[ xX]?\]$/u.test(text)) {
       const checked = /x/iu.test(text)
@@ -379,7 +506,8 @@ export function handleMemoTab(editor: HTMLElement, outdent: boolean): boolean {
 }
 
 /** 글만 붙여 넣을 때 Markdown 표시가 있으면 서식으로 바꿔 넣는다(코드 블록 안에서는 글 그대로) */
-export function looksLikeMarkdown(text: string): boolean {
+export function looksLikeMarkdown(raw: string): boolean {
+  const text = raw.replace(/\r\n?/gu, '\n')
   // | 표 | 머리줄 + |---| 구분줄
   if (/(^|\n)\s*\|?.*\|.*\n\s*\|?\s*:?-{2,}/u.test(text)) return true
   return /(^|\n)\s*(```|#{1,3}\s|[-*+]\s|\d+[.)]\s|>\s?|-{3,}\s*(\n|$))|`[^`\n]+`|\*\*[^*\n]+\*\*/u.test(text)

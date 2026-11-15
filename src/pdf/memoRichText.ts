@@ -1,12 +1,12 @@
 /**
  * 메모의 서식(굵게·기울임·밑줄·취소선·글자색·배경색·목록·할 일·제목·인용·코드·구분선). 저장은 작은 HTML 조각으로 하고,
- * 그릴 때와 저장할 때 모두 아래 허용 목록만 남긴다(스크립트·링크·그림 등은 버린다).
+ * 그릴 때와 저장할 때 모두 아래 허용 목록만 남긴다(스크립트·그림 등은 버리고, 링크는 http(s)·mailto 만 남긴다).
  * 서식 없이 글만 있는 메모(MCP·옛 메모)는 Markdown 처럼 읽어 그린다(`코드`, ``` 코드 블록, - 목록, > 인용, # 제목 …).
  */
 
 const ALLOWED_TAGS = new Set([
   'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'SPAN', 'UL', 'OL', 'LI', 'BR', 'DIV', 'P', 'CODE',
-  'PRE', 'BLOCKQUOTE', 'H2', 'H3', 'H4', 'HR',
+  'PRE', 'BLOCKQUOTE', 'H2', 'H3', 'H4', 'HR', 'A',
   // 표: 노트·메모에 표를 그대로 둔다(붙여 넣은 표, | 표 | Markdown, MCP)
   'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD', 'CAPTION',
 ])
@@ -18,15 +18,21 @@ const ALLOWED_STYLES = ['color', 'background-color', 'font-weight', 'font-style'
 /** 글자 뒤에 커서를 두려고 잠깐 넣는 폭 없는 글자. 저장할 때는 지운다 */
 const ZERO_WIDTH = /​/gu
 
-function cleanStyle(style: CSSStyleDeclaration): string {
+/** 브라우저가 execCommand 끝에 붙이는, 아무것도 바꾸지 않는 값(inherit · initial …) */
+const NO_OP_STYLE = /^(?:inherit|initial|unset|revert|revert-layer)$/iu
+const NO_BACKGROUND = /^(?:transparent|rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\))$/iu
+
+/** keepBackground: 바깥에 글자 배경색이 남아 있으면 transparent 도 「배경 없음」이라는 뜻이 있다 */
+function cleanStyle(style: CSSStyleDeclaration, keepBackground: boolean): string {
   return ALLOWED_STYLES
-    .map((name) => [name, style.getPropertyValue(name)] as const)
-    .filter(([, value]) => value !== '' && !/url\(|expression|javascript/iu.test(value))
+    .map((name) => [name, style.getPropertyValue(name).trim()] as const)
+    .filter(([name, value]) => value !== '' && !NO_OP_STYLE.test(value) && !(name === 'background-color' && !keepBackground && NO_BACKGROUND.test(value)))
+    .filter(([, value]) => !/url\(|expression|javascript/iu.test(value))
     .map(([name, value]) => `${name}: ${value}`)
     .join('; ')
 }
 
-function cleanNode(node: Node, into: Node, doc: Document) {
+function cleanNode(node: Node, into: Node, doc: Document, keepBackground = false) {
   for (const child of [...node.childNodes]) {
     if (child.nodeType === Node.TEXT_NODE) {
       const text = (child.textContent ?? '').replace(ZERO_WIDTH, '')
@@ -46,17 +52,37 @@ function cleanNode(node: Node, into: Node, doc: Document) {
     }
     if (!ALLOWED_TAGS.has(tag)) {
       // 모르는 태그는 버리고 안의 글자만 남긴다
-      cleanNode(child, into, doc)
+      cleanNode(child, into, doc, keepBackground)
       continue
     }
     const element = doc.createElement(tag.toLowerCase())
-    const style = [child instanceof HTMLElement ? cleanStyle(child.style) : '', extraStyle].filter(Boolean).join('; ')
+    const style = [child instanceof HTMLElement ? cleanStyle(child.style, keepBackground) : '', extraStyle].filter(Boolean).join('; ')
+    // 꾸밈이 하나도 안 남은 span 은 벗긴다(서식 없는 글이 서식 있는 글로 저장되지 않게)
+    if (tag === 'SPAN' && style === '') {
+      cleanNode(child, into, doc, keepBackground)
+      continue
+    }
     if (style !== '') element.setAttribute('style', style)
     // 할 일 목록: <ul data-type="check"><li data-checked="true|false">
     if (tag === 'UL' && child.getAttribute('data-type') === 'check') element.setAttribute('data-type', 'check')
     if (tag === 'LI') {
       const checked = child.getAttribute('data-checked')
       if (checked === 'true' || checked === 'false') element.setAttribute('data-checked', checked)
+    }
+    // 번호 목록의 시작 번호
+    if (tag === 'OL') {
+      const start = Number(child.getAttribute('start'))
+      if (Number.isInteger(start) && start > 1 && start <= 99999) element.setAttribute('start', String(start))
+    }
+    // 링크는 http(s) · mailto 만. 누르면 앱의 바깥 링크 확인을 거친다(MemoNoteView)
+    if (tag === 'A') {
+      const href = (child.getAttribute('href') ?? '').trim()
+      if (!/^(?:https?:\/\/|mailto:)/iu.test(href) || /[\u0000-\u001f\s]/u.test(href)) {
+        cleanNode(child, into, doc, keepBackground)
+        continue
+      }
+      element.setAttribute('href', href)
+      element.setAttribute('rel', 'noopener noreferrer')
     }
     // 표 칸 합치기와 정렬만 남긴다
     if (tag === 'TD' || tag === 'TH') {
@@ -67,7 +93,7 @@ function cleanNode(node: Node, into: Node, doc: Document) {
       const align = child.getAttribute('align') ?? (child instanceof HTMLElement ? child.style.textAlign : '')
       if (align === 'left' || align === 'center' || align === 'right') element.setAttribute('align', align)
     }
-    cleanNode(child, element, doc)
+    cleanNode(child, element, doc, keepBackground || element.style.backgroundColor !== '')
     into.appendChild(element)
   }
 }
@@ -144,7 +170,7 @@ export function markdownTableToHtml(lines: readonly string[]): string {
  * 그냥 쓴 글은 전과 똑같이 보인다.
  */
 export function plainMemoTextToHtml(text: string): string {
-  const lines = text.split('\n')
+  const lines = text.replace(/\r\n?/gu, '\n').split('\n')
   const segments: MarkdownSegment[] = []
   const block = (html: string) => segments.push({ inline: false, html })
   let index = 0
@@ -206,7 +232,10 @@ export function plainMemoTextToHtml(text: string): string {
       continue
     }
     if (NUMBER_ITEM.test(line)) {
-      block(`<ol>${collect(NUMBER_ITEM).map((match) => `<li>${inlineMarkdownToHtml(match[1]!)}</li>`).join('')}</ol>`)
+      const first = index
+      const rows = collect(NUMBER_ITEM)
+      const start = Number(/^\s*(\d+)/u.exec(lines[first]!)?.[1])
+      block(`<ol${start > 1 && start <= 99999 ? ` start="${start}"` : ''}>${rows.map((match) => `<li>${inlineMarkdownToHtml(match[1]!)}</li>`).join('')}</ol>`)
       continue
     }
     if (QUOTE_LINE.test(line)) {
@@ -237,9 +266,24 @@ export function memoDisplayHtml(note: string | undefined, noteHtml: string | und
   return plainMemoTextToHtml(note ?? '')
 }
 
+/** 글을 있는 그대로 보이는 HTML(줄바꿈은 <br>). Markdown 으로 읽지 않는다 */
+export function literalMemoHtml(text: string): string {
+  return escapeMemoText(text.replace(/\r\n?/gu, '\n'))
+}
+
+/** 이 글을 Markdown 처럼 읽으면 쓴 그대로와 달라지는가(`2026. 11. 15.` 가 번호 목록이 되는 것처럼) */
+export function readsAsMarkdown(text: string): boolean {
+  return plainMemoTextToHtml(text) !== literalMemoHtml(text)
+}
+
+/** 서식 없이 글만 저장할 때 함께 남길 HTML: Markdown 으로 읽으면 달라지는 글만 그대로 보이는 HTML 을 남기고, 아니면 빈 문자열 */
+export function literalHtmlIfNeeded(text: string): string {
+  return readsAsMarkdown(text) ? literalMemoHtml(text) : ''
+}
+
 /** 서식에 실제로 꾸밈이 있는가(글만 있으면 noteHtml 은 저장하지 않는다) */
 export function hasMemoFormatting(html: string): boolean {
-  return /<(b|strong|i|em|u|s|strike|span|ul|ol|li|code|pre|blockquote|h[2-4]|hr|table)\b/iu.test(html)
+  return /<(b|strong|i|em|u|s|strike|span|ul|ol|li|code|pre|blockquote|h[2-4]|hr|table|a)\b/iu.test(html)
 }
 
 /** 글에 Markdown 할 일 표시(- [ ] / - [x])가 있으면 n 번째 것을 뒤집는다. 없으면 null */

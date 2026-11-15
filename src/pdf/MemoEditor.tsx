@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { Table } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { restoreInlineStyles } from '../app/runtimeStyle'
+import { registerEditorFlusher } from '../app/editorFlush'
+import { isOpenableUrl, requestExternalLink } from '../bridge/external'
 import { useHasTopBarSlot } from '../app/topBarToolbar'
-import { hasMemoFormatting, memoDisplayHtml, plainMemoTextToHtml, sanitizeMemoHtml, togglePlainCheck } from './memoRichText'
+import { hasMemoFormatting, literalHtmlIfNeeded, memoDisplayHtml, plainMemoTextToHtml, sanitizeMemoHtml, togglePlainCheck } from './memoRichText'
 import { addTableColumn, addTableRow, deleteTableColumn, deleteTableRow, insertTable, moveTableCell, tableCellAt } from './memoTableEditing'
 import {
   applyBlockMarkdown, applyInlineMarkdown, checkItemAt, checkItemIndex, currentBlockKind, handleMemoBackspace, handleMemoEnter, handleMemoTab,
@@ -267,6 +269,15 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** 지금 칸의 글과 서식. 서식이 없어도 Markdown 으로 읽으면 쓴 글과 달라지는 글(`2026. 11. 15.` · `---`)은 그대로 보이는 HTML 을 함께 남긴다 */
+  const snapshot = (): MemoContent => {
+    const element = ref.current
+    const text = element === null ? '' : memoPlainText(element)
+    if (text === '') return { text: '', html: '' }
+    const html = sanitizeMemoHtml(element?.innerHTML ?? '')
+    return { text, html: hasMemoFormatting(html) ? html : literalHtmlIfNeeded(text) }
+  }
+
   const finish = (save: boolean) => {
     if (doneRef.current) return
     doneRef.current = true
@@ -274,11 +285,38 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
       onCancel()
       return
     }
-    const element = ref.current
-    const text = element === null ? '' : memoPlainText(element)
-    const html = text === '' ? '' : sanitizeMemoHtml(element?.innerHTML ?? '')
-    onSave({ text, html: hasMemoFormatting(html) ? html : '' })
+    onSave(snapshot())
   }
+
+  // 포커스를 잃지 않고 칸이 사라지는 길(화면 전환 · 칸 닫기)과 창 닫기 · Vault 바꾸기 전에도 쓴 글을 저장한다. 고친 것이 없으면 아무것도 하지 않는다
+  const dirtyRef = useRef(false)
+  const observerRef = useRef<MutationObserver | null>(null)
+  const commitPending = () => {
+    if (observerRef.current?.takeRecords().length) dirtyRef.current = true
+    const element = ref.current
+    if (doneRef.current || !dirtyRef.current || element === null) return
+    if (discardEmptyOnBlur && memoPlainText(element).trim() === '') return
+    dirtyRef.current = false
+    onSave(snapshot())
+  }
+  const commitRef = useRef(commitPending)
+  commitRef.current = commitPending
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (element !== null && typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver(() => { dirtyRef.current = true })
+      observer.observe(element, { childList: true, subtree: true, characterData: true, attributes: true })
+      observerRef.current = observer
+    }
+    const unregister = registerEditorFlusher(() => commitRef.current())
+    return () => {
+      unregister()
+      commitRef.current()
+      doneRef.current = true
+      observerRef.current?.disconnect()
+      observerRef.current = null
+    }
+  }, [])
 
   return (
     <div className="pdf-memo-editor-wrap">
@@ -305,12 +343,26 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
           event.preventDefault()
           toggleCheckItem(item)
         }}
+        onClick={(event) => {
+          // 칸 안의 링크는 따라가지 않는다(고치는 중이다). 열기는 저장된 메모를 눌러서 한다
+          if (event.target instanceof Element && event.target.closest('a') !== null) event.preventDefault()
+        }}
         onPaste={(event) => {
           const plain = event.clipboardData.getData('text/plain')
+          const pastedHtml = event.clipboardData.getData('text/html')
+          const hasImageFile = [...event.clipboardData.items].some((item) => item.kind === 'file' && item.type.startsWith('image/'))
           if (insideCodeBlock(event.currentTarget)) {
             // 코드 블록에는 글 그대로(서식 없이)
             event.preventDefault()
             document.execCommand('insertText', false, plain)
+          } else if (/<img\b/iu.test(pastedHtml)) {
+            // 메모에는 그림을 남기지 않는다. 붙일 때 보이다가 저장하면 사라지는 일이 없도록 처음부터 그림을 빼고 붙인다
+            event.preventDefault()
+            const cleaned = sanitizeMemoHtml(pastedHtml)
+            if (cleaned.replace(/<[^>]*>/gu, '').trim() !== '') document.execCommand('insertHTML', false, cleaned)
+          } else if (hasImageFile && pastedHtml === '' && plain === '') {
+            // 그림 파일만 붙이면 아무것도 넣지 않는다
+            event.preventDefault()
           } else if (!event.clipboardData.types.includes('text/html') && looksLikeMarkdown(plain)) {
             // Markdown 글(``` 코드, - 목록 …)은 서식으로 바꿔 넣는다
             event.preventDefault()
@@ -399,6 +451,15 @@ export function MemoNoteView({ note, noteHtml, onEdit, onChange }: {
       tabIndex={0}
       aria-label={t('메모 고치기')}
       onClick={(event) => {
+        // 메모 안의 링크는 앱의 바깥 링크 확인을 거쳐 연다(웹뷰가 직접 가지 않는다)
+        const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null
+        if (anchor !== null && event.currentTarget.contains(anchor)) {
+          event.preventDefault()
+          event.stopPropagation()
+          const href = anchor.getAttribute('href') ?? ''
+          if (isOpenableUrl(href)) requestExternalLink(href)
+          return
+        }
         const item = onChange === undefined ? null : checkItemAt(event.target, event.clientX)
         if (item === null || onChange === undefined) {
           onEdit()

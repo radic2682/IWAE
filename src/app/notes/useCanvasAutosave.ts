@@ -7,6 +7,7 @@ import {
 } from '../../core/canvasDocument'
 import { serializeCanvasDoc } from '../../core/canvasSerialize'
 import { SaveQueue } from '../../core/saveQueue'
+import { flushEditors } from '../editorFlush'
 
 export type CanvasSaveStatus = 'loading' | 'dirty' | 'saving' | 'saved' | 'conflict' | 'error' | 'recovered'
 
@@ -40,6 +41,8 @@ interface FailedUnmountSave {
 const failedUnmountSaves = new Map<string, FailedUnmountSave>()
 
 export async function flushCanvasSaves(noteId?: string): Promise<void> {
+  // 쓰던 글쓰기 칸의 글부터 내려 보낸다(그래야 아래 저장 대기열에 오른다)
+  await flushEditors()
   const failed = noteId === undefined ? [...failedUnmountSaves.values()] : [failedUnmountSaves.get(noteId)].filter((item) => item !== undefined)
   if (noteId === undefined) {
     await Promise.all([...canvasSaveFlushers.values()].map((flush) => flush()).concat(failed.map((item) => item.retry())))

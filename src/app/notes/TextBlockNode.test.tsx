@@ -203,3 +203,53 @@ describe('TextBlockNode', () => {
     expect(editor.dataset.canvasAutoGrow).toBe('true')
   })
 })
+
+describe('TextBlockNode 쓰던 글 저장', () => {
+  const props = { id: 'node-1', data: { block }, selected: true } as unknown as Parameters<typeof TextBlockNode>[0]
+
+  it('쓰는 중에 포커스를 잃지 않고 사라져도 쓴 글을 저장한다', () => {
+    const onTextCommit = vi.fn()
+    const { unmount } = render(
+      <CanvasBlockRuntimeProvider value={{ onTextCommit }}>
+        <TextBlockNode {...props} />
+      </CanvasBlockRuntimeProvider>,
+    )
+    const editor = screen.getByRole('textbox')
+    fireEvent.doubleClick(editor)
+    expect(editor.getAttribute('contenteditable')).toBe('true')
+    editor.textContent = '쓰는 중인 글'
+    unmount()
+    expect(onTextCommit).toHaveBeenCalledWith('node-1', '쓰는 중인 글')
+  })
+
+  it('이미 저장한 글(포커스를 잃음)은 사라질 때 다시 저장하지 않는다', () => {
+    const onTextCommit = vi.fn()
+    const { unmount } = render(
+      <CanvasBlockRuntimeProvider value={{ onTextCommit }}>
+        <TextBlockNode {...props} />
+      </CanvasBlockRuntimeProvider>,
+    )
+    const editor = screen.getByRole('textbox')
+    fireEvent.doubleClick(editor)
+    editor.textContent = '글'
+    fireEvent.blur(editor)
+    expect(onTextCommit).toHaveBeenCalledTimes(1)
+    unmount()
+    expect(onTextCommit).toHaveBeenCalledTimes(1)
+  })
+
+  it('Enter 로 나눈 줄을 합치지 않고 저장한다', () => {
+    const onTextCommit = vi.fn()
+    render(
+      <CanvasBlockRuntimeProvider value={{ onTextCommit }}>
+        <TextBlockNode {...props} />
+      </CanvasBlockRuntimeProvider>,
+    )
+    const editor = screen.getByRole('textbox')
+    fireEvent.doubleClick(editor)
+    editor.innerHTML = 'LINE-A<div>LINE-B</div>'
+    Object.defineProperty(editor, 'innerText', { value: 'LINE-A\nLINE-B', configurable: true })
+    fireEvent.keyDown(editor, { key: 'Escape' })
+    expect(onTextCommit).toHaveBeenCalledWith('node-1', 'LINE-A\nLINE-B')
+  })
+})
