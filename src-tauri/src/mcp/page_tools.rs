@@ -56,15 +56,20 @@ fn document_path(root: &Path, doc_id: &str) -> Result<PathBuf, String> {
     Ok(if path.is_absolute() { path } else { root.join(path) })
 }
 
+/// 1부터 세는 쪽 번호 → 0부터 세는 인덱스. 아주 큰 값이 i32 로 넘쳐 엉뚱한 쪽이 되지 않게 검사한다
+fn page_index(page: i64, page_count: i32) -> Result<i32, String> {
+    i32::try_from(page - 1)
+        .ok()
+        .filter(|index| (0..page_count).contains(index))
+        .ok_or_else(|| format!("쪽 번호가 범위를 벗어났습니다(1–{page_count})."))
+}
+
 fn page_image(root: &Path, args: &Value) -> Result<Value, String> {
     let doc_id = str_arg(args, "doc_id").ok_or("doc_id 가 필요합니다.")?;
     let page = page_arg(args)?;
     let pdf = PdfThread::shared();
     let meta = pdf.open_with_id_blocking(document_path(root, doc_id)?, Some(doc_id.to_string()))?;
-    let index = (page - 1) as i32;
-    if index >= meta.page_count {
-        return Err(format!("쪽 번호가 범위를 벗어났습니다(1–{}).", meta.page_count));
-    }
+    let index = page_index(page, meta.page_count)?;
     let (page_width, page_height) = meta.page_sizes.get(index as usize).copied().ok_or("쪽 크기를 알 수 없습니다.")?;
     // 그림 픽셀 → PDF points 배율(영역 메모의 rect 를 그림에서 읽을 때 쓴다)
     let points_per_pixel: f32;
@@ -117,6 +122,17 @@ fn base64(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn huge_page_numbers_are_range_errors_not_wrapped_indexes() {
+        assert_eq!(page_index(1, 3), Ok(0));
+        assert_eq!(page_index(3, 3), Ok(2));
+        assert!(page_index(4, 3).is_err());
+        // 2^32 + 1 은 `as i32` 로는 0 번 쪽이 된다
+        assert!(page_index(4_294_967_297, 3).is_err());
+        assert!(page_index(i64::MAX, 3).is_err());
+        assert!(page_index(0, 3).is_err());
+    }
 
     #[test]
     fn base64_matches_known_values() {
