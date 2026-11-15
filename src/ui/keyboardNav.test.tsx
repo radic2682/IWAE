@@ -30,6 +30,19 @@ function Dialog({ refTo, onClose }: { refTo: React.RefObject<HTMLDivElement | nu
   )
 }
 
+function RadioDialog() {
+  const ref = useRef<HTMLDivElement>(null)
+  useFocusTrap(ref)
+  return (
+    <div ref={ref} role="dialog">
+      <button type="button">첫째</button>
+      <input type="radio" name="g" aria-label="가" />
+      <input type="radio" name="g" aria-label="나" defaultChecked />
+      <input type="radio" name="g" aria-label="다" />
+    </div>
+  )
+}
+
 describe('useFocusTrap', () => {
   it('열리면 안으로 초점이 가고, Tab 이 처음↔끝을 돌고, 닫히면 열던 단추로 돌아간다', () => {
     render(<Trap />)
@@ -46,6 +59,17 @@ describe('useFocusTrap', () => {
     expect(document.activeElement).toBe(last)
     fireEvent.click(last)
     expect(document.activeElement).toBe(opener)
+  })
+
+  it('라디오 묶음은 한 곳으로 세어, 마지막이 선택된 라디오일 때 Tab 이 처음으로 돌고 Shift+Tab 은 거기로 돌아온다', () => {
+    render(<RadioDialog />)
+    const first = screen.getByRole('button', { name: '첫째' })
+    const checked = screen.getByRole('radio', { name: '나' })
+    checked.focus()
+    fireEvent.keyDown(checked, { key: 'Tab' })
+    expect(document.activeElement).toBe(first)
+    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(checked)
   })
 })
 
