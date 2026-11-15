@@ -13,6 +13,7 @@ import './ui/focus-ring.css'
 import { installTreeKeyboard } from './ui/treeKeyboard'
 import { installNativeKeyGuard } from './core/nativeKeyGuard'
 import { installErrorBuffer } from './core/errorBuffer'
+import { installUnloadCleanup } from './bridge/unloadCleanup'
 
 // 탭·패널 배치(session.json)는 메인 창만 저장한다. 떼어 낸 창·새 창은 자기 배치를 메모리에만 둔다
 setSessionWriter(ownsSession(currentWindowMode()))
@@ -24,6 +25,8 @@ installTreeKeyboard()
 installNativeKeyGuard()
 // 화면 오류를 기록해 둔다(문제 보고에서 사용자가 미리 보고 낼 때만 쓴다)
 installErrorBuffer()
+// 새로 고칠 때 Rust 쪽에 남는 파일 감시·이벤트 듣기를 푼다
+installUnloadCleanup()
 // 형광펜 색 변수(<style id="iwae-highlight-colors">)를 첫 그림 전에 만든다
 installHighlightColorStyle()
 
