@@ -501,12 +501,27 @@ impl OllamaClient {
     /// Google 번역(무료, 키 없음): 웹 번역이 쓰는 translate_a/single(client=gtx). 글은 폼 본문으로 보낸다(긴 글도 주소에 싣지 않는다)
     async fn generate_google(&self, input: &ExternalTranslationInput) -> Result<TranslationResult, String> {
         let url = google_translate_url(&input.endpoint, &input.target_language, input.source_language.as_deref())?;
-        let text: String = input.text.chars().take(GOOGLE_MAX_CHARS).collect();
+        let started = Instant::now();
+        // 한 번에 5,000자까지만 받으므로 문단·문장 경계에서 나눠 차례로 번역하고 원래 구분(줄바꿈·공백)을 그대로 이어 붙인다
+        let mut translated = String::new();
+        for (content, separator) in split_for_google(&input.text, GOOGLE_MAX_CHARS) {
+            if content.trim().is_empty() {
+                translated.push_str(&content);
+            } else {
+                translated.push_str(&self.generate_google_chunk(&url, &content).await?);
+            }
+            translated.push_str(&separator);
+        }
+        let elapsed_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+        Ok(TranslationResult { translated_text: translated.trim().to_owned(), model: "Google".to_owned(), elapsed_ms })
+    }
+
+    /// Google 에 글 한 덩어리(5,000자 이하)를 보내 번역을 받는다
+    async fn generate_google_chunk(&self, url: &Url, text: &str) -> Result<String, String> {
         // 폼 본문(q=…)은 Url 의 query 인코더로 만든다
         let mut form = Url::parse("http://form.invalid/").map_err(|_| tr!("요청을 만들지 못했습니다.", "Couldn't build the request."))?;
-        form.query_pairs_mut().append_pair("q", &text);
+        form.query_pairs_mut().append_pair("q", text);
         let body = form.query().unwrap_or_default().to_owned();
-        let started = Instant::now();
         let mut attempt = 0u32;
         let text = loop {
             let response = self
@@ -527,8 +542,7 @@ impl OllamaClient {
             }
             break external_response_body(response).await?;
         };
-        let elapsed_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
-        parse_google_translation_response(&text, elapsed_ms)
+        parse_google_translation_response(&text, 0).map(|result| result.translated_text)
     }
 
     /// DeepL: POST {endpoint}/v2/translate (Authorization: DeepL-Auth-Key ..). 무료 키는 api-free.deepl.com
@@ -595,6 +609,52 @@ pub fn azure_translate_url(endpoint: &str, target_language: &str, source_languag
 
 /// Google 번역 한 번에 보낼 글자 수(웹 번역의 한도)
 const GOOGLE_MAX_CHARS: usize = 5000;
+
+/// 글을 `max` 글자 이하 덩어리로 나눈다. 돌려주는 것은 (덩어리 글, 그 뒤의 구분 공백) 쌍이고, 덩어리와 구분을 차례로 이으면
+/// 원문과 같다. 끊는 자리는 빈 줄 > 줄바꿈 > 문장 끝 > 공백 > (어쩔 수 없을 때) 글자 경계 순으로 고르고,
+/// UTF-8 글자 한가운데서는 자르지 않는다.
+pub fn split_for_google(text: &str, max: usize) -> Vec<(String, String)> {
+    let max = max.max(1);
+    let mut chunks = Vec::new();
+    let mut rest = text;
+    loop {
+        let boundaries: Vec<usize> = rest.char_indices().map(|(index, _)| index).chain(std::iter::once(rest.len())).collect();
+        if boundaries.len() - 1 <= max {
+            chunks.push((rest.to_owned(), String::new()));
+            return chunks;
+        }
+        let window_end = boundaries[max];
+        let window = &rest[..window_end];
+        let is_sentence_end = |index: usize, ch: char| {
+            matches!(ch, '.' | '!' | '?' | '。' | '！' | '？') && rest[index + ch.len_utf8()..].chars().next().is_none_or(char::is_whitespace)
+        };
+        // 끊는 자리(바이트 위치, 맨 앞은 제외): 그 앞까지가 덩어리다
+        let cut = window
+            .rfind("\n\n")
+            .filter(|&at| at > 0)
+            .or_else(|| window.rfind('\n').filter(|&at| at > 0))
+            .or_else(|| {
+                window
+                    .char_indices()
+                    .filter(|&(index, ch)| index > 0 && is_sentence_end(index, ch))
+                    .map(|(index, ch)| index + ch.len_utf8())
+                    .last()
+            })
+            .or_else(|| window.rfind(char::is_whitespace).filter(|&at| at > 0))
+            .unwrap_or(window_end);
+        let (content, after) = rest.split_at(cut);
+        // 덩어리 끝의 공백도 구분으로 돌린다(번역은 앞뒤 공백을 지우므로)
+        let trimmed = content.trim_end();
+        let (content, trailing) = content.split_at(trimmed.len());
+        let spaces = after.len() - after.trim_start().len();
+        let separator = format!("{trailing}{}", &after[..spaces]);
+        chunks.push((content.to_owned(), separator));
+        rest = &after[spaces..];
+        if rest.is_empty() {
+            return chunks;
+        }
+    }
+}
 
 /// Google 은 중국어를 지역까지 적는다(zh → zh-CN)
 pub fn google_language(language: &str) -> String {
@@ -1333,6 +1393,80 @@ mod cloud_translator_tests {
         }
         let delay = super::google_retry_delay();
         assert!(delay >= std::time::Duration::from_millis(1500) && delay < std::time::Duration::from_millis(1800));
+    }
+
+    fn rejoin(chunks: &[(String, String)]) -> String {
+        chunks.iter().map(|(content, separator)| format!("{content}{separator}")).collect()
+    }
+
+    #[test]
+    fn google_chunks_cut_at_paragraphs_then_sentences_and_rejoin_to_the_original() {
+        let paragraph = "가나다라마바사아자차 ".repeat(250); // 약 2,750자
+        let text = format!("{paragraph}\n\n{paragraph}\n\n{paragraph}");
+        let chunks = super::split_for_google(&text, 5000);
+        assert!(chunks.len() >= 2, "{}", chunks.len());
+        assert!(chunks.iter().all(|(content, _)| content.chars().count() <= 5000));
+        // 빈 줄에서 끊는다(문단이 두 동강 나지 않는다)
+        assert!(chunks[0].0.ends_with("자차"));
+        assert!(chunks[0].1.contains("\n\n"));
+        assert_eq!(rejoin(&chunks), text);
+
+        // 문단 표시가 없으면 문장 끝에서 끊는다
+        let sentences = "첫 문장입니다. 두 번째 문장입니다? ".repeat(400);
+        let chunks = super::split_for_google(&sentences, 1000);
+        assert!(chunks.iter().all(|(content, _)| content.chars().count() <= 1000));
+        assert!(chunks.iter().take(chunks.len() - 1).all(|(content, _)| content.ends_with('.') || content.ends_with('?')));
+        assert_eq!(rejoin(&chunks), sentences);
+    }
+
+    #[test]
+    fn google_chunks_never_split_a_character_or_lose_text_without_spaces() {
+        // 공백이 하나도 없는 긴 글(한자·URL 같은)도 글자 경계에서 자른다
+        let text = "漢字🙂".repeat(3000);
+        let chunks = super::split_for_google(&text, 5000);
+        assert!(chunks.len() >= 2);
+        assert!(chunks.iter().all(|(content, _)| content.chars().count() <= 5000));
+        assert_eq!(rejoin(&chunks), text);
+        assert_eq!(super::split_for_google("짧은 글", 5000), vec![("짧은 글".to_owned(), String::new())]);
+        assert_eq!(super::split_for_google("", 5000).len(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn google_translates_all_of_a_long_text_in_order() {
+        use std::io::Read as _;
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let port = server.server_addr().to_ip().unwrap().port();
+        let worker = std::thread::spawn(move || {
+            let mut sizes = Vec::new();
+            for _ in 0..2 {
+                let mut request = server.recv().unwrap();
+                let mut body = String::new();
+                request.as_reader().read_to_string(&mut body).unwrap();
+                let q = Url::parse(&format!("http://x/?{body}")).unwrap().query_pairs().find(|(key, _)| key == "q").map(|(_, value)| value.into_owned()).unwrap_or_default();
+                sizes.push(q.chars().count());
+                let reply = format!("[[[\"chunk{}\",\"x\",null,null]],null,\"en\"]", sizes.len());
+                request.respond(tiny_http::Response::from_string(reply)).unwrap();
+            }
+            sizes
+        });
+        let paragraph = "가나다라마바사아자차 ".repeat(300); // 3,300자
+        let text = format!("{paragraph}\n\n{paragraph}"); // 약 6,600자: 한 번에 못 보낸다
+        assert!(validate_translation_text(&text).is_ok());
+        let input: ExternalTranslationInput = serde_json::from_value(serde_json::json!({
+            "endpoint": format!("http://127.0.0.1:{port}"),
+            "apiKey": "",
+            "model": "",
+            "text": text,
+            "targetLanguage": "en",
+            "provider": "google",
+        }))
+        .unwrap();
+        let result = OllamaClient::new().unwrap().generate_external(input).await.unwrap();
+        let sizes = worker.join().unwrap();
+        assert_eq!(sizes.len(), 2);
+        assert!(sizes.iter().all(|&size| size <= 5000), "{sizes:?}");
+        // 원문의 구분(문단 끝 공백과 빈 줄)을 그대로 이어 붙인다
+        assert_eq!(result.translated_text, "chunk1 \n\nchunk2");
     }
 
     #[test]
