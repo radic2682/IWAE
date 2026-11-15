@@ -7,6 +7,7 @@ import type { TrashSource } from '../../bridge/vaultFiles'
 import { isVaultExternalChangeError } from '../../core/vaultSync'
 import {
   adoptMemoNoteText,
+  memoNoteLock,
   createMemoNoteFolder,
   inspectMemoNote,
   listMemoNoteTree,
@@ -701,6 +702,9 @@ export function useMemoNotes(
   }, [flushPending])
   /** path 노트의 지금 내용(그리기용: 노트가 바뀌면 이 함수도 새로 만들어져 다시 그린다). 목록에 없으면 null */
   const noteAt = useCallback((path: string): MemoNote | null => notes.get(path) ?? null, [notes])
+  /** 이 버전이 고칠 수 없는 노트인가(더 새 버전이 만들었거나 읽을 수 없는 모양). 노트가 바뀌면 이 함수도 새로 만들어져 다시 그린다 */
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- notes 가 바뀔 때(다시 읽었을 때) 새로 판정한다
+  const noteLock = useCallback((path: string) => (vault === null ? null : memoNoteLock(vault, path)), [vault, notes])
   const updateOpen = useCallback((change: (note: MemoNote) => MemoNote) => {
     if (openPath === null) return
     updateNoteAt(openPath, change)
@@ -790,6 +794,7 @@ export function useMemoNotes(
     create,
     updateOpen,
     noteAt,
+    noteLock,
     updateNoteAt,
     isNoteHeld,
     flushNote,

@@ -22,6 +22,8 @@ export interface MemoNoteApi {
   readonly updateOpen: (change: (note: MemoNote) => MemoNote) => void
   /** path 노트의 지금 내용. 목록에 없으면 null. 탭으로 연 노트가 이것으로 그린다 */
   readonly noteAt: (path: string) => MemoNote | null
+  /** 이 버전이 고칠 수 없는 노트(더 새 버전이 만들었거나 읽을 수 없는 모양)면 그 까닭, 아니면 null. 없으면 모두 고칠 수 있다고 본다 */
+  readonly noteLock?: (path: string) => 'newer' | 'unrecognized' | null
   /** path 노트를 고친다(저장은 알아서; updateOpen 과 같은 길). 목록에 없는 노트는 무시 */
   readonly updateNoteAt: (path: string, change: (note: MemoNote) => MemoNote) => void
   /** 저장 충돌을 풀기 전이라 파일에 쓰지 않고 붙들고 있는 노트인가(블록을 옮겨 넣으면 디스크에 닿지 않아 잃을 수 있다) */

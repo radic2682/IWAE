@@ -46,6 +46,11 @@ function judgeNoteText(vault: VaultHandle, path: string, text: string): void {
   else unsafeToWrite.set(unsafeKey(vault, path), verdict)
 }
 
+/** 이 노트는 이 버전이 안전하게 고칠 수 없다(읽을 때 판정한 결과). 안전하면 null */
+export function memoNoteLock(vault: VaultHandle, path: string): 'newer' | 'unrecognized' | null {
+  return unsafeToWrite.get(unsafeKey(vault, path)) ?? null
+}
+
 /** 이만큼 깊이까지만 하위 폴더를 읽는다(고리처럼 잘못 걸린 폴더에서 멈추려고) */
 const MAX_FOLDER_DEPTH = 8
 

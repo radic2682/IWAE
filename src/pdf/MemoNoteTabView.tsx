@@ -83,6 +83,8 @@ export function centerBlockIndex(scroller: HTMLElement | null, blocks: readonly 
  */
 export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdated, onHighlightRemoved, onJump, onEdited }: MemoNoteTabViewProps) {
   const api = useMemoNoteApi()
+  // 더 새 버전이 만들었거나 읽을 수 없는 노트: 열어서 보이기만 하고 고치지 못하게 한다(고쳐도 저장하지 않는다)
+  const lock = api?.noteLock?.(path) ?? null
   const rootRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const wide = useMinWidth(rootRef, MEMO_NOTE_WIDE_MIN)
@@ -330,7 +332,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
           <SidebarSimple size={15} aria-hidden="true" style={{ transform: 'scaleX(-1)' }} />
         </button>
       )}
-      {flow.note === null ? null : (
+      {flow.note === null || lock !== null ? null : (
         <button type="button" className="pdf-memo-header-button" aria-label={t('글 블록 넣기')} title={t('글 블록 넣기')} onClick={flow.appendText}>
           <Plus size={15} weight="bold" aria-hidden="true" />
         </button>
@@ -400,6 +402,11 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
             </div>
           </div>
         ) : null}
+        {lock === null ? null : (
+          <p className="memo-note-lock" role="note">
+            {lock === 'newer' ? t('이 노트는 새 버전의 IWAE가 만들어 열어 보기만 할 수 있습니다. 파일은 그대로 둡니다.') : t('이 노트 파일은 읽을 수 없는 모양이라 열어 보기만 할 수 있습니다. 파일은 그대로 둡니다.')}
+          </p>
+        )}
         {flow.note === null ? (
           <div className="note-empty">
             <p>{t('노트를 불러올 수 없습니다')}</p>
@@ -440,7 +447,8 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
                 if (memoId !== undefined && memoId !== '') sendPoint(memoId, 'note')
               }}
             >
-              {items.length === 0 && draft === null ? <p className="note-empty-hint">{t('빈 노트입니다. 「＋」로 글 블록을 추가하세요.')}</p> : null}
+              {lock === null && items.length === 0 && draft === null ? <p className="note-empty-hint">{t('빈 노트입니다. 「＋」로 글 블록을 추가하세요.')}</p> : null}
+              <div className="memo-note-flow-wrap" inert={lock !== null}>
               <MemoNoteContext.Provider value={flow.scopedApi}>
                 <MemoFormatSlotContext.Provider value={flow.formatSlot}>
                   <NoteFlow
@@ -454,6 +462,7 @@ export function MemoNoteTabView({ path, highlights, docTitles, onHighlightUpdate
                   />
                 </MemoFormatSlotContext.Provider>
               </MemoNoteContext.Provider>
+              </div>
             </div>
             {showMinimap ? <NoteMinimap scrollerRef={scrollRef} query={query} /> : null}
           </div>

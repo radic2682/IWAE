@@ -31,6 +31,20 @@
 .pane-doc .memo-note-tab-searchrow .pdf-memo-search { height: 28px; }
 .pane-doc .memo-note-tab-bar > .note-empty { padding: 10px var(--note-side-gap-right, 10px) 0 12px; }
 
+/* 고칠 수 없는 노트(더 새 버전이 만들었거나 읽을 수 없는 모양): 위에 한 줄 안내, 카드는 보이기만 한다 */
+.pane-doc .memo-note-tab-bar > .memo-note-lock {
+  flex: 0 0 auto;
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--selected-bg);
+  color: var(--text-strong);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.memo-note-flow-wrap { display: contents; }
+.memo-note-flow-wrap[inert] { display: block; opacity: .85; }
+
 /* 「→ 문서 이름 p.N」: 원문 문서가 이웃한 같은 색 창에 보이지 않을 때만 카드에 붙는 작은 링크 */
 .note-far-link {
   justify-self: start;

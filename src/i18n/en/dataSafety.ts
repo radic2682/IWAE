@@ -8,6 +8,8 @@ export const DATA_SAFETY: Readonly<Record<string, string>> = {
   'PDF 편집 기록을 아직 읽지 못해 저장을 미뤄 두었습니다. 읽는 대로 저장하니 그때까지 앱을 닫지 마세요.': "The PDF edit record could not be read yet, so saving is on hold. It will be saved as soon as it can be read; please don't close the app until then.",
   '이 노트는 더 새로운 버전의 IWAE가 만든 것이라 저장하지 않았습니다. 파일은 그대로 두었습니다.': 'This note was made by a newer version of IWAE, so it was not saved. The file was left as it is.',
   '이 노트 파일은 읽을 수 없는 모양이라 저장하지 않았습니다. 파일은 그대로 두었습니다.': 'This note file is in a shape that cannot be read, so it was not saved. The file was left as it is.',
+  '이 노트는 새 버전의 IWAE가 만들어 열어 보기만 할 수 있습니다. 파일은 그대로 둡니다.': 'This note was made by a newer version of IWAE, so you can only view it. The file is left as it is.',
+  '이 노트 파일은 읽을 수 없는 모양이라 열어 보기만 할 수 있습니다. 파일은 그대로 둡니다.': 'This note file is in a shape that cannot be read, so you can only view it. The file is left as it is.',
   '읽을 수 없는 충돌 기록 {count}개는 건너뛰었습니다.': 'Skipped {count} unreadable conflict record(s).',
   '읽을 수 없는 휴지통 항목 {count}개는 건너뛰었습니다.': 'Skipped {count} unreadable trash item(s).',
   '읽을 수 없는 버전 기록은 건너뛰었습니다.': 'Skipped unreadable version history.',

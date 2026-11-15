@@ -229,3 +229,39 @@ describe('MemoNoteTabView 미니맵', () => {
     expect(container.querySelector('[data-note-minimap]')).toBeNull()
   })
 })
+
+describe('MemoNoteTabView locked note', () => {
+  afterEach(() => { cleanup() })
+  function Locked({ lock }: { readonly lock: 'newer' | 'unrecognized' | null }) {
+    const api: MemoNoteApi = {
+      entries: [{ path: PATH, title: '전원' }], openPath: null, openTitle: null, openNote: null,
+      open: vi.fn(), create: vi.fn(), updateOpen: vi.fn(),
+      noteAt: (path) => (path === PATH ? initialNote() : null),
+      noteLock: () => lock,
+      updateNoteAt: vi.fn(), notesOf: () => [],
+    }
+    return (
+      <MemoNoteContext.Provider value={api}>
+        <MemoNoteTabView path={PATH} highlights={HIGHLIGHTS} onJump={vi.fn()} />
+      </MemoNoteContext.Provider>
+    )
+  }
+
+  it('shows a notice, blocks editing and hides the add button for a note this version cannot save', () => {
+    const { container } = render(<Locked lock="newer" />)
+    expect(screen.getByRole('note').textContent).toContain('새 버전의 IWAE')
+    expect(screen.queryByRole('button', { name: '글 블록 넣기' })).toBeNull()
+    expect(container.querySelector('.memo-note-flow-wrap')?.hasAttribute('inert')).toBe(true)
+  })
+
+  it('uses the unreadable wording for an unrecognized note', () => {
+    render(<Locked lock="unrecognized" />)
+    expect(screen.getByRole('note').textContent).toContain('읽을 수 없는 모양')
+  })
+
+  it('shows no notice for a normal note', () => {
+    const { container } = render(<Locked lock={null} />)
+    expect(screen.queryByRole('note')).toBeNull()
+    expect(container.querySelector('.memo-note-flow-wrap')?.hasAttribute('inert')).toBe(false)
+  })
+})
