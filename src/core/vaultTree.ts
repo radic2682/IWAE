@@ -130,7 +130,8 @@ function reservedMatcher(entries: readonly VaultTreeEntry[]): (parts: readonly s
     const parts = normalizedParts(entry.path)
     return parts.length === 1 && entry.isDirectory ? [parts[0] ?? ''] : []
   })
-  const folder = pickMemoNotesFolder(top) ?? memoNotesFolder()
+  const noteCount = (name: string): number => entries.filter((entry) => !entry.isDirectory && normalizedParts(entry.path)[0] === name && entry.path.toLowerCase().endsWith(MEMO_NOTE_EXTENSION)).length
+  const folder = pickMemoNotesFolder(top, noteCount) ?? pickMemoNotesFolder(top) ?? memoNotesFolder()
   const koreanFolder = folder === MEMO_NOTES_FOLDER_KO
   // 노트 말고 다른 파일이 든 폴더(그 위 폴더 포함)
   const mixed = new Set<string>()

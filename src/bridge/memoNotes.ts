@@ -32,7 +32,19 @@ export async function listMemoNoteTree(vault: VaultHandle): Promise<{ entries: M
   const { exists, readDir } = await import('@tauri-apps/plugin-fs')
   const entries: MemoNoteEntry[] = []
   const folders: string[] = []
-  const root = await detectMemoNotesFolder(async (name) => exists(await absolute(vault, name)))
+  const countNotes = async (name: string): Promise<number> => {
+    let count = 0
+    const walkCount = async (folder: string, depth: number): Promise<void> => {
+      for (const entry of await readDir(await absolute(vault, folder))) {
+        if (entry.isDirectory) {
+          if (!entry.name.startsWith('.') && depth < MAX_FOLDER_DEPTH) await walkCount(`${folder}/${entry.name}`, depth + 1)
+        } else if (entry.name.toLowerCase().endsWith(MEMO_NOTE_EXTENSION)) count += 1
+      }
+    }
+    await walkCount(name, 0)
+    return count
+  }
+  const root = await detectMemoNotesFolder(async (name) => exists(await absolute(vault, name)), countNotes)
   if (!(await exists(await absolute(vault, root)))) return { entries, folders }
   const walk = async (folder: string, depth: number): Promise<void> => {
     for (const entry of await readDir(await absolute(vault, folder))) {

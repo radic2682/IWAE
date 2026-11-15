@@ -57,7 +57,26 @@ describe('노트 폴더 이름', () => {
     expect(memoNotesFolder()).toBe('노트')
   })
 
+  it('두 폴더에 노트가 있으면 노트가 더 많은 쪽을, 화면 언어와 상관없이 쓴다', async () => {
+    const counts = (map: Record<string, number>) => async (name: string) => map[name] ?? 0
+    setLocale('ko')
+    expect(await detectMemoNotesFolder(exists('노트', 'Notes'), counts({ 노트: 1, Notes: 4 }))).toBe('Notes')
+    setLocale('en')
+    expect(await detectMemoNotesFolder(exists('노트', 'Notes'), counts({ 노트: 4, Notes: 1 }))).toBe('노트')
+    // 같으면 「노트」
+    expect(await detectMemoNotesFolder(exists('노트', 'Notes'), counts({ 노트: 2, Notes: 2 }))).toBe('노트')
+    // 노트가 든 쪽 하나뿐이면 그쪽
+    expect(await detectMemoNotesFolder(exists('Notes'), counts({ Notes: 3 }))).toBe('Notes')
+    setLocale('ko')
+    expect(await detectMemoNotesFolder(exists('노트'), counts({ 노트: 3 }))).toBe('노트')
+    // 노트가 하나도 없으면 화면 언어의 이름
+    expect(await detectMemoNotesFolder(exists('Notes'), counts({}))).toBe('노트')
+    expect(await detectMemoNotesFolder(exists(), counts({}))).toBe('노트')
+    forgetMemoNotesFolder()
+  })
+
   it('맨 위 폴더 이름에서 고른다', () => {
+    expect(pickMemoNotesFolder(['노트', 'Notes'], (name) => (name === 'Notes' ? 5 : 1))).toBe('Notes')
     expect(pickMemoNotesFolder(['Notes', 'PDF'])).toBe('Notes')
     expect(pickMemoNotesFolder(['Notes', '노트'])).toBe('노트')
     expect(pickMemoNotesFolder(['PDF'])).toBeNull()

@@ -35,16 +35,30 @@ export function isMemoNotesFolderName(name: string): boolean {
 }
 
 /** Vault 맨 위 폴더 이름들 중 노트 폴더(「노트」 먼저, 다음 「Notes」). 없으면 null */
-export function pickMemoNotesFolder(topLevelFolders: Iterable<string>): string | null {
+export function pickMemoNotesFolder(topLevelFolders: Iterable<string>, countNotes?: (name: string) => number): string | null {
   const names = new Set(topLevelFolders)
-  return MEMO_NOTES_FOLDER_CANDIDATES.find((name) => names.has(name)) ?? null
+  const present = MEMO_NOTES_FOLDER_CANDIDATES.filter((name) => names.has(name))
+  if (countNotes === undefined) return present[0] ?? null
+  // 노트 수를 알면: 노트가 든 폴더만 본다. 둘 다 있으면 노트가 더 많은 쪽(같으면 「노트」). 옮기지는 않는다
+  let best: string | null = null
+  let bestCount = 0
+  for (const name of present) {
+    const count = countNotes(name)
+    if (count > bestCount) { best = name; bestCount = count }
+  }
+  return best
 }
 
 /** 디스크에 이미 있는 폴더를 보고 노트 폴더를 정한다(「노트」 먼저, 다음 「Notes」). 없으면 화면 언어를 따른다 */
-export async function detectMemoNotesFolder(folderExists: (name: string) => Promise<boolean>): Promise<string> {
+export async function detectMemoNotesFolder(
+  folderExists: (name: string) => Promise<boolean>,
+  countNotes?: (name: string) => Promise<number>,
+): Promise<string> {
   const present: string[] = []
   for (const name of MEMO_NOTES_FOLDER_CANDIDATES) if (await folderExists(name)) present.push(name)
-  detectedFolder = pickMemoNotesFolder(present)
+  const counts = new Map<string, number>()
+  if (countNotes !== undefined) for (const name of present) counts.set(name, await countNotes(name))
+  detectedFolder = pickMemoNotesFolder(present, countNotes === undefined ? undefined : (name) => counts.get(name) ?? 0)
   return memoNotesFolder()
 }
 

@@ -24,6 +24,18 @@ describe('노트 폴더는 PDF 트리에서 뺀다', () => {
     // 둘 다 있으면 「노트」가 노트 폴더이고 「Notes」는 보통 폴더
     expect(tree(['노트', 'Notes'], 'A.canvas')).toEqual(['Notes'])
   })
+
+  it('둘 다 있으면 노트 파일이 더 많은 폴더가 노트 폴더다', () => {
+    const entries = [
+      { path: '노트', isDirectory: true },
+      { path: 'Notes', isDirectory: true },
+      { path: '노트/A.iwnote', isDirectory: false },
+      { path: 'Notes/B.iwnote', isDirectory: false },
+      { path: 'Notes/C.iwnote', isDirectory: false },
+    ]
+    // 「Notes」가 노트 폴더이므로 빠지고, 「노트」는 보통 폴더로 남는다
+    expect(buildNotebookTree(entries).map((group) => group.name)).toEqual(['노트'])
+  })
 })
 
 describe('buildNotebookTree', () => {
