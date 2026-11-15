@@ -419,6 +419,19 @@ describe('SelectionLayer', () => {
     expect(onSelectionChange).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'region' }))
   })
 
+  it('영역을 끄는 도중 Escape 를 누르면 끌기가 취소되고 놓아도 아무것도 만들어지지 않는다', () => {
+    const onSelectionChange = vi.fn()
+    const onAnchorCreated = vi.fn()
+    const view = mount({ mode: 'lasso', onSelectionChange, onAnchorCreated })
+    const layer = view.getByTestId('selection-layer')
+    fireEvent.pointerDown(layer, { button: 0, buttons: 1, clientX: 18, clientY: 24, pointerId: 5 })
+    fireEvent.pointerMove(layer, { button: 0, buttons: 1, clientX: 62, clientY: 84, pointerId: 5 })
+    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.pointerUp(layer, { button: 0, clientX: 62, clientY: 84, pointerId: 5 })
+    expect(onAnchorCreated).not.toHaveBeenCalled()
+    expect(onSelectionChange).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'region' }))
+  })
+
   it('글 모드에서도 Ctrl+끌기는 표·그림 영역을 고른다', () => {
     const onSelectionChange = vi.fn()
     const view = mount({ mode: 'text', onSelectionChange })

@@ -674,6 +674,26 @@ export function SelectionLayer({
     }
   }
 
+  // 끄는 동안 Escape 는 끌기를 취소한다: 놓아도 아무것도 만들어지지 않는다
+  const dragging = gesture !== null || resize !== null
+  useEffect(() => {
+    if (!dragging) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      pendingHighlightRef.current = null
+      handClickRef.current = null
+      setResize(null)
+      setResizeRect(null)
+      setGesture(null)
+      setDraft(null)
+      setDraftRegion(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [dragging])
+
   const handlePointerCancel = () => {
     setResize(null)
     setResizeRect(null)
