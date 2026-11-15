@@ -223,6 +223,35 @@ Run-Scenario '3 old 0.2.6 then update' {
     "updated to $($u.DisplayVersion), app running, sentinel intact"
 }
 
+Run-Scenario '3b update while the old app stays open' {
+    if (-not (Test-Interactive)) { return 'skipped: no interactive desktop session' }
+    Ensure-Uninstalled
+    $code = Wait-Proc $OldSetup '/S'
+    Assert-That ($code -eq 0) "old installer exit code $code"
+    Start-Process -FilePath (Join-Path $DefaultDir 'app.exe') | Out-Null
+    Start-Sleep -Seconds 5
+    $oldPids = @(Get-AppProcs $DefaultDir | ForEach-Object { $_.Id })
+    Assert-That ($oldPids.Count -gt 0) 'old app.exe did not start'
+    # Unlike scenario 3 the old app is left open: setup waits 10 s, then NSIS closes it.
+    $p = Start-Process -FilePath $NewSetup -ArgumentList '/P /R /UPDATE /ARGS' -PassThru
+    $null = $p.Handle   # PS 5.1 loses ExitCode without a cached handle
+    $relaunched = Wait-AppRunning $DefaultDir 90 $oldPids
+    if (-not $p.WaitForExit($TimeoutSec * 1000)) {
+        try { Stop-Process -Id $p.Id -Force } catch { }
+        throw "update setup still running after $TimeoutSec s"
+    }
+    Assert-That ($p.ExitCode -eq 0) "update setup exit code $($p.ExitCode)"
+    Assert-That $relaunched 'new app.exe (different PID) not running within 90 s of starting the update'
+    $stale = @(Get-AppProcs $DefaultDir | Where-Object { $oldPids -contains $_.Id })
+    Assert-That ($stale.Count -eq 0) 'old app.exe is still running'
+    $u = Get-Uninst
+    $want = Expected-NewVersion
+    if ($want) { Assert-That ($u.DisplayVersion -eq $want) "DisplayVersion $($u.DisplayVersion), expected $want" }
+    else { Assert-That ($u.DisplayVersion -ne '0.2.6') 'DisplayVersion still 0.2.6' }
+    Assert-Installed $DefaultDir
+    "updated to $($u.DisplayVersion) with the old app open; relaunched with a new PID"
+}
+
 Run-Scenario '4 update new to itself' {
     if (-not (Test-Interactive)) { return 'skipped: no interactive desktop session' }
     Ensure-Uninstalled
@@ -238,7 +267,8 @@ Run-Scenario '4 update new to itself' {
 Run-Scenario '5 sync uninstall' {
     Ensure-Installed
     $un = Join-Path $DefaultDir 'uninstall-ui.exe'
-    $code = Wait-Proc $un "/S _?=$DefaultDir" 120
+    # The real old wizard runs `<UninstallString> /S _?=<dir>`, and UninstallString ends in --uninstall.
+    $code = Wait-Proc $un "--uninstall /S _?=$DefaultDir" 120
     Assert-That ($code -eq 0) "uninstall exit code $code"
     # Pass-through mode only runs `uninstall.exe /S _?=<dir>`; with `_?=` both uninstallers stay on disk.
     Assert-That (-not (Test-Path -LiteralPath (Join-Path $DefaultDir 'app.exe'))) 'app.exe still present'

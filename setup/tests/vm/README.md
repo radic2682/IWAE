@@ -14,24 +14,28 @@ It downloads nothing. You pass it:
 
 Scenarios: silent fresh install, silent install to a custom path with Korean characters, 0.2.6 then
 update (the old app is stopped first, as the real updater does, and a new app.exe with a different
-PID must appear), self-update, synchronous uninstall, reinstall, uninstall UI window, killed
-mid-install then rerun, Defender scan. The file must stay UTF-8 with BOM (Windows PowerShell 5.1
-reads the Korean window title literal from it).
+PID must appear), 0.2.6 then update with the old app left open (3b: setup waits 10 s, NSIS closes
+the app, and a new app.exe with a different PID must appear within 90 s of starting the update),
+self-update, synchronous uninstall, reinstall, uninstall UI window, killed mid-install then rerun,
+Defender scan. The file must stay UTF-8 with BOM (Windows PowerShell 5.1 reads the Korean window
+title literal from it).
 
-Scenario 5 runs `uninstall-ui.exe /S _?=<dir>`, the synchronous pass-through that only runs
-`uninstall.exe /S _?=<dir>`. It asserts app.exe and the `HKCU ...\Uninstall\IWAE` key are gone and
-that `uninstall.exe` / `uninstall-ui.exe` remain (expected with `_?=`). The windowed uninstall
-(`--uninstall-from-temp`, needs a click) is covered by the lead's demo audit, not by this script;
-scenario 7 only checks that the uninstall window appears.
+Scenario 5 runs `uninstall-ui.exe --uninstall /S _?=<dir>`, the exact form an old NSIS wizard
+uses (`<UninstallString> /S _?=<dir>`, and UninstallString ends in `--uninstall`). Any `_?=` makes
+it the synchronous pass-through, which only runs `uninstall.exe /S _?=<dir>`. It asserts app.exe
+and the `HKCU ...\Uninstall\IWAE` key are gone and that `uninstall.exe` / `uninstall-ui.exe`
+remain (expected with `_?=`). Scenario 6 uses the form without `--uninstall`. The windowed
+uninstall (`--uninstall-from-temp`, needs a click) is covered by the lead's demo audit, not by this
+script; scenario 7 only checks that the uninstall window appears.
 
-Scenarios 3, 4 and 7 need an interactive desktop session (they start GUI apps and read window
+Scenarios 3, 3b, 4 and 7 need an interactive desktop session (they start GUI apps and read window
 titles). If the session is not interactive they are recorded with status `skip`. GitHub Actions
-Windows runners usually report an interactive session, so these three may run there, or may be
-skipped, or may need a desktop session with WebView2 to work at all. Use Windows Sandbox as the
-primary environment. Results are `{ name, status, passed, detail }` with `status` of `pass`, `fail`
-or `skip` (`passed` is true only for `pass`). The script exits 0 only when nothing failed and
-nothing was skipped; pass `-AllowSkip` to accept skips. Scenario 8 is recorded as failed with detail `inconclusive` if the inner
-NSIS process never appears before the outer one is killed.
+Windows runners usually report an interactive session, so these may run there, or may be skipped,
+or may need a desktop session with WebView2 to work at all. Use Windows Sandbox as the primary
+environment. Results are `{ name, status, passed, detail }` with `status` of `pass`, `fail` or
+`skip` (`passed` is true only for `pass`). The script exits 0 only when nothing failed and nothing
+was skipped; pass `-AllowSkip` to accept skips. Scenario 8 is recorded as failed with detail
+`inconclusive` if the inner NSIS process never appears before the outer one is killed.
 
 ## Safety: never run this on a real PC
 
@@ -67,14 +71,16 @@ installers in `C:\vm\in` and create `C:\vm\out`, then open it:
     </MappedFolder>
   </MappedFolders>
   <LogonCommand>
-    <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:IWAE_VM_TESTS='1'; &amp; 'C:\vm\in\run-vm-tests.ps1' -NewSetup 'C:\vm\in\IWAE_new_x64-setup.exe' -OldSetup 'C:\vm\in\IWAE_0.2.6_x64-setup.exe' -Results 'C:\vm\out\results.json' *&gt; 'C:\vm\out\run.log'"</Command>
+    <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:IWAE_VM_TESTS='1'; &amp; 'C:\vm\in\run-vm-tests.ps1' -NewSetup 'C:\vm\in\IWAE_new_x64-setup.exe' -OldSetup 'C:\vm\in\IWAE_0.2.6_x64-setup.exe' -Results 'C:\vm\out\results.json' -AllowSkip *&gt; 'C:\vm\out\run.log'"</Command>
   </LogonCommand>
 </Configuration>
 ```
 
 Copy `run-vm-tests.ps1` into the input folder too. `results.json` and `run.log` appear in the output
-folder on the host. Defender may be unavailable in the sandbox; scenario 9 then records
-`skipped: <reason>` (status `skip`; needs `-AllowSkip` for exit 0).
+folder on the host. The command passes `-AllowSkip` because Defender is usually unavailable in the
+sandbox, so scenario 9 records `skipped: <reason>`; without the flag every sandbox run would end
+with exit 1 even when nothing failed. Skips still show in `results.json` and in the last line of
+`run.log`, so read them there.
 
 ## GitHub Actions
 
@@ -94,6 +100,7 @@ jobs:
           -NewSetup .\in\IWAE_new_x64-setup.exe
           -OldSetup .\in\IWAE_0.2.6_x64-setup.exe
           -Results .\results.json
+          -AllowSkip
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -101,4 +108,7 @@ jobs:
           path: results.json
 ```
 
-The runner is discarded after the job, so setting `IWAE_VM_TESTS` there is safe.
+The runner is discarded after the job, so setting `IWAE_VM_TESTS` there is safe. `-AllowSkip` is
+there because the GUI scenarios (3, 3b, 4, 7) skip when the runner session is not interactive;
+the job then fails only on a real failure, and the skips stay visible in the uploaded
+`results.json`.
