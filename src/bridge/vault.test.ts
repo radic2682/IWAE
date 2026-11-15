@@ -12,7 +12,9 @@ import {
   readCanvas,
   readLibrary,
   readMarkdown,
+  quarantineVaultMetaFile,
   readPdfHighlights,
+  VaultFileCorruptError,
   readMarkdownHighlights,
   readPdfBookmarks,
   readBibliography,
@@ -606,6 +608,21 @@ describe('vault session and notes', () => {
 
     fsMocks.readTextFile.mockResolvedValue(JSON.stringify({ version: 1, highlights: [highlight] }))
     await expect(readPdfHighlights(vault)).resolves.toEqual([highlight])
+  })
+
+  it('깨진 형광펜 파일은 읽기 실패와 구별해 알리고, 따로 옮겨 두면 지우지 않고 이름만 바꾼다', async () => {
+    fsMocks.exists.mockImplementation(async (path: string) => path === 'C:/Vault/.iwae/highlights.json')
+    fsMocks.readTextFile.mockResolvedValue('{"version":1,"highl')
+    await expect(readPdfHighlights(vault)).rejects.toBeInstanceOf(VaultFileCorruptError)
+    fsMocks.readTextFile.mockRejectedValue(new Error('EBUSY'))
+    const locked = await readPdfHighlights(vault).catch((error: unknown) => error)
+    expect(locked).toBeInstanceOf(Error)
+    expect(locked).not.toBeInstanceOf(VaultFileCorruptError)
+
+    const aside = await quarantineVaultMetaFile(vault, 'highlights.json')
+    expect(aside).toMatch(/^highlights.corrupt-.+.json$/u)
+    expect(fsMocks.rename).toHaveBeenCalledWith('C:/Vault/.iwae/highlights.json', `C:/Vault/.iwae/${aside}`)
+    expect(fsMocks.remove).not.toHaveBeenCalled()
   })
 
   it('Markdown 형광펜을 .iwae/markdown-highlights.json에 저장하고 복원한다', async () => {

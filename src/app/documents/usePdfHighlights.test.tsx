@@ -168,4 +168,30 @@ describe('usePdfHighlights', () => {
     expect(canUndo()).toBe(true)
     clearUndo()
   })
+
+  it('읽지 못하면 그 사실을 알린다', async () => {
+    const notices: string[] = []
+    const listen = (event: Event) => notices.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:action-feedback', listen)
+    const storage: PdfHighlightStorage = {
+      load: vi.fn(async () => { throw new Error('PDF 형광펜을 읽지 못했습니다: EBUSY') }),
+      save: vi.fn(async () => undefined),
+    }
+    renderHook(() => usePdfHighlights(storage))
+    await waitFor(() => expect(notices.some((text) => text.includes('읽지 못했습니다'))).toBe(true))
+    window.removeEventListener('iwae:action-feedback', listen)
+  })
+
+  it('저장이 실패하면 한 번 알린다', async () => {
+    const notices: string[] = []
+    const listen = (event: Event) => notices.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:action-feedback', listen)
+    const storage: PdfHighlightStorage = { load: vi.fn(async () => []), save: vi.fn(async () => { throw new Error('EBUSY') }) }
+    const { result } = renderHook(() => usePdfHighlights(storage))
+    await act(async () => { await Promise.resolve() })
+    act(() => result.current.add(createPersistentPdfHighlight(anchor)))
+    act(() => result.current.add(createPersistentPdfHighlight({ ...anchor, charRange: [30, 40] })))
+    await waitFor(() => expect(notices.filter((text) => text.includes('저장하지 못했습니다'))).toHaveLength(1))
+    window.removeEventListener('iwae:action-feedback', listen)
+  })
 })

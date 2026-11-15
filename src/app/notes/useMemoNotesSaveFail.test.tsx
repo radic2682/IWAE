@@ -51,7 +51,7 @@ describe('메모 노트 지연 저장 실패', () => {
     await act(async () => { await flushCanvasSaves() })
     expect(writeMemoNote).toHaveBeenCalledTimes(3)
     let flushed: boolean | undefined
-    await act(async () => { flushed = await result.current.flushNote('노트/A.iwnote') })
+    await act(async () => { flushed = await result.current.flushNote!('노트/A.iwnote') })
     expect(flushed).toBe(true)
     expect(writeMemoNote).toHaveBeenCalledTimes(3)
   })

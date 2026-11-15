@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { t } from '../../i18n'
+import { createSaveNotifier, loadOrQuarantine, reportLoadFailure } from './storageRecovery'
 import { pdfBookmarksCodec, readPdfBookmarks, subscribeVaultFile, writePdfBookmarks, type VaultHandle } from '../../bridge/vault'
 import { createPdfBookmark, parsePdfBookmarks, pdfBookmarkFile, pdfBookmarkId, type PdfBookmark } from '../../core/pdfBookmarks'
 
@@ -31,7 +33,7 @@ export function createBrowserPdfBookmarkStorage(
 
 export function createVaultPdfBookmarkStorage(vault: VaultHandle): PdfBookmarkStorage {
   return {
-    load: () => readPdfBookmarks(vault),
+    load: () => loadOrQuarantine(vault, 'bookmarks.json', t('책갈피 기록'), [], () => readPdfBookmarks(vault)),
     save: (bookmarks) => writePdfBookmarks(vault, bookmarks),
     subscribe: (onRemote) => subscribeVaultFile(vault, 'bookmarks.json', pdfBookmarksCodec, onRemote),
   }
@@ -42,6 +44,8 @@ export function usePdfBookmarks(storage: PdfBookmarkStorage) {
   const bookmarksRef = useRef<readonly PdfBookmark[]>([])
   const readyRef = useRef(false)
   const pendingRef = useRef<readonly { docId: string; page: number; title: string }[]>([])
+  const notifySave = useMemo(() => createSaveNotifier((error) => t('책갈피를 저장하지 못했습니다: {error}', { error })), [])
+  const persist = useCallback((list: readonly PdfBookmark[]) => notifySave(storage.save(list)), [notifySave, storage])
 
   const toggled = useCallback((current: readonly PdfBookmark[], docId: string, page: number, title: string) => {
     const id = `${docId}:${page}`
@@ -66,11 +70,11 @@ export function usePdfBookmarks(storage: PdfBookmarkStorage) {
       bookmarksRef.current = normalized
       setBookmarks(normalized)
       readyRef.current = true
-      if (pendingRef.current.length > 0) void storage.save(normalized).catch(() => undefined)
+      if (pendingRef.current.length > 0) persist(normalized)
       pendingRef.current = []
-    }).catch(() => undefined)
+    }).catch(reportLoadFailure)
     return () => { alive = false }
-  }, [storage, toggled])
+  }, [persist, storage, toggled])
 
   // 다른 창이 책갈피·핀을 고치면 이 창의 목록에 합친다
   useEffect(() => storage.subscribe?.((rebase) => {
@@ -85,8 +89,8 @@ export function usePdfBookmarks(storage: PdfBookmarkStorage) {
     const normalized = parsePdfBookmarks(pdfBookmarkFile(next))
     bookmarksRef.current = normalized
     setBookmarks(normalized)
-    if (readyRef.current) void storage.save(normalized).catch(() => undefined)
-  }, [storage])
+    if (readyRef.current) persist(normalized)
+  }, [persist])
 
   const toggle = useCallback((docId: string, page: number, title: string) => {
     if (!readyRef.current) pendingRef.current = [...pendingRef.current, { docId, page, title }]

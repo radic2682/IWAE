@@ -22,7 +22,7 @@ export function usePdfOverlays(vault: VaultHandle | null) {
     ref.current = {}
     setOverlays({})
     if (vault === null) return () => { active = false }
-    void loadOrQuarantine(vault, 'pdf-overlays.json', t('PDF 편집'), { version: 1 as const, overlays: {} as Overlays }, () => readPdfOverlays(vault))
+    void loadOrQuarantine(vault, 'pdf-overlays.json', t('PDF 편집 기록'), { version: 1 as const, overlays: {} as Overlays }, () => readPdfOverlays(vault))
       .then((file) => {
         if (!active) return
         ref.current = file.overlays

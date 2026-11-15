@@ -230,6 +230,42 @@ function trackRead(path: string, text: string | null): void {
   if (isDesktop()) fileSync.observeRead(path, text)
 }
 
+/** 내용이 JSON 으로 읽히지 않거나 모양이 틀린 저장 파일(.iwae 안). 읽는 데 실패한 것(잠김 등)과 구별해, 따로 옮겨 두고 새로 시작할 수 있게 한다 */
+export class VaultFileCorruptError extends Error {
+  override readonly name = 'VaultFileCorruptError'
+}
+
+async function readTrackedJson<T>(path: string, parse: (raw: unknown) => T, message: (error: string) => string): Promise<T> {
+  const { readTextFile } = await import('@tauri-apps/plugin-fs')
+  let text: string
+  try {
+    text = await readTextFile(path)
+  } catch (err) {
+    throw new Error(message(errorText(err)))
+  }
+  let parsed: T
+  try {
+    parsed = parse(JSON.parse(text) as unknown)
+  } catch (err) {
+    throw new VaultFileCorruptError(message(errorText(err)))
+  }
+  trackRead(path, text)
+  return parsed
+}
+
+/** 깨진 .iwae 저장 파일을 지우지 않고 `<이름>.corrupt-<시각>.json` 으로 옮긴다. 옮긴 파일 이름을 돌려준다 */
+export async function quarantineVaultMetaFile(vault: VaultHandle, name: string): Promise<string> {
+  const { exists, rename } = await import('@tauri-apps/plugin-fs')
+  const source = await iwaePath(vault, name)
+  const stamp = new Date().toISOString().replaceAll(':', '').replace(/\.\d+Z$/u, 'Z')
+  const stem = name.replace(/\.json$/u, '')
+  let aside = `${stem}.corrupt-${stamp}.json`
+  for (let n = 2; await exists(await iwaePath(vault, aside)); n += 1) aside = `${stem}.corrupt-${stamp}-${n}.json`
+  await rename(source, await iwaePath(vault, aside))
+  trackRead(source, null)
+  return aside
+}
+
 /** Vault 안 상대 경로의 글 파일을 저널 원자 쓰기로 저장한다(메모 노트 등) */
 export function writeVaultRelativeText(
   vault: VaultHandle,
@@ -866,20 +902,13 @@ export async function loadSessions(vault: VaultHandle, defaultName: string): Pro
 }
 
 export async function readPdfHighlights(vault: VaultHandle): Promise<PersistentPdfHighlight[]> {
-  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  const { exists } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'highlights.json')
   if (!(await exists(path))) {
     trackRead(path, null)
     return []
   }
-  try {
-    const text = await readTextFile(path)
-    const parsed = parsePersistentPdfHighlights(JSON.parse(text) as unknown)
-    trackRead(path, text)
-    return parsed
-  } catch (err) {
-    throw new Error(t('PDF 형광펜을 읽지 못했습니다: {error}', { error: errorText(err) }))
-  }
+  return readTrackedJson(path, parsePersistentPdfHighlights, (error) => t('PDF 형광펜을 읽지 못했습니다: {error}', { error }))
 }
 
 export async function writePdfHighlights(
@@ -890,20 +919,13 @@ export async function writePdfHighlights(
 }
 
 export async function readMarkdownHighlights(vault: VaultHandle): Promise<PersistentMarkdownHighlight[]> {
-  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  const { exists } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'markdown-highlights.json')
   if (!(await exists(path))) {
     trackRead(path, null)
     return []
   }
-  try {
-    const text = await readTextFile(path)
-    const parsed = parsePersistentMarkdownHighlights(JSON.parse(text) as unknown)
-    trackRead(path, text)
-    return parsed
-  } catch (err) {
-    throw new Error(t('Markdown 형광펜을 읽지 못했습니다: {error}', { error: errorText(err) }))
-  }
+  return readTrackedJson(path, parsePersistentMarkdownHighlights, (error) => t('Markdown 형광펜을 읽지 못했습니다: {error}', { error }))
 }
 
 export async function writeMarkdownHighlights(
@@ -914,20 +936,13 @@ export async function writeMarkdownHighlights(
 }
 
 export async function readPdfBookmarks(vault: VaultHandle): Promise<PdfBookmark[]> {
-  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  const { exists } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'bookmarks.json')
   if (!(await exists(path))) {
     trackRead(path, null)
     return []
   }
-  try {
-    const text = await readTextFile(path)
-    const parsed = parsePdfBookmarks(JSON.parse(text) as unknown)
-    trackRead(path, text)
-    return parsed
-  } catch (err) {
-    throw new Error(t('PDF 책갈피를 읽지 못했습니다: {error}', { error: errorText(err) }))
-  }
+  return readTrackedJson(path, parsePdfBookmarks, (error) => t('PDF 책갈피를 읽지 못했습니다: {error}', { error }))
 }
 
 export async function writePdfBookmarks(vault: VaultHandle, bookmarks: readonly PdfBookmark[]): Promise<void> {
@@ -1000,20 +1015,13 @@ export async function writeVersionGroups(vault: VaultHandle, file: VersionGroups
 }
 
 export async function readPdfOverlays(vault: VaultHandle): Promise<PdfOverlaysFile> {
-  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
+  const { exists } = await import('@tauri-apps/plugin-fs')
   const path = await iwaePath(vault, 'pdf-overlays.json')
   if (!(await exists(path))) {
     trackRead(path, null)
     return EMPTY_PDF_OVERLAYS
   }
-  try {
-    const text = await readTextFile(path)
-    const parsed = parsePdfOverlays(JSON.parse(text) as unknown)
-    trackRead(path, text)
-    return parsed
-  } catch (err) {
-    throw new Error(t('PDF 편집 내용을 읽지 못했습니다: {error}', { error: errorText(err) }))
-  }
+  return readTrackedJson(path, parsePdfOverlays, (error) => t('PDF 편집 내용을 읽지 못했습니다: {error}', { error }))
 }
 
 export async function writePdfOverlays(vault: VaultHandle, file: PdfOverlaysFile): Promise<void> {

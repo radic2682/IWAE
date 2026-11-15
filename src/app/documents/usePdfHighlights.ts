@@ -39,7 +39,7 @@ export function createBrowserPdfHighlightStorage(
 
 export function createVaultPdfHighlightStorage(vault: VaultHandle): PdfHighlightStorage {
   return {
-    load: () => loadOrQuarantine(vault, 'highlights.json', t('형광펜'), [], () => readPdfHighlights(vault)),
+    load: () => loadOrQuarantine(vault, 'highlights.json', t('형광펜 기록'), [], () => readPdfHighlights(vault)),
     save: (highlights) => writePdfHighlights(vault, highlights),
     subscribe: (onRemote) => subscribeVaultFile(vault, 'highlights.json', pdfHighlightsCodec, onRemote),
   }

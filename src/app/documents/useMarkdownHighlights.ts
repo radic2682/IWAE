@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { recordUndo } from '../undoStack'
+import { t } from '../../i18n'
+import { createSaveNotifier, loadOrQuarantine, reportLoadFailure } from './storageRecovery'
 import { applySnapshotChange } from '../../core/jsonMerge'
 import { markdownHighlightsCodec, readMarkdownHighlights, subscribeVaultFile, writeMarkdownHighlights, type VaultHandle } from '../../bridge/vault'
 import {
@@ -33,7 +35,7 @@ export function createBrowserMarkdownHighlightStorage(
 
 export function createVaultMarkdownHighlightStorage(vault: VaultHandle): MarkdownHighlightStorage {
   return {
-    load: () => readMarkdownHighlights(vault),
+    load: () => loadOrQuarantine(vault, 'markdown-highlights.json', t('Markdown 형광펜'), [], () => readMarkdownHighlights(vault)),
     save: (highlights) => writeMarkdownHighlights(vault, highlights),
     subscribe: (onRemote) => subscribeVaultFile(vault, 'markdown-highlights.json', markdownHighlightsCodec, onRemote),
   }
@@ -46,6 +48,8 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
   const pendingRemovalIdsRef = useRef<ReadonlySet<string>>(new Set())
   const readyRef = useRef(false)
   const generationRef = useRef(0)
+  const notifySave = useMemo(() => createSaveNotifier((error) => t('Markdown 형광펜을 저장하지 못했습니다: {error}', { error })), [])
+  const persist = useCallback((list: readonly PersistentMarkdownHighlight[]) => notifySave(storage.save(list)), [notifySave, storage])
 
   useEffect(() => {
     const generation = generationRef.current + 1
@@ -66,15 +70,15 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
       highlightsRef.current = merged
       setHighlights(merged)
       if (pendingRef.current.length > 0 || pendingRemovalIdsRef.current.size > 0) {
-        void storage.save(merged).catch(() => undefined)
+        persist(merged)
       }
       pendingRef.current = []
       pendingRemovalIdsRef.current = new Set()
-    }).catch(() => undefined)
+    }).catch(reportLoadFailure)
     return () => {
       generationRef.current += 1
     }
-  }, [storage])
+  }, [persist, storage])
 
   useEffect(() => storage.subscribe?.((rebase) => {
     if (!readyRef.current) return
@@ -88,8 +92,8 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
   const restore = useCallback((list: readonly PersistentMarkdownHighlight[]) => {
     highlightsRef.current = list
     setHighlights(list)
-    if (readyRef.current) void storage.save(list).catch(() => undefined)
-  }, [storage])
+    if (readyRef.current) persist(list)
+  }, [persist, storage])
   const remember = useCallback((before: readonly PersistentMarkdownHighlight[], after: readonly PersistentMarkdownHighlight[], key: string) => {
     recordUndo({ key: `md-hl:${key}`, undo: () => restore(applySnapshotChange(after, before, highlightsRef.current)),
       redo: () => restore(applySnapshotChange(before, after, highlightsRef.current)) })
@@ -108,8 +112,8 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
       pendingRef.current = [...pendingRef.current, highlight]
       return
     }
-    void storage.save(next).catch(() => undefined)
-  }, [storage])
+    persist(next)
+  }, [persist, storage])
 
   const remove = useCallback((highlightId: string) => {
     const next = removePersistentMarkdownHighlight(highlightsRef.current, highlightId)
@@ -121,8 +125,8 @@ export function useMarkdownHighlights(storage: MarkdownHighlightStorage) {
       pendingRemovalIdsRef.current = new Set([...pendingRemovalIdsRef.current, highlightId])
       return
     }
-    void storage.save(next).catch(() => undefined)
-  }, [storage])
+    persist(next)
+  }, [persist, storage])
 
   return { highlights, add, remove }
 }
