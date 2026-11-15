@@ -35,13 +35,31 @@ export function normalizeSourceTarget(input: string): string {
   return trimmed
 }
 
-/** 쓸 수 있는 target 인가(빈 글·위험한 프로토콜 제외) */
+/**
+ * 쓸 수 있는 target 인가: http(s) 주소, 드라이브 글자가 있는 절대 경로(C:\…, C:/…), 맥·리눅스 절대 경로(/…), Vault 기준 상대 경로만.
+ * 네트워크 경로(\\host\…, //host/…), file: 같은 다른 프로토콜, ms-settings: 같은 앱 주소는 받지 않는다.
+ */
 export function isValidSourceTarget(target: string): boolean {
   const value = target.trim()
   if (value === '' || value.length > 2000) return false
-  if (/^(?:javascript|data|vbscript|file):/iu.test(value)) return false
-  if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(value)) return /^https?:\/\//iu.test(value)
+  if (/[\u0000-\u001f]/u.test(value)) return false
+  if (/^https?:\/\/\S+$/iu.test(value)) return true
+  if (/^[\\/]{2}/u.test(value)) return false
+  if (/^[a-z]:[\\/]/iu.test(value)) return true
+  // 드라이브 글자 말고 「이름:」으로 시작하면 프로토콜이다(search-ms:, ms-settings:, javascript:, C: 만 있는 것 포함)
+  if (/^[^\\/]*:/u.test(value)) return false
   return true
+}
+
+/** 경로 target 이 Vault 안인가. 상대 경로는 Vault 기준이며 `..` 로 나가면 밖이다 */
+export function isSourceInsideVault(target: string, vaultRoot: string): boolean {
+  const norm = (text: string) => text.trim().replaceAll('\\', '/').replace(/\/+$/u, '')
+  const value = norm(target)
+  const root = norm(vaultRoot)
+  const absolute = /^(?:[a-z]:)?\//iu.test(value)
+  const full = absolute ? value : `${root}/${value}`
+  if (full.split('/').includes('..')) return false
+  return full.toLowerCase().startsWith(`${root.toLowerCase()}/`)
 }
 
 /** 목록에 보일 짧은 이름: 라벨이 없으면 주소의 호스트나 경로의 마지막 이름 */

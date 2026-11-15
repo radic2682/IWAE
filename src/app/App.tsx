@@ -203,7 +203,7 @@ import { useVersionGroups } from './sidebar/useVersionGroups'
 import { usePdfOverlays } from './documents/usePdfOverlays'
 import { findVersionSibling, groupOfDoc, groupTitleFromDocTitle, guessVersionLabel, matchVersionPage, type VersionGroup } from '../core/versionGroups'
 import { useDocSources } from './sidebar/useDocSources'
-import { sourceTargetKind, type DocSource } from '../core/docSources'
+import { isSourceInsideVault, sourceTargetKind, type DocSource } from '../core/docSources'
 import { AutoBackupSettings } from './settings/AutoBackupSettings'
 import { useAutoBackup } from './vault/useAutoBackup'
 import { UpdateBanner } from './onboarding/UpdateBanner'
@@ -901,8 +901,20 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       setPendingExternalLink(source.target)
       return
     }
-    // 경로: 파일이면 탐색기에서 그 파일이 골라진 채로, 폴더면 그 폴더를 연다
-    void revealInFolder(source.target).catch((cause: unknown) => announceAction(t('열 수 없습니다: {error}', { error: errorText(cause) })))
+    // 경로: Vault 안이면 바로, 밖이면 확인을 받은 뒤 탐색기에서 연다(파일이면 그 파일이 골라진 채로, 폴더면 그 폴더)
+    if (vault !== null && isSourceInsideVault(source.target, vault.root)) void revealSourcePath(source.target, true)
+    else setPendingSourcePath(source.target)
+  }
+  const [pendingSourcePath, setPendingSourcePath] = useState<string | null>(null)
+  const revealSourcePath = async (target: string, inVault: boolean) => {
+    try {
+      const absolute = inVault && vault !== null && !/^(?:[a-z]:[\\/]|\/)/iu.test(target)
+        ? await (await import('@tauri-apps/api/path')).join(vault.root, ...target.split(/[\\/]/u))
+        : target
+      await revealInFolder(absolute)
+    } catch (cause) {
+      announceAction(t('열 수 없습니다: {error}', { error: errorText(cause) }))
+    }
   }
   const [flashHighlightId, setFlashHighlightId] = useState<string | null>(null)
   const [pdfViewPrefs, setPdfViewPrefs] = useState<PdfViewPrefs>(readPdfViewPrefs)
@@ -4736,6 +4748,16 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
             place: pendingSlides.folderPath === '' ? t('Vault 맨 위') : t('「{folder}」 폴더', { folder: pendingSlides.folderPath.split('/').at(-1) ?? '' }),
           })}
         </p>
+      </ConfirmDialog>
+    ) : null}
+    {pendingSourcePath !== null ? (
+      <ConfirmDialog
+        title={t('Vault 밖의 위치를 엽니다')}
+        confirmLabel={t('탐색기에서 보기')}
+        onConfirm={() => { const target = pendingSourcePath; setPendingSourcePath(null); void revealSourcePath(target, false) }}
+        onCancel={() => setPendingSourcePath(null)}
+      >
+        <p>{pendingSourcePath}</p>
       </ConfirmDialog>
     ) : null}
     {pendingExternalLink !== null ? (

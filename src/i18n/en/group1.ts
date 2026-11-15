@@ -131,6 +131,7 @@ export const GROUP_1: Readonly<Record<string, string>> = {
   '목차를 읽지 못했습니다': 'Couldn’t read the table of contents',
   '앞부분': 'Front matter',
   '장': 'Chapter',
+  'Vault 밖의 위치를 엽니다': 'Open a location outside the Vault',
   '모두 접기': 'Collapse all',
   '모두 펼치기': 'Expand all',
   '{title} 접기': 'Collapse {title}',
