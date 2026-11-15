@@ -219,7 +219,11 @@ export function ScreenTabs({ screens, activeId, lastId, templates, onSelect, onR
         </PopupMenu>
       ) : null}
       {menu?.kind === 'tab' && menuTab !== undefined ? (
-        <PopupMenu label={t('{name} 화면 메뉴', { name: menuTab.name })} left={menu.left} top={menu.top} onClose={() => setMenu(null)}>
+        <PopupMenu label={t('{name} 화면 메뉴', { name: menuTab.name })} left={menu.left} top={menu.top} onClose={(restore) => {
+          const id = menu.id
+          setMenu(null)
+          if (restore) window.setTimeout(() => listRef.current?.querySelector<HTMLElement>(`[data-screen-id="${id}"] [role="tab"]`)?.focus(), 0)
+        }}>
           <button type="button" role="menuitem" onClick={() => { setMenu(null); setEditing(menuTab.id) }}>
             <span>{t('이름 바꾸기')}</span><kbd>F2</kbd>
           </button>

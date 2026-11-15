@@ -593,6 +593,8 @@ export function Sidebar({
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<{ path: string; name: string } | null>(null)
   const [deleteEntryTarget, setDeleteEntryTarget] = useState<{ id: string; name: string; parentPath: string } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // 우클릭 메뉴를 연 줄(Escape 로 닫으면 초점이 돌아간다)
+  const contextOpenerRef = useRef<HTMLElement | null>(null)
   const [contextMenu, setContextMenu] = useState<{
     kind: 'entry' | 'folder'
     /** PDF 항목인가. 서지 메뉴는 PDF 에만 있다 */
@@ -793,6 +795,7 @@ export function Sidebar({
     const id = entryId(node)
     const record = searchRecords.find((candidate) => candidate.id === id || candidate.path === id)
     setActionError(null)
+    contextOpenerRef.current = event.currentTarget
     setContextMenu({
       kind: 'entry',
       pdf: node.kind === 'pdf',
@@ -813,6 +816,7 @@ export function Sidebar({
     event.preventDefault()
     event.stopPropagation()
     setActionError(null)
+    contextOpenerRef.current = event.currentTarget
     setContextMenu({
       kind: 'folder',
       pdf: false,
@@ -836,6 +840,7 @@ export function Sidebar({
     setActionError(null)
     // 왼쪽 바 문서 메뉴와 같은 항목(버전 관리 시작·버전으로 묶기 포함)이 보이게 버전 id 도 넘긴다
     const versionDocId = item.open.kind === 'pdf' ? item.open.doc.docId : item.open.kind === 'markdown' ? item.open.node.indexId : undefined
+    contextOpenerRef.current = event.currentTarget
     setContextMenu({
       kind: 'entry',
       pdf: item.kind === 'pdf',
@@ -1996,6 +2001,8 @@ export function Sidebar({
                   event.preventDefault()
                   event.stopPropagation()
                   close()
+                  const opener = contextOpenerRef.current
+                  if (opener?.isConnected === true) opener.focus({ preventScroll: true })
                   return
                 }
                 const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem]'))

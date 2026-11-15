@@ -657,6 +657,15 @@ describe('Sidebar — 폴더 우선 트리', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '문서 삭제' })).toBeNull())
   })
 
+  it('왼쪽 바 우클릭 메뉴를 Escape 로 닫으면 초점이 그 줄로 돌아간다', async () => {
+    await renderSidebar({ tree, onTrashEntry: vi.fn() })
+    const row = screen.getByRole('button', { name: 'README, Markdown' })
+    fireEvent.contextMenu(row)
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(row)
+  })
+
   it('문서 휴지통 확인을 취소하거나 Enter 만 눌러서는 아무것도 옮기지 않는다', async () => {
     const onTrashEntry = vi.fn().mockResolvedValue(undefined)
     await renderSidebar({ tree, onTrashEntry })

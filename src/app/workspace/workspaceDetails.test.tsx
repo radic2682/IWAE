@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { PaneTabsMenu } from './PaneTabsMenu'
@@ -28,6 +28,15 @@ describe('맨 위 화면 탭', () => {
     const { container } = renderTabs()
     expect(container.textContent).not.toContain('-')
     expect(container.querySelector('.screen-tab-mark')).toBeNull()
+  })
+
+  it('화면 탭 메뉴를 Escape 로 닫으면 초점이 그 탭으로 돌아간다', async () => {
+    renderTabs()
+    const tab = screen.getByRole('tab', { name: /실험/ })
+    fireEvent.contextMenu(tab)
+    fireEvent.keyDown(screen.getAllByRole('menuitem')[0]!, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    await vi.waitFor(() => expect(document.activeElement).toBe(tab))
   })
 
   it('아이콘 없이 번호 + 이름만 있고, 번호는 이름과 같은 글꼴로 그린다', () => {
