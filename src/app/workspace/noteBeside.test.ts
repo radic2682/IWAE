@@ -75,6 +75,16 @@ describe('placeNoteTab — 옆에 노트 열기', () => {
     expect(result.channels[result.pane]).toBe('blue')
   })
 
+  it('비어 있는 보이는 창이 있으면 새 창을 나누지 않고 그 창에 노트를 놓는다(문서 창과 가까운 창이 먼저)', () => {
+    const result = placeNoteTab(input({ L: strip([pdf('D')]), R: strip([]), T: strip([]) }, { layout: cols3() }))
+    expect(result.kind).toBe('tab')
+    expect(shapeOf(result.layout)).toBe(shapeOf(cols3()))
+    expect(result.pane).toBe('R')
+    expect(ids(result.panes.R)).toEqual(['N'])
+    expect(ids(result.panes.T)).toEqual([])
+    expect(result.channels.R).toBe('blue')
+  })
+
   it('inCurrentPane: 창이 하나면 분할 없이 그 창에 탭으로 넣고 활성으로 만든다', () => {
     const result = placeNoteTab(input({ L: strip([pdf('D')]) }, { inCurrentPane: true }))
     expect(result.kind).toBe('tab')

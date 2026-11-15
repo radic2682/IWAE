@@ -104,8 +104,9 @@ const isNoteTab = (tab: Tab | null): boolean => tab !== null && tab.kind === 'me
  * 메모 노트 탭(또는 캔버스 탭 — 같은 종류의 탭끼리 한 창에 모인다)을 문서 창(anchor) 옆에 놓는다(설계 3.4·3.6):
  * 1. 이미 어느 창에 탭으로 있으면 그 탭으로 바꾼다.
  * 2. anchor 가 노트를 보이고 있거나, 같은 색의 이웃 창이 노트를 보이고 있으면 그 창에 탭으로 더한다.
- * 3. 없으면 anchor 의 오른쪽(안 되면 아래·왼쪽·위)에 새 창을 열고 anchor 의 색을 준다. anchor 에 색이 없으면 비어 있는 색을 둘 다에 준다.
- * 4. 칸이 가득(상한)이거나 너무 작아 나눌 수 없으면 가장 오른쪽 창에 탭으로 넣고 그 창이 anchor 와 같은 색이 되게 한다.
+ * 3. 비어 있는 보이는 창이 있으면(anchor 와 가까운 창 먼저) 그 창에 탭으로 넣고 anchor 와 같은 색을 준다.
+ * 4. 없으면 anchor 의 오른쪽(안 되면 아래·왼쪽·위)에 새 창을 열고 anchor 의 색을 준다. anchor 에 색이 없으면 비어 있는 색을 둘 다에 준다.
+ * 5. 칸이 가득(상한)이거나 너무 작아 나눌 수 없으면 가장 오른쪽 창에 탭으로 넣고 그 창이 anchor 와 같은 색이 되게 한다.
  * 열린 탭은 하나도 닫지 않는다.
  */
 export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
@@ -145,11 +146,20 @@ export function placeNoteTab(input: PlaceNoteInput): PlaceNoteOutcome {
     return { kind: 'tab', panes: { ...panes, [host]: withTab(tabsOf(panes, host), tab) }, channels, layout, pane: host }
   }
 
-  // 3. anchor 옆에 새 창
+  // 3. 비어 있는 보이는 창이 있으면 새 창을 나누지 않고 그 창을 쓴다(anchor 와 가까운 창이 먼저). 같은 색이 되게 한다
+  const isEmpty = (pane: PaneId) => pane !== anchor && tabsOf(panes, pane).tabs.length === 0
+  const anchorAt = visible.indexOf(anchor)
+  const empties = visible.filter(isEmpty).sort((a, b) => Math.abs(visible.indexOf(a) - anchorAt) - Math.abs(visible.indexOf(b) - anchorAt) || visible.indexOf(b) - visible.indexOf(a))
+  const spare = empties[0]
+  if (spare !== undefined) {
+    return { kind: 'tab', panes: { ...panes, [spare]: withTab(tabsOf(panes, spare), tab) }, channels: { ...channels, [spare]: channel }, layout, pane: spare }
+  }
+
+  // 4. anchor 옆에 새 창
   const beside = openTabBeside(panes, layout, anchor, preview ? { ...tab, preview: true } : tab, channels, input.sizeOf)
   if (beside !== null) return { kind: 'beside', panes: beside.panes, channels: beside.channels, layout: beside.layout, pane: beside.newPane }
 
-  // 4. 칸이 가득: 가장 오른쪽 창에 탭으로
+  // 5. 칸이 가득: 가장 오른쪽 창에 탭으로
   const target = rightmostPane(layout)
   return {
     kind: 'rightmost',
