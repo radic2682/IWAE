@@ -52,13 +52,18 @@ fn browser_candidates() -> Vec<PathBuf> {
 }
 
 /// 로컬 파일 경로 → file:// 주소. Windows(`C:\…`)와 macOS(`/Users/…`) 둘 다
+/// `#`·`%`·`?`·공백이 든 경로는 퍼센트 인코딩해야 주소로 읽힌다
 fn file_url(path: &Path) -> String {
-    let text = path.to_string_lossy().replace('\\', "/");
-    if text.starts_with('/') {
-        format!("file://{text}")
-    } else {
-        format!("file:///{text}")
+    if let Ok(url) = tauri::Url::from_file_path(path) {
+        return url.into();
     }
+    // 이 PC 의 경로 규칙과 다른 경로(테스트의 macOS 경로 등)는 조각마다 인코딩해 직접 만든다
+    let text = path.to_string_lossy().replace('\\', "/");
+    let mut url = tauri::Url::parse("file:///").expect("static url");
+    if let Ok(mut segments) = url.path_segments_mut() {
+        segments.clear().extend(text.split('/').filter(|part| !part.is_empty()));
+    }
+    url.into()
 }
 
 /// key 는 파일 이름에 쓴다: 영숫자·-·_ 만
@@ -173,6 +178,17 @@ mod tests {
     fn file_urls_work_for_windows_and_macos_paths() {
         assert_eq!(file_url(Path::new(r"C:\vault\.iwae\a.html")), "file:///C:/vault/.iwae/a.html");
         assert_eq!(file_url(Path::new("/Users/me/vault/a.html")), "file:///Users/me/vault/a.html");
+    }
+
+    #[test]
+    fn file_urls_percent_encode_hash_percent_and_spaces() {
+        let unix = file_url(Path::new("/Users/me/100% #1/a b?.html"));
+        assert_eq!(unix, "file:///Users/me/100%25%20%231/a%20b%3F.html");
+        #[cfg(windows)]
+        {
+            let win = file_url(Path::new(r"C:\My Vault\100% #1\.iwae\a.html"));
+            assert_eq!(win, "file:///C:/My%20Vault/100%25%20%231/.iwae/a.html");
+        }
     }
 
     #[test]
