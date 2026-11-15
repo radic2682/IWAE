@@ -23,6 +23,19 @@ use std::path::PathBuf;
 
 use tauri::State;
 
+/// 합치기·끼워 넣기 원본을 열 수 있는지만 본다. \`pdf_open\` 과 달리 열린 문서 캐시에 넣지 않으므로 사용자가 보던 문서가
+/// 밀려나지 않는다. 열리면 \`Ok(())\`. 암호가 필요하면 \`IWAE_PDF_PASSWORD_REQUIRED: <메시지>\`, 준 암호가 틀리면
+/// \`IWAE_PDF_PASSWORD_WRONG: <메시지>\` 오류(\`pdf_open\` 과 같은 모양). 맞는 암호는 이 세션 동안 경로별로 기억한다.
+#[tauri::command]
+pub async fn pdf_check_source(app: tauri::AppHandle, state: State<'_, PdfThread>, path: String, password: Option<String>) -> Result<(), String> {
+    crate::fs_scope::ensure_allowed(&app, &path)?;
+    let pdf = state.inner().clone();
+
+    tauri::async_runtime::spawn_blocking(move || pdf.check_source_blocking(PathBuf::from(path), password.filter(|p| !p.is_empty())))
+        .await
+        .map_err(|err| tr!("PDF 확인 작업이 중단되었습니다: {err}", "PDF check task was interrupted: {err}"))?
+}
+
 /// 문서를 열고 메타를 돌려준다.
 ///
 /// 실제 작업은 PDFium 스레드가 하고 이 커맨드는 답을 기다릴 뿐이다. 기다림이 비동기

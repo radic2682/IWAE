@@ -95,6 +95,7 @@ pub fn run() {
             usage::app_usage,
             pdf::pdf_open,
             pdf::pdf_file_hash,
+            pdf::pdf_check_source,
             open_files::take_open_files,
             example_vault::create_example_vault,
             office::office_to_pdf,

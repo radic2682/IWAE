@@ -8,7 +8,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use app_lib::pdf::{ExportHighlight, LinkRect, PageEditOp, PdfThread, SearchableLine, SearchablePage, ToolOp, ToolTarget, PASSWORD_REQUIRED};
+use app_lib::pdf::{ExportHighlight, LinkRect, PageEditOp, PdfThread, SearchableLine, SearchablePage, ToolOp, ToolTarget, PASSWORD_REQUIRED, PASSWORD_WRONG};
 use common::{fixture_dir, pdfium_present, write_two_page_pdf};
 
 const PASSWORD: &str = "secret";
@@ -262,4 +262,30 @@ fn byte_copy_tools_keep_the_encryption_of_the_original() {
         assert!(!result.report.unencrypted_copy);
         assert!(has_encrypt(&path), "{fixture}: 바이트 사본을 고치는 도구는 암호를 지키므로 원본에 덮어도 된다");
     }
+}
+
+#[test]
+fn checking_a_source_reports_the_password_state_without_touching_the_open_document_cache() {
+    if !pdfium_present() {
+        return;
+    }
+    let pdf = PdfThread::shared();
+    let plain = write_two_page_pdf("enc-check-plain.pdf");
+    let locked = copy_fixture("user-pw.pdf", "enc-check-locked.pdf");
+
+    pdf.check_source_blocking(plain, None).expect("a plain PDF needs no password");
+    let required = pdf.check_source_blocking(locked.clone(), None).expect_err("locked");
+    assert!(required.starts_with(PASSWORD_REQUIRED), "{required}");
+    assert!(required.contains("enc-check-locked.pdf"), "the error names the path: {required}");
+    let wrong = pdf.check_source_blocking(locked.clone(), Some("nope".into())).expect_err("wrong password");
+    assert!(wrong.starts_with(PASSWORD_WRONG), "{wrong}");
+
+    // A right password is remembered for that path, so a later merge works without opening the source into the cache.
+    pdf.check_source_blocking(locked.clone(), Some(PASSWORD.into())).expect("right password");
+    pdf.check_source_blocking(locked.clone(), None).expect("remembered");
+    let host = write_two_page_pdf("enc-check-host.pdf");
+    let id = doc_id("check-host");
+    pdf.open_with_password_blocking(host, Some(id.clone()), None).expect("host");
+    pdf.tool_blocking(id, ToolOp::Merge { sources: vec![locked.to_string_lossy().into_owned()] }, ToolTarget::NewFile { path: fresh("enc-check-merged.pdf") })
+        .expect("merge with the remembered password");
 }

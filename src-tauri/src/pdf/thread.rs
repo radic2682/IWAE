@@ -69,6 +69,13 @@ enum Command {
         password: Option<String>,
         reply: Sender<Result<PdfDocMeta, String>>,
     },
+    /// 합치기·끼워 넣기 원본을 열 수 있는지 본다. 열린 문서 캐시에는 넣지 않는다(사용자가 보던 문서가 밀려나지 않게).
+    /// 맞는 암호를 받았으면 이 경로의 암호로 기억해, 뒤따르는 합치기·끼워 넣기가 그것을 쓴다.
+    CheckSource {
+        path: PathBuf,
+        password: Option<String>,
+        reply: Sender<Result<(), String>>,
+    },
     /// PDF 도구 하나([`ToolOp`]).
     Tool {
         doc_id: String,
@@ -381,6 +388,22 @@ impl PdfThread {
                             // 받는 쪽이 사라졌으면(창이 닫혔다든지) 답을 버리면 그만이다.
                             let _ = reply.send(result);
                         }
+                        Command::CheckSource { path, password, reply } => {
+                            let result = caught(&tr!("PDF 원본 확인", "checking a PDF source"), || match &engine {
+                                Ok(engine) => {
+                                    let key = path_key(&path);
+                                    let password = password.or_else(|| passwords.get(&key).cloned());
+                                    engine.check_source(&path, password.as_deref())?;
+                                    if let Some(password) = password {
+                                        passwords.insert(key, password);
+                                    }
+                                    Ok(())
+                                }
+                                Err(message) => Err(message.clone()),
+                            })
+                            .unwrap_or_else(Err);
+                            let _ = reply.send(result);
+                        }
                         Command::Render {
                             doc_id,
                             page,
@@ -614,6 +637,18 @@ impl PdfThread {
             })
             .map_err(|_| tr!("PDF 스레드가 죽었습니다. 앱을 다시 시작해 주세요.", "The PDF thread has stopped. Please restart the app."))?;
 
+        answer
+            .recv()
+            .map_err(|_| tr!("PDF 스레드가 답하지 못했습니다. 앱을 다시 시작해 주세요.", "The PDF thread did not respond. Please restart the app."))?
+    }
+
+    /// 합치기·끼워 넣기 원본이 열리는지 본다. 열린 문서 캐시는 건드리지 않는다. 암호가 필요하면
+    /// `IWAE_PDF_PASSWORD_REQUIRED: ...`, 준 암호가 틀리면 `IWAE_PDF_PASSWORD_WRONG: ...` 오류가 온다. 맞는 암호는 기억한다.
+    pub fn check_source_blocking(&self, path: PathBuf, password: Option<String>) -> Result<(), String> {
+        let (reply, answer) = channel();
+        self.tx
+            .send(Command::CheckSource { path, password, reply })
+            .map_err(|_| tr!("PDF 스레드가 죽었습니다. 앱을 다시 시작해 주세요.", "The PDF thread has stopped. Please restart the app."))?;
         answer
             .recv()
             .map_err(|_| tr!("PDF 스레드가 답하지 못했습니다. 앱을 다시 시작해 주세요.", "The PDF thread did not respond. Please restart the app."))?
@@ -1015,6 +1050,7 @@ fn command_label(command: &Command) -> &'static str {
         Command::PageLayout { .. } => "PageLayout",
         Command::EditPages { .. } => "EditPages",
         Command::Open { .. } => "Open",
+        Command::CheckSource { .. } => "CheckSource",
         Command::Tool { .. } => "Tool",
         Command::BlankPages { .. } => "BlankPages",
         Command::ExportImages { .. } => "ExportImages",

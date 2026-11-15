@@ -1532,6 +1532,15 @@ impl PdfEngine {
             .map_err(|err| describe_load_error(path, &err, password.is_some()))
     }
 
+    /// 합치기·끼워 넣기 원본을 열 수 있는지만 본다(열린 문서 캐시에 넣지 않는다). 암호가 필요하면 [`PASSWORD_REQUIRED`],
+    /// 준 암호가 틀리면 [`PASSWORD_WRONG`] 오류다.
+    pub fn check_source(&self, path: &Path, password: Option<&str>) -> Result<(), String> {
+        self.pdfium
+            .load_pdf_from_file(path, password)
+            .map(drop)
+            .map_err(|err| describe_load_error(path, &err, password.is_some()))
+    }
+
     /// 쪽 순서·회전·끼워 넣기를 적용한 새 PDF 를 바이트로 만든다. 원본은 건드리지 않는다.
     pub fn rebuild_pages(&self, source: &PdfDocument, plan: &[PageEditOp], passwords: PasswordLookup) -> Result<Vec<u8>, String> {
         if plan.is_empty() {
