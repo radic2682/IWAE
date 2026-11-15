@@ -13,6 +13,11 @@
   box-shadow: 0 18px 44px rgb(var(--rgb-black) / .34), 0 2px 8px rgb(var(--rgb-black) / .18);
 }
 
+/* 빈 떠 있는 칸도 불투명: 자리(slot)처럼 비치면 아래 칸의 빈 칸 표시와 겹친다. 점선 윤곽은 그대로 */
+.panes-tree .pane-float .pane-card.pane-float-card[data-empty] { background: var(--pane-surface); }
+.panes-tree .pane-float .pane-card.pane-float-card[data-empty] .pane-grid-tabs.topbar-panetab-zone.pane-head { background: var(--pane-surface); }
+.panes-tree .pane-float .pane-card.pane-float-card[data-empty] .pane-grid-body.pane-float-body { background: var(--pane-body); }
+
 /* 머리: 잡고 끄는 자리. 단추 · 탭은 자기 일을 한다 */
 .pane-float-head { cursor: grab; touch-action: none; user-select: none; }
 .pane-float-head:active { cursor: grabbing; }
