@@ -16,7 +16,7 @@ describe('ExternalLinkConfirm', () => {
   })
 
   it('offers the mail app for mailto links', () => {
-    render(<ExternalLinkConfirm url="mailto:a@b.com" onOpen={vi.fn()} onCancel={vi.fn()} />)
+    render(<ExternalLinkConfirm url="mailto:a@b.com" onOpen={vi.fn()} onCancel={vi.fn()} />) // release-scan-allow: 시험용 가짜 주소
     expect(screen.getByRole('button', { name: '메일 앱에서 열기' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: '브라우저에서 열기' })).toBeNull()
   })
