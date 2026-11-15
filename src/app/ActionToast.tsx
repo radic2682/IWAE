@@ -1,6 +1,7 @@
 import { X } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
+import { feedbackGroupOf } from './actionFeedback'
 import '../ui/notice-stack.css'
 
 /** 한 번에 보이는 토스트 수. 넘치면 가장 오래된 것부터 걷는다 */
@@ -15,6 +16,7 @@ const TOAST_LINGER_MS = 1500
 interface Toast {
   readonly id: number
   readonly message: string
+  readonly group?: string
   readonly leaving: boolean
 }
 
@@ -56,6 +58,14 @@ export function ActionToast() {
     const show = (event: Event) => {
       const message = String((event as CustomEvent<string>).detail ?? '')
       if (message === '') return
+      const group = feedbackGroupOf(event)
+      // 같은 묶음(배율 등)의 알림이 떠 있으면 그 글만 바꾼다
+      const grouped = group === undefined ? undefined : toastsRef.current.find((toast) => toast.group === group && !toast.leaving)
+      if (grouped !== undefined) {
+        update((current) => current.map((toast) => (toast.id === grouped.id ? { ...toast, message } : toast)))
+        hold(grouped.id, TOAST_SHOW_MS)
+        return
+      }
       const same = toastsRef.current.find((toast) => toast.message === message && !toast.leaving)
       if (same !== undefined) { hold(same.id, TOAST_SHOW_MS); return }
       const id = nextId.current++
@@ -63,7 +73,7 @@ export function ActionToast() {
         const kept = current.filter((toast) => !toast.leaving)
         const dropped = kept.slice(0, Math.max(0, kept.length + 1 - TOAST_MAX))
         for (const toast of dropped) stopTimer(toast.id)
-        return [...kept.slice(dropped.length), { id, message, leaving: false }]
+        return [...kept.slice(dropped.length), { id, message, ...(group === undefined ? {} : { group }), leaving: false }]
       })
       hold(id, TOAST_SHOW_MS)
     }

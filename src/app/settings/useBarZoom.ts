@@ -20,7 +20,7 @@ export function stepBarZoomPref(side: BarSide, direction: 1 | -1): number {
   if (next === getAppPrefs()[key]) return next
   setAppPref(key, next)
   const percent = Math.round(next * 100)
-  announceAction(side === 'left' ? t('왼쪽 바 {percent}%', { percent }) : side === 'right' ? t('오른쪽 바 {percent}%', { percent }) : t('라이브러리 {percent}%', { percent }))
+  announceAction(side === 'left' ? t('왼쪽 바 {percent}%', { percent }) : side === 'right' ? t('오른쪽 바 {percent}%', { percent }) : t('라이브러리 {percent}%', { percent }), `bar-zoom:${side}`)
   return next
 }
 

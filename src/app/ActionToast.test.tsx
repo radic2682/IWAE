@@ -19,6 +19,14 @@ describe('ActionToast', () => {
     expect(screen.queryByText('둘째')).toBeNull()
   })
 
+  it('같은 묶음의 알림은 한 토스트의 글만 바꾼다', () => {
+    render(<ActionToast />)
+    act(() => { announceAction('오른쪽 바 110%', 'zoom'); announceAction('오른쪽 바 120%', 'zoom'); announceAction('오른쪽 바 130%', 'zoom') })
+    expect(screen.queryByText('오른쪽 바 110%')).toBeNull()
+    expect(screen.getByText('오른쪽 바 130%')).toBeTruthy()
+    expect(document.querySelectorAll('.notice-toast')).toHaveLength(1)
+  })
+
   it('같은 글은 겹쳐 쌓지 않는다', () => {
     render(<ActionToast />)
     act(() => { announceAction('같은 글'); announceAction('같은 글') })
