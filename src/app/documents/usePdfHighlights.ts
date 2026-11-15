@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { recordUndo } from '../undoStack'
+import { t } from '../../i18n'
+import { createSaveNotifier, loadOrQuarantine, reportLoadFailure } from './storageRecovery'
 import { applySnapshotChange } from '../../core/jsonMerge'
 import { markFreshHighlight } from '../../pdf/freshHighlight'
 import { pdfHighlightsCodec, readPdfHighlights, subscribeVaultFile, writePdfHighlights, type VaultHandle } from '../../bridge/vault'
@@ -37,7 +39,7 @@ export function createBrowserPdfHighlightStorage(
 
 export function createVaultPdfHighlightStorage(vault: VaultHandle): PdfHighlightStorage {
   return {
-    load: () => readPdfHighlights(vault),
+    load: () => loadOrQuarantine(vault, 'highlights.json', t('형광펜'), [], () => readPdfHighlights(vault)),
     save: (highlights) => writePdfHighlights(vault, highlights),
     subscribe: (onRemote) => subscribeVaultFile(vault, 'highlights.json', pdfHighlightsCodec, onRemote),
   }
@@ -62,6 +64,8 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
   const pendingRemovalIdsRef = useRef<ReadonlySet<string>>(new Set())
   const readyRef = useRef(false)
   const generationRef = useRef(0)
+  const notifySave = useMemo(() => createSaveNotifier((error) => t('형광펜을 저장하지 못했습니다: {error}', { error })), [])
+  const persist = useCallback((list: readonly PersistentPdfHighlight[]) => notifySave(storage.save(list)), [notifySave, storage])
 
   useEffect(() => {
     const generation = generationRef.current + 1
@@ -82,15 +86,15 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
       highlightsRef.current = merged
       setHighlights(merged)
       if (pendingRef.current.length > 0 || pendingRemovalIdsRef.current.size > 0) {
-        void storage.save(merged).catch(() => undefined)
+        persist(merged)
       }
       pendingRef.current = []
       pendingRemovalIdsRef.current = new Set()
-    }).catch(() => undefined)
+    }).catch(reportLoadFailure)
     return () => {
       generationRef.current += 1
     }
-  }, [storage])
+  }, [persist, storage])
 
   // 다른 창(떼어 낸 창·새 창)이 형광펜을 고치면 이 창의 목록에 합친다
   useEffect(() => storage.subscribe?.((rebase) => {
@@ -105,8 +109,8 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
   const restore = useCallback((list: readonly PersistentPdfHighlight[]) => {
     highlightsRef.current = list
     setHighlights(list)
-    if (readyRef.current) void storage.save(list).catch(() => undefined)
-  }, [storage])
+    if (readyRef.current) persist(list)
+  }, [persist, storage])
   const remember = useCallback((before: readonly PersistentPdfHighlight[], after: readonly PersistentPdfHighlight[], key: string) => {
     recordUndo({ key: `pdf-hl:${key}`, // 다른 창의 변경이 들어와 있어도 이 동작의 변화만 되돌린다(병합)
       undo: () => restore(applySnapshotChange(after, before, highlightsRef.current)),
@@ -127,8 +131,8 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
       pendingRef.current = [...pendingRef.current, highlight]
       return
     }
-    void storage.save(next).catch(() => undefined)
-  }, [storage])
+    persist(next)
+  }, [persist, storage])
 
   const remove = useCallback((highlightId: string) => {
     const next = removePersistentPdfHighlight(highlightsRef.current, highlightId)
@@ -140,8 +144,8 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
       pendingRemovalIdsRef.current = new Set([...pendingRemovalIdsRef.current, highlightId])
       return
     }
-    void storage.save(next).catch(() => undefined)
-  }, [storage])
+    persist(next)
+  }, [persist, storage])
 
   /** 색·메모·근거·주제를 고친다. 없는 id 는 조용히 지나간다 */
   const update = useCallback((highlightId: string, patch: PersistentPdfHighlightPatch) => {
@@ -157,8 +161,8 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
       pendingRef.current = pendingRef.current.map((item) => item.id === highlightId ? updatePersistentPdfHighlight(item, patch) : item)
       return
     }
-    void storage.save(next).catch(() => undefined)
-  }, [storage])
+    persist(next)
+  }, [persist, storage])
 
   /** 여러 개를 한 번에 더한다(가져오기). 저장은 한 번이고, 더한 개수를 돌려준다 */
   const addMany = useCallback((incoming: readonly PersistentPdfHighlight[]): number => {
@@ -177,18 +181,21 @@ export function usePdfHighlights(storage: PdfHighlightStorage) {
       pendingRef.current = [...pendingRef.current, ...fresh]
       return fresh.length
     }
-    void storage.save(next).catch(() => undefined)
+    persist(next)
     return fresh.length
-  }, [storage])
+  }, [persist, storage])
 
-  /** PDF 쪽을 편집한 뒤처럼 형광펜을 한꺼번에 고친다. null 을 돌려주면 그 형광펜은 지운다 */
-  const mapAll = useCallback((map: (highlight: PersistentPdfHighlight) => PersistentPdfHighlight | null) => {
+  /**
+   * PDF 쪽을 편집한 뒤처럼 형광펜을 한꺼번에 고친다. null 을 돌려주면 그 형광펜은 지운다.
+   * undoable: false 는 되돌릴 수 없는 파일 편집(쪽 편집 저장)을 따라가는 것이라 되돌리기에 남기지 않는다(파일과 어긋나지 않게)
+   */
+  const mapAll = useCallback((map: (highlight: PersistentPdfHighlight) => PersistentPdfHighlight | null, options: { readonly undoable?: boolean } = {}) => {
     const next = highlightsRef.current.flatMap((item) => map(item) ?? [])
-    remember(highlightsRef.current, next, 'map')
+    if (options.undoable !== false) remember(highlightsRef.current, next, 'map')
     highlightsRef.current = next
     setHighlights(next)
-    if (readyRef.current) void storage.save(next).catch(() => undefined)
-  }, [storage])
+    if (readyRef.current) persist(next)
+  }, [persist, storage])
 
   return { highlights, add, addMany, remove, update, mapAll }
 }

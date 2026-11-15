@@ -154,4 +154,18 @@ describe('usePdfHighlights', () => {
     expect(canUndo()).toBe(true)
     clearUndo()
   })
+
+  it('mapAll 을 undoable: false 로 부르면 되돌리기에 남기지 않는다(되돌릴 수 없는 PDF 편집을 따라갈 때)', async () => {
+    clearUndo()
+    const existing = createPersistentPdfHighlight(anchor)
+    const storage: PdfHighlightStorage = { load: vi.fn().mockResolvedValue([existing]), save: vi.fn().mockResolvedValue(undefined) }
+    const { result } = renderHook(() => usePdfHighlights(storage))
+    await waitFor(() => expect(result.current.highlights).toHaveLength(1))
+    act(() => result.current.mapAll((item) => ({ ...item, anchor: { ...item.anchor, page: 0 } }), { undoable: false }))
+    expect(result.current.highlights[0]!.anchor.page).toBe(0)
+    expect(canUndo()).toBe(false)
+    act(() => result.current.mapAll((item) => ({ ...item, anchor: { ...item.anchor, page: 1 } })))
+    expect(canUndo()).toBe(true)
+    clearUndo()
+  })
 })

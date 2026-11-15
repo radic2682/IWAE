@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { t } from '../../i18n'
+import { createSaveNotifier, loadOrQuarantine, reportLoadFailure } from './storageRecovery'
 import { recordUndo } from '../undoStack'
 import { applySnapshotChange } from '../../core/jsonMerge'
 import { pdfOverlaysCodec, readPdfOverlays, subscribeVaultFile, writePdfOverlays, type VaultHandle } from '../../bridge/vault'
@@ -13,19 +15,20 @@ type Overlays = Readonly<Record<string, readonly PdfOverlay[]>>
 export function usePdfOverlays(vault: VaultHandle | null) {
   const [overlays, setOverlays] = useState<Overlays>({})
   const ref = useRef<Overlays>({})
+  const notifySave = useMemo(() => createSaveNotifier((error) => t('PDF 편집 내용을 저장하지 못했습니다: {error}', { error })), [])
 
   useEffect(() => {
     let active = true
     ref.current = {}
     setOverlays({})
     if (vault === null) return () => { active = false }
-    void readPdfOverlays(vault)
+    void loadOrQuarantine(vault, 'pdf-overlays.json', t('PDF 편집'), { version: 1 as const, overlays: {} as Overlays }, () => readPdfOverlays(vault))
       .then((file) => {
         if (!active) return
         ref.current = file.overlays
         setOverlays(file.overlays)
       })
-      .catch(() => undefined)
+      .catch(reportLoadFailure)
     return () => { active = false }
   }, [vault])
 
@@ -45,18 +48,18 @@ export function usePdfOverlays(vault: VaultHandle | null) {
     ref.current = next
     setOverlays(next)
     if (vault === null) return
-    void writePdfOverlays(vault, { version: 1, overlays: next }).catch(() => undefined)
-  }, [vault])
+    notifySave(writePdfOverlays(vault, { version: 1, overlays: next }))
+  }, [notifySave, vault])
 
-  const commit = useCallback((next: Overlays, key = 'all') => {
+  const commit = useCallback((next: Overlays, key = 'all', undoable = true) => {
     if (next === ref.current) return
     const before = ref.current
-    recordUndo({ key: `overlay:${key}`, undo: () => write(applySnapshotChange(next, before, ref.current)), redo: () => write(applySnapshotChange(before, next, ref.current)) })
+    if (undoable) recordUndo({ key: `overlay:${key}`, undo: () => write(applySnapshotChange(next, before, ref.current)), redo: () => write(applySnapshotChange(before, next, ref.current)) })
     ref.current = next
     setOverlays(next)
     if (vault === null) return
-    void writePdfOverlays(vault, { version: 1, overlays: next }).catch(() => undefined)
-  }, [vault])
+    notifySave(writePdfOverlays(vault, { version: 1, overlays: next }))
+  }, [notifySave, vault])
 
   return {
     overlays,
@@ -65,6 +68,6 @@ export function usePdfOverlays(vault: VaultHandle | null) {
     update: useCallback((docId: string, id: string, patch: OverlayPatch) => commit(updateOverlay(ref.current, docId, id, patch), `${id}:${Object.keys(patch).sort().join('+')}`), [commit]),
     remove: useCallback((docId: string, id: string) => commit(removeOverlay(ref.current, docId, id)), [commit]),
     /** 쪽 편집 뒤 쪽 번호 옮기기 */
-    remapPages: useCallback((docId: string, moves: ReadonlyMap<number, number>) => commit(remapOverlayPages(ref.current, docId, moves)), [commit]),
+    remapPages: useCallback((docId: string, moves: ReadonlyMap<number, number>, options: { readonly undoable?: boolean } = {}) => commit(remapOverlayPages(ref.current, docId, moves), 'all', options.undoable !== false), [commit]),
   }
 }
