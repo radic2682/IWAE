@@ -610,6 +610,32 @@ pub fn azure_translate_url(endpoint: &str, target_language: &str, source_languag
 /// Google 번역 한 번에 보낼 글자 수(웹 번역의 한도)
 const GOOGLE_MAX_CHARS: usize = 5000;
 
+/// 글자 하나처럼 읽히는 묶음(밑글자 + 결합 문자, ZWJ 로 이은 이모지, 변이 선택자)의 한가운데는 자르지 않는다.
+/// 자를 자리 `cut` 이 그런 한가운데면 묶음 앞으로 물린다. 물릴 곳이 없으면(덩어리 전체가 한 묶음) 그대로 둔다.
+fn keep_clusters_together(text: &str, cut: usize) -> usize {
+    let mut at = cut;
+    while at > 0 && at < text.len() {
+        let next = text[at..].chars().next().expect("at < len");
+        let previous = text[..at].chars().next_back().expect("at > 0");
+        if !(extends_cluster(next) || previous == '‍') {
+            return at;
+        }
+        at -= previous.len_utf8();
+    }
+    if at == 0 { cut } else { at }
+}
+
+/// 앞 글자에 붙어 다니는 문자(결합 부호·ZWJ/ZWNJ·변이 선택자·이모지 피부색·한글 이어진 자모). 전체 Unicode 표가 아니라
+/// 번역 덩어리를 끊을 때 흔히 만나는 범위만 담는다.
+fn extends_cluster(ch: char) -> bool {
+    matches!(ch as u32,
+        0x0300..=0x036F | 0x0483..=0x0489 | 0x0591..=0x05BD | 0x05BF | 0x05C1..=0x05C2 | 0x05C4..=0x05C5 | 0x05C7
+        | 0x0610..=0x061A | 0x064B..=0x065F | 0x0670 | 0x06D6..=0x06DC | 0x06DF..=0x06E4 | 0x06E7..=0x06E8 | 0x06EA..=0x06ED
+        | 0x0900..=0x0903 | 0x093A..=0x093C | 0x093E..=0x094F | 0x0951..=0x0957 | 0x0E31 | 0x0E34..=0x0E3A | 0x0E47..=0x0E4E
+        | 0x1160..=0x11FF | 0x1AB0..=0x1AFF | 0x1DC0..=0x1DFF | 0x200C..=0x200D | 0x20D0..=0x20FF
+        | 0x3099..=0x309A | 0xFE00..=0xFE0F | 0xFE20..=0xFE2F | 0x1F3FB..=0x1F3FF | 0xE0100..=0xE01EF)
+}
+
 /// 글을 `max` 글자 이하 덩어리로 나눈다. 돌려주는 것은 (덩어리 글, 그 뒤의 구분 공백) 쌍이고, 덩어리와 구분을 차례로 이으면
 /// 원문과 같다. 끊는 자리는 빈 줄 > 줄바꿈 > 문장 끝 > 공백 > (어쩔 수 없을 때) 글자 경계 순으로 고르고,
 /// UTF-8 글자 한가운데서는 자르지 않는다.
@@ -625,8 +651,10 @@ pub fn split_for_google(text: &str, max: usize) -> Vec<(String, String)> {
         }
         let window_end = boundaries[max];
         let window = &rest[..window_end];
+        // 일본어·중국어는 「。」 뒤에 띄어쓰기가 없으므로 전각 마침표는 바로 문장 끝으로 본다
         let is_sentence_end = |index: usize, ch: char| {
-            matches!(ch, '.' | '!' | '?' | '。' | '！' | '？') && rest[index + ch.len_utf8()..].chars().next().is_none_or(char::is_whitespace)
+            matches!(ch, '。' | '！' | '？')
+                || (matches!(ch, '.' | '!' | '?') && rest[index + ch.len_utf8()..].chars().next().is_none_or(char::is_whitespace))
         };
         // 끊는 자리(바이트 위치, 맨 앞은 제외): 그 앞까지가 덩어리다
         let cut = window
@@ -642,6 +670,7 @@ pub fn split_for_google(text: &str, max: usize) -> Vec<(String, String)> {
             })
             .or_else(|| window.rfind(char::is_whitespace).filter(|&at| at > 0))
             .unwrap_or(window_end);
+        let cut = keep_clusters_together(rest, cut);
         let (content, after) = rest.split_at(cut);
         // 덩어리 끝의 공백도 구분으로 돌린다(번역은 앞뒤 공백을 지우므로)
         let trimmed = content.trim_end();
@@ -1429,6 +1458,42 @@ mod cloud_translator_tests {
         assert_eq!(rejoin(&chunks), text);
         assert_eq!(super::split_for_google("짧은 글", 5000), vec![("짧은 글".to_owned(), String::new())]);
         assert_eq!(super::split_for_google("", 5000).len(), 1);
+    }
+
+    #[test]
+    fn google_chunks_treat_cjk_full_stops_as_sentence_ends_without_a_following_space() {
+        let sentence = "これは長い日本語の文章の一つの文です。"; // 19자
+        let text = sentence.repeat(300); // 5,700자, 공백 없음
+        let chunks = super::split_for_google(&text, 5000);
+        assert!(chunks[0].0.ends_with('。'), "{}", chunks[0].0.chars().rev().take(6).collect::<String>());
+        assert!(chunks.iter().all(|(content, _)| content.chars().count() <= 5000));
+        assert_eq!(rejoin(&chunks), text);
+        let chinese = "这是一个很长的句子！".repeat(700);
+        let chunks = super::split_for_google(&chinese, 5000);
+        assert!(chunks.iter().take(chunks.len() - 1).all(|(content, _)| content.ends_with('！')));
+        assert_eq!(rejoin(&chunks), chinese);
+    }
+
+    #[test]
+    fn google_chunks_never_separate_a_base_letter_from_its_combining_mark_or_a_zwj_emoji() {
+        let text = "é".repeat(10);
+        let chunks = super::split_for_google(&text, 5);
+        assert!(chunks[0].0.ends_with("́"), "{:?}", chunks[0].0);
+        assert_eq!(rejoin(&chunks), text);
+        let family = "👨‍👩‍👧".repeat(4); // 5자씩
+        for max in 5..=12 {
+            let chunks = super::split_for_google(&family, max);
+            assert_eq!(rejoin(&chunks), family);
+            for (content, _) in &chunks {
+                assert!(!content.ends_with('‍'), "max {max}: {content:?}");
+                assert!(content.chars().next().is_none_or(|first| !super::extends_cluster(first)) || content.chars().count() <= 1, "max {max}: {content:?}");
+            }
+        }
+        // 묶음 하나가 한도보다 길면 어쩔 수 없이 자른다(글은 잃지 않는다)
+        let long = format!("a{}", "́".repeat(30));
+        let chunks = super::split_for_google(&long, 5);
+        assert_eq!(rejoin(&chunks), long);
+        assert!(chunks.iter().all(|(content, _)| content.chars().count() <= 5));
     }
 
     #[tokio::test(flavor = "multi_thread")]

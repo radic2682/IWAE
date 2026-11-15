@@ -519,3 +519,38 @@ fn anthropic_response_joins_text_blocks_and_reports_refusal() {
     let refused = r#"{"content":[],"stop_reason":"refusal"}"#;
     assert!(parse_anthropic_translation_response(refused, "m", 5).is_err());
 }
+
+mod google_split_properties {
+    use app_lib::translation::split_for_google;
+
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            self.0
+        }
+        fn pick<'a>(&mut self, items: &'a [&'a str]) -> &'a str {
+            items[(self.next() % items.len() as u64) as usize]
+        }
+    }
+
+    #[test]
+    fn random_texts_rejoin_exactly_and_respect_the_limit() {
+        let pieces = ["a", "가", "漢", "🙂", " ", "\n", "\n\n", ".", ". ", "! ", "。", "！", "\r\n", "\t", "word ", "e.g.", "3.14", "  ", "é", "\u{301}", "\u{200b}", "\u{200d}"];
+        let mut rng = Rng(0x9E3779B97F4A7C15);
+        for round in 0..3000 {
+            let len = (rng.next() % 400) as usize;
+            let text: String = (0..len).map(|_| rng.pick(&pieces)).collect();
+            let max = 1 + (rng.next() % 40) as usize;
+            let chunks = split_for_google(&text, max);
+            let rejoined: String = chunks.iter().map(|(c, s)| format!("{c}{s}")).collect();
+            assert_eq!(rejoined, text, "round {round} max {max}");
+            for (content, separator) in &chunks {
+                assert!(content.chars().count() <= max, "round {round}: chunk too long");
+                assert!(separator.chars().all(char::is_whitespace), "round {round}: separator {separator:?}");
+            }
+        }
+    }
+}
