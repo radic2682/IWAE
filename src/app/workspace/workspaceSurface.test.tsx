@@ -812,6 +812,8 @@ describe('상단바 도구줄 묶음 테두리 · 맨 윗줄 칸 위 틈', () =>
     expect(rule(surface, '.screen-tabs')).toContain('scrollbar-width: none;')
     expect(rule(surface, ".topbar-toolbar-host[data-owner='memoNote']:not([data-floating])")).toContain('min-width: 276px;')
     expect(rule(surface, '.topbar-toolbar-placeholder')).toContain('overflow: hidden;')
+    // 읽기 도구까지 접혀 왼쪽 묶음이 비면 오른쪽 묶음 앞 구분선을 없앤다(주인 칩 뒤 구분선 옆에 또 서지 않는다)
+    expect(rule(surface, '.topbar-toolbar-host .topbar-toolbar-slot .pane-toolbar-left:empty + .pane-toolbar-right::before')).toContain('display: none;')
   })
 
   it('칸 영역의 윗 테두리와 맨 윗줄 칸의 윗 안쪽 여백은 0 이고 다른 틈은 그대로', () => {

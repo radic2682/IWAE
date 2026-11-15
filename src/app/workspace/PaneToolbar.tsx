@@ -187,7 +187,7 @@ export function PaneToolbar({
     if (bar == null) return
     // 떠 있는 도구줄 카드는 내용 폭만큼만 차지하므로, 카드가 더 커질 수 있는 만큼(extra)까지가 쓸 수 있는 폭이다
     const extra = floatingExtraWidth(bar)
-    if (bar.scrollWidth > bar.clientWidth + extra + 1 && overflowLevel < 3) {
+    if (bar.scrollWidth > bar.clientWidth + extra + 1 && overflowLevel < 4) {
       needWidthRef.current[overflowLevel] = bar.scrollWidth
       setOverflowLevel(overflowLevel + 1)
       return
@@ -356,28 +356,33 @@ export function PaneToolbar({
     </>
   )
   const hasDocGroup = (versionLabel !== undefined && onOpenVersions !== undefined) || onOpenSources !== undefined || onCopyFile !== undefined || onPrint !== undefined || github !== undefined
-  // 너비가 모자라면 덜 쓰는 묶음부터 「⋯」 안으로: 1 = 쪽 배치·화면 나누기, 2 = 판·출처·복사·인쇄, 3 = 박스 메모·편집 도구·쪽 편집
-  const inMenu = (group: 1 | 2 | 3) => overflowLevel >= group
+  // 너비가 모자라면 덜 쓰는 묶음부터 「⋯」 안으로: 1 = 쪽 배치·화면 나누기, 2 = 판·출처·복사·인쇄, 3 = 박스 메모·편집 도구·쪽 편집, 4 = 읽기 도구(손 · 글 · 영역 · 형광펜) — 단추가 반쯤 잘려 보이는 일이 없도록 통째로 접는다
+  const inMenu = (group: 1 | 2 | 3 | 4) => overflowLevel >= group
+  const readerGroup = (
+    <>
+      <ReaderToolbar
+        state={state}
+        dispatch={dispatch}
+        query={kind === 'markdown' ? query : undefined}
+        onQueryChange={kind === 'markdown' ? onQueryChange : undefined}
+        // 형광펜은 PDF·Markdown 모두 문서 오른쪽 위의 떠 있는 형광펜 도구로(색·지우개)
+        modes={['pan', 'text-select', 'region-select']}
+        modeLabels={{ 'region-select': '영역 캡처' }}
+        className="pdf-inline-tools"
+        toolsClassName="pdf-mode-toggle-row"
+        buttonClassName="toolbar-tool-btn pdf-compact-tool"
+      />
+      {kind === 'pdf' || kind === 'markdown' ? (
+        <HighlighterToolbarControl active={mode === 'highlight'} onActiveChange={(on) => onModeChange(on ? 'highlight' : 'text')} buttonClassName="toolbar-tool-btn pdf-compact-tool" />
+      ) : null}
+    </>
+  )
 
   return (
     <>
       <div className="pane-toolbar-left" ref={leftRef}>
-        <ReaderToolbar
-          state={state}
-          dispatch={dispatch}
-          query={kind === 'markdown' ? query : undefined}
-          onQueryChange={kind === 'markdown' ? onQueryChange : undefined}
-          // 형광펜은 PDF·Markdown 모두 문서 오른쪽 위의 떠 있는 형광펜 도구로(색·지우개)
-          modes={['pan', 'text-select', 'region-select']}
-          modeLabels={{ 'region-select': '영역 캡처' }}
-          className="pdf-inline-tools"
-          toolsClassName="pdf-mode-toggle-row"
-          buttonClassName="toolbar-tool-btn pdf-compact-tool"
-        />
-        {kind === 'pdf' || kind === 'markdown' ? (
-          <HighlighterToolbarControl active={mode === 'highlight'} onActiveChange={(on) => onModeChange(on ? 'highlight' : 'text')} buttonClassName="toolbar-tool-btn pdf-compact-tool" />
-        ) : null}
-        {writeGroup !== null && !inMenu(3) ? (
+        {inMenu(4) ? null : readerGroup}
+        {writeGroup !== null && !inMenu(3) && !inMenu(4) ? (
           <>
             {/* PDF 위에 쓰는 도구(박스 메모·편집)는 읽기 도구와 떼어 둔다 */}
             <span className="pane-toolbar-divider" aria-hidden="true" />
@@ -389,7 +394,7 @@ export function PaneToolbar({
         {hasLayoutGroup && !inMenu(1) ? (
           <>
             {layoutGroup}
-            <span className="pane-toolbar-divider" aria-hidden="true" />
+            {hasDocGroup && !inMenu(2) ? <span className="pane-toolbar-divider" aria-hidden="true" /> : null}
           </>
         ) : null}
         {hasDocGroup && !inMenu(2) ? docGroup : null}
@@ -411,6 +416,7 @@ export function PaneToolbar({
             </button>
             {moreOpen !== null ? createPortal(
               <div ref={morePanelRef} className="pane-toolbar-more-panel pane-doc" role="menu" aria-label={t('도구 더 보기')} style={{ top: moreOpen.top, right: moreOpen.right }}>
+                {inMenu(4) ? <div className="pane-toolbar-more-row">{readerGroup}</div> : null}
                 {writeGroup !== null && inMenu(3) ? <div className="pane-toolbar-more-row">{writeGroup}</div> : null}
                 {hasDocGroup && inMenu(2) ? <div className="pane-toolbar-more-row">{docGroup}</div> : null}
                 {hasLayoutGroup && inMenu(1) ? <div className="pane-toolbar-more-row">{layoutGroup}</div> : null}

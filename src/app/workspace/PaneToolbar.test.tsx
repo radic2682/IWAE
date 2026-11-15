@@ -306,6 +306,16 @@ describe('PaneToolbar — 떠 있는 도구줄 카드 안에서의 접기', () =
     vi.unstubAllGlobals()
   })
 
+  it('아무리 좁아도 단추가 반쯤 잘려 보이지 않는다: 읽기 도구(손 · 글 · 영역 · 형광펜)까지 통째로 「⋯」 로 접히고 메뉴에서 그대로 쓴다', () => {
+    render(tree(false))
+    expect(screen.queryByRole('button', { name: '손 도구' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '형광펜' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '도구 더 보기' }))
+    const menu = screen.getByRole('menu', { name: '도구 더 보기' })
+    expect(menu.querySelector('[aria-label="손 도구"]')).not.toBeNull()
+    expect(menu.querySelector('[aria-label="형광펜"]')).not.toBeNull()
+  })
+
   it('붙어 있으면 넘치는 만큼 「⋯」 로 접는다', () => {
     render(tree(false))
     expect(screen.getByRole('button', { name: '도구 더 보기' })).toBeTruthy()
