@@ -116,8 +116,58 @@ function markChecklist(list: HTMLElement) {
   for (const item of list.children) if (item.tagName === 'LI' && !item.hasAttribute('data-checked')) item.setAttribute('data-checked', 'false')
 }
 
-/** 할 일 목록을 켜고 끈다 */
-export function toggleChecklist(editor: HTMLElement) {
+const BLOCK_TAG_IN_LINE = /<(?:ul|ol|li|div|p|h[1-6]|pre|blockquote|table|hr)[ />]/iu
+
+/**
+ * 목록 밖의 한 줄(커서만 있고 선택은 없을 때)을 할 일 한 칸으로 바꾼다. 줄 전체를 insertHTML 한 번으로 갈아 넣으므로
+ * 되돌리기·다시 하기가 한 단계로 되고, 위·아래 글머리 목록에 붙지 않는다(목록 명령은 붙은 목록과 합쳐 속성이 사라진다).
+ * 쓸 수 없는 모양(줄 안에 블록 요소가 있다 등)이면 아무것도 바꾸지 않고 false
+ */
+function insertChecklistLine(editor: HTMLElement, caretChecked: boolean): boolean {
+  const selection = window.getSelection()
+  const caret = editorRange(editor)
+  if (selection === null || caret === null || !caret.collapsed || typeof selection.modify !== 'function') return false
+  if (closestIn(caret.startContainer, editor, (element) => SPECIAL_BLOCK.test(element.tagName) || element.tagName === 'LI') !== null) return false
+  const original = caret.cloneRange()
+  selection.modify('move', 'backward', 'paragraphboundary')
+  selection.modify('extend', 'forward', 'paragraphboundary')
+  const line = selection.rangeCount === 0 ? null : selection.getRangeAt(0).cloneRange()
+  const giveUp = () => {
+    selection.removeAllRanges()
+    selection.addRange(original)
+    return false
+  }
+  if (line === null || !editor.contains(line.commonAncestorContainer)) return giveUp()
+  const holder = document.createElement('div')
+  holder.appendChild(line.cloneContents())
+  // 줄 끝의 줄바꿈 <br> 하나는 줄 내용이 아니다
+  const inner = holder.innerHTML.replace(/<br>$/iu, '')
+  if (BLOCK_TAG_IN_LINE.test(inner)) return giveUp()
+  const before = document.createRange()
+  before.setStart(line.startContainer, line.startOffset)
+  before.setEnd(original.startContainer, original.startOffset)
+  const chars = before.toString().length
+  const html = `<ul data-type="check"><li data-checked="${caretChecked}">${inner === '' ? '<br>' : inner}</li></ul>`
+  if (!exec('insertHTML', html)) return giveUp()
+  const now = editorRange(editor)
+  const item = now === null ? null : closestIn(now.startContainer, editor, (element) => element.tagName === 'LI')
+  if (item !== null) {
+    const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT)
+    let left = chars
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const length = (node as Text).length
+      if (left <= length) {
+        placeCaret(node, left)
+        return true
+      }
+      left -= length
+    }
+  }
+  return true
+}
+
+/** 할 일 목록을 켜고 끈다. caretChecked 는 「[x] 」 단축으로 만들 때 새 칸의 처음 값 */
+export function toggleChecklist(editor: HTMLElement, caretChecked = false) {
   const range = editorRange(editor)
   if (range === null) return
   const list = closestIn(range.startContainer, editor, (element) => element.tagName === 'UL' || element.tagName === 'OL')
@@ -130,6 +180,7 @@ export function toggleChecklist(editor: HTMLElement) {
     markChecklist(list)
     return
   }
+  if (list === null && insertChecklistLine(editor, caretChecked)) return
   // 번호 목록 칸이나 목록 밖의 줄(<br> 로 나뉜 글, 문단)은 브라우저의 글머리 목록 명령으로 감싼다(되돌리기가 이어지게). 그 뒤 할 일로 표시한다
   exec('insertUnorderedList')
   markFreshChecklist(editor)
@@ -380,7 +431,7 @@ export function applyBlockMarkdown(editor: HTMLElement, trigger: 'space' | 'ente
       const checked = /x/iu.test(text)
       action = () => {
         if (inList?.parentElement?.tagName === 'UL') markChecklist(inList.parentElement)
-        else toggleChecklist(editor)
+        else toggleChecklist(editor, checked)
         const now = editorRange(editor)
         const item = now === null ? null : closestIn(now.startContainer, editor, (element) => element.tagName === 'LI')
         item?.setAttribute('data-checked', String(checked))
