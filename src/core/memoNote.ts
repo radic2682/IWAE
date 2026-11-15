@@ -153,6 +153,16 @@ export interface MemoNote {
   readonly blocks: readonly MemoNoteBlock[]
   /** 이 노트를 가진 PDF 의 문서 id(형광펜이 쓰는 id). 없으면 어느 PDF 에도 속하지 않은 일반 노트 */
   readonly docId?: string
+  /** 이 버전이 모르는 것(더 새 버전이 쓴 블록 종류·덧붙인 열쇠). 화면에는 올리지 않고, 저장할 때 그대로 되돌려 쓴다 */
+  readonly preserved?: MemoNotePreserved
+}
+
+/** 읽었지만 이 버전이 모르는 것 */
+export interface MemoNotePreserved {
+  /** 모르는 종류(또는 모양이 맞지 않는) 블록: 원래 모양 그대로, 바로 앞에 있던 블록의 id(맨 앞이면 null) 와 함께 */
+  readonly blocks: readonly { readonly after: string | null; readonly raw: unknown }[]
+  /** 노트 맨 위의 모르는 열쇠 */
+  readonly fields: Readonly<Record<string, unknown>>
 }
 
 /** 노트 목록에 보일 것: Vault 안 상대 경로(=열쇠)와 제목. docId 는 노트가 속한 PDF */
@@ -205,12 +215,51 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/**
+ * 읽은 JSON 이 이 버전이 다룰 수 있는 노트인가. 'newer' 는 더 새 버전이 쓴 것, 'unrecognized' 는 블록 목록이 없는 등 모르는 모양이다.
+ * 둘 다 열어서 고친 뒤 저장하면 파일의 내용이 지워지므로, 호출한 쪽이 저장을 막아야 한다.
+ */
+export function inspectMemoNoteShape(value: unknown): 'ok' | 'newer' | 'unrecognized' {
+  if (!isRecord(value) || !Array.isArray(value.blocks)) return 'unrecognized'
+  if (typeof value.version === 'number' && value.version > 1) return 'newer'
+  return 'ok'
+}
+
+const MEMO_BLOCK_KEYS = new Set(['id', 'kind', 'highlightId', 'ticket', 'refs'])
+const TEXT_BLOCK_KEYS = new Set(['id', 'kind', 'text', 'html'])
+const SECTION_BLOCK_KEYS = new Set(['id', 'kind', 'title', 'collapsed'])
+
+/** 더 새 버전이 블록에 덧붙인 값: 모르는 열쇠는 그대로 들고 있다가 다시 쓸 때 돌려준다 */
+function unknownKeys(item: Record<string, unknown>, known: ReadonlySet<string>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(item).filter(([key]) => !known.has(key)))
+}
+
 export function parseMemoNote(value: unknown): MemoNote {
   if (!isRecord(value) || !Array.isArray(value.blocks)) return EMPTY_MEMO_NOTE
   const seen = new Set<string>()
+  const keptBlocks: { after: string | null; raw: unknown }[] = []
+  let lastKnown: string | null = null
   const blocks = value.blocks.flatMap((item: unknown): MemoNoteBlock[] => {
-    if (!isRecord(item) || typeof item.id !== 'string' || seen.has(item.id)) return []
-    seen.add(item.id)
+    const parsed = parseBlock(item, seen)
+    if (parsed === 'duplicate') return []
+    if (parsed === null) {
+      keptBlocks.push({ after: lastKnown, raw: item })
+      return []
+    }
+    if (parsed.length > 0) lastKnown = parsed[0]!.id
+    return parsed
+  })
+  const docId = typeof value.docId === 'string' && value.docId.trim() !== '' ? value.docId : undefined
+  const fields = unknownKeys(value, new Set(['version', 'blocks', 'docId']))
+  const preserved = keptBlocks.length > 0 || Object.keys(fields).length > 0 ? { blocks: keptBlocks, fields } : undefined
+  return { version: 1, blocks, ...(docId === undefined ? {} : { docId }), ...(preserved === undefined ? {} : { preserved }) }
+}
+
+/** 블록 하나를 읽는다. 이 버전이 모르는 블록이면 null, 이미 본 id 면 'duplicate', 빈 글 블록이면 빈 배열 */
+function parseBlock(item: unknown, seen: Set<string>): MemoNoteBlock[] | null | 'duplicate' {
+  {
+    if (!isRecord(item) || typeof item.id !== 'string') return null
+    if (seen.has(item.id)) return 'duplicate'
     if (item.kind === 'memo' && typeof item.highlightId === 'string') {
       const parsed = isRecord(item.ticket)
         ? normalizeTicket({
@@ -220,20 +269,22 @@ export function parseMemoNote(value: unknown): MemoNote {
         : null
       const ticket = parsed === null ? {} : { ticket: parsed }
       const refs = Array.isArray(item.refs) ? [...new Set(item.refs.filter((ref): ref is string => typeof ref === 'string' && ref !== item.highlightId))] : []
-      return [{ id: item.id, kind: 'memo', highlightId: item.highlightId, ...ticket, ...(refs.length > 0 ? { refs } : {}) }]
+      seen.add(item.id)
+      return [{ ...unknownKeys(item, MEMO_BLOCK_KEYS), id: item.id, kind: 'memo', highlightId: item.highlightId, ...ticket, ...(refs.length > 0 ? { refs } : {}) } as MemoNoteBlock]
     }
     if (item.kind === 'section' && typeof item.title === 'string') {
-      return [{ id: item.id, kind: 'section', title: item.title, ...(item.collapsed === true ? { collapsed: true as const } : {}) }]
+      seen.add(item.id)
+      return [{ ...unknownKeys(item, SECTION_BLOCK_KEYS), id: item.id, kind: 'section', title: item.title, ...(item.collapsed === true ? { collapsed: true as const } : {}) } as MemoNoteBlock]
     }
     if (item.kind === 'text' && typeof item.text === 'string') {
-      const block: MemoNoteBlock = { id: item.id, kind: 'text', text: item.text, ...(typeof item.html === 'string' && item.html !== '' ? { html: item.html } : {}) }
+      seen.add(item.id)
+      const block = { ...unknownKeys(item, TEXT_BLOCK_KEYS), id: item.id, kind: 'text', text: item.text, ...(typeof item.html === 'string' && item.html !== '' ? { html: item.html } : {}) } as MemoNoteBlock
       // 예전에 빈 채로 저장된 글 블록은 읽을 때 버린다(다음 저장부터 파일에서도 사라진다)
       return isEmptyTextBlock(block) ? [] : [block]
     }
-    return []
-  })
-  const docId = typeof value.docId === 'string' && value.docId.trim() !== '' ? value.docId : undefined
-  return { version: 1, blocks, ...(docId === undefined ? {} : { docId }) }
+    // 모르는 종류의 블록(더 새 버전이 만든 것)은 버리지 않고 따로 들고 있는다
+    return null
+  }
 }
 
 /**
@@ -246,8 +297,18 @@ export function isEmptyTextBlock(block: MemoNoteBlock): boolean {
 }
 
 export function serializeMemoNote(note: MemoNote): string {
-  const blocks = note.blocks.filter((block) => !isEmptyTextBlock(block))
-  return `${JSON.stringify({ version: 1, ...(note.docId === undefined ? {} : { docId: note.docId }), blocks }, null, 2)}\n`
+  const known: unknown[] = note.blocks.filter((block) => !isEmptyTextBlock(block))
+  const kept = note.preserved?.blocks ?? []
+  // 모르는 블록은 원래 바로 앞에 있던 블록 뒤에 되돌린다(그 블록이 지워졌으면 맨 뒤)
+  const blocks: unknown[] = []
+  const ids = new Set(known.map((block) => (block as MemoNoteBlock).id))
+  for (const item of kept) if (item.after === null) blocks.push(item.raw)
+  for (const block of known) {
+    blocks.push(block)
+    for (const item of kept) if (item.after === (block as MemoNoteBlock).id) blocks.push(item.raw)
+  }
+  for (const item of kept) if (item.after !== null && !ids.has(item.after)) blocks.push(item.raw)
+  return `${JSON.stringify({ ...(note.preserved?.fields ?? {}), version: 1, ...(note.docId === undefined ? {} : { docId: note.docId }), blocks }, null, 2)}\n`
 }
 
 let blockCounter = 0
@@ -322,7 +383,8 @@ export function updateSection(note: MemoNote, sectionId: string, change: { reado
       if (block.id !== sectionId || block.kind !== 'section') return block
       const title = change.title === undefined ? block.title : change.title.trim() || block.title
       const collapsed = change.collapsed === undefined ? block.collapsed === true : change.collapsed
-      return { id: block.id, kind: 'section', title, ...(collapsed ? { collapsed: true as const } : {}) }
+      const { collapsed: _was, ...rest } = block
+      return { ...rest, title, ...(collapsed ? { collapsed: true as const } : {}) }
     }),
   }
 }
@@ -395,11 +457,17 @@ export function removeHighlightBlocks(note: MemoNote, highlightId: string): Memo
   return changed ? { ...note, blocks } : note
 }
 
+function withoutHtml(block: MemoNoteBlock): MemoNoteBlock {
+  if (block.kind !== 'text') return block
+  const { html: _html, ...rest } = block
+  return rest
+}
+
 export function updateTextBlock(note: MemoNote, blockId: string, text: string, html: string): MemoNote {
   return {
     ...note,
     blocks: note.blocks.map((block) => block.id === blockId && block.kind === 'text'
-      ? { id: block.id, kind: 'text', text, ...(html === '' ? {} : { html }) }
+      ? { ...withoutHtml(block), text, ...(html === '' ? {} : { html }) }
       : block),
   }
 }

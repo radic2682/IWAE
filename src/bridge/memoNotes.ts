@@ -1,10 +1,11 @@
 import { t } from '../i18n'
-import { carryObservedFile, forgetObservedFile, inspectVaultRelativeFile, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
+import { carryObservedFile, forgetObservedFile, inspectVaultRelativeFile, isMissingPathError, trackVaultRelativeRead, writeVaultRelativeText, type VaultHandle } from './vault'
 import type { SyncCodec } from '../core/vaultSync'
 import type { TrashSource } from './vaultFiles'
 import {
   MEMO_NOTES_FOLDER_CANDIDATES,
   detectMemoNotesFolder,
+  inspectMemoNoteShape,
   rememberMemoNotesFolder,
   MEMO_NOTE_EXTENSION,
   memoNoteTitleOf,
@@ -24,6 +25,27 @@ async function absolute(vault: VaultHandle, relativePath: string): Promise<strin
   return join(vault.root, ...relativePath.replaceAll('\\', '/').split('/').filter((part) => part !== ''))
 }
 
+/**
+ * 이 버전이 안전하게 고칠 수 없는 노트(더 새 버전이 쓴 것·읽을 수 없거나 모르는 모양): 저장을 거부한다.
+ * 열어서 고친 뒤 저장하면 파일의 원래 내용이 빈 노트로 덮어써진다. 파일이 읽히게 되면(고치거나 새 버전으로 열면) 풀린다.
+ */
+const unsafeToWrite = new Map<string, 'newer' | 'unrecognized'>()
+
+function unsafeKey(vault: VaultHandle, path: string): string {
+  return `${vault.root.replaceAll('\\', '/').toLocaleLowerCase()}|${path.replaceAll('\\', '/')}`
+}
+
+function judgeNoteText(vault: VaultHandle, path: string, text: string): void {
+  let verdict: 'ok' | 'newer' | 'unrecognized'
+  try {
+    verdict = inspectMemoNoteShape(JSON.parse(text) as unknown)
+  } catch {
+    verdict = 'unrecognized'
+  }
+  if (verdict === 'ok') unsafeToWrite.delete(unsafeKey(vault, path))
+  else unsafeToWrite.set(unsafeKey(vault, path), verdict)
+}
+
 /** 이만큼 깊이까지만 하위 폴더를 읽는다(고리처럼 잘못 걸린 폴더에서 멈추려고) */
 const MAX_FOLDER_DEPTH = 8
 
@@ -35,7 +57,15 @@ export async function listMemoNoteTree(vault: VaultHandle): Promise<{ entries: M
   const countNotes = async (name: string): Promise<number> => {
     let count = 0
     const walkCount = async (folder: string, depth: number): Promise<void> => {
-      for (const entry of await readDir(await absolute(vault, folder))) {
+      let children: Awaited<ReturnType<typeof readDir>>
+      try {
+        children = await readDir(await absolute(vault, folder))
+      } catch (cause) {
+        // 훑는 사이 하위 폴더가 사라졌다: 그 폴더는 0개로 센다
+        if (depth > 0 && isMissingPathError(cause)) return
+        throw cause
+      }
+      for (const entry of children) {
         if (entry.isDirectory) {
           if (!entry.name.startsWith('.') && depth < MAX_FOLDER_DEPTH) await walkCount(`${folder}/${entry.name}`, depth + 1)
         } else if (entry.name.toLowerCase().endsWith(MEMO_NOTE_EXTENSION)) count += 1
@@ -47,7 +77,19 @@ export async function listMemoNoteTree(vault: VaultHandle): Promise<{ entries: M
   const root = await detectMemoNotesFolder(async (name) => exists(await absolute(vault, name)), countNotes)
   if (!(await exists(await absolute(vault, root)))) return { entries, folders }
   const walk = async (folder: string, depth: number): Promise<void> => {
-    for (const entry of await readDir(await absolute(vault, folder))) {
+    let children: Awaited<ReturnType<typeof readDir>>
+    try {
+      children = await readDir(await absolute(vault, folder))
+    } catch (cause) {
+      // 훑는 사이 하위 폴더가 사라졌거나 옮겨졌다: 그 폴더만 건너뛴다(노트 폴더 자체를 못 읽으면 그대로 던진다)
+      if (depth > 0 && isMissingPathError(cause)) {
+        const at = folders.lastIndexOf(folder)
+        if (at >= 0) folders.splice(at, 1)
+        return
+      }
+      throw cause
+    }
+    for (const entry of children) {
       const path = `${folder}/${entry.name}`
       if (entry.isDirectory) {
         if (entry.name.startsWith('.') || depth >= MAX_FOLDER_DEPTH) continue
@@ -71,6 +113,7 @@ export async function listMemoNotes(vault: VaultHandle): Promise<MemoNoteEntry[]
 export async function readMemoNote(vault: VaultHandle, path: string): Promise<MemoNote> {
   const { readTextFile } = await import('@tauri-apps/plugin-fs')
   const text = await readTextFile(await absolute(vault, path))
+  judgeNoteText(vault, path, text)
   const note = parseMemoNote(JSON.parse(text) as unknown)
   // 다음 저장에서 다른 창의 변경과 합칠 때의 바탕
   trackVaultRelativeRead(vault, path, text)
@@ -118,6 +161,7 @@ export type MemoNoteDisk =
 export async function inspectMemoNote(vault: VaultHandle, path: string): Promise<MemoNoteDisk> {
   const result = await inspectVaultRelativeFile(vault, path)
   if (result.state !== 'changed') return result
+  judgeNoteText(vault, path, result.text)
   let note: MemoNote | null = null
   try { note = parseMemoNote(JSON.parse(result.text) as unknown) } catch { /* 쓰는 도중이거나 깨진 파일 */ }
   return { state: 'changed', text: result.text, note }
@@ -133,6 +177,12 @@ export function adoptMemoNoteText(vault: VaultHandle, path: string, text: string
  * VaultExternalChangeError 를 던진다.
  */
 export async function writeMemoNote(vault: VaultHandle, path: string, note: MemoNote): Promise<void> {
+  const unsafe = unsafeToWrite.get(unsafeKey(vault, path))
+  if (unsafe !== undefined) {
+    throw new Error(unsafe === 'newer'
+      ? t('이 노트는 더 새로운 버전의 IWAE가 만든 것이라 저장하지 않았습니다. 파일은 그대로 두었습니다.')
+      : t('이 노트 파일은 읽을 수 없는 모양이라 저장하지 않았습니다. 파일은 그대로 두었습니다.'))
+  }
   await writeVaultRelativeText(vault, path, serializeMemoNote(note), { guardExternalChange: true })
   rememberMemoNotesFolder(path.replaceAll('\\', '/').split('/')[0] ?? '')
 }
