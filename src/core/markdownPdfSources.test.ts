@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { markdownPdfHtml, stripRemoteImages } from './markdownPdf'
+import { isPrintableImageSource, markdownPdfHtml, stripRemoteImages } from './markdownPdf'
 
 const BS = String.fromCharCode(92)
 /** 슬래시를 역슬래시로 바꿔 쓴다(소스에 역슬래시를 겹쳐 쓰지 않으려고) */
@@ -67,5 +67,43 @@ describe('인쇄할 그림 주소 거르기(SMB·UNC 누출 방지)', () => {
     expect(html).not.toContain('localhost')
     expect(html).toContain('src="a.png"')
     expect(html).toContain('md-remote-image')
+  })
+})
+
+describe('absolute local images and non-img URL leaks', () => {
+  const V = 'C:/Users/me/Vault'
+  const pdf = (md: string) => (markdownPdfHtml(md, 't', `${V}/notes/a.md`, V).split('</style></head>')[1] ?? '')
+
+  it('keeps absolute paths inside the vault and rejects those outside or server-like', () => {
+    const ok = (s: string, file = `${V}/notes/a.md`, root = V) => isPrintableImageSource(s, file, root)
+    expect(ok('C:/Users/me/Vault/pic.png')).toBe(true)
+    expect(ok(win('C:/Users/me/Vault/pic.png'))).toBe(true)
+    expect(ok('C:/Users/me/Other/pic.png')).toBe(false)
+    expect(ok('C:/Users/me/Vault/../Other/pic.png')).toBe(false)
+    expect(ok('/Users/me/Vault/pic.png', '/Users/me/Vault/a.md', '/Users/me/Vault')).toBe(true)
+    expect(ok('/etc/passwd.png', '/Users/me/Vault/a.md', '/Users/me/Vault')).toBe(false)
+    expect(ok('//host/share/x.png')).toBe(false)
+    expect(ok(`/${BS}host/share/x.png`)).toBe(false)
+    expect(ok(win('//host/share/x.png'))).toBe(false)
+    expect(isPrintableImageSource('C:/Users/me/Vault/pic.png', `${V}/a.md`)).toBe(false)
+  })
+
+  it('removes every URL-bearing attribute that could reach a server', () => {
+    const out = pdf([
+      '<svg><image href="//host/x.png"/><image xlink:href="//host/x.png"/></svg>',
+      '<div style="color:red;background-image:url(//host/x.png)">a</div>',
+      `<div style="background:u${BS}72l(//host/x.png)">b</div>`,
+      '<table background="//host/x.png"><tr><td>x</td></tr></table>',
+      '<video poster="//host/x.png"></video>',
+      '<style>p{background:url(//host/x.png)}</style>',
+    ].join('\n\n'))
+    expect(out).not.toContain('host')
+    expect(out).toContain('color:red')
+  })
+
+  it('keeps in-vault svg images and plain styles', () => {
+    const out = pdf('<div style="text-align:center">c</div>\n\n![a](C:/Users/me/Vault/pic.png)')
+    expect(out).toContain('text-align:center')
+    expect(out).toContain('C:/Users/me/Vault/pic.png')
   })
 })

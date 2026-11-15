@@ -70,11 +70,29 @@ export function isPrintableImageSource(rawSource: string, absoluteFilePath: stri
   const value = decodeAttribute(rawSource)
   if (value === '') return false
   if (/^data:image\//iu.test(value)) return true
-  // 앞이 \ 나 / 면 서버(\\host\share, /\host, //host)나 드라이브 루트다. file://host/… 의 host 도 같다
-  if (/^[\\/]/u.test(value)) return false
-  const scheme = /^([a-z][a-z0-9+.-]*):/iu.exec(value)
+  // 서버 꼴(\\host\share, /\host, //host)은 안 된다. 한 개짜리 / 나 C:/ 로 시작하는 절대 경로는 아래에서 Vault 안인지 본다
+  if (/^[\\/]{2}/u.test(value)) return false
+  const absolute = /^(?:[\\/]|[a-z]:[\\/])/iu.test(value)
+  if (absolute && (vaultRoot === undefined || vaultRoot === '')) return false
+  const scheme = absolute ? null : /^([a-z][a-z0-9+.-]*):/iu.exec(value)
   let parts: string[]
-  if (scheme !== null) {
+  if (absolute) {
+    parts = []
+    const drive = /^([a-z]:)[\\/]/iu.exec(value)
+    if (drive !== null) parts.push(drive[1]!)
+    for (const part of pathParts(value.slice(drive === null ? 0 : 2).split(/[?#]/u)[0]!)) {
+      let name: string
+      try { name = decodeURIComponent(part) } catch { return false }
+      if (/[\\/:]/u.test(name)) return false
+      if (name === '.') continue
+      if (name === '..') {
+        if (parts.length === 0) return false
+        parts.pop()
+        continue
+      }
+      parts.push(part)
+    }
+  } else if (scheme !== null) {
     // file:///C:/x.png 만. file://host/x.png(호스트 있는 것)·그 밖의 주소는 안 된다
     if (scheme[1]!.toLowerCase() !== 'file') return false
     const rest = value.slice('file:'.length).replaceAll('\\', '/')
@@ -110,6 +128,45 @@ export function isPrintableImageSource(rawSource: string, absoluteFilePath: stri
  * 그림 자리에는 대체 글(alt)만 남긴다. 원문 폴더 기준 상대 경로·file:///·data: 그림은 그대로 둔다(\`vaultRoot\` 를 주면 Vault 밖으로 나가는 것도 뺀다).
  */
 export function stripRemoteImages(html: string, absoluteFilePath = 'C:/note.md', vaultRoot?: string): string {
+  return sanitizePrintUrls(stripImgTags(html, absoluteFilePath, vaultRoot), absoluteFilePath, vaultRoot)
+}
+
+const FETCH_ATTRIBUTES = new Set(['src', 'poster', 'background', 'data', 'href', 'xlink:href', 'action', 'formaction', 'longdesc', 'manifest', 'codebase', 'lowsrc', 'dynsrc', 'icon'])
+const DROPPED_ELEMENTS = 'style, link, meta, base, object, embed, iframe, frame, frameset, script, applet'
+const UNSAFE_CSS = /url\s*\(|image-set|image\s*\(|src\s*\(|@import|expression|[\\]/iu
+
+/**
+ * 그림 말고도 주소를 불러오는 속성(svg image 의 href, poster, background, style 의 url() …)과 <style>·<link> 를
+ * 같은 기준으로 거른다. style 은 url()·escape 가 든 선언만 빼고 색·정렬 같은 것은 남긴다.
+ */
+function sanitizePrintUrls(html: string, absoluteFilePath: string, vaultRoot?: string): string {
+  if (typeof document === 'undefined') return html
+  const template = document.createElement('template')
+  template.innerHTML = html
+  for (const element of Array.from(template.content.querySelectorAll(DROPPED_ELEMENTS))) element.remove()
+  for (const element of Array.from(template.content.querySelectorAll('*'))) {
+    const isLink = element.localName === 'a' || element.localName === 'area'
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name.toLowerCase()
+      if (name === 'srcset' || name === 'imagesrcset') { element.removeAttribute(attribute.name); continue }
+      if (name === 'style') {
+        const kept = attribute.value.split(';').filter((declaration) => !UNSAFE_CSS.test(declaration)).join(';')
+        if (kept.trim() === '') element.removeAttribute(attribute.name)
+        else element.setAttribute(attribute.name, kept)
+        continue
+      }
+      if (FETCH_ATTRIBUTES.has(name)) {
+        if (isLink && (name === 'href' || name === 'xlink:href')) continue
+        if (!isPrintableImageSource(attribute.value, absoluteFilePath, vaultRoot)) element.removeAttribute(attribute.name)
+        continue
+      }
+      if (UNSAFE_CSS.test(decodeAttribute(attribute.value))) element.removeAttribute(attribute.name)
+    }
+  }
+  return template.innerHTML
+}
+
+function stripImgTags(html: string, absoluteFilePath: string, vaultRoot?: string): string {
   return html.replace(/<source\b[^>]*>/giu, '').replace(/<img\b[^>]*>/giu, (tag) => {
     const src = /\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu.exec(tag)
     const value = src?.[1] ?? src?.[2] ?? src?.[3] ?? ''
