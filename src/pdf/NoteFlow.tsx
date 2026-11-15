@@ -1,4 +1,4 @@
-import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { Fragment, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { fitMenuInViewport } from '../ui/fitMenu'
 import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, MinusCircle, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
@@ -8,6 +8,9 @@ import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
 import { cachedTranslation, translateWithCache, useTranslationCache } from '../app/translation/translationCacheStore'
 import { t } from '../i18n'
+import { normalizeSelectionText, sameLanguageFallback } from '../core/translationText'
+import { TranslationCardSettingsContext } from '../ui/TranslationCard'
+import { AUTO_SOURCE, useTranslationSource } from '../ui/translationPair'
 import { fadeIn, reducedMotion, slideFrom } from '../app/motion'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
 import { insertBlock, memoBlock, removeBlock, splitLeadingTicketId, suggestTicketIds, updateSection, type MemoTicket } from '../core/memoNote'
@@ -472,13 +475,19 @@ function NoteFlowImpl({
     else next.set(id, value)
     return next
   })
+  const translationSettings = useContext(TranslationCardSettingsContext)
+  const translationSource = useTranslationSource()
   const toggleTranslation = (source: PersistentPdfHighlight) => {
     if (translations.has(source.id)) { setTranslation(source.id, null); return }
-    const quote = source.anchor.quote
-    const hit = cachedTranslation(quote)
+    // 글 고르기 카드와 같은 규칙: 줄바꿈을 정리하고, 원문이 이미 설정의 언어면 다른 언어로 옮긴다
+    const quote = normalizeSelectionText(source.anchor.quote)
+    const auto = translationSource === AUTO_SOURCE
+    const fallback = auto && translationSettings !== null ? sameLanguageFallback(quote, translationSettings.targetLanguage) : null
+    const targetOverride = fallback ?? undefined
+    const hit = cachedTranslation(quote, targetOverride)
     if (hit !== undefined) { setTranslation(source.id, { status: 'done', text: hit }); return }
     setTranslation(source.id, { status: 'loading', text: '' })
-    translateWithCache(quote, { docId: source.anchor.docId, page: source.anchor.page })
+    translateWithCache(quote, { docId: source.anchor.docId, page: source.anchor.page }, false, targetOverride, auto ? undefined : translationSource)
       .then((text) => setTranslation(source.id, text === null ? { status: 'error', text: t('번역하지 못했습니다. 설정 → 번역을 확인하세요') } : { status: 'done', text }))
       .catch((error: unknown) => setTranslation(source.id, { status: 'error', text: error instanceof Error ? error.message : String(error) }))
   }

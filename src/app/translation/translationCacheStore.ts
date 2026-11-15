@@ -48,8 +48,8 @@ export function cachedTranslation(text: string, targetOverride?: string): string
 }
 
 /** 번역: 캐시에 있으면 꺼내고, 없으면 번역기에 묻고 캐시에 남긴다. force 면 캐시를 건너뛰고 새로 받는다 */
-export async function translateWithCache(text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false, targetOverride?: string): Promise<string | null> {
-  return translateWithCacheUsing(translateFn, text, meta, force, targetOverride)
+export async function translateWithCache(text: string, meta: { readonly docId?: string; readonly page?: number } = {}, force = false, targetOverride?: string, sourceOverride?: string): Promise<string | null> {
+  return translateWithCacheUsing(translateFn, text, meta, force, targetOverride, sourceOverride)
 }
 
 /** 번역기를 직접 넘겨 쓰는 판(App 은 자기 번역기를 쓴다) */

@@ -1,3 +1,5 @@
+import { guessLanguage } from './translationText'
+
 /**
  * 번역 캐시이자 번역 기록. 같은 글을 같은 언어·같은 번역기로 다시 번역하면 요청 없이 꺼내 쓴다.
  * Vault 의 `.iwae/translations.json` 에 남는다(이 PC·이 Vault 밖으로 나가지 않는다).
@@ -37,7 +39,10 @@ export function translationCacheKey(text: string, target: string, provider: stri
 
 export function findTranslation(entries: readonly TranslationCacheEntry[], text: string, target: string, provider: string): TranslationCacheEntry | undefined {
   const key = translationCacheKey(text, target, provider)
-  return entries.find((entry) => entry.key === key)
+  const hit = entries.find((entry) => entry.key === key)
+  // 같은 언어를 그 언어로 "번역"해 원문 그대로 남은 기록은 쓰지 않는다
+  if (hit !== undefined && hit.target === guessLanguage(hit.source) && normalizeSource(hit.translated) === normalizeSource(hit.source)) return undefined
+  return hit
 }
 
 /** 새 번역을 맨 앞에 넣는다(같은 열쇠는 바꿔 끼우고, 한도를 넘으면 오래된 것부터 버린다) */

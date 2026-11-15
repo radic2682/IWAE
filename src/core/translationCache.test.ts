@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { parseTranslationCache, serializeTranslationCache } from './translationCache'
+import { findTranslation, parseTranslationCache, serializeTranslationCache, translationCacheKey } from './translationCache'
 
 const entry = (translated: string) => ({ source: 'a b', translated, target: 'ko', provider: 'azure', at: '2026-11-10T00:00:00Z' })
+
+describe('findTranslation', () => {
+  const make = (source: string, translated: string, target: string) => ({ key: translationCacheKey(source, target, 'azure'), source, translated, target, provider: 'azure', at: 'x' })
+  it('ignores an entry where the source language equals the target and nothing changed', () => {
+    expect(findTranslation([make('안녕하세요 반갑습니다', '안녕하세요 반갑습니다', 'ko')], '안녕하세요 반갑습니다', 'ko', 'azure')).toBeUndefined()
+  })
+  it('still returns a real translation', () => {
+    expect(findTranslation([make('안녕하세요 반갑습니다', 'Hello, nice to meet you', 'en')], '안녕하세요 반갑습니다', 'en', 'azure')?.translated).toBe('Hello, nice to meet you')
+  })
+})
 
 describe('parseTranslationCache', () => {
   it('drops version 1 entries whose translation was split across lines', () => {
