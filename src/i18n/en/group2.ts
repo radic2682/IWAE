@@ -125,6 +125,7 @@ export const GROUP_2: Readonly<Record<string, string>> = {
   "최근 {count}개": "Latest {count}",
   "폴더를 고르세요": "Choose a folder",
   "폴더 바꾸기": "Change folder",
+  "IWAE 백업": "IWAE Backups",
   "자동 백업 폴더 열기": "Open automatic backup folder",
   "검색 색인과 미리보기 캐시 포함": 'Include search index and preview cache',
   "마지막 자동 백업": "Last automatic backup",

@@ -38,7 +38,7 @@ export function useAutoBackup(vaultRoot: string | null) {
     void (async () => {
       try {
         const { documentDir, join } = await import('@tauri-apps/api/path')
-        const folder = await join(await documentDir(), 'IWAE 백업')
+        const folder = await join(await documentDir(), t('IWAE 백업'))
         const next = { ...saved, folder }
         writeAutoBackup(vaultRoot, next)
         if (alive) setSettings(next)

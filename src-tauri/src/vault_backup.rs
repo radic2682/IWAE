@@ -579,6 +579,15 @@ pub async fn vault_trash_empty(ai: State<'_, AiState>) -> Result<TrashStats, Str
 mod tests {
     use super::*;
 
+    #[test]
+    fn default_backup_dir_accepts_both_language_names() {
+        let docs = Path::new("C:/Users/me/Documents");
+        assert!(is_default_backup_dir_in(docs, &docs.join("IWAE 백업")));
+        assert!(is_default_backup_dir_in(docs, &docs.join("IWAE Backups")));
+        assert!(!is_default_backup_dir_in(docs, &docs.join("Other")));
+        assert!(!is_default_backup_dir_in(docs, &Path::new("D:/x").join("IWAE Backups")));
+    }
+
     fn temp_dir(name: &str) -> PathBuf {
         let unique = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
         let dir = std::env::temp_dir().join(format!("iwae-backup-{name}-{unique}"));
@@ -765,7 +774,12 @@ pub fn prune_auto_backups(dir: &Path, prefix: &str, keep: usize) -> Vec<String> 
 /// 자동 백업의 기본 폴더(문서\IWAE 백업)인가 — 프런트(useAutoBackup)가 처음 정하는 위치와 같아야 한다
 fn is_default_backup_dir(app: &AppHandle, dir: &Path) -> bool {
     use tauri::Manager;
-    app.path().document_dir().is_ok_and(|documents| dir == documents.join("IWAE 백업"))
+    app.path().document_dir().is_ok_and(|documents| is_default_backup_dir_in(&documents, dir))
+}
+
+/// 화면 언어에 따라 프런트가 정하는 기본 폴더 이름은 둘이다(한국어 「IWAE 백업」, 영어 「IWAE Backups」)
+fn is_default_backup_dir_in(documents: &Path, dir: &Path) -> bool {
+    dir == documents.join("IWAE 백업") || dir == documents.join("IWAE Backups")
 }
 
 #[tauri::command]
