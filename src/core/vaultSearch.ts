@@ -86,12 +86,10 @@ function searchText(value: string, query: string, caseSensitive: boolean, wholeW
   const source = value.normalize('NFKC')
   const needle = query.normalize('NFKC')
   if (needle === '') return 0
-  if (!wholeWord) {
-    return caseSensitive ? source.indexOf(needle) : source.toLocaleLowerCase().indexOf(needle.toLocaleLowerCase())
-  }
+  // 일치 위치는 NFKC 로 바꾼 글 기준이다(snippet 도 그 글에서 자른다). 소문자 변환은 길이를 바꿀 수 있어 iu 플래그를 쓴다
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
-  const expression = new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, caseSensitive ? 'u' : 'iu')
-  return source.search(expression)
+  const pattern = wholeWord ? `(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])` : escaped
+  return source.search(new RegExp(pattern, caseSensitive ? 'u' : 'iu'))
 }
 
 function snippetAround(text: string, matchIndex: number, queryLength: number): string {
@@ -139,7 +137,7 @@ export function searchVaultPages(
       return matchIndex < 0 ? [] : [{
         record,
         page: page.page,
-        snippet: snippetAround(page.text, matchIndex, normalizedQuery.length),
+        snippet: snippetAround(page.text.normalize('NFKC'), matchIndex, normalizedQuery.length),
         query,
         score: 40,
       }]

@@ -80,3 +80,16 @@ describe('vault search', () => {
     ])
   })
 })
+
+describe('vault search snippets', () => {
+  const record = (text: string) => ({ id: 'r', kind: 'pdf', storage: 'vault', displayName: 'd', filename: 'd.pdf', folder: '', extractedText: text, pages: [{ page: 1, text }] }) as never
+  it('cuts the snippet at the matched word for NFD Korean text', () => {
+    const text = ('가나다라마바사아자차카타파하'.repeat(10) + ' 목표단어 끝').normalize('NFD')
+    const hit = searchVaultPages([record(text)], '목표단어')[0]
+    expect(hit?.snippet.normalize('NFC')).toContain('목표단어')
+  })
+  it('finds the match after a ligature that shrinks under NFKC', () => {
+    const text = `${'ﬁ'.repeat(120)} needle here`
+    expect(searchVaultPages([record(text)], 'needle')[0]?.snippet).toContain('needle')
+  })
+})
