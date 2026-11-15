@@ -413,7 +413,9 @@ export function useMemoNotes(
       const { exists } = await import('@tauri-apps/plugin-fs')
       const { join } = await import('@tauri-apps/api/path')
       if (await exists(await join(vault.root, ...MIGRATION_MARK.split('/')))) return
-      const created = notesFromCategories(highlights, docTitle)
+      // 이미 어떤 노트가 가리키는 형광펜은 옮기지 않는다(새로 만든 Vault 의 첫 메모가 문서 노트에 있는데 같은 이름의 노트가 또 생기는 것을 막는다)
+      const referenced = new Set([...notesRef.current.values()].flatMap((note) => note.blocks.flatMap(memoHighlightIds)))
+      const created = notesFromCategories(highlights.filter((highlight) => !referenced.has(highlight.id)), docTitle)
       const taken = [...notesRef.current.keys()].map(memoNoteTitleOf)
       const next = new Map(notesRef.current)
       for (const { title, note } of created) {
