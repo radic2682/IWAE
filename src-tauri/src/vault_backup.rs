@@ -51,6 +51,9 @@ pub struct BackupResult {
     pub bytes: u64,
     pub archive_bytes: u64,
     pub millis: u64,
+    /// 읽지 못해(다른 프로그램이 잠근 파일 등) 백업에서 뺀 파일. 없으면 응답에 나오지 않는다
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub skipped: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -59,6 +62,9 @@ pub struct RestoreResult {
     pub path: String,
     pub files: u64,
     pub bytes: u64,
+    /// 이름이 겹치거나(대소문자만 다른 경우 등) 이 PC 에서 쓸 수 없는 이름이라 풀지 않은 항목. 없으면 응답에 나오지 않는다
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub skipped: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -118,7 +124,12 @@ fn collect(root: &Path, include_rebuildable: bool, skip: &[PathBuf]) -> io::Resu
     let mut rebuildable = 0u64;
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let mut entries: Vec<_> = fs::read_dir(&dir)?.filter_map(Result::ok).collect();
+        // 하위 폴더 하나를 못 읽는다고 백업 전체를 멈추지 않는다(Vault 맨 위 폴더만 실패로 본다)
+        let mut entries: Vec<_> = match fs::read_dir(&dir) {
+            Ok(entries) => entries.filter_map(Result::ok).collect(),
+            Err(err) if dir == root => return Err(err),
+            Err(_) => continue,
+        };
         entries.sort_by_key(|entry| entry.file_name());
         for entry in entries {
             let path = entry.path();
@@ -220,6 +231,7 @@ pub fn create_backup(
     let bytes_total: u64 = files.iter().map(|file| file.size).sum();
     let prefix = root.file_name().map(|name| name.to_string_lossy().into_owned()).filter(|name| !name.is_empty()).unwrap_or_else(|| "vault".into());
 
+    let mut skipped: Vec<String> = Vec::new();
     let result = (|| -> Result<(), String> {
         let output = File::create(&partial).map_err(|err| tr!("백업 파일을 만들지 못했습니다: {err}", "Could not create the backup file: {err}"))?;
         let mut zip = ZipWriter::new(BufWriter::with_capacity(CHUNK, output));
@@ -230,12 +242,20 @@ pub fn create_backup(
             if cancel.load(Ordering::Relaxed) {
                 return Err(tr!("백업을 취소했습니다.", "Backup canceled."));
             }
+            // 열지 못하는 파일(다른 프로그램이 잠금) 하나로 전체 백업을 멈추지 않는다 — 항목을 만들기 전에 열어 보고 건너뛴다
+            let source = match File::open(&file.absolute) {
+                Ok(source) => source,
+                Err(_) => {
+                    skipped.push(file.relative.clone());
+                    continue;
+                }
+            };
             let options = SimpleFileOptions::default()
                 .compression_method(compression_for(&file.relative))
                 .last_modified_time(zip_time(file.modified, utc_offset_minutes))
                 .large_file(file.size >= u64::from(u32::MAX) - CHUNK as u64);
             zip.start_file(format!("{prefix}/{}", file.relative), options).map_err(|err| format!("{}: {err}", file.relative))?;
-            let mut reader = BufReader::with_capacity(CHUNK, File::open(&file.absolute).map_err(|err| tr!("{} 을 읽지 못했습니다: {err}", "Could not read {}: {err}", file.relative))?);
+            let mut reader = BufReader::with_capacity(CHUNK, source);
             loop {
                 let read = reader.read(&mut buffer).map_err(|err| tr!("{} 을 읽지 못했습니다: {err}", "Could not read {}: {err}", file.relative))?;
                 if read == 0 {
@@ -272,10 +292,11 @@ pub fn create_backup(
     let archive_bytes = fs::metadata(dest).map(|meta| meta.len()).unwrap_or(0);
     Ok(BackupResult {
         path: dest.to_string_lossy().into_owned(),
-        files: files.len() as u64,
-        bytes: bytes_total,
+        files: (files.len() - skipped.len()) as u64,
+        bytes: bytes_total - files.iter().filter(|file| skipped.contains(&file.relative)).map(|file| file.size).sum::<u64>(),
         archive_bytes,
         millis: started.elapsed().as_millis() as u64,
+        skipped,
     })
 }
 
@@ -326,12 +347,20 @@ pub fn restore_backup(archive: &Path, dest: &Path, cancel: &AtomicBool, progress
     let mut files = 0u64;
     let mut last_emit = Instant::now();
     let total = names.len() as u64;
+    let mut skipped: Vec<String> = Vec::new();
+    let mut claimed_files = std::collections::HashSet::new();
+    let mut claimed_dirs = std::collections::HashSet::new();
     for (index, (parts, is_dir)) in names.iter().enumerate() {
         if cancel.load(Ordering::Relaxed) {
             return Err(tr!("복원을 취소했습니다. 이미 푼 파일은 폴더에 남아 있습니다.", "Restore canceled. Files already extracted remain in the folder."));
         }
         let parts = if strip { &parts[1..] } else { &parts[..] };
         if parts.is_empty() {
+            continue;
+        }
+        // 쓸 수 없는 이름이거나 앞서 푼 항목과 (대소문자를 무시하면) 같은 이름이면 풀지 않고 알린다
+        if parts.iter().any(|part| unusable_name(part)) || !claim_name(&mut claimed_files, &mut claimed_dirs, parts, *is_dir) {
+            skipped.push(parts.join("/"));
             continue;
         }
         let target = parts.iter().fold(dest.to_path_buf(), |path, part| path.join(part));
@@ -360,7 +389,37 @@ pub fn restore_backup(archive: &Path, dest: &Path, cancel: &AtomicBool, progress
         files += 1;
     }
     progress(BackupProgress { phase: "restore", files_done: total, files_total: total, bytes_done: bytes_total, bytes_total, current: String::new() });
-    Ok(RestoreResult { path: dest.to_string_lossy().into_owned(), files, bytes: bytes_done })
+    Ok(RestoreResult { path: dest.to_string_lossy().into_owned(), files, bytes: bytes_done, skipped })
+}
+
+/// Windows 가 이름을 바꿔 버리거나(끝의 `.`·공백) 다른 곳에 쓰거나(`:` = 대체 데이터 스트림) 거부하는 이름 조각.
+/// 어느 PC 에서 풀어도 같은 결과가 되게 모든 플랫폼에서 같은 규칙을 쓴다
+fn unusable_name(part: &str) -> bool {
+    part.ends_with('.') || part.ends_with(' ') || part.chars().any(|ch| ch.is_control() || ":*?\"<>|".contains(ch))
+}
+
+/// 이 경로를 쓰기로 하고 true. 앞서 쓰기로 한 파일과 이름이 겹치면(대소문자 무시) 쓰지 않고 false.
+/// 같은 폴더 이름끼리는 겹쳐도 합쳐지므로 괜찮다. 파일과 폴더가 같은 이름이어도 안 된다
+fn claim_name(files: &mut std::collections::HashSet<String>, dirs: &mut std::collections::HashSet<String>, parts: &[String], is_dir: bool) -> bool {
+    let keys: Vec<String> = (1..=parts.len()).map(|count| parts[..count].join("/").to_lowercase()).collect();
+    let last = keys.len() - 1;
+    // 위쪽 폴더 자리에 이미 파일이 있다
+    if keys[..last].iter().any(|key| files.contains(key)) {
+        return false;
+    }
+    if is_dir {
+        if files.contains(&keys[last]) {
+            return false;
+        }
+        dirs.extend(keys);
+    } else {
+        if files.contains(&keys[last]) || dirs.contains(&keys[last]) {
+            return false;
+        }
+        dirs.extend(keys[..last].iter().cloned());
+        files.insert(keys[last].clone());
+    }
+    true
 }
 
 fn trash_dir(root: &Path) -> PathBuf {
@@ -655,11 +714,29 @@ pub struct AutoBackupResult {
     pub removed: Vec<String>,
 }
 
-/// 자동 백업 파일 이름: `<Vault 이름>-auto-YYYY-MM-DD-HHMM.zip`. 지울 때도 이 모양만 지운다(손으로 만든 백업은 건드리지 않는다)
+/// 자동 백업 파일 이름: `<Vault 이름>-<경로 해시 8자리>-auto-YYYY-MM-DD-HHMM.zip`. 지울 때도 이 Vault 의 이 모양만 지운다
+/// (손으로 만든 백업이나 다른 Vault 의 백업은 건드리지 않는다). 모든 Vault 가 같은 기본 폴더를 쓰므로
+/// 폴더 이름만으로는 Vault 를 가를 수 없어 경로 해시를 넣는다.
+/// 해시가 없던 옛 이름(`<Vault 이름>-auto-…`)은 어느 Vault 의 것인지 알 수 없어 지우지 않는다(파일은 그대로 두고 복원할 수 있다)
 fn auto_backup_prefix(root: &Path) -> String {
     let name = root.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
     let safe: String = name.chars().map(|ch| if "\\/:*?\"<>|".contains(ch) { '_' } else { ch }).collect();
-    format!("{}-auto-", if safe.trim().is_empty() { "vault" } else { safe.trim() })
+    let normalized = root.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_lowercase();
+    let digest = crate::storage::sha256_hex(normalized.as_bytes());
+    format!("{}-{}-auto-", if safe.trim().is_empty() { "vault" } else { safe.trim() }, &digest[..8])
+}
+
+/// `dir` 이 Vault 안인가(대소문자 무시 — Windows·macOS 경로는 대소문자를 가리지 않는다)
+fn is_inside_vault(dir: &Path, root: &Path) -> bool {
+    if dir.starts_with(root) {
+        return true;
+    }
+    if cfg!(any(windows, target_os = "macos")) {
+        let normalize = |path: &Path| path.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_lowercase();
+        let (dir, root) = (normalize(dir), normalize(root));
+        return dir == root || dir.starts_with(&format!("{root}/"));
+    }
+    false
 }
 
 /// `dir` 안의 자동 백업 중 새것 `keep` 개만 남기고 지운다. 지운 파일 경로
@@ -715,7 +792,7 @@ pub async fn vault_backup_auto(
         return Err(tr!("시각 형식이 올바르지 않습니다.", "Invalid timestamp format."));
     }
     // Vault 안에 백업을 두면 다음 백업이 그것까지 묶어 점점 커진다
-    if dir.starts_with(&root) {
+    if is_inside_vault(&dir, &root) {
         return Err(tr!("자동 백업 폴더는 Vault 밖이어야 합니다.", "The auto-backup folder must be outside the vault."));
     }
     begin(&state)?;
@@ -755,7 +832,127 @@ mod auto_tests {
     }
 
     #[test]
-    fn auto_prefix_uses_the_vault_folder_name() {
-        assert_eq!(auto_backup_prefix(Path::new("C:/x/My Vault")), "My Vault-auto-");
+    fn auto_prefix_has_the_vault_folder_name_and_a_stable_per_path_hash() {
+        let prefix = auto_backup_prefix(Path::new("C:/x/My Vault"));
+        assert!(prefix.starts_with("My Vault-") && prefix.ends_with("-auto-"), "{prefix}");
+        assert_eq!(prefix.len(), "My Vault-".len() + 8 + "-auto-".len());
+        // 같은 경로(구분자·대소문자·끝 슬래시만 다름)는 같고, 폴더 이름이 같아도 위치가 다르면 다르다
+        assert_eq!(prefix, auto_backup_prefix(Path::new(r"c:\X\My Vault\")));
+        assert_ne!(prefix, auto_backup_prefix(Path::new("D:/y/My Vault")));
+    }
+
+    #[test]
+    fn two_vaults_with_the_same_folder_name_never_prune_each_other() {
+        let dir = std::env::temp_dir().join(format!("iwae-prune-two-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let a = auto_backup_prefix(Path::new("C:/work/Notes"));
+        let b = auto_backup_prefix(Path::new("D:/home/Notes"));
+        for stamp in ["2026-01-01-0000", "2026-02-01-0000", "2026-03-01-0000"] {
+            std::fs::write(dir.join(format!("{a}{stamp}.zip")), b"a").unwrap();
+            std::fs::write(dir.join(format!("{b}{stamp}.zip")), b"b").unwrap();
+        }
+        // 해시가 없던 옛 형식은 어느 Vault 의 것인지 몰라 건드리지 않는다
+        std::fs::write(dir.join("Notes-auto-2020-01-01-0000.zip"), b"old").unwrap();
+        let removed = prune_auto_backups(&dir, &a, 1);
+        assert_eq!(removed.len(), 2);
+        assert!(removed.iter().all(|path| path.contains(&a)));
+        let left = std::fs::read_dir(&dir).unwrap().count();
+        assert_eq!(left, 3 + 1 + 1); // b 의 3개 + a 의 1개 + 옛 형식 1개
+        assert!(dir.join("Notes-auto-2020-01-01-0000.zip").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_inside_vault_check_ignores_case_on_windows_and_macos() {
+        assert!(is_inside_vault(Path::new("C:/Vault/backups"), Path::new("C:/Vault")));
+        assert!(!is_inside_vault(Path::new("C:/Vault2/backups"), Path::new("C:/Vault")));
+        if cfg!(any(windows, target_os = "macos")) {
+            assert!(is_inside_vault(Path::new("c:/vault/Backups"), Path::new("C:/Vault")));
+            assert!(is_inside_vault(Path::new(r"C:\VAULT"), Path::new("C:/Vault")));
+        }
+    }
+}
+
+#[cfg(test)]
+mod restore_and_skip_tests {
+    use super::*;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("iwae-backup-{name}-{unique}"));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn write_zip(path: &Path, entries: &[(&str, &str)]) {
+        let mut zip = ZipWriter::new(File::create(path).unwrap());
+        for (name, body) in entries {
+            zip.start_file(*name, SimpleFileOptions::default()).unwrap();
+            zip.write_all(body.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn restore_keeps_the_first_of_colliding_names_and_reports_the_rest() {
+        let out = temp_dir("collide");
+        let archive = out.join("b.zip");
+        write_zip(
+            &archive,
+            &[
+                ("V/.iwae/index.json", "{}"),
+                ("V/Plan.md", "first"),
+                ("V/plan.md", "second"),
+                ("V/trailing.", "dot"),
+                ("V/ads.md:hidden", "ads"),
+                ("V/Docs/a.md", "a"),
+                ("V/docs/b.md", "b"),
+                ("V/Docs", "file named like a folder"),
+            ],
+        );
+        let restored = out.join("r");
+        let result = restore_backup(&archive, &restored, &AtomicBool::new(false), &|_| {}).unwrap();
+        assert_eq!(fs::read_to_string(restored.join("Plan.md")).unwrap(), "first");
+        assert_eq!(fs::read_to_string(restored.join("Docs/a.md")).unwrap(), "a");
+        assert_eq!(fs::read_to_string(restored.join("Docs/b.md")).unwrap(), "b", "same-named folders merge");
+        assert_eq!(result.files, 4); // index.json, Plan.md, a.md, b.md
+        assert_eq!(result.skipped, vec!["plan.md", "trailing.", "ads.md:hidden", "Docs"]);
+        assert!(!restored.join("trailing").exists());
+        let _ = fs::remove_dir_all(out);
+    }
+
+    #[test]
+    fn clean_archives_report_no_skipped_names() {
+        let out = temp_dir("clean");
+        let archive = out.join("b.zip");
+        write_zip(&archive, &[("V/.iwae/index.json", "{}"), ("V/a.md", "a")]);
+        let result = restore_backup(&archive, &out.join("r"), &AtomicBool::new(false), &|_| {}).unwrap();
+        assert!(result.skipped.is_empty());
+        assert!(!serde_json::to_string(&result).unwrap().contains("skipped"));
+        let _ = fs::remove_dir_all(out);
+    }
+
+    /// 다른 프로그램이 잠근 파일이 있어도 백업은 끝나고, 못 담은 파일을 알린다
+    #[cfg(windows)]
+    #[test]
+    fn a_locked_file_is_skipped_and_reported_instead_of_failing_the_backup() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let root = temp_dir("locked").join("V");
+        fs::create_dir_all(root.join(".iwae")).unwrap();
+        fs::write(root.join(".iwae/index.json"), "{}").unwrap();
+        fs::write(root.join("ok.md"), "ok").unwrap();
+        fs::write(root.join("locked.md"), "locked").unwrap();
+        // 공유 없이(0) 열어 다른 열기를 모두 막는다
+        let holder = fs::OpenOptions::new().read(true).write(true).share_mode(0).open(root.join("locked.md")).unwrap();
+        let dest = root.parent().unwrap().join("out.zip");
+        let result = create_backup(&root, &dest, true, 0, &AtomicBool::new(false), &|_| {}).unwrap();
+        assert_eq!(result.skipped, vec!["locked.md"]);
+        assert_eq!(result.files, 2);
+        let mut archive = ZipArchive::new(File::open(&dest).unwrap()).unwrap();
+        let names: Vec<String> = (0..archive.len()).map(|i| archive.by_index(i).unwrap().name().to_string()).collect();
+        assert!(names.contains(&"V/ok.md".to_string()) && !names.contains(&"V/locked.md".to_string()), "{names:?}");
+        drop(holder);
+        let _ = fs::remove_dir_all(root.parent().unwrap());
     }
 }
