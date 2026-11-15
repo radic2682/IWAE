@@ -88,3 +88,65 @@ export function markdownHighlightFile(
 ): PersistentMarkdownHighlightFile {
   return { version: 1, highlights: structuredClone(highlights) }
 }
+
+function normalizeLineEndings(value: string): string {
+  return value.replace(/\r\n?/gu, '\n')
+}
+
+function commonSuffixLength(left: string, right: string): number {
+  let count = 0
+  while (count < left.length && count < right.length
+    && left[left.length - 1 - count] === right[right.length - 1 - count]) count += 1
+  return count
+}
+
+function commonPrefixLength(left: string, right: string): number {
+  let count = 0
+  while (count < left.length && count < right.length && left[count] === right[count]) count += 1
+  return count
+}
+
+/**
+ * 파일이 바뀐 뒤에도 형광펜을 붙들어 둔다.
+ * 원문 해시가 같으면 저장된 범위를 그대로 쓰고, 다르면 인용문과 앞뒤 글로 새 범위를 찾는다.
+ * 찾지 못한 형광펜은 목록에서 빠질 뿐 저장 데이터는 건드리지 않는다.
+ */
+export function relocateMarkdownHighlights(
+  renderedText: string,
+  highlights: readonly PersistentMarkdownHighlight[],
+  currentHash: string,
+): PersistentMarkdownHighlight[] {
+  const text = normalizeLineEndings(renderedText)
+  const result: PersistentMarkdownHighlight[] = []
+  for (const highlight of highlights) {
+    if (highlight.sourceHash === currentHash) {
+      result.push(highlight)
+      continue
+    }
+    const { selection } = highlight
+    const quote = normalizeLineEndings(selection.quote)
+    const prefix = normalizeLineEndings(selection.prefix)
+    const suffix = normalizeLineEndings(selection.suffix)
+    let best = -1
+    let bestScore = -1
+    let bestDistance = Number.POSITIVE_INFINITY
+    let index = text.indexOf(quote)
+    while (index >= 0) {
+      const score = commonSuffixLength(text.slice(Math.max(0, index - prefix.length), index), prefix)
+        + commonPrefixLength(text.slice(index + quote.length, index + quote.length + suffix.length), suffix)
+      const distance = Math.abs(index - selection.startOffset)
+      if (score > bestScore || (score === bestScore && distance < bestDistance)) {
+        best = index
+        bestScore = score
+        bestDistance = distance
+      }
+      index = text.indexOf(quote, index + 1)
+    }
+    if (best < 0) continue
+    result.push({
+      ...highlight,
+      selection: { ...selection, startOffset: best, endOffset: best + quote.length },
+    })
+  }
+  return result
+}

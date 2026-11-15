@@ -50,6 +50,7 @@ import { createMarkdownCapture, markdownSourceHash } from '../../core/markdownCa
 import { sourceForNewText } from '../../ui/translationPair'
 import {
   createPersistentMarkdownHighlight,
+  relocateMarkdownHighlights,
   type PersistentMarkdownHighlight,
 } from '../../core/markdownHighlight'
 import { getMarkdownTheme, type MarkdownThemeId } from '../../core/markdownTheme'
@@ -470,11 +471,15 @@ export function MarkdownPane({
 }: MarkdownPaneProps) {
   const html = useMemo(() => renderMarkdown(source), [source])
   const sourceHash = useMemo(() => markdownSourceHash(source), [source])
-  const activeHighlights = useMemo(() => persistentHighlights.filter((highlight) => (
-    highlight.sourceFileId === sourceFileId
-      && highlight.sourceHash === sourceHash
-      && highlight.selection.path === path
-  )), [path, persistentHighlights, sourceFileId, sourceHash])
+  const activeHighlights = useMemo(() => {
+    const own = persistentHighlights.filter((highlight) => (
+      highlight.sourceFileId === sourceFileId
+    ))
+    if (own.every((highlight) => highlight.sourceHash === sourceHash)) return own
+    const template = document.createElement('template')
+    template.innerHTML = html
+    return relocateMarkdownHighlights(template.content.textContent ?? '', own, sourceHash)
+  }, [html, persistentHighlights, sourceFileId, sourceHash])
   const highlightedHtml = useMemo(
     () => highlightMarkdownRanges(html, activeHighlights),
     [activeHighlights, html],

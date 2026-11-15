@@ -200,6 +200,22 @@ describe('MarkdownPane', () => {
     expect(onPersistentHighlightRemoved).toHaveBeenCalledWith(highlight.id)
   })
 
+  it('keeps a highlight after the file is edited or moved', () => {
+    const selection = { path: 'old/guide.md', title: 'Guide', quote: '본문입니다.', prefix: '', suffix: '', startOffset: 7, endOffset: 13, format: 'paragraph' as const }
+    const highlight = createPersistentMarkdownHighlight('stable-md-id', 'stale-hash', selection)
+    render(
+      <MarkdownPane
+        sourceFileId="stable-md-id"
+        path="new/guide.md"
+        title="Guide"
+        source={'새 줄\r\n\r\n## 중요한 제목\r\n\r\n본문입니다.\r\n'}
+        persistentHighlights={[highlight]}
+      />,
+    )
+    const marked = document.querySelector(`[data-markdown-highlight-id="${highlight.id}"]`)
+    expect(marked?.textContent).toBe('본문입니다.')
+  })
+
   it('relative PDF links open the document and unsupported links show a notice', () => {
     const onOpenDocument = vi.fn()
     const notices: string[] = []

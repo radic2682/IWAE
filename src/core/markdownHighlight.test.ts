@@ -3,6 +3,7 @@ import {
   createPersistentMarkdownHighlight,
   markdownHighlightFile,
   parsePersistentMarkdownHighlights,
+  relocateMarkdownHighlights,
   removePersistentMarkdownHighlight,
 } from './markdownHighlight'
 
@@ -37,5 +38,40 @@ describe('markdownHighlight', () => {
     const first = createPersistentMarkdownHighlight('file-1', 'hash-1', selection)
     const second = createPersistentMarkdownHighlight('file-1', 'hash-1', { ...selection, startOffset: 20, endOffset: 24 })
     expect(removePersistentMarkdownHighlight([first, second], first.id)).toEqual([second])
+  })
+})
+
+describe('relocateMarkdownHighlights', () => {
+  const make = (quote: string, prefix: string, suffix: string, start: number) =>
+    createPersistentMarkdownHighlight('f', 'old', { ...selection, quote, prefix, suffix, startOffset: start, endOffset: start + quote.length })
+
+  it('keeps stored offsets when the hash is unchanged', () => {
+    const h = createPersistentMarkdownHighlight('f', 'same', selection)
+    expect(relocateMarkdownHighlights('x', [h], 'same')).toEqual([h])
+  })
+
+  it('finds the quote after text is added before it', () => {
+    const h = make('Important', 'See ', ' body', 4)
+    const [moved] = relocateMarkdownHighlights('Intro line\nSee Important body', [h], 'new')
+    expect(moved?.selection.startOffset).toBe(15)
+    expect(moved?.selection.endOffset).toBe(24)
+    expect(moved?.id).toBe(h.id)
+  })
+
+  it('uses context then old offset to pick among repeated quotes', () => {
+    const text = 'aa cat bb\ndd cat ee'
+    const h = make('cat', 'dd ', ' ee', 3)
+    expect(relocateMarkdownHighlights(text, [h], 'new')[0]?.selection.startOffset).toBe(13)
+    const h2 = make('cat', 'zz ', ' zz', 14)
+    expect(relocateMarkdownHighlights(text, [h2], 'new')[0]?.selection.startOffset).toBe(13)
+  })
+
+  it('drops highlights whose quote is gone from the view only', () => {
+    expect(relocateMarkdownHighlights('nothing here', [make('Important', '', '', 0)], 'new')).toEqual([])
+  })
+
+  it('ignores line ending differences in the stored quote', () => {
+    const h = make('a\r\nb', '', '', 0)
+    expect(relocateMarkdownHighlights('x a\nb', [h], 'new')[0]?.selection.startOffset).toBe(2)
   })
 })
