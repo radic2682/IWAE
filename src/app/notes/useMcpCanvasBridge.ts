@@ -153,7 +153,7 @@ async function handle(op: string, args: Record<string, unknown>, deps: McpCanvas
   if (open !== undefined) {
     current = open.get()
   } else {
-    await flushCanvasSaves(target.path)
+    await flushCanvasSaves(target.path, { editors: false })
     current = parseCanvasDocument(await deps.storage.load(target.path) ?? createInitialCanvasDocument(target.title))
   }
   const commit = async (next: CanvasDocumentV2) => {
