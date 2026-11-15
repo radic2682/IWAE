@@ -140,7 +140,7 @@ import type { SidebarDropItem, SidebarPaneDrop } from './workspace/dockSession'
 import { moveTabToNewPane, setPaneCountTree, splitPane, swapSplitSides } from './workspace/paneLayoutOps'
 import { movePaneToEdge, paneMoveEdges, swapPanes as swapPanesIn } from './workspace/paneMove'
 import { isPaneDragPress, startPaneDrag } from './workspace/paneDrag'
-import { MAX_PANES, leaves, swapLeaves, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
+import { MAX_PANES, leaves, swapLeaves, unzoomedPaneSize, type LayoutNode, type Size, type SplitDir, type SplitRefusal } from '../core/layoutTree'
 import { channelOf, cyclePaneChannel, type Channel, type PaneChannel, type PaneChannels } from './workspace/workspaceChannels'
 import { setAppPref, useAppPrefs } from './appPrefs'
 import { PaneIdContext, WorkspaceContext, type WorkspaceLink } from './workspace/workspaceContext'
@@ -1474,7 +1474,13 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const cell = document.querySelector(`.pane-focus-scope[data-pane-id="${pane}"]`)?.closest<HTMLElement>('.pane-grid-cell')
     if (cell == null) return null
     const box = cell.getBoundingClientRect()
-    return box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : null
+    if (!(box.width > 0 && box.height > 0)) return null
+    // 크게 보는 칸은 영역 전체로 보이지만 나누면 크게 보기가 풀린다: 되돌렸을 때의 크기로 잰다
+    const unzoomedWidth = Number(cell.parentElement?.dataset.unzoomedWidth)
+    if (Number.isFinite(unzoomedWidth) && unzoomedWidth > 0) {
+      return unzoomedPaneSize(workspaceLatest.current.layout, pane, { width: unzoomedWidth, height: box.height }) ?? { width: box.width, height: box.height }
+    }
+    return { width: box.width, height: box.height }
   }
   /** 칸을 못 나눈 까닭을 알린다 */
   const announceRefusal = (reason: SplitRefusal) => announceAction(reason === 'max' ? t('칸은 {max}개까지입니다', { max: MAX_PANES }) : t('칸이 너무 작습니다'))

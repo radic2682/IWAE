@@ -50,6 +50,10 @@
   /* 오른쪽 창 단추 묶음(절대 위치)이 차지하는 만큼 비운다. 폭은 TopBar 가 잰다 */
   padding-right: var(--topbar-wincontrols-w, 128px);
 }
+/* 창이 좁아 왼쪽 바가 단추 묶음(--topbar-actions-w)보다 좁아지면 묶음이 세션 단추와 화면 탭을 덮는다: 모자란 만큼 이 줄을 민다.
+   (넓은 창에서는 왼쪽 바가 묶음과 같은 폭이라 0 이다) */
+.topbar:not(.topbar-sidebar-unreserved) .topbar-session-row { padding-left: max(0px, calc(var(--topbar-actions-w, 0px) - var(--sidebar-width, 0px) - var(--sidebar-divider-width, 0px))); }
+.topbar-mac:not(.topbar-sidebar-unreserved) .topbar-session-row { padding-left: max(8px, calc(var(--topbar-actions-w, 0px) - var(--sidebar-width, 0px) - var(--sidebar-divider-width, 0px))); }
 /* 왼쪽 바를 접으면 앱 메뉴·왼쪽 바 단추가 이 줄 위에 떠 있다: 그만큼 민다 */
 .topbar-sidebar-unreserved .topbar-session-row { padding-left: calc(var(--topbar-actions-w, 146px) + 6px); }
 .topbar-mac .topbar-session-row { padding-left: 8px; }

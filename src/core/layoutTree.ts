@@ -335,6 +335,16 @@ export function fitRootToWidth(root: LayoutNode, width: number): LayoutNode {
   return walk(root, width)
 }
 
+/**
+ * 한 칸을 크게 보는 동안에도, 되돌렸을 때의 그 칸 크기(px). area 는 크게 보기를 풀었을 때 칸들이 나눠 쓰는 영역(왼쪽 바를 뺀 너비 · 높이).
+ * 나누기가 칸을 너무 작게 만드는지 볼 때 크게 보는 칸의 지금 크기(영역 전체)로 재면 안 된다
+ */
+export function unzoomedPaneSize(root: LayoutNode, paneId: string, area: Size): Size | null {
+  if (area.width <= 0 || area.height <= 0) return null
+  const rect = layoutRects(fitRootToWidth(root, area.width)).panes.get(paneId)
+  return rect === undefined ? null : { width: rect.w * area.width, height: rect.h * area.height }
+}
+
 /** 끌기: 나누기 하나의 비율을 두 쪽이 최소 크기를 지키는 범위로 가둔다. total 은 그 나누기가 차지한 길이(px, dir 방향) */
 export function clampRatioForSize(node: SplitNode, ratio: number, total: number): number {
   if (!Number.isFinite(total) || total <= 0) return clampRatio(ratio)

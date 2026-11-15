@@ -431,6 +431,8 @@ export function SplitPanes({
           ref={panesRef}
           className="panes panes-tree"
           data-pane-count={order.length}
+          // 크게 보는 동안 칸 크기를 재는 쪽이 「되돌렸을 때」의 영역 너비를 알 수 있게 한다(왼쪽 바가 다시 자리를 차지한다)
+          data-unzoomed-width={zoomed && shellMetrics.width > 0 ? Math.max(0, shellMetrics.width - (sidebarCollapsed ? 0 : Math.min(rawSidebarPx, maxSidebarPx) + 1) - shellMetrics.chrome) : undefined}
           inert={libraryExpanded}
           aria-hidden={libraryExpanded || undefined}
           onTransitionEnd={(event) => {

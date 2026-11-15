@@ -8,6 +8,7 @@ import {
   findNode,
   findParent,
   fitRootToWidth,
+  unzoomedPaneSize,
   hasPane,
   indexOfPane,
   layoutForCount,
@@ -291,6 +292,23 @@ describe('상한과 최소 크기', () => {
     // 자리가 모자라면 가운데 근처로만
     expect(clampRatioForSize(node, 0.01, 300)).toBeCloseTo(0.2)
     expect(clampRatioForSize(node, 0.4, 0)).toBe(0.4)
+  })
+})
+
+describe('크게 보는 칸의 되돌린 크기(unzoomedPaneSize)', () => {
+  it('영역 전체가 아니라 크게 보기를 풀었을 때의 칸 크기를 돌려준다', () => {
+    const root = split('s', 'h', P('a'), split('t', 'h', P('b'), P('c'), 0.5), 0.5)
+    expect(unzoomedPaneSize(root, 'c', { width: 1000, height: 600 })).toEqual({ width: 250, height: 600 })
+    expect(unzoomedPaneSize(root, 'nope', { width: 1000, height: 600 })).toBeNull()
+    expect(unzoomedPaneSize(root, 'c', { width: 0, height: 600 })).toBeNull()
+  })
+
+  it('좁은 영역에서 오른쪽 칸을 나누려 하면 되돌린 크기로 보아 너무 작다고 한다', () => {
+    const root = split('s', 'h', P('a'), split('t', 'h', P('b'), P('c'), 0.5), 0.5)
+    const size = unzoomedPaneSize(root, 'c', { width: 693 + 3 * 240, height: 600 })!
+    expect(splitRefusal(root, 'c', 'h', size)).toBe('small')
+    // 크게 보는 칸 자체(영역 전체)로 재면 나눌 수 있다고 잘못 본다
+    expect(splitRefusal(root, 'c', 'h', { width: 693 + 3 * 240, height: 600 })).toBeNull()
   })
 })
 

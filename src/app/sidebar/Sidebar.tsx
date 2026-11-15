@@ -1601,7 +1601,7 @@ export function Sidebar({
 
   // 문서 머리 단추(라이브러리·폴더 펼치기·새로고침·가져오기·새 폴더·문서 추가). 「문서」 제목 줄 오른쪽에 단다
   const headActions = (
-    <>
+    <div className="side-head-actions">
           {showVaultSearch ? <VaultSearch
             compact
             records={searchRecords}
@@ -1681,7 +1681,7 @@ export function Sidebar({
               <FilePlus size={16} aria-hidden="true" />
             </button>
           </div>
-    </>
+    </div>
   )
   return (
     <nav

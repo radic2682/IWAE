@@ -30,6 +30,13 @@ describe('맨 위 화면 탭', () => {
     expect(container.querySelector('.screen-tab-mark')).toBeNull()
   })
 
+  it('왼쪽 바가 단추 묶음보다 좁아도 세션 단추와 화면 탭을 묶음 오른쪽으로 민다', () => {
+    const rule = /\.topbar:not\(\.topbar-sidebar-unreserved\) \.topbar-session-row \{([^}]*)\}/u.exec(css('screens.css'))?.[1] ?? ''
+    expect(rule).toContain('--topbar-actions-w')
+    expect(rule).toContain('--sidebar-width')
+    expect(rule).toContain('max(0px')
+  })
+
   it('화면 탭 메뉴를 Escape 로 닫으면 초점이 그 탭으로 돌아간다', async () => {
     renderTabs()
     const tab = screen.getByRole('tab', { name: /실험/ })
