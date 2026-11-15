@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, DotsSixVertical, NotePencil, PencilSimple, Trash } from '@phosphor-icons/react'
 import { BOX_MAX_WIDTH, BOX_MIN_WIDTH, boxConnector, clampBox, type MemoBox } from '../core/boxMemo'
 import type { PdfHighlightColor, PersistentPdfHighlight } from './persistentHighlight'
-import { MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
+import { discardMemoEditor, MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
 import { t } from '../i18n'
 import { useHighlightColors } from '../app/documents/highlightColorStyle'
 import { highlightColorLabel } from '../core/highlightColors'
@@ -70,6 +70,12 @@ export function anchorPoint(memo: PersistentPdfHighlight, box?: MemoBox, boxHeig
  * 메모 바·노트로는 가지 않는다. 눈 단추(깨끗이 보기)가 켜져 있으면 CSS 로 함께 감춘다.
  */
 export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, width, height, onEdit, onSave, onCancelDraft, onChange, onDelete, onSendToNote }: PdfBoxMemosProps) {
+  /** 박스를 지운다. 쓰던 글은 칸이 사라질 때 저장되지 않게 먼저 버린다(지우기 단추는 같은 카드 안이라 칸이 포커스를 잃지 않는다) */
+  const removeBox = (id: string) => {
+    discardMemoEditor(id)
+    if (id === draftId) onCancelDraft()
+    else onDelete(id)
+  }
   const colors = useHighlightColors()
   // 우클릭 메뉴(화면 좌표)
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -223,7 +229,7 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
                   />
                 ))}
               </span>
-              <button type="button" className="pdf-box-btn" aria-label={t('박스 메모 지우기')} title={t('지우기')} onClick={() => (memo.id === draftId ? onCancelDraft() : onDelete(memo.id))}>
+              <button type="button" className="pdf-box-btn" aria-label={t('박스 메모 지우기')} title={t('지우기')} onClick={() => removeBox(memo.id)}>
                 <Trash size={14} aria-hidden="true" />
               </button>
             </div>
@@ -231,6 +237,7 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
               {editing ? (
                 <MemoEditor
                   key={memo.id}
+                  discardId={memo.id}
                   initialText={memo.note ?? ''}
                   initialHtml={memo.noteHtml}
                   placeholder={t('박스 메모 (Esc 취소, 다른 곳을 누르면 저장)')}
@@ -279,7 +286,7 @@ export function PdfBoxMemos({ memos, draftId, editingId, pageSizes, layoutOf, wi
             </button>
           )}
           <hr className="app-context-sep" />
-          <button type="button" role="menuitem" className="app-context-danger" onClick={() => { if (menu.id === draftId) onCancelDraft(); else onDelete(menu.id); setMenu(null) }}>
+          <button type="button" role="menuitem" className="app-context-danger" onClick={() => { removeBox(menu.id); setMenu(null) }}>
             <span className="app-context-icon" aria-hidden="true"><Trash size={15} /></span><span className="app-context-label">{t('박스 메모 지우기')}</span>
           </button>
         </div>,

@@ -2,7 +2,7 @@ import { Fragment, memo, useCallback, useContext, useEffect, useLayoutEffect, us
 import { fitMenuInViewport } from '../ui/fitMenu'
 import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, MinusCircle, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
-import { MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
+import { discardMemoEditor, MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
 import { isMarkdownPath } from '../core/markdownPath'
 import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
@@ -806,9 +806,9 @@ function NoteFlowImpl({
               <button type="button" role="menuitem" onClick={run(() => noteApi.updateNoteAt(openPath, (note) => removeBlock(note, menuItem.key)))}>{menuLabel(<MinusCircle size={15} />, t('이 노트에서만 빼기'))}</button>
             ) : null}
             {menuItem.kind === 'memo' ? (
-              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onDeleteMemo(menuItem.highlight.id))}>{menuLabel(<Trash size={15} />, t('형광펜과 메모 지우기'))}</button>
+              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => { discardMemoEditor(menuItem.key); onDeleteMemo(menuItem.highlight.id) })}>{menuLabel(<Trash size={15} />, t('형광펜과 메모 지우기'))}</button>
             ) : menuItem.kind === 'text' ? (
-              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onRemoveText(menuItem.key))}>{menuLabel(<Trash size={15} />, t('글 지우기'))}</button>
+              <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => { discardMemoEditor(menuItem.key); onRemoveText(menuItem.key) })}>{menuLabel(<Trash size={15} />, t('글 지우기'))}</button>
             ) : (
               <button type="button" role="menuitem" className="note-menu-danger" onClick={run(() => onRemoveSection?.(menuItem.key))}>{menuLabel(<Trash size={15} />, t('소제목 지우기(블록은 남김)'))}</button>
             )}
@@ -1064,6 +1064,7 @@ const NoteTextRow = memo(function NoteTextRow({ item, editing, matches, api, sel
         {editing ? (
           <MemoEditor
             key={item.key}
+            discardId={item.key}
             label={t('글')}
             initialText={item.text}
             initialHtml={item.html}
@@ -1252,6 +1253,7 @@ const NoteMemoRow = memo(function NoteMemoRow({
   const memo = editing ? (
     <MemoEditor
       key={item.key}
+      discardId={item.key}
       initialText={highlight.note ?? ''}
       initialHtml={highlight.noteHtml}
       discardEmptyOnBlur={draft}

@@ -236,7 +236,15 @@ function dropTrailingEmptyLine(element: HTMLElement) {
  * 메모 글쓰기 칸(서식 가능). 다른 곳을 누르거나 Ctrl+Enter 면 저장, Esc 면 그만둔다.
  * onNext 가 있으면(노트의 글 블록) Ctrl+Enter, 또는 끝에서 빈 줄에 Enter 를 한 번 더 누르면 저장하고 onNext(아래에 새 글).
  */
-export function MemoEditor({ initialText, initialHtml, placeholder = t('메모를 쓰세요'), label = t('메모'), onSave, onCancel, onNext, discardEmptyOnBlur = false }: {
+/** 지금 열려 있는 글쓰기 칸을 id 로 찾아 「버린다」: 쓴 글은 저장하지 않고 칸이 사라진다. 메모를 지우기 전에 부른다 */
+const discarders = new Map<string, Set<() => void>>()
+export function discardMemoEditor(id: string): void {
+  for (const discard of discarders.get(id) ?? []) discard()
+}
+
+export function MemoEditor({ initialText, initialHtml, placeholder = t('메모를 쓰세요'), label = t('메모'), onSave, onCancel, onNext, discardEmptyOnBlur = false, discardId }: {
+  /** 이 id 로 discardMemoEditor 를 부르면 쓴 글을 저장하지 않고 버린다(칸 안의 지우기 단추는 포커스를 잃게 하지 않아 사라질 때 저장되어 버린다) */
+  readonly discardId?: string
   /** 비운 채 다른 곳을 누르면 저장하지 않고 그만둔다(새 메모). Ctrl+Enter 로는 빈 채로도 남길 수 있다 */
   readonly discardEmptyOnBlur?: boolean
   readonly initialText: string
@@ -311,7 +319,17 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
       observerRef.current = observer
     }
     const unregister = registerEditorFlusher(() => commitRef.current())
+    const discard = () => { doneRef.current = true }
+    const group = discardId === undefined ? undefined : discarders.get(discardId) ?? new Set<() => void>()
+    if (discardId !== undefined && group !== undefined) {
+      group.add(discard)
+      discarders.set(discardId, group)
+    }
     return () => {
+      if (discardId !== undefined && group !== undefined) {
+        group.delete(discard)
+        if (group.size === 0 && discarders.get(discardId) === group) discarders.delete(discardId)
+      }
       unregister()
       commitRef.current()
       doneRef.current = true
@@ -389,15 +407,15 @@ export function MemoEditor({ initialText, initialHtml, placeholder = t('메모�
             }
             return done
           }
-          if (event.key === 'Escape') {
+          if (imeKey(event)) {
+            // 한글을 조합하는 중에는 Esc · Ctrl+Enter 도 조합을 끝내는 키다. 칸을 그만두거나 저장하지 않는다
+          } else if (event.key === 'Escape') {
             event.preventDefault()
             finish(false)
           } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
             event.preventDefault()
             finish(true)
             onNext?.()
-          } else if (imeKey(event)) {
-            // 한글을 조합하는 중에는 단축을 쓰지 않는다
           } else if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'e') {
             event.preventDefault()
             toggleInlineCode(element)
