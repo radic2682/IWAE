@@ -14,6 +14,8 @@ export interface UndoEntry {
   readonly key: string
   readonly undo: () => void
   readonly redo: () => void
+  /** 사람이 한 고침임을 알린다. 이름 있는 묶음(AI 변경)이 열려 있어도 그 묶음에 섞지 않는다 */
+  readonly user?: boolean
 }
 
 interface Group {
@@ -36,17 +38,24 @@ let openGroup: Group | null = null
 let separate = false
 let nextGroupId = 1
 /** beginUndoGroup 가 연 이름 있는 묶음. 닫을 때까지 이어지는 동작(await 를 건너도)이 모두 이 묶음으로 들어간다 */
-let labeled: { label: string; group: Group | null } | null = null
+let labeled: { label: string; group: Group | null; /** 되돌려져 떼어 낸 묶음(다시 하기 하면 도로 잇는다) */ sealed?: Group } | null = null
 
 function newGroup(entry: UndoEntry, now: number): Group {
   return { id: nextGroupId++, entries: [entry], at: now }
+}
+
+/** 지금 사람의 입력(키 · 마우스 …) 이벤트를 처리하는 중인가 */
+function inUserGesture(): boolean {
+  const current = (globalThis as { event?: { isTrusted?: boolean } }).event
+  return current?.isTrusted === true
 }
 
 export function recordUndo(entry: UndoEntry): void {
   if (applying) return
   future = []
   const now = Date.now()
-  if (labeled !== null) {
+  // AI 변경이 열려 있는 동안 사람이 한 고침은 그 묶음에 섞지 않는다(AI 변경을 되돌릴 때 사람의 글이 같이 되돌려지지 않게)
+  if (labeled !== null && entry.user !== true && !inUserGesture()) {
     if (labeled.group === null) {
       const group = newGroup(entry, now)
       group.label = labeled.label
@@ -122,6 +131,7 @@ function mergeInto(group: Group, entry: UndoEntry) {
 export function undo(): boolean {
   const group = past.pop()
   if (group === undefined) return false
+  sealLabeled(group)
   run(() => { for (const entry of [...group.entries].reverse()) entry.undo() })
   future.push(group)
   return true
@@ -131,8 +141,18 @@ export function redo(): boolean {
   const group = future.pop()
   if (group === undefined) return false
   run(() => { for (const entry of group.entries) entry.redo() })
-  past.push({ ...group, at: 0 })
+  group.at = 0
+  past.push(group)
+  if (labeled !== null && labeled.group === null && labeled.sealed === group) { labeled.group = group; labeled.sealed = undefined }
   return true
+}
+
+/** 열려 있는 이름 있는 묶음이 되돌려졌다: 이어지는 동작은 사라진 묶음이 아니라 새 묶음(같은 이름)으로 남긴다 */
+function sealLabeled(group: Group): void {
+  if (labeled !== null && labeled.group === group) {
+    labeled.group = null
+    labeled.sealed = group
+  }
 }
 
 /** 이름 있는 묶음을 연다. endUndoGroup 까지 기록되는 되돌리기는 모두 이 묶음 하나로 들어간다(안에 아무것도 남지 않으면 묶음이 생기지 않는다) */
@@ -180,6 +200,7 @@ export function undoLabeled(id: number): boolean {
   const index = past.findIndex((group) => group.id === id)
   if (index < 0) return false
   const [group] = past.splice(index, 1)
+  sealLabeled(group!)
   run(() => { for (const entry of [...group!.entries].reverse()) entry.undo() })
   future.push(group!)
   return true

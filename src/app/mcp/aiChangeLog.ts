@@ -77,7 +77,19 @@ async function settleUndoWork(): Promise<void> {
  * 쓰기 하나를 되돌리기 묶음 하나로 감싼다. run 이 채운 ChangeNote(대상·개수·요약)가 기록에 남는다.
  * 도중에 실패해도 이미 바뀐 것은 묶음으로 남아 ai_undo 로 되돌릴 수 있다 — 오류에 그 사실을 덧붙인다.
  */
-export async function runAiChange<T>(tool: string, run: (note: ChangeNote) => Promise<T> | T, targetHint = ''): Promise<T> {
+export function runAiChange<T>(tool: string, run: (note: ChangeNote) => Promise<T> | T, targetHint = ''): Promise<T> {
+  // 되돌리기 묶음은 하나씩만 열 수 있다: 다른 변경이 돌고 있으면 끝난 뒤에 시작한다(이름 · 기록이 서로 섞이지 않게)
+  const result = aiTail === null ? runAiChangeNow(tool, run, targetHint) : aiTail.then(() => runAiChangeNow(tool, run, targetHint))
+  const mine = result.then(() => undefined, () => undefined)
+  aiTail = mine
+  void mine.then(() => { if (aiTail === mine) aiTail = null })
+  return result
+}
+
+/** 지금 돌고 있는(또는 기다리는) 마지막 변경. 없으면 null */
+let aiTail: Promise<void> | null = null
+
+async function runAiChangeNow<T>(tool: string, run: (note: ChangeNote) => Promise<T> | T, targetHint: string): Promise<T> {
   const note: ChangeNote = { target: targetHint, count: 0, summary: '' }
   aiActivityBegin(targetHint)
   beginUndoGroup(tool)

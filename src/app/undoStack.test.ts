@@ -84,3 +84,56 @@ describe('이름 있는 되돌리기 묶음', () => {
     expect(state.value).toBe(0)
   })
 })
+
+describe('AI 변경이 열려 있는 동안', () => {
+  it('사람이 고친 것은 AI 묶음에 섞이지 않아 AI 변경만 되돌려진다', () => {
+    const ai = cell()
+    const typed = { value: 'old' }
+    beginUndoGroup('ai')
+    ai.set('memo:ai', 1)
+    recordUndo({ key: 'note:user', user: true, undo: () => { typed.value = 'old' }, redo: () => { typed.value = 'typed' } })
+    typed.value = 'typed'
+    const info = endUndoGroup()!
+    expect(info.objects).toEqual(['memo:ai'])
+    expect(undoLabeled(info.id)).toBe(true)
+    expect(ai.state.value).toBe(0)
+    expect(typed.value).toBe('typed')
+  })
+
+  it('사람의 입력 이벤트 안에서 남긴 것도 섞이지 않는다', () => {
+    const ai = cell()
+    beginUndoGroup('ai')
+    ai.set('memo:ai', 1)
+    ;(globalThis as { event?: unknown }).event = { isTrusted: true }
+    try { ai.set('note:user', 5) } finally { delete (globalThis as { event?: unknown }).event }
+    expect(endUndoGroup()!.objects).toEqual(['memo:ai'])
+  })
+
+  it('열려 있는 동안 Ctrl+Z 를 눌러도 이어지는 AI 기록을 잃지 않는다', () => {
+    const { state, set } = cell()
+    beginUndoGroup('ai')
+    set('a', 1)
+    expect(undo()).toBe(true)
+    expect(state.value).toBe(0)
+    set('a', 2)
+    const info = endUndoGroup()
+    expect(info).not.toBeNull()
+    expect(undoGroupState(info!.id)).toBe('past')
+    expect(undo()).toBe(true)
+    expect(state.value).toBe(0)
+  })
+
+  it('다시 하기 뒤에도 열린 묶음이 되돌릴 수 있는 묶음으로 남는다', () => {
+    const { state, set } = cell()
+    beginUndoGroup('ai')
+    set('a', 1)
+    undo()
+    redo()
+    set('b', 2)
+    const info = endUndoGroup()!
+    expect(undoGroupState(info.id)).toBe('past')
+    expect(info.objects).toContain('b')
+    undoLabeled(info.id)
+    expect(state.value).toBe(0)
+  })
+})

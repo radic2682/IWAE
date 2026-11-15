@@ -135,3 +135,25 @@ describe('활동 알약 상태', () => {
     expect(getAiActivity()).toEqual({ active: false, target: '', changes: 0 })
   })
 })
+
+describe('runAiChange 동시 호출', () => {
+  it('두 변경이 겹쳐도 각자 이름과 묶음을 지킨다(뒤의 것은 앞의 것이 끝난 뒤 시작한다)', async () => {
+    const { values, set } = store()
+    const first = runAiChange('first_tool', async () => {
+      set('a', 1)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      set('b', 2)
+    })
+    const second = runAiChange('second_tool', async () => {
+      set('c', 3)
+    })
+    await Promise.all([first, second])
+    const log = aiChanges().changes
+    expect(log.map((change) => change.tool)).toEqual(['second_tool', 'first_tool'])
+    expect(undo()).toBe(true)
+    expect(values).toMatchObject({ a: 1, b: 2, c: 0 })
+    expect(undo()).toBe(true)
+    expect(values).toMatchObject({ a: 0, b: 0, c: 0 })
+    expect(canUndo()).toBe(false)
+  })
+})
