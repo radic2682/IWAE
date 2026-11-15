@@ -225,11 +225,32 @@ const docRevisions = new Map<string, number>()
 
 /**
  * 쪽을 끼우거나 합칠 다른 PDF 의 암호를 미리 푼다. Rust 는 이 세션에서 푼 암호를 경로별로 기억하므로,
- * 암호 PDF 면 여기서 한 번 열어 묻고(취소하면 PdfPasswordError) 이후 편집·합치기가 그 암호를 쓴다.
+ * 암호 PDF 면 여기서 확인해 묻고(문서 캐시에는 올리지 않는다)(취소하면 PdfPasswordError) 이후 편집·합치기가 그 암호를 쓴다.
  */
 async function unlockSources(paths: readonly (string | undefined)[]): Promise<void> {
   const unique = [...new Set(paths.filter((path): path is string => path !== undefined && path !== ''))]
-  for (const path of unique) await openPdf(path)
+  if (unique.length === 0) return
+  const { invoke } = await import('@tauri-apps/api/core')
+  for (const path of unique) {
+    try {
+      await invoke<void>('pdf_check_source', { path })
+    } catch (error) {
+      let problem = passwordProblem(error)
+      if (problem === null) throw error
+      if (passwordPrompt === null) throw new PdfPasswordError(withoutCode(error))
+      for (;;) {
+        const password = await passwordPrompt({ path, wrong: problem === 'wrong' })
+        if (password === null) throw new PdfPasswordError(withoutCode(error))
+        try {
+          await invoke<void>('pdf_check_source', { path, password })
+          break
+        } catch (retry) {
+          problem = passwordProblem(retry)
+          if (problem === null) throw retry
+        }
+      }
+    }
+  }
 }
 
 /** 편집을 원본에 덮어쓰고 같은 docId 로 다시 연다. 덮기 전 원본은 backup 경로에 남는다 */

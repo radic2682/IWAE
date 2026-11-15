@@ -47,9 +47,9 @@ describe('다른 PDF 의 암호', () => {
       return 'secret'
     })
     invoke.mockImplementation(async (command: string, args: Record<string, unknown>) => {
-      if (command === 'pdf_open') {
+      if (command === 'pdf_check_source') {
         if (args.password === undefined) throw new Error('IWAE_PDF_PASSWORD_REQUIRED: 암호로 보호된 PDF 입니다: other.pdf')
-        return meta('cccccccccccc', true)
+        return undefined
       }
       if (command === 'pdf_edit_pages') return meta('dddddddddddd', false)
       throw new Error(`unexpected ${command}`)
@@ -63,7 +63,8 @@ describe('다른 PDF 의 암호', () => {
     expect(asked).toEqual(['C:/other.pdf'])
     const order = invoke.mock.calls.map((call) => call[0])
     expect(order.at(-1)).toBe('pdf_edit_pages')
-    expect(order.indexOf('pdf_open')).toBeLessThan(order.indexOf('pdf_edit_pages'))
+    expect(order).not.toContain('pdf_open')
+    expect(order.indexOf('pdf_check_source')).toBeLessThan(order.indexOf('pdf_edit_pages'))
   })
 
   it('합칠 PDF 의 암호를 취소하면 합치지 않는다', async () => {
@@ -71,6 +72,29 @@ describe('다른 PDF 의 암호', () => {
     invoke.mockRejectedValue(new Error('IWAE_PDF_PASSWORD_REQUIRED: 암호로 보호된 PDF 입니다: other.pdf'))
     await expect(runPdfTool('dddddddddddd', { kind: 'merge', sources: ['C:/other.pdf'] }, { kind: 'newFile', path: 'C:/out.pdf' })).rejects.toMatchObject({ name: 'PdfPasswordError' })
     expect(invoke.mock.calls.some((call) => call[0] === 'pdf_tool')).toBe(false)
+  })
+
+  it('합칠 PDF 를 확인할 때 문서 캐시에 올리지 않고(pdf_open 없이) 틀린 암호는 다시 묻는다', async () => {
+    const seen: boolean[] = []
+    setPdfPasswordPrompt(async ({ wrong }) => {
+      seen.push(wrong)
+      return wrong ? 'good' : 'bad'
+    })
+    invoke.mockImplementation(async (command: string, args: Record<string, unknown>) => {
+      if (command === 'pdf_check_source') {
+        if (args.path !== 'C:/locked.pdf') return undefined
+        if (args.password === undefined) throw new Error('IWAE_PDF_PASSWORD_REQUIRED: x')
+        if (args.password === 'bad') throw new Error('IWAE_PDF_PASSWORD_WRONG: x')
+        return undefined
+      }
+      if (command === 'pdf_tool') return null
+      throw new Error(`unexpected ${command}`)
+    })
+    const sources = Array.from({ length: 20 }, (_, i) => (i === 0 ? 'C:/locked.pdf' : `C:/s${i}.pdf`))
+    await runPdfTool('host', { kind: 'merge', sources: [...sources, 'C:/s1.pdf'] }, { kind: 'newFile', path: 'C:/out.pdf' })
+    expect(seen).toEqual([false, true])
+    expect(invoke.mock.calls.some((call) => call[0] === 'pdf_open')).toBe(false)
+    expect(invoke.mock.calls.filter((call) => call[0] === 'pdf_check_source' && call[1].password === undefined)).toHaveLength(20)
   })
 
   it('쪽 편집에 다른 PDF 가 없으면 따로 열지 않는다', async () => {
