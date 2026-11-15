@@ -10,6 +10,8 @@ import { TranslatorPanel } from './TranslatorPanel'
 import { normalizeTabKind } from '../workspace/tabs'
 import {
   PANEL_MARGIN,
+  PANEL_MIN_HEIGHT,
+  PANEL_MIN_WIDTH,
   TRANSLATOR_MIGRATED_KEY,
   TRANSLATOR_PANEL_STORAGE_KEY,
   TRANSLATOR_WINDOW_H,
@@ -62,6 +64,13 @@ function makeService(): TranslatorService & { translate: ReturnType<typeof vi.fn
 
 const input = () => screen.getByLabelText('번역할 글') as HTMLTextAreaElement
 const windowEl = () => document.querySelector<HTMLElement>('.translator-window')!
+const initialSize = { width: window.innerWidth, height: window.innerHeight }
+/** 앱 창 크기를 바꾼다(열려 있는 번역기는 resize 이벤트로 다시 잰다) */
+function resizeAppWindow(width: number, height: number): void {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+  window.dispatchEvent(new Event('resize'))
+}
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -70,6 +79,7 @@ beforeEach(() => {
   act(() => { publishReaderSelection('test', '') })
 })
 afterEach(() => {
+  resizeAppWindow(initialSize.width, initialSize.height)
   cleanup()
   document.body.innerHTML = ''
 })
@@ -305,6 +315,7 @@ describe('번역기는 탭이 아니라 앱 창 전체에 떠 있는 창이다',
   it('처음 크기는 작은 340×300 이고 기본 자리는 창 오른쪽 아래다(가장자리 12px 안쪽, 상단바 · 칸 머리를 덮지 않는다)', () => {
     expect(TRANSLATOR_WINDOW_W).toBe(340)
     expect(TRANSLATOR_WINDOW_H).toBe(300)
+    resizeAppWindow(1600, 1000)
     renderOpen(makeService())
     const el = windowEl()
     expect(el.style.width).toBe('340px')
@@ -312,6 +323,26 @@ describe('번역기는 탭이 아니라 앱 창 전체에 떠 있는 창이다',
     expect(PANEL_MARGIN).toBe(12)
     expect(Number.parseFloat(el.style.top) + 300).toBe(window.innerHeight - PANEL_MARGIN)
     expect(Number.parseFloat(el.style.left) + 340).toBe(window.innerWidth - PANEL_MARGIN)
+  })
+
+  it('작은 창에서는 그려지는 크기를 줄이고, 저장된 크기는 그대로 두어 창이 커지면 돌아온다', () => {
+    resizeAppWindow(1000, 640)
+    renderOpen(makeService())
+    const el = windowEl()
+    expect(Number.parseFloat(el.style.width)).toBeLessThan(TRANSLATOR_WINDOW_W)
+    expect(Number.parseFloat(el.style.width)).toBeGreaterThanOrEqual(PANEL_MIN_WIDTH)
+    expect(Number.parseFloat(el.style.height)).toBeLessThan(TRANSLATOR_WINDOW_H)
+    expect(Number.parseFloat(el.style.height)).toBeGreaterThanOrEqual(PANEL_MIN_HEIGHT)
+    expect(getTranslatorWindow()).toMatchObject({ w: TRANSLATOR_WINDOW_W, h: TRANSLATOR_WINDOW_H })
+    // 머리 줄을 잡고 옮겨도 저장된 크기는 줄어들지 않는다
+    const head = el.querySelector<HTMLElement>('.translator-window-head')!
+    fireEvent.pointerDown(head, { button: 0, clientX: 500, clientY: 400, pointerId: 1 })
+    fireEvent.pointerMove(head, { clientX: 450, clientY: 380, pointerId: 1 })
+    fireEvent.pointerUp(head, { clientX: 450, clientY: 380, pointerId: 1 })
+    expect(getTranslatorWindow()).toMatchObject({ w: TRANSLATOR_WINDOW_W, h: TRANSLATOR_WINDOW_H })
+    act(() => resizeAppWindow(1600, 1000))
+    expect(windowEl().style.width).toBe(`${TRANSLATOR_WINDOW_W}px`)
+    expect(windowEl().style.height).toBe(`${TRANSLATOR_WINDOW_H}px`)
   })
 
   it('머리 줄에 번역기 제목 · 번역기 이름 · 닫기 단추가 있고, 닫기는 창을 닫는다', () => {
@@ -390,8 +421,8 @@ describe('예전 값 옮기기', () => {
   it('상단바(top) 아래에만 놓인다', () => {
     const box = placePanel({ x: 100, y: 0, w: 340, h: 380 }, { width: 900, height: 900, top: 36 })
     expect(box.y).toBeGreaterThanOrEqual(36 + PANEL_MARGIN)
-    const fresh = placePanel({ x: null, y: null, w: 340, h: 300 }, { width: 900, height: 900, top: 36 })
-    expect(fresh).toMatchObject({ x: 900 - 340 - PANEL_MARGIN, y: 900 - 300 - PANEL_MARGIN })
+    const fresh = placePanel({ x: null, y: null, w: 340, h: 300 }, { width: 1600, height: 900, top: 36 })
+    expect(fresh).toMatchObject({ x: 1600 - 340 - PANEL_MARGIN, y: 900 - 300 - PANEL_MARGIN })
     const tall = placePanel({ x: 100, y: 0, w: 340, h: 2000 }, { width: 900, height: 600, top: 36 })
     expect(tall.y + tall.h).toBeLessThanOrEqual(600 - PANEL_MARGIN)
   })

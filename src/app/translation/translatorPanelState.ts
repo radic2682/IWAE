@@ -25,6 +25,9 @@ export const PANEL_MIN_WIDTH = 280
 export const PANEL_MIN_HEIGHT = 240
 /** 창 가장자리에서 띄우는 여백 */
 export const PANEL_MARGIN = 12
+/** 그려지는 크기의 위쪽 한계(앱 창 대비). 작은 창에서 문서 칸을 덮지 않게 하고, 저장된 크기는 그대로 둔다 */
+export const PANEL_MAX_WIDTH_RATIO = 0.3
+export const PANEL_MAX_HEIGHT_RATIO = 0.42
 export const TRANSLATOR_WINDOW_STORAGE_KEY = 'iwae:translator-window:v1'
 /** 상단바 높이(px): CSS 의 --bar-h 와 같은 값이다(tokens.css, 시험이 맞는지 본다). 번역기는 이 아래에만 놓인다 */
 export const TOPBAR_HEIGHT_PX = 36
@@ -145,16 +148,20 @@ export function useTranslatorWindow(): TranslatorWindowState {
 export interface PanelBox { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 
 /**
- * 앱 창(bounds) 안에 들어오게: 크기는 창보다 커지지 않고, 자리는 가장자리 여백 안쪽. x·y 가 없으면 오른쪽 위.
+ * 앱 창(bounds) 안에 들어오게: 크기는 창보다 커지지 않고(창 너비·높이의 일정 비율이 한계, 그래도 최소 크기는 지킨다),
+ * 자리는 가장자리 여백 안쪽. x·y 가 없으면 오른쪽 위.
  * bounds.top: 맨 윗줄(상단바)의 높이. 번역기는 그 아래에만 놓인다.
  */
 export function placePanel(value: Pick<TranslatorWindowState, 'x' | 'y' | 'w' | 'h'>, bounds: { readonly width: number; readonly height: number; readonly top?: number }): PanelBox {
   const top = Math.max(0, bounds.top ?? 0)
   // 아직 창 크기를 못 쟀으면(첫 그림) 저장된 값 그대로
   if (bounds.width <= 0 || bounds.height <= 0) return { x: value.x ?? PANEL_MARGIN, y: Math.max(value.y ?? 0, top + PANEL_MARGIN), w: value.w, h: value.h }
-  const w = Math.max(Math.min(value.w, bounds.width - PANEL_MARGIN * 2), Math.min(PANEL_MIN_WIDTH, bounds.width - PANEL_MARGIN * 2))
+  const roomW = bounds.width - PANEL_MARGIN * 2
+  const capW = Math.min(roomW, Math.max(PANEL_MIN_WIDTH, Math.floor(bounds.width * PANEL_MAX_WIDTH_RATIO)))
+  const w = Math.max(Math.min(value.w, capW), Math.min(PANEL_MIN_WIDTH, roomW))
   const room = bounds.height - top - PANEL_MARGIN * 2
-  const h = Math.max(Math.min(value.h, room), Math.min(PANEL_MIN_HEIGHT, room))
+  const capH = Math.min(room, Math.max(PANEL_MIN_HEIGHT, Math.floor(bounds.height * PANEL_MAX_HEIGHT_RATIO)))
+  const h = Math.max(Math.min(value.h, capH), Math.min(PANEL_MIN_HEIGHT, room))
   const maxX = Math.max(bounds.width - w - PANEL_MARGIN, PANEL_MARGIN)
   const minY = top + PANEL_MARGIN
   const maxY = Math.max(bounds.height - h - PANEL_MARGIN, minY)

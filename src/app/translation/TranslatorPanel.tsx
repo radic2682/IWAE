@@ -199,10 +199,12 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
     }
   }
   const end = (event: ReactPointerEvent<HTMLElement>) => {
-    if (gesture.current === null) return
+    const finished = gesture.current
+    if (finished === null) return
     gesture.current = null
     try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { /* 이미 놓였다 */ }
-    if (draft !== null) updateTranslatorWindow({ x: draft.x, y: draft.y, w: draft.w, h: draft.h })
+    // 옮기기만 했으면 크기는 건드리지 않는다(작은 창에서 줄여 그린 크기가 저장된 크기를 덮지 않게)
+    if (draft !== null) updateTranslatorWindow(finished.mode === 'move' ? { x: draft.x, y: draft.y } : { x: draft.x, y: draft.y, w: draft.w, h: draft.h })
     setDraft(null)
   }
 
