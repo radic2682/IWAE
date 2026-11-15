@@ -12,17 +12,138 @@ body {
   color: #f4f6fa;
   font-family: "Segoe UI Variable", "Segoe UI", "Malgun Gothic", sans-serif;
   user-select: none;
+  -webkit-user-select: none;
   cursor: default;
 }
 
-#app {
+[hidden] { display: none !important; }
+
+.sky {
+  position: relative;
+  width: 100%;
   height: 100%;
+}
+
+/* The whole window background drags; content layers let pointer events fall through to it. */
+.bg { position: absolute; inset: 0; }
+.stars { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.stack {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
+  pointer-events: none;
+}
+.stack > button { pointer-events: auto; }
+.logo { width: 72px; height: 72px; pointer-events: none; }
+.name { font-size: 18px; font-weight: 750; letter-spacing: 0.14em; padding-left: 0.14em; }
+.ver { font-size: 12px; opacity: 0.6; margin-top: -4px; }
+.title { font-size: 14px; opacity: 0.85; margin-top: 4px; }
+.sub { font-size: 12px; opacity: 0.6; margin-top: -4px; }
+
+.bar {
+  width: 200px;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: rgb(255 255 255 / 14%);
+  overflow: hidden;
+  position: relative;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #4f8fd0, #8cc1f2);
+}
+.bar.indeterminate i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  animation: slide 1.4s ease-in-out infinite;
+}
+@keyframes slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
 }
 
-.logo { width: 64px; height: 64px; }
-.name { font-size: 20px; font-weight: 600; letter-spacing: 0.08em; }
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+button:focus { outline: none; }
+button:focus-visible { outline: 2px solid rgba(140, 193, 242, 0.9); outline-offset: 2px; }
+
+.btn {
+  margin-top: 8px;
+  padding: 9px 40px;
+  border-radius: 8px;
+  background: #2f6fb0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.12s;
+}
+.btn:hover:not(:disabled) { background: #3a7cc2; }
+.btn:active:not(:disabled) { background: #2a649f; }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn.ghost {
+  margin-top: 0;
+  background: none;
+  color: rgb(244 246 250 / 75%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 24%);
+}
+.btn.ghost:hover:not(:disabled) { background: rgb(255 255 255 / 8%); }
+
+.link {
+  font-size: 12px;
+  padding: 2px 4px;
+  opacity: 0.6;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  border-radius: 4px;
+}
+.link:hover { opacity: 0.9; }
+
+/* 28px hit area, glyph stays small */
+.x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 6px;
+  opacity: 0.55;
+}
+.x:hover:not(:disabled) { opacity: 1; background: rgb(255 255 255 / 10%); }
+.x:disabled { opacity: 0.35; cursor: default; }
+
+.lang {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  padding: 3px 6px;
+  font-size: 12px;
+  opacity: 0.55;
+  border-radius: 4px;
+}
+.lang:hover { opacity: 0.9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bar.indeterminate i { animation: none; width: 100%; opacity: 0.6; }
+  .btn { transition: none; }
+}
