@@ -155,9 +155,31 @@ pub mod scope_log {
         path.strip_prefix(r"\\?\").unwrap_or(path).replace('/', "\\").to_lowercase()
     }
 
+    /// 이 파일이 **확실히 없어졌나**: 파일이 든 폴더에는 닿는데 파일만 없을 때만 참이다.
+    /// 드라이브(USB)·공유 폴더가 꺼져 있거나 폴더째 안 보이는 것은 없어진 것이 아니라 지금 못 닿는 것이므로 거짓이다.
+    /// 그걸 없어진 것으로 치면 한 번 빼 놓고 켠 것만으로 그 파일의 열람 허락이 영영 사라진다.
+    pub fn definitely_gone(path: &str) -> bool {
+        // 공유 폴더(UNC) 경로는 서버가 안 닿으면 확인이 수십 초 걸린다. 시작을 붙잡지 않으려고 확인하지 않고 남긴다
+        if is_network_path(path) {
+            return false;
+        }
+        let path = Path::new(path);
+        match std::fs::symlink_metadata(path) {
+            Ok(_) => false,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => path.parent().is_some_and(|parent| parent.is_dir()),
+            Err(_) => false,
+        }
+    }
+
+    /// 공유 폴더 꼴(`\\서버\공유`, `//서버/공유`, `\\?\UNC\…`)인가
+    fn is_network_path(path: &str) -> bool {
+        let slashed = path.replace('\\', "/");
+        slashed.starts_with("//") && (!slashed.starts_with("//?/") || slashed.to_ascii_lowercase().starts_with("//?/unc/"))
+    }
+
     /// 기록을 갱신한다: 같은 파일은 때만 새로, 새 파일은 끝에. 그다음 오래된 것과 100개 초과분을 자른다.
-    /// 잘려 나간(저장 파일에서도 덜어 낼) 경로를 돌려준다
-    pub fn update_log(log: &mut Vec<Opened>, opened: &[String], now: u64, exists: &dyn Fn(&str) -> bool) -> Vec<String> {
+    /// `gone` 이 참인(확실히 없어진, [`definitely_gone`]) 파일도 뺀다. 잘려 나간(저장 파일에서도 덜어 낼) 경로를 돌려준다
+    pub fn update_log(log: &mut Vec<Opened>, opened: &[String], now: u64, gone: &dyn Fn(&str) -> bool) -> Vec<String> {
         for path in opened {
             match log.iter_mut().find(|entry| normalize(&entry.path) == normalize(path)) {
                 Some(entry) => entry.at = now,
@@ -169,7 +191,7 @@ pub mod scope_log {
         let mut removed = Vec::new();
         let mut kept = Vec::new();
         for entry in log.drain(..) {
-            let stale = now.saturating_sub(entry.at) > MAX_AGE_SECS || !exists(&entry.path) || kept.len() >= MAX_ENTRIES;
+            let stale = now.saturating_sub(entry.at) > MAX_AGE_SECS || gone(&entry.path) || kept.len() >= MAX_ENTRIES;
             if stale {
                 removed.push(entry.path);
             } else {
@@ -180,8 +202,9 @@ pub mod scope_log {
         removed
     }
 
-    /// 저장된 범위 항목에서 `removed` 와 이미 없어진 단일 파일 항목을 덜어 낸다. 폴더 항목(`*`·`**` 로 끝남)은 건드리지 않는다
-    pub fn prune_patterns(patterns: Vec<String>, removed: &[String], exists: &dyn Fn(&str) -> bool) -> Vec<String> {
+    /// 저장된 범위 항목에서 `removed` 와 확실히 없어진 단일 파일 항목을 덜어 낸다. 폴더 항목(`*`·`**` 로 끝남)은 건드리지 않는다.
+    /// 못 닿는 드라이브·공유 폴더 위의 파일 항목은 남긴다([`definitely_gone`])
+    pub fn prune_patterns(patterns: Vec<String>, removed: &[String], gone: &dyn Fn(&str) -> bool) -> Vec<String> {
         let removed: Vec<String> = removed.iter().map(|path| normalize(&escape_glob(path))).collect();
         patterns
             .into_iter()
@@ -195,7 +218,7 @@ pub mod scope_log {
                 // 단일 파일 항목이 가리키던 파일이 없어졌으면 버린다(글자 패턴 표기를 되돌려 본다)
                 let plain = pattern.replace("[?]", "?").replace("[*]", "*").replace("[[]", "[").replace("[]]", "]");
                 let looks_like_file = Path::new(&plain).extension().is_some();
-                !(looks_like_file && !exists(&plain))
+                !(looks_like_file && gone(&plain))
             })
             .collect()
     }
@@ -233,16 +256,16 @@ pub mod scope_log {
     }
 
     /// 저장 파일을 정리한다(시작할 때 한 번). 정리한 항목 수를 돌려준다
-    pub fn prune_files(dir: &Path, now: u64, exists: &dyn Fn(&str) -> bool) -> usize {
+    pub fn prune_files(dir: &Path, now: u64, gone: &dyn Fn(&str) -> bool) -> usize {
         let log_path = dir.join(LOG_FILE);
         let mut log = read_log(&log_path);
-        let removed = update_log(&mut log, &[], now, exists);
+        let removed = update_log(&mut log, &[], now, gone);
         write_log(&log_path, &log);
         let scope_path = dir.join(SCOPE_FILE);
         let Ok(bytes) = std::fs::read(&scope_path) else { return 0 };
         let Ok(mut state) = bincode::deserialize::<ScopeState>(&bytes) else { return 0 };
         let before = state.allowed_paths.len();
-        state.allowed_paths = prune_patterns(std::mem::take(&mut state.allowed_paths), &removed, exists);
+        state.allowed_paths = prune_patterns(std::mem::take(&mut state.allowed_paths), &removed, gone);
         let dropped = before - state.allowed_paths.len();
         if dropped > 0 {
             if let Ok(out) = bincode::serialize(&state) {
@@ -252,12 +275,28 @@ pub mod scope_log {
         dropped
     }
 
+    /// 시작할 때 파일 확인에 쓸 수 있는 시간 전체
+    const CHECK_BUDGET: std::time::Duration = std::time::Duration::from_millis(1500);
+
+    /// [`definitely_gone`] 을 따로 띄운 스레드에서 `deadline` 까지만 기다린다. 그때까지 답이 없으면(응답 없는 드라이브) 없어진 것으로 치지 않는다
+    fn gone_before(path: &str, deadline: std::time::Instant) -> bool {
+        let Some(wait) = deadline.checked_duration_since(std::time::Instant::now()).filter(|wait| !wait.is_zero()) else { return false };
+        let (tx, rx) = std::sync::mpsc::channel();
+        let owned = path.to_string();
+        std::thread::spawn(move || {
+            let _ = tx.send(definitely_gone(&owned));
+        });
+        rx.recv_timeout(wait).unwrap_or(false)
+    }
+
     /// persisted-scope 보다 먼저 등록한다: 저장 파일을 읽히기 전에 정리해 둔다
     pub fn pruner<R: Runtime>() -> TauriPlugin<R> {
         Builder::<R>::new("iwae-scope-pruner")
             .setup(|app, _api| {
                 if let Ok(dir) = app.path().app_data_dir() {
-                    let dropped = prune_files(&dir, now_secs(), &|path| Path::new(path).exists());
+                    // 확인이 느린 곳(꺼진 드라이브·공유 폴더)이 시작을 붙잡지 않게 전체에 시간 제한을 둔다. 제한을 넘기면 남긴다
+                    let deadline = std::time::Instant::now() + CHECK_BUDGET;
+                    let dropped = prune_files(&dir, now_secs(), &|path| gone_before(path, deadline));
                     if dropped > 0 {
                         log::info!("pruned {dropped} stale externally-opened file entries from the persisted fs scope");
                     }
@@ -281,19 +320,19 @@ pub mod scope_log {
                 Opened { path: "C:/a/fresh.pdf".into(), at: 1_000 + 40 * DAY },
             ];
             let now = 1_000 + 41 * DAY;
-            let removed = update_log(&mut log, &[], now, &|path| !path.ends_with("gone.pdf"));
+            let removed = update_log(&mut log, &[], now, &|path| path.ends_with("gone.pdf"));
             assert_eq!(log.iter().map(|e| e.path.as_str()).collect::<Vec<_>>(), vec!["C:/a/fresh.pdf"]);
             assert!(removed.contains(&"C:/a/old.pdf".to_string()) && removed.contains(&"C:/a/gone.pdf".to_string()));
 
             // 다시 열면 때만 새로 고친다(같은 파일의 다른 표기도 한 항목)
             let mut log = vec![Opened { path: "C:/a/fresh.pdf".into(), at: 5 }];
-            update_log(&mut log, &["C:\\a\\Fresh.pdf".to_string()], now, &|_| true);
+            update_log(&mut log, &["C:\\a\\Fresh.pdf".to_string()], now, &|_| false);
             assert_eq!(log.len(), 1);
             assert_eq!(log[0].at, now);
 
             // 100개를 넘으면 오래된 것부터 자른다
             let mut log: Vec<Opened> = (0..120).map(|i| Opened { path: format!("C:/f/{i}.pdf"), at: now - i as u64 }).collect();
-            let removed = update_log(&mut log, &[], now, &|_| true);
+            let removed = update_log(&mut log, &[], now, &|_| false);
             assert_eq!(log.len(), MAX_ENTRIES);
             assert_eq!(removed.len(), 20);
             assert!(removed.contains(&"C:/f/119.pdf".to_string()) && !removed.contains(&"C:/f/0.pdf".to_string()));
@@ -308,9 +347,32 @@ pub mod scope_log {
                 "C:\\Docs\\gone[[]1[]].pdf".to_string(),
                 "C:\\Docs\\live.pdf".to_string(),
             ];
-            let kept = prune_patterns(patterns, &["C:/Docs/stale.pdf".to_string()], &|path| !path.contains("gone"));
+            let kept = prune_patterns(patterns, &["C:/Docs/stale.pdf".to_string()], &|path| path.contains("gone"));
             assert_eq!(kept, vec!["C:\\Users\\me\\Vault", "C:\\Users\\me\\Vault\\**", "C:\\Docs\\live.pdf"]);
             assert_eq!(escape_glob("a[1]*?.pdf"), "a[[]1[]][*][?].pdf");
+        }
+
+        #[test]
+        fn a_file_is_gone_only_when_its_folder_is_reachable() {
+            let dir = std::env::temp_dir().join(format!("iwae-gone-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let there = dir.join("there.pdf");
+            std::fs::write(&there, b"%PDF").unwrap();
+            assert!(!definitely_gone(&there.to_string_lossy()), "있는 파일");
+            assert!(definitely_gone(&dir.join("deleted.pdf").to_string_lossy()), "폴더는 있는데 파일이 없다");
+            assert!(!definitely_gone(&dir.join("unplugged").join("paper.pdf").to_string_lossy()), "폴더째 안 보이면(USB 를 뺐다) 모른다");
+            assert!(!definitely_gone(r"\\no-such-host-iwae\share\paper.pdf"));
+            assert!(!definitely_gone("//no-such-host-iwae/share/paper.pdf"));
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+
+        #[test]
+        fn log_entries_of_unreachable_files_are_kept() {
+            let now = 1_000 + DAY;
+            let mut log = vec![Opened { path: "E:/usb/paper.pdf".into(), at: now - 10 }];
+            let removed = update_log(&mut log, &[], now, &|_| false);
+            assert!(removed.is_empty());
+            assert_eq!(log.len(), 1);
         }
 
         #[test]
@@ -325,7 +387,7 @@ pub mod scope_log {
                 forbidden_patterns: vec!["x".into()],
             };
             std::fs::write(dir.join(SCOPE_FILE), bincode::serialize(&state).unwrap()).unwrap();
-            let dropped = prune_files(&dir, now_secs(), &|path| Path::new(path).exists());
+            let dropped = prune_files(&dir, now_secs(), &definitely_gone);
             assert_eq!(dropped, 1);
             let after: ScopeState = bincode::deserialize(&std::fs::read(dir.join(SCOPE_FILE)).unwrap()).unwrap();
             assert_eq!(after.allowed_paths.len(), 2);

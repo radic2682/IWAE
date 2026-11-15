@@ -6,7 +6,8 @@ import { t } from '../i18n'
  * 새로 설치했거나 허락 기록이 지워지면 최근 Vault 도 "forbidden path" 로 막힌다.
  */
 export function isFolderAccessDenied(err: unknown): boolean {
-  return /forbidden path|not allowed on the configured scope|not allowed by the scope/iu.test(errorText(err))
+  // Rust 의 fs_scope::ensure_allowed 문구(「허용되지 않은 위치입니다」/「This location is not allowed」)도 같은 경우다
+  return /forbidden path|not allowed on the configured scope|not allowed by the scope|This location is not allowed|허용되지 않은 위치/iu.test(errorText(err))
 }
 
 /** 허락이 없어 못 연 Vault 를 사람이 알아들을 말로 */
