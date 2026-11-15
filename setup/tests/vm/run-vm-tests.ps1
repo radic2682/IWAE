@@ -7,7 +7,8 @@ param(
     [Parameter(Mandatory = $true)][string]$NewSetup,
     [Parameter(Mandatory = $true)][string]$OldSetup,
     [string]$Results = '.\results.json',
-    [int]$TimeoutSec = 300
+    [int]$TimeoutSec = 300,
+    [string]$ExpectedVersion = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,10 +18,20 @@ if ($env:IWAE_VM_TESTS -ne '1') {
     Write-Host 'Refusing to run: set IWAE_VM_TESTS=1 inside the disposable VM only.'
     exit 2
 }
+if (($env:USERNAME -ne 'WDAGUtilityAccount') -and ($env:CI -ne 'true')) {
+    Write-Host 'Refusing to run: not inside Windows Sandbox (WDAGUtilityAccount) or CI (CI=true).'
+    exit 2
+}
 $DefaultDir = Join-Path $env:LOCALAPPDATA 'IWAE'
 if (Test-Path -LiteralPath (Join-Path $DefaultDir 'app.exe')) {
     Write-Host "Refusing to run: $DefaultDir\app.exe already exists (looks like a real install)."
     exit 2
+}
+foreach ($k in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\IWAE', 'HKCU:\Software\iwae\IWAE')) {
+    if (Test-Path $k) {
+        Write-Host "Refusing to run: $k already exists (looks like a real install)."
+        exit 2
+    }
 }
 if (-not (Test-Path -LiteralPath $NewSetup)) { Write-Host "NewSetup not found: $NewSetup"; exit 2 }
 if (-not (Test-Path -LiteralPath $OldSetup)) { Write-Host "OldSetup not found: $OldSetup"; exit 2 }
@@ -44,7 +55,8 @@ function Add-Result([string]$name, [bool]$passed, [string]$detail) {
 
 function Save-Results {
     $json = ConvertTo-Json -InputObject @($ResultList) -Depth 4
-    Set-Content -LiteralPath $Results -Value $json -Encoding UTF8
+    $full = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Results)
+    [IO.File]::WriteAllText($full, $json, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 # Runs a file, waits up to $Sec, returns the exit code (-999 and the process is killed on timeout).
@@ -52,6 +64,7 @@ function Wait-Proc([string]$File, [string]$ArgString, [int]$Sec = $TimeoutSec) {
     $p = $null
     if ($ArgString) { $p = Start-Process -FilePath $File -ArgumentList $ArgString -PassThru }
     else { $p = Start-Process -FilePath $File -PassThru }
+    $null = $p.Handle   # PS 5.1 loses ExitCode without a cached handle
     if (-not $p.WaitForExit($Sec * 1000)) {
         try { Stop-Process -Id $p.Id -Force } catch { }
         return -999
@@ -79,19 +92,26 @@ function Get-AppProcs([string]$dir) {
 }
 
 function Stop-App {
-    foreach ($p in @(Get-Process -Name 'app' -ErrorAction SilentlyContinue)) {
-        try { Stop-Process -Id $p.Id -Force } catch { }
+    foreach ($d in @($DefaultDir, $CustomDir)) {
+        foreach ($p in @(Get-AppProcs $d)) {
+            try { Stop-Process -Id $p.Id -Force } catch { }
+        }
     }
 }
 
-function Wait-AppRunning([string]$dir, [int]$Sec) {
+# True once an app.exe under $dir runs whose PID is not in $excludePids.
+function Wait-AppRunning([string]$dir, [int]$Sec, [int[]]$excludePids = @()) {
     $end = (Get-Date).AddSeconds($Sec)
     while ((Get-Date) -lt $end) {
-        if (@(Get-AppProcs $dir).Count -gt 0) { return $true }
+        foreach ($p in @(Get-AppProcs $dir)) {
+            if ($excludePids -notcontains $p.Id) { return $true }
+        }
         Start-Sleep -Milliseconds 500
     }
     return $false
 }
+
+function Test-Interactive { return [Environment]::UserInteractive }
 
 # Back to a clean machine: stop apps, uninstall from every known dir, drop leftover keys.
 function Ensure-Uninstalled {
@@ -119,6 +139,7 @@ function Ensure-Installed {
 }
 
 function Expected-NewVersion {
+    if ($ExpectedVersion) { return $ExpectedVersion }
     $m = [regex]::Match((Split-Path -Leaf $NewSetup), 'IWAE_(\d+\.\d+\.\d+)_')
     if ($m.Success) { return $m.Groups[1].Value }
     return $null
@@ -172,6 +193,7 @@ Run-Scenario '2 silent install to custom dir' {
 }
 
 Run-Scenario '3 old 0.2.6 then update' {
+    if (-not (Test-Interactive)) { return 'skipped: no interactive desktop session' }
     Ensure-Uninstalled
     $code = Wait-Proc $OldSetup '/S'
     Assert-That ($code -eq 0) "old installer exit code $code"
@@ -181,14 +203,14 @@ Run-Scenario '3 old 0.2.6 then update' {
     $before = (Get-FileHash -LiteralPath $Sentinel -Algorithm SHA256).Hash
     Start-Process -FilePath (Join-Path $DefaultDir 'app.exe') | Out-Null
     Start-Sleep -Seconds 5
+    # The real app quits itself before the updater runs the installer.
+    $oldPids = @(Get-AppProcs $DefaultDir | ForEach-Object { $_.Id })
+    Assert-That ($oldPids.Count -gt 0) 'old app.exe did not start'
+    Stop-App
     # Update mode runs by itself and closes when done.
-    $p = Start-Process -FilePath $NewSetup -ArgumentList '/P', '/R', '/UPDATE', '/ARGS' -PassThru
-    if (-not $p.WaitForExit($TimeoutSec * 1000)) {
-        try { Stop-Process -Id $p.Id -Force } catch { }
-        throw 'update setup timed out'
-    }
-    Assert-That ($p.ExitCode -eq 0) "update setup exit code $($p.ExitCode)"
-    Assert-That (Wait-AppRunning $DefaultDir 60) 'app.exe not running within 60 s after update'
+    $code = Wait-Proc $NewSetup '/P /R /UPDATE /ARGS'
+    Assert-That ($code -eq 0) "update setup exit code $code"
+    Assert-That (Wait-AppRunning $DefaultDir 60 $oldPids) 'new app.exe (different PID) not running within 60 s after update'
     $u = Get-Uninst
     $want = Expected-NewVersion
     if ($want) { Assert-That ($u.DisplayVersion -eq $want) "DisplayVersion $($u.DisplayVersion), expected $want" }
@@ -200,15 +222,12 @@ Run-Scenario '3 old 0.2.6 then update' {
 }
 
 Run-Scenario '4 update new to itself' {
+    if (-not (Test-Interactive)) { return 'skipped: no interactive desktop session' }
     Ensure-Uninstalled
     $code = Wait-Proc $NewSetup '/S'
     Assert-That ($code -eq 0) "prep install exit code $code"
-    $p = Start-Process -FilePath $NewSetup -ArgumentList '/P', '/R', '/UPDATE', '/ARGS' -PassThru
-    if (-not $p.WaitForExit($TimeoutSec * 1000)) {
-        try { Stop-Process -Id $p.Id -Force } catch { }
-        throw 'self-update setup timed out'
-    }
-    Assert-That ($p.ExitCode -eq 0) "self-update exit code $($p.ExitCode)"
+    $code = Wait-Proc $NewSetup '/P /R /UPDATE /ARGS'
+    Assert-That ($code -eq 0) "self-update exit code $code"
     Assert-That (Wait-AppRunning $DefaultDir 60) 'app.exe not running within 60 s after self-update'
     Assert-Installed $DefaultDir
     'self-update kept the chain working'
@@ -219,9 +238,12 @@ Run-Scenario '5 sync uninstall' {
     $un = Join-Path $DefaultDir 'uninstall-ui.exe'
     $code = Wait-Proc $un "/S _?=$DefaultDir" 120
     Assert-That ($code -eq 0) "uninstall exit code $code"
+    # Pass-through mode only runs `uninstall.exe /S _?=<dir>`; with `_?=` both uninstallers stay on disk.
     Assert-That (-not (Test-Path -LiteralPath (Join-Path $DefaultDir 'app.exe'))) 'app.exe still present'
-    Assert-That (-not (Test-Path -LiteralPath (Join-Path $DefaultDir 'uninstall-ui.exe'))) 'uninstall-ui.exe still present'
-    'uninstalled, files gone'
+    Assert-That (-not (Test-Path $UninstKey)) 'HKCU Uninstall\IWAE key still present'
+    Assert-That (Test-Path -LiteralPath (Join-Path $DefaultDir 'uninstall.exe')) 'uninstall.exe missing (expected to remain with _?=)'
+    Assert-That (Test-Path -LiteralPath (Join-Path $DefaultDir 'uninstall-ui.exe')) 'uninstall-ui.exe missing (expected to remain)'
+    'app.exe and uninstall key gone; uninstallers remain as expected'
 }
 
 Run-Scenario '6 reinstall after uninstall' {
@@ -235,6 +257,7 @@ Run-Scenario '6 reinstall after uninstall' {
 }
 
 Run-Scenario '7 uninstall UI window' {
+    if (-not (Test-Interactive)) { return 'skipped: no interactive desktop session' }
     Ensure-Installed
     Start-Process -FilePath (Join-Path $DefaultDir 'uninstall-ui.exe') -ArgumentList '--uninstall' | Out-Null
     $titles = @('IWAE 설치', 'IWAE Setup')
@@ -256,8 +279,17 @@ Run-Scenario '7 uninstall UI window' {
 Run-Scenario '8 setup killed mid-install, then rerun' {
     Ensure-Uninstalled
     $p = Start-Process -FilePath $NewSetup -ArgumentList '/S' -PassThru
+    $null = $p.Handle
     Start-Sleep -Seconds 2
+    # Make sure the inner NSIS exists before killing the outer process, or the test proves nothing.
+    $appeared = $false
+    $until = (Get-Date).AddSeconds(10)
+    while ((Get-Date) -lt $until -and -not $appeared) {
+        if (@(Get-Process -Name 'IWAE-inner-setup' -ErrorAction SilentlyContinue).Count -gt 0) { $appeared = $true }
+        else { Start-Sleep -Milliseconds 200 }
+    }
     try { Stop-Process -Id $p.Id -Force } catch { }
+    if (-not $appeared) { throw 'inconclusive: IWAE-inner-setup never appeared within 10 s' }
     # The NSIS child keeps running by design; let it finish.
     $end = (Get-Date).AddSeconds(120)
     while ((Get-Date) -lt $end -and @(Get-Process -Name 'IWAE-inner-setup' -ErrorAction SilentlyContinue).Count -gt 0) {

@@ -9,18 +9,38 @@ It downloads nothing. You pass it:
 - `-OldSetup <path>`: `IWAE_0.2.6_x64-setup.exe` from the v0.2.6 GitHub release
 - `-Results <path>`: output file (default `.\results.json`)
 - `-TimeoutSec <n>`: per-step timeout (default 300)
+- `-ExpectedVersion <x.y.z>`: version scenario 3 expects in `DisplayVersion` (default: parsed from
+  the `IWAE_x.y.z_` file name)
 
 Scenarios: silent fresh install, silent install to a custom path with Korean characters, 0.2.6 then
-update, self-update, synchronous uninstall, reinstall, uninstall UI window, killed mid-install then
-rerun, Defender scan. The file must stay UTF-8 with BOM (Windows PowerShell 5.1 reads the Korean
-window title literal from it).
+update (the old app is stopped first, as the real updater does, and a new app.exe with a different
+PID must appear), self-update, synchronous uninstall, reinstall, uninstall UI window, killed
+mid-install then rerun, Defender scan. The file must stay UTF-8 with BOM (Windows PowerShell 5.1
+reads the Korean window title literal from it).
+
+Scenario 5 runs `uninstall-ui.exe /S _?=<dir>`, the synchronous pass-through that only runs
+`uninstall.exe /S _?=<dir>`. It asserts app.exe and the `HKCU ...\Uninstall\IWAE` key are gone and
+that `uninstall.exe` / `uninstall-ui.exe` remain (expected with `_?=`). The windowed uninstall
+(`--uninstall-from-temp`, needs a click) is covered by the lead's demo audit, not by this script;
+scenario 7 only checks that the uninstall window appears.
+
+Scenarios 3, 4 and 7 need an interactive desktop session (they start GUI apps and read window
+titles). If the session is not interactive they are recorded as `skipped: ...` (passed). GitHub
+Actions `windows-latest` runs as a service, so expect those three to be skipped there; use Windows
+Sandbox for full coverage. Scenario 8 is recorded as failed with detail `inconclusive` if the inner
+NSIS process never appears before the outer one is killed.
 
 ## Safety: never run this on a real PC
 
-The script installs and removes IWAE under `%LOCALAPPDATA%\IWAE`, kills every `app.exe`, and deletes
-`HKCU\Software\iwae`. It refuses to start (exit 2) unless `IWAE_VM_TESTS=1`, and also refuses if
-`%LOCALAPPDATA%\IWAE\app.exe` already exists. Set the variable **inside the VM only**, never in your
-own profile or system environment.
+The script installs and removes IWAE under `%LOCALAPPDATA%\IWAE`, kills `app.exe` processes under the
+install dirs, and deletes `HKCU\Software\iwae`. It refuses to start (exit 2) unless **all** hold:
+
+- `IWAE_VM_TESTS=1`
+- a sandbox signal: `USERNAME` is `WDAGUtilityAccount` (Windows Sandbox) or `CI=true` (GitHub Actions)
+- `%LOCALAPPDATA%\IWAE\app.exe`, `HKCU\...\Uninstall\IWAE` and `HKCU\Software\iwae\IWAE` do not exist
+  (any of them means a real install)
+
+Set the variable **inside the VM only**, never in your own profile or system environment.
 
 Exit codes: 0 all passed, 1 some scenario failed, 2 refused to run.
 
