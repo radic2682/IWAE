@@ -13,9 +13,8 @@ export function useDocumentSearch() {
   const [submitted, setSubmitted] = useState('')
 
   const run = useCallback((text: string) => {
-    const trimmed = text.trim()
-    if (trimmed === '') return
-    setSubmitted(trimmed)
+    // 빈 검색어(공백만)는 이전 결과를 남기지 않고 비운다
+    setSubmitted(text.trim())
   }, [])
 
   return { query, setQuery, submitted, run }
@@ -68,7 +67,11 @@ export function DocumentSearchPanel({ state, records, indexProgress, onOpenHit }
   const { query, submitted, run } = state
   useEffect(() => {
     const trimmed = query.trim()
-    if (trimmed === '' || trimmed === submitted) return
+    if (trimmed === submitted) return
+    if (trimmed === '') {
+      run('')
+      return
+    }
     const timer = window.setTimeout(() => run(trimmed), 450)
     return () => window.clearTimeout(timer)
   }, [query, run, submitted])
