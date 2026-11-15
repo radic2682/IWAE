@@ -82,7 +82,7 @@ export function pageImageUrl(docId: string, page: number, width: number): string
   // page 는 0-기반이다(Rust·pageSizes 배열 양쪽 모두). 음수·소수는 존재할 수
   // 없는 자리라 요청을 만들기 전에 정수로 바로잡는다.
   const pageIndex = Number.isFinite(page) ? Math.max(0, Math.trunc(page)) : 0
-  if (docId === SAMPLE_DOC_ID) return samplePageImageUrl(pageIndex)
+  if (docId === SAMPLE_DOC_ID && !isDesktop()) return samplePageImageUrl(pageIndex)
   const revision = docRevisions.get(docId)
   return `${protocolBase()}/page/${docId}/${pageIndex}?w=${clampRenderWidth(width)}${revision === undefined ? '' : `&r=${revision}`}`
 }
@@ -101,7 +101,7 @@ export function pageTileUrl(
   tile: { readonly x: number; readonly y: number; readonly width: number; readonly height: number },
 ): string {
   const pageIndex = Number.isFinite(page) ? Math.max(0, Math.trunc(page)) : 0
-  if (docId === SAMPLE_DOC_ID) return samplePageImageUrl(pageIndex)
+  if (docId === SAMPLE_DOC_ID && !isDesktop()) return samplePageImageUrl(pageIndex)
   const revision = docRevisions.get(docId)
   const w = Math.min(Math.max(Math.round(width), 32), MAX_TILE_PAGE_WIDTH)
   return `${protocolBase()}/page/${docId}/${pageIndex}?w=${w}&x=${tile.x}&y=${tile.y}&tw=${tile.width}&th=${tile.height}${revision === undefined ? '' : `&r=${revision}`}`

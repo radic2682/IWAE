@@ -97,6 +97,12 @@ describe('Tauri 밖에서의 행동', () => {
     expect(pageImageUrl(SAMPLE_DOC_ID, 1, 1200)).toBe('/dev-pdf/page-2.png')
   })
 
+  it('데스크톱 앱에서는 예시 문서 id 여도 PNG 모자이크 대신 실제 렌더 주소를 쓴다', () => {
+    ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
+    setUserAgent(WINDOWS_UA)
+    expect(pageImageUrl(SAMPLE_DOC_ID, 0, 800)).toMatch(/^http:\/\/iwae\.localhost\/page\//)
+  })
+
   it('개발 PDF 도 실제 글자 상자를 돌려줘 웹에서 선택할 수 있다', async () => {
     await expect(pageTextIndex(SAMPLE_DOC_ID, 0)).resolves.toMatchObject({
       text: expect.stringContaining('From Evidence'),
