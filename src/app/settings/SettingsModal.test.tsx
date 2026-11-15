@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { SettingsModal } from './SettingsModal'
@@ -74,5 +75,27 @@ describe('SettingsModal', () => {
     render(<SettingsModal open onClose={vi.fn()}><span>내용</span></SettingsModal>)
     expect(screen.getByRole('heading', { name: 'Settings' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Close settings' })).not.toBeNull()
+  })
+
+  it('앞서 등록된 핸들러가 상태를 바꿔 다시 그려져도 Esc 로 닫힌다(onClose 가 매번 새 함수여도)', () => {
+    const closed = vi.fn()
+    let bump: () => void = () => undefined
+    function Host() {
+      const [, setTick] = useState(0)
+      bump = () => setTick((n) => n + 1)
+      return <SettingsModal open onClose={() => closed()} sections={[{ id: 'a', label: '가', content: <p>가 내용</p> }]}>
+        <button type="button" onClick={() => setTick((n) => n + 1)}>다시 그리기</button>
+      </SettingsModal>
+    }
+    // 설정 창보다 먼저 문서에 등록된 핸들러가 같은 키 입력 도중 다시 그리게 한다(캔버스의 Esc 처럼)
+    const early = () => flushSync(() => bump())
+    document.addEventListener('keydown', early)
+    try {
+      render(<Host />)
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      expect(closed).toHaveBeenCalledTimes(1)
+    } finally {
+      document.removeEventListener('keydown', early)
+    }
   })
 })

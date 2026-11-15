@@ -4,6 +4,7 @@ import { StackSimple, X } from '@phosphor-icons/react'
 import { compareVersionLabels, guessVersionLabel, nextVersionNumberLabel } from '../../core/versionGroups'
 import '../../ui/version-groups.css'
 import { t } from '../../i18n'
+import { useStableCallback } from '../../ui/useStableCallback'
 
 export interface StackDoc {
   readonly docId: string
@@ -44,11 +45,11 @@ export function StackVersionsDialog({ base, added: given, candidates, groupTitle
   // 기본 판(핀): 판 이름으로 어느 쪽이 새것인지 알 수 있으면 새것, 모르면 위에 겹치는 쪽
   const [makeDefault, setMakeDefault] = useState(() => given === null || compareVersionLabels(guessAdded(given, baseLabel), baseLabel) >= 0)
 
+  const onKey = useStableCallback((event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose() } })
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onKey])
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()

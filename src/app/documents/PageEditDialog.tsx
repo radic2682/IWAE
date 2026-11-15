@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { useStableCallback } from '../../ui/useStableCallback'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ArrowArcLeft, ArrowArcRight, ArrowLeft, CaretLeft, CaretRight, FilePlus, Trash } from '@phosphor-icons/react'
 import { openPdf, pageImageUrl, pickPdfFile } from '../../bridge/pdf'
@@ -78,16 +79,16 @@ export function PageEditDialog({ docId, title, pageCount, sourcePath, onCancel, 
     return pageCount - kept.size
   }, [items, pageCount])
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busy) {
-        closedRef.current = true
-        onCancel()
-      }
+  const onKey = useStableCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape' && !busy) {
+      closedRef.current = true
+      onCancel()
     }
+  })
+  useEffect(() => {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [busy, onCancel])
+  }, [onKey])
 
   // 끌려 온 쪽(다른 PDF 에서)을 저장 전 상태로 받는다. 이 화면이 열려 있지 않았으면 열릴 때 한꺼번에 받는다
   useEffect(() => {

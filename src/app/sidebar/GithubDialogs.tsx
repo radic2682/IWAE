@@ -7,6 +7,7 @@ import { errorText } from '../../core/errorText'
 import { isMarkdownPath } from '../../core/markdownPath'
 import '../../ui/github-dialogs.css'
 import { pick, t } from '../../i18n'
+import { useStableCallback } from '../../ui/useStableCallback'
 
 function Frame({ title, subtitle, onClose, children, busy = false }: {
   readonly title: string
@@ -15,11 +16,11 @@ function Frame({ title, subtitle, onClose, children, busy = false }: {
   readonly children: React.ReactNode
   readonly busy?: boolean
 }) {
+  const onKey = useStableCallback((event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) onClose() })
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [busy, onClose])
+  }, [onKey])
   return createPortal(
     <div className="gh-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
       <section className="gh-dialog" role="dialog" aria-modal="true" aria-label={title}>

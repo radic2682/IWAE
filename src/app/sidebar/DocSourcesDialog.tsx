@@ -4,6 +4,7 @@ import { ArrowSquareOut, FolderOpen, LinkSimple, Pencil, Plus, Trash, X } from '
 import { isValidSourceTarget, normalizeSourceTarget, sourceDisplayLabel, sourceTargetKind, type DocSource } from '../../core/docSources'
 import '../../ui/doc-sources.css'
 import { t } from '../../i18n'
+import { useStableCallback } from '../../ui/useStableCallback'
 
 interface DocSourcesDialogProps {
   readonly title: string
@@ -28,16 +29,16 @@ export function DocSourcesDialog({ title, sources, onOpen, onAdd, onUpdate, onRe
   const [error, setError] = useState<string | null>(null)
   const targetRef = useRef<HTMLInputElement | null>(null)
 
+  const onKey = useStableCallback((event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    if (editing !== null && sources.length > 0) setEditing(null)
+    else onClose()
+  })
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      if (editing !== null && sources.length > 0) setEditing(null)
-      else onClose()
-    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [editing, onClose, sources.length])
+  }, [onKey])
 
   useEffect(() => { if (editing !== null) targetRef.current?.focus() }, [editing])
 

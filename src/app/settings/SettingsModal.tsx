@@ -3,6 +3,7 @@ import { X } from '@phosphor-icons/react'
 import '../../ui/settings-clean.css'
 import { t } from '../../i18n'
 import { useFocusTrap } from '../../ui/useFocusTrap'
+import { useStableCallback } from '../../ui/useStableCallback'
 
 export interface SettingsSection {
   readonly id: string
@@ -47,14 +48,14 @@ export function SettingsModal({ open, onClose, children, sections, initialSectio
     }
   }, [open])
 
+  const handleKeyDown = useStableCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape') onClose()
+  })
   useEffect(() => {
     if (!open) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, open])
+  }, [handleKeyDown, open])
 
   if (!open) return null
 

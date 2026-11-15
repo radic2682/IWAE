@@ -3,6 +3,7 @@ import { Printer, X } from '@phosphor-icons/react'
 import { parsePageRange } from '../../core/printRange'
 import { pageImageUrl } from '../../bridge/pdf'
 import { t } from '../../i18n'
+import { useStableCallback } from '../../ui/useStableCallback'
 import { paperSizeMm, readPrintOptions, resolveOrientation, writePrintOptions, type PrintOptions, type PrintOrientation, type PrintPaper } from './pdfPrint'
 
 interface PdfPrintDialogProps {
@@ -45,18 +46,18 @@ export function PdfPrintDialog({ pageCount, page, docId, pageSizes, onPrint, onC
     writePrintOptions(options)
     onPrint(pages, options)
   }
-  // Esc 로 닫고, Enter 로 인쇄한다(창 안에 포커스가 없어도). 매번 새 값을 보도록 그릴 때마다 다시 단다
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-      else if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
-        event.preventDefault()
-        print()
-      }
+  // Esc 로 닫고, Enter 로 인쇄한다(창 안에 포커스가 없어도). 한 번만 달고 늘 최신 값을 본다
+  const onKey = useStableCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape') onClose()
+    else if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
+      event.preventDefault()
+      print()
     }
+  })
+  useEffect(() => {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+  }, [onKey])
   const setOption = (patch: Partial<PrintOptions>) => setOptions((current) => ({ ...current, ...patch }))
 
   // 미리보기: 고른 첫 쪽을 용지 위, 여백 안 가운데에
