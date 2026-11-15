@@ -452,6 +452,37 @@ describe('useVault — 시작 복원', () => {
     expect(result.current.markdownSources).toEqual({ 'HTTP/README.md': '# Restored' })
   })
 
+  it('Vault 안 Markdown 탭은 복원해도 사이드바와 같은 표시 이름을 제목으로 쓴다', async () => {
+    const inside = {
+      id: '1f2f9a52-6f55-4c0a-8e2c-0a3c8c5f7d11',
+      kind: 'markdown' as const,
+      storage: 'vault' as const,
+      path: 'HTTP/README.md',
+      displayName: 'Handbook',
+      contentHash: 'd'.repeat(64),
+      size: 12,
+      modifiedAt: null,
+      addedAt: '2026-09-30T00:00:00.000Z',
+      missing: false,
+    }
+    vi.mocked(readSession).mockResolvedValue({
+      pdfTabIds: [],
+      noteTabIds: ['HTTP/README.md'],
+      activePdfTabId: null,
+      activeNoteTabId: 'HTTP/README.md',
+      sidebarCollapsed: false,
+      sidebarPx: 280,
+      leftFrac: 0.5,
+    })
+    vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [inside] })
+    vi.mocked(readMarkdown).mockResolvedValue('# Restored')
+
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+
+    expect(paneTabs(result, 0).tabs[0]?.title).toBe('Handbook')
+  })
+
   it('외부 Markdown reference 탭을 안정 ID로 다시 읽어 복원한다', async () => {
     const external = {
       id: '8cc94e6f-13da-4fd3-87a8-4e61bcb82239',
