@@ -177,6 +177,20 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 browser_keys::lock_browser_keys(&window);
             }
+            // 메인 창은 숨긴 채 만들어지고(tauri.conf.json 의 visible: false) window-state 플러그인이 기억한 자리·크기·최대화를
+            // 먼저 되살린 뒤에 보여 준다. 그래서 가운데에 떴다가 옮겨 가는 깜빡임이 없다. 기억한 상태가 숨김으로 저장돼 있거나
+            // 되살리기가 실패해도 창이 영영 안 보이는 일이 없게, 잠시 뒤에도 안 보이면 여기서 보인다
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    if let Some(window) = handle.get_webview_window("main") {
+                        if !window.is_visible().unwrap_or(true) {
+                            let _ = window.show();
+                        }
+                    }
+                });
+            }
             // 앱 기록: 로그 파일(iwae.log, 1MB 에서 돌려 씀). 「문제 보고」가 끝부분을 읽는다. 문서 내용은 남기지 않는다
             {
                 let mut targets = vec![tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
