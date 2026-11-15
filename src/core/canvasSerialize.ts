@@ -19,7 +19,8 @@ function idOf(value: unknown): string {
 
 function sortedValue(value: unknown, parentKey: string | null = null): unknown {
   if (Array.isArray(value)) {
-    const items = parentKey === 'nodes' || parentKey === 'edges'
+    // nodes 의 배열 순서가 쌓임 순서(z)라 정렬하지 않는다. edges 는 순서에 뜻이 없어 id 로 정렬한다
+    const items = parentKey === 'edges'
       ? [...value].sort((left, right) => idOf(left).localeCompare(idOf(right)))
       : value
     return items.map((item) => sortedValue(item))

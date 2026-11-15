@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCanvasDocument, type CanvasDocumentV2 } from './canvasDocument'
+import { createDefaultTextBlockStyle, parseCanvasDocument, type CanvasDocumentV2 } from './canvasDocument'
 import {
   addCanvasBlocks,
   arrangeCanvasBlocks,
@@ -131,5 +131,24 @@ describe('canvasOps', () => {
     expect(at(c!.id)).toEqual({ x: 40, y: 260 })
     expect(moved.map(({ id }) => id)).toEqual([b!.id])
     expect(arrangeCanvasBlocks(document, { layout: 'stack' }).arranged).toEqual([])
+  })
+})
+
+describe('canvas ops regressions', () => {
+  const node = (id: string, y: number) => ({ id, type: 'textBlock', position: { x: 0, y }, data: { block: { kind: 'paragraph' as const, width: 200, height: 100, style: createDefaultTextBlockStyle(), text: id } } })
+  it('tidy with ids does not push a movable block onto a fixed block below it', () => {
+    const doc = { version: 2, nodes: [node('A', 0), node('B', 50), node('C', 130)], edges: [], viewport: { x: 0, y: 0, zoom: 1 } } as CanvasDocumentV2
+    const out = tidyCanvasOverlaps(doc, { ids: ['B'] }).document
+    const y = Object.fromEntries(out.nodes.map((n) => [n.id, n.position.y]))
+    const overlap = (a: number, b: number) => a < b + 100 && b < a + 100
+    expect(overlap(y.B!, y.C!)).toBe(false)
+    expect(overlap(y.B!, y.A!)).toBe(false)
+    expect(y.A).toBe(0)
+    expect(y.C).toBe(130)
+  })
+  it('arrange clamps a huge columns value', () => {
+    const doc = { version: 2, nodes: [node('A', 0), node('B', 10)], edges: [], viewport: { x: 0, y: 0, zoom: 1 } } as CanvasDocumentV2
+    expect(arrangeCanvasBlocks(doc, { layout: 'grid', columns: 1e9 }).arranged).toHaveLength(2)
+    expect(arrangeCanvasBlocks(doc, { layout: 'grid', columns: Number.NaN }).arranged).toHaveLength(2)
   })
 })

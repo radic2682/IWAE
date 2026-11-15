@@ -420,20 +420,27 @@ export function tidyCanvasOverlaps(
     .sort((left, right) => left.position.y - right.position.y || left.position.x - right.position.x)
   const placed: { id: string; left: number; right: number; top: number; bottom: number }[] = []
   const moves = new Map<string, { x: number; y: number }>()
+  // ids 를 주면 움직이지 않는 블록은 위치와 관계없이 처음부터 기준이다(아래에 있는 것에도 부딪힌다)
+  if (movable !== null) {
+    for (const node of blocks) {
+      if (movable.has(node.id)) continue
+      const fixedLeft = node.position.x
+      placed.push({ id: node.id, left: fixedLeft, right: fixedLeft + node.data.block.width, top: node.position.y, bottom: node.position.y + node.data.block.height })
+    }
+  }
   for (const node of blocks) {
+    if (movable !== null && !movable.has(node.id)) continue
     const left = node.position.x
     const right = left + node.data.block.width
     let top = node.position.y
     const height = node.data.block.height
-    if (movable === null || movable.has(node.id)) {
-      // 겹치는 것이 없어질 때까지 내린다
-      for (let guard = 0; guard < placed.length + 1; guard += 1) {
-        const blocker = placed.find((other) => other.left < right && other.right > left && other.top < top + height + gap && other.bottom + gap > top)
-        if (blocker === undefined) break
-        top = blocker.bottom + gap
-      }
-      if (top !== node.position.y) moves.set(node.id, { x: left, y: top })
+    // 겹치는 것이 없어질 때까지 내린다
+    for (let guard = 0; guard < placed.length + 1; guard += 1) {
+      const blocker = placed.find((other) => other.left < right && other.right > left && other.top < top + height + gap && other.bottom + gap > top)
+      if (blocker === undefined) break
+      top = blocker.bottom + gap
     }
+    if (top !== node.position.y) moves.set(node.id, { x: left, y: top })
     placed.push({ id: node.id, left, right, top, bottom: top + height })
   }
   const nodes = moveNodes(document.nodes, moves)
@@ -468,7 +475,7 @@ export function arrangeCanvasBlocks(
   const first = ordered[0]!
   const startX = options.x ?? Math.min(...ordered.map((node) => node.position.x))
   const startY = options.y ?? first.position.y
-  const columns = options.layout === 'column' ? 1 : options.layout === 'row' ? ordered.length : Math.max(1, Math.floor(options.columns ?? 2))
+  const columns = options.layout === 'column' ? 1 : options.layout === 'row' ? ordered.length : Math.min(Math.max(1, Math.floor(Number.isFinite(options.columns ?? 2) ? options.columns ?? 2 : 2)), ordered.length)
   const columnWidths = Array.from({ length: columns }, (_, column) => Math.max(...ordered.filter((_, index) => index % columns === column).map((node) => node.data.block.width)))
   const moves = new Map<string, { x: number; y: number }>()
   let rowTop = startY

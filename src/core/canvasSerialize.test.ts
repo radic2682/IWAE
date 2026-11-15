@@ -18,7 +18,7 @@ describe('canvasSerialize', () => {
     expect(serializeCanvasDoc(emptyCanvasDoc())).toBe(serializeCanvasDoc(emptyCanvasDoc()))
   })
 
-  it('최상위 키와 nodes/edges를 id 순서로 정렬한다', () => {
+  it('최상위 키와 edges를 id 순서로 정렬하고 nodes 는 쌓임 순서를 지킨다', () => {
     expect(serializeCanvasDoc({
       nodes: [{ id: 'z', type: 'text' }, { type: 'text', id: 'a' }],
       version: 2,
@@ -30,8 +30,8 @@ describe('canvasSerialize', () => {
       '    {\n      "id": "edge-z"\n    }\n' +
       '  ],\n' +
       '  "nodes": [\n' +
-      '    {\n      "id": "a",\n      "type": "text"\n    },\n' +
-      '    {\n      "id": "z",\n      "type": "text"\n    }\n' +
+      '    {\n      "id": "z",\n      "type": "text"\n    },\n' +
+      '    {\n      "id": "a",\n      "type": "text"\n    }\n' +
       '  ],\n' +
       '  "version": 2\n' +
       '}\n',
