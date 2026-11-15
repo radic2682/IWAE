@@ -499,6 +499,16 @@ describe('예전 값 옮기기', () => {
   })
 })
 
+describe('번역기 창 — 빈 입력의 번역 단추', () => {
+  it('입력이 비면 번역 단추는 aria-disabled 이고, 누르는 것을 막아 고른 글이 풀리지 않게 한다', () => {
+    renderOpen(makeService())
+    const translate = screen.getByRole('button', { name: '번역' })
+    expect(translate.getAttribute('aria-disabled')).toBe('true')
+    expect(fireEvent.mouseDown(translate)).toBe(false)
+    expect(fireEvent.pointerDown(translate)).toBe(false)
+  })
+})
+
 describe('번역기 창 — 복사 단추 자리', () => {
   it('번역 단추와 복사 단추는 같은 줄에 있고 아래 칸(footer)은 없다', async () => {
     renderOpen(makeService())

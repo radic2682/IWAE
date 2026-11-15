@@ -122,16 +122,17 @@
   color: var(--accent-contrast);
 }
 
-.translator-panel-button:is(:hover, :focus-visible):not(:disabled) {
+.translator-panel-button:is(:hover, :focus-visible):not(:disabled, [aria-disabled='true']) {
   background: var(--chrome-hover);
   outline: none;
 }
 
-.translator-panel-primary:is(:hover, :focus-visible):not(:disabled) {
+.translator-panel-primary:is(:hover, :focus-visible):not(:disabled, [aria-disabled='true']) {
   background: color-mix(in srgb, var(--accent) 86%, var(--text-strong));
 }
 
-.translator-panel-button:disabled { cursor: default; opacity: .45; }
+.translator-panel-button:disabled,
+.translator-panel-button[aria-disabled='true'] { cursor: default; opacity: .45; }
 
 .translator-panel-input {
   box-sizing: border-box;

@@ -277,9 +277,11 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
         <button
           type="button"
           className="translator-panel-button translator-panel-primary"
-          disabled={pending || input.trim() === ''}
+          aria-disabled={pending || input.trim() === ''}
           title={t('번역 (Ctrl+Enter)')}
-          onClick={() => void translateNow(input, true)}
+          onPointerDown={keepSelection}
+          onMouseDown={keepSelection}
+          onClick={() => { if (!pending && input.trim() !== '') void translateNow(input, true) }}
         >
           <Translate size={13} aria-hidden="true" />
           {t('번역')}
@@ -292,13 +294,13 @@ function TranslatorWindow({ stored }: { readonly stored: ReturnType<typeof useTr
           </button>
         ) : null}
         {result.status === 'error' ? (
-          <button type="button" className="translator-panel-button" disabled={input.trim() === ''} onClick={() => void translateNow(input, true)}>
+          <button type="button" className="translator-panel-button" aria-disabled={input.trim() === ''} onPointerDown={keepSelection} onMouseDown={keepSelection} onClick={() => { if (input.trim() !== '') void translateNow(input, true) }}>
             <ArrowClockwise size={13} aria-hidden="true" />
             {t('다시')}
           </button>
         ) : null}
         <span className="translator-panel-spacer" />
-        <button type="button" className="translator-panel-button" disabled={result.status !== 'result'} onClick={copy}>
+        <button type="button" className="translator-panel-button" aria-disabled={result.status !== 'result'} onPointerDown={keepSelection} onMouseDown={keepSelection} onClick={copy}>
           <Copy size={13} aria-hidden="true" />
           {t('복사')}
         </button>
