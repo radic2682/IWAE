@@ -118,6 +118,8 @@ export function useMemoNotes(
     setNotes(next)
   }, [])
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  // 쓰기에 실패해 아직 파일에 없는 노트. 닫기·옮기기 전 flush 가 다시 쓰고, 못 쓰면 실패로 알린다
+  const failedRef = useRef(new Set<string>())
   const openPathRef = useRef(openPath)
   openPathRef.current = openPath
   // 지금 쓰는 중인 노트(우리 자신의 쓰기가 파일 감시에 잡혀 외부 변경으로 보이지 않게 한다)
@@ -172,7 +174,7 @@ export function useMemoNotes(
     return () => { alive = false }
   }, [vault])
 
-  const isBusy = (path: string): boolean => timersRef.current.has(path) || inflightRef.current.has(path) || heldRef.current.has(path)
+  const isBusy = (path: string): boolean => timersRef.current.has(path) || failedRef.current.has(path) || inflightRef.current.has(path) || heldRef.current.has(path)
 
   const publishConflicts = useCallback(() => {
     setConflicts([...heldRef.current].filter(([, state]) => state.shown).map(([path]) => ({ path, title: memoNoteTitleOf(path) })))
@@ -222,7 +224,7 @@ export function useMemoNotes(
     // 기다리는 사이 쓰기가 시작됐거나 충돌로 넘어갔다면 그쪽이 맡는다. 이 아래는 await 없이 끝까지 한 번에 간다
     if (inflightRef.current.has(path)) { deferredRef.current.add(path); return }
     if (heldRef.current.has(path) || !notesRef.current.has(path)) return
-    const pending = timersRef.current.has(path)
+    const pending = timersRef.current.has(path) || failedRef.current.has(path)
     if (result.state === 'missing') {
       if (pending) return
       if (!absentRef.current.has(path)) {
@@ -325,6 +327,7 @@ export function useMemoNotes(
   const holdForSettle = useCallback((path: string) => {
     const timer = timersRef.current.get(path)
     if (timer !== undefined) { clearTimeout(timer); timersRef.current.delete(path) }
+    failedRef.current.delete(path)
     if (heldRef.current.has(path) || vault === null) return
     heldRef.current.set(path, { shown: false, copied: false })
     window.setTimeout(() => {
@@ -353,12 +356,15 @@ export function useMemoNotes(
     inflightRef.current.add(path)
     try {
       await writeMemoNote(vault, path, note)
+      failedRef.current.delete(path)
       return true
     } catch (cause) {
       if (isVaultExternalChangeError(cause)) {
+        failedRef.current.delete(path)
         holdForSettle(path)
         return false
       }
+      failedRef.current.add(path)
       throw cause
     } finally {
       inflightRef.current.delete(path)
@@ -456,8 +462,9 @@ export function useMemoNotes(
     if (vault === null) return
     for (const path of paths) {
       const pending = timersRef.current.get(path)
-      if (pending === undefined) continue
-      clearTimeout(pending)
+      // 지워지거나 옮겨진 노트는 다시 쓰지 않는다
+      if (pending === undefined && !(failedRef.current.has(path) && notesRef.current.has(path))) { failedRef.current.delete(path); continue }
+      if (pending !== undefined) clearTimeout(pending)
       timersRef.current.delete(path)
       if (!(await saveNote(path, notesRef.current.get(path) ?? EMPTY_MEMO_NOTE))) throw new Error(conflictError())
     }
@@ -480,7 +487,7 @@ export function useMemoNotes(
   // 창을 닫기·Vault 를 바꾸기·앱을 끝내기 전에 미뤄 둔 노트 저장을 끝낸다. 밖에서 바뀐 파일은 덮어쓰지 않고,
   // 저장하지 못한 내 변경은 「(충돌 사본)」 노트로 남긴다
   useEffect(() => registerSaveFlusher('memo-notes', async () => {
-    for (const path of [...timersRef.current.keys()]) {
+    for (const path of new Set([...timersRef.current.keys(), ...failedRef.current])) {
       try { await flushPending([path]) } catch (cause) { if (!heldRef.current.has(path)) throw cause }
     }
     for (const [path, state] of heldRef.current) {
@@ -595,6 +602,7 @@ export function useMemoNotes(
       clearTimeout(pending)
       timersRef.current.delete(note)
     }
+    for (const note of notePaths) failedRef.current.delete(note)
     await trashMemoNoteFolder(vault, path, notePaths)
     const removed = new Set(notePaths)
     applyNotes((current) => {
@@ -635,6 +643,7 @@ export function useMemoNotes(
       timersRef.current.delete(path)
     }
     heldRef.current.delete(path)
+    failedRef.current.delete(path)
     publishConflicts()
     await trashMemoNote(vault, path, source)
     applyNotes((current) => {

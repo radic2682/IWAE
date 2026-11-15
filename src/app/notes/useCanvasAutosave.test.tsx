@@ -252,3 +252,49 @@ describe('browserCanvasStorage', () => {
     await expect(createMemoryCanvasStorage().load('sample-note')).resolves.toBeNull()
   })
 })
+
+describe('저장이 실패한 채 캔버스가 사라질 때', () => {
+  it('수정을 버리지 않고 flush 가 실패로 알리며, 다시 열면 이어받는다', async () => {
+    let failing = true
+    const saved: string[] = []
+    const storage: CanvasStorage = {
+      load: vi.fn(async () => documentWithLabel('original')),
+      save: vi.fn(async (_id, doc) => {
+        if (failing) throw new Error('disk full')
+        saved.push(JSON.stringify(doc))
+      }),
+    }
+    const onDirtyChange = vi.fn()
+    const first = renderHook(() => useCanvasAutosave({ noteId: 'gone.canvas', fallbackDocument: documentWithLabel('fb'), storage, delay: 500, onDirtyChange }))
+    await waitFor(() => expect(first.result.current.status).toBe('saved'))
+    act(() => first.result.current.setDocument(documentWithLabel('my edit')))
+    first.unmount()
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+    await expect(flushCanvasSaves('gone.canvas')).rejects.toThrow('disk full')
+
+    // 디스크가 돌아오면 다음 flush 가 남은 수정을 저장한다
+    failing = false
+    await expect(flushCanvasSaves('gone.canvas')).resolves.toBeUndefined()
+    expect(saved.at(-1)).toContain('my edit')
+    await expect(flushCanvasSaves('gone.canvas')).resolves.toBeUndefined()
+  })
+
+  it('같은 노트를 다시 열면 디스크 내용 대신 저장하지 못한 수정을 이어받는다', async () => {
+    let failing = true
+    const storage: CanvasStorage = {
+      load: vi.fn(async () => documentWithLabel('original')),
+      save: vi.fn(async () => { if (failing) throw new Error('disk full') }),
+    }
+    const first = renderHook(() => useCanvasAutosave({ noteId: 'again.canvas', fallbackDocument: documentWithLabel('fb'), storage, delay: 20 }))
+    await waitFor(() => expect(first.result.current.status).toBe('saved'))
+    act(() => first.result.current.setDocument(documentWithLabel('kept edit')))
+    first.unmount()
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    failing = false
+    const second = renderHook(() => useCanvasAutosave({ noteId: 'again.canvas', fallbackDocument: documentWithLabel('fb'), storage, delay: 20 }))
+    await waitFor(() => expect(JSON.stringify(second.result.current.document)).toContain('kept edit'))
+    await waitFor(() => expect(second.result.current.status).toBe('saved'))
+    await expect(flushCanvasSaves('again.canvas')).resolves.toBeUndefined()
+  })
+})

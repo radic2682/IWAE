@@ -28,11 +28,23 @@ export function registerSaveFlusher(key: string, flush: () => Promise<void>): ()
   }
 }
 
+/**
+ * 칸을 닫거나 탭을 바꿔 캔버스가 사라질 때 저장에 실패한 수정. 사라진 뒤에는 고칠 화면이 없으므로 여기에 남겨 둔다.
+ * flushCanvasSaves() 가 다시 저장해 보고(실패하면 실패로 알린다), 같은 노트를 다시 열면 이어받는다.
+ */
+interface FailedUnmountSave {
+  readonly document: CanvasDocumentV2
+  readonly signature: string
+  retry(): Promise<void>
+}
+const failedUnmountSaves = new Map<string, FailedUnmountSave>()
+
 export async function flushCanvasSaves(noteId?: string): Promise<void> {
+  const failed = noteId === undefined ? [...failedUnmountSaves.values()] : [failedUnmountSaves.get(noteId)].filter((item) => item !== undefined)
   if (noteId === undefined) {
-    await Promise.all([...canvasSaveFlushers.values()].map((flush) => flush()))
+    await Promise.all([...canvasSaveFlushers.values()].map((flush) => flush()).concat(failed.map((item) => item.retry())))
   } else {
-    await canvasSaveFlushers.get(noteId)?.()
+    await Promise.all([canvasSaveFlushers.get(noteId)?.(), ...failed.map((item) => item.retry())])
   }
   await canvasSaveQueue.flush(noteId)
 }
@@ -154,8 +166,19 @@ export function useCanvasAutosave({
       if (generationRef.current !== generation) return
       const loaded = parseCanvasDocument(restored ?? fallbackDocument)
       savedSignatureRef.current = serializeCanvasDoc(loaded)
-      setDocumentState(loaded)
       readyRef.current = true
+      // 이 노트를 닫을 때 저장하지 못한 수정이 있으면 디스크 내용 대신 그것을 이어받는다
+      const failed = failedUnmountSaves.get(noteId)
+      if (failed !== undefined) {
+        failedUnmountSaves.delete(noteId)
+        pendingRef.current = { document: failed.document, signature: failed.signature }
+        setDocumentState(failed.document)
+        setStatus('dirty')
+        reportDirty(true)
+        timerRef.current = window.setTimeout(() => void persist(pendingRef.current!).catch(() => {}), delay)
+        return
+      }
+      setDocumentState(loaded)
       setStatus('saved')
       reportDirty(false)
     }).catch((cause: unknown) => {
@@ -169,7 +192,7 @@ export function useCanvasAutosave({
     return () => {
       generationRef.current += 1
     }
-  }, [clearTimer, fallbackSignature, noteId, reportDirty, storage])
+  }, [clearTimer, delay, fallbackSignature, noteId, persist, reportDirty, storage])
 
   const setDocument = useCallback((nextDocument: CanvasDocument) => {
     const parsed = parseCanvasDocument(nextDocument)
@@ -208,10 +231,16 @@ export function useCanvasAutosave({
       clearTimer()
       const pending = pendingRef.current
       if (pending !== null) {
-        void canvasSaveQueue.enqueue(noteId, () => storage.save(noteId, pending.document))
+        const save = () => canvasSaveQueue.enqueue(noteId, () => storage.save(noteId, pending.document))
+        const retry = async () => {
+          await save()
+          if (failedUnmountSaves.get(noteId)?.retry === retry) failedUnmountSaves.delete(noteId)
+          reportDirty(false)
+        }
+        // 실패하면 버리지 않고 남겨 둔다: 나갈 때(flush) 다시 시도하고 실패로 알리며, 같은 노트를 다시 열면 이어받는다
+        void save()
           .then(() => reportDirty(false))
-          .catch(() => {})
-        void canvasSaveQueue.flush(noteId).catch(() => {})
+          .catch(() => { failedUnmountSaves.set(noteId, { document: pending.document, signature: pending.signature, retry }) })
       }
     }
   }, [clearTimer, flushPending, noteId, reportDirty, storage])
