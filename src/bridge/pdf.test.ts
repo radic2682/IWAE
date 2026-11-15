@@ -113,6 +113,22 @@ describe('Tauri 밖에서의 행동', () => {
   })
 })
 
+describe('데스크톱 앱의 예시 PDF', () => {
+  it('글자 · 링크 · 정보 · 주석을 미리 만든 값이 아니라 실제 PDF 에서 읽는다', async () => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })
+    setUserAgent(WINDOWS_UA)
+    const invoke = vi.fn().mockResolvedValue({ text: 'real', chars: [] })
+    vi.doMock('@tauri-apps/api/core', () => ({ invoke }))
+    const { pdfAnnotations, pdfMetadata, pdfPageLinks } = await import('./pdf')
+    await pageTextIndex(SAMPLE_DOC_ID, 7)
+    await pdfPageLinks(SAMPLE_DOC_ID, 7)
+    await pdfMetadata(SAMPLE_DOC_ID)
+    await pdfAnnotations(SAMPLE_DOC_ID)
+    const commands = invoke.mock.calls.map(([command]) => command)
+    expect(commands).toEqual(['pdf_page_text', expect.any(String), 'pdf_metadata', 'pdf_annotations'])
+  })
+})
+
 describe('pageTextIndex — 페이지별 캐시', () => {
   it('같은 문서·페이지는 invoke 를 한 번만 호출한다', async () => {
     Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })

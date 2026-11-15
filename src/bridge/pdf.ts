@@ -316,7 +316,7 @@ export function pageTextIndex(docId: string, page: number): Promise<PageTextInde
   }
 
   const request = (async () => {
-    if (docId === SAMPLE_DOC_ID) return samplePageTextIndex(page)
+    if (docId === SAMPLE_DOC_ID && !isDesktop()) return samplePageTextIndex(page)
     if (!isDesktop()) throw new Error(t('PDF 텍스트 선택은 데스크톱 앱에서만 쓸 수 있습니다.'))
     const { invoke } = await import('@tauri-apps/api/core')
     return invoke<PageTextIndex>('pdf_page_text', { docId, page })
@@ -339,9 +339,9 @@ export interface PdfCharStyle {
   readonly serif: boolean
 }
 
-/** 글자 번호(pageTextIndex 의 chars 번호)의 글꼴 서식. 읽을 수 없으면(예시 문서·웹) null */
+/** 글자 번호(pageTextIndex 의 chars 번호)의 글꼴 서식. 읽을 수 없으면(브라우저 미리보기) null */
 export async function pdfCharStyle(docId: string, page: number, index: number): Promise<PdfCharStyle | null> {
-  if (docId === SAMPLE_DOC_ID || !isDesktop()) return null
+  if (!isDesktop()) return null
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     return await invoke<PdfCharStyle>('pdf_char_style', { docId, page, index })
@@ -356,7 +356,7 @@ export function pdfOutline(docId: string): Promise<readonly PdfOutlineEntry[]> {
   if (cached !== undefined) return cached
 
   const request = (async () => {
-    if (docId === SAMPLE_DOC_ID) return samplePdfOutline
+    if (docId === SAMPLE_DOC_ID && !isDesktop()) return samplePdfOutline
     if (!isDesktop()) throw new Error(t('PDF 목차는 데스크톱 앱에서만 읽을 수 있습니다.'))
     const { invoke } = await import('@tauri-apps/api/core')
     return invoke<readonly PdfOutlineEntry[]>('pdf_outline', { docId })
@@ -418,7 +418,7 @@ export function pdfPageLinks(docId: string, page: number): Promise<readonly PdfL
   if (cached !== undefined) return cached
 
   const request = (async () => {
-    if (docId === SAMPLE_DOC_ID) return []
+    if (docId === SAMPLE_DOC_ID && !isDesktop()) return []
     if (!isDesktop()) throw new Error(t('PDF 링크는 데스크톱 앱에서만 읽을 수 있습니다.'))
     const { invoke } = await import('@tauri-apps/api/core')
     return invoke<readonly PdfLink[]>('pdf_page_links', { docId, page })
@@ -433,7 +433,7 @@ export function pdfPageLinks(docId: string, page: number): Promise<readonly PdfL
 
 /** PDF 문서 정보 사전(제목·저자·만든 날짜). */
 export async function pdfMetadata(docId: string): Promise<PdfMetadata> {
-  if (docId === SAMPLE_DOC_ID) return {}
+  if (docId === SAMPLE_DOC_ID && !isDesktop()) return {}
   if (!isDesktop()) throw new Error(t('PDF 정보는 데스크톱 앱에서만 읽을 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<PdfMetadata>('pdf_metadata', { docId })
@@ -441,7 +441,7 @@ export async function pdfMetadata(docId: string): Promise<PdfMetadata> {
 
 /** 다른 프로그램이 문서에 남긴 형광펜·밑줄·붙임 쪽지. */
 export async function pdfAnnotations(docId: string): Promise<readonly ImportedPdfAnnotation[]> {
-  if (docId === SAMPLE_DOC_ID) return []
+  if (docId === SAMPLE_DOC_ID && !isDesktop()) return []
   if (!isDesktop()) throw new Error(t('PDF 주석은 데스크톱 앱에서만 읽을 수 있습니다.'))
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<readonly ImportedPdfAnnotation[]>('pdf_annotations', { docId })
