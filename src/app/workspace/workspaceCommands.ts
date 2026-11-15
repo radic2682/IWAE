@@ -659,7 +659,7 @@ async function runOne(command: ParsedCommand, host: CommandHost): Promise<Comman
     case 'select-window': {
       const ref = flags.t ?? firstArg(command)
       if (ref === undefined) return fail(t('select-window -t N|이름'))
-      return apply(selectWindow(model, String(ref)))
+      return apply(selectWindow(raw, String(ref)))
     }
     case 'next-window':
       return apply(stepWindow(model, 1))

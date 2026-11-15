@@ -858,3 +858,19 @@ describe('기본 화면 이름', () => {
     expect(names[names.length - 1]).toBe('화면 1')
   })
 })
+
+describe('같은 화면을 select-window 로 고를 때', () => {
+  it('떠 있는 칸을 만지고 있으면 그대로 둔다(크게 보는 중에 가려진 첫 칸으로 가지 않는다)', async () => {
+    const h = harness()
+    await split(h)
+    await split(h)
+    await h.run('float-pane')
+    await h.run('select-pane -t 1')
+    await h.run('resize-pane -Z')
+    await h.run('select-pane')
+    const before = h.model().activePane
+    expect(h.screen().floats.map((f) => f.paneId)).toContain(before)
+    await h.run('select-window -t 0')
+    expect(h.model().activePane).toBe(before)
+  })
+})
