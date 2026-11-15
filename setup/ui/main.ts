@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event'
 import logo from '../../public/iwae-logo.png'
 import { t, type Lang } from './copy'
 import { stepProgress } from './ease'
-import { screenFor, type Action, type Phase, type SetupState } from './screen'
+import { canStart, screenFor, type Action, type Phase, type ScreenModel, type SetupState } from './screen'
 import { startStarfield } from './starfield'
 
 interface Context {
@@ -36,10 +36,6 @@ const bg = el('div', 'bg', app)
 bg.setAttribute('data-tauri-drag-region', '')
 const canvas = el('canvas', 'stars', app)
 
-const closeBtn = el('button', 'x', app)
-closeBtn.type = 'button'
-closeBtn.textContent = '✕'
-
 const stack = el('div', 'stack', app)
 const logoImg = el('img', 'logo', stack)
 logoImg.src = logo
@@ -60,6 +56,11 @@ for (const b of [primaryBtn, secondaryBtn, linkBtn]) b.type = 'button'
 const langBtn = el('button', 'lang', app)
 langBtn.type = 'button'
 
+// Last in DOM so Tab goes primary, link/secondary, language, then close.
+const closeBtn = el('button', 'x', app)
+closeBtn.type = 'button'
+closeBtn.textContent = '✕'
+
 // ---------- state ----------
 
 let state: SetupState = {
@@ -76,13 +77,27 @@ let target = 0 // real percent from Rust
 let shown = 0 // eased percent on screen
 let waiting = false // close_app in flight
 let closeSeq = 0
+let pollId = 0
+let starting = false // an install/uninstall start is in flight
+let bootFailed = false
+
+function clearPoll(): void {
+  if (pollId) window.clearInterval(pollId)
+  pollId = 0
+}
+
+function currentModel(): ScreenModel {
+  const m = screenFor(state)
+  if (!bootFailed) return m
+  return { ...m, primary: { label: t(state.lang, 'close'), action: 'close' }, secondary: null, link: null }
+}
 
 function homePhase(): Phase {
   return state.mode === 'uninstall' ? 'uninstallStart' : 'start'
 }
 
 function render(): void {
-  const m = screenFor(state)
+  const m = currentModel()
   document.documentElement.lang = state.lang
 
   const show = (e: HTMLElement, on: boolean) => {
@@ -156,24 +171,30 @@ async function startWork(): Promise<void> {
   try {
     if (state.mode === 'uninstall') {
       setState({ phase: 'uninstalling' })
+      starting = false
       await invoke('start_uninstall')
     } else {
       target = 0
       shown = 0
       setState({ phase: 'installing', percent: 0 })
       startEasing()
+      starting = false
       await invoke('start_install', { dir: state.customDir })
     }
-  } catch {
-    // Rust refused to start (for example already busy); show the failure screen.
+  } catch (e) {
+    starting = false
+    // Busy means a run is already going (double activation); stay on the progress screen.
+    if (String(e).includes('busy')) return
     setState({ phase: 'failed' })
   }
 }
 
 async function afterAppCheck(): Promise<void> {
   const running = await invoke<boolean>('app_running')
-  if (running) setState({ phase: 'appRunning' })
-  else await startWork()
+  if (running) {
+    starting = false
+    setState({ phase: 'appRunning' })
+  } else await startWork()
 }
 
 async function closeApp(force: boolean): Promise<void> {
@@ -182,7 +203,8 @@ async function closeApp(force: boolean): Promise<void> {
   waiting = true
   render()
   // If the user closes IWAE themselves the screen moves on without waiting for close_app.
-  const poll = window.setInterval(async () => {
+  clearPoll()
+  pollId = window.setInterval(async () => {
     if (seq !== closeSeq) return
     try {
       if (!(await invoke<boolean>('app_running')) && seq === closeSeq) await finish('closed')
@@ -191,9 +213,12 @@ async function closeApp(force: boolean): Promise<void> {
     }
   }, 500)
   const finish = async (result: string) => {
-    if (seq !== closeSeq) return
+    if (seq !== closeSeq) {
+      clearPoll()
+      return
+    }
     closeSeq++ // later results for this attempt are ignored
-    window.clearInterval(poll)
+    clearPoll()
     waiting = false
     if (result === 'closed') await startWork()
     else {
@@ -208,17 +233,22 @@ async function closeApp(force: boolean): Promise<void> {
 }
 
 function cancelClose(): void {
+  clearPoll()
   closeSeq++
   waiting = false
   setState({ phase: homePhase() })
 }
 
 async function quitWindow(): Promise<void> {
-  if (state.mode === 'update' && state.phase === 'failed') await invoke('quit_relaunch_previous')
+  if (!bootFailed && state.mode === 'update' && state.phase === 'failed') await invoke('quit_relaunch_previous')
   else await invoke('quit')
 }
 
 async function run(action: Action): Promise<void> {
+  if (action === 'install' || action === 'uninstall' || action === 'retry') {
+    if (starting || !canStart(state.phase)) return
+    starting = true
+  }
   try {
     switch (action) {
       case 'install':
@@ -246,6 +276,7 @@ async function run(action: Action): Promise<void> {
         return await quitWindow()
     }
   } catch {
+    starting = false
     /* a failed helper command leaves the screen as it is */
   }
 }
@@ -267,23 +298,23 @@ langBtn.addEventListener('click', () => {
 })
 
 window.addEventListener('keydown', (e) => {
-  if (e.defaultPrevented || e.isComposing) return
+  if (e.defaultPrevented || e.isComposing || e.repeat) return
   const onButton = e.target instanceof HTMLButtonElement
   if (e.key === 'Enter' && !onButton) {
-    const m = screenFor(state)
+    const m = currentModel()
     if (m.primary && !primaryBtn.disabled) {
       e.preventDefault()
       void run(m.primary.action)
     }
   } else if (e.key === 'Escape') {
-    if (screenFor(state).closable) {
+    if (currentModel().closable) {
       e.preventDefault()
       void quitWindow().catch(() => {})
     }
   }
 })
 
-async function boot(): Promise<void> {
+async function bootInner(): Promise<void> {
   startStarfield(canvas)
 
   await listen<{ percent: number }>('setup://progress', (e) => {
@@ -315,6 +346,18 @@ async function boot(): Promise<void> {
       if (ctx.mode === 'update') void invoke('start_install', { dir: null }).catch(() => setState({ phase: 'failed' }))
     })
   })
+}
+
+async function boot(): Promise<void> {
+  try {
+    await bootInner()
+  } catch {
+    // Never leave a hidden window: show a failure screen that can only close.
+    bootFailed = true
+    state = { ...state, phase: 'failed' }
+    render()
+    void invoke('ready').catch(() => {})
+  }
 }
 
 void boot()

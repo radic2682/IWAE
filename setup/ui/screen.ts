@@ -52,6 +52,11 @@ export interface ScreenModel {
   showLang: boolean
 }
 
+/** Phases from which a start/retry may begin; anything else means work is already under way. */
+export function canStart(phase: Phase): boolean {
+  return phase === 'start' || phase === 'appRunning' || phase === 'appStuck' || phase === 'failed' || phase === 'uninstallStart'
+}
+
 const MAX_PATH = 34
 
 /** At most 34 characters; a longer path keeps its end behind a leading ellipsis. */

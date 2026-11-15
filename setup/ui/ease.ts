@@ -8,5 +8,8 @@ export function stepProgress(shown: number, target: number, dtSeconds: number): 
   if (target <= shown) return shown
   let step = (target - shown) * (1 - Math.exp(-EASE_RATE * dtSeconds))
   if (shown >= SLOW_FROM) step = Math.min(step, SLOW_RATE * dtSeconds)
-  return Math.min(target, shown + step)
+  let next = Math.min(target, shown + step)
+  // A step that starts below the slow zone may not jump through it.
+  if (shown < SLOW_FROM && next > SLOW_FROM) next = SLOW_FROM
+  return next
 }

@@ -87,7 +87,7 @@ button:focus-visible { outline: 2px solid rgba(140, 193, 242, 0.9); outline-offs
 .btn {
   margin-top: 8px;
   padding: 9px 40px;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #2f6fb0;
   color: #fff;
   font-size: 14px;

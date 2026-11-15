@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { screenFor, shortPath, type SetupState } from './screen'
+import { canStart, screenFor, shortPath, type SetupState } from './screen'
 import { stepProgress } from './ease'
 
 const base: SetupState = {
@@ -127,5 +127,16 @@ describe('stepProgress', () => {
   it('moves at most 4 per second from 95', () => {
     expect(stepProgress(95, 100, 1)).toBeCloseTo(99, 5)
     expect(stepProgress(97, 100, 0.5)).toBeLessThanOrEqual(99)
+  })
+  it('stops at 95 when a step would cross it', () => {
+    expect(stepProgress(94.9, 100, 0.25)).toBe(95)
+    expect(stepProgress(95, 100, 0.25)).toBeCloseTo(96, 5)
+  })
+})
+
+describe('canStart', () => {
+  it('only allows starting from idle or failed screens', () => {
+    for (const p of ['start', 'appRunning', 'appStuck', 'failed', 'uninstallStart'] as const) expect(canStart(p)).toBe(true)
+    for (const p of ['installing', 'uninstalling', 'done', 'uninstalled'] as const) expect(canStart(p)).toBe(false)
   })
 })
