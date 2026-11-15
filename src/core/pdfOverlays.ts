@@ -159,6 +159,8 @@ export function shapeBox(from: { x: number; y: number }, to: { x: number; y: num
 export interface PdfOverlaysFile {
   readonly version: 1
   readonly overlays: Readonly<Record<string, readonly PdfOverlay[]>>
+  /** 읽었지만 지금 버전이 모르는 항목(더 새 버전이 쓴 것). 저장할 때 그대로 되돌려 쓴다 */
+  readonly kept?: Readonly<Record<string, readonly unknown[]>>
 }
 
 export const EMPTY_PDF_OVERLAYS: PdfOverlaysFile = { version: 1, overlays: {} }
@@ -183,7 +185,7 @@ export function createTextBox(page: number, x: number, y: number, init: Partial<
     x,
     y,
     w: init.w ?? TEXT_BOX_DEFAULT_WIDTH,
-    text: init.text ?? '',
+    text: (init.text ?? '').slice(0, TEXT_BOX_TEXT_LIMIT),
     size: normalizeTextSize(init.size ?? 9),
     color: init.color ?? '#d9363e',
     ...(init.bold === true ? { bold: true } : {}),
@@ -269,7 +271,9 @@ export function addOverlay(all: Overlays, docId: string, overlay: PdfOverlay): O
 export function updateOverlay(all: Overlays, docId: string, id: string, patch: OverlayPatch): Overlays {
   const list = all[docId]
   if (list === undefined) return all
-  return { ...all, [docId]: list.map((item) => item.id === id ? { ...item, ...patch } as PdfOverlay : item) }
+  const text = (patch as Partial<PdfTextBox>).text
+  const limited = typeof text === 'string' && text.length > TEXT_BOX_TEXT_LIMIT ? { ...patch, text: text.slice(0, TEXT_BOX_TEXT_LIMIT) } : patch
+  return { ...all, [docId]: list.map((item) => item.id === id ? { ...item, ...limited } as PdfOverlay : item) }
 }
 
 export function removeOverlay(all: Overlays, docId: string, id: string): Overlays {
@@ -304,33 +308,57 @@ function num(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+/** 글 상자 한 개의 글자 수 상한. 편집·고치기·읽기가 모두 이 값을 따라야 저장한 글이 다시 열 때 잘리지 않는다 */
+export const TEXT_BOX_TEXT_LIMIT = 100_000
+
+const KNOWN_KEYS: Readonly<Record<PdfOverlay['kind'], ReadonlySet<string>>> = {
+  text: new Set(['id', 'kind', 'page', 'x', 'y', 'w', 'text', 'size', 'color', 'bold', 'fill', 'border', 'borderColor', 'font']),
+  line: new Set(['id', 'kind', 'page', 'x1', 'y1', 'x2', 'y2', 'color', 'width', 'arrow', 'arrowStart', 'dashed', 'dotted']),
+  ink: new Set(['id', 'kind', 'page', 'points', 'color', 'width']),
+  shape: new Set(['id', 'kind', 'shape', 'page', 'x', 'y', 'w', 'h', 'color', 'width', 'fill', 'dashed', 'dotted']),
+}
+
+/** 더 새 버전이 덧붙인 항목 안의 값: 모르는 열쇠는 그대로 들고 있다가 다시 쓸 때 돌려준다 */
+function unknownFields(item: Record<string, unknown>, kind: PdfOverlay['kind']): Record<string, unknown> {
+  const known = KNOWN_KEYS[kind]
+  return Object.fromEntries(Object.entries(item).filter(([key]) => !known.has(key)))
+}
+
 export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
   if (typeof value !== 'object' || value === null) return EMPTY_PDF_OVERLAYS
   const raw = (value as { overlays?: unknown }).overlays
   if (typeof raw !== 'object' || raw === null) return EMPTY_PDF_OVERLAYS
   const overlays: Record<string, PdfOverlay[]> = {}
+  const kept: Record<string, unknown[]> = {}
   for (const [docId, list] of Object.entries(raw)) {
     if (!Array.isArray(list)) continue
     const seen = new Set<string>()
+    const keep = (entry: unknown): PdfOverlay[] => {
+      // 모르는 종류이거나 모양이 맞지 않는 항목은 버리지 않고 따로 들고 있다가 파일에 다시 쓴다
+      ;(kept[docId] ??= []).push(entry)
+      return []
+    }
     const items = list.flatMap((entry: unknown): PdfOverlay[] => {
-      if (typeof entry !== 'object' || entry === null) return []
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return keep(entry)
       const item = entry as Record<string, unknown>
       const id = typeof item.id === 'string' && item.id !== '' && !seen.has(item.id) ? item.id : null
       const page = num(item.page)
       const color = isOverlayColor(item.color) ? item.color.toLowerCase() : '#d9363e'
-      if (id === null || page === null || page < 0 || !Number.isInteger(page)) return []
-      seen.add(id)
+      if (id === null || page === null || page < 0 || !Number.isInteger(page)) return typeof item.id === 'string' && seen.has(item.id) ? [] : keep(entry)
       if (item.kind === 'text') {
         const x = num(item.x)
         const y = num(item.y)
         const w = num(item.w)
         const size = num(item.size)
-        // 빈 글 상자는 남기지 않는다(예전 판이 글을 쓰기 전에 저장해 둔 것)
-        if (x === null || y === null || typeof item.text !== 'string' || item.text.trim() === '') return []
+        if (x === null || y === null || typeof item.text !== 'string') return keep(entry)
+        seen.add(id)
+        // 빈 글 상자는 남기지 않는다(예전 버전이 글을 쓰기 전에 저장해 둔 것)
+        if (item.text.trim() === '') return []
         return [{
+          ...unknownFields(item, 'text'),
           id, kind: 'text', page, x, y,
           w: Math.max(w ?? TEXT_BOX_DEFAULT_WIDTH, TEXT_BOX_MIN_WIDTH),
-          text: item.text.slice(0, 4000),
+          text: item.text.slice(0, TEXT_BOX_TEXT_LIMIT),
           size: normalizeTextSize(size ?? 12),
           color,
           ...(item.bold === true ? { bold: true } : {}),
@@ -338,7 +366,7 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
           ...(item.border === true ? { border: true } : {}),
           ...(isOverlayColor(item.borderColor) ? { borderColor: item.borderColor.toLowerCase() } : {}),
           ...(isOverlayFont(item.font) ? { font: item.font } : {}),
-        }]
+        } as PdfTextBox]
       }
       if (item.kind === 'shape') {
         const x = num(item.x)
@@ -346,25 +374,28 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
         const w = num(item.w)
         const h = num(item.h)
         const width = num(item.width)
-        if (x === null || y === null || w === null || h === null || w <= 0 || h <= 0) return []
+        if (x === null || y === null || w === null || h === null || w <= 0 || h <= 0) return keep(entry)
+        seen.add(id)
         return [{
+          ...unknownFields(item, 'shape'),
           id, kind: 'shape', shape: item.shape === 'ellipse' ? 'ellipse' : item.shape === 'redact' ? 'redact' : 'rect', page, x, y, w, h, color,
           width: Math.min(Math.max(width ?? 2, 0.5), 20),
           ...(item.fill === true ? { fill: true } : {}),
           ...(item.dotted === true ? { dotted: true } : item.dashed === true ? { dashed: true } : {}),
-        }]
+        } as PdfShape]
       }
       if (item.kind === 'ink') {
         const width = num(item.width)
-        if (!Array.isArray(item.points)) return []
+        if (!Array.isArray(item.points)) return keep(entry)
         const points = item.points.flatMap((point: unknown): [number, number][] => {
           if (!Array.isArray(point)) return []
           const x = num(point[0])
           const y = num(point[1])
           return x === null || y === null ? [] : [[x, y]]
         }).slice(0, 20000)
-        if (points.length === 0) return []
-        return [{ id, kind: 'ink', page, points, color, width: Math.min(Math.max(width ?? 2, 0.5), 20) }]
+        if (points.length === 0) return keep(entry)
+        seen.add(id)
+        return [{ ...unknownFields(item, 'ink'), id, kind: 'ink', page, points, color, width: Math.min(Math.max(width ?? 2, 0.5), 20) } as PdfInk]
       }
       if (item.kind === 'line') {
         const x1 = num(item.x1)
@@ -372,18 +403,30 @@ export function parsePdfOverlays(value: unknown): PdfOverlaysFile {
         const x2 = num(item.x2)
         const y2 = num(item.y2)
         const width = num(item.width)
-        if (x1 === null || y1 === null || x2 === null || y2 === null) return []
+        if (x1 === null || y1 === null || x2 === null || y2 === null) return keep(entry)
+        seen.add(id)
         return [{
+          ...unknownFields(item, 'line'),
           id, kind: 'line', page, x1, y1, x2, y2, color,
           width: Math.min(Math.max(width ?? 2, 0.5), 20),
           ...(item.arrow === true ? { arrow: true } : {}),
           ...(item.arrowStart === true ? { arrowStart: true } : {}),
           ...(item.dotted === true ? { dotted: true } : item.dashed === true ? { dashed: true } : {}),
-        }]
+        } as PdfLine]
       }
-      return []
+      return keep(entry)
     })
     if (items.length > 0) overlays[docId] = items
+  }
+  return { version: 1, overlays, ...(Object.keys(kept).length > 0 ? { kept } : {}) }
+}
+
+/** 저장할 글: 화면에 올린 덮개에, 읽을 때 따로 둔 모르는 항목을 문서마다 뒤에 붙인다 */
+export function serializePdfOverlays(file: PdfOverlaysFile): { readonly version: 1; readonly overlays: Record<string, readonly unknown[]> } {
+  const overlays: Record<string, readonly unknown[]> = {}
+  for (const docId of new Set([...Object.keys(file.overlays), ...Object.keys(file.kept ?? {})])) {
+    const merged = [...(file.overlays[docId] ?? []), ...(file.kept?.[docId] ?? [])]
+    if (merged.length > 0) overlays[docId] = merged
   }
   return { version: 1, overlays }
 }

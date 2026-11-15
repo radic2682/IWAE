@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { pdfOverlaysCodec } from '../bridge/vault'
 import { overlayFontCss, isOverlayFont } from './overlayFonts'
 import {
+  serializePdfOverlays, TEXT_BOX_TEXT_LIMIT,
   addOverlay, createInk, inkPath, createLine, createTextBox, isMeaningfulLine, parsePdfOverlays, remapOverlayPages, removeOverlay, snapLineEnd, updateOverlay, normalizeTextSize, textFillColor, TEXT_SIZE_MAX, TEXT_SIZE_MIN,
 } from './pdfOverlays'
 
@@ -111,5 +112,31 @@ describe('글 상자 서식(글꼴·크기·색)', () => {
     expect(overlayFontCss(undefined)).toContain('--font-ui')
     expect(overlayFontCss('times')).toContain("'Times New Roman'")
     expect(overlayFontCss('Noto Serif KR')).toMatch(/^'Noto Serif KR', /u)
+  })
+})
+
+describe('덮개 저장 파일: 모르는 것은 지우지 않는다', () => {
+  it('긴 글 상자는 저장했다 읽어도 잘리지 않고, 상한을 넘는 글만 같은 상한으로 자른다', () => {
+    const long = '가'.repeat(12_000)
+    const box = createTextBox(0, 1, 2, { text: long })
+    const reloaded = parsePdfOverlays(JSON.parse(JSON.stringify(serializePdfOverlays({ version: 1, overlays: { doc: [box] } }))))
+    expect((reloaded.overlays.doc![0] as { text: string }).text).toBe(long)
+    const edited = updateOverlay({ doc: [box] }, 'doc', box.id, { text: 'x'.repeat(TEXT_BOX_TEXT_LIMIT + 5) })
+    expect((edited.doc![0] as { text: string }).text).toHaveLength(TEXT_BOX_TEXT_LIMIT)
+  })
+
+  it('모르는 종류의 항목과 모르는 값은 읽었다가 그대로 다시 쓴다', () => {
+    const stamp = { id: 's1', kind: 'stamp', page: 0, label: 'OK' }
+    const text = { id: 't1', kind: 'text', page: 0, x: 1, y: 2, w: 100, text: '안녕', size: 12, color: '#111111', rotation: 15 }
+    const parsed = parsePdfOverlays({ version: 1, overlays: { doc: [text, stamp], other: [{ id: 'z', kind: 'future' }] } })
+    expect(parsed.overlays.doc).toHaveLength(1)
+    expect(parsed.overlays.other).toBeUndefined()
+    const written = serializePdfOverlays(parsed)
+    expect(written.overlays.doc).toContainEqual(expect.objectContaining({ id: 't1', rotation: 15 }))
+    expect(written.overlays.doc).toContainEqual(stamp)
+    expect(written.overlays.other).toEqual([{ id: 'z', kind: 'future' }])
+    // 고친 뒤에도 모르는 값은 남는다
+    const edited = updateOverlay(parsed.overlays, 'doc', 't1', { text: '고침' })
+    expect(serializePdfOverlays({ ...parsed, overlays: edited }).overlays.doc).toContainEqual(expect.objectContaining({ id: 't1', rotation: 15, text: '고침' }))
   })
 })
