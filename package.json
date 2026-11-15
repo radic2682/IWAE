@@ -16,7 +16,7 @@
     "test:release-scripts": "node --test scripts/generate-installer-assets.test.mjs scripts/release-preflight.test.mjs scripts/release-scan.test.mjs scripts/verify-ocr-dist.test.mjs scripts/write-update-manifest.test.mjs scripts/write-updater-config.test.mjs scripts/build-emoji-data.test.mjs scripts/fetch-pdfium.test.mjs scripts/release-local.test.mjs scripts/build-setup.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p setup/ui",
     "test:watch": "vitest",
     "pdfium:fetch": "node scripts/fetch-pdfium.mjs",
     "tauri": "tauri",
