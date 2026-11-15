@@ -145,6 +145,11 @@ describe('vault file operations', () => {
     await expect(createVaultFolder(vault, '', 'CON')).rejects.toThrow('이름')
   })
 
+  it('같은 이름의 폴더가 이미 있으면 폴더라고 알린다', async () => {
+    fsMocks.exists.mockResolvedValue(true)
+    await expect(createVaultFolder(vault, 'Specs', 'Protocol')).rejects.toThrow('같은 이름의 폴더')
+  })
+
   it('removes a reference without deleting or moving the external source', async () => {
     vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [reference] })
 

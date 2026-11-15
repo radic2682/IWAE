@@ -77,9 +77,9 @@ async function vaultAbsolutePath(vault: VaultHandle, relativePath: string): Prom
   return normalized === '' ? vault.root : join(vault.root, ...normalized.split('/'))
 }
 
-async function ensureAvailable(path: string): Promise<void> {
+async function ensureAvailable(path: string, kind: 'file' | 'folder' = 'file'): Promise<void> {
   const { exists } = await import('@tauri-apps/plugin-fs')
-  if (await exists(path)) throw new Error(t('대상 위치에 같은 이름의 파일이 이미 있습니다.'))
+  if (await exists(path)) throw new Error(kind === 'folder' ? t('대상 위치에 같은 이름의 폴더가 이미 있습니다.') : t('대상 위치에 같은 이름의 파일이 이미 있습니다.'))
 }
 
 function updatePdfLibrary(
@@ -119,7 +119,7 @@ export async function createVaultFolder(
   const name = safeName(requestedName)
   const relativePath = [parent, name].filter(Boolean).join('/')
   const path = await vaultAbsolutePath(vault, relativePath)
-  await ensureAvailable(path)
+  await ensureAvailable(path, 'folder')
   const { mkdir } = await import('@tauri-apps/plugin-fs')
   await mkdir(path, { recursive: false })
   return relativePath
@@ -494,7 +494,7 @@ async function relocateVaultFolder(vault: VaultHandle, folder: string, nextFolde
   const sourcePath = await vaultAbsolutePath(vault, folder)
   const targetPath = await vaultAbsolutePath(vault, nextFolder)
   // 대소문자만 바꾸는 경우는 같은 폴더라 "이미 있음" 검사를 건너뛴다
-  if (folderRelativeKey(nextFolder) !== folderRelativeKey(folder)) await ensureAvailable(targetPath)
+  if (folderRelativeKey(nextFolder) !== folderRelativeKey(folder)) await ensureAvailable(targetPath, 'folder')
   const index = await readVaultIndex(vault)
   const library = await readLibrary(vault)
   const { indexEntries, libraryEntries } = folderMembers(folder, index, library, sourcePath)

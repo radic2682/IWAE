@@ -195,6 +195,7 @@ export const GROUP_1: Readonly<Record<string, string>> = {
   'Vault 파일을 찾지 못했습니다.': 'Vault file not found.',
   '대상 위치에 같은 이름의 파일이 이미 있습니다.': 'A file with the same name already exists at the destination.',
   '파일 작업이 실패했고 원래대로 되돌리지도 못했습니다: {error} / {rollback}': 'The file operation failed and could not be rolled back: {error} / {rollback}',
+  '대상 위치에 같은 이름의 폴더가 이미 있습니다.': 'A folder with the same name already exists at the destination.',
   '외부 참조는 Vault 폴더로 직접 이동할 수 없습니다.': 'Linked files can’t be moved into a Vault folder directly.',
   'Vault 루트 폴더는 삭제할 수 없습니다.': 'The Vault root folder can’t be deleted.',
   '삭제할 폴더를 찾지 못했습니다.': 'Folder to delete not found.',
