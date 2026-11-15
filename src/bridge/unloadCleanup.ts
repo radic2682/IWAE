@@ -65,7 +65,7 @@ export function installUnloadCleanup(target: Window = window): () => void {
   // 닫히는 웹뷰에서는 fetch 길이 막혀 Tauri 가 호출마다 "IPC custom protocol failed" 를 찍고 postMessage 길로 넘어간다(호출은 그대로 간다).
   // 구독 수만큼 경고가 쌓이므로 풀어 내는 동안만 그 경고를 거른다. 다른 경고는 그대로 둔다
   const quietIpcWarnings = () => {
-    const consoleRef = target.console
+    const consoleRef = (target as Window & typeof globalThis).console
     const originalWarn = consoleRef.warn
     consoleRef.warn = (...args: unknown[]) => {
       if (typeof args[0] === 'string' && args[0].startsWith('IPC custom protocol failed')) return
