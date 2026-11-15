@@ -129,7 +129,9 @@ pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, Strin
     })?;
     let page = dir.join(format!("{key}.html"));
     std::fs::write(&page, with_print_csp(html)).map_err(|err| tr!("HTML 을 쓰지 못했습니다: {err}", "Could not write the HTML: {err}"))?;
-    let profile = dir.join("edge-profile");
+    // 렌더마다 새 프로필 폴더를 쓴다. 같은 폴더를 쓰면 앞 렌더의 Edge(끝나고도 잠시 남는다)에 일을 넘기고 PDF 없이 곧장 끝난다.
+    // 연달아 바꿀 때 거의 다 실패하던 원인이다
+    let profile = fresh_profile_dir();
     let page_url = file_url(&page);
     let mut command = Command::new(edge);
     command.args([
@@ -146,12 +148,31 @@ pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, Strin
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
     let mut output = command.output().map_err(|err| tr!("Edge 를 실행하지 못했습니다: {err}", "Could not run Edge: {err}"))?;
-    if !pdf.exists() {
-        // 바깥의 다른 Edge 가 프로필을 잠깐 잡고 있었을 수 있다 — 한 번 더
+    // Edge 가 일을 다른 프로세스에 넘기고 먼저 끝나도 PDF 는 곧 생긴다 — HTML 을 지우기 전에 잠깐 기다린다
+    if !wait_for_pdf(&pdf, PDF_WAIT) {
+        // 바깥의 다른 Edge 가 막고 있었을 수 있다 — 새 프로필로 한 번 더
         std::thread::sleep(std::time::Duration::from_millis(400));
-        output = command.output().map_err(|err| tr!("Edge 를 실행하지 못했습니다: {err}", "Could not run Edge: {err}"))?;
+        let retry_profile = fresh_profile_dir();
+        let retry_args: Vec<std::ffi::OsString> = command
+            .get_args()
+            .map(|arg| {
+                if arg.to_string_lossy().starts_with("--user-data-dir=") {
+                    std::ffi::OsString::from(format!("--user-data-dir={}", retry_profile.to_string_lossy()))
+                } else {
+                    arg.to_owned()
+                }
+            })
+            .collect();
+        let mut again = Command::new(command.get_program());
+        again.args(retry_args);
+        #[cfg(windows)]
+        again.creation_flags(CREATE_NO_WINDOW);
+        output = again.output().map_err(|err| tr!("Edge 를 실행하지 못했습니다: {err}", "Could not run Edge: {err}"))?;
+        wait_for_pdf(&pdf, PDF_WAIT);
+        remove_profile_later(retry_profile);
     }
     let _ = std::fs::remove_file(&page);
+    remove_profile_later(profile);
     if !pdf.exists() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let reason = stderr.lines().rev().map(str::trim).find(|line| !line.is_empty()).map(str::to_owned).unwrap_or_else(|| tr!("Edge 가 PDF 를 만들지 않았습니다", "Edge did not create a PDF"));
@@ -159,6 +180,66 @@ pub fn render(vault_root: &Path, key: &str, html: &str) -> Result<PathBuf, Strin
     }
     remove_stale(&dir, key);
     Ok(pdf)
+}
+
+/// Edge 가 PDF 를 쓰는 걸 기다리는 최대 시간
+const PDF_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// PDF 가 생기고 크기가 더 변하지 않을 때까지(최대 `limit`) 기다린다. 있으면 true
+fn wait_for_pdf(pdf: &Path, limit: std::time::Duration) -> bool {
+    let started = std::time::Instant::now();
+    let mut last_len = None;
+    loop {
+        let len = std::fs::metadata(pdf).ok().map(|meta| meta.len()).filter(|&len| len > 0);
+        if let (Some(now), Some(before)) = (len, last_len) {
+            if now == before {
+                return true;
+            }
+        }
+        last_len = len;
+        if started.elapsed() >= limit {
+            return pdf.is_file();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+}
+
+const PROFILE_PREFIX: &str = "iwae-edge-";
+
+/// 이번 렌더만 쓸 Edge 프로필 폴더(임시 폴더 아래). 옛 것은 이때 치운다
+fn fresh_profile_dir() -> PathBuf {
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let base = std::env::temp_dir();
+    sweep_old_profiles(&base);
+    let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|elapsed| elapsed.as_nanos()).unwrap_or_default();
+    base.join(format!("{PROFILE_PREFIX}{}-{nonce}-{}", std::process::id(), COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)))
+}
+
+/// 하루 넘게 남은 예전 프로필 폴더(앱이 도중에 꺼져 못 지운 것)를 치운다
+fn sweep_old_profiles(base: &Path) {
+    let Ok(entries) = std::fs::read_dir(base) else { return };
+    let day = std::time::Duration::from_secs(24 * 60 * 60);
+    for entry in entries.flatten() {
+        if !entry.file_name().to_string_lossy().starts_with(PROFILE_PREFIX) {
+            continue;
+        }
+        let old = entry.metadata().and_then(|meta| meta.modified()).ok().and_then(|modified| modified.elapsed().ok()).is_some_and(|age| age > day);
+        if old {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+/// Edge 가 아직 파일을 쥐고 있을 수 있어, 따로 띄운 스레드에서 몇 번 시도해 지운다(못 지우면 다음 청소가 치운다)
+fn remove_profile_later(profile: PathBuf) {
+    std::thread::spawn(move || {
+        for _ in 0..10 {
+            if std::fs::remove_dir_all(&profile).is_ok() || !profile.exists() {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    });
 }
 
 /// Markdown(웹 쪽이 그린 HTML 문서)을 PDF 로. 만든(또는 이미 있던) PDF 의 절대 경로
@@ -239,6 +320,52 @@ mod tests {
         }
         assert!(!contacted, "the remote image must not be requested while printing");
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// 연달아 바꿔도 다 성공해야 한다(같은 프로필을 쓰면 앞 Edge 에 일을 넘기고 PDF 없이 끝났다). 브라우저가 없으면 건너뛴다
+    #[test]
+    fn back_to_back_renders_all_succeed() {
+        if edge_path().is_none() {
+            eprintln!("skipped: no Chromium-based browser");
+            return;
+        }
+        let root = std::env::temp_dir().join(format!("iwae-mdpdf-seq-{}", std::process::id()));
+        std::fs::create_dir_all(root.join(".iwae")).unwrap();
+        let mut failures = Vec::new();
+        for index in 0..6 {
+            let html = format!("<!doctype html><html><head></head><body><p>hello {index}</p></body></html>");
+            if let Err(error) = render(&root, &format!("seq{index}-k"), &html) {
+                failures.push(format!("{index}: {error}"));
+            }
+        }
+        std::fs::remove_dir_all(&root).ok();
+        assert!(failures.is_empty(), "{failures:?}");
+    }
+
+    #[test]
+    fn each_render_gets_its_own_profile_folder_outside_the_vault() {
+        let first = fresh_profile_dir();
+        let second = fresh_profile_dir();
+        assert_ne!(first, second);
+        assert!(first.starts_with(std::env::temp_dir()));
+    }
+
+    #[test]
+    fn waiting_for_the_pdf_returns_once_it_stops_growing_and_gives_up_after_the_limit() {
+        let dir = std::env::temp_dir().join(format!("iwae-mdpdf-wait-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let late = dir.join("late.pdf");
+        let writer = {
+            let late = late.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                std::fs::write(late, b"%PDF-1.4 late").unwrap();
+            })
+        };
+        assert!(wait_for_pdf(&late, std::time::Duration::from_secs(5)), "Edge 가 나중에 쓴 PDF 를 기다린다");
+        writer.join().unwrap();
+        assert!(!wait_for_pdf(&dir.join("never.pdf"), std::time::Duration::from_millis(300)));
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
