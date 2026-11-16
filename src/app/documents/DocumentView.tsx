@@ -36,7 +36,8 @@ import { announceAction } from '../actionFeedback'
 import { CrossRefPreview } from './CrossRefPreview'
 import type { PdfBookmark } from '../../core/pdfBookmarks'
 import type { PdfPinPatch } from './usePdfBookmarks'
-import { closeSplitCell, evenFractions, fractionOffset, moveSplitBoundary, pdfSplitLayout, splitDividers, type PdfSplitLayoutId } from '../../core/pdfSplit'
+import { dividerStyle, startDividerDrag } from './splitDivider'
+import { closeSplitCell, evenFractions, moveSplitBoundary, pdfSplitLayout, splitDividers, type PdfSplitLayoutId } from '../../core/pdfSplit'
 import { X } from '@phosphor-icons/react'
 import type { GotoHit } from '../../core/pdfGoto'
 import { t } from '../../i18n'
@@ -330,28 +331,11 @@ export function DocumentView(props: DocumentViewProps) {
   // 칸 사이 구분선을 끌어 칸 크기를 바꾼다
   const splitRootRef = useRef<HTMLDivElement>(null)
   const dragDivider = (axis: 'col' | 'row', boundary: number) => (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    const handle = event.currentTarget
-    handle.setPointerCapture?.(event.pointerId)
-    const move = (moveEvent: PointerEvent) => {
-      const rect = splitRootRef.current?.getBoundingClientRect()
-      if (rect === undefined || rect.width <= 0 || rect.height <= 0) return
-      const at = axis === 'col' ? (moveEvent.clientX - rect.left) / rect.width : (moveEvent.clientY - rect.top) / rect.height
+    startDividerDrag(event, axis, () => splitRootRef.current?.getBoundingClientRect(), (at) => {
       changeSplit((state) => (axis === 'col'
         ? { ...state, cols: moveSplitBoundary(state.cols, boundary, at) }
         : { ...state, rows: moveSplitBoundary(state.rows, boundary, at) }))
-    }
-    const end = () => {
-      handle.removeEventListener('pointermove', move)
-      handle.removeEventListener('pointerup', end)
-      handle.removeEventListener('pointercancel', end)
-      handle.removeEventListener('lostpointercapture', end)
-    }
-    handle.addEventListener('pointermove', move)
-    handle.addEventListener('pointerup', end)
-    handle.addEventListener('pointercancel', end)
-    handle.addEventListener('lostpointercapture', end)
+    })
   }
   const [pdfQuery, setPdfQuery] = useState('')
   const [searchJumpNonce, setSearchJumpNonce] = useState(0)
@@ -376,25 +360,11 @@ export function DocumentView(props: DocumentViewProps) {
   }, [])
   const markdownSplitRef = useRef<HTMLDivElement | null>(null)
   const dragMarkdownDivider = (axis: 'col' | 'row', boundary: number) => (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    const move = (moveEvent: PointerEvent) => {
-      const box = markdownSplitRef.current?.getBoundingClientRect()
-      if (box === undefined || box.width <= 0 || box.height <= 0) return
-      const at = axis === 'col' ? (moveEvent.clientX - box.left) / box.width : (moveEvent.clientY - box.top) / box.height
+    startDividerDrag(event, axis, () => markdownSplitRef.current?.getBoundingClientRect(), (at) => {
       setMarkdownFractions((current) => axis === 'col'
         ? { ...current, cols: moveSplitBoundary(current.cols, boundary, at) }
         : { ...current, rows: moveSplitBoundary(current.rows, boundary, at) })
-    }
-    const end = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', end)
-      window.removeEventListener('pointercancel', end)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', end)
-    window.addEventListener('pointercancel', end)
+    })
   }
   const [printOpen, setPrintOpen] = useState(false)
   const [searchOptions, setSearchOptions] = useState<PdfSearchOptions>({ caseSensitive: false, wholeWord: false })
@@ -788,26 +758,17 @@ export function DocumentView(props: DocumentViewProps) {
                         {renderMarkdownCell(index)}
                       </div>
                     ))}
-                    {splitDividers(layout).map((divider) => {
-                      const across = divider.axis === 'col' ? markdownFractions.rows : markdownFractions.cols
-                      const along = divider.axis === 'col' ? markdownFractions.cols : markdownFractions.rows
-                      const position = fractionOffset(along, divider.boundary)
-                      const start = fractionOffset(across, divider.start)
-                      const end = fractionOffset(across, divider.end)
-                      return (
-                        <div
-                          key={`${divider.axis}-${divider.boundary}-${divider.start}`}
-                          className={`pdf-split-divider pdf-split-divider-${divider.axis}`}
-                          role="separator"
-                          aria-orientation={divider.axis === 'col' ? 'vertical' : 'horizontal'}
-                          aria-label={t('칸 크기 조절')}
-                          style={divider.axis === 'col'
-                            ? { left: `${position * 100}%`, top: `${start * 100}%`, height: `${(end - start) * 100}%` }
-                            : { top: `${position * 100}%`, left: `${start * 100}%`, width: `${(end - start) * 100}%` }}
-                          onPointerDown={dragMarkdownDivider(divider.axis, divider.boundary)}
-                        />
-                      )
-                    })}
+                    {splitDividers(layout).map((divider) => (
+                      <div
+                        key={`${divider.axis}-${divider.boundary}-${divider.start}`}
+                        className={`pdf-split-divider pdf-split-divider-${divider.axis}`}
+                        role="separator"
+                        aria-orientation={divider.axis === 'col' ? 'vertical' : 'horizontal'}
+                        aria-label={t('칸 크기 조절')}
+                        style={dividerStyle(divider, markdownFractions.cols, markdownFractions.rows)}
+                        onPointerDown={dragMarkdownDivider(divider.axis, divider.boundary)}
+                      />
+                    ))}
                   </div>
                 )
               })()}
@@ -940,24 +901,17 @@ export function DocumentView(props: DocumentViewProps) {
                     </div>
                   )
                 })}
-                {splitDividers(splitLayout).map((divider) => {
-                  const along = divider.axis === 'col' ? split.cols : split.rows
-                  const across = divider.axis === 'col' ? split.rows : split.cols
-                  const at = `${fractionOffset(along, divider.boundary) * 100}%`
-                  const from = `${fractionOffset(across, divider.start) * 100}%`
-                  const size = `${(fractionOffset(across, divider.end) - fractionOffset(across, divider.start)) * 100}%`
-                  return (
-                    <div
-                      key={`${divider.axis}:${divider.boundary}:${divider.start}`}
-                      className={`pdf-split-divider pdf-split-divider-${divider.axis}`}
-                      role="separator"
-                      aria-orientation={divider.axis === 'col' ? 'vertical' : 'horizontal'}
-                      aria-label={t('칸 크기 조절')}
-                      style={divider.axis === 'col' ? { left: at, top: from, height: size } : { top: at, left: from, width: size }}
-                      onPointerDown={dragDivider(divider.axis, divider.boundary)}
-                    />
-                  )
-                })}
+                {splitDividers(splitLayout).map((divider) => (
+                  <div
+                    key={`${divider.axis}:${divider.boundary}:${divider.start}`}
+                    className={`pdf-split-divider pdf-split-divider-${divider.axis}`}
+                    role="separator"
+                    aria-orientation={divider.axis === 'col' ? 'vertical' : 'horizontal'}
+                    aria-label={t('칸 크기 조절')}
+                    style={dividerStyle(divider, split.cols, split.rows)}
+                    onPointerDown={dragDivider(divider.axis, divider.boundary)}
+                  />
+                ))}
               </div>
             </div>
           )
