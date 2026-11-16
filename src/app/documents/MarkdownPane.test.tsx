@@ -4,7 +4,55 @@ import { dragInternally } from '../../test/internalDrag'
 import { describe, expect, it, vi } from 'vitest'
 import { MARKDOWN_EXCERPT_DRAG_MIME, parseMarkdownExcerptDrag } from '../../core/markdownExcerpt'
 import { createPersistentMarkdownHighlight } from '../../core/markdownHighlight'
-import { MarkdownPane } from './MarkdownPane'
+import { imageExtensionOf, MarkdownPane } from './MarkdownPane'
+
+describe('MarkdownPane: 텍스트·HTML·XML', () => {
+  it('텍스트는 글자 그대로 그리고 # 줄도 제목이 되지 않는다', () => {
+    const { container } = render(<MarkdownPane title="log" format="text" path="run.log" source={'# 주석 <b>x</b>\n\n  들여쓴 줄'} />)
+    expect(container.querySelector('h1')).toBeNull()
+    expect(container.querySelector('b')).toBeNull()
+    expect(container.querySelectorAll('p.flow-text')).toHaveLength(2)
+    expect(container.querySelector('.flow-notice')).toBeNull()
+  })
+
+  it('HTML 은 읽기용으로 거른 본문을 그린다', () => {
+    const { container } = render(<MarkdownPane title="page" format="html" path="page.html" source={'<h1>제목</h1><script>alert(1)</script><p onclick="x()">글</p>'} />)
+    expect(screen.getByRole('heading', { name: '제목' })).toBeDefined()
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('p')?.getAttribute('onclick')).toBeNull()
+  })
+
+  it('XML 은 색칠한 원문으로 그리고, 깨진 XML 은 글자 그대로 보이며 한 줄로 알린다', () => {
+    const view = render(<MarkdownPane title="data" format="xml" path="a.xml" source={'<a x="1"><b>글</b></a>'} />)
+    expect(view.container.querySelector('pre.flow-xml .xml-attr')?.textContent).toBe('x')
+    expect(view.container.querySelector('.flow-notice')).toBeNull()
+    view.unmount()
+    const broken = render(<MarkdownPane title="data" format="xml" path="b.xml" source={'<a><b></a>'} />)
+    expect(broken.container.querySelector('.flow-notice')?.textContent).toBe('XML 형식이 올바르지 않아 글자 그대로 보여 줍니다.')
+    expect(broken.container.querySelector('p.flow-text')?.textContent).toBe('<a><b></a>')
+  })
+
+  it('텍스트 글을 선택하면 노트로 끌 수 있다(형식과 상관없이 같은 길)', () => {
+    render(<MarkdownPane title="memo" format="text" path="memo.txt" sourceFileId="id-1" source={'첫 문단\n\n선택할 글'} />)
+    const paragraph = screen.getByText('선택할 글')
+    const range = document.createRange()
+    range.selectNodeContents(paragraph)
+    window.getSelection()?.removeAllRanges()
+    window.getSelection()?.addRange(range)
+    fireEvent.mouseUp(screen.getByRole('article', { name: 'memo' }))
+    const serialized = dragInternally(screen.getByRole('button', { name: '선택 내용을 노트로 끌기' }))?.data[MARKDOWN_EXCERPT_DRAG_MIME] ?? ''
+    expect(parseMarkdownExcerptDrag(serialized)).toMatchObject({ selection: { path: 'memo.txt', quote: '선택할 글', format: 'paragraph' } })
+  })
+})
+
+describe('imageExtensionOf', () => {
+  it('실제 확장자를 소문자로 돌려준다', () => {
+    expect(imageExtensionOf('C:/a/b.PNG')).toBe('png')
+    expect(imageExtensionOf('a/b.c/img.svg')).toBe('svg')
+    expect(imageExtensionOf('a.b\\c')).toBe('')
+    expect(imageExtensionOf('noext')).toBe('')
+  })
+})
 
 describe('MarkdownPane', () => {
   it('검색어를 렌더링된 Markdown 글자 뒤에서 모두 강조하고 결과 수를 표시한다', () => {

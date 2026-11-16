@@ -37,7 +37,8 @@ const EMPTY_BOX_HIGHLIGHTS: readonly PersistentPdfHighlight[] = []
 const EMPTY_OVERLAYS: readonly PdfOverlay[] = []
 const EMPTY_PINS: readonly PdfBookmark[] = []
 
-import { renderMarkdown, resolveMarkdownLink, resolveRelativePath } from '../../core/markdown'
+import { resolveMarkdownLink, resolveRelativePath } from '../../core/markdown'
+import { renderFlowDocument } from '../../core/flowRender'
 import {
   MARKDOWN_EXCERPT_DRAG_MIME,
   serializeMarkdownExcerptDrag,
@@ -133,8 +134,15 @@ interface MarkdownPaneProps {
 /** 그림 파일 → blob 주소. 같은 그림을 탭을 바꿀 때마다 다시 읽지 않게 둔다 */
 const markdownImageUrls = new Map<string, Promise<string | null>>()
 const IMAGE_TYPES: Readonly<Record<string, string>> = {
-  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
+  svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
 }
+
+/** 파일 이름 끝의 확장자(소문자). 없으면 빈 글 */
+export function imageExtensionOf(path: string): string {
+  return /\.([^.\\/]+)$/u.exec(path)?.[1]?.toLowerCase() ?? ''
+}
+
 function loadMarkdownImage(absolutePath: string): Promise<string | null> {
   const cached = markdownImageUrls.get(absolutePath)
   if (cached !== undefined) return cached
@@ -142,7 +150,8 @@ function loadMarkdownImage(absolutePath: string): Promise<string | null> {
     try {
       const { readFile } = await import('@tauri-apps/plugin-fs')
       const bytes = await readFile(absolutePath)
-      const extension = absolutePath.split('..').at(-1)?.toLowerCase() ?? ''
+      const extension = imageExtensionOf(absolutePath)
+      // SVG 는 <img> 로만 읽혀 스크립트가 돌지 않는다. 그래서 파일을 인라인으로 넣지 않고 blob 주소로만 쓴다
       return URL.createObjectURL(new Blob([bytes], { type: IMAGE_TYPES[extension] ?? 'application/octet-stream' }))
     } catch {
       markdownImageUrls.delete(absolutePath)
@@ -426,18 +435,6 @@ function putDragPayload(event: DragEvent, payload: MarkdownExcerptDragPayload): 
   event.dataTransfer.setData('text/plain', payload.selection.quote)
 }
 
-/**
- * 형식별 본문 HTML. Markdown 이 아닌 형식은 아직 전용 렌더러가 없어 원문을 그대로(해석 없이) 보여 준다.
- * 원문을 코드 블록 안에 넣어 HTML·XML 이 태그로 해석되지 않게 한다.
- * TODO(task2): flowRender 로 바꾼다
- */
-function renderFlowSource(source: string, format: DocumentFormat): string {
-  if (format === 'markdown') return renderMarkdown(source)
-  const longestRun = Math.max(2, ...[...source.matchAll(/`+/gu)].map((match) => match[0].length))
-  const fence = '`'.repeat(longestRun + 1)
-  return renderMarkdown([fence, source, fence].join('\n'))
-}
-
 export function MarkdownPane({
   title,
   source,
@@ -484,7 +481,8 @@ export function MarkdownPane({
   onMovePin,
   onRemovePin,
 }: MarkdownPaneProps) {
-  const html = useMemo(() => renderFlowSource(source, format), [source, format])
+  const flow = useMemo(() => renderFlowDocument(format, source), [source, format])
+  const html = flow.html
   const sourceHash = useMemo(() => markdownSourceHash(source), [source])
   const activeHighlights = useMemo(() => {
     const own = persistentHighlights.filter((highlight) => (
@@ -1350,6 +1348,7 @@ export function MarkdownPane({
         onZoomChange(Math.min(Math.max(Math.round(zoom * (event.deltaY < 0 ? 1.1 : 1 / 1.1)), 50), 300))
       }}
     >
+      {flow.notice === undefined ? null : <div className="flow-notice" role="status">{flow.notice}</div>}
       <article
         ref={articleRef}
         className="markdown-pane"

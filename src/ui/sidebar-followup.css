@@ -998,3 +998,67 @@
 
 /* 목차·미리보기·검색 보기에도 탐색기와 같은 바닥 줄(Vault·설정) */
 .side-doc-target-wrap > .side-footer { flex: 0 0 auto; position: relative; }
+
+/* 텍스트(.txt·.log)·XML 읽기: 코드나 로그인 일이 많아 고정폭으로 보인다. 글자 크기·배율은 다른 글과 같다.
+   색은 Markdown 테마 토큰(--md-*)에서 가져와 모든 테마에서 읽힌다 */
+.markdown-pane p.flow-text {
+  margin-block: 0 1em;
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+  font-size: 0.92em;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  tab-size: 4;
+  overflow-wrap: anywhere;
+}
+.markdown-pane pre.flow-xml {
+  margin: 0 0 1em;
+  padding: 14px 16px;
+  border: 1px solid var(--md-border, var(--hairline));
+  border-radius: var(--r-md);
+  background: var(--md-code-background, var(--chrome));
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+  font-size: 0.9em;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  tab-size: 2;
+  overflow-wrap: anywhere;
+  overflow-x: visible;
+}
+.markdown-pane .xml-tag { color: var(--md-muted, var(--text-muted)); }
+.markdown-pane .xml-attr { color: var(--md-link, var(--accent)); }
+.markdown-pane .xml-val { color: color-mix(in srgb, var(--accent) 65%, var(--md-foreground, var(--text))); }
+.markdown-pane .xml-text { color: var(--md-foreground, var(--text)); }
+.markdown-pane .xml-cdata { color: color-mix(in srgb, var(--md-foreground, var(--text)) 75%, var(--md-muted, var(--text-muted))); }
+.markdown-pane .xml-comment,
+.markdown-pane .xml-pi,
+.markdown-pane .xml-doctype { color: var(--md-muted, var(--text-muted)); font-style: italic; }
+
+/* 읽기 화면 위 한 줄 알림(예: XML 이 깨져 글자 그대로 보여 줄 때). 종이 위쪽 빈 자리에 놓는다 */
+.flow-notice {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 6;
+  max-width: calc(100% - 48px);
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border: 1px solid var(--md-border, var(--hairline));
+  border-radius: var(--r-sm);
+  background: var(--md-code-background, var(--chrome));
+  color: var(--md-muted, var(--text-muted));
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 인쇄: 어두운 테마에서도 흰 종이에서 읽히게 XML 색을 걷고 바탕을 없앤다 */
+@media print {
+  .iwae-print-markdown pre.flow-xml { background: transparent; border-color: #999; }
+  .iwae-print-markdown pre.flow-xml span { color: #111; }
+  .iwae-print-markdown pre.flow-xml .xml-tag,
+  .iwae-print-markdown pre.flow-xml .xml-comment,
+  .iwae-print-markdown pre.flow-xml .xml-pi,
+  .iwae-print-markdown pre.flow-xml .xml-doctype { color: #555; }
+}

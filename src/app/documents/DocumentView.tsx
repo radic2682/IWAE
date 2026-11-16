@@ -717,7 +717,7 @@ export function DocumentView(props: DocumentViewProps) {
                 key={index}
                 primary={index === 0}
                 path={tab.id}
-                format={documentFormatOf(tab.id) ?? 'markdown'}
+                format={documentFormatOf(tab.id) ?? 'text'}
                 sourceFileId={props.markdownSourceFileId}
                 vaultRoot={props.vaultRoot}
                 onOpenDocument={props.onOpenMarkdownPath}

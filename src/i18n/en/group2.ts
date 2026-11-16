@@ -231,6 +231,7 @@ export const GROUP_2: Readonly<Record<string, string>> = {
   "대상 폴더에 같은 이름의 PDF가 이미 있습니다.": "A PDF with the same name already exists in the target folder.",
   "문서 파일 경로가 올바르지 않습니다.": "Invalid document file path.",
   "파일이 너무 커서 열 수 없습니다. (20MB까지)": "The file is too large to open. (up to 20 MB)",
+  "XML 형식이 올바르지 않아 글자 그대로 보여 줍니다.": "This XML is not well-formed, so it is shown as plain text.",
   "트리 순서 형식이 올바르지 않습니다.": "Invalid tree order format.",
   "트리 순서 항목이 올바르지 않습니다.": "Invalid tree order entry.",
   "폴더와 노트 이름에는 경로 문자를 쓸 수 없습니다.": "Folder and note names can't contain path characters.",
