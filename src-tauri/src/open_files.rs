@@ -49,14 +49,12 @@ pub fn on_opened_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
     let _ = app.emit_to(crate::windows::MAIN_LABEL, EVENT, files);
 }
 
-/// 탐색기에서 열 수 있는 파일: 문서(PDF·Markdown·텍스트·HTML·XML), 테마 파일(.iwtheme). 화면이 종류별로 갈라 처리한다.
-/// 텍스트·HTML·XML 은 「연결 프로그램」으로 등록하지 않는다(설치만으로 그 형식을 가져오지 않는다). 직접 「연결 프로그램」으로 골랐을 때만 온다
+/// 탐색기에서 열 수 있는 파일: PDF, 테마 파일(.iwtheme). 화면이 종류별로 갈라 처리한다.
+/// 텍스트·HTML·XML·Markdown 을 탐색기에서 바로 여는 길은 아직 없다(Vault 색인에 영구 참조를 남기지 않는 열기를 따로 설계한다)
 fn is_openable(path: &Path) -> bool {
-    crate::document_format::is_openable_document(path)
-        || path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("iwtheme"))
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf") || ext.eq_ignore_ascii_case("iwtheme"))
 }
 
 /// `.`·`..` 를 글자 기준으로 걷어 낸다(`C:\a\b` + `..\x.pdf` → `C:\a\x.pdf`). 파일 시스템은 보지 않는다
@@ -451,11 +449,11 @@ mod tests {
     }
 
     #[test]
-    fn openable_files_are_documents_and_theme_files() {
-        for name in ["a.pdf", "a.MD", "a.txt", "a.html", "a.xml", "a.iwtheme"] {
+    fn openable_files_are_pdf_and_theme_files_only() {
+        for name in ["a.pdf", "a.PDF", "a.iwtheme"] {
             assert!(is_openable(Path::new(name)), "{name}");
         }
-        for name in ["a.png", "a.docx", "notes", "a.json"] {
+        for name in ["a.png", "a.docx", "notes", "a.json", "a.md", "a.txt", "a.html", "a.xml"] {
             assert!(!is_openable(Path::new(name)), "{name}");
         }
     }
@@ -476,7 +474,21 @@ mod tests {
         assert_eq!(files, vec![pdf.to_string_lossy().into_owned()]);
         let theme = dir.join("숲.IWTHEME");
         std::fs::write(&theme, b"{}").unwrap();
-        let files = pdf_args(vec!["iwae.exe".to_string(), "숲.IWTHEME".to_string(), "notes.txt".to_string()], Some(&dir));
+        // 실제로 있는 txt·md·html·xml 도 받지 않는다(PDF 와 테마 파일만)
+        for name in ["notes.txt", "notes.md", "page.html", "data.xml"] {
+            std::fs::write(dir.join(name), b"x").unwrap();
+        }
+        let files = pdf_args(
+            vec![
+                "iwae.exe".to_string(),
+                "숲.IWTHEME".to_string(),
+                "notes.txt".to_string(),
+                "notes.md".to_string(),
+                "page.html".to_string(),
+                "data.xml".to_string(),
+            ],
+            Some(&dir),
+        );
         assert_eq!(files, vec![theme.to_string_lossy().into_owned()]);
         let _ = std::fs::remove_dir_all(&dir);
     }

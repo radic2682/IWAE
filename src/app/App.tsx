@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translation/translationCacheStore'
 import { isMarkdownPath } from '../core/markdownPath'
-import { isFlowDocumentPath, isOpenableDocumentPath, isPdfPath, stripDocumentExtension } from '../core/documentFormat'
+import { documentFormatOf, isFlowDocumentPath, isOpenableDocumentPath, isPdfPath, stripDocumentExtension } from '../core/documentFormat'
 import { isFlowVaultEntry } from '../core/vaultIndex'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
@@ -694,9 +694,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 탐색기에서 PDF 를 IWAE 로 열었을 때: 처음 켜질 때 받은 것은 Vault 를 연 뒤 한 번, 켜진 동안은 올 때마다 연다
   const openExternalPdfRef = useRef(openExternalPdf)
   openExternalPdfRef.current = openExternalPdf
-  // 탐색기에서 연 파일: PDF 는 바로 열고, 그 밖의 문서(Markdown·텍스트·HTML·XML)는 Vault 목록에 참조로 올려 연다
-  const openExternalDocumentRef = useRef<(path: string) => Promise<unknown>>(openExternalPdf)
-  openExternalDocumentRef.current = (path) => (isPdfPath(path) ? openExternalPdf(path) : importDroppedDocuments([path]))
+  // 탐색기에서 연 파일: PDF 만 바로 연다(텍스트·HTML·XML·Markdown 은 영구 참조를 남기지 않는 열기를 따로 설계한다)
   const startupFilesTakenRef = useRef(false)
   useEffect(() => {
     // 켤 때 받은 PDF 는 메인 창이 맡는다
@@ -706,7 +704,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       .then(async (paths) => {
         const themes = paths.filter((path) => isThemeFileName(path))
         if (themes.length > 0) await offerThemePaths(themes)
-        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalDocumentRef.current(path)
+        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalPdfRef.current(path)
       })
       .catch(() => undefined)
   }, [vault])
@@ -719,7 +717,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         // 탐색기에서 연 .iwtheme 는 문서가 아니라 「테마를 추가할까요?」 로
         const themes = paths.filter((path) => isThemeFileName(path))
         if (themes.length > 0) await offerThemePaths(themes)
-        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalDocumentRef.current(path)
+        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalPdfRef.current(path)
       })()
     }).then((next) => {
       if (disposed) next()
@@ -4410,6 +4408,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         ) : sidebarMode === 'thumbnails' && activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
           <MarkdownSectionPreview
             source={markdownSources[activeDocumentTab.id]!}
+            format={documentFormatOf(activeDocumentTab.id) ?? 'text'}
             currentSection={markdownSectionState[activeDocumentTab.id] ?? 0}
             onSelectSection={(index) => window.dispatchEvent(new CustomEvent('iwae:md-section-go', { detail: { path: activeDocumentTab.id, index } }))}
           />
@@ -4424,6 +4423,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
             <MarkdownOutline
               source={markdownSources[activeDocumentTab.id]!}
+              format={documentFormatOf(activeDocumentTab.id) ?? 'text'}
               currentSection={markdownSectionState[activeDocumentTab.id] ?? 0}
               onSelectSection={(index) => window.dispatchEvent(new CustomEvent('iwae:md-section-go', { detail: { path: activeDocumentTab.id, index } }))}
               bookmarks={pdfBookmarks.bookmarks.filter((bookmark) => bookmark.docId === activeDocumentTab.id)}
