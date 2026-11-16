@@ -678,10 +678,20 @@ pub fn show_log(state: State<'_, SetupState>) -> Result<(), String> {
 
 #[tauri::command]
 pub fn quit(app: AppHandle) {
+    let st = app.state::<SetupState>();
     // No quitting in the middle of an install or uninstall.
-    if !app.state::<SetupState>().busy.load(Ordering::SeqCst) {
-        app.exit(0);
+    if st.busy.load(Ordering::SeqCst) {
+        return;
     }
+    if relaunches_on_quit(st.mode, st.failed.load(Ordering::SeqCst)) {
+        relaunch_previous(&app);
+    }
+    app.exit(0);
+}
+
+/// A failed update brings the previous app back however the window is closed.
+pub fn relaunches_on_quit(mode: UiMode, failed: bool) -> bool {
+    mode == UiMode::Update && failed
 }
 
 /// The window is created hidden; the UI calls this after its first paint.
@@ -699,6 +709,15 @@ pub fn show_main(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn quit_relaunches_only_after_a_failed_update() {
+        use super::{relaunches_on_quit, UiMode};
+        assert!(relaunches_on_quit(UiMode::Update, true));
+        assert!(!relaunches_on_quit(UiMode::Update, false));
+        assert!(!relaunches_on_quit(UiMode::Install, true));
+        assert!(!relaunches_on_quit(UiMode::Uninstall, true));
+    }
+
     use super::*;
     use crate::registry::{MemReg, UNINSTALL_KEY};
 
