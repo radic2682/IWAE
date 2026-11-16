@@ -1432,7 +1432,7 @@ export async function readEagerSearchTexts(
 ): Promise<(readonly [string, string])[]> {
   const readOne = async (entry: { readonly id: string; readonly path: string }, maxBytes: number): Promise<readonly [string, string] | null> => {
     try {
-      const text = await readDocumentFile(await resolveDocumentPath(vault, entry.path), maxBytes, true)
+      const text = await readDocumentFile(await resolveDocumentPath(vault, entry.path), maxBytes, !isMarkdown(entry))
       return text === null ? null : [entry.id, searchTextOf(entry.path, text)] as const
     } catch {
       return null // 읽지 못한 파일은 건너뛴다

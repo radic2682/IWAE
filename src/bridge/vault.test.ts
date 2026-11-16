@@ -342,8 +342,10 @@ describe('vault library', () => {
     // 크기를 알 수 없거나(stat 실패) 한도를 넘으면 미리 읽기는 readFile 을 부르지 않는다
     fsMocks.readFile.mockClear()
     fsMocks.stat.mockRejectedValue(new Error('no stat'))
-    expect(await readEagerSearchTexts(vault, entries)).toEqual([])
-    expect(fsMocks.readFile).not.toHaveBeenCalled()
+    // stat 이 실패하면 Markdown 만 읽는다(읽은 뒤 크기 검사). 그 밖의 형식은 읽지 않는다
+    expect(fsMocks.readFile).toHaveBeenCalledTimes(1)
+    fsMocks.readFile.mockClear()
+    expect(fsMocks.readFile).toHaveBeenCalledTimes(1)
     fsMocks.stat.mockImplementation(async () => ({ size: 21 * 1024 * 1024 }))
     expect(await readEagerSearchTexts(vault, entries)).toEqual([])
     expect(fsMocks.readFile).not.toHaveBeenCalled()
@@ -365,6 +367,17 @@ describe('vault library', () => {
     expect(byId.h).not.toContain('숨은코드')
     expect(byId.h).not.toContain('<p>')
     expect(byId.x).toBe('속성값\n마디')
+  })
+
+  it('stat 이 실패해도 Markdown 은 읽고(읽은 뒤 20MB 검사) 그 밖의 형식은 읽지 않는다', async () => {
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.stat.mockRejectedValue(new Error('no stat'))
+    fsMocks.readFile.mockImplementation(async (path: string) => (
+      path.endsWith('huge.md') ? new Uint8Array(21 * 1024 * 1024) : new TextEncoder().encode('글')
+    ))
+    const records = await readEagerSearchTexts(vault, [{ id: 'm', path: 'a.md' }, { id: 't', path: 'a.txt' }, { id: 'h', path: 'huge.md' }])
+    expect(records.map(([id]) => id)).toEqual(['m'])
+    expect(fsMocks.readFile).not.toHaveBeenCalledWith('C:/Vault/a.txt')
   })
 
   it('데스크톱에서는 index.json을 저널 원자 쓰기로 저장한다', async () => {
