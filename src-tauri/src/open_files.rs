@@ -49,11 +49,14 @@ pub fn on_opened_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
     let _ = app.emit_to(crate::windows::MAIN_LABEL, EVENT, files);
 }
 
-/// 탐색기에서 열 수 있는 파일: PDF, 테마 파일(.iwtheme). 화면이 종류별로 갈라 처리한다
+/// 탐색기에서 열 수 있는 파일: 문서(PDF·Markdown·텍스트·HTML·XML), 테마 파일(.iwtheme). 화면이 종류별로 갈라 처리한다.
+/// 텍스트·HTML·XML 은 「연결 프로그램」으로 등록하지 않는다(설치만으로 그 형식을 가져오지 않는다). 직접 「연결 프로그램」으로 골랐을 때만 온다
 fn is_openable(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf") || ext.eq_ignore_ascii_case("iwtheme"))
+    crate::document_format::is_openable_document(path)
+        || path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("iwtheme"))
 }
 
 /// `.`·`..` 를 글자 기준으로 걷어 낸다(`C:\a\b` + `..\x.pdf` → `C:\a\x.pdf`). 파일 시스템은 보지 않는다
@@ -445,6 +448,16 @@ mod tests {
         }
         assert!(pdf_args(vec!["iwae.exe".to_string(), "../../../../nope.pdf".to_string()], Some(&sub)).is_empty());
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn openable_files_are_documents_and_theme_files() {
+        for name in ["a.pdf", "a.MD", "a.txt", "a.html", "a.xml", "a.iwtheme"] {
+            assert!(is_openable(Path::new(name)), "{name}");
+        }
+        for name in ["a.png", "a.docx", "notes", "a.json"] {
+            assert!(!is_openable(Path::new(name)), "{name}");
+        }
     }
 
     #[test]

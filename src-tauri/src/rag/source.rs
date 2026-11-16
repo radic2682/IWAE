@@ -11,7 +11,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceDoc {
     pub id: String,
-    /// `pdf` 또는 `markdown`
+    /// `pdf`, `markdown`, `text`(txt·html·xml)
     pub kind: String,
     pub title: String,
     /// Vault 기준 상대 경로, 또는 외부 참조의 절대 경로.
@@ -72,7 +72,7 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     serde_json::from_str(&text).ok()
 }
 
-/// Vault 색인에 있는 PDF·Markdown 을 읽는다. 읽을 수 없는 항목(사라진 파일, 아직 본문이
+/// Vault 색인에 있는 PDF·Markdown·텍스트 문서를 읽는다. 읽을 수 없는 항목(사라진 파일, 아직 본문이
 /// 없는 PDF)은 빠진다 — 다음 색인 때 다시 시도된다.
 pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
     let Some(index) = read_json::<IndexFile>(&iwae_dir(root).join("index.json")) else {
@@ -114,7 +114,9 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
                     complete: document.complete,
                 });
             }
-            "markdown" => {
+            // 'text' 는 txt·html·xml. 지금은 파일을 글 그대로 읽는다.
+            // TODO(task3): html·xml 은 태그를 걷어 낸 본문을 색인한다(그때까지는 태그가 섞여 들어간다)
+            "markdown" | "text" => {
                 let file = if entry.storage == "vault" {
                     root.join(&entry.path)
                 } else {
@@ -125,7 +127,7 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
                 };
                 sources.push(SourceDoc {
                     id: entry.id,
-                    kind: "markdown".into(),
+                    kind: entry.kind.clone(),
                     title: entry.display_name,
                     path: entry.path,
                     content_hash: entry.content_hash,
@@ -201,5 +203,25 @@ mod tests {
         );
         assert!(!sources[0].complete);
         assert_eq!(sources[1].pages, vec!["# 메모\n본문".to_string()]);
+    }
+
+    #[test]
+    fn text_documents_are_read_from_disk_and_keep_their_kind() {
+        let root = std::env::temp_dir().join(format!("iwae-source-text-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".iwae")).unwrap();
+        std::fs::write(root.join("run.txt"), "버스 초기화 로그").unwrap();
+        std::fs::write(
+            root.join(".iwae/index.json"),
+            r#"{"version":1,"entries":[
+              {"id":"t1","kind":"text","storage":"vault","path":"run.txt","displayName":"run","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false}
+            ]}"#,
+        )
+        .unwrap();
+        let sources = load_sources(&root);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].kind, "text");
+        assert_eq!(sources[0].pages, vec!["버스 초기화 로그".to_string()]);
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

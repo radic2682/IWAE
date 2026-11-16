@@ -162,7 +162,7 @@ pub fn core_tools() -> Value {
             "inputSchema": {"type": "object", "properties": {
                 "query": {"type": "string", "description": "What to look for. Korean or English."},
                 "limit": {"type": "integer", "minimum": 1, "maximum": MAX_LIMIT, "description": "Number of results (default 8)."},
-                "kind": {"type": "string", "enum": ["pdf", "markdown"]}
+                "kind": {"type": "string", "enum": ["pdf", "markdown", "text"]}
             }, "required": ["query"]}
         },
         {
@@ -185,7 +185,7 @@ pub fn core_tools() -> Value {
         {
             "name": "list_documents",
             "description": "Use when you need to know which documents exist, their doc_id and page counts, whether they have a note, are favorites or scanned. Do not use it to search content (search_vault). Returns [{docId,title,pages,...}] with has_note, note_titles, favorite, folder, ocr when the app answers; stacked versions carry version{group,label,isDefault,others}. 색인된 문서 목록.",
-            "inputSchema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["pdf", "markdown"]}}}
+            "inputSchema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["pdf", "markdown", "text"]}}}
         },
         {
             "name": "get_annotations",
@@ -350,7 +350,7 @@ fn arg_usize(args: &Value, name: &str) -> Option<usize> {
 fn kind_arg(args: &Value) -> Result<Option<&str>, ()> {
     match args.get("kind") {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::String(kind)) if kind == "pdf" || kind == "markdown" => Ok(Some(kind.as_str())),
+        Some(Value::String(kind)) if kind == "pdf" || kind == "markdown" || kind == "text" => Ok(Some(kind.as_str())),
         _ => Err(()),
     }
 }
@@ -459,7 +459,7 @@ fn call_tool(id: &Value, name: &str, args: &Value, ctx: &dyn ToolContext) -> Out
                 return error(id, -32602, "query 가 필요합니다.");
             };
             let Ok(kind) = kind_arg(args) else {
-                return error(id, -32602, "kind 는 pdf 또는 markdown 입니다.");
+                return error(id, -32602, "kind 는 pdf, markdown, text 중 하나입니다.");
             };
             let limit = arg_usize(args, "limit").map(|limit| limit.clamp(1, MAX_LIMIT));
             match ctx.search(query, limit, kind) {
@@ -490,7 +490,7 @@ fn call_tool(id: &Value, name: &str, args: &Value, ctx: &dyn ToolContext) -> Out
         "read_pages" => read_pages(args, ctx),
         "list_documents" => {
             let Ok(kind) = kind_arg(args) else {
-                return error(id, -32602, "kind 는 pdf 또는 markdown 입니다.");
+                return error(id, -32602, "kind 는 pdf, markdown, text 중 하나입니다.");
             };
             match ctx.documents(kind) {
                 Ok(documents) => {

@@ -205,7 +205,7 @@ pub fn tool_schemas() -> Vec<Value> {
             "inputSchema": obj(json!({
                 "collection": {"type": "string", "enum": ["all", "favorites", "recent", "folder"]},
                 "folder": {"type": "string", "description": "Folder path when collection is 'folder'"},
-                "kind": {"type": "string", "enum": ["pdf", "markdown"]},
+                "kind": {"type": "string", "enum": ["pdf", "markdown", "text"]},
                 "query": {"type": "string", "description": "Title filter"},
                 "sort": {"type": "string", "enum": ["title", "recent", "added", "pages"]}
             }), &[])}),

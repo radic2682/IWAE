@@ -3,17 +3,13 @@
 
 use std::path::Path;
 
-/// 붙여 넣을 수 있는 파일인가: 실제 파일이고 PDF(또는 Markdown) 다
+/// 붙여 넣을 수 있는 파일인가: 실제 파일이고 문서(PDF·Markdown·텍스트·HTML·XML)다
 fn validate(path: &Path) -> Result<(), String> {
     if !path.is_file() {
         return Err(tr!("파일을 찾을 수 없습니다: {}", "File not found: {}", path.display()));
     }
-    let is_pdf = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ["pdf", "md", "markdown"].iter().any(|allowed| ext.eq_ignore_ascii_case(allowed)));
-    if !is_pdf {
-        return Err(tr!("PDF·Markdown 파일만 복사할 수 있습니다.", "Only PDF and Markdown files can be copied."));
+    if !crate::document_format::is_openable_document(path) {
+        return Err(tr!("PDF·Markdown·텍스트·HTML·XML 파일만 복사할 수 있습니다.", "Only PDF, Markdown, text, HTML and XML files can be copied."));
     }
     Ok(())
 }
@@ -141,13 +137,19 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_and_non_pdf_files() {
+    fn rejects_missing_and_non_document_files() {
         let dir = std::env::temp_dir().join(format!("iwae-clip-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let text = dir.join("a.txt");
-        std::fs::write(&text, "x").unwrap();
+        let image = dir.join("a.png");
+        std::fs::write(&image, "x").unwrap();
         assert!(validate(&dir.join("none.pdf")).is_err());
-        assert!(validate(&text).is_err());
+        assert!(validate(&image).is_err());
+        // 텍스트·HTML·XML 도 문서라 복사할 수 있다
+        for name in ["a.txt", "b.html", "c.xml"] {
+            let file = dir.join(name);
+            std::fs::write(&file, "x").unwrap();
+            assert!(validate(&file).is_ok(), "{name}");
+        }
         let pdf = dir.join("b.PDF");
         std::fs::write(&pdf, "%PDF").unwrap();
         assert!(validate(&pdf).is_ok());

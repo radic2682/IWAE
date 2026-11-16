@@ -694,6 +694,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   // 탐색기에서 PDF 를 IWAE 로 열었을 때: 처음 켜질 때 받은 것은 Vault 를 연 뒤 한 번, 켜진 동안은 올 때마다 연다
   const openExternalPdfRef = useRef(openExternalPdf)
   openExternalPdfRef.current = openExternalPdf
+  // 탐색기에서 연 파일: PDF 는 바로 열고, 그 밖의 문서(Markdown·텍스트·HTML·XML)는 Vault 목록에 참조로 올려 연다
+  const openExternalDocumentRef = useRef<(path: string) => Promise<unknown>>(openExternalPdf)
+  openExternalDocumentRef.current = (path) => (isPdfPath(path) ? openExternalPdf(path) : importDroppedDocuments([path]))
   const startupFilesTakenRef = useRef(false)
   useEffect(() => {
     // 켤 때 받은 PDF 는 메인 창이 맡는다
@@ -703,7 +706,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       .then(async (paths) => {
         const themes = paths.filter((path) => isThemeFileName(path))
         if (themes.length > 0) await offerThemePaths(themes)
-        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalPdfRef.current(path)
+        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalDocumentRef.current(path)
       })
       .catch(() => undefined)
   }, [vault])
@@ -716,7 +719,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         // 탐색기에서 연 .iwtheme 는 문서가 아니라 「테마를 추가할까요?」 로
         const themes = paths.filter((path) => isThemeFileName(path))
         if (themes.length > 0) await offerThemePaths(themes)
-        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalPdfRef.current(path)
+        for (const path of paths.filter((item) => !isThemeFileName(item))) await openExternalDocumentRef.current(path)
       })()
     }).then((next) => {
       if (disposed) next()
