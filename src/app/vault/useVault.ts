@@ -1634,10 +1634,10 @@ export function useVault(options: UseVaultOptions = {}) {
 
     if (failed === 1 && rejected.length === 0) {
       // 하나만 실패했으면 그 까닭을 그대로 보인다
-      setError(t('「{name}」을 가져오지 못했습니다: {error}', { name: failures[0]!.name, error: failures[0]!.reason }))
+      setError(t('「{name}」 파일을 가져오지 못했습니다: {error}', { name: failures[0]!.name, error: failures[0]!.reason }))
     } else if (rejected.length > 0 || failed > 0) {
       const summary = t('가져오기 완료: {imported}개, 지원하지 않음 {rejected}개, 실패 {failed}개', { imported, rejected: rejected.length, failed })
-      setError(failed > 0 ? `${summary}. ${t('처음 실패: 「{name}」 {error}', { name: failures[0]!.name, error: failures[0]!.reason })}` : summary)
+      setError(failed > 0 ? `${summary}. ${t('처음 실패한 파일: 「{name}」 {error}', { name: failures[0]!.name, error: failures[0]!.reason })}` : summary)
     }
     return { imported, rejected: rejected.length, failed }
   }, [refreshVaultFiles, vault])
@@ -1741,7 +1741,7 @@ export function useVault(options: UseVaultOptions = {}) {
         // 열지 못해도 가져오기는 끝났다. 왼쪽 바에서 열면 된다
       }
     }
-    if (failures.length > 0) setError(t('{count}개를 가져오지 못했습니다: {names}', { count: failures.length, names: failures.join(', ') }))
+    if (failures.length > 0) setError(t('파일 {count}개를 가져오지 못했습니다: {names}', { count: failures.length, names: failures.join(', ') }))
     return pdfDocIds
   }, [refreshVaultFiles, tree, vault])
   importPdfsAtRef.current = importPdfsAt

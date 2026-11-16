@@ -155,7 +155,7 @@ export const GROUP_6: Readonly<Record<string, string>> = {
   '파일을 가져오려면 먼저 Vault를 여세요.': 'Open a vault first to import files.',
   '가져오기 완료: {imported}개, 지원하지 않음 {rejected}개, 실패 {failed}개': 'Import done: {imported} imported, {rejected} unsupported, {failed} failed',
   '대상 폴더에 같은 이름의 파일이 이미 있습니다.': 'A file with the same name already exists in the target folder.',
-  '{count}개를 가져오지 못했습니다: {names}': 'Could not import {count}: {names}',
+  '파일 {count}개를 가져오지 못했습니다: {names}': 'Could not import {count}: {names}',
   '{count}개를 옮기지 못했습니다: {names}': 'Could not move {count}: {names}',
   'Markdown을 읽기 보기로 열지 못해 간단 보기로 엽니다: {error}': 'Could not open Markdown in reader view, opening simple view: {error}',
   '열린 Vault가 없습니다.': 'No vault is open.',

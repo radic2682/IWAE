@@ -825,7 +825,7 @@ describe('useVault — 시작 복원', () => {
     await waitFor(() => expect(result.current.initializing).toBe(false))
     vi.mocked(attachMarkdownReference).mockRejectedValueOnce(new Error('파일이 너무 커서 열 수 없습니다. (20MB까지)'))
     await act(async () => { await result.current.importDroppedDocuments(['C:/External/huge.log']) })
-    expect(result.current.error).toBe('「huge.log」을 가져오지 못했습니다: 파일이 너무 커서 열 수 없습니다. (20MB까지)')
+    expect(result.current.error).toBe('「huge.log」 파일을 가져오지 못했습니다: 파일이 너무 커서 열 수 없습니다. (20MB까지)')
     vi.mocked(attachMarkdownReference).mockRejectedValue(new Error('읽기 실패'))
     await act(async () => { await result.current.importDroppedDocuments(['C:/External/a.txt', 'C:/External/b.txt']) })
     expect(result.current.error).toContain('실패 2개')
