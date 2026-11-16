@@ -350,7 +350,7 @@ export interface AddPdfDialogProps {
 }
 
 /**
- * PDF 추가. 넣을 폴더를 목록에서 고르고(지금 보는 폴더가 미리 골라져 있다) 「파일 골라 복사」를 누르면 파일 대화상자가 열린다(App).
+ * 문서 추가. 넣을 폴더를 목록에서 고르고(지금 보는 폴더가 미리 골라져 있다) 「파일 골라 복사」를 누르면 파일 대화상자가 열린다(App).
  * 원본 위치 참조는 잘 쓰지 않으니 아래 작은 글 단추로 둔다.
  */
 export function AddPdfDialog({ currentFolder, folderChoices, onChoose, onClose }: AddPdfDialogProps) {
@@ -367,9 +367,9 @@ export function AddPdfDialog({ currentFolder, folderChoices, onChoose, onClose }
   const folders = ['', ...[...folderChoices].sort((left, right) => left.localeCompare(right, 'ko'))]
   return (
     <DialogFrame
-      label={t('PDF 추가')}
+      label={t('문서 추가')}
       icon={<FilePlus size={16} weight="duotone" />}
-      title={t('PDF 추가')}
+      title={t('문서 추가')}
       subtitle={t('넣을 폴더를 고른 뒤 파일을 고르세요')}
       busy={false}
       onClose={onClose}

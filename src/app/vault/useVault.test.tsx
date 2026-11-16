@@ -775,6 +775,16 @@ describe('useVault — 시작 복원', () => {
     expect(paneTabs(result, 0).tabs.some((tab) => tab.id === entry.path && tab.kind === 'markdown')).toBe(true)
   })
 
+  it('문서 추가: 폴더로 복사를 고르면 txt 도 참조로 올리지 않고 복사 길로 간다', async () => {
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/External/memo.txt')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    await act(async () => { await result.current.addDocument({ kind: 'copy-another-folder', folderPath: 'HTTP' }) })
+    // 복사 길(importPdfsAt)은 파일 시스템 플러그인을 쓰므로 이 환경에서는 실패로 알려진다: 참조 등록은 일어나지 않아야 한다
+    expect(attachMarkdownReference).not.toHaveBeenCalled()
+    expect(result.current.error).not.toBeNull()
+  })
+
   it('열지 않은 Markdown 본문도 Vault 검색 레코드에 백그라운드로 넣는다', async () => {
     vi.mocked(readEagerSearchTexts).mockImplementation(async (vault, entries) => (
       Promise.all(entries.map(async (entry) => [entry.id, await readDocumentText(vault, entry.path)] as const))

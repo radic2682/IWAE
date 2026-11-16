@@ -1274,6 +1274,7 @@ export function useVault(options: UseVaultOptions = {}) {
 
   // 열기 창에서 고른 글 문서(Markdown·텍스트·HTML·XML)는 끌어 놓기와 같은 길로 가져온다(아래에서 정의)
   const importDroppedDocumentsRef = useRef<(paths: readonly string[]) => Promise<unknown>>(async () => undefined)
+  const importPdfsAtRef = useRef<(paths: readonly string[], folderPath: string) => Promise<unknown>>(async () => undefined)
 
   const addDocument = useCallback(async (
     policy: PdfAttachmentPolicy = { kind: 'reference' },
@@ -1284,8 +1285,10 @@ export function useVault(options: UseVaultOptions = {}) {
       const path = await pickDocumentFile()
       if (path === null) return
       if (!isPdfPath(path)) {
-        // 끌어 놓기와 똑같이 참조로 올리고 연다. 끌어 놓기 길이 Vault 없음·실패 안내도 맡는다
-        await importDroppedDocumentsRef.current([path])
+        // 폴더로 복사를 고른 경우는 왼쪽 바에 끌어 놓은 것과 같은 길(그 폴더로 복사)로, 참조를 고른 경우는 파일 끌어 놓기와 같은 길(참조 등록)로 가져온다.
+        // 두 길이 Vault 없음·실패 안내도 맡는다
+        if (policy.kind === 'reference') await importDroppedDocumentsRef.current([path])
+        else await importPdfsAtRef.current([path], policy.folderPath)
         return
       }
       const meta = await openPdf(path)
@@ -1723,6 +1726,7 @@ export function useVault(options: UseVaultOptions = {}) {
     if (failures.length > 0) setError(t('{count}개를 가져오지 못했습니다: {names}', { count: failures.length, names: failures.join(', ') }))
     return pdfDocIds
   }, [refreshVaultFiles, tree, vault])
+  importPdfsAtRef.current = importPdfsAt
 
   /**
    * 왼쪽 바 「새로고침」: Vault 폴더를 다시 훑어 목록을 맞추고(탐색기로 넣은 PDF 등록 포함),

@@ -891,7 +891,9 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         ? record.path
         : await (await import('@tauri-apps/api/path')).join(vault.root, ...record.path.split(/[\\/]/u))
       await copyFileToClipboard(absolute)
-      announceAction(t('「{name}」 파일을 복사했습니다. 붙여 넣으면 PDF가 추가됩니다', { name: record.displayName || record.filename }))
+      announceAction(record.kind === 'pdf'
+        ? t('「{name}」 파일을 복사했습니다. 붙여 넣으면 PDF가 추가됩니다', { name: record.displayName || record.filename })
+        : t('「{name}」 파일을 복사했습니다. 붙여 넣으면 문서가 추가됩니다', { name: record.displayName || record.filename }))
     } catch (cause) {
       announceAction(t('복사하지 못했습니다: {error}', { error: errorText(cause) }))
     }

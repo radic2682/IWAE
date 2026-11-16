@@ -1,5 +1,6 @@
 /** 영어 사전: 텍스트·HTML·XML 문서 열기·목록·검색·MCP 화면 */
 export const TEXT_FORMATS: Readonly<Record<string, string>> = {
+  '「{name}」 파일을 복사했습니다. 붙여 넣으면 문서가 추가됩니다': 'Copied “{name}”. Paste it to add the document',
   '글 문서': 'Text documents',
   '글 문서만 보기': 'Text documents only',
   '문서 열기': 'Open document',
