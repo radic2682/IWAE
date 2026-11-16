@@ -16,6 +16,9 @@ pub fn decode_document_bytes(bytes: &[u8]) -> String {
     if let Some(rest) = bytes.strip_prefix(&[0xfe, 0xff]) {
         return strip_bom(encoding_rs::UTF_16BE.decode_without_bom_handling(rest).0.into_owned());
     }
+    if let Some(utf16) = guess_utf16(bytes) {
+        return strip_bom(utf16.decode_without_bom_handling(bytes).0.into_owned());
+    }
     if let Ok(text) = std::str::from_utf8(bytes) {
         return strip_bom(text.to_string());
     }
@@ -28,6 +31,36 @@ pub fn decode_document_bytes(bytes: &[u8]) -> String {
         return strip_bom(korean);
     }
     strip_bom(String::from_utf8_lossy(bytes).into_owned())
+}
+
+/// BOM 없는 UTF-16 인가(프런트 textDecode.ts 의 guessUtf16 과 같은 기준): 앞 4KB 에서 NUL 바이트가 30% 이상이고
+/// 그 90% 이상이 한쪽(홀수/짝수) 자리에 몰려 있으며 그쪽 자리의 30% 이상이 NUL 이면 그렇다
+fn guess_utf16(bytes: &[u8]) -> Option<&'static encoding_rs::Encoding> {
+    let length = bytes.len().min(4096) & !1;
+    if length < 4 {
+        return None;
+    }
+    let (mut even_nul, mut odd_nul) = (0usize, 0usize);
+    for pair in bytes[..length].chunks_exact(2) {
+        if pair[0] == 0 {
+            even_nul += 1;
+        }
+        if pair[1] == 0 {
+            odd_nul += 1;
+        }
+    }
+    let pairs = (length / 2) as f64;
+    let nul = (even_nul + odd_nul) as f64;
+    if nul / (length as f64) < 0.3 {
+        return None;
+    }
+    if odd_nul as f64 >= nul * 0.9 && odd_nul as f64 / pairs >= 0.3 {
+        return Some(encoding_rs::UTF_16LE);
+    }
+    if even_nul as f64 >= nul * 0.9 && even_nul as f64 / pairs >= 0.3 {
+        return Some(encoding_rs::UTF_16BE);
+    }
+    None
 }
 
 fn strip_bom(text: String) -> String {
@@ -58,6 +91,32 @@ fn is_block_tag(name: &str) -> bool {
     )
 }
 
+/// 닫는 따옴표를 찾다 실패한 자리. 한 번 실패하면 그 뒤에서는 같은 따옴표가 없으니 다시 끝까지 훑지 않는다
+/// (`<a b='x>` 가 끝없이 되풀이되는 파일에서 태그마다 파일 끝까지 훑는 일을 막는다)
+struct QuoteScan {
+    /// [작은따옴표, 큰따옴표]: 이 자리 이후에는 그 따옴표가 없다(MAX 면 아직 실패한 적 없음)
+    none_after: [usize; 2],
+}
+
+impl QuoteScan {
+    fn new() -> Self {
+        Self { none_after: [usize::MAX; 2] }
+    }
+
+    /// `from` 이후 처음 나오는 `quote`(작은/큰따옴표) 자리
+    fn find(&mut self, text: &str, from: usize, quote: u8) -> Option<usize> {
+        let slot = usize::from(quote == b'"');
+        if from >= self.none_after[slot] {
+            return None;
+        }
+        let found = text[from..].find(quote as char);
+        if found.is_none() {
+            self.none_after[slot] = self.none_after[slot].min(from);
+        }
+        found
+    }
+}
+
 /// 태그 하나의 읽은 결과
 struct Tag {
     /// 소문자 이름(닫는 태그는 `/` 를 뗀 이름)
@@ -67,6 +126,8 @@ struct Tag {
     self_closing: bool,
     /// 속성 값들(따옴표 안팎). `xmlns` 로 시작하는 속성은 뺀다
     attribute_values: Vec<String>,
+    /// `hidden` 속성이 있나(읽기 화면은 이런 요소를 지운다)
+    hidden: bool,
     /// 다음 글자 자리(`>` 바로 뒤)
     end: usize,
 }
@@ -74,7 +135,7 @@ struct Tag {
 /// `<` 에서 시작하는 태그를 읽는다. 따옴표는 `=` 바로 뒤(사이에 공백이 있어도 된다)에서만 값을 여는 것이고,
 /// 그 안의 `>` 는 태그 끝이 아니다. 닫는 따옴표가 없으면 따옴표 없는 값으로 보고 다음 `>` 까지를 값으로 한다
 /// (그래야 깨진 태그 하나가 파일의 나머지를 삼키지 않는다). `>` 가 아예 없으면 None
-fn read_tag(text: &str, start: usize) -> Option<Tag> {
+fn read_tag(text: &str, start: usize, scan: &mut QuoteScan) -> Option<Tag> {
     let bytes = text.as_bytes();
     let mut i = start + 1;
     let closing = bytes.get(i) == Some(&b'/');
@@ -87,6 +148,7 @@ fn read_tag(text: &str, start: usize) -> Option<Tag> {
     }
     let name = text[name_start..i].to_ascii_lowercase();
     let mut attribute_values = Vec::new();
+    let mut hidden = false;
     // 지금 읽는 속성의 이름(`xmlns` 선언을 거르려고 쓴다. ASCII 가 아닌 글자는 소문자로 바꾸지 않고 그대로 둔다)
     let mut attribute = String::new();
     // `=` 를 막 지났나(공백은 건너뛴다): 이때 오는 따옴표만 값을 연다
@@ -96,15 +158,21 @@ fn read_tag(text: &str, start: usize) -> Option<Tag> {
     while i < bytes.len() {
         let byte = bytes[i];
         if byte == b'>' {
+            if attribute == "hidden" {
+                hidden = true;
+            }
             let self_closing = i > start + 1 && bytes[i - 1] == b'/';
-            return Some(Tag { name, closing, self_closing, attribute_values, end: i + 1 });
+            return Some(Tag { name, closing, self_closing, attribute_values, hidden, end: i + 1 });
         }
         if after_equals && !byte.is_ascii_whitespace() {
             after_equals = false;
+            if attribute == "hidden" {
+                hidden = true;
+            }
             let keep = !attribute.starts_with("xmlns");
             if byte == b'"' || byte == b'\'' {
                 let value_start = i + 1;
-                if let Some(close) = text[value_start..].find(byte as char) {
+                if let Some(close) = scan.find(text, value_start, byte) {
                     if keep {
                         attribute_values.push(text[value_start..value_start + close].to_string());
                     }
@@ -135,6 +203,9 @@ fn read_tag(text: &str, start: usize) -> Option<Tag> {
             after_equals = true;
             i += 1;
         } else if byte.is_ascii_whitespace() {
+            if attribute == "hidden" {
+                hidden = true;
+            }
             // 이름 뒤 공백: 곧 `=` 가 올 수도 있으니 이름은 남겨 두고, 다음 이름 글자가 오면 새 속성으로 본다
             if !attribute.is_empty() {
                 name_ended = true;
@@ -253,6 +324,9 @@ fn tidy_lines(raw: &str) -> String {
 /// 줄을 나누는 태그는 줄바꿈으로 바꾸며, 글자 참조를 푼다
 pub fn html_to_text(html: &str) -> String {
     let mut out = String::with_capacity(html.len() / 2);
+    let mut scan = QuoteScan::new();
+    let mut title = String::new();
+    let mut saw_h1 = false;
     let mut i = 0;
     while i < html.len() {
         let Some(lt) = html[i..].find('<') else {
@@ -286,7 +360,7 @@ pub fn html_to_text(html: &str) -> String {
             i = at + 1;
             continue;
         }
-        let Some(tag) = read_tag(html, at) else {
+        let Some(tag) = read_tag(html, at, &mut scan) else {
             // 닫히지 않은 태그: 나머지는 태그의 일부로 보고 버린다
             break;
         };
@@ -298,6 +372,30 @@ pub fn html_to_text(html: &str) -> String {
                 .unwrap_or(html.len());
             continue;
         }
+        if !tag.closing && !tag.self_closing {
+            if tag.name == "title" {
+                // 읽기 화면처럼: <h1> 이 없을 때만 제목으로 올린다(끝에서 정한다)
+                let end = skip_element(html, tag.end, "title");
+                if title.is_empty() {
+                    let close = find_ignore_case(html, tag.end, "</title").unwrap_or(end);
+                    title = tidy_lines(&decode_entities(&html[tag.end..close], true));
+                }
+                i = end;
+                continue;
+            }
+            if is_dropped_element(&tag.name) {
+                i = skip_element(html, tag.end, &tag.name);
+                continue;
+            }
+        }
+        if !tag.closing && tag.hidden {
+            // hidden 속성이 있는 요소는 통째로 버린다(내용이 없는 태그는 그 태그만)
+            i = if is_void_element(&tag.name) || tag.self_closing { tag.end } else { skip_element(html, tag.end, &tag.name) };
+            continue;
+        }
+        if !tag.closing && tag.name == "h1" {
+            saw_h1 = true;
+        }
         if is_block_tag(&tag.name) {
             out.push('\n');
         } else if tag.name == "td" || tag.name == "th" {
@@ -305,13 +403,69 @@ pub fn html_to_text(html: &str) -> String {
         }
         i = tag.end;
     }
-    tidy_lines(&out)
+    let body = tidy_lines(&out);
+    if saw_h1 || title.is_empty() {
+        body
+    } else if body.is_empty() {
+        title
+    } else {
+        format!("{title}\n{body}")
+    }
+}
+
+/// 읽기 화면(flowRender 의 DROP_SELECTOR)이 내용까지 지우는 요소
+fn is_dropped_element(name: &str) -> bool {
+    matches!(name, "nav" | "noscript" | "template" | "svg" | "math" | "select" | "datalist" | "textarea" | "button" | "canvas" | "video" | "audio" | "object" | "iframe" | "dialog")
+}
+
+/// 닫는 태그가 없는 요소
+fn is_void_element(name: &str) -> bool {
+    matches!(name, "br" | "hr" | "img" | "input" | "meta" | "link" | "source" | "track" | "area" | "base" | "col" | "embed" | "param" | "wbr")
+}
+
+/// `from`(여는 태그 바로 뒤)부터 짝이 맞는 `</name>` 바로 뒤까지의 자리. 같은 이름이 겹쳐 있으면 깊이를 센다.
+/// 짝이 없으면 문서 끝
+fn skip_element(html: &str, from: usize, name: &str) -> usize {
+    let open = format!("<{name}");
+    let close = format!("</{name}");
+    let boundary = |at: usize, len: usize| {
+        html.as_bytes().get(at + len).is_none_or(|b| b.is_ascii_whitespace() || *b == b'>' || *b == b'/')
+    };
+    let mut depth = 1usize;
+    let mut pos = from;
+    let mut next_open = find_ignore_case(html, pos, &open);
+    loop {
+        let Some(close_at) = find_ignore_case(html, pos, &close) else {
+            return html.len();
+        };
+        // 닫는 태그 앞에 나온 여는 태그를 센다
+        while let Some(open_at) = next_open {
+            if open_at >= close_at {
+                break;
+            }
+            if boundary(open_at, open.len()) {
+                depth += 1;
+            }
+            next_open = find_ignore_case(html, open_at + open.len(), &open);
+        }
+        pos = html[close_at..].find('>').map_or(html.len(), |end| close_at + end + 1);
+        if boundary(close_at, close.len()) {
+            depth -= 1;
+            if depth == 0 {
+                return pos;
+            }
+        }
+        if next_open.is_some_and(|at| at < pos) {
+            next_open = find_ignore_case(html, pos, &open);
+        }
+    }
 }
 
 /// XML 에서 글만 남긴다: 요소 속 글과 CDATA, 그리고 속성 값(`xmlns` 선언은 뺀다)을 줄로 이어 붙인다.
 /// 주석 · 처리 명령 · DOCTYPE 은 버린다. XML 이 깨져 있어도 읽을 수 있는 만큼 돌려준다
 pub fn xml_to_text(xml: &str) -> String {
     let mut out = String::with_capacity(xml.len() / 2);
+    let mut scan = QuoteScan::new();
     let mut i = 0;
     while i < xml.len() {
         let Some(lt) = xml[i..].find('<') else {
@@ -357,7 +511,7 @@ pub fn xml_to_text(xml: &str) -> String {
             i = at + 1;
             continue;
         }
-        let Some(tag) = read_tag(xml, at) else {
+        let Some(tag) = read_tag(xml, at, &mut scan) else {
             break;
         };
         out.push('\n');
@@ -397,11 +551,59 @@ mod tests {
 <body><!-- 숨김 --><h1>머리</h1><p class="a>b">첫 <b>문단</b>입니다.</p><p>둘째 &amp; &lt;끝&gt; &#44032; &#xAC01; &nbsp;끝</p>
 <SCRIPT type="x">alert(1)</SCRIPT><ul><li>하나</li><li>둘</li></ul></body></html>"#;
         let text = html_to_text(html);
-        assert_eq!(text, "제목\n머리\n첫 문단입니다.\n둘째 & <끝> 가 각 끝\n하나\n둘");
+        // <h1> 이 있으면 <title> 은 올리지 않는다(읽기 화면과 같다)
+        assert_eq!(text, "머리\n첫 문단입니다.\n둘째 & <끝> 가 각 끝\n하나\n둘");
         assert!(!text.contains("color"));
         assert!(!text.contains("alert"));
         assert!(!text.contains("숨김"));
         assert!(!text.contains("document.write"));
+    }
+
+    #[test]
+    fn html_title_is_used_only_without_an_h1() {
+        assert_eq!(html_to_text("<title>저장한 글</title><p>본문</p>"), "저장한 글\n본문");
+        assert_eq!(html_to_text("<title>저장한 글</title><h1>큰 제목</h1><p>본문</p>"), "큰 제목\n본문");
+        assert_eq!(html_to_text("<title>제목만</title>"), "제목만");
+    }
+
+    #[test]
+    fn html_drops_what_the_reader_drops() {
+        let html = "<nav><a href=x>메뉴</a><nav>안쪽</nav>또 메뉴</nav><p>본문</p><noscript>스크립트 꺼짐</noscript><template><p>틀</p></template><svg><text>그림글</text></svg><math><mi>수식</mi></math><select><option>고름</option></select><p hidden>숨김</p><div hidden><p>통째로 숨김</p></div><input hidden><aside>곁글</aside><footer>꼬리</footer>";
+        let text = html_to_text(html);
+        assert_eq!(text, "본문\n곁글\n꼬리");
+    }
+
+    #[test]
+    fn nested_dropped_elements_with_the_same_name_are_matched() {
+        assert_eq!(html_to_text("<nav>a<nav>b</nav>c</nav>뒤"), "뒤");
+        assert_eq!(html_to_text("<nav>끝 없음"), "");
+        assert_eq!(html_to_text("<navigation>글</navigation>"), "글");
+    }
+
+    #[test]
+    fn utf16_without_a_bom_is_guessed_like_the_frontend() {
+        let le: Vec<u8> = "hello world, this is a log line 12345\n".encode_utf16().flat_map(u16::to_le_bytes).collect();
+        let be: Vec<u8> = "hello world, this is a log line 12345\n".encode_utf16().flat_map(u16::to_be_bytes).collect();
+        assert_eq!(decode_document_bytes(&le), "hello world, this is a log line 12345\n");
+        assert_eq!(decode_document_bytes(&be), "hello world, this is a log line 12345\n");
+        // UTF-8·CP949 는 UTF-16 으로 오인하지 않는다
+        assert_eq!(decode_document_bytes(b"plain ascii text without nul bytes"), "plain ascii text without nul bytes");
+        assert_eq!(decode_document_bytes(&[0xb0, 0xa1, 0xb3, 0xaa, 0xb4, 0xd9, 0xb6, 0xf3]), "가나다라");
+    }
+
+    #[test]
+    fn unclosed_quotes_repeated_for_megabytes_stay_fast() {
+        let started = std::time::Instant::now();
+        // 20MB 가까운 적대적 입력: 닫는 따옴표 없는 속성이 끝없이 되풀이된다
+        let html = "<a b='x>".repeat(1_200_000);
+        let _ = html_to_text(&html);
+        let xml = "<a b=\"x>".repeat(1_200_000);
+        let _ = xml_to_text(&xml);
+        // 따옴표 종류를 섞어 쓰는 경우
+        let mixed = "<a b='x><c d=\"y>".repeat(600_000);
+        let _ = html_to_text(&mixed);
+        let _ = xml_to_text(&mixed);
+        assert!(started.elapsed() < std::time::Duration::from_secs(10), "{:?}", started.elapsed());
     }
 
     #[test]
