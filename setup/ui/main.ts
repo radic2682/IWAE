@@ -5,7 +5,7 @@ import logo from '../../public/iwae-logo.png'
 import { t, type Lang } from './copy'
 import { stepProgress } from './ease'
 import {
-  bootPhase,
+  applyBootPhase,
   canStart,
   screenFor,
   watchesApp,
@@ -370,7 +370,7 @@ async function bootInner(): Promise<void> {
   await listen<{ reason: string }>('setup://failed', () => setState({ phase: 'failed' }))
 
   const ctx = await invoke<Context>('get_context')
-  const phase: Phase = bootPhase(ctx.mode, ctx.failed)
+  const phase: Phase = applyBootPhase(state.phase, ctx.mode, ctx.failed)
   state = {
     mode: ctx.mode,
     phase,

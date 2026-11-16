@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bootPhase, canStart, screenFor, shortPath, watchesApp, type SetupState } from './screen'
+import { applyBootPhase, bootPhase, canStart, screenFor, shortPath, watchesApp, type SetupState } from './screen'
 import { stepProgress } from './ease'
 
 const base: SetupState = {
@@ -157,5 +157,16 @@ describe('bootPhase', () => {
   })
   it('shows a failed update that finished before the page loaded', () => {
     expect(bootPhase('update', true)).toBe('failed')
+  })
+})
+
+describe('applyBootPhase', () => {
+  it('keeps a failure that arrived before get_context resolved', () => {
+    expect(applyBootPhase('failed', 'update', false)).toBe('failed')
+  })
+  it('otherwise uses the boot phase', () => {
+    expect(applyBootPhase('start', 'update', false)).toBe('installing')
+    expect(applyBootPhase('start', 'update', true)).toBe('failed')
+    expect(applyBootPhase('start', 'install', false)).toBe('start')
   })
 })

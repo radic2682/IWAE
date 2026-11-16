@@ -69,6 +69,11 @@ export function bootPhase(mode: SetupState['mode'], failed: boolean): Phase {
   return 'start'
 }
 
+/** Boot phase, except that a failure event that arrived before get_context resolved must stay. */
+export function applyBootPhase(current: Phase, mode: SetupState["mode"], failed: boolean): Phase {
+  return current === 'failed' ? 'failed' : bootPhase(mode, failed)
+}
+
 const MAX_PATH = 34
 
 /** At most 34 characters; a longer path keeps its end behind a leading ellipsis. */
