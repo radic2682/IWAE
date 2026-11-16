@@ -148,4 +148,10 @@ describe('EmptyPane — 키 힌트는 접두키 칩 · 명령 팔레트와 같�
     const palette = readFileSync(join(__dirname, '../../ui/command-palette.css'), 'utf8')
     expect(palette).toMatch(/\.command-palette-kbd \{[^}]*border: 1px solid var\(--divider-strong\)[^}]*font: inherit;/u)
   })
+
+  it('라이브러리가 열려 있으면 그 줄이 「라이브러리 닫기」로 바뀐다', () => {
+    render(<EmptyPane prefixText="Ctrl+B" {...all()} libraryOpen />)
+    expect(screen.getByRole('button', { name: '라이브러리 닫기' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: '라이브러리 열기' })).toBeNull()
+  })
 })

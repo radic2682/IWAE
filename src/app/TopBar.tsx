@@ -19,7 +19,7 @@ import { useContext } from 'react'
 import { Translate } from '@phosphor-icons/react'
 import { TranslatorContext } from './translation/translatorContext'
 import { toggleTranslatorWindow, useTranslatorWindow } from './translation/translatorPanelState'
-import { FilePdf, FileText, NotePencil } from '@phosphor-icons/react'
+import { FilePdf, NotePencil } from '@phosphor-icons/react'
 import { DocumentFormatIcon } from './documents/DocumentFormatIcon'
 import { documentFormatLabel } from '../core/documentFormat'
 import { useToolbarClusterOutline, type ToolbarOwner } from './topBarToolbar'
@@ -267,7 +267,7 @@ export function TopBar({
             <span className="topbar-owner-chip" role="img" aria-label={ownerLabel(toolbarOwner)} data-channel={toolbarOwner.channel ?? 'none'} title={t('이 도구는 현재 선택한 칸에 적용됩니다')}>
               <span className="topbar-owner-dot" aria-hidden="true" />
               {toolbarOwner.number === null ? null : <span className="topbar-owner-number">{toolbarOwner.number}</span>}
-              {toolbarOwner.kind === 'markdown' ? (toolbarOwner.format === undefined ? <FileText size={16} aria-hidden="true" /> : <DocumentFormatIcon format={toolbarOwner.format} size={16} />) : toolbarOwner.kind === 'memoNote' ? <NotePencil size={16} aria-hidden="true" /> : <FilePdf size={16} aria-hidden="true" />}
+              {toolbarOwner.kind === 'markdown' ? <DocumentFormatIcon format={toolbarOwner.format ?? 'markdown'} size={16} /> : toolbarOwner.kind === 'memoNote' ? <NotePencil size={16} aria-hidden="true" /> : <FilePdf size={16} aria-hidden="true" />}
             </span>
           )}
           <div className="pane-toolbar topbar-toolbar-slot" ref={toolbarSlotRef} />

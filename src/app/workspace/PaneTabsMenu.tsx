@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
+import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
 import { DocumentFormatIcon } from '../documents/DocumentFormatIcon'
 import { documentFormatOf } from '../../core/documentFormat'
 import { armClickSuppress } from '../../ui/clickSuppress'
@@ -83,12 +83,8 @@ export function shortTabTitle(title: string): string {
 function TabKindIcon({ kind, id }: { kind: Tab['kind']; id: string }) {
   if (kind === 'memoNote') return <NotePencil size={13} aria-hidden="true" className="pane-top-tab-kind" />
   if (kind === 'canvas') return <Graph size={13} aria-hidden="true" className="pane-top-tab-kind" />
-  if (kind === 'markdown') {
-    // 텍스트·HTML·XML 은 형식마다 아이콘이 다르다(탭 id 가 파일 경로다). Markdown 은 예전 아이콘 그대로
-    const format = documentFormatOf(id)
-    if (format === 'text' || format === 'html' || format === 'xml') return <DocumentFormatIcon format={format} size={13} className="pane-top-tab-kind" />
-  }
-  if (kind === 'markdown') return <FileText size={13} aria-hidden="true" className="pane-top-tab-kind" />
+  // 글 문서는 형식마다 아이콘이 다르다(탭 id 가 파일 경로다). Markdown 은 목록과 같은 FileMd
+  if (kind === 'markdown') return <DocumentFormatIcon format={documentFormatOf(id) ?? 'markdown'} size={13} className="pane-top-tab-kind" />
   return <FilePdf size={13} aria-hidden="true" className="pane-top-tab-kind" />
 }
 

@@ -21,6 +21,8 @@ export interface EmptyPaneProps {
   /** 없으면 그 줄을 그리지 않는다(Vault 가 없을 때 노트, 떼어 낸 창 등) */
   readonly onPdf?: () => void
   readonly onMarkdown?: () => void
+  /** 라이브러리가 열려 있으면 그 줄이 「라이브러리 닫기」로 바뀐다 */
+  readonly libraryOpen?: boolean
   readonly onNote?: () => void
   /** 캔버스(CANVAS_ENABLED 가 켜질 때만 준다): 꺼 둔 동안에는 이 줄이 없다 */
   readonly onCanvas?: () => void
@@ -69,7 +71,7 @@ export function fitEmptyPane(natural: number, avail: number, recents: number, pi
  * 줄은 모두 단추라서 Tab 으로 들어와 ↑ ↓ (Home · End)로 오가고 Enter 로 연다. 키 힌트는 지금 접두키를 따른다.
  * 움직임 없음, 색은 토큰만. 좁은 칸(260px)에서도 읽히고, 칸이 낮으면 「최근」 은 접는다(empty-pane.css).
  */
-export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onCanvas, onClose, recents = [] }: EmptyPaneProps) {
+export function EmptyPane({ prefixText, onPdf, onMarkdown, libraryOpen = false, onNote, onCanvas, onClose, recents = [] }: EmptyPaneProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const [trim, setTrim] = useState<EmptyPaneTrim>({ recents: MAX_RECENTS, hint: true })
   // 높이를 재는 값: 줄 하나 · 「최근」 제목 · 안내 줄이 차지하는 높이(화면에 있을 때 잰다)
@@ -84,7 +86,7 @@ export function EmptyPane({ prefixText, onPdf, onMarkdown, onNote, onCanvas, onC
   }, [])
   const rows: Row[] = []
   if (onPdf !== undefined) rows.push({ id: 'pdf', icon: <FolderOpen size={ICON} aria-hidden="true" />, label: t('문서 열기'), run: onPdf })
-  if (onMarkdown !== undefined) rows.push({ id: 'markdown', icon: <Books size={ICON} aria-hidden="true" />, label: t('라이브러리 열기'), run: onMarkdown })
+  if (onMarkdown !== undefined) rows.push({ id: 'markdown', icon: <Books size={ICON} aria-hidden="true" />, label: libraryOpen ? t('라이브러리 닫기') : t('라이브러리 열기'), run: onMarkdown })
   if (onNote !== undefined) rows.push({ id: 'note', icon: <NotePencil size={ICON} aria-hidden="true" />, label: t('노트 열기'), run: onNote })
   if (onCanvas !== undefined) rows.push({ id: 'canvas', icon: <Graph size={ICON} aria-hidden="true" />, label: t('캔버스 열기'), run: onCanvas })
   if (onClose !== undefined) rows.push({ id: 'close', icon: <X size={ICON} aria-hidden="true" />, label: t('이 칸 닫기'), hint: `${prefixText} x`, run: onClose })
