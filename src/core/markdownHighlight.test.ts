@@ -45,9 +45,29 @@ describe('relocateMarkdownHighlights', () => {
   const make = (quote: string, prefix: string, suffix: string, start: number) =>
     createPersistentMarkdownHighlight('f', 'old', { ...selection, quote, prefix, suffix, startOffset: start, endOffset: start + quote.length })
 
-  it('keeps stored offsets when the hash is unchanged', () => {
-    const h = createPersistentMarkdownHighlight('f', 'same', selection)
-    expect(relocateMarkdownHighlights('x', [h], 'same')).toEqual([h])
+  it('keeps stored offsets when the hash is unchanged and the text there still equals the quote', () => {
+    const h = make('Important', 'See ', ' body', 4)
+    const text = 'See Important body'
+    const [kept] = relocateMarkdownHighlights(text, [h], 'old')
+    expect(kept).toBe(h)
+  })
+
+  it('같은 해시여도 그 자리의 글이 인용문과 다르면(그리는 방식이 바뀜) 다시 찾는다', () => {
+    const h = make('Important', 'See ', ' body', 4)
+    const [moved] = relocateMarkdownHighlights('Menu Menu\nSee Important body', [h], 'old')
+    expect(moved?.selection.startOffset).toBe(14)
+    expect(moved?.selection.endOffset).toBe(23)
+  })
+
+  it('같은 해시이고 인용문을 못 찾으면 칠하지 않는다(기록은 호출자가 그대로 둔다)', () => {
+    const h = make('Important', 'See ', ' body', 4)
+    expect(relocateMarkdownHighlights('totally different text', [h], 'old')).toEqual([])
+  })
+
+  it('공백·줄바꿈이 달라도 같은 글로 본다', () => {
+    const h = make('first line second line', '', '', 0)
+    const [kept] = relocateMarkdownHighlights('first linesecond line', [{ ...h, selection: { ...h.selection, endOffset: 21 } }], 'old')
+    expect(kept?.selection.startOffset).toBe(0)
   })
 
   it('finds the quote after text is added before it', () => {

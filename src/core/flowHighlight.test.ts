@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createPersistentPdfHighlight } from '../pdf/persistentHighlight'
-import { createFlowHighlight, flowAnchor } from './flowHighlight'
+import { createFlowHighlight, flowAnchor, verifiedFlowHighlights, type FlowAnchorParts } from './flowHighlight'
 
 const rects = [{ x: 1, y: 2, w: 3, h: 4 }]
 
@@ -43,5 +43,44 @@ describe('createFlowHighlight', () => {
     expect(made.kind).toBe('region')
     expect(made.createdAt).toBe('2026-01-01T00:00:00.000Z')
     expect(made.id).toBe('d:0:region:1:2:3:4')
+  })
+})
+
+describe('verifiedFlowHighlights', () => {
+  const text = '메뉴 메뉴\nSee Important body and more'
+  const make = (quote: string, start: number, extra: Partial<FlowAnchorParts> = {}, extras: { kind?: 'region' } = {}) => createFlowHighlight(
+    'doc.md',
+    { rects: [], charRange: [start, start + quote.length], quote, prefix: 'See ', suffix: ' body', ...extra },
+    'yellow',
+    extras,
+  )
+
+  it('자리의 글이 인용문과 맞으면 같은 목록을 그대로 돌려준다(다시 찾지 않는다)', () => {
+    const ok = make('Important', text.indexOf('Important'))
+    const list = [ok]
+    expect(verifiedFlowHighlights(text, list)).toBe(list)
+  })
+
+  it('그리는 방식이 바뀌어 자리가 밀렸으면 인용문으로 새 자리를 찾아 넣는다(원본 객체는 그대로)', () => {
+    const stale = make('Important', 4)
+    const [moved] = verifiedFlowHighlights(text, [stale])
+    expect(moved?.anchor.charRange).toEqual([text.indexOf('Important'), text.indexOf('Important') + 9])
+    expect(moved?.id).toBe(stale.id)
+    expect(stale.anchor.charRange).toEqual([4, 13])
+  })
+
+  it('인용문을 못 찾으면 목록에서 뺀다. 영역 메모와 인용문 없는 항목은 그대로 둔다', () => {
+    const gone = make('사라진 글', 3, { prefix: '', suffix: '' })
+    const region = make('', 0, {}, { kind: 'region' })
+    const ok = make('Important', text.indexOf('Important'))
+    expect(verifiedFlowHighlights(text, [gone, region, ok])).toEqual([region, ok])
+  })
+
+  it('공백·줄바꿈이 달라도 맞는 글로 본다', () => {
+    const spaced = make('Important\nbody', text.indexOf('Important'), { prefix: '', suffix: '' })
+    const wide = make('Important body', text.indexOf('Important'))
+    const list = [wide]
+    expect(verifiedFlowHighlights(text, list)).toBe(list)
+    expect(verifiedFlowHighlights(text, [spaced])).toHaveLength(1)
   })
 })

@@ -41,6 +41,7 @@ const EMPTY_PINS: readonly PdfBookmark[] = []
 import { resolveMarkdownLink, resolveRelativePath } from '../../core/markdown'
 import { blockedImagePlaceholder, placeholderImages, renderFlowDocument } from '../../core/flowRender'
 import { resolveImageFile } from '../../core/imageRef'
+import { verifiedFlowHighlights } from '../../core/flowHighlight'
 import { MAX_DOCUMENT_BYTES } from '../../core/textDecode'
 import {
   MARKDOWN_EXCERPT_DRAG_MIME,
@@ -472,7 +473,7 @@ export function MarkdownPane({
   onFitZoom,
   onSectionsChange,
   sectionRequest = null,
-  boxHighlights = EMPTY_BOX_HIGHLIGHTS,
+  boxHighlights: rawBoxHighlights = EMPTY_BOX_HIGHLIGHTS,
   onBoxHighlightCreated,
   onBoxHighlightUpdated,
   onBoxHighlightRemoved,
@@ -496,15 +497,24 @@ export function MarkdownPane({
   // 불러오지 않을 그림(바깥 주소·막힌 참조)은 요청을 시도하지 않게 미리 자리표시로 바꾼다
   const html = useMemo(() => placeholderImages(flow.html), [flow])
   const sourceHash = useMemo(() => markdownSourceHash(source), [source])
+  // 그린 본문의 글(textContent). 저장된 글자 위치가 지금 본문에서도 같은 글을 가리키는지 확인하는 데 쓴다
+  const plainText = useMemo(() => {
+    const template = document.createElement('template')
+    template.innerHTML = html
+    return template.content.textContent ?? ''
+  }, [html])
   const activeHighlights = useMemo(() => {
     const own = persistentHighlights.filter((highlight) => (
       highlight.sourceFileId === sourceFileId
     ))
-    if (own.every((highlight) => highlight.sourceHash === sourceHash)) return own
-    const template = document.createElement('template')
-    template.innerHTML = html
-    return relocateMarkdownHighlights(template.content.textContent ?? '', own, sourceHash)
-  }, [html, persistentHighlights, sourceFileId, sourceHash])
+    // 해시가 같아도 자리의 글이 인용문과 다르면(그리는 방식이 바뀜) 다시 찾고, 못 찾으면 칠하지 않는다
+    return relocateMarkdownHighlights(plainText, own, sourceHash)
+  }, [persistentHighlights, plainText, sourceFileId, sourceHash])
+  // 박스 메모·메모 형광펜도 같다: 자리의 글이 인용문과 다르면 새 자리(메모리에서만 고친다), 못 찾으면 이 화면에서는 빼서 칠하지 않는다(기록은 그대로)
+  const boxHighlights = useMemo(
+    () => verifiedFlowHighlights(plainText, rawBoxHighlights),
+    [plainText, rawBoxHighlights],
+  )
   const highlightedHtml = useMemo(
     () => highlightMarkdownRanges(html, activeHighlights),
     [activeHighlights, html],

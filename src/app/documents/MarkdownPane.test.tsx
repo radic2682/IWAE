@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { waitFor } from '@testing-library/react'
 import { MARKDOWN_EXCERPT_DRAG_MIME, parseMarkdownExcerptDrag } from '../../core/markdownExcerpt'
 import { createPersistentMarkdownHighlight } from '../../core/markdownHighlight'
+import { markdownSourceHash } from '../../core/markdownCapture'
 import { imageExtensionOf, MarkdownPane } from './MarkdownPane'
 
 describe('MarkdownPane: 텍스트·HTML·XML', () => {
@@ -357,5 +358,34 @@ describe('MarkdownPane 막힌 그림 자리표시', () => {
     expect(container.querySelector('img')).toBeNull()
     expect(container.innerHTML).not.toContain('tracker.example')
     expect(container.querySelector('.md-image-blocked')?.getAttribute('data-label')).toBe('그림을 불러오지 않았습니다 · 추적')
+  })
+})
+
+describe('MarkdownPane 저장된 형광펜 자리 검증', () => {
+  const source = '첫 문단\n\n찾을 world 글'
+  const quote = 'world'
+  const selection = (startOffset: number) => ({ path: 'a.md', title: 'a', quote, prefix: '찾을 ', suffix: ' 글', startOffset, endOffset: startOffset + quote.length, format: 'paragraph' as const })
+
+  it('해시가 같아도 자리가 밀렸으면 원래 글에 칠한다', () => {
+    const hash = markdownSourceHash(source)
+    const stale = createPersistentMarkdownHighlight('id-v', hash, selection(0))
+    const { container } = render(<MarkdownPane title="a" path="a.md" sourceFileId="id-v" source={source} persistentHighlights={[stale]} />)
+    const marked = container.querySelector(`[data-markdown-highlight-id="${stale.id}"]`)
+    expect(marked?.textContent).toBe('world')
+  })
+
+  it('인용문을 못 찾으면 칠하지 않는다', () => {
+    const hash = markdownSourceHash(source)
+    const lost = createPersistentMarkdownHighlight('id-v', hash, { ...selection(0), quote: '없는 글', prefix: '', suffix: '', endOffset: 4 })
+    const { container } = render(<MarkdownPane title="a" path="a.md" sourceFileId="id-v" source={source} persistentHighlights={[lost]} />)
+    expect(container.querySelector('[data-markdown-highlight-id]')).toBeNull()
+  })
+
+  it('자리가 맞으면 그 자리에 칠한다', () => {
+    const hash = markdownSourceHash(source)
+    const start = '첫 문단\n찾을 '.length
+    const good = createPersistentMarkdownHighlight('id-v', hash, selection(start))
+    const { container } = render(<MarkdownPane title="a" path="a.md" sourceFileId="id-v" source={source} persistentHighlights={[good]} />)
+    expect(container.querySelector(`[data-markdown-highlight-id="${good.id}"]`)?.textContent).toBe('world')
   })
 })

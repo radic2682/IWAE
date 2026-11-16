@@ -1,6 +1,7 @@
 import { isMarkdownExcerptSelection, type MarkdownExcerptSelection } from './markdownExcerpt'
 import { isHighlightColorId } from './highlightColors'
 import { t } from '../i18n'
+import { locateQuote, quoteMatchesAt } from './flowAnchorCheck'
 
 /** 형광펜 색의 id(목록에 없는 id 도 그대로 둔다) */
 export type MarkdownHighlightColor = string
@@ -108,8 +109,9 @@ function commonPrefixLength(left: string, right: string): number {
 
 /**
  * 파일이 바뀐 뒤에도 형광펜을 붙들어 둔다.
- * 원문 해시가 같으면 저장된 범위를 그대로 쓰고, 다르면 인용문과 앞뒤 글로 새 범위를 찾는다.
- * 찾지 못한 형광펜은 목록에서 빠질 뿐 저장 데이터는 건드리지 않는다.
+ * 원문 해시가 같아도 그 자리의 본문 글이 저장한 인용문과 다르면(읽기 화면의 그리는 방식이 바뀐 경우) 새 범위를 찾는다.
+ * 해시가 다르면 늘 인용문과 앞뒤 글로 새 범위를 찾는다.
+ * 찾지 못한 형광펜은 목록에서 빠질 뿐(칠하지 않는다) 저장 데이터는 건드리지 않는다.
  */
 export function relocateMarkdownHighlights(
   renderedText: string,
@@ -119,11 +121,12 @@ export function relocateMarkdownHighlights(
   const text = normalizeLineEndings(renderedText)
   const result: PersistentMarkdownHighlight[] = []
   for (const highlight of highlights) {
-    if (highlight.sourceHash === currentHash) {
+    const { selection } = highlight
+    // 해시가 같고 자리의 글도 인용문과 같으면 그대로(다시 찾지 않는다)
+    if (highlight.sourceHash === currentHash && quoteMatchesAt(text, selection.startOffset, selection.endOffset, selection.quote)) {
       result.push(highlight)
       continue
     }
-    const { selection } = highlight
     const quote = normalizeLineEndings(selection.quote)
     const prefix = normalizeLineEndings(selection.prefix)
     const suffix = normalizeLineEndings(selection.suffix)
@@ -142,11 +145,16 @@ export function relocateMarkdownHighlights(
       }
       index = text.indexOf(quote, index + 1)
     }
-    if (best < 0) continue
-    result.push({
-      ...highlight,
-      selection: { ...selection, startOffset: best, endOffset: best + quote.length },
-    })
+    if (best >= 0) {
+      result.push({
+        ...highlight,
+        selection: { ...selection, startOffset: best, endOffset: best + quote.length },
+      })
+      continue
+    }
+    // 줄바꿈·블록 사이 공백이 달라 그대로는 못 찾을 때: 공백을 무시하고 찾는다
+    const found = locateQuote(text, { quote, prefix, suffix }, selection.startOffset)
+    if (found !== null) result.push({ ...highlight, selection: { ...selection, startOffset: found[0], endOffset: found[1] } })
   }
   return result
 }
