@@ -1,7 +1,7 @@
 import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, serializePdfOverlays, type PdfOverlaysFile } from '../core/pdfOverlays'
 import { isMarkdownPath } from '../core/markdownPath'
 import { documentFormatOf, isFlowDocumentPath, isPdfPath } from '../core/documentFormat'
-import { flowPlainText } from '../core/flowRender'
+import { flowPlainText } from '../core/flowPlainText'
 import { decodeDocumentBytes, MAX_DOCUMENT_BYTES } from '../core/textDecode'
 import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from '../core/versionGroups'
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'

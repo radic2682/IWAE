@@ -2,6 +2,9 @@ import { t } from '../i18n'
 import type { DocumentFormat } from './documentFormat'
 import { renderMarkdown, sanitizeFlowHtml } from './markdown'
 import { markdownHeadings, markdownSectionPreviews } from './markdownHeadings'
+import { DROP_SELECTOR, hasParserError } from './flowPlainText'
+
+export { flowPlainText } from './flowPlainText'
 
 /**
  * 흐르는 글(Markdown·텍스트·HTML·XML) 읽기 화면이 그릴 본문을 만든다.
@@ -30,8 +33,6 @@ export interface FlowSectionPreview {
   readonly depth: number
   readonly excerpt: string
 }
-
-const XHTML_NS = 'http://www.w3.org/1999/xhtml'
 
 // ───────────────────────── 텍스트 ─────────────────────────
 
@@ -65,15 +66,6 @@ function renderText(source: string): FlowDocument {
 }
 
 // ───────────────────────── HTML ─────────────────────────
-
-/** 읽기 화면에 필요 없거나 위험해서 통째로 지우는 요소 */
-const DROP_SELECTOR = [
-  'script', 'style', 'link', 'meta', 'noscript', 'template', 'base', 'title', 'head',
-  'form', 'input', 'button', 'select', 'option', 'optgroup', 'textarea', 'datalist', 'output',
-  'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'portal', 'fencedframe',
-  'svg', 'math', 'canvas', 'video', 'audio', 'source', 'track', 'picture', 'map', 'area',
-  'dialog', '[hidden]',
-].join(', ')
 
 /** 본문에 남길 수 있는 속성. 나머지(on*, style, class, srcset, data-* 따위)는 모두 지운다 */
 const KEEP_ATTRIBUTES: ReadonlySet<string> = new Set([
@@ -226,15 +218,6 @@ function blockElement(element: Element, depth: number, lines: string[]): void {
   lines.push(pad + span('xml-tag', `</${element.tagName}>`))
 }
 
-function hasParserError(doc: Document): boolean {
-  if (doc.documentElement === null || doc.documentElement.localName === 'parsererror') return true
-  // 브라우저는 깨진 XML 이면 파서 오류 요소를 (XHTML 이름공간으로) 문서 안에 끼워 넣는다
-  for (const element of doc.getElementsByTagName('parsererror')) {
-    if (element.namespaceURI === XHTML_NS) return true
-  }
-  return false
-}
-
 function renderXml(source: string): FlowDocument {
   const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source
   const doc = new DOMParser().parseFromString(text, 'application/xml')
@@ -302,52 +285,4 @@ export function flowSectionPreviews(format: DocumentFormat, source: string, line
     if (text !== '') current.excerpt.push(text)
   }
   return sections.map((section) => ({ title: section.title, depth: section.depth, excerpt: section.excerpt.join(' ') }))
-}
-
-// ───────────────────────── 검색용 글 ─────────────────────────
-
-const BLOCK_SELECTOR = 'p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, pre, table, section, article, dd, dt, figcaption, hr'
-
-/**
- * Vault 검색에 넣을 글. HTML·XML 은 태그가 아니라 눈에 보이는 글만 뽑는다(스크립트·스타일은 뺀다).
- * XML 은 글 마디와 속성값(RAG 와 같다). Markdown·텍스트는 원문 그대로다.
- * 그리는 것(DOMPurify)까지는 하지 않는다: 미리 읽는 파일이 많아 가볍게 만든다.
- */
-export function flowPlainText(format: DocumentFormat, source: string): string {
-  try {
-    if (format === 'html') return htmlPlainText(source)
-    if (format === 'xml') return xmlPlainText(source)
-  } catch {
-    // 못 읽으면 원문을 쓴다
-  }
-  return source
-}
-
-function htmlPlainText(source: string): string {
-  const doc = new DOMParser().parseFromString(source, 'text/html')
-  const body = doc.body ?? doc.documentElement
-  for (const element of [...body.querySelectorAll(DROP_SELECTOR)]) element.remove()
-  for (const element of body.querySelectorAll(BLOCK_SELECTOR)) element.append(doc.createTextNode('\n'))
-  const title = (doc.title ?? '').replace(/\s+/gu, ' ').trim()
-  const text = (body.textContent ?? '').replace(/[^\S\n]+/gu, ' ').replace(/ ?\n[ \n]*/gu, '\n').trim()
-  return title !== '' && !text.includes(title) ? `${title}\n${text}` : text
-}
-
-function xmlPlainText(source: string): string {
-  const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source
-  const doc = new DOMParser().parseFromString(text, 'application/xml')
-  if (hasParserError(doc)) return source
-  const parts: string[] = []
-  // 재귀 없이 걷는다(아주 깊은 XML 에서도 스택이 넘치지 않게)
-  const walker = doc.createTreeWalker(doc, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_CDATA_SECTION)
-  while (walker.nextNode()) {
-    const node = walker.currentNode
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      for (const attribute of (node as Element).attributes) if (attribute.value.trim() !== '') parts.push(attribute.value)
-    } else {
-      const value = (node.nodeValue ?? '').trim()
-      if (value !== '') parts.push(value)
-    }
-  }
-  return parts.join('\n')
 }
