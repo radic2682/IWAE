@@ -111,13 +111,20 @@ function stripFrontMatter(markdown: string): string {
   return '\n'.repeat(match[0].split('\n').length - 1) + markdown.slice(match[0].length)
 }
 
-export function renderMarkdown(markdown: string): string {
-  const html = parser.render(stripFrontMatter(markdown))
+/**
+ * 읽기 화면에 넣을 HTML 을 거르는 한 곳. Markdown 과 HTML 문서(flowRender)가 같은 설정을 쓴다.
+ * 상대 경로 그림은 위 훅이 data-md-src 로 옮기고, 바깥 그림은 CSP 가 막는다.
+ */
+export function sanitizeFlowHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ADD_ATTR: ['data-md-src', 'loading', 'target'],
     ALLOWED_URI_REGEXP: ALLOWED_URI,
     FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'iframe', 'object', 'embed'],
   })
+}
+
+export function renderMarkdown(markdown: string): string {
+  return sanitizeFlowHtml(parser.render(stripFrontMatter(markdown)))
 }
 
 /** %XX 가 깨진 주소(EUC-KR 이름, 50% 같은 글)는 풀지 않고 그대로 쓴다 */

@@ -3,27 +3,17 @@ import { CaretDown, CaretRight, X } from '@phosphor-icons/react'
 import { t } from '../../i18n'
 import { PreviewColumnsSwitch, usePreviewColumns } from '../sidebar/SidePanels'
 import type { PdfBookmark } from '../../core/pdfBookmarks'
+import type { DocumentFormat } from '../../core/documentFormat'
+import { flowHeadings, flowSectionPreviews } from '../../core/flowRender'
+import { markdownHeadings, markdownSectionPreviews } from '../../core/markdownHeadings'
 
-/** Markdown 원문의 제목(# … ######) 목록. 코드 블록 안의 # 은 뺀다 */
-export function markdownHeadings(source: string): { title: string; depth: number }[] {
-  const out: { title: string; depth: number }[] = []
-  let inFence = false
-  for (const line of source.split(/\r?\n/u)) {
-    if (/^\s*(```|~~~)/u.test(line)) {
-      inFence = !inFence
-      continue
-    }
-    if (inFence) continue
-    const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/u.exec(line)
-    if (match !== null) out.push({ depth: match[1]!.length, title: match[2]!.replace(/[*_`]/gu, '') })
-  }
-  return out
-}
+// 예전 위치에서 쓰던 이름을 그대로 내보낸다(순수 함수는 core 로 옮겼다)
+export { markdownHeadings, markdownSectionPreviews }
 
 /** 제목마다 절 번호(h1–h3 만 절로 센다 — 아래 막대·스크롤바와 같은 차례). h4 이하는 앞 절에 속한다 */
-function headingsWithSections(source: string) {
+function headingsWithSections(source: string, format: DocumentFormat) {
   let section = -1
-  return markdownHeadings(source).map((heading) => {
+  return flowHeadings(format, source).map((heading) => {
     if (heading.depth <= 3) section += 1
     return { ...heading, section: Math.max(section, 0), isSection: heading.depth <= 3 }
   })
@@ -33,8 +23,10 @@ function headingsWithSections(source: string) {
  * 왼쪽 바 「목록」의 Markdown 판 — PDF 목차와 같은 모양: 「목차」 제목 아래 제목 줄들, 그 아래 「책갈피」.
  * 누르면 그 절로 간다.
  */
-export function MarkdownOutline({ source, currentSection, onSelectSection, bookmarks = [], onSelectBookmark, onRemoveBookmark }: {
+export function MarkdownOutline({ source, format = 'markdown', currentSection, onSelectSection, bookmarks = [], onSelectBookmark, onRemoveBookmark }: {
   readonly source: string
+  /** 문서 형식(HTML 은 그린 본문에서, 그 밖에는 원문에서 제목을 읽는다) */
+  readonly format?: DocumentFormat
   /** 지금 절(h1–h3 차례) */
   readonly currentSection: number
   readonly onSelectSection: (index: number) => void
@@ -42,7 +34,7 @@ export function MarkdownOutline({ source, currentSection, onSelectSection, bookm
   readonly onSelectBookmark?: (bookmark: PdfBookmark) => void
   readonly onRemoveBookmark?: (bookmark: PdfBookmark) => void
 }) {
-  const headings = useMemo(() => headingsWithSections(source), [source])
+  const headings = useMemo(() => headingsWithSections(source, format), [source, format])
   const minDepth = headings.length === 0 ? 1 : Math.min(...headings.map((heading) => heading.depth))
   return (
     <div className="side-scroll markdown-outline">
@@ -104,27 +96,6 @@ export function MarkdownOutline({ source, currentSection, onSelectSection, bookm
   )
 }
 
-/** 절 미리보기용: h1–h3 로 나눈 절마다 제목과 첫 몇 줄(표·코드 기호는 걷어 낸다) */
-export function markdownSectionPreviews(source: string, lines = 4): { title: string; depth: number; excerpt: string }[] {
-  const out: { title: string; depth: number; excerpt: string[] }[] = []
-  let inFence = false
-  for (const line of source.split(/\r?\n/u)) {
-    if (/^\s*(```|~~~)/u.test(line)) {
-      inFence = !inFence
-      continue
-    }
-    const heading = inFence ? null : /^(#{1,3})\s+(.+?)\s*#*\s*$/u.exec(line)
-    if (heading !== null) {
-      out.push({ title: heading[2]!.replace(/[*_`]/gu, ''), depth: heading[1]!.length, excerpt: [] })
-      continue
-    }
-    const current = out.at(-1)
-    const text = line.replace(/^[#>\-*+|\s]+|[|*_`]/gu, ' ').replace(/\s+/gu, ' ').trim()
-    if (current !== undefined && text !== '' && current.excerpt.length < lines && !/^[-:| ]+$/u.test(line.trim())) current.excerpt.push(text)
-  }
-  return out.map((item) => ({ title: item.title, depth: item.depth, excerpt: item.excerpt.join(' ') }))
-}
-
 /** 절 하나의 축소판: PDF 쪽 축소판과 같은 틀(종이 비율 · 번호)에 그 절의 제목과 첫 줄들 */
 function SectionThumb({ section, index, current, onSelect }: {
   readonly section: { title: string; depth: number; excerpt: string }
@@ -152,12 +123,13 @@ function SectionThumb({ section, index, current, onSelect }: {
 }
 
 /** 왼쪽 바 「미리보기」의 Markdown 판 — PDF 미리보기와 같은 모양: 위에 「n절」과 1단·2단, 아래 축소판 격자 */
-export function MarkdownSectionPreview({ source, currentSection, onSelectSection }: {
+export function MarkdownSectionPreview({ source, format = 'markdown', currentSection, onSelectSection }: {
   readonly source: string
+  readonly format?: DocumentFormat
   readonly currentSection: number
   readonly onSelectSection: (index: number) => void
 }) {
-  const sections = useMemo(() => markdownSectionPreviews(source), [source])
+  const sections = useMemo(() => flowSectionPreviews(format, source), [source, format])
   const [columns, setColumns] = usePreviewColumns()
   return (
     <div className="side-scroll thumb-panel md-section-preview" aria-label={t('Markdown 절 미리보기')} style={{ '--preview-columns': columns } as CSSProperties}>
