@@ -59,9 +59,9 @@ describe('relocateMarkdownHighlights', () => {
     expect(moved?.selection.endOffset).toBe(23)
   })
 
-  it('같은 해시이고 인용문을 못 찾으면 칠하지 않는다(기록은 호출자가 그대로 둔다)', () => {
+  it('해시가 다르고 인용문을 못 찾으면 칠하지 않는다(기록은 호출자가 그대로 둔다)', () => {
     const h = make('Important', 'See ', ' body', 4)
-    expect(relocateMarkdownHighlights('totally different text', [h], 'old')).toEqual([])
+    expect(relocateMarkdownHighlights('totally different text', [h], 'new')).toEqual([])
   })
 
   it('공백·줄바꿈이 달라도 같은 글로 본다', () => {
@@ -93,5 +93,18 @@ describe('relocateMarkdownHighlights', () => {
   it('ignores line ending differences in the stored quote', () => {
     const h = make('a\r\nb', '', '', 0)
     expect(relocateMarkdownHighlights('x a\nb', [h], 'new')[0]?.selection.startOffset).toBe(2)
+  })
+})
+
+describe('보이는 글만 담은 옛 인용문', () => {
+  it('해시가 같으면 인용문을 못 찾아도 저장된 자리를 그대로 쓴다(접힌 글이 인용문에서 빠진 경우)', () => {
+    const text = '요약 숨은 본문 끝 글'
+    const h = createPersistentMarkdownHighlight('f', 'same', { ...selection, quote: '요약 끝 글', prefix: '', suffix: '', startOffset: 0, endOffset: text.length })
+    expect(relocateMarkdownHighlights(text, [h], 'same')).toEqual([h])
+  })
+
+  it('해시가 다르고 못 찾으면 버린다', () => {
+    const h = createPersistentMarkdownHighlight('f', 'old', { ...selection, quote: '요약 끝 글', prefix: '', suffix: '', startOffset: 0, endOffset: 9 })
+    expect(relocateMarkdownHighlights('완전히 다른 글입니다', [h], 'new')).toEqual([])
   })
 })

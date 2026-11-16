@@ -338,7 +338,8 @@ function renderedSelectionSnapshot(range: Range, root: HTMLElement): string {
   return snapshot.innerHTML
 }
 
-function rangeOffsets(root: HTMLElement, range: Range): { startOffset: number; endOffset: number } | null {
+/** 글자 위치와 그 자리의 글(quote). quote 는 본문 글(textContent)의 그 조각이라 위치와 같은 글에서 나온다(selection.toString() 은 숨은 글을 빼서 다르다) */
+function rangeOffsets(root: HTMLElement, range: Range): { startOffset: number; endOffset: number; quote: string } | null {
   const quote = range.toString()
   if (quote.trim() === '') return null
   const before = document.createRange()
@@ -351,7 +352,7 @@ function rangeOffsets(root: HTMLElement, range: Range): { startOffset: number; e
     if (located < 0) return null
     startOffset = located
   }
-  return { startOffset, endOffset: startOffset + quote.length }
+  return { startOffset, endOffset: startOffset + quote.length, quote }
 }
 
 function rangeFromOffsets(root: HTMLElement, startOffset: number, endOffset: number): Range | null {
@@ -394,7 +395,7 @@ function selectionPayload(
   if (!root.contains(range.commonAncestorContainer)) return null
   const offsets = rangeOffsets(root, range)
   if (offsets === null) return null
-  const quote = range.toString()
+  const { quote } = offsets
   const rootText = root.textContent ?? ''
   const rect = measuredBounds ?? rangeBounds(range)
   const width = Math.max(rect.width, 180)
@@ -406,13 +407,14 @@ function selectionPayload(
       quote,
       prefix: rootText.slice(Math.max(0, offsets.startOffset - CONTEXT_LENGTH), offsets.startOffset),
       suffix: rootText.slice(offsets.endOffset, offsets.endOffset + CONTEXT_LENGTH),
-      ...offsets,
+      startOffset: offsets.startOffset,
+      endOffset: offsets.endOffset,
       format: semanticFormat(range.startContainer, root),
     },
     capture: createMarkdownCapture({
       sourceFileId,
       sourceHash,
-      anchor: offsets,
+      anchor: { startOffset: offsets.startOffset, endOffset: offsets.endOffset },
       plainText: quote,
       renderedSnapshot: renderedSelectionSnapshot(range, root),
       width,
@@ -836,7 +838,7 @@ export function MarkdownPane({
         const offsets = rangeOffsets(root, selection.getRangeAt(0))
         if (offsets !== null && selection.toString().trim() !== '') {
           const charRange: [number, number] = [offsets.startOffset, offsets.endOffset]
-          const highlight = createFlowHighlight(path, { rects: rectsOf(charRange), charRange, quote: selection.toString() }, defaultHighlightColorId(getHighlightColors()))
+          const highlight = createFlowHighlight(path, { rects: rectsOf(charRange), charRange, quote: offsets.quote }, defaultHighlightColorId(getHighlightColors()))
           const existing = boxHighlights.find((item) => item.id === highlight.id)
           if (existing === undefined) onBoxHighlightCreated?.(highlight)
           noteApi?.updateNoteAt(attach.path, (note) => addMemoRef(note, attach.key, existing?.id ?? highlight.id))
@@ -854,7 +856,7 @@ export function MarkdownPane({
       if (root === null || selection === null || selection.rangeCount === 0 || selection.isCollapsed) return
       const offsets = rangeOffsets(root, selection.getRangeAt(0))
       if (offsets === null) return
-      setBoxRequest({ nonce: Date.now(), charRange: [offsets.startOffset, offsets.endOffset], quote: selection.toString() })
+      setBoxRequest({ nonce: Date.now(), charRange: [offsets.startOffset, offsets.endOffset], quote: offsets.quote })
       selection.removeAllRanges()
       return
     }
@@ -867,7 +869,7 @@ export function MarkdownPane({
         const offsets = rangeOffsets(root, selection.getRangeAt(0))
         if (offsets !== null) {
           const charRange: [number, number] = [offsets.startOffset, offsets.endOffset]
-          routeDraft(createFlowHighlight(path, { rects: rectsOf(charRange), charRange, quote: selection.toString() }, defaultHighlightColorId(getHighlightColors())))
+          routeDraft(createFlowHighlight(path, { rects: rectsOf(charRange), charRange, quote: offsets.quote }, defaultHighlightColorId(getHighlightColors())))
         }
       }
     }

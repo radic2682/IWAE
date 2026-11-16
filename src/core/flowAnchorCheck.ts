@@ -27,6 +27,24 @@ export function quoteMatchesAt(text: string, start: number, end: number, quote: 
   return squash(text.slice(start, end)) === wanted
 }
 
+/**
+ * 느슨한 확인: 인용문(공백 뺀 글)이 그 자리 글의 부분열이면 맞다고 본다.
+ * 사용자가 고른 글(selection)은 보이는 글만 담아서 접힌 <details> 본문·숨긴 글이 빠지는데, 본문 글(textContent)에는 그 글이 들어 있다.
+ * 그런 옛 기록을 잘못 버리지 않으려는 확인이다.
+ */
+export function quoteLooselyMatchesAt(text: string, start: number, end: number, quote: string): boolean {
+  const wanted = squash(quote)
+  if (wanted === '') return true
+  if (!(start >= 0 && end > start && end <= text.length)) return false
+  const slice = squash(text.slice(start, end))
+  if (slice.length < wanted.length || slice.length > wanted.length * 4 + 64) return false
+  let next = 0
+  for (let i = 0; i < slice.length && next < wanted.length; i += 1) {
+    if (slice[i] === wanted[next]) next += 1
+  }
+  return next === wanted.length
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
 }

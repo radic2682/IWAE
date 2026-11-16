@@ -374,9 +374,8 @@ describe('MarkdownPane 저장된 형광펜 자리 검증', () => {
     expect(marked?.textContent).toBe('world')
   })
 
-  it('인용문을 못 찾으면 칠하지 않는다', () => {
-    const hash = markdownSourceHash(source)
-    const lost = createPersistentMarkdownHighlight('id-v', hash, { ...selection(0), quote: '없는 글', prefix: '', suffix: '', endOffset: 4 })
+  it('원문이 바뀌어(해시가 다르다) 인용문을 못 찾으면 칠하지 않는다', () => {
+    const lost = createPersistentMarkdownHighlight('id-v', 'stale-hash', { ...selection(0), quote: '없는 글', prefix: '', suffix: '', endOffset: 4 })
     const { container } = render(<MarkdownPane title="a" path="a.md" sourceFileId="id-v" source={source} persistentHighlights={[lost]} />)
     expect(container.querySelector('[data-markdown-highlight-id]')).toBeNull()
   })
@@ -387,5 +386,16 @@ describe('MarkdownPane 저장된 형광펜 자리 검증', () => {
     const good = createPersistentMarkdownHighlight('id-v', hash, selection(start))
     const { container } = render(<MarkdownPane title="a" path="a.md" sourceFileId="id-v" source={source} persistentHighlights={[good]} />)
     expect(container.querySelector(`[data-markdown-highlight-id="${good.id}"]`)?.textContent).toBe('world')
+  })
+})
+
+describe('MarkdownPane: 접힌 <details> 글이 든 옛 형광펜', () => {
+  it('인용문에 접힌 글이 빠져 있어도(해시가 같다) 저장된 자리에 칠한다', () => {
+    const source = '<details><summary>요약</summary>숨은 본문</details>\n\n끝 글'
+    const hash = markdownSourceHash(source)
+    const selection = { path: 'a.md', title: 'a', quote: '요약 끝 글', prefix: '', suffix: '', startOffset: 0, endOffset: 12, format: 'paragraph' as const }
+    const highlight = createPersistentMarkdownHighlight('id-d', hash, selection)
+    const { container } = render(<MarkdownPane title="a" path="a.md" sourceFileId="id-d" source={source} persistentHighlights={[highlight]} />)
+    expect(container.querySelector(`[data-markdown-highlight-id="${highlight.id}"]`)).not.toBeNull()
   })
 })

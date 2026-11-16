@@ -84,3 +84,18 @@ describe('verifiedFlowHighlights', () => {
     expect(verifiedFlowHighlights(text, [spaced])).toHaveLength(1)
   })
 })
+
+describe('verifiedFlowHighlights: 보이는 글만 담은 옛 인용문', () => {
+  it('저장된 자리의 글이 인용문(공백·숨은 글 제외)을 부분열로 담고 있으면 그대로 둔다', () => {
+    const text = '요약 숨은 본문 끝 글'
+    const kept = createFlowHighlight('d.md', { rects: [], charRange: [0, text.length], quote: '요약 끝 글' }, 'yellow')
+    const list = [kept]
+    expect(verifiedFlowHighlights(text, list)).toBe(list)
+  })
+
+  it('자리의 글이 인용문과 전혀 다르면(새 자리도 없으면) 뺀다', () => {
+    const text = '전혀 다른 문장이 이 자리에 있다'
+    const lost = createFlowHighlight('d.md', { rects: [], charRange: [0, 10], quote: '요약 끝 글' }, 'yellow')
+    expect(verifiedFlowHighlights(text, [lost])).toEqual([])
+  })
+})

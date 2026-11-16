@@ -1,5 +1,5 @@
 import type { Anchor, AnchorRect } from './anchor'
-import { verifiedRange } from './flowAnchorCheck'
+import { quoteLooselyMatchesAt, verifiedRange } from './flowAnchorCheck'
 import { createPersistentPdfHighlight, type HighlightExtras, type PdfHighlightColor, type PersistentPdfHighlight } from '../pdf/persistentHighlight'
 
 /** 흐르는 글(Markdown·텍스트)은 쪽이 없어서 한 쪽(0)짜리 종이 좌표로 자리를 적는다. 글 범위는 글자 위치다 */
@@ -51,7 +51,8 @@ export function verifiedFlowHighlights(plainText: string, highlights: readonly P
     if (highlight.kind === 'region' || anchor.quote.trim() === '') replacement = highlight
     else {
       const range = verifiedRange(plainText, anchor.charRange, anchor)
-      if (range === null) replacement = null
+      // 새 자리를 못 찾아도 저장된 자리의 글이 인용문을 (공백·숨은 글을 빼고) 담고 있으면 둔다. 아니면 칠하지 않는다
+      if (range === null) replacement = quoteLooselyMatchesAt(plainText, anchor.charRange[0], anchor.charRange[1], anchor.quote) ? highlight : null
       else if (range[0] === anchor.charRange[0] && range[1] === anchor.charRange[1]) replacement = highlight
       else replacement = { ...highlight, anchor: { ...anchor, charRange: range } }
     }

@@ -111,7 +111,8 @@ function commonPrefixLength(left: string, right: string): number {
  * 파일이 바뀐 뒤에도 형광펜을 붙들어 둔다.
  * 원문 해시가 같아도 그 자리의 본문 글이 저장한 인용문과 다르면(읽기 화면의 그리는 방식이 바뀐 경우) 새 범위를 찾는다.
  * 해시가 다르면 늘 인용문과 앞뒤 글로 새 범위를 찾는다.
- * 찾지 못한 형광펜은 목록에서 빠질 뿐(칠하지 않는다) 저장 데이터는 건드리지 않는다.
+ * 해시가 다르고 찾지 못한 형광펜은 목록에서 빠질 뿐(칠하지 않는다) 저장 데이터는 건드리지 않는다.
+ * 해시가 같으면 못 찾아도 저장된 자리를 그대로 쓴다.
  */
 export function relocateMarkdownHighlights(
   renderedText: string,
@@ -154,7 +155,12 @@ export function relocateMarkdownHighlights(
     }
     // 줄바꿈·블록 사이 공백이 달라 그대로는 못 찾을 때: 공백을 무시하고 찾는다
     const found = locateQuote(text, { quote, prefix, suffix }, selection.startOffset)
-    if (found !== null) result.push({ ...highlight, selection: { ...selection, startOffset: found[0], endOffset: found[1] } })
+    if (found !== null) {
+      result.push({ ...highlight, selection: { ...selection, startOffset: found[0], endOffset: found[1] } })
+      continue
+    }
+    // 원문이 그대로인데(해시가 같다) 인용문을 못 찾으면 옛 기록의 인용문이 본문 글과 달리 저장된 것일 수 있다(접힌 글 등). 저장된 자리를 그대로 쓴다
+    if (highlight.sourceHash === currentHash) result.push(highlight)
   }
   return result
 }
