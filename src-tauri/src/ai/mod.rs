@@ -560,6 +560,43 @@ mod tests {
     }
 
     #[test]
+    fn html_documents_are_read_back_as_tag_free_text_with_the_text_kind() {
+        let root = std::env::temp_dir().join(format!("iwae-ai-html-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".iwae")).unwrap();
+        std::fs::write(
+            root.join("page.html"),
+            "<html><body><script>var hidden=1;</script><h1>버스</h1><p>초기화 &amp; 순서</p></body></html>",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join(".iwae/index.json"),
+            r#"{"version":1,"entries":[{"id":"h1","kind":"other","storage":"vault","path":"page.html","displayName":"page.html","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false}]}"#,
+        )
+        .unwrap();
+        let state = AiState::new(root.join("appdata"));
+        state.set_root(Some(root));
+        let (tx, rx) = channel();
+        let tx = Mutex::new(tx);
+        state.start_index(Arc::new(move |progress: RagProgress| {
+            let _ = tx.lock().unwrap().send(progress);
+        }));
+        loop {
+            let progress = rx.recv_timeout(Duration::from_secs(10)).expect("색인이 끝나야 한다");
+            if progress.done {
+                assert!(progress.error.is_none(), "{:?}", progress.error);
+                break;
+            }
+        }
+        let docs = state.documents(Some("text")).unwrap();
+        assert_eq!(docs.len(), 1);
+        let (text, _, _) = state.page_text("h1", 1).unwrap().expect("1쪽이 있어야 한다");
+        assert_eq!(text, "버스
+초기화 & 순서");
+        assert!(!text.contains("hidden"));
+    }
+
+    #[test]
     fn reads_highlights_and_notes_with_one_based_pages() {
         let text = r#"{"version":1,"highlights":[
           {"id":"a","color":"blue","note":"정의","anchor":{"docId":"d1","page":0,"quote":"Dynamic address"}},

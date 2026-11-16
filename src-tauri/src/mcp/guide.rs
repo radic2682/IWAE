@@ -4,7 +4,7 @@
 use serde_json::{json, Value};
 
 /// initialize 로 보내는 안내(2,500자 미만). 자세한 것은 iwae_guide.
-pub const INSTRUCTIONS: &str = "IWAE is the user's local research vault: PDFs and Markdown, plus notes built from highlights. Call iwae_guide first (once per session); it explains the data model and workflows.
+pub const INSTRUCTIONS: &str = "IWAE is the user's local research vault: PDFs, Markdown, text, HTML and XML documents, plus notes built from highlights. Call iwae_guide first (once per session); it explains the data model and workflows.
 
 MODEL.
 - Vault -> documents (doc_id; PDFs are 1-based pages).
@@ -84,7 +84,7 @@ search_vault -> read_page -> goto (or show_location).
 
 pub const GUIDE_DATA_MODEL: &str = "# Data model
 
-- **Vault**: the user's folder. Documents are indexed PDFs and Markdown files with a stable doc_id. PDFs have 1-based pages.
+- **Vault**: the user's folder. Documents are indexed PDFs, Markdown, text, HTML and XML files with a stable doc_id (list_documents kind: pdf, markdown, or text = txt/html/xml). PDFs have 1-based pages; every other document is one page (page 1), read as text with HTML/XML tags removed.
 - **Memo = PersistentPdfHighlight**: an anchor (rects + the exact quote) or a box on a table/figure (kind 'region'), a color, a comment (note, Markdown), an optional topic (= note title), an optional rating, an optional ticket (ticket_id + ticket_title). The highlight is what draws on the PDF page and gives the connector to a note card.
 - **Note**: an ordered list of blocks. Block kinds: section {title, collapsed}, text {text/html}, memo {highlight_id, ticket?}. A section owns every block up to the next section; moving a section moves its group. A note with doc_id sits under that PDF in the sidebar; owner_doc_id tells which PDF a note belongs to.
 - **Source**: where a PDF came from (URL, cloud link, folder path).

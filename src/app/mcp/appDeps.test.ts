@@ -109,6 +109,13 @@ describe('buildMcpAppDeps', () => {
     expect(app.docs).toBe(app.docs)
   })
 
+  it('docs 는 txt·html·xml 을 text 이름표로 보이고(색인 종류는 other 그대로), 그 밖의 파일은 뺀다', () => {
+    const { base } = input()
+    const other = (id: string, path: string) => record(id, { kind: 'other', path, filename: path })
+    const app = buildMcpAppDeps({ ...base, searchRecords: [other('t1', 'a.txt'), other('h1', 'dir/b.HTML'), other('x1', 'c.xml'), other('z1', 'd.zip'), record('m1', { kind: 'markdown' })] })
+    expect(app.docs.map((doc) => [doc.docId, doc.kind])).toEqual([['t1', 'text'], ['h1', 'text'], ['x1', 'text'], ['m1', 'markdown']])
+  })
+
   it('openDocument: 처음 여는 PDF 는 고른 패널에 탭으로 놓고, 아직 없는 칸 번호는 칸을 늘려 만든다', async () => {
     const { base, calls } = input()
     const app = buildMcpAppDeps(base)
