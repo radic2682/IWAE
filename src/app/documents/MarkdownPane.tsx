@@ -39,6 +39,8 @@ const EMPTY_PINS: readonly PdfBookmark[] = []
 
 import { resolveMarkdownLink, resolveRelativePath } from '../../core/markdown'
 import { renderFlowDocument } from '../../core/flowRender'
+import { resolveImageFile } from '../../core/imageRef'
+import { MAX_DOCUMENT_BYTES } from '../../core/textDecode'
 import {
   MARKDOWN_EXCERPT_DRAG_MIME,
   serializeMarkdownExcerptDrag,
@@ -143,13 +145,21 @@ export function imageExtensionOf(path: string): string {
   return /\.([^.\\/]+)$/u.exec(path)?.[1]?.toLowerCase() ?? ''
 }
 
+/** 그림 한 장의 크기 한도 */
+const MAX_IMAGE_BYTES = MAX_DOCUMENT_BYTES
+
+/** 이미 resolveImageFile 로 뿌리 안임을 확인한 경로만 넘긴다 */
 function loadMarkdownImage(absolutePath: string): Promise<string | null> {
   const cached = markdownImageUrls.get(absolutePath)
   if (cached !== undefined) return cached
   const loading = (async () => {
     try {
-      const { readFile } = await import('@tauri-apps/plugin-fs')
+      const { readFile, stat } = await import('@tauri-apps/plugin-fs')
+      // 큰 그림은 읽지 않는다(크기를 알 수 없어도 읽지 않는다)
+      const info = await stat(absolutePath)
+      if (info.size > MAX_IMAGE_BYTES) return null
       const bytes = await readFile(absolutePath)
+      if (bytes.length > MAX_IMAGE_BYTES) return null
       const extension = imageExtensionOf(absolutePath)
       // SVG 는 <img> 로만 읽혀 스크립트가 돌지 않는다. 그래서 파일을 인라인으로 넣지 않고 blob 주소로만 쓴다
       return URL.createObjectURL(new Blob([bytes], { type: IMAGE_TYPES[extension] ?? 'application/octet-stream' }))
@@ -508,13 +518,16 @@ export function MarkdownPane({
   const [translationState, setTranslationState] = useState<TranslationActionState>({ status: 'idle' })
   // 상대 경로 그림을 파일에서 읽어 붙인다(그린 HTML 이 바뀔 때마다 — 검색·형광펜도 HTML 을 다시 만든다)
   const filePath = /^(?:[a-z]:[\\/]|[\\/])/iu.test(path) || vaultRoot === undefined ? path : `${vaultRoot.replace(/[\\/]+$/u, '')}/${path}`
+  // 그림을 읽어도 되는 뿌리: Vault 안 문서는 Vault 폴더, 참조 문서(절대 경로)는 그 파일이 든 폴더
+  const imageRoot = /^(?:[a-z]:[\\/]|[\\/])/iu.test(path) || vaultRoot === undefined ? filePath.replace(/[\\/][^\\/]*$/u, '') : vaultRoot
   useEffect(() => {
     const article = articleRef.current
     if (article === null) return
     let alive = true
     for (const image of article.querySelectorAll<HTMLImageElement>('img[data-md-src]')) {
       const relative = image.dataset.mdSrc ?? ''
-      const absolute = resolveRelativePath(relative, filePath.replaceAll('\\', '/'))
+      // UNC·장치 경로·뿌리 밖 경로는 읽지 않는다(경로가 네트워크로 나가는 일을 막는다)
+      const absolute = resolveImageFile(relative, filePath, imageRoot, resolveRelativePath)
       if (absolute === null) continue
       void loadMarkdownImage(absolute).then((url) => {
         if (alive && url !== null && image.isConnected) image.src = url

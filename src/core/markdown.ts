@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
+import { isAppUrl, isSafeLocalImageRef, isSafeRelativeReference } from './imageRef'
 
 /**
  * Markdown → 안전한 HTML. GitHub 문서(표·그림·HTML 조각·문서 사이 링크)를 그대로 읽을 수 있게 markdown-it 을 쓰고,
@@ -85,13 +86,24 @@ parser.renderer.rules.table_close = () => '</table></div>'
 
 const ALLOWED_URI = /^(?:(?:https?|mailto):|#|\.{0,2}\/|[^:]*$)/iu
 
-// HTML 조각 안의 <img src="상대 경로"> 도 같은 길로(GitHub 문서는 그림 크기를 정하려고 HTML 을 자주 쓴다)
+// HTML 조각 안의 <img src="상대 경로"> 도 같은 길로(GitHub 문서는 그림 크기를 정하려고 HTML 을 자주 쓴다).
+// 앱 자신의 주소·UNC 같은 위험한 참조는 주소를 지운다(imageRef.ts)
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    const href = node.getAttribute('href')
+    if (href !== null && isAppUrl(href)) node.removeAttribute('href')
+    return
+  }
   if (node.tagName !== 'IMG') return
   const src = node.getAttribute('src')
-  if (src === null || /^(?:https?:|data:|blob:)/iu.test(src)) return
-  node.setAttribute('data-md-src', src)
+  if (src === null) return
+  if (isAppUrl(src)) {
+    node.removeAttribute('src')
+    return
+  }
+  if (/^(?:https?:|data:|blob:)/iu.test(src)) return
   node.removeAttribute('src')
+  if (isSafeLocalImageRef(src)) node.setAttribute('data-md-src', src)
 })
 
 /** 문서 맨 앞의 YAML 앞머리(--- … ---). Obsidian·Jekyll·IWAE 내보내기가 쓴다 */
@@ -162,6 +174,8 @@ export function resolveMarkdownLink(href: string, currentPath: string): Markdown
 
 /** 상대 경로를 지금 파일의 폴더 기준으로 푼다. '/' 로 시작하면 currentPath 의 맨 위(저장소 뿌리 대신 Vault 뿌리) 기준 */
 export function resolveRelativePath(relative: string, currentPath: string): string | null {
+  // 역슬래시·드라이브 글자·`//` 로 시작하는 참조는 풀지 않는다(UNC·다른 드라이브로 나가는 길)
+  if (relative !== '' && !isSafeRelativeReference(relative)) return null
   const normalizedCurrent = currentPath.replaceAll('\\', '/')
   const baseParts = relative.startsWith('/') ? [] : normalizedCurrent.split('/').slice(0, -1)
   const parts = [...baseParts]

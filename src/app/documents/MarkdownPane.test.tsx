@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { dragInternally } from '../../test/internalDrag'
 import { describe, expect, it, vi } from 'vitest'
+import { waitFor } from '@testing-library/react'
 import { MARKDOWN_EXCERPT_DRAG_MIME, parseMarkdownExcerptDrag } from '../../core/markdownExcerpt'
 import { createPersistentMarkdownHighlight } from '../../core/markdownHighlight'
 import { imageExtensionOf, MarkdownPane } from './MarkdownPane'
@@ -42,6 +43,34 @@ describe('MarkdownPane: 텍스트·HTML·XML', () => {
     fireEvent.mouseUp(screen.getByRole('article', { name: 'memo' }))
     const serialized = dragInternally(screen.getByRole('button', { name: '선택 내용을 노트로 끌기' }))?.data[MARKDOWN_EXCERPT_DRAG_MIME] ?? ''
     expect(parseMarkdownExcerptDrag(serialized)).toMatchObject({ selection: { path: 'memo.txt', quote: '선택할 글', format: 'paragraph' } })
+  })
+})
+
+const fsMock = vi.hoisted(() => ({
+  stat: vi.fn(),
+  readFile: vi.fn(),
+}))
+vi.mock('@tauri-apps/plugin-fs', () => fsMock)
+
+describe('MarkdownPane 그림 읽기', () => {
+  it('보통 상대 그림만 읽고 UNC·뿌리 밖 경로는 읽지 않는다', async () => {
+    fsMock.stat.mockResolvedValue({ size: 4 })
+    fsMock.readFile.mockResolvedValue(new Uint8Array([1, 2, 3, 4]))
+    URL.createObjectURL = vi.fn(() => 'blob:x')
+    const bs = String.fromCharCode(92)
+    const source = ['<img src="ok-1.png">', `<img src="/${bs}${bs}host${bs}x.png">`, `<img src="${bs}${bs}host${bs}x.png">`, '<img src="../../../x.png">', `<img src="C:${bs}x.png">`].join(String.fromCharCode(10))
+    const { container } = render(<MarkdownPane title="d" path="docs/a.md" vaultRoot="C:/Vault" source={source} />)
+    await waitFor(() => expect(container.querySelector('img[src="blob:x"]')).not.toBeNull())
+    expect(fsMock.readFile).toHaveBeenCalledTimes(1)
+    expect(fsMock.readFile).toHaveBeenCalledWith('C:/Vault/docs/ok-1.png')
+  })
+
+  it('20MB 를 넘는 그림은 읽지 않는다', async () => {
+    fsMock.readFile.mockClear()
+    fsMock.stat.mockResolvedValue({ size: 21 * 1024 * 1024 })
+    render(<MarkdownPane title="d" path="docs/b.md" vaultRoot="C:/Vault" source={'<img src="big-2.png">'} />)
+    await waitFor(() => expect(fsMock.stat).toHaveBeenCalled())
+    expect(fsMock.readFile).not.toHaveBeenCalled()
   })
 })
 
