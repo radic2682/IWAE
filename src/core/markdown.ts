@@ -84,15 +84,20 @@ parser.core.ruler.push('github_task_lists', (state) => {
 parser.renderer.rules.table_open = () => '<div class="markdown-table-wrap"><table>'
 parser.renderer.rules.table_close = () => '</table></div>'
 
+/** 주소가 든 속성들(앱 자신의 주소 검사용) */
+const URL_ATTRIBUTES = ['src', 'href', 'cite', 'poster', 'background', 'action', 'formaction', 'data', 'longdesc', 'usemap'] as const
+/** 그림·링크 거르기를 피해 주소를 싣는 속성. 읽기 화면에는 필요 없어 통째로 지운다 */
+const FORBIDDEN_URL_ATTRIBUTES = ['srcset', 'poster', 'background', 'action', 'formaction', 'ping', 'xlink:href', 'longdesc', 'usemap'] as const
+
 const ALLOWED_URI = /^(?:(?:https?|mailto):|#|\.{0,2}\/|[^:]*$)/iu
 
 // HTML 조각 안의 <img src="상대 경로"> 도 같은 길로(GitHub 문서는 그림 크기를 정하려고 HTML 을 자주 쓴다).
 // 앱 자신의 주소·UNC 같은 위험한 참조는 주소를 지운다(imageRef.ts)
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A') {
-    const href = node.getAttribute('href')
-    if (href !== null && isAppUrl(href)) node.removeAttribute('href')
-    return
+  // 주소를 담는 속성은 어느 요소든 앱 자신의 주소면 지운다(<video src>·<source src>·cite·<a href> 등)
+  for (const name of URL_ATTRIBUTES) {
+    const value = node.getAttribute(name)
+    if (value !== null && isAppUrl(value)) node.removeAttribute(name)
   }
   if (node.tagName !== 'IMG') return
   const src = node.getAttribute('src')
@@ -133,7 +138,8 @@ export function sanitizeFlowHtml(html: string, options: { readonly htmlOnly?: bo
     ...(options.htmlOnly === true ? { USE_PROFILES: { html: true } } : {}),
     ADD_ATTR: ['data-md-src', 'loading', 'target'],
     ALLOWED_URI_REGEXP: ALLOWED_URI,
-    FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'iframe', 'object', 'embed'],
+    FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'iframe', 'object', 'embed', 'image', 'use'],
+    FORBID_ATTR: [...FORBIDDEN_URL_ATTRIBUTES],
   })
 }
 

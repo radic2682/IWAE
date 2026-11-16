@@ -128,3 +128,31 @@ describe('문서 안 그림·링크 걸러내기(Markdown·HTML)', () => {
     expect(renderMarkdown('[x](https://example.com)')).toContain('href="https://example.com"')
   })
 })
+
+describe('주소를 싣는 다른 속성(Markdown·HTML 모두)', () => {
+  const cases = [
+    '<img src="a.png" srcset="https://evil.example/a.png 2x, //host/x.png 3x">',
+    '<video src="https://iwae.localhost/x" poster="https://iwae.localhost/p.png"></video>',
+    '<table background="//host/x.png"><tr><td>x</td></tr></table>',
+    '<svg><image href="//host/x.png"/><use xlink:href="//host/x.svg#a"/></svg>',
+    '<picture><source srcset="//host/x.png"><img src="ok.png"></picture>',
+    '<blockquote cite="https://iwae.localhost/x">q</blockquote>',
+    '<a href="x" ping="https://evil.example">x</a>',
+  ]
+
+  it('srcset·poster·background·ping·SVG image/use 는 지우고, 앱 주소가 든 속성도 지운다', () => {
+    for (const html of cases) {
+      for (const out of [renderMarkdown(html), renderFlowDocument('html', html).html]) {
+        expect(out).not.toMatch(/srcset|poster=|background=|ping=|iwae\.localhost|<image|<use|xlink/u)
+        expect(out).not.toContain('//host/')
+      }
+    }
+  })
+
+  it('보통 문서는 그대로다', () => {
+    const out = renderMarkdown('<img src="images/a.png" width="200" alt="x">')
+    expect(out).toContain('data-md-src="images/a.png"')
+    expect(out).toContain('width="200"')
+    expect(renderMarkdown('[x](https://example.com) **b**')).toContain('href="https://example.com"')
+  })
+})
