@@ -5,6 +5,7 @@ pub mod ai;
 pub mod bibliography;
 pub mod clipboard_files;
 pub mod document_format;
+pub mod document_text;
 pub mod fs_move;
 pub mod fs_scope;
 pub mod nav_guard;

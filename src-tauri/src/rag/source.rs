@@ -66,13 +66,15 @@ const MAX_PDF_PAGES: usize = 100_000;
 /// 색인에 넣으려고 읽는 문서 파일의 크기 한도(화면 쪽 열기와 같은 20MB). 넘는 파일은 건너뛴다
 const MAX_DOCUMENT_BYTES: u64 = 20 * 1024 * 1024;
 
-/// 한도 이하인 파일만 글로 읽는다(크기를 알 수 없거나 글이 아니면 None). 수백 MB 로그를 통째로 읽어 멈추지 않게 한다
-fn read_document_text(file: &Path, limit: u64) -> Option<String> {
+/// 한도 이하인 파일만 읽어 색인용 글로 바꾼다(크기를 알 수 없으면 None). 수백 MB 로그를 통째로 읽어 멈추지 않게 한다.
+/// 부호화(UTF-8·UTF-16·CP949)를 알아보고, HTML·XML 은 태그를 걷어 낸 본문만 돌려준다
+fn read_document_text(file: &Path, format: &str, limit: u64) -> Option<String> {
     let size = std::fs::metadata(file).ok()?.len();
     if size > limit {
         return None;
     }
-    std::fs::read_to_string(file).ok()
+    let bytes = std::fs::read(file).ok()?;
+    Some(crate::document_text::text_for_search(format, &bytes))
 }
 
 pub fn iwae_dir(root: &Path) -> PathBuf {
@@ -128,15 +130,15 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
                     complete: document.complete,
                 });
             }
-            // 'text' 는 txt·html·xml. 지금은 파일을 글 그대로 읽는다.
-            // TODO(task3): html·xml 은 태그를 걷어 낸 본문을 색인한다(그때까지는 태그가 섞여 들어간다)
+            // 'text' 는 txt·html·xml. 형식은 확장자로 정하고, html·xml 은 태그를 걷어 낸 본문을 색인한다
             "markdown" | "text" => {
                 let file = if entry.storage == "vault" {
                     root.join(&entry.path)
                 } else {
                     PathBuf::from(&entry.path)
                 };
-                let Some(text) = read_document_text(&file, MAX_DOCUMENT_BYTES) else {
+                let format = crate::document_format::document_format(Path::new(&entry.path)).unwrap_or("text");
+                let Some(text) = read_document_text(&file, format, MAX_DOCUMENT_BYTES) else {
                     continue;
                 };
                 sources.push(SourceDoc {
@@ -226,9 +228,9 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("big.log");
         std::fs::write(&file, "0123456789").unwrap();
-        assert_eq!(read_document_text(&file, 10), Some("0123456789".to_string()));
-        assert_eq!(read_document_text(&file, 9), None);
-        assert_eq!(read_document_text(&dir.join("missing.log"), 10), None);
+        assert_eq!(read_document_text(&file, "text", 10), Some("0123456789".to_string()));
+        assert_eq!(read_document_text(&file, "text", 9), None);
+        assert_eq!(read_document_text(&dir.join("missing.log"), "text", 10), None);
         assert_eq!(MAX_DOCUMENT_BYTES, 20 * 1024 * 1024);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -253,6 +255,38 @@ mod tests {
         assert_eq!(sources.len(), 1);
         assert_eq!(sources[0].kind, "text");
         assert_eq!(sources[0].pages, vec!["버스 초기화 로그".to_string()]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn html_and_xml_are_indexed_as_plain_text_and_cp949_is_decoded() {
+        let root = std::env::temp_dir().join(format!("iwae-source-markup-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".iwae")).unwrap();
+        std::fs::write(
+            root.join("page.html"),
+            "<html><head><style>p{color:red}</style><script>var secret=1;</script></head><body><p>본문 &amp; 끝</p></body></html>",
+        )
+        .unwrap();
+        std::fs::write(root.join("data.xml"), "<?xml version=\"1.0\"?><r><item>하나</item><item>둘</item></r>").unwrap();
+        let (cp949, _, _) = encoding_rs::EUC_KR.encode("한글 메모");
+        std::fs::write(root.join("old.txt"), &*cp949).unwrap();
+        std::fs::write(
+            root.join(".iwae/index.json"),
+            r#"{"version":1,"entries":[
+              {"id":"h","kind":"other","storage":"vault","path":"page.html","displayName":"page","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false},
+              {"id":"x","kind":"other","storage":"vault","path":"data.xml","displayName":"data","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false},
+              {"id":"o","kind":"other","storage":"vault","path":"old.txt","displayName":"old","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false}
+            ]}"#,
+        )
+        .unwrap();
+        let sources = load_sources(&root);
+        let page = |id: &str| sources.iter().find(|s| s.id == id).unwrap().pages.clone();
+        assert_eq!(page("h"), vec!["본문 & 끝".to_string()]);
+        assert_eq!(page("x"), vec!["하나
+둘".to_string()]);
+        assert_eq!(page("o"), vec!["한글 메모".to_string()]);
+        assert!(sources.iter().all(|s| s.kind == "text"));
         let _ = std::fs::remove_dir_all(&root);
     }
 }
