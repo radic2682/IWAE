@@ -4,7 +4,7 @@ const table = {
   install: ['설치', 'Install'],
   update: ['업데이트', 'Update'],
   reinstall: ['다시 설치', 'Reinstall'],
-  olderNote: ['설치된 버전 {v}보다 낮은 버전입니다', 'Older than the installed {v}'],
+  olderNote: ['설치된 버전 {v}보다 낮은 버전입니다.', 'Older than the installed {v}.'],
   version: ['버전 {v}', 'Version {v}'],
   changeLocation: ['설치 위치 바꾸기', 'Change location'],
   change: ['바꾸기', 'Change'],

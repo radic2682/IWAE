@@ -82,7 +82,7 @@
 | 상태 | 보이는 것 |
 |---|---|
 | 처음 | 로고, IWAE, 버전. 「설치」 / Install 단추. 그 아래 작은 링크 「설치 위치 바꾸기」 / Change location. 위치를 바꾸면 링크 자리에 경로를 짧게 보여 주고 「바꾸기」 / Change를 둔다. 왼쪽 아래 언어 「한국어 ▾」 / 「English ▾」. |
-| 처음 (이미 설치됨) | 등록 정보(`Uninstall\IWAE`의 `DisplayVersion`, `InstallLocation`)로 기존 설치를 찾으면 단추 이름이 바뀐다. 더 새 버전이면 「업데이트」 / Update, 같은 버전이면 「다시 설치」 / Reinstall, 더 낮은 버전이면 「설치」 / Install와 그 아래 작은 글 「설치된 버전 0.2.8보다 낮은 버전입니다」 / Older than the installed 0.2.8. 이때 「설치 위치 바꾸기」는 숨기고 기존 위치에 설치한다. (작성자 결정) |
+| 처음 (이미 설치됨) | 등록 정보(`Uninstall\IWAE`의 `DisplayVersion`, `InstallLocation`)로 기존 설치를 찾으면 단추 이름이 바뀐다. 더 새 버전이면 「업데이트」 / Update, 같은 버전이면 「다시 설치」 / Reinstall, 더 낮은 버전이면 「설치」 / Install와 그 아래 작은 글 「설치된 버전 0.2.8보다 낮은 버전입니다.」 / Older than the installed 0.2.8.. 이때 「설치 위치 바꾸기」는 숨기고 기존 위치에 설치한다. (작성자 결정) |
 | IWAE 켜짐 | 「IWAE가 켜져 있습니다」 / IWAE is open, 그 아래 「저장할 것이 있으면 저장해 주세요.」 / Save anything you need first. 단추 「닫고 설치」 / Close and install (지우기에서는 「닫고 지우기」 / Close and uninstall), 작은 링크 「취소」 / Cancel. |
 | 설치 중 | 로고, IWAE, 진행 막대, 「설치하고 있습니다 62%」 / Installing 62%. ✕는 흐리게 하고 누를 수 없다. |
 | 끝 | 「설치했습니다」 / Installed. 「IWAE 열기」 / Open IWAE 단추. ✕로 닫을 수 있다. |

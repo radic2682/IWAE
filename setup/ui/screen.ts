@@ -160,3 +160,15 @@ export function screenFor(s: SetupState): ScreenModel {
       return m({ title: t(L, 'uninstalled'), primary: { label: t(L, 'close'), action: 'close' } })
   }
 }
+
+/** Buttons that share one centered row, in order. Two buttons sit side by side, never stacked. */
+export function buttonRow(m: ScreenModel): Labeled[] {
+  return [m.primary, m.secondary].filter((b): b is Labeled => b !== null)
+}
+
+export const LANG_OPTIONS: readonly Lang[] = ['ko', 'en']
+
+/** Item to focus after an arrow key in the language menu; wraps at both ends. */
+export function menuStep(index: number, key: 'ArrowUp' | 'ArrowDown', count: number): number {
+  return (index + (key === 'ArrowDown' ? 1 : -1) + count) % count
+}

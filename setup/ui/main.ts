@@ -6,7 +6,10 @@ import { t, type Lang } from './copy'
 import { stepProgress } from './ease'
 import {
   applyBootPhase,
+  buttonRow,
   canStart,
+  LANG_OPTIONS,
+  menuStep,
   screenFor,
   watchesApp,
   type Action,
@@ -59,13 +62,31 @@ titleEl.setAttribute('role', 'status')
 const subEl = el('div', 'sub', stack)
 const bar = el('div', 'bar', stack)
 const fill = el('i', '', bar)
-const primaryBtn = el('button', 'btn', stack)
-const secondaryBtn = el('button', 'btn ghost', stack)
+// Primary and secondary share one row so a two-button screen stays as short as the others.
+const btnRow = el('div', 'btns', stack)
+const primaryBtn = el('button', 'btn', btnRow)
+const secondaryBtn = el('button', 'btn ghost', btnRow)
 const linkBtn = el('button', 'link', stack)
 for (const b of [primaryBtn, secondaryBtn, linkBtn]) b.type = 'button'
 
-const langBtn = el('button', 'lang', app)
+const langWrap = el('div', 'langwrap', app)
+const langBtn = el('button', 'lang', langWrap)
 langBtn.type = 'button'
+langBtn.setAttribute('aria-haspopup', 'menu')
+langBtn.setAttribute('aria-expanded', 'false')
+// After the button in DOM; items use tabindex -1 so Tab order stays primary, link/secondary, language, close.
+const langMenu = el('div', 'langmenu', langWrap)
+langMenu.setAttribute('role', 'menu')
+langMenu.hidden = true
+const langItems = LANG_OPTIONS.map((lang) => {
+  const item = el('button', 'langitem', langMenu)
+  item.type = 'button'
+  item.tabIndex = -1
+  item.setAttribute('role', 'menuitemradio')
+  item.lang = lang
+  item.textContent = t(lang, lang === 'ko' ? 'langKo' : 'langEn')
+  return item
+})
 
 // Last in DOM so Tab goes primary, link/secondary, language, then close.
 const closeBtn = el('button', 'x', app)
@@ -140,12 +161,16 @@ function render(): void {
       btn.dataset.action = item.action
     }
   }
+  show(btnRow, buttonRow(m).length > 0)
+  btnRow.classList.toggle('two', buttonRow(m).length > 1)
   // While close_app runs the primary can't be pressed twice; cancel stays available.
   primaryBtn.disabled = waiting
 
   closeBtn.disabled = !m.closable
   closeBtn.setAttribute('aria-label', t(state.lang, 'close'))
-  show(langBtn, m.showLang)
+  show(langWrap, m.showLang)
+  if (!m.showLang) closeLangMenu(false)
+  langItems.forEach((item, i) => item.setAttribute('aria-checked', String(LANG_OPTIONS[i] === state.lang)))
   setText(langBtn, `${t(state.lang, state.lang === 'ko' ? 'langKo' : 'langEn')} ▾`)
 }
 
@@ -336,11 +361,65 @@ for (const b of [primaryBtn, secondaryBtn, linkBtn]) {
 closeBtn.addEventListener('click', () => {
   if (!closeBtn.disabled) void quitWindow().catch(() => {})
 })
-langBtn.addEventListener('click', () => {
-  const lang: Lang = state.lang === 'ko' ? 'en' : 'ko'
+// ---------- language menu ----------
+
+function langMenuOpen(): boolean {
+  return !langMenu.hidden
+}
+
+function openLangMenu(focusIndex?: number): void {
+  langMenu.hidden = false
+  langBtn.setAttribute('aria-expanded', 'true')
+  const i = focusIndex ?? Math.max(0, LANG_OPTIONS.indexOf(state.lang))
+  langItems[i]!.focus()
+}
+
+function closeLangMenu(refocus: boolean): void {
+  if (!langMenuOpen()) return
+  langMenu.hidden = true
+  langBtn.setAttribute('aria-expanded', 'false')
+  if (refocus) langBtn.focus()
+}
+
+function chooseLang(lang: Lang): void {
+  closeLangMenu(true)
+  if (lang === state.lang) return
   setState({ lang })
   void invoke('set_lang', { lang }).catch(() => {})
+}
+
+langBtn.addEventListener('click', () => (langMenuOpen() ? closeLangMenu(true) : openLangMenu()))
+langBtn.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (!langMenuOpen()) openLangMenu()
+  }
 })
+langItems.forEach((item, i) => {
+  item.addEventListener('click', () => chooseLang(LANG_OPTIONS[i]!))
+  item.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      langItems[menuStep(i, e.key, langItems.length)]!.focus()
+    } else if (e.key === 'Tab') closeLangMenu(false)
+  })
+})
+// Capture phase and first in line, so Esc closes only the menu and never quits the window.
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key === 'Escape' && langMenuOpen()) {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      closeLangMenu(true)
+    }
+  },
+  true,
+)
+window.addEventListener('pointerdown', (e) => {
+  if (langMenuOpen() && !(e.target instanceof Node && langWrap.contains(e.target))) closeLangMenu(true)
+})
+window.addEventListener('blur', () => closeLangMenu(false))
 
 window.addEventListener('keydown', (e) => {
   if (e.defaultPrevented || e.isComposing || e.repeat) return

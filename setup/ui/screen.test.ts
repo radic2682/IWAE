@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyBootPhase, bootPhase, canStart, screenFor, shortPath, watchesApp, type SetupState } from './screen'
+import { applyBootPhase, bootPhase, buttonRow, canStart, menuStep, screenFor, shortPath, watchesApp, type SetupState } from './screen'
 import { stepProgress } from './ease'
 
 const base: SetupState = {
@@ -33,7 +33,7 @@ describe('screenFor', () => {
   it('downgrade installs with an older-version note', () => {
     const m = screenFor(st({ existing: { version: '0.2.8', kind: 'downgrade' } }))
     expect(m.primary?.label).toBe('설치')
-    expect(m.sub).toBe('설치된 버전 0.2.8보다 낮은 버전입니다')
+    expect(m.sub).toBe('설치된 버전 0.2.8보다 낮은 버전입니다.')
   })
   it('custom dir shows a shortened path plus change', () => {
     const dir = 'D:\\테스트 폴더\\아주 긴 이름의 폴더\\또 다른 아주 긴 폴더\\더 깊은 폴더\\IWAE'
@@ -168,5 +168,26 @@ describe('applyBootPhase', () => {
     expect(applyBootPhase('start', 'update', false)).toBe('installing')
     expect(applyBootPhase('start', 'update', true)).toBe('failed')
     expect(applyBootPhase('start', 'install', false)).toBe('start')
+  })
+})
+
+describe('buttonRow', () => {
+  it('puts the retry and close buttons of a failed update in one row', () => {
+    const row = buttonRow(screenFor(st({ mode: 'update', phase: 'failed' })))
+    expect(row.map((b) => b.action)).toEqual(['retry', 'close'])
+  })
+  it('keeps one button alone on every other single-button screen', () => {
+    expect(buttonRow(screenFor(base))).toHaveLength(1)
+    expect(buttonRow(screenFor(st({ phase: 'failed' })))).toHaveLength(1)
+    expect(buttonRow(screenFor(st({ phase: 'installing' })))).toHaveLength(0)
+  })
+})
+
+describe('menuStep', () => {
+  it('moves and wraps between the two languages', () => {
+    expect(menuStep(0, 'ArrowDown', 2)).toBe(1)
+    expect(menuStep(1, 'ArrowDown', 2)).toBe(0)
+    expect(menuStep(0, 'ArrowUp', 2)).toBe(1)
+    expect(menuStep(1, 'ArrowUp', 2)).toBe(0)
   })
 })

@@ -84,8 +84,23 @@ button {
 button:focus { outline: none; }
 button:focus-visible { outline: 2px solid rgba(140, 193, 242, 0.9); outline-offset: 2px; }
 
-.btn {
+.btns {
   margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.btns > .btn { pointer-events: auto; }
+/* Two buttons: one row, equal width (the wider natural width), at least 108px. */
+.btns.two {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+.btns.two > .btn { min-width: 108px; }
+
+.btn {
   padding: 9px 40px;
   border-radius: 6px;
   background: #2f6fb0;
@@ -98,7 +113,6 @@ button:focus-visible { outline: 2px solid rgba(140, 193, 242, 0.9); outline-offs
 .btn:active:not(:disabled) { background: #2a649f; }
 .btn:disabled { opacity: 0.6; cursor: default; }
 .btn.ghost {
-  margin-top: 0;
   background: none;
   color: rgb(244 246 250 / 75%);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 24%);
@@ -114,12 +128,14 @@ button:focus-visible { outline: 2px solid rgba(140, 193, 242, 0.9); outline-offs
   border-radius: 4px;
 }
 .link:hover { opacity: 0.9; }
+/* The outline inherits opacity, so a dimmed control would show a dimmed ring. */
+.link:focus-visible, .x:focus-visible:not(:disabled), .lang:focus-visible { opacity: 1; }
 
 /* 28px hit area, glyph stays small */
 .x {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 8px;
+  right: 8px;
   width: 28px;
   height: 28px;
   display: grid;
@@ -132,16 +148,53 @@ button:focus-visible { outline: 2px solid rgba(140, 193, 242, 0.9); outline-offs
 .x:hover:not(:disabled) { opacity: 1; background: rgb(255 255 255 / 10%); }
 .x:disabled { opacity: 0.35; cursor: default; }
 
-.lang {
+.langwrap {
   position: absolute;
   bottom: 8px;
-  left: 10px;
-  padding: 3px 6px;
+  left: 8px;
+}
+.lang {
+  display: block;
+  /* Text ink sits ~17.5px from the left and 18px from the bottom edge, matching the ✕ glyph (18px top, 17.5px right). */
+  padding: 7px 8.5px;
   font-size: 12px;
   opacity: 0.55;
   border-radius: 4px;
 }
-.lang:hover { opacity: 0.9; }
+.lang:hover, .lang[aria-expanded="true"] { opacity: 0.9; }
+
+.langmenu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px);
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 6px;
+  background: rgb(20 24 34 / 92%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
+  display: flex;
+  flex-direction: column;
+}
+.langitem {
+  position: relative;
+  height: 26px;
+  padding: 0 10px 0 22px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+.langitem:hover { background: rgb(255 255 255 / 8%); }
+.langitem[aria-checked="true"]::before {
+  content: "✓";
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #8cc1f2;
+}
+.langitem:focus-visible { outline-offset: -2px; }
 
 @media (prefers-reduced-motion: reduce) {
   .bar.indeterminate i { animation: none; width: 100%; opacity: 0.6; }
