@@ -1,6 +1,6 @@
 import { createPinPressTracker } from '../../pdf/pinGesture'
 import { defaultHighlightColorId } from '../../core/highlightColors'
-import { isMarkdownPath } from '../../core/markdownPath'
+import { isOpenableDocumentPath, type DocumentFormat } from '../../core/documentFormat'
 import { getHighlightColors } from './highlightColorStyle'
 import { t } from '../../i18n'
 import { shortcutText } from '../../core/shortcutRegistry'
@@ -65,6 +65,8 @@ import { documentContextEntries } from '../../ui/documentContextMenu'
 interface MarkdownPaneProps {
   title: string
   source: string
+  /** 문서 형식(경로의 확장자에서 온다). 없으면 Markdown */
+  format?: DocumentFormat
   path?: string
   sourceFileId?: string
   sourceHighlights?: readonly VisibleSourceReference[]
@@ -424,9 +426,22 @@ function putDragPayload(event: DragEvent, payload: MarkdownExcerptDragPayload): 
   event.dataTransfer.setData('text/plain', payload.selection.quote)
 }
 
+/**
+ * 형식별 본문 HTML. Markdown 이 아닌 형식은 아직 전용 렌더러가 없어 원문을 그대로(해석 없이) 보여 준다.
+ * 원문을 코드 블록 안에 넣어 HTML·XML 이 태그로 해석되지 않게 한다.
+ * TODO(task2): flowRender 로 바꾼다
+ */
+function renderFlowSource(source: string, format: DocumentFormat): string {
+  if (format === 'markdown') return renderMarkdown(source)
+  const longestRun = Math.max(2, ...[...source.matchAll(/`+/gu)].map((match) => match[0].length))
+  const fence = '`'.repeat(longestRun + 1)
+  return renderMarkdown([fence, source, fence].join('\n'))
+}
+
 export function MarkdownPane({
   title,
   source,
+  format = 'markdown',
   path = title,
   sourceFileId = path,
   sourceHighlights = EMPTY_SOURCE_HIGHLIGHTS,
@@ -469,7 +484,7 @@ export function MarkdownPane({
   onMovePin,
   onRemovePin,
 }: MarkdownPaneProps) {
-  const html = useMemo(() => renderMarkdown(source), [source])
+  const html = useMemo(() => renderFlowSource(source, format), [source, format])
   const sourceHash = useMemo(() => markdownSourceHash(source), [source])
   const activeHighlights = useMemo(() => {
     const own = persistentHighlights.filter((highlight) => (
@@ -1284,8 +1299,8 @@ export function MarkdownPane({
             const heading = articleRef.current.querySelector(`[id="${CSS.escape(resolved.id)}"]`)
             heading?.scrollIntoView({ block: 'start', behavior: 'smooth' })
           } else if (resolved.kind === 'document') {
-            // Markdown 과 PDF 는 Vault 안 문서를 연다. 그 밖의 파일은 열 수 없다고 알린다
-            if (isMarkdownPath(resolved.path) || /\.pdf$/iu.test(resolved.path)) onOpenDocument?.(resolved.path, resolved.anchor)
+            // PDF·Markdown·텍스트·HTML·XML 은 Vault 안 문서를 연다. 그 밖의 파일은 열 수 없다고 알린다
+            if (isOpenableDocumentPath(resolved.path)) onOpenDocument?.(resolved.path, resolved.anchor)
             else announceAction(t('열 수 없는 링크입니다'))
           }
           return

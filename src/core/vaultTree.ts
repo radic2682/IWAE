@@ -1,6 +1,7 @@
 import { MEMO_NOTES_FOLDER_KO, MEMO_NOTE_EXTENSION, memoNotesFolder, pickMemoNotesFolder } from './memoNote'
+import { isFlowDocumentPath, stripDocumentExtension } from './documentFormat'
 import { isMarkdownPath } from './markdownPath'
-import type { VaultIndexEntry, VaultStorageKind } from './vaultIndex'
+import { isFlowVaultKind, type VaultIndexEntry, type VaultStorageKind } from './vaultIndex'
 
 export interface LibraryDoc {
   docId: string
@@ -47,6 +48,7 @@ export interface VaultNoteNode {
   path: string
 }
 
+/** 흐르는 글 문서(Markdown·텍스트·HTML·XML)의 트리 노드. 저장된 탭 종류('markdown')와 맞춰 종류 이름은 그대로 둔다 */
 export interface VaultMarkdownNode {
   id: string
   kind: 'markdown'
@@ -236,7 +238,7 @@ export function buildVaultWorkspaceTree(
   const isReserved = reservedMatcher(entries)
   const folders = new Map<string, VaultFolderNode>([['', root]])
   const indexedMarkdownByPath = new Map(indexedDocuments
-    .filter((entry) => entry.kind === 'markdown' && entry.storage === 'vault')
+    .filter((entry) => isFlowVaultKind(entry.kind) && entry.storage === 'vault')
     .map((entry) => [normalizedPath(entry.path).toLocaleLowerCase(), entry]))
 
   const ensureFolder = (folderPath: string): VaultFolderNode => {
@@ -277,12 +279,12 @@ export function buildVaultWorkspaceTree(
         name: (displayNames.get(path) ?? filename).replace(/\.canvas$/iu, ''),
         path,
       })
-    } else if (isMarkdownPath(lowerFilename)) {
+    } else if (isFlowDocumentPath(lowerFilename)) {
       const indexed = indexedMarkdownByPath.get(path.toLocaleLowerCase())
       ensureFolder(parts.slice(0, -1).join('/')).children.push({
         id: `markdown:${indexed?.id ?? path}`,
         kind: 'markdown',
-        name: (displayNames.get(path) ?? filename).replace(/\.(?:md|markdown)$/iu, ''),
+        name: stripDocumentExtension(displayNames.get(path) ?? filename),
         path,
         storage: 'vault',
         indexId: indexed?.id ?? path,
@@ -291,7 +293,7 @@ export function buildVaultWorkspaceTree(
   }
 
   for (const indexed of indexedDocuments) {
-    if (indexed.kind !== 'markdown' || indexed.storage !== 'reference' || indexed.missing) continue
+    if (!isFlowVaultKind(indexed.kind) || indexed.storage !== 'reference' || indexed.missing) continue
     root.children.push({
       id: `markdown:${indexed.id}`,
       kind: 'markdown',
@@ -350,6 +352,7 @@ export function buildLegacyWorkspaceTree(
       kind: 'folder',
       name: group.name,
       path: `Notebooks/${group.name}`,
+      // 예전 노트북 목록: 노트(.canvas)와 Markdown 노트만 있다. 텍스트·HTML·XML 은 여기 오지 않는다
       children: group.notes.map((note): VaultNoteNode | VaultMarkdownNode => (
         isMarkdownPath(note.path)
           ? {

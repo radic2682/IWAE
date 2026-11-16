@@ -11,6 +11,10 @@ import { t } from '../../i18n'
  * 탭의 종류. memoNote 는 메모 노트(.iwnote), canvas 는 YOLO 노트(캔버스, .canvas). 번역기는 탭이 아니라 창 전체에 떠 있는 창이다(translatorPanelState).
  * 예전에는 캔버스를 'note' 라고 불렀다 — 남아 있는 'note' 는 normalizeTabKind 가 'canvas' 로 옮긴다.
  */
+/**
+ * 탭 종류. 'markdown' 은 저장된 값이라 이름을 바꾸지 않는다: 흐르는 글(flow) 문서 전체(Markdown·텍스트·HTML·XML)를 뜻한다.
+ * 어느 형식인지는 탭 id(경로)의 확장자로 안다(core/documentFormat)
+ */
 export type TabKind = 'pdf' | 'markdown' | 'memoNote' | 'canvas'
 
 /** 저장된 값·바깥(MCP)에서 온 탭 종류를 읽는다. 예전 'note' 는 'canvas'. 모르는 값이면 null */
@@ -19,7 +23,7 @@ export function normalizeTabKind(raw: unknown): TabKind | null {
   return raw === 'pdf' || raw === 'markdown' || raw === 'memoNote' || raw === 'canvas' ? raw : null
 }
 
-/** 문서(PDF·Markdown) 탭인가. 메모 노트·캔버스는 문서가 아니다 */
+/** 문서(PDF·흐르는 글) 탭인가. 메모 노트·캔버스는 문서가 아니다 */
 export function isDocumentKind(kind: TabKind): boolean {
   return kind === 'pdf' || kind === 'markdown'
 }

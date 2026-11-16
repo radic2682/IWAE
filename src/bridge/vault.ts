@@ -1,5 +1,6 @@
 import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, serializePdfOverlays, type PdfOverlaysFile } from '../core/pdfOverlays'
 import { isMarkdownPath } from '../core/markdownPath'
+import { documentFormatOf, isFlowDocumentPath, isPdfPath } from '../core/documentFormat'
 import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from '../core/versionGroups'
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'
 import { EMPTY_BIBLIOGRAPHY, parseBibliographyFile, type BibliographyFile } from '../core/bibliography'
@@ -12,6 +13,8 @@ import type { SessionState } from '../core/session'
 import { SESSIONS_DIR, SESSIONS_META_FILE, emptySessionsMeta, parseSessionsMeta, touchSessionMeta, type SessionsMeta } from '../core/sessionNames'
 import {
   createVaultIndexEntry,
+  isFlowVaultKind,
+  kindFromPath,
   libraryEntryVaultPath,
   migrateLibraryToIndex,
   parseVaultIndex,
@@ -776,18 +779,24 @@ function normalizedReferencePath(path: string): string {
   return path.replaceAll('\\', '/').replace(/\/{2,}/gu, '/').toLocaleLowerCase()
 }
 
+/** `.md` · `.canvas` · ` .txt` 처럼 이름이 확장자뿐인가(문서 확장자와 캔버스) */
+function isExtensionOnlyName(name: string): boolean {
+  const trimmed = name.trim()
+  return trimmed.startsWith('.') && (documentFormatOf(trimmed) !== null || trimmed.toLowerCase() === '.canvas')
+}
+
 export async function attachMarkdownReference(
   vault: VaultHandle,
   sourcePath: string,
 ): Promise<VaultIndexEntry> {
-  if (!isMarkdownPath(sourcePath) || /[\\/]$/u.test(sourcePath)) {
+  if (!isFlowDocumentPath(sourcePath) || /[\\/]$/u.test(sourcePath)) {
     throw new Error(t('Markdown 파일 경로가 올바르지 않습니다.'))
   }
 
   const index = await readVaultIndex(vault)
   const normalized = normalizedReferencePath(sourcePath)
   const existing = index.entries.find((entry) => (
-    entry.kind === 'markdown'
+    isFlowVaultKind(entry.kind)
     && entry.storage === 'reference'
     && normalizedReferencePath(entry.path) === normalized
   ))
@@ -798,7 +807,7 @@ export async function attachMarkdownReference(
   const info = await stat(sourcePath).catch(() => null)
   const entry = createVaultIndexEntry({
     id: globalThis.crypto.randomUUID(),
-    kind: 'markdown',
+    kind: kindFromPath(sourcePath),
     storage: 'reference',
     path: sourcePath,
     displayName: sourceFilename(sourcePath),
@@ -1226,8 +1235,8 @@ export async function listVaultTree(vault: VaultHandle): Promise<VaultTreeEntry[
       if (child.isDirectory && child.name.startsWith('.')) continue
       // 저장 도중 생기는 임시·백업 파일(`.iwae-<번호>.tmp`, `.iwae-<번호>.bak`)은 문서가 아니다. 목록에 오르면 색인에 영영 「없는 파일」로 남는다
       if (!child.isDirectory && /^\.iwae-.*\.(?:tmp|bak)$/iu.test(child.name)) continue
-      // `.md`, `.canvas`, ` .pdf` 처럼 이름이 확장자뿐인 파일은 표시 이름을 만들 수 없다. 하나 때문에 Vault 가 안 열리면 안 되므로 건너뛴다
-      if (!child.isDirectory && /^\s*\.(?:canvas|md|markdown|pdf)$/iu.test(child.name)) continue
+      // `.md`, `.canvas`, ` .pdf`, `.txt` 처럼 이름이 확장자뿐인 파일은 표시 이름을 만들 수 없다. 하나 때문에 Vault 가 안 열리면 안 되므로 건너뛴다
+      if (!child.isDirectory && isExtensionOnlyName(child.name)) continue
       const childParts = [...relativeParts, child.name]
       entries.push({ path: childParts.join('/'), isDirectory: child.isDirectory })
       if (child.isDirectory) await visit(await join(absolute, child.name), childParts)
@@ -1340,7 +1349,7 @@ function validateMarkdownPath(markdownPath: string): readonly string[] {
     || normalized.startsWith('/')
     || /^[A-Za-z]:/u.test(normalized)
     || parts.some((part) => part === '' || part === '.' || part === '..')
-    || !isMarkdownPath(normalized)
+    || !isFlowDocumentPath(normalized)
   ) {
     throw new Error(t('올바른 Vault Markdown 경로가 아닙니다.'))
   }
@@ -1349,13 +1358,13 @@ function validateMarkdownPath(markdownPath: string): readonly string[] {
 
 export async function readMarkdown(vault: VaultHandle, markdownPath: string): Promise<string> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
-  if (!isMarkdownPath(markdownPath)) {
+  if (!isFlowDocumentPath(markdownPath)) {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/iu.test(markdownPath)) {
       throw new Error(t('Markdown 파일 경로가 올바르지 않습니다.'))
     }
     const index = await readVaultIndex(vault)
     const entry = index.entries.find((candidate) => candidate.id === markdownPath)
-    if (entry?.kind !== 'markdown' || entry.storage !== 'reference') {
+    if (entry === undefined || !isFlowVaultKind(entry.kind) || entry.storage !== 'reference') {
       throw new Error(t('Markdown 참조를 찾을 수 없습니다.'))
     }
     if (!(await exists(entry.path))) throw new Error(t('Markdown 파일을 찾을 수 없습니다.'))
@@ -1465,7 +1474,7 @@ export async function registerUnlistedVaultPdfs(vault: VaultHandle): Promise<str
     return ownerPath === null || presentPaths.has(pathKey(ownerPath))
   }
   const candidates = tree.filter((entry) => !entry.isDirectory
-    && /\.pdf$/iu.test(entry.path)
+    && isPdfPath(entry.path)
     && !known.has(pathKey(entry.path)))
   const added: VaultLibraryEntry[] = []
   const relinked: string[] = []

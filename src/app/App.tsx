@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translation/translationCacheStore'
 import { isMarkdownPath } from '../core/markdownPath'
+import { isFlowDocumentPath, isOpenableDocumentPath, isPdfPath, stripDocumentExtension } from '../core/documentFormat'
+import { isFlowVaultKind } from '../core/vaultIndex'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { ShortcutOverlay } from './settings/ShortcutOverlay'
@@ -576,8 +578,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     else if (slides.length > 0) setPendingSlides({ paths: slides, folderPath: zone.kind === 'vault' ? zone.folderPath ?? '' : '', place: zone.kind === 'vault' ? zone.place : undefined })
     const paths = allPaths.filter((path) => !isPowerPointPath(path))
     if (paths.length === 0) return
-    const pdfs = paths.filter((path) => /\.pdf$/iu.test(path))
-    const others = paths.filter((path) => !/\.pdf$/iu.test(path))
+    const pdfs = paths.filter((path) => isPdfPath(path))
+    const others = paths.filter((path) => !isPdfPath(path))
     // PDF 자리에 놓아도 Vault 로 복사한다(Vault 맨 위). 왼쪽 바면 폴더 위는 그 폴더, 줄 사이는 그 자리, 빈 곳은 맨 위.
     // Vault 를 아직 열지 않았으면 예전처럼 열기만 한다
     if (zone.kind === 'reader' && vault === null) {
@@ -593,15 +595,15 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const base = zone.stackOnDocId
       const after = { nodeId: zone.place.nodeId, position: 'after' as const }
       void (async () => {
-        const imported = await importPdfsAt(paths.filter((path) => /\.(?:pdf|md|markdown)$/iu.test(path)), folderPath, after) ?? []
+        const imported = await importPdfsAt(paths.filter((path) => isOpenableDocumentPath(path)), folderPath, after) ?? []
         const added = pdfs.length === 1 ? imported[0] : undefined
         if (added !== undefined && added !== base) setStackRequest({ baseDocId: base, addedDocId: added, addedFileName: pdfs[0]!.split(/[\\/]/u).at(-1) })
-        if (others.length > 0) await importDroppedDocuments(others.filter((path) => !isMarkdownPath(path)))
+        if (others.length > 0) await importDroppedDocuments(others.filter((path) => !isOpenableDocumentPath(path)))
       })()
       return
     }
-    const documents = paths.filter((path) => /\.(?:pdf|md|markdown)$/iu.test(path))
-    const unsupported = paths.filter((path) => !/\.(?:pdf|md|markdown)$/iu.test(path))
+    const documents = paths.filter((path) => isOpenableDocumentPath(path))
+    const unsupported = paths.filter((path) => !isOpenableDocumentPath(path))
     void (async () => {
       const imported = documents.length > 0 ? await importPdfsAt(documents, folderPath, zone.kind === 'vault' ? zone.place : undefined) ?? [] : []
       if (unsupported.length > 0) await importDroppedDocuments(unsupported)
@@ -665,8 +667,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         paintExternalPaneHover(null)
         if (target.kind === 'vault') { routeDropRef.current(rest, target.zone); return }
         // 칸 위: PDF 는 가져오지 않고 그 칸에 연다(「최근 연 PDF」에 남는다). 그 밖(PowerPoint · Markdown …)은 예전처럼 Vault 맨 위로
-        const pdfs = rest.filter((path) => /\.pdf$/iu.test(path))
-        const others = rest.filter((path) => !/\.pdf$/iu.test(path))
+        const pdfs = rest.filter((path) => isPdfPath(path))
+        const others = rest.filter((path) => !isPdfPath(path))
         if (pdfs.length > 0) openDroppedPdfsRef.current(pdfs, target.pane)
         if (others.length > 0) routeDropRef.current(others, { kind: 'vault', folderPath: null })
       },
@@ -1155,7 +1157,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       else navigationJumpRef.current({ docId: record.id, page: hit.page + 1 })
       return
     }
-    if (record.kind === 'markdown') {
+    if (isFlowVaultKind(record.kind)) {
       void openMarkdown({
         id: `markdown:${record.id}`,
         kind: 'markdown',
@@ -1336,7 +1338,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       ...(activePdfDoc === null ? [] : pdfToolPaletteCommands(activePdfDoc.docId)),
     ]
     const documents: PaletteCommand[] = searchRecords
-      .filter((record) => record.kind === 'pdf' || record.kind === 'markdown')
+      .filter((record) => record.kind === 'pdf' || isFlowVaultKind(record.kind))
       .map((record) => ({
         id: `doc:${record.id}`,
         kind: record.kind === 'pdf' ? 'pdf' as const : 'markdown' as const,
@@ -2023,7 +2025,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     type Candidate = { readonly label: string; readonly hint: string; readonly run: () => void }
     const focus = (kind: 'doc' | 'note') => { setPaneRoute(kind, pane); setActivePaneId(pane) }
     const candidates: Candidate[] = [
-      ...searchRecords.filter((record) => record.kind === 'pdf' || record.kind === 'markdown').map((record): Candidate => ({
+      ...searchRecords.filter((record) => record.kind === 'pdf' || isFlowVaultKind(record.kind)).map((record): Candidate => ({
         label: record.displayName || record.filename,
         hint: record.path,
         run: () => { focus('doc'); openVaultSearchResult({ record, page: null, snippet: '', query: '' }) },
@@ -2274,7 +2276,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (opened !== undefined) return { id: opened.docId, title: docTitles[opened.docId] ?? opened.title, kind: 'pdf' }
     const entry = shownLibrary.find((doc) => doc.docId === docId)
     if (entry !== undefined) return { id: entry.docId, title: docTitles[entry.docId] ?? entry.title, kind: 'pdf' }
-    if (markdownSources[docId] !== undefined) return { id: docId, title: docId.split(/[\\/]/u).at(-1)?.replace(/\.(?:md|markdown)$/iu, '') ?? docId, kind: 'markdown' }
+    if (markdownSources[docId] !== undefined) return { id: docId, title: stripDocumentExtension(docId.split(/[\\/]/u).at(-1) ?? docId), kind: 'markdown' }
     return null
   }
   /** channel 의 보이는 캔버스(except 창 제외) 중에 그 메모에 이어진 블록이 있는 것이 있는가 */
@@ -2590,7 +2592,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const openAiLocation = useCallback((location: AiLocation) => {
     setAiLocations((current) => current.filter((item) => item.id !== location.id))
     const record = searchRecords.find((candidate) => candidate.id === location.docId)
-    if (record?.kind === 'markdown') {
+    if (record !== undefined && isFlowVaultKind(record.kind)) {
       void openMarkdown({
         id: `markdown:${record.id}`,
         kind: 'markdown',
@@ -3638,7 +3640,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const openMarkdownPath = (path: string, anchor: string | null = null) => {
     // 맥에서 동기화된 Vault 의 한글 파일 이름은 분해형(NFD)일 수 있어, 유니코드 정규화(NFC)를 맞춰 견준다
     const wanted = path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase()
-    if (/\.pdf$/iu.test(wanted)) {
+    if (isPdfPath(wanted)) {
       const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase() === wanted)
       const doc = record === undefined ? undefined : shownLibrary.find((item) => item.docId === record.id)
       if (doc === undefined) announceAction(t('Vault에 없는 문서입니다: {path}', { path }))
@@ -3674,11 +3676,11 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       const root = vault.root.replaceAll('\\', '/').replace(/\/+$/u, '')
       if (absolute.toLocaleLowerCase().startsWith(`${root.toLocaleLowerCase()}/`)) {
         const relative = absolute.slice(root.length + 1)
-        if (isMarkdownPath(relative)) {
+        if (isFlowDocumentPath(relative)) {
           openMarkdownPath(relative)
           return
         }
-        if (/\.pdf$/iu.test(relative)) {
+        if (isPdfPath(relative)) {
           const record = searchRecords.find((item) => item.kind === 'pdf' && item.path.replaceAll('\\', '/').normalize('NFC').toLocaleLowerCase() === relative.normalize('NFC').toLocaleLowerCase())
           const doc = record === undefined ? undefined : shownLibrary.find((item) => item.docId === record.id)
           if (doc !== undefined) {
@@ -3975,8 +3977,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const open = (run: () => void) => () => { setPaneRoute('doc', pane); setActivePaneId(pane); run() }
     const recents: EmptyPaneRecent[] = isDetachedWindow ? [] : [
       ...searchRecords
-        .filter((record) => (record.kind === 'pdf' || record.kind === 'markdown') && record.lastOpenedAt !== null && !record.missing)
-        .map((record) => ({ key: `doc:${record.id}`, at: record.lastOpenedAt ?? '', title: record.displayName || record.filename, kind: record.kind === 'markdown' ? 'markdown' as const : 'pdf' as const, onOpen: open(() => openVaultSearchResult({ record, page: null, snippet: '', query: '' })) })),
+        .filter((record) => (record.kind === 'pdf' || isFlowVaultKind(record.kind)) && record.lastOpenedAt !== null && !record.missing)
+        .map((record) => ({ key: `doc:${record.id}`, at: record.lastOpenedAt ?? '', title: record.displayName || record.filename, kind: isFlowVaultKind(record.kind) ? 'markdown' as const : 'pdf' as const, onOpen: open(() => openVaultSearchResult({ record, page: null, snippet: '', query: '' })) })),
       ...recentPdfs.map((recent) => ({ key: `ext:${recent.path}`, at: recent.openedAt, title: recent.title, kind: 'pdf' as const, onOpen: open(() => { void openExternalPdf(recent.path) }) })),
     ].sort((left, right) => right.at.localeCompare(left.at)).slice(0, 4)
     return (
@@ -4623,7 +4625,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           .filter((path) => path !== baseFolder && !path.startsWith(`${baseFolder}/`) && !baseFolder.startsWith(`${path}/`))
           .map((path) => `folder:${path}`)
         : baseIsMarkdown
-          ? searchRecords.filter((record) => record.kind === 'markdown').map((record) => record.id)
+          ? searchRecords.filter((record) => isFlowVaultKind(record.kind)).map((record) => record.id)
           : shownLibrary.map((doc) => doc.docId)
       const candidates = candidateIds
         .filter((id) => id !== baseDocId && !inGroup.has(id))

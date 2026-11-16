@@ -1,6 +1,8 @@
 import { getAppPrefs } from '../appPrefs'
 import { announceVaultFileNotice, loadOrQuarantine } from '../documents/storageRecovery'
 import { isMarkdownPath } from '../../core/markdownPath'
+import { isFlowDocumentPath, isPdfPath, stripDocumentExtension } from '../../core/documentFormat'
+import { isFlowVaultKind } from '../../core/vaultIndex'
 import { emptyVaultSearchTextCache } from '../../core/vaultSearchCache'
 import type { FolderColor } from '../../core/folderColors'
 import { seedSampleVaultInto } from './sampleVaultDesktop'
@@ -342,19 +344,20 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     if (entry.isDirectory) continue
     const path = entry.path.replaceAll('\\', '/')
     const filename = path.split('/').at(-1)
-    if (filename === undefined || !isMarkdownPath(filename)) continue
-    markdownTitles.set(path, filename.replace(/\.(?:md|markdown)$/iu, ''))
+    if (filename === undefined || !isFlowDocumentPath(filename)) continue
+    markdownTitles.set(path, stripDocumentExtension(filename))
   }
   const externalMarkdownByPath = new Map(reconciledIndex.entries
-    .filter((entry) => entry.kind === 'markdown' && entry.storage === 'reference' && !entry.missing)
+    .filter((entry) => isFlowVaultKind(entry.kind) && entry.storage === 'reference' && !entry.missing)
     .map((entry) => [entry.path.replaceAll('\\', '/').toLocaleLowerCase(), entry]))
+  // 예전 세션은 Markdown 탭을 노트 탭 목록에 적었다(Markdown 만 있었다). 지금은 흐르는 글 탭 모두 문서 탭 목록(pdfTabIds)에 적는다
   const legacyMarkdownIds = session.noteTabIds.filter(isMarkdownPath)
   const documentTabIds = [...new Set([...session.pdfTabIds, ...legacyMarkdownIds])]
   const restoredDocumentRecords = await Promise.all(documentTabIds.map(async (id) => {
-    if (isMarkdownPath(id)) {
+    if (isFlowDocumentPath(id)) {
       const external = externalMarkdownByPath.get(id.replaceAll('\\', '/').toLocaleLowerCase())
       // 탭 제목은 사이드바와 같은 표시 이름이다(Vault 안 Markdown 도). 파일 이름은 표시 이름이 없을 때만 쓴다
-      const indexed = external ?? reconciledIndex.entries.find((entry) => entry.kind === 'markdown' && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
+      const indexed = external ?? reconciledIndex.entries.find((entry) => isFlowVaultKind(entry.kind) && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
       const title = (indexed?.displayName === undefined || indexed.displayName === '' ? undefined : indexed.displayName) ?? markdownTitles.get(id)
       if (title === undefined) return null
       try {
@@ -376,7 +379,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     // 같은 PDF 의 두 번째 보기("docId#2")도 원래 문서로 연다
     const baseId = id.replace(/#\d+$/u, '')
     const entry = libraryEntries.find((candidate) => candidate.docId === baseId)
-    // PDF 화면으로 연 Markdown(탭 id = 색인 id)
+    // PDF 화면으로 연 Markdown(탭 id = 색인 id). Markdown 만 이 길로 열린다(텍스트·HTML·XML 은 안 된다)
     const markdownEntry = entry === undefined ? reconciledIndex.entries.find((indexed) => indexed.id === baseId && indexed.kind === 'markdown' && !indexed.missing) : undefined
     if (markdownEntry !== undefined) {
       try {
@@ -729,7 +732,7 @@ export function useVault(options: UseVaultOptions = {}) {
       sessionMetaRef.current = loadedSessions.meta
       setSessionReady(true)
       const markdownEntries = reconciledIndex.entries.filter((entry) => (
-        entry.kind === 'markdown' && entry.storage === 'vault' && !entry.missing
+        isFlowVaultKind(entry.kind) && entry.storage === 'vault' && !entry.missing
       ))
       void Promise.all(markdownEntries.map(async (entry) => {
         try {
@@ -1568,7 +1571,7 @@ export function useVault(options: UseVaultOptions = {}) {
 
     for (const path of accepted) {
       try {
-        if (/\.pdf$/iu.test(path)) {
+        if (isPdfPath(path)) {
           const meta = await openPdf(path)
           await attachPdfToLibrary(vault, {
             sourcePath: path,
@@ -1640,7 +1643,7 @@ export function useVault(options: UseVaultOptions = {}) {
     for (const path of paths) {
       const fileName = path.split(/[\\/]/u).at(-1) ?? path
       try {
-        if (isMarkdownPath(path)) {
+        if (isFlowDocumentPath(path)) {
           const relativePath = [folderPath, fileName].filter(Boolean).join('/')
           const directory = folderPath === '' ? vault.root : await join(vault.root, ...folderPath.split('/'))
           const target = await join(directory, fileName)
@@ -1706,7 +1709,7 @@ export function useVault(options: UseVaultOptions = {}) {
       try {
         const source = await readMarkdown(vault, relativePath)
         setMarkdownSources((current) => ({ ...current, [relativePath]: source }))
-        openInPane({ id: relativePath, title: (relativePath.split('/').at(-1) ?? relativePath).replace(/\.(?:md|markdown)$/iu, ''), kind: 'markdown' })
+        openInPane({ id: relativePath, title: stripDocumentExtension(relativePath.split('/').at(-1) ?? relativePath), kind: 'markdown' })
       } catch {
         // 열지 못해도 가져오기는 끝났다. 왼쪽 바에서 열면 된다
       }
@@ -1962,7 +1965,8 @@ export function useVault(options: UseVaultOptions = {}) {
    * 형광펜·메모·출처·판 묶음이 그 Markdown 에 붙는다. 바꾸지 못하면(Edge 없음 등) null
    */
   const markdownAsPdf = useCallback(async (handle: VaultHandle, indexId: string, path: string, storage: 'vault' | 'reference', title: string, source: string): Promise<PdfDocMeta | null> => {
-    if (!isDesktop() || !MARKDOWN_AS_PDF) return null
+    // PDF 로 바꾸는 길은 Markdown 만 쓴다(텍스트·HTML·XML 은 읽기 화면으로 연다)
+    if (!isDesktop() || !MARKDOWN_AS_PDF || !isMarkdownPath(path)) return null
     try {
       const { join } = await import('@tauri-apps/api/path')
       const absolute = storage === 'reference' ? path : await join(handle.root, ...path.split('/'))
@@ -2073,7 +2077,7 @@ export function useVault(options: UseVaultOptions = {}) {
     }
     const entry = vaultIndex.find((candidate) => candidate.id === id)
     if (entry === undefined) return
-    if (entry.kind === 'markdown' && entry.storage === 'vault') {
+    if (isFlowVaultKind(entry.kind) && entry.storage === 'vault') {
       void readMarkdown(vault, entry.path).then((source) => {
         setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
         setExtractedSearchText((current) => ({ ...current, [entry.id]: source }))

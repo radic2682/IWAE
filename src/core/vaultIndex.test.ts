@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   createVaultIndexEntry,
+  isFlowVaultKind,
+  kindFromPath,
   migrateLibraryToIndex,
   moveIndexEntry,
   parseVaultIndex,
@@ -179,5 +181,48 @@ describe('reconcileMissingVaultPdfs', () => {
     expect(result.library.map((item) => item.docId)).toEqual(['a', 'c'])
     expect(result.index.entries.map((item) => [item.id, item.missing])).toEqual([['a', false], ['c', true]])
     expect(result.absentDocIds).toEqual(['c'])
+  })
+})
+
+describe('kindFromPath · text documents', () => {
+  it('txt·html·xml 은 text, Markdown 은 markdown, PDF 는 pdf, 그 밖은 기존대로', () => {
+    expect(kindFromPath('a.PDF')).toBe('pdf')
+    expect(kindFromPath('a.md')).toBe('markdown')
+    expect(kindFromPath('a.Markdown')).toBe('markdown')
+    for (const name of ['a.txt', 'a.text', 'a.log', 'a.html', 'a.HTM', 'a.xhtml', 'a.xml']) expect(kindFromPath(name)).toBe('text')
+    expect(kindFromPath('a.canvas')).toBe('canvas')
+    expect(kindFromPath('a.PNG')).toBe('image')
+    expect(kindFromPath('notes/cmd')).toBe('other')
+    expect(kindFromPath('a.docx')).toBe('other')
+  })
+
+  it('isFlowVaultKind 는 markdown 과 text 만 참이다', () => {
+    expect(isFlowVaultKind('markdown')).toBe(true)
+    expect(isFlowVaultKind('text')).toBe(true)
+    for (const kind of ['pdf', 'canvas', 'image', 'other'] as const) expect(isFlowVaultKind(kind)).toBe(false)
+  })
+
+  it('text 종류 항목을 읽고 쓰며, 표시 이름은 확장자를 뗀다', () => {
+    const entry = createVaultIndexEntry({ id: 't1', kind: 'text', storage: 'vault', path: 'Logs/run.log', addedAt: NOW })
+    expect(entry.displayName).toBe('run')
+    expect(parseVaultIndex({ version: 1, entries: [entry] }).entries[0]?.kind).toBe('text')
+  })
+
+  it('목록 훑기가 txt·html·xml 파일을 text 로 올리고, 예전에 other 로 올라간 항목은 text 로 바로잡는다', () => {
+    const tree = [
+      { path: 'N/a.txt', isDirectory: false },
+      { path: 'N/b.html', isDirectory: false },
+      { path: 'N/c.xml', isDirectory: false },
+      { path: 'N/d.docx', isDirectory: false },
+    ]
+    const old = createVaultIndexEntry({ id: 'old', kind: 'other', storage: 'vault', path: 'N/a.txt', addedAt: NOW })
+    let n = 0
+    const next = reconcileVaultIndexFiles({ version: 1, entries: [old] }, tree, NOW, () => `id-${++n}`)
+    expect(next.entries.map((entry) => [entry.path, entry.kind, entry.id])).toEqual([
+      ['N/a.txt', 'text', 'old'],
+      ['N/b.html', 'text', 'id-1'],
+      ['N/c.xml', 'text', 'id-2'],
+      ['N/d.docx', 'other', 'id-3'],
+    ])
   })
 })

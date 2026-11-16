@@ -3,7 +3,7 @@ import { fitMenuInViewport } from '../ui/fitMenu'
 import { createPortal } from 'react-dom'
 import { CaretDown, CaretRight, CaretUp, Crosshair, DotsThree, Hash, LinkSimple, MagnifyingGlassPlus, MinusCircle, PencilSimple, Plus, Star, TextAlignLeft, TextHOne, Translate, Trash, X, XCircle } from '@phosphor-icons/react'
 import { discardMemoEditor, MemoEditor, MemoNoteView, type MemoContent } from './MemoEditor'
-import { isMarkdownPath } from '../core/markdownPath'
+import { isFlowDocumentPath } from '../core/documentFormat'
 import { RegionCrop } from './RegionCrop'
 import { MarkdownRegionCrop } from './MarkdownRegionCrop'
 import { cachedTranslation, translateWithCache, useTranslationCache } from '../app/translation/translationCacheStore'
@@ -1489,8 +1489,8 @@ function TicketIdInput({ initial, suggestions, taken, onDone, onCancel }: {
   )
 }
 
-/** Markdown 문서의 원문인가(쪽 번호가 없다) */
+/** 흐르는 글 문서(Markdown·텍스트·HTML·XML)의 원문인가(쪽 번호가 없다) */
 function isMarkdownSource(source: PersistentPdfHighlight): boolean {
-  return isMarkdownPath(source.anchor.docId)
+  return isFlowDocumentPath(source.anchor.docId)
 }
 

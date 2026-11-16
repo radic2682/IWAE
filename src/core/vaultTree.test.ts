@@ -346,3 +346,31 @@ describe('placeInTreeOrder · renameFolderInTreeOrder', () => {
     expect(next).toEqual({ '': ['folder:Z/A'], 'Z/A': ['folder:Z/A/C', 'note:Z/A/n.canvas', 'pdf:y'], 'Z/A/C': ['pdf:z'] })
   })
 })
+
+describe('buildVaultWorkspaceTree · text documents', () => {
+  it('txt·html·xml 파일도 읽기 문서 노드로 보이고, 표시 이름은 확장자를 뗀다', () => {
+    const tree = buildVaultWorkspaceTree([
+      { path: 'Docs/a.txt', isDirectory: false },
+      { path: 'Docs/b.HTML', isDirectory: false },
+      { path: 'Docs/c.xml', isDirectory: false },
+      { path: 'Docs/d.docx', isDirectory: false },
+    ], [])
+    expect(tree).toMatchObject([{
+      id: 'folder:Docs',
+      children: [
+        { id: 'markdown:Docs/a.txt', kind: 'markdown', name: 'a', storage: 'vault' },
+        { id: 'markdown:Docs/b.HTML', kind: 'markdown', name: 'b' },
+        { id: 'markdown:Docs/c.xml', kind: 'markdown', name: 'c' },
+      ],
+    }])
+    expect((tree[0] as { children: unknown[] }).children).toHaveLength(3)
+  })
+
+  it('vault 밖 text 참조도 투영한다', () => {
+    const reference: VaultIndexEntry = {
+      id: 'ref-text', kind: 'text', storage: 'reference', path: 'C:/External/page.html', displayName: '외부 페이지',
+      contentHash: null, size: 1, modifiedAt: null, addedAt: '2026-09-30T00:00:00.000Z', missing: false,
+    }
+    expect(buildVaultWorkspaceTree([], [], {}, new Map(), [reference])).toMatchObject([{ id: 'markdown:ref-text', kind: 'markdown', name: '외부 페이지', storage: 'reference' }])
+  })
+})

@@ -1,3 +1,4 @@
+import { isFlowVaultKind } from '../../core/vaultIndex'
 import { pageTextIndex, type PdfToolOp } from '../../bridge/pdf'
 import { buildAnchor, type Anchor } from '../../core/anchor'
 import { findTextRange } from '../../core/canvasOps'
@@ -106,7 +107,7 @@ const norm = (text: string) => text.replace(/\s+/gu, ' ').trim().toLowerCase()
 /** 서재 문서(PDF·Markdown) 목록: 색인 기록 + 열린 문서 정보 */
 function libraryDocs(input: McpAppInput, ocrBusy: (docId: string) => boolean): McpLibraryDoc[] {
   return input.searchRecords.flatMap((record): McpLibraryDoc[] => {
-    if (record.kind !== 'pdf' && record.kind !== 'markdown') return []
+    if (record.kind !== 'pdf' && !isFlowVaultKind(record.kind)) return []
     const library = input.shownLibrary.find((doc) => doc.docId === record.id)
     const opened = input.openedDocs.find((doc) => doc.docId === record.id)
     const withText = record.pages.length === 0 ? null : record.pages.filter((page) => page.text.trim() !== '').length

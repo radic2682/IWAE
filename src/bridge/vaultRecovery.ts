@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import { atomicWriteText, scanStorageRecovery } from './storage'
-import { createVaultIndexEntry, parseVaultIndex, type VaultFileKind, type VaultIndexEntry } from '../core/vaultIndex'
+import { createVaultIndexEntry, kindFromPath, parseVaultIndex, type VaultIndexEntry } from '../core/vaultIndex'
 import { moveDirectory } from './vaultFiles'
 import { readLibrary, readVaultIndex, writeLibrary, writeVaultIndex, type VaultHandle, type VaultLibraryEntry } from './vault'
 
@@ -170,15 +170,6 @@ async function loadTrash(vault: VaultHandle): Promise<TrashLoad> {
     }
   }
   return { entries, unreadable, damagedText: null }
-}
-
-function kindFromPath(path: string): VaultFileKind {
-  const normalized = path.toLowerCase()
-  if (normalized.endsWith('.pdf')) return 'pdf'
-  if (normalized.endsWith('.md') || normalized.endsWith('.markdown')) return 'markdown'
-  if (normalized.endsWith('.canvas')) return 'canvas'
-  if (/\.(?:avif|gif|jpe?g|png|svg|webp)$/u.test(normalized)) return 'image'
-  return 'other'
 }
 
 function legacyTrashIndexEntry(entry: TrashEntry): VaultIndexEntry {

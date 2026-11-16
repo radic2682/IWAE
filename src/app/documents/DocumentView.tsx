@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import { PaneShell } from '../workspace/PaneShell'
+import { documentFormatOf } from '../../core/documentFormat'
 import { PaneToolbar, useOverlayToolShortcuts, type PdfToolMode } from '../workspace/PaneToolbar'
 import { TopBarToolbar, useHasTopBarSlot } from '../topBarToolbar'
 import { PdfSearchPanel } from './PdfSearchPanel'
@@ -716,6 +717,7 @@ export function DocumentView(props: DocumentViewProps) {
                 key={index}
                 primary={index === 0}
                 path={tab.id}
+                format={documentFormatOf(tab.id) ?? 'markdown'}
                 sourceFileId={props.markdownSourceFileId}
                 vaultRoot={props.vaultRoot}
                 onOpenDocument={props.onOpenMarkdownPath}

@@ -79,7 +79,8 @@ export interface McpScreenState {
 export interface McpLibraryDoc {
   readonly docId: string
   readonly title: string
-  readonly kind: 'pdf' | 'markdown'
+  /** 색인 종류: 'markdown' 은 Markdown, 'text' 는 txt·html·xml */
+  readonly kind: 'pdf' | 'markdown' | 'text'
   /** Vault 안 폴더(맨 위는 '') */
   readonly folder: string
   readonly favorite: boolean

@@ -24,6 +24,7 @@ export type ReaderPaneToolMode = 'hand' | 'text' | 'lasso' | 'highlight' | 'box'
 export type PdfToolMode = ReaderPaneToolMode
 
 interface PaneToolbarProps {
+  /** 탭 종류와 같다: 'markdown' 은 흐르는 글 문서 전체(Markdown·텍스트·HTML·XML) */
   readonly kind: 'pdf' | 'markdown'
   readonly mode: ReaderPaneToolMode
   readonly onModeChange: (mode: ReaderPaneToolMode) => void

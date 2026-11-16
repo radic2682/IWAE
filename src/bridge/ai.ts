@@ -8,7 +8,7 @@ import { isDesktop } from './window'
 export interface RagHit {
   docId: string
   title: string
-  kind: 'pdf' | 'markdown'
+  kind: 'pdf' | 'markdown' | 'text'
   /** 1-기반 */
   page: number
   charStart: number
@@ -89,7 +89,7 @@ export async function ragStatus(): Promise<RagStatus | null> {
   return call<RagStatus>('rag_status')
 }
 
-export async function ragSearch(query: string, limit?: number, kind?: 'pdf' | 'markdown'): Promise<RagHit[]> {
+export async function ragSearch(query: string, limit?: number, kind?: 'pdf' | 'markdown' | 'text'): Promise<RagHit[]> {
   if (!isDesktop()) return []
   return call<RagHit[]>('rag_search', { query, limit, kind })
 }
