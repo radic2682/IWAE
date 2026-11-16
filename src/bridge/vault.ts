@@ -803,8 +803,10 @@ export async function attachMarkdownReference(
   ))
   if (existing !== undefined) return existing
 
-  const { readTextFile, stat } = await import('@tauri-apps/plugin-fs')
-  const contents = await readTextFile(sourcePath)
+  const { stat } = await import('@tauri-apps/plugin-fs')
+  // 바이트로 읽어 푼다: CP949·UTF-16 텍스트도 등록되게 한다(readTextFile 은 UTF-8 만 읽는다). 20MB 를 넘으면 거절한다
+  const contents = await readDocumentFile(sourcePath, MAX_DOCUMENT_BYTES)
+  if (contents === null) throw new Error(t('파일이 너무 커서 열 수 없습니다. (20MB까지)'))
   const info = await stat(sourcePath).catch(() => null)
   const entry = createVaultIndexEntry({
     id: globalThis.crypto.randomUUID(),

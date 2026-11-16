@@ -12,6 +12,7 @@
  */
 
 import { isDesktop } from './window'
+import { documentPickerFilters, extensionsOfFormat } from '../core/documentFormat'
 import { t } from '../i18n'
 import { clampRenderWidth } from '../pdf/renderWidth'
 import {
@@ -109,8 +110,8 @@ export function pageTileUrl(
   return `${protocolBase()}/page/${docId}/${pageIndex}?w=${w}&x=${tile.x}&y=${tile.y}&tw=${tile.width}&th=${tile.height}${revision === undefined ? '' : `&r=${revision}`}`
 }
 
-/** 파일 대화상자. 취소하면 null 이다. */
-export async function pickPdfFile(): Promise<string | null> {
+/** 파일 대화상자 공통부. 취소하면 null 이다. */
+async function pickFile(filters: readonly { readonly name: string; readonly extensions: readonly string[] }[]): Promise<string | null> {
   // 브라우저·테스트에서는 고를 파일이 없다. 여기서 던지면 `npm run dev` 로
   // 화면만 보는 경로가 오류로 끝난다 — window.ts 와 같은 처리다.
   if (!isDesktop()) return null
@@ -119,12 +120,22 @@ export async function pickPdfFile(): Promise<string | null> {
   const selected = await open({
     multiple: false,
     directory: false,
-    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    filters: filters.map((filter) => ({ name: filter.name, extensions: [...filter.extensions] })),
   })
 
   // multiple: false 면 문자열 아니면 null 이지만, 그 보장은 플러그인 타입에
   // 있고 단언 없이 좁히려면 이렇게 확인하는 편이 짧다.
   return typeof selected === 'string' ? selected : null
+}
+
+/** PDF 만 고르는 파일 대화상자(쪽 끼워 넣기·다시 연결처럼 PDF 가 꼭 필요한 곳). 취소하면 null 이다. */
+export async function pickPdfFile(): Promise<string | null> {
+  return pickFile([{ name: 'PDF', extensions: extensionsOfFormat('pdf') }])
+}
+
+/** 문서 열기 대화상자: 「문서」(열 수 있는 전부)와 형식별 거르개. 취소하면 null 이다. */
+export async function pickDocumentFile(): Promise<string | null> {
+  return pickFile(documentPickerFilters())
 }
 
 /**

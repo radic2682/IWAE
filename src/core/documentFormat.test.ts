@@ -3,6 +3,8 @@ import {
   DOCUMENT_EXTENSIONS,
   documentFormatLabel,
   documentFormatOf,
+  documentPickerFilters,
+  shownDocumentName,
   extensionsOfFormat,
   isFlowDocumentPath,
   isOpenableDocumentPath,
@@ -68,5 +70,32 @@ describe('reader kind and helpers', () => {
 
   it('형식마다 이름이 있다', () => {
     for (const format of ['pdf', 'markdown', 'text', 'html', 'xml'] as const) expect(documentFormatLabel(format)).not.toBe('')
+  })
+})
+
+describe('documentPickerFilters', () => {
+  it('맨 앞 「문서」 거르개는 열 수 있는 확장자 전부이고, 형식별 거르개가 뒤따른다', () => {
+    const filters = documentPickerFilters()
+    expect(filters[0]).toEqual({ name: '문서', extensions: DOCUMENT_EXTENSIONS })
+    expect(filters.map((filter) => filter.name)).toEqual(['문서', 'PDF', 'Markdown', '텍스트', 'HTML', 'XML'])
+    expect(filters.find((filter) => filter.name === 'HTML')?.extensions).toEqual(['html', 'htm', 'xhtml'])
+    // 형식별 확장자를 합치면 「문서」 와 같다(빠진 것도 겹치는 것도 없다)
+    expect(filters.slice(1).flatMap((filter) => [...filter.extensions]).sort()).toEqual([...DOCUMENT_EXTENSIONS].sort())
+    // 점·별표 없이 소문자 확장자만
+    for (const extension of DOCUMENT_EXTENSIONS) expect(extension).toMatch(/^[a-z]+$/u)
+  })
+})
+
+describe('shownDocumentName', () => {
+  it('텍스트·HTML·XML 은 기본 이름에 확장자를 붙여 보이고 PDF·Markdown 은 그대로 둔다', () => {
+    expect(shownDocumentName('Docs/a.txt', 'a')).toBe('a.txt')
+    expect(shownDocumentName('Docs/page.HTML', 'page')).toBe('page.HTML')
+    expect(shownDocumentName('c:/x/data.xml', 'data')).toBe('data.xml')
+    expect(shownDocumentName('Docs/a.md', 'a')).toBe('a')
+    expect(shownDocumentName('Docs/a.pdf', 'a')).toBe('a')
+  })
+  it('고쳐 쓴 표시 이름은 건드리지 않는다', () => {
+    expect(shownDocumentName('Docs/a.txt', '내 메모')).toBe('내 메모')
+    expect(shownDocumentName('Docs/a.txt', 'a.txt')).toBe('a.txt')
   })
 })

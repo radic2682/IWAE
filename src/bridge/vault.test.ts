@@ -222,6 +222,7 @@ describe('vault library', () => {
         ? JSON.stringify({ version: 1, entries: [] })
         : '# Design\n'
     ))
+    fsMocks.readFile.mockResolvedValue(new TextEncoder().encode('# Design\n'))
     fsMocks.stat.mockResolvedValue({ size: 9, mtime: new Date('2026-09-30T00:00:00.000Z') })
 
     const attached = await attachMarkdownReference(vault, sourcePath)
@@ -248,6 +249,7 @@ describe('vault library', () => {
         ? JSON.stringify({ version: 1, entries: [] })
         : '# Design\n'
     ))
+    fsMocks.readFile.mockResolvedValue(new TextEncoder().encode('# Design\n'))
     fsMocks.stat.mockRejectedValue(new Error('metadata unavailable'))
 
     await expect(attachMarkdownReference(vault, sourcePath)).resolves.toMatchObject({
@@ -891,7 +893,28 @@ describe('vault session and notes', () => {
     fsMocks.readTextFile.mockImplementation(async (path: string) => (
       path.endsWith('index.json') ? JSON.stringify({ version: 1, entries: [] }) : '# Long extension\n'
     ))
+    fsMocks.readFile.mockResolvedValue(new TextEncoder().encode('# Long extension\n'))
     await expect(attachMarkdownReference(vault, 'C:/External/Guide.markdown')).resolves.toMatchObject({ kind: 'markdown', path: 'C:/External/Guide.markdown' })
+  })
+
+  it('외부 텍스트·HTML·XML 도 other 종류의 reference 로 등록하고 CP949 본문을 읽는다', async () => {
+    fsMocks.readTextFile.mockImplementation(async (path: string) => (
+      path.endsWith('index.json') ? JSON.stringify({ version: 1, entries: [] }) : Promise.reject(new Error('stream did not contain valid UTF-8'))
+    ))
+    // "한글" 의 CP949 바이트
+    fsMocks.readFile.mockResolvedValue(new Uint8Array([0xc7, 0xd1, 0xb1, 0xdb]))
+    fsMocks.stat.mockResolvedValue({ size: 4, mtime: new Date('2026-09-30T00:00:00.000Z') })
+    for (const name of ['memo.txt', 'page.html', 'data.xml']) {
+      const attached = await attachMarkdownReference(vault, `C:/External/${name}`)
+      expect(attached).toMatchObject({ kind: 'other', storage: 'reference', path: `C:/External/${name}` })
+      expect(attached.contentHash).toMatch(/^[0-9a-f]{64}$/u)
+    }
+  })
+
+  it('20MB 를 넘는 외부 문서는 등록하지 않는다', async () => {
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({ version: 1, entries: [] }))
+    fsMocks.stat.mockResolvedValue({ size: 21 * 1024 * 1024 })
+    await expect(attachMarkdownReference(vault, 'C:/External/huge.log')).rejects.toThrow('20MB')
   })
 
   it('사용자 블록 프리셋을 Vault의 .iwae 설정으로 읽고 쓴다', async () => {

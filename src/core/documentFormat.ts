@@ -72,3 +72,35 @@ export function documentFormatLabel(format: DocumentFormat): string {
 export function isPdfPath(path: string): boolean {
   return documentFormatOf(path) === 'pdf'
 }
+
+/** 열기 창의 파일 형식 거르개 하나(이름 + 점 없는 확장자 목록) */
+export interface DocumentPickerFilter {
+  readonly name: string
+  readonly extensions: readonly string[]
+}
+
+/** 형식별 거르개 차례: 열기 창 목록에 이 순서로 나온다 */
+const PICKER_FORMAT_ORDER: readonly DocumentFormat[] = ['pdf', 'markdown', 'text', 'html', 'xml']
+
+/**
+ * 문서 열기 창의 거르개. 맨 앞 「문서」는 열 수 있는 확장자 전부(처음 보이는 목록),
+ * 뒤로 형식별 거르개가 이어진다
+ */
+export function documentPickerFilters(): readonly DocumentPickerFilter[] {
+  return [
+    { name: t('문서'), extensions: DOCUMENT_EXTENSIONS },
+    ...PICKER_FORMAT_ORDER.map((format) => ({ name: documentFormatLabel(format), extensions: extensionsOfFormat(format) })),
+  ]
+}
+
+/**
+ * 목록·탭에 보일 이름. 표시 이름이 파일 이름에서 확장자만 뗀 기본값이면(고쳐 쓰지 않았으면),
+ * 텍스트·HTML·XML 은 확장자를 붙여 보인다. 같은 폴더의 `a.md` 와 `a.txt` 가 둘 다 "a" 로 보이지 않게 하려는 것이다.
+ * PDF·Markdown 은 예전처럼 확장자 없이 보인다
+ */
+export function shownDocumentName(path: string, displayName: string): string {
+  const base = path.split(/[\/]/u).at(-1) ?? path
+  const format = documentFormatOf(base)
+  if ((format === 'text' || format === 'html' || format === 'xml') && displayName === stripDocumentExtension(base)) return base
+  return displayName
+}
