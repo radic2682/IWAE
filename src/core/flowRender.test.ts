@@ -458,3 +458,16 @@ describe('다듬기: 링크·메뉴·XML 속성 순서·막힌 그림', () => {
     expect(placeholderImages('<img src="data:image/png;base64,AAAA">')).toContain('data:image/png')
   })
 })
+
+describe('flowPlainText: 제목 규칙과 읽기 화면과 같은 걸러내기', () => {
+  it('<title> 은 보이는 <h1> 이 없을 때만 올린다', () => {
+    expect(flowPlainText('html', '<title>저장한 글</title><p>본문</p>')).toBe('저장한 글\n본문')
+    expect(flowPlainText('html', '<title>저장한 글</title><h1>큰 제목</h1><p>본문</p>')).toBe('큰 제목\n본문')
+    expect(flowPlainText('html', '<title>저장한 글</title><h1> </h1><p>본문</p>')).toBe('저장한 글\n본문')
+  })
+
+  it('nav·noscript·template·svg·select·hidden 은 읽기 화면처럼 뺀다', () => {
+    const text = flowPlainText('html', '<nav>메뉴</nav><p>본문</p><noscript>꺼짐</noscript><template><p>틀</p></template><svg><text>그림글</text></svg><select><option>고름</option></select><p hidden>숨김</p>')
+    expect(text).toBe('본문')
+  })
+})

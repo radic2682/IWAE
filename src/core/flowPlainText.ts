@@ -49,10 +49,15 @@ function htmlPlainText(source: string): string {
   const doc = new DOMParser().parseFromString(source, 'text/html')
   const body = doc.body ?? doc.documentElement
   for (const element of [...body.querySelectorAll(DROP_SELECTOR)]) element.remove()
+  // 읽기 화면처럼: 빈 제목은 없는 것으로 보고, 보이는 <h1> 이 없을 때만 <title> 을 제목으로 올린다
+  for (const heading of [...body.querySelectorAll('h1, h2, h3, h4, h5, h6')]) {
+    if ((heading.textContent ?? '').trim() === '' && heading.querySelector('img') === null) heading.remove()
+  }
+  const hasH1 = body.querySelector('h1') !== null
   for (const element of body.querySelectorAll(BLOCK_SELECTOR)) element.append(doc.createTextNode('\n'))
   const title = (doc.title ?? '').replace(/\s+/gu, ' ').trim()
   const text = (body.textContent ?? '').replace(/[^\S\n]+/gu, ' ').replace(/ ?\n[ \n]*/gu, '\n').trim()
-  return title !== '' && !text.includes(title) ? `${title}\n${text}` : text
+  return title !== '' && !hasH1 ? (text === '' ? title : `${title}\n${text}`) : text
 }
 
 function xmlPlainText(source: string): string {
