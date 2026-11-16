@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { createSaveNotifier, loadOrQuarantine, reportLoadFailure } from './storageRecovery'
+import { createBrowserListStorage, type PersistedListStorage } from './usePersistedIdList'
 import { pdfBookmarksCodec, readPdfBookmarks, subscribeVaultFile, writePdfBookmarks, type VaultHandle } from '../../bridge/vault'
 import { createPdfBookmark, parsePdfBookmarks, pdfBookmarkFile, pdfBookmarkId, type PdfBookmark } from '../../core/pdfBookmarks'
 
@@ -10,25 +11,12 @@ export interface PdfPinPatch {
   readonly emoji?: string | null
 }
 
-export interface PdfBookmarkStorage {
-  load(): Promise<readonly PdfBookmark[]>
-  save(bookmarks: readonly PdfBookmark[]): Promise<void>
-  subscribe?(onRemote: (rebase: (local: readonly PdfBookmark[]) => readonly PdfBookmark[]) => void): () => void
-}
+export type PdfBookmarkStorage = PersistedListStorage<PdfBookmark>
 
 export function createBrowserPdfBookmarkStorage(
   storage: Pick<Storage, 'getItem' | 'setItem'> = window.localStorage,
 ): PdfBookmarkStorage {
-  const key = 'iwae:pdf-bookmarks:v1'
-  return {
-    async load() {
-      const serialized = storage.getItem(key)
-      return serialized === null ? [] : parsePdfBookmarks(JSON.parse(serialized) as unknown)
-    },
-    async save(bookmarks) {
-      storage.setItem(key, JSON.stringify(pdfBookmarkFile(bookmarks)))
-    },
-  }
+  return createBrowserListStorage(storage, 'iwae:pdf-bookmarks:v1', parsePdfBookmarks, pdfBookmarkFile)
 }
 
 export function createVaultPdfBookmarkStorage(vault: VaultHandle): PdfBookmarkStorage {
