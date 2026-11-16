@@ -57,3 +57,21 @@ describe('decodeDocumentBytes', () => {
     expect(MAX_DOCUMENT_BYTES).toBe(20 * 1024 * 1024)
   })
 })
+
+describe('BOM 없는 UTF-16', () => {
+  it('영어·숫자 글은 LE·BE 모두 알아본다', () => {
+    const text = 'hello world, this is a log line 12345\nsecond line here\n'
+    expect(decodeDocumentBytes(utf16(text, true, false))).toBe(text)
+    expect(decodeDocumentBytes(utf16(text, false, false))).toBe(text)
+  })
+
+  it('한글이 섞인 LE 도 NUL 이 충분하면 알아본다', () => {
+    const text = 'Log: 시작 start ok ok ok ok ok ok ok ok ok\n'
+    expect(decodeDocumentBytes(utf16(text, true, false))).toBe(text)
+  })
+
+  it('UTF-8·CP949 글은 UTF-16 으로 오인하지 않는다', () => {
+    expect(decodeDocumentBytes(utf8('plain ascii text without nul bytes at all'))).toBe('plain ascii text without nul bytes at all')
+    expect(decodeDocumentBytes(Uint8Array.from([0xb0, 0xa1, 0xb3, 0xaa, 0xb4, 0xd9, 0xb6, 0xf3]))).toBe('가나다라')
+  })
+})
