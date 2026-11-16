@@ -2,6 +2,7 @@ import { getAppPrefs } from '../appPrefs'
 import { announceVaultFileNotice, loadOrQuarantine } from '../documents/storageRecovery'
 import { isMarkdownPath } from '../../core/markdownPath'
 import { isFlowDocumentPath, isPdfPath, shownDocumentName, stripDocumentExtension } from '../../core/documentFormat'
+import { vaultRelativePath } from '../../core/vaultPath'
 import { isFlowVaultEntry } from '../../core/vaultIndex'
 import { emptyVaultSearchTextCache } from '../../core/vaultSearchCache'
 import type { FolderColor } from '../../core/folderColors'
@@ -1275,6 +1276,8 @@ export function useVault(options: UseVaultOptions = {}) {
 
   // 열기 창에서 고른 글 문서(Markdown·텍스트·HTML·XML)는 끌어 놓기와 같은 길로 가져온다(아래에서 정의)
   const importDroppedDocumentsRef = useRef<(paths: readonly string[]) => Promise<unknown>>(async () => undefined)
+  /** Vault 안에 이미 있는 글 문서를 왼쪽 바에서 누른 것처럼 연다(아래 openMarkdown 뒤에서 정의) */
+  const openVaultFlowRef = useRef<(relativePath: string) => Promise<unknown>>(async () => undefined)
   const importPdfsAtRef = useRef<(paths: readonly string[], folderPath: string) => Promise<unknown>>(async () => undefined)
 
   const addDocument = useCallback(async (
@@ -1286,6 +1289,12 @@ export function useVault(options: UseVaultOptions = {}) {
       const path = await pickDocumentFile()
       if (path === null) return
       if (!isPdfPath(path)) {
+        // 이미 Vault 폴더 안의 파일이면 참조로 또 올리지 않고(목록·검색·색인에 두 번 나온다) 있는 항목을 연다
+        const inside = vault === null ? null : vaultRelativePath(vault.root, path)
+        if (inside !== null) {
+          await openVaultFlowRef.current(inside)
+          return
+        }
         // 폴더로 복사를 고른 경우는 왼쪽 바에 끌어 놓은 것과 같은 길(그 폴더로 복사)로, 참조를 고른 경우는 파일 끌어 놓기와 같은 길(참조 등록)로 가져온다.
         // 두 길이 Vault 없음·실패 안내도 맡는다
         if (policy.kind === 'reference') await importDroppedDocumentsRef.current([path])
@@ -1575,6 +1584,8 @@ export function useVault(options: UseVaultOptions = {}) {
     setError(null)
     let imported = 0
     let failed = 0
+    // 실패한 파일의 이름과 까닭(20MB 초과 같은 것을 알려 주려고 삼키지 않는다)
+    const failures: { readonly name: string; readonly reason: string }[] = []
     let firstImported: { kind: 'pdf'; meta: PdfDocMeta } | { kind: 'markdown'; entry: VaultIndexEntry } | null = null
 
     for (const path of accepted) {
@@ -1594,8 +1605,9 @@ export function useVault(options: UseVaultOptions = {}) {
           firstImported ??= { kind: 'markdown', entry }
         }
         imported += 1
-      } catch {
+      } catch (cause) {
         failed += 1
+        failures.push({ name: path.split(/[\\/]/u).at(-1) ?? path, reason: errorText(cause) })
       }
     }
 
@@ -1609,18 +1621,23 @@ export function useVault(options: UseVaultOptions = {}) {
         openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
       } else if (firstImported?.kind === 'markdown') {
         const { entry } = firstImported
-        const source = await readDocumentText(vault, entry.id)
+        // 참조 항목은 색인 id 로, Vault 안 파일은 상대 경로로 읽는다
+        const source = await readDocumentText(vault, entry.storage === 'reference' ? entry.id : entry.path)
         setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
         openInPane({
           id: entry.path,
-          title: entry.displayName,
+          title: shownDocumentName(entry.path, entry.displayName),
           kind: 'markdown',
         })
       }
     }
 
-    if (rejected.length > 0 || failed > 0) {
-      setError(t('가져오기 완료: {imported}개, 지원하지 않음 {rejected}개, 실패 {failed}개', { imported, rejected: rejected.length, failed }))
+    if (failed === 1 && rejected.length === 0) {
+      // 하나만 실패했으면 그 까닭을 그대로 보인다
+      setError(t('「{name}」을 가져오지 못했습니다: {error}', { name: failures[0]!.name, error: failures[0]!.reason }))
+    } else if (rejected.length > 0 || failed > 0) {
+      const summary = t('가져오기 완료: {imported}개, 지원하지 않음 {rejected}개, 실패 {failed}개', { imported, rejected: rejected.length, failed })
+      setError(failed > 0 ? `${summary}. ${t('처음 실패: 「{name}」 {error}', { name: failures[0]!.name, error: failures[0]!.reason })}` : summary)
     }
     return { imported, rejected: rejected.length, failed }
   }, [refreshVaultFiles, vault])
@@ -2029,6 +2046,31 @@ export function useVault(options: UseVaultOptions = {}) {
       return null
     }
   }, [markdownAsPdf, markdownSources, recordFileOpened, vault, vaultIndex])
+
+  openVaultFlowRef.current = async (relativePath) => {
+    const wanted = relativePath.normalize('NFC').toLocaleLowerCase()
+    const find = (nodes: readonly VaultTreeNode[]): VaultMarkdownNode | null => {
+      for (const node of nodes) {
+        if (node.kind === 'markdown' && node.storage === 'vault' && node.path.normalize('NFC').toLocaleLowerCase() === wanted) return node
+        if (node.kind === 'folder') {
+          const found = find(node.children)
+          if (found !== null) return found
+        }
+      }
+      return null
+    }
+    // 아직 목록에 없는 새 파일이면 트리 노드와 같은 모양으로 직접 만든다(색인 id 가 없으면 경로가 id 다)
+    const base = relativePath.split('/').at(-1) ?? relativePath
+    const node = find(tree) ?? {
+      id: `markdown:${relativePath}`,
+      kind: 'markdown' as const,
+      name: shownDocumentName(base, stripDocumentExtension(base)),
+      path: relativePath,
+      storage: 'vault' as const,
+      indexId: relativePath,
+    }
+    await openMarkdown(node)
+  }
 
   const relink = useCallback(async (docId: string) => {
     if (vault === null) return

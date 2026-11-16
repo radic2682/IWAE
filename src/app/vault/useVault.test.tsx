@@ -94,6 +94,10 @@ vi.mock('../../bridge/vault', () => ({
   subscribeVaultFile: vi.fn(() => () => undefined),
 }))
 
+// 복사 길(importPdfsAt)이 쓰는 파일 시스템: 기본은 jsdom 에서처럼 실패한다. 복사 시험이 이 값을 바꿔 쓴다
+const fsMock = vi.hoisted(() => ({ copyFile: vi.fn(), exists: vi.fn(), mkdir: vi.fn() }))
+vi.mock('@tauri-apps/plugin-fs', () => fsMock)
+vi.mock('@tauri-apps/api/path', () => ({ join: async (...parts: string[]) => parts.join('/').replace(/\/{2,}/gu, '/') }))
 vi.mock('./useVaultWatcher', () => ({ useVaultWatcher: vi.fn() }))
 vi.mock('../../pdf/pdfOcrText', () => ({ recognizePdfPageText: vi.fn() }))
 vi.mock('../../bridge/vaultFiles', () => ({
@@ -754,7 +758,7 @@ describe('useVault — 시작 복원', () => {
     }
   })
 
-  it('PowerPoint 는 가져오지 않고, 지원하지 않는 확장자는 건너뛴 수로 센다', async () => {
+  it('Office 문서(docx)와 알 수 없는 확장자는 가져오지 않고 건너뛴 수로 센다', async () => {
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
     let summary: Awaited<ReturnType<typeof result.current.importDroppedDocuments>> | undefined
@@ -776,14 +780,56 @@ describe('useVault — 시작 복원', () => {
     expect(paneTabs(result, 0).tabs.some((tab) => tab.id === entry.path && tab.kind === 'markdown')).toBe(true)
   })
 
-  it('문서 추가: 폴더로 복사를 고르면 txt 도 참조로 올리지 않고 복사 길로 간다', async () => {
+  it('문서 추가: 폴더로 복사를 고르면 txt 를 그 폴더로 복사한다(참조 등록은 없다)', async () => {
     vi.mocked(pickDocumentFile).mockResolvedValue('C:/External/memo.txt')
+    vi.mocked(writeVaultTreeOrder).mockResolvedValue(undefined)
+    fsMock.exists.mockResolvedValue(false)
+    fsMock.copyFile.mockResolvedValue(undefined)
+    fsMock.mkdir.mockResolvedValue(undefined)
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
     await act(async () => { await result.current.addDocument({ kind: 'copy-another-folder', folderPath: 'HTTP' }) })
-    // 복사 길(importPdfsAt)은 파일 시스템 플러그인을 쓰므로 이 환경에서는 실패로 알려진다: 참조 등록은 일어나지 않아야 한다
+    expect(fsMock.exists).toHaveBeenCalledWith('C:/Vault/HTTP/memo.txt')
+    expect(fsMock.copyFile).toHaveBeenCalledWith('C:/External/memo.txt', 'C:/Vault/HTTP/memo.txt')
     expect(attachMarkdownReference).not.toHaveBeenCalled()
-    expect(result.current.error).not.toBeNull()
+  })
+
+  it('문서 추가: 폴더에 같은 이름의 파일이 이미 있으면 덮어쓰지 않고 알린다', async () => {
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/External/memo.txt')
+    vi.mocked(writeVaultTreeOrder).mockResolvedValue(undefined)
+    fsMock.exists.mockResolvedValue(true)
+    fsMock.copyFile.mockClear()
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    await act(async () => { await result.current.addDocument({ kind: 'copy-another-folder', folderPath: 'HTTP' }) })
+    expect(fsMock.copyFile).not.toHaveBeenCalled()
+    expect(attachMarkdownReference).not.toHaveBeenCalled()
+    expect(result.current.error).toContain('memo.txt')
+    expect(result.current.error).toContain('같은 이름')
+  })
+
+  it('문서 추가: 이미 Vault 안에 있는 파일을 고르면 참조로 또 올리지 않고 있는 항목을 연다(역슬래시·대소문자 무관)', async () => {
+    const BS = String.fromCharCode(92)
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    for (const picked of ['C:/Vault/HTTP/README.md', `c:${BS}VAULT${BS}http${BS}readme.MD`]) {
+      vi.mocked(pickDocumentFile).mockResolvedValue(picked)
+      await act(async () => { await result.current.addDocument({ kind: 'reference' }) })
+      expect(attachMarkdownReference).not.toHaveBeenCalled()
+      expect(paneTabs(result, 0).activeId).toBe('HTTP/README.md')
+    }
+  })
+
+  it('가져오기에 하나만 실패하면 그 까닭을 보이고, 여럿이면 개수와 처음 까닭을 보인다', async () => {
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    vi.mocked(attachMarkdownReference).mockRejectedValueOnce(new Error('파일이 너무 커서 열 수 없습니다. (20MB까지)'))
+    await act(async () => { await result.current.importDroppedDocuments(['C:/External/huge.log']) })
+    expect(result.current.error).toBe('「huge.log」을 가져오지 못했습니다: 파일이 너무 커서 열 수 없습니다. (20MB까지)')
+    vi.mocked(attachMarkdownReference).mockRejectedValue(new Error('읽기 실패'))
+    await act(async () => { await result.current.importDroppedDocuments(['C:/External/a.txt', 'C:/External/b.txt']) })
+    expect(result.current.error).toContain('실패 2개')
+    expect(result.current.error).toContain('「a.txt」 읽기 실패')
   })
 
   it('열지 않은 Markdown 본문도 Vault 검색 레코드에 백그라운드로 넣는다', async () => {

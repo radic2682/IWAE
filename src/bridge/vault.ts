@@ -2,6 +2,7 @@ import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, serializePdfOverlays, type PdfOve
 import { isMarkdownPath } from '../core/markdownPath'
 import { documentFormatOf, isFlowDocumentPath, isPdfPath } from '../core/documentFormat'
 import { flowPlainText } from '../core/flowPlainText'
+import { vaultRelativePath } from '../core/vaultPath'
 import { decodeDocumentBytes, MAX_DOCUMENT_BYTES } from '../core/textDecode'
 import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from '../core/versionGroups'
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'
@@ -796,6 +797,13 @@ export async function attachMarkdownReference(
   }
 
   const index = await readVaultIndex(vault)
+  // Vault 폴더 안의 파일은 참조로 또 올리지 않는다(목록·검색·색인에 두 번 나온다): 있는 Vault 항목을 돌려준다
+  const inside = vaultRelativePath(vault.root, sourcePath)
+  if (inside !== null) {
+    const own = index.entries.find((entry) => entry.storage === 'vault' && normalizedReferencePath(entry.path) === normalizedReferencePath(inside))
+    if (own === undefined) throw new Error(t('이미 Vault 폴더 안에 있는 파일입니다. 목록을 새로고침한 뒤 왼쪽 바에서 여세요.'))
+    return own
+  }
   const normalized = normalizedReferencePath(sourcePath)
   const existing = index.entries.find((entry) => (
     isFlowVaultEntry(entry)

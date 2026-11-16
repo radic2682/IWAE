@@ -932,6 +932,21 @@ describe('vault session and notes', () => {
     await expect(attachMarkdownReference(vault, 'C:/External/huge.log')).rejects.toThrow('20MB')
   })
 
+  it('Vault 폴더 안의 파일은 참조로 또 올리지 않고 있는 Vault 항목을 돌려준다(슬래시·역슬래시·대소문자 무관)', async () => {
+    const own = {
+      id: '8cc94e6f-13da-4fd3-87a8-4e61bcb82250', kind: 'other' as const, storage: 'vault' as const, path: 'Docs/a.txt',
+      displayName: 'a', contentHash: null, size: 1, modifiedAt: null, addedAt: '2026-09-30T00:00:00.000Z', missing: false,
+    }
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({ version: 1, entries: [own] }))
+    const BS = String.fromCharCode(92)
+    for (const path of ['C:/Vault/Docs/a.txt', `C:${BS}Vault${BS}Docs${BS}a.txt`, 'c:/vault/docs/A.TXT']) {
+      await expect(attachMarkdownReference(vault, path)).resolves.toEqual(own)
+    }
+    expect(fsMocks.writeTextFile).not.toHaveBeenCalledWith('C:/Vault/.iwae/index.json', expect.anything())
+    // 색인에 아직 없으면 참조를 만들지 않고 알린다
+    await expect(attachMarkdownReference(vault, 'C:/Vault/Docs/new.txt')).rejects.toThrow('Vault')
+  })
+
   it('사용자 블록 프리셋을 Vault의 .iwae 설정으로 읽고 쓴다', async () => {
     const preset = createUserBlockPreset('preset-1', {
       kind: 'rectangle',
