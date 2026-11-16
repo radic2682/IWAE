@@ -348,7 +348,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     const path = entry.path.replaceAll('\\', '/')
     const filename = path.split('/').at(-1)
     if (filename === undefined || !isFlowDocumentPath(filename)) continue
-    markdownTitles.set(path, stripDocumentExtension(filename))
+    markdownTitles.set(path, shownDocumentName(filename, stripDocumentExtension(filename)))
   }
   const externalMarkdownByPath = new Map(reconciledIndex.entries
     .filter((entry) => isFlowVaultEntry(entry) && entry.storage === 'reference' && !entry.missing)

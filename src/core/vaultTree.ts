@@ -75,6 +75,11 @@ export interface VaultTreePlaceRequest {
 }
 
 /** 놓기 요청대로 순서를 고친다. 옮긴 뒤 항목 id 가 바뀌었으면(노트·폴더는 경로가 id) newNodeId 로 넣는다 */
+/** 흐르는 글 문서의 표시 이름: 등록된 이름이 없거나 파일 이름 그대로면 확장자를 뗀 기본 이름, 아니면 쓴 그대로 */
+function flowDisplayName(registered: string | undefined, filename: string): string {
+  return registered === undefined || registered === filename ? stripDocumentExtension(filename) : registered
+}
+
 export function placeInTreeOrder(
   order: VaultTreeOrder,
   request: VaultTreePlaceRequest,
@@ -284,7 +289,8 @@ export function buildVaultWorkspaceTree(
       ensureFolder(parts.slice(0, -1).join('/')).children.push({
         id: `markdown:${indexed?.id ?? path}`,
         kind: 'markdown',
-        name: shownDocumentName(filename, stripDocumentExtension(displayNames.get(path) ?? filename)),
+        // 사용자가 고쳐 쓴 이름은 쓴 그대로 둔다(예전에 파일 이름 그대로 등록된 것만 기본 이름으로 본다)
+        name: shownDocumentName(filename, flowDisplayName(displayNames.get(path), filename)),
         path,
         storage: 'vault',
         indexId: indexed?.id ?? path,

@@ -374,6 +374,18 @@ describe('buildVaultWorkspaceTree · text documents', () => {
     expect(tree).toMatchObject([{ children: [{ name: '내 메모' }] }])
   })
 
+  it('사용자가 .txt 를 붙여 쓴 표시 이름은 확장자를 떼지 않고 쓴 그대로 보인다', () => {
+    const names = new Map([['Docs/a.txt', '메모.txt'], ['Docs/b.md', '글.md'], ['Docs/c.xml', 'c.xml']])
+    const tree = buildVaultWorkspaceTree([
+      { path: 'Docs/a.txt', isDirectory: false },
+      { path: 'Docs/b.md', isDirectory: false },
+      { path: 'Docs/c.xml', isDirectory: false },
+    ], [], {}, names)
+    const children = (tree[0] as { children: { name: string }[] }).children.map((child) => child.name).sort()
+    // c.xml 은 파일 이름 그대로 등록된 예전 이름이라 기본 이름(확장자를 붙여 보이는 값)이 된다
+    expect(children).toEqual(['c.xml', '글.md', '메모.txt'])
+  })
+
   it('vault 밖 txt·html·xml 참조(종류 other)도 투영한다', () => {
     const reference: VaultIndexEntry = {
       id: 'ref-text', kind: 'other', storage: 'reference', path: 'C:/External/page.html', displayName: '외부 페이지',
