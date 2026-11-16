@@ -63,13 +63,17 @@ struct Tag {
     /// 소문자 이름(닫는 태그는 `/` 를 뗀 이름)
     name: String,
     closing: bool,
-    /// 속성 값들(따옴표 안). `xmlns` 로 시작하는 속성은 뺀다
+    /// `<script />` 처럼 스스로 닫는 태그인가(`/>` 로 끝난다)
+    self_closing: bool,
+    /// 속성 값들(따옴표 안팎). `xmlns` 로 시작하는 속성은 뺀다
     attribute_values: Vec<String>,
     /// 다음 글자 자리(`>` 바로 뒤)
     end: usize,
 }
 
-/// `<` 에서 시작하는 태그를 읽는다. 따옴표 안의 `>` 는 태그 끝이 아니다. 끝이 없으면 None
+/// `<` 에서 시작하는 태그를 읽는다. 따옴표는 `=` 바로 뒤(사이에 공백이 있어도 된다)에서만 값을 여는 것이고,
+/// 그 안의 `>` 는 태그 끝이 아니다. 닫는 따옴표가 없으면 따옴표 없는 값으로 보고 다음 `>` 까지를 값으로 한다
+/// (그래야 깨진 태그 하나가 파일의 나머지를 삼키지 않는다). `>` 가 아예 없으면 None
 fn read_tag(text: &str, start: usize) -> Option<Tag> {
     let bytes = text.as_bytes();
     let mut i = start + 1;
@@ -83,43 +87,70 @@ fn read_tag(text: &str, start: usize) -> Option<Tag> {
     }
     let name = text[name_start..i].to_ascii_lowercase();
     let mut attribute_values = Vec::new();
-    // 값 바로 앞의 속성 이름(`xmlns` 선언을 거르려고 쓴다)
-    let mut current_name = String::new();
+    // 지금 읽는 속성의 이름(`xmlns` 선언을 거르려고 쓴다. ASCII 가 아닌 글자는 소문자로 바꾸지 않고 그대로 둔다)
+    let mut attribute = String::new();
+    // `=` 를 막 지났나(공백은 건너뛴다): 이때 오는 따옴표만 값을 연다
+    let mut after_equals = false;
+    // 이름이 끝났나(공백 뒤): 다음 이름 글자가 오면 새 속성이다
+    let mut name_ended = false;
     while i < bytes.len() {
-        match bytes[i] {
-            b'>' => {
-                return Some(Tag { name, closing, attribute_values, end: i + 1 });
-            }
-            quote @ (b'"' | b'\'') => {
+        let byte = bytes[i];
+        if byte == b'>' {
+            let self_closing = i > start + 1 && bytes[i - 1] == b'/';
+            return Some(Tag { name, closing, self_closing, attribute_values, end: i + 1 });
+        }
+        if after_equals && !byte.is_ascii_whitespace() {
+            after_equals = false;
+            let keep = !attribute.starts_with("xmlns");
+            if byte == b'"' || byte == b'\'' {
                 let value_start = i + 1;
-                let mut j = value_start;
-                while j < bytes.len() && bytes[j] != quote {
-                    j += 1;
+                if let Some(close) = text[value_start..].find(byte as char) {
+                    if keep {
+                        attribute_values.push(text[value_start..value_start + close].to_string());
+                    }
+                    i = value_start + close + 1;
+                } else {
+                    // 닫는 따옴표가 없다: 따옴표 없는 값으로 보고 다음 `>` 까지를 값으로 한다
+                    let gt = text[value_start..].find('>')? + value_start;
+                    if keep {
+                        attribute_values.push(text[value_start..gt].to_string());
+                    }
+                    i = gt;
                 }
-                if j >= bytes.len() {
-                    return None;
+            } else {
+                // 따옴표 없는 값: 공백이나 `>` 까지
+                let value_start = i;
+                while i < bytes.len() && !bytes[i].is_ascii_whitespace() && bytes[i] != b'>' {
+                    i += 1;
                 }
-                if !current_name.starts_with("xmlns") {
-                    attribute_values.push(text[value_start..j].to_string());
+                if keep {
+                    attribute_values.push(text[value_start..i].trim_end_matches('/').to_string());
                 }
-                current_name.clear();
-                i = j + 1;
             }
-            b'=' => i += 1,
-            b'/' => {
-                current_name.clear();
-                i += 1;
+            attribute.clear();
+            name_ended = false;
+            continue;
+        }
+        if byte == b'=' {
+            after_equals = true;
+            i += 1;
+        } else if byte.is_ascii_whitespace() {
+            // 이름 뒤 공백: 곧 `=` 가 올 수도 있으니 이름은 남겨 두고, 다음 이름 글자가 오면 새 속성으로 본다
+            if !attribute.is_empty() {
+                name_ended = true;
             }
-            c if c.is_ascii_whitespace() => {
-                current_name.clear();
-                i += 1;
+            i += 1;
+        } else if byte == b'/' {
+            i += 1;
+        } else {
+            // 속성 이름 한 글자(UTF-8 다중 바이트 글자는 통째로 지나간다)
+            if name_ended {
+                attribute.clear();
+                name_ended = false;
             }
-            _ => {
-                // 속성 이름 한 글자(UTF-8 다중 바이트 글자는 통째로 지나간다)
-                let ch_len = text[i..].chars().next().map_or(1, char::len_utf8);
-                current_name.push_str(&text[i..i + ch_len].to_ascii_lowercase());
-                i += ch_len;
-            }
+            let ch_len = text[i..].chars().next().map_or(1, char::len_utf8);
+            attribute.push_str(&text[i..i + ch_len].to_ascii_lowercase());
+            i += ch_len;
         }
     }
     None
@@ -259,7 +290,7 @@ pub fn html_to_text(html: &str) -> String {
             // 닫히지 않은 태그: 나머지는 태그의 일부로 보고 버린다
             break;
         };
-        if !tag.closing && (tag.name == "script" || tag.name == "style") {
+        if !tag.closing && !tag.self_closing && (tag.name == "script" || tag.name == "style") {
             // 닫는 태그까지의 내용은 글이 아니다
             let close = format!("</{}", tag.name);
             i = find_ignore_case(html, tag.end, &close)
@@ -309,12 +340,13 @@ pub fn xml_to_text(xml: &str) -> String {
         }
         if rest.starts_with("<!") {
             // DOCTYPE: 안쪽 `[ ... ]` 선언부가 있으면 `]>` 까지, 없으면 `>` 까지
-            let bracket = rest.find('[');
+            // `[` 는 이 선언의 `>` 앞에서만 찾는다(선언이 많은 파일에서 끝까지 되풀이해 훑지 않게)
             let gt = rest.find('>');
-            i = match (bracket, gt) {
-                (Some(b), Some(g)) if b < g => rest.find("]>").map_or(xml.len(), |end| at + end + 2),
-                (_, Some(g)) => at + g + 1,
-                _ => xml.len(),
+            let has_subset = gt.is_some_and(|g| rest[..g].contains('['));
+            i = match gt {
+                Some(_) if has_subset => rest.find("]>").map_or(xml.len(), |end| at + end + 2),
+                Some(g) => at + g + 1,
+                None => xml.len(),
             };
             out.push('\n');
             continue;
@@ -411,5 +443,51 @@ mod tests {
         // CP949 HTML
         let (bytes, _, _) = encoding_rs::EUC_KR.encode("<p>한글 문서</p>");
         assert_eq!(text_for_search("html", &bytes), "한글 문서");
+    }
+
+    #[test]
+    fn a_self_closing_script_or_style_does_not_swallow_the_rest() {
+        assert_eq!(html_to_text(r#"<p>앞</p><script src="a.js" /><p>뒤</p>"#), "앞\n뒤");
+        assert_eq!(html_to_text("<style/><p>본문</p><script/>끝"), "본문\n끝");
+        // 짝이 있는 script 는 여전히 통째로 건너뛴다
+        assert_eq!(html_to_text("<script>var a=1;</script>글"), "글");
+    }
+
+    #[test]
+    fn quotes_only_open_a_value_after_an_equals_sign() {
+        // 따옴표가 값 자리가 아니면 태그 끝(>)을 가리지 못한다
+        assert_eq!(html_to_text(r#"<p it's>글</p>"#), "글");
+        assert_eq!(html_to_text(r#"<a title = "x > y" href='z'>링크</a>"#), "링크");
+        assert_eq!(xml_to_text(r#"<a b = "값 하나"  c='둘'/>"#), "값 하나\n둘");
+        assert_eq!(xml_to_text(r#"<a xmlns = "urn:x" d=e>글</a>"#), "e\n글");
+    }
+
+    #[test]
+    fn an_unclosed_quote_does_not_drop_the_rest_of_the_file() {
+        assert_eq!(html_to_text(r#"<p class="x>첫째</p><p>둘째</p>"#), "첫째\n둘째");
+        assert_eq!(xml_to_text(r#"<a v="깨짐><b>살아남음</b></a>"#), "깨짐\n살아남음");
+        // 닫는 `>` 가 아예 없으면 거기서 끝난다
+        assert_eq!(html_to_text(r#"앞<p class="x"#), "앞");
+    }
+
+    #[test]
+    fn non_ascii_attribute_names_and_values_are_handled() {
+        assert_eq!(xml_to_text(r#"<항목 이름="철수" 나이='열'>본문</항목>"#), "철수\n열\n본문");
+        assert_eq!(html_to_text(r#"<p 데이터-값="가나">글</p>"#), "글");
+        // 이름 속 한글이 xmlns 거르기를 깨지 않는다
+        assert_eq!(xml_to_text(r#"<a 가="1" xmlns:ns="urn:x">t</a>"#), "1\nt");
+    }
+
+    #[test]
+    fn a_flood_of_declarations_stays_linear() {
+        let started = std::time::Instant::now();
+        let html = "<!x>".repeat(200_000) + "끝";
+        assert_eq!(html_to_text(&html), "끝");
+        // XML: `[` 가 없는 선언, 그리고 `[` 가 나중에 한 번 있는 파일 모두 선언마다 끝까지 훑지 않는다
+        let xml = "<!x>".repeat(200_000) + "<a>끝</a><!y[z]>";
+        assert_eq!(xml_to_text(&xml), "끝");
+        let bracket = "<!x>".repeat(200_000) + "[";
+        assert_eq!(xml_to_text(&bracket), "[");
+        assert!(started.elapsed() < std::time::Duration::from_secs(1), "{:?}", started.elapsed());
     }
 }
