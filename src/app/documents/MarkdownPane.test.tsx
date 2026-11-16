@@ -399,3 +399,20 @@ describe('MarkdownPane: 접힌 <details> 글이 든 옛 형광펜', () => {
     expect(container.querySelector(`[data-markdown-highlight-id="${highlight.id}"]`)).not.toBeNull()
   })
 })
+
+describe('MarkdownPane 자리표시 언어', () => {
+  it('UI 언어를 바꾸면 막힌 그림 자리표시 문구도 바뀐다', async () => {
+    const { act } = await import('@testing-library/react')
+    const { getLocale, setLocale } = await import('../../i18n')
+    const before = getLocale()
+    try {
+      act(() => setLocale('ko'))
+      const { container } = render(<MarkdownPane title="p" path="a.md" source={'<img src="https://x.example/a.png" alt="그림">'} />)
+      expect(container.querySelector('.md-image-blocked')?.getAttribute('data-label')).toBe('그림을 불러오지 않았습니다 · 그림')
+      act(() => setLocale('en'))
+      expect(container.querySelector('.md-image-blocked')?.getAttribute('data-label')).toBe('Image not loaded · 그림')
+    } finally {
+      act(() => setLocale(before))
+    }
+  })
+})

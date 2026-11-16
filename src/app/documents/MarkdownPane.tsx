@@ -2,7 +2,7 @@ import { createPinPressTracker } from '../../pdf/pinGesture'
 import { defaultHighlightColorId } from '../../core/highlightColors'
 import { isOpenableDocumentPath, type DocumentFormat } from '../../core/documentFormat'
 import { getHighlightColors } from './highlightColorStyle'
-import { t } from '../../i18n'
+import { t, useLocale } from '../../i18n'
 import { shortcutText } from '../../core/shortcutRegistry'
 import { startInternalDrag } from '../../core/internalDrag'
 import {
@@ -497,7 +497,9 @@ export function MarkdownPane({
 }: MarkdownPaneProps) {
   const flow = useMemo(() => renderFlowDocument(format, source), [source, format])
   // 불러오지 않을 그림(바깥 주소·막힌 참조)은 요청을 시도하지 않게 미리 자리표시로 바꾼다
-  const html = useMemo(() => placeholderImages(flow.html), [flow])
+  // 자리표시 문구는 지금 UI 언어로 만든다: 언어가 바뀌면 다시 만든다
+  const locale = useLocale()
+  const html = useMemo(() => placeholderImages(flow.html), [flow, locale])
   const sourceHash = useMemo(() => markdownSourceHash(source), [source])
   // 그린 본문의 글(textContent). 저장된 글자 위치가 지금 본문에서도 같은 글을 가리키는지 확인하는 데 쓴다
   const plainText = useMemo(() => {
