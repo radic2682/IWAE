@@ -1055,10 +1055,10 @@
 
 /* 인쇄: 어두운 테마에서도 흰 종이에서 읽히게 XML 색을 걷고 바탕을 없앤다 */
 @media print {
-  .iwae-print-markdown pre.flow-xml { background: transparent; border-color: #999; }
-  .iwae-print-markdown pre.flow-xml span { color: #111; }
+  .iwae-print-markdown pre.flow-xml { background: transparent; border-color: currentColor; }
+  .iwae-print-markdown pre.flow-xml span { color: inherit; }
   .iwae-print-markdown pre.flow-xml .xml-tag,
   .iwae-print-markdown pre.flow-xml .xml-comment,
   .iwae-print-markdown pre.flow-xml .xml-pi,
-  .iwae-print-markdown pre.flow-xml .xml-doctype { color: #555; }
+  .iwae-print-markdown pre.flow-xml .xml-doctype { color: color-mix(in srgb, currentColor 65%, transparent); }
 }
