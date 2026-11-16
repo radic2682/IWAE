@@ -25,6 +25,7 @@ vi.mock('../../bridge/vault', () => ({
   openVault: vi.fn().mockResolvedValue({ root: 'C:/Vault' }),
   readLibrary: vi.fn().mockResolvedValue([]),
   readDocumentText: vi.fn(),
+  readEagerSearchTexts: vi.fn(async () => []),
   readSession: vi.fn(),
   loadSessions: vi.fn(),
   listSessionNames: vi.fn(),

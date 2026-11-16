@@ -9,6 +9,7 @@ import {
   openVault,
   readLibrary,
   readDocumentText,
+  readEagerSearchTexts,
   readSession,
   recentVaults,
   writeSession,
@@ -69,6 +70,7 @@ vi.mock('../../bridge/vault', () => ({
   openVault: vi.fn(),
   readLibrary: vi.fn(),
   readDocumentText: vi.fn(),
+  readEagerSearchTexts: vi.fn(async () => []),
   readSession: vi.fn(),
   loadSessions: vi.fn(),
   listSessionNames: vi.fn().mockResolvedValue([]),
@@ -724,6 +726,9 @@ describe('useVault — 시작 복원', () => {
   })
 
   it('열지 않은 Markdown 본문도 Vault 검색 레코드에 백그라운드로 넣는다', async () => {
+    vi.mocked(readEagerSearchTexts).mockImplementation(async (vault, entries) => (
+      Promise.all(entries.map(async (entry) => [entry.id, await readDocumentText(vault, entry.path)] as const))
+    ))
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
     await waitFor(() => {
