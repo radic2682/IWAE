@@ -26,6 +26,7 @@ vi.mock('../../bridge/vault', () => ({
   readLibrary: vi.fn().mockResolvedValue([]),
   readDocumentText: vi.fn(),
   readEagerSearchTexts: vi.fn(async () => []),
+  searchTextOf: vi.fn((_path: string, source: string) => source),
   readSession: vi.fn(),
   loadSessions: vi.fn(),
   listSessionNames: vi.fn(),

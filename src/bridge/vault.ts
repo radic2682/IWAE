@@ -1,6 +1,7 @@
 import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, serializePdfOverlays, type PdfOverlaysFile } from '../core/pdfOverlays'
 import { isMarkdownPath } from '../core/markdownPath'
 import { documentFormatOf, isFlowDocumentPath, isPdfPath } from '../core/documentFormat'
+import { flowPlainText } from '../core/flowRender'
 import { decodeDocumentBytes, MAX_DOCUMENT_BYTES } from '../core/textDecode'
 import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from '../core/versionGroups'
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'
@@ -1406,6 +1407,12 @@ export async function readDocumentText(vault: VaultHandle, documentPath: string)
 export const EAGER_SEARCH_MAX_BYTES = 1024 * 1024
 export const EAGER_SEARCH_MAX_FILES = 500
 
+/** 검색에 넣을 글: HTML·XML 은 태그를 뺀 보이는 글 */
+export function searchTextOf(path: string, source: string): string {
+  const format = documentFormatOf(path)
+  return format === null ? source : flowPlainText(format, source)
+}
+
 /**
  * Vault 를 열 때 검색용으로 미리 읽는 글. Markdown 은 모두(예전과 같다), 그 밖의 형식은 작은 파일만 적은 수로 읽는다
  * (수백 MB 로그나 저장한 웹 페이지 수천 개가 열기를 멈추지 않게). 건너뛴 파일은 열 때 읽는다.
@@ -1418,7 +1425,7 @@ export async function readEagerSearchTexts(
   const readOne = async (entry: { readonly id: string; readonly path: string }, maxBytes: number): Promise<readonly [string, string] | null> => {
     try {
       const text = await readDocumentFile(await resolveDocumentPath(vault, entry.path), maxBytes, true)
-      return text === null ? null : [entry.id, text] as const
+      return text === null ? null : [entry.id, searchTextOf(entry.path, text)] as const
     } catch {
       return null // 읽지 못한 파일은 건너뛴다
     }

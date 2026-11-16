@@ -36,6 +36,7 @@ import {
   readLibrary,
   readDocumentText,
   readEagerSearchTexts,
+  searchTextOf,
   readPdfBookmarks,
   readPdfHighlights,
   registerUnlistedVaultPdfs,
@@ -2005,7 +2006,7 @@ export function useVault(options: UseVaultOptions = {}) {
       const source = await readDocumentText(vault, markdown.storage === 'reference' ? markdown.indexId : markdown.path)
       const fileId = vaultIndex.find((entry) => entry.path === markdown.path)?.id
       if (fileId !== undefined) {
-        setExtractedSearchText((current) => ({ ...current, [fileId]: source }))
+        setExtractedSearchText((current) => ({ ...current, [fileId]: searchTextOf(markdown.path, source) }))
         recordFileOpened(fileId)
       }
       setMarkdownSources((current) => ({ ...current, [markdown.path]: source }))
@@ -2090,7 +2091,7 @@ export function useVault(options: UseVaultOptions = {}) {
     if (isFlowVaultEntry(entry) && entry.storage === 'vault') {
       void readDocumentText(vault, entry.path).then((source) => {
         setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
-        setExtractedSearchText((current) => ({ ...current, [entry.id]: source }))
+        setExtractedSearchText((current) => ({ ...current, [entry.id]: searchTextOf(entry.path, source) }))
       }).catch(reportReloadError)
       return
     }

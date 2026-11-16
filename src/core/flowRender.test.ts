@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { flowHeadings, flowSectionPreviews, renderFlowDocument } from './flowRender'
+import { flowHeadings, flowPlainText, flowSectionPreviews, renderFlowDocument } from './flowRender'
 import { renderMarkdown } from './markdown'
 
 /** 결과 HTML 을 다시 읽어 실행될 수 있는 것이 남았는지 본다 */
@@ -334,5 +334,33 @@ describe('큰 적대적 입력', () => {
   it('HTML: 꺾쇠·백틱 30만 개도 처리한다', () => {
     expectInert(renderFlowDocument('html', angles).html)
     expectInert(renderFlowDocument('html', backticks).html)
+  })
+})
+
+describe('flowPlainText', () => {
+  it('HTML 은 보이는 글만 뽑고 스크립트·스타일·태그는 뺀다', () => {
+    const text = flowPlainText('html', '<html><head><title>제목</title><style>.a{}</style></head><body><h1>큰 제목</h1><p>첫 <b>글</b></p><script>var secret=1</script><ul><li>하나</li><li>둘</li></ul></body></html>')
+    expect(text).toContain('큰 제목')
+    expect(text).toContain('첫 글')
+    expect(text).toContain('하나\n둘')
+    expect(text).not.toContain('secret')
+    expect(text).not.toContain('.a{}')
+    expect(text).not.toContain('<')
+  })
+
+  it('XML 은 글 마디와 속성값을 뽑고 태그 이름은 뺀다', () => {
+    const text = flowPlainText('xml', '<root id="r1" empty=""><item name="가나">첫째<![CDATA[ 셋째 ]]></item><!-- 주석 --></root>')
+    expect(text).toBe('r1\n가나\n첫째\n셋째')
+  })
+
+  it('깨진 XML 은 원문 그대로, 텍스트·Markdown 은 그대로', () => {
+    expect(flowPlainText('xml', '<a><b>')).toBe('<a><b>')
+    expect(flowPlainText('text', '<b>x</b>')).toBe('<b>x</b>')
+    expect(flowPlainText('markdown', '# 제목')).toBe('# 제목')
+  })
+
+  it('아주 깊은 XML 도 스택이 넘치지 않는다', () => {
+    const deep = '<a>'.repeat(5000) + '글' + '</a>'.repeat(5000)
+    expect(() => flowPlainText('xml', deep)).not.toThrow()
   })
 })

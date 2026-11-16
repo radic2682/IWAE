@@ -352,6 +352,20 @@ describe('vault library', () => {
     expect((await readEagerSearchTexts(vault, entries)).map(([id]) => id)).toContain('m')
   })
 
+  it('미리 읽는 검색 글은 HTML·XML 의 태그를 빼고 보이는 글만 담는다', async () => {
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.stat.mockResolvedValue({ size: 10 })
+    fsMocks.readFile.mockImplementation(async (path: string) => new TextEncoder().encode(
+      path.endsWith('.html') ? '<p>보이는 글</p><script>숨은코드()</script>' : '<a k="속성값"><b>마디</b></a>',
+    ))
+    const records = await readEagerSearchTexts(vault, [{ id: 'h', path: 'a.html' }, { id: 'x', path: 'b.xml' }])
+    const byId = Object.fromEntries(records)
+    expect(byId.h).toContain('보이는 글')
+    expect(byId.h).not.toContain('숨은코드')
+    expect(byId.h).not.toContain('<p>')
+    expect(byId.x).toBe('속성값\n마디')
+  })
+
   it('데스크톱에서는 index.json을 저널 원자 쓰기로 저장한다', async () => {
     vi.spyOn(windowBridge, 'isDesktop').mockReturnValue(true)
     invoke.mockResolvedValue({ contentHash: 'hash', size: 10, modifiedAt: 1 })
