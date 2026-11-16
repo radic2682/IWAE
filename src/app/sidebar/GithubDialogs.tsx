@@ -7,6 +7,7 @@ import { errorText } from '../../core/errorText'
 import { isMarkdownPath } from '../../core/markdownPath'
 import '../../ui/github-dialogs.css'
 import { pick, t } from '../../i18n'
+import { documentFormatOf } from '../../core/documentFormat'
 import { useStableCallback } from '../../ui/useStableCallback'
 
 function Frame({ title, subtitle, onClose, children, busy = false }: {
@@ -193,7 +194,10 @@ export function GithubChangesDialog({ source, changed, applied, onOpen, onPull, 
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const documents = changed.filter((path) => /\.(?:md|markdown|pdf)$/iu.test(path))
+  const documents = changed.filter((path) => {
+    const format = documentFormatOf(path)
+    return format === 'pdf' || format === 'markdown'
+  })
   const others = changed.length - documents.length
   const title = applied ? t('최신으로 받았습니다') : source.behind > 0 ? t('새 커밋 {count}개', { count: source.behind }) : t('새 소식 없음')
   const subtitle = applied

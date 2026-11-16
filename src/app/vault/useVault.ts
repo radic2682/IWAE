@@ -387,7 +387,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     if (markdownEntry !== undefined) {
       try {
         const source = await readDocumentText(handle, markdownEntry.storage === 'reference' ? markdownEntry.id : markdownEntry.path)
-        const title = markdownEntry.displayName ?? (markdownEntry.path.split('/').at(-1) ?? markdownEntry.path).replace(/\.(?:md|markdown)$/iu, '')
+        const title = markdownEntry.displayName ?? stripDocumentExtension(markdownEntry.path.split('/').at(-1) ?? markdownEntry.path)
         const document = await markdownAsPdf(handle, markdownEntry.id, markdownEntry.path, markdownEntry.storage === 'reference' ? 'reference' : 'vault', title, source)
         // PDF 화면을 쓰지 않으면 Markdown 뷰어 탭으로(탭 id 는 경로)
         if (document === null) return { tab: { id: markdownEntry.path, title, kind: 'markdown' as const }, document: null, source }
