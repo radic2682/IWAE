@@ -142,7 +142,7 @@ function renderHtml(source: string): FlowDocument {
     heading.textContent = title
     body.prepend(heading)
   }
-  const html = sanitizeFlowHtml(body.innerHTML)
+  const html = sanitizeFlowHtml(body.innerHTML, { htmlOnly: true })
   return { html, headings: headingsOfHtml(html) }
 }
 
@@ -218,12 +218,54 @@ function blockElement(element: Element, depth: number, lines: string[]): void {
   lines.push(pad + span('xml-tag', `</${element.tagName}>`))
 }
 
+/** 이보다 큰 XML 은 색을 입히지 않고 글자 그대로 보인다(요소마다 span 을 만들면 화면이 멈춘다) */
+const XML_MAX_CHARS = 2 * 1024 * 1024
+/** 이보다 깊은 XML 도 글자 그대로 보인다(재귀로 그리다 스택이 넘치지 않게) */
+const XML_MAX_DEPTH = 400
+
+type NoticeKind = 'xmlInvalid' | 'tooLarge' | 'failed'
+
+/** 알림 문구는 읽는 때의 언어로 만든다(그려 둔 결과를 기억해도 언어를 바꾸면 따라간다) */
+function noticeText(kind: NoticeKind): string {
+  switch (kind) {
+    case 'xmlInvalid': return t('XML 형식이 올바르지 않아 글자 그대로 보여 줍니다.')
+    case 'tooLarge': return t('파일이 커서 색 없이 글자 그대로 보여 줍니다.')
+    case 'failed': return t('이 파일을 그리지 못해 글자 그대로 보여 줍니다.')
+  }
+}
+
+/** 글자 그대로 그리고 알림을 붙인다 */
+function plainWithNotice(source: string, kind: NoticeKind): FlowDocument {
+  const base = renderText(source)
+  return { html: base.html, headings: base.headings, get notice() { return noticeText(kind) } }
+}
+
+/** 요소 깊이의 최댓값(재귀 없이 잰다) */
+function maxDepth(doc: Document): number {
+  let deepest = 0
+  const walker = doc.createTreeWalker(doc, NodeFilter.SHOW_ELEMENT)
+  let depth = 0
+  const stack: Node[] = []
+  while (walker.nextNode()) {
+    const node = walker.currentNode
+    while (stack.length > 0 && !stack[stack.length - 1]!.contains(node)) {
+      stack.pop()
+      depth -= 1
+    }
+    stack.push(node)
+    depth += 1
+    if (depth > deepest) deepest = depth
+    if (deepest > XML_MAX_DEPTH) break
+  }
+  return deepest
+}
+
 function renderXml(source: string): FlowDocument {
+  if (source.length > XML_MAX_CHARS) return plainWithNotice(source, 'tooLarge')
   const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source
   const doc = new DOMParser().parseFromString(text, 'application/xml')
-  if (hasParserError(doc)) {
-    return { ...renderText(source), notice: t('XML 형식이 올바르지 않아 글자 그대로 보여 줍니다.') }
-  }
+  if (hasParserError(doc)) return plainWithNotice(source, 'xmlInvalid')
+  if (maxDepth(doc) > XML_MAX_DEPTH) return plainWithNotice(source, 'failed')
   const lines: string[] = []
   // 파서는 맨 앞 <?xml ... ?> 선언을 DOM 에 남기지 않는다. 원문에서 읽어 그대로 보여 준다
   const declaration = /^\s*(<\?xml\s[^?]*\?>)/u.exec(text)
@@ -244,20 +286,29 @@ function renderXml(source: string): FlowDocument {
 /** 마지막으로 그린 몇 개를 기억한다(본문·목차·절 미리보기가 같은 원문으로 거듭 부르므로) */
 const cache: { format: DocumentFormat; source: string; result: FlowDocument }[] = []
 const CACHE_SIZE = 4
+const CACHE_MAX_CHARS = 2 * 1024 * 1024
 
 export function renderFlowDocument(format: DocumentFormat, source: string): FlowDocument {
   const hit = cache.find((entry) => entry.format === format && entry.source === source)
   if (hit !== undefined) return hit.result
   let result: FlowDocument
-  switch (format) {
-    case 'html': result = renderHtml(source); break
-    case 'xml': result = renderXml(source); break
-    case 'text': result = renderText(source); break
-    // PDF 는 이 길로 오지 않는다. 오더라도 Markdown 처럼 그린다
-    default: result = { html: renderMarkdown(source), headings: markdownHeadings(source) }
+  try {
+    switch (format) {
+      case 'html': result = renderHtml(source); break
+      case 'xml': result = renderXml(source); break
+      case 'text': result = renderText(source); break
+      // PDF 는 이 길로 오지 않는다. 오더라도 Markdown 처럼 그린다
+      default: result = { html: renderMarkdown(source), headings: markdownHeadings(source) }
+    }
+  } catch {
+    // 파서 오류·스택 넘침 따위: 화면이 죽지 않게 글자 그대로 보인다
+    result = plainWithNotice(source, 'failed')
   }
-  cache.unshift({ format, source, result })
-  cache.length = Math.min(cache.length, CACHE_SIZE)
+  // 아주 큰 원문은 기억하지 않는다(메모리)
+  if (source.length <= CACHE_MAX_CHARS) {
+    cache.unshift({ format, source, result })
+    cache.length = Math.min(cache.length, CACHE_SIZE)
+  }
   return result
 }
 

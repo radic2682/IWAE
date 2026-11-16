@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { flowHeadings, flowPlainText, flowSectionPreviews, renderFlowDocument } from './flowRender'
-import { renderMarkdown } from './markdown'
+import { renderMarkdown, sanitizeFlowHtml } from './markdown'
 
 /** 결과 HTML 을 다시 읽어 실행될 수 있는 것이 남았는지 본다 */
 function expectInert(html: string): void {
@@ -362,5 +362,48 @@ describe('flowPlainText', () => {
   it('아주 깊은 XML 도 스택이 넘치지 않는다', () => {
     const deep = '<a>'.repeat(5000) + '글' + '</a>'.repeat(5000)
     expect(() => flowPlainText('xml', deep)).not.toThrow()
+  })
+})
+
+describe('큰 XML·실패 대비·알림 문구', () => {
+  it('2MB 를 넘는 XML 은 색 없이 글자 그대로 보이고 알린다(기억하지 않는다)', () => {
+    const big = `<r>${'<i>1</i>'.repeat(300_000)}</r>`
+    expect(big.length).toBeGreaterThan(2 * 1024 * 1024)
+    const result = renderFlowDocument('xml', big)
+    expect(result.notice).toBe('파일이 커서 색 없이 글자 그대로 보여 줍니다.')
+    expect(result.html).toContain('<p class="flow-text">')
+    expect(result.html).not.toContain('xml-tag')
+    // 같은 원문을 다시 그리면 새 결과다(기억하지 않는다)
+    expect(renderFlowDocument('xml', big)).not.toBe(result)
+  })
+
+  it('아주 깊은 XML 은 스택이 넘치지 않고 글자 그대로 보인다', () => {
+    const deep = '<a>'.repeat(3000) + '글' + '</a>'.repeat(3000)
+    const result = renderFlowDocument('xml', deep)
+    expect(result.notice).toBeDefined()
+    expect(result.html).not.toContain('xml-tag')
+  })
+
+  it('보통 크기는 기억해 같은 결과를 돌려준다', () => {
+    const first = renderFlowDocument('text', '기억')
+    expect(renderFlowDocument('text', '기억')).toBe(first)
+  })
+
+  it('파서가 던져도 글자 그대로 보이고 알린다', () => {
+    const original = globalThis.DOMParser
+    globalThis.DOMParser = class { parseFromString(): never { throw new Error('boom') } } as unknown as typeof DOMParser
+    try {
+      const result = renderFlowDocument('html', '<p>한 번도 그린 적 없는 글 1</p>')
+      expect(result.notice).toBe('이 파일을 그리지 못해 글자 그대로 보여 줍니다.')
+      expect(result.html).toContain('&lt;p&gt;')
+    } finally {
+      globalThis.DOMParser = original
+    }
+  })
+
+  it('HTML 마지막 거르기만으로도 svg·math 가 남지 않는다', () => {
+    const out = sanitizeFlowHtml('<svg onload="x()"><script>1</script><a xlink:href="javascript:1"><text>t</text></a></svg><math><mtext>m</mtext></math><p>글</p>', { htmlOnly: true })
+    expect(out).not.toMatch(/svg|math|script|onload|javascript/u)
+    expect(out).toContain('<p>글</p>')
   })
 })

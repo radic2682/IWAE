@@ -507,9 +507,19 @@ export function MarkdownPane({
     () => highlightMarkdownRanges(html, activeHighlights),
     [activeHighlights, html],
   )
+  // 검색어를 칠 때마다 본문 전체를 다시 파싱하지 않게 150ms 쉬었다가 반영한다(비우면 바로, 처음 값도 바로)
+  const [shownQuery, setShownQuery] = useState(searchQuery)
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setShownQuery(searchQuery)
+      return undefined
+    }
+    const timer = window.setTimeout(() => setShownQuery(searchQuery), 150)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery])
   const search = useMemo(
-    () => highlightMarkdownSearch(highlightedHtml, searchQuery),
-    [highlightedHtml, searchQuery],
+    () => highlightMarkdownSearch(highlightedHtml, shownQuery),
+    [highlightedHtml, shownQuery],
   )
   const markdownTheme = getMarkdownTheme(theme)
   const hostRef = useRef<HTMLDivElement | null>(null)
@@ -1501,7 +1511,7 @@ export function MarkdownPane({
           onRemove={onRemovePin}
         />
       ) : null}
-      {searchQuery.trim() === '' ? null : (
+      {shownQuery.trim() === '' ? null : (
         <output className="markdown-search-count" aria-label={t('Markdown 검색 결과')}>
           {t('{count}개 결과', { count: search.count })}
         </output>

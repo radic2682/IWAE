@@ -336,3 +336,15 @@ describe('MarkdownPane', () => {
     expect(onOpenDocument.mock.calls).toEqual([['docs/log.txt', null], ['docs/cfg.xml', 'n']])
   })
 })
+
+describe('MarkdownPane 검색어 반영', () => {
+  it('처음 값은 바로, 바뀐 값은 150ms 뒤에 칠하고 비우면 바로 지운다', async () => {
+    const view = render(<MarkdownPane title="s" source={'alpha beta alpha'} searchQuery="alpha" />)
+    expect(view.container.querySelectorAll('mark.markdown-search-hit')).toHaveLength(2)
+    view.rerender(<MarkdownPane title="s" source={'alpha beta alpha'} searchQuery="beta" />)
+    expect(view.container.querySelectorAll('mark.markdown-search-hit')).toHaveLength(2)
+    await waitFor(() => expect(view.container.querySelectorAll('mark.markdown-search-hit')).toHaveLength(1))
+    view.rerender(<MarkdownPane title="s" source={'alpha beta alpha'} searchQuery="" />)
+    await waitFor(() => expect(view.container.querySelectorAll('mark.markdown-search-hit')).toHaveLength(0))
+  })
+})

@@ -127,8 +127,10 @@ function stripFrontMatter(markdown: string): string {
  * 읽기 화면에 넣을 HTML 을 거르는 한 곳. Markdown 과 HTML 문서(flowRender)가 같은 설정을 쓴다.
  * 상대 경로 그림은 위 훅이 data-md-src 로 옮기고, 바깥 그림은 CSP 가 막는다.
  */
-export function sanitizeFlowHtml(html: string): string {
+export function sanitizeFlowHtml(html: string, options: { readonly htmlOnly?: boolean } = {}): string {
   return DOMPurify.sanitize(html, {
+    // htmlOnly: svg·MathML 을 아예 받지 않는다(HTML 문서 읽기. 앞 단계가 놓쳐도 이 단계만으로 충분하게)
+    ...(options.htmlOnly === true ? { USE_PROFILES: { html: true } } : {}),
     ADD_ATTR: ['data-md-src', 'loading', 'target'],
     ALLOWED_URI_REGEXP: ALLOWED_URI,
     FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'iframe', 'object', 'embed'],
