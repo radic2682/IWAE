@@ -8,7 +8,7 @@ import {
   listVaultTree,
   openVault,
   readLibrary,
-  readMarkdown,
+  readDocumentText,
   readSession,
   recentVaults,
   writeSession,
@@ -68,7 +68,7 @@ vi.mock('../../bridge/vault', () => ({
   listVaultTree: vi.fn(),
   openVault: vi.fn(),
   readLibrary: vi.fn(),
-  readMarkdown: vi.fn(),
+  readDocumentText: vi.fn(),
   readSession: vi.fn(),
   loadSessions: vi.fn(),
   listSessionNames: vi.fn().mockResolvedValue([]),
@@ -137,7 +137,7 @@ describe('useVault — 시작 복원', () => {
     vi.mocked(recentVaults).mockReset()
     vi.mocked(openVault).mockReset()
     vi.mocked(readLibrary).mockReset()
-    vi.mocked(readMarkdown).mockReset()
+    vi.mocked(readDocumentText).mockReset()
     vi.mocked(listVaultTree).mockReset()
     vi.mocked(readSession).mockReset()
     vi.mocked(writeSession).mockReset()
@@ -162,7 +162,7 @@ describe('useVault — 시작 복원', () => {
     vi.mocked(moveVaultEntry).mockReset()
     vi.mocked(trashVaultEntry).mockReset()
 
-    vi.mocked(readMarkdown).mockResolvedValue('# Indexed Markdown\nHTTP content negotiation')
+    vi.mocked(readDocumentText).mockResolvedValue('# Indexed Markdown\nHTTP content negotiation')
     vi.mocked(writeSession).mockResolvedValue(undefined)
 
     vi.mocked(recentVaults).mockResolvedValue(['C:/Vault'])
@@ -436,7 +436,7 @@ describe('useVault — 시작 복원', () => {
       sidebarPx: 280,
       leftFrac: 0.5,
     })
-    vi.mocked(readMarkdown).mockResolvedValue('# Restored')
+    vi.mocked(readDocumentText).mockResolvedValue('# Restored')
 
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
@@ -475,7 +475,7 @@ describe('useVault — 시작 복원', () => {
       leftFrac: 0.5,
     })
     vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [inside] })
-    vi.mocked(readMarkdown).mockResolvedValue('# Restored')
+    vi.mocked(readDocumentText).mockResolvedValue('# Restored')
 
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
@@ -506,12 +506,12 @@ describe('useVault — 시작 복원', () => {
       leftFrac: 0.5,
     })
     vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [external] })
-    vi.mocked(readMarkdown).mockResolvedValue('# External')
+    vi.mocked(readDocumentText).mockResolvedValue('# External')
 
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
 
-    expect(readMarkdown).toHaveBeenCalledWith({ root: 'C:/Vault' }, external.id)
+    expect(readDocumentText).toHaveBeenCalledWith({ root: 'C:/Vault' }, external.id)
     expect(paneTabs(result, 0)).toEqual({
       tabs: [{ id: external.path, title: external.displayName, kind: 'markdown' }],
       activeId: external.path,
@@ -628,7 +628,7 @@ describe('useVault — 시작 복원', () => {
   })
 
   it.skipIf(!CANVAS_ENABLED)('Markdown을 읽어 왼쪽 문서 탭에 열고 원문을 별도 읽기 상태로 보관한다', async () => {
-    vi.mocked(readMarkdown).mockResolvedValue('# HTTP')
+    vi.mocked(readDocumentText).mockResolvedValue('# HTTP')
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.initializing).toBe(false))
 
@@ -643,7 +643,7 @@ describe('useVault — 시작 복원', () => {
       })
     })
 
-    expect(readMarkdown).toHaveBeenCalledWith({ root: 'C:/Vault' }, 'HTTP/README.md')
+    expect(readDocumentText).toHaveBeenCalledWith({ root: 'C:/Vault' }, 'HTTP/README.md')
     expect(result.current.markdownSources).toEqual({ 'HTTP/README.md': '# HTTP' })
     expect(paneTabs(result, 0)).toEqual({
       tabs: [
@@ -730,7 +730,7 @@ describe('useVault — 시작 복원', () => {
       const record = result.current.searchRecords.find((candidate) => candidate.path === 'HTTP/README.md')
       expect(record?.extractedText).toContain('content negotiation')
     })
-    expect(readMarkdown).toHaveBeenCalledWith({ root: 'C:/Vault' }, 'HTTP/README.md')
+    expect(readDocumentText).toHaveBeenCalledWith({ root: 'C:/Vault' }, 'HTTP/README.md')
   })
 
   it('해시가 일치하는 PDF 본문 캐시는 즉시 검색 레코드에 복원한다', async () => {

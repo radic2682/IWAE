@@ -11,7 +11,8 @@ import {
   pickVaultFolder,
   readCanvas,
   readLibrary,
-  readMarkdown,
+  readDocumentText,
+  readEagerSearchTexts,
   quarantineVaultMetaFile,
   readPdfHighlights,
   VaultFileCorruptError,
@@ -64,6 +65,7 @@ const fsMocks = vi.hoisted(() => ({
   exists: vi.fn(),
   mkdir: vi.fn(),
   readTextFile: vi.fn(),
+  readFile: vi.fn(),
   readDir: vi.fn(),
   writeTextFile: vi.fn(),
   rename: vi.fn(),
@@ -105,6 +107,7 @@ describe('vault library', () => {
     fsMocks.exists.mockReset()
     fsMocks.mkdir.mockReset()
     fsMocks.readTextFile.mockReset()
+    fsMocks.readFile.mockReset()
     fsMocks.readDir.mockReset()
     fsMocks.writeTextFile.mockReset()
     fsMocks.rename.mockReset()
@@ -287,15 +290,55 @@ describe('vault library', () => {
       addedAt: '2026-09-30T00:00:00.000Z',
       missing: false,
     }
-    fsMocks.readTextFile.mockImplementation(async (path: string) => (
-      path.endsWith('index.json')
-        ? JSON.stringify({ version: 1, entries: [reference] })
-        : '# External\n'
-    ))
+    fsMocks.readTextFile.mockResolvedValue(JSON.stringify({ version: 1, entries: [reference] }))
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.stat.mockResolvedValue({ size: 11 })
+    fsMocks.readFile.mockResolvedValue(new TextEncoder().encode('# External\n'))
 
-    await expect(readMarkdown(vault, reference.id)).resolves.toBe('# External\n')
-    expect(fsMocks.readTextFile).toHaveBeenCalledWith(reference.path)
-    await expect(readMarkdown(vault, 'C:/External/Design.md')).rejects.toThrow('경로')
+    await expect(readDocumentText(vault, reference.id)).resolves.toBe('# External\n')
+    expect(fsMocks.readFile).toHaveBeenCalledWith(reference.path)
+    await expect(readDocumentText(vault, 'C:/External/Design.md')).rejects.toThrow('경로')
+  })
+
+  it('문서 글은 바이트로 읽어 부호화를 알아본다(UTF-8 BOM·CP949)', async () => {
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.stat.mockResolvedValue({ size: 10 })
+    fsMocks.readFile.mockResolvedValueOnce(Uint8Array.from([0xef, 0xbb, 0xbf, 0x23, 0x20, 0xea, 0xb0, 0x80]))
+    await expect(readDocumentText(vault, 'notes/a.md')).resolves.toBe('# 가')
+    fsMocks.readFile.mockResolvedValueOnce(Uint8Array.from([0xb0, 0xa1, 0xb3, 0xaa]))
+    await expect(readDocumentText(vault, 'notes/b.txt')).resolves.toBe('가나')
+    expect(fsMocks.readFile).toHaveBeenCalledWith('C:/Vault/notes/b.txt')
+  })
+
+  it('20MB 를 넘는 문서는 읽지 않고 거절한다(크기를 알 때·모를 때)', async () => {
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.stat.mockResolvedValue({ size: 20 * 1024 * 1024 + 1 })
+    await expect(readDocumentText(vault, 'big.log')).rejects.toThrow('너무 커서')
+    expect(fsMocks.readFile).not.toHaveBeenCalled()
+    fsMocks.stat.mockRejectedValue(new Error('no stat'))
+    fsMocks.readFile.mockResolvedValue(new Uint8Array(20 * 1024 * 1024 + 1))
+    await expect(readDocumentText(vault, 'big.log')).rejects.toThrow('너무 커서')
+  })
+
+  it('Vault 를 열 때 미리 읽는 검색 글: Markdown 은 모두, 그 밖은 1MB 이하 500개까지', async () => {
+    fsMocks.exists.mockResolvedValue(true)
+    const sizes: Record<string, number> = { 'big.log': 5 * 1024 * 1024 }
+    fsMocks.stat.mockImplementation(async (path: string) => ({ size: sizes[path.split('/').at(-1)!] ?? 10 }))
+    fsMocks.readFile.mockImplementation(async () => new TextEncoder().encode('글'))
+    const entries = [
+      { id: 'm', path: 'a.md' },
+      { id: 'big', path: 'big.log' },
+      { id: 't1', path: 'a.txt' },
+      { id: 't2', path: 'b.txt' },
+      { id: 't3', path: 'c.html' },
+    ]
+    const small = await readEagerSearchTexts(vault, entries)
+    expect(small.map(([id]) => id).sort()).toEqual(['m', 't1', 't2', 't3'])
+    const limited = await readEagerSearchTexts(vault, entries, { maxBytes: 1024 * 1024, maxFiles: 2 })
+    expect(limited.map(([id]) => id).sort()).toEqual(['m', 't1', 't2'])
+    // 큰 Markdown 도 20MB 까지는 예전처럼 읽는다
+    sizes['a.md'] = 5 * 1024 * 1024
+    expect((await readEagerSearchTexts(vault, entries)).map(([id]) => id)).toContain('m')
   })
 
   it('데스크톱에서는 index.json을 저널 원자 쓰기로 저장한다', async () => {
@@ -817,20 +860,24 @@ describe('vault session and notes', () => {
   })
 
   it('Markdown은 vault 안의 .md 파일만 읽고 쓰기 API를 노출하지 않는다', async () => {
-    fsMocks.readTextFile.mockResolvedValue('# Read only')
+    fsMocks.readFile.mockResolvedValue(new TextEncoder().encode('# Read only'))
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.stat.mockResolvedValue({ size: 11 })
 
-    await expect(readMarkdown(vault, 'Notes/README.md')).resolves.toBe('# Read only')
-    expect(fsMocks.readTextFile).toHaveBeenCalledWith('C:/Vault/Notes/README.md')
-    await expect(readMarkdown(vault, '../README.md')).rejects.toThrow('경로')
-    await expect(readMarkdown(vault, 'Notes/README.canvas')).rejects.toThrow('Markdown')
+    await expect(readDocumentText(vault, 'Notes/README.md')).resolves.toBe('# Read only')
+    expect(fsMocks.readFile).toHaveBeenCalledWith('C:/Vault/Notes/README.md')
+    await expect(readDocumentText(vault, '../README.md')).rejects.toThrow('경로')
+    await expect(readDocumentText(vault, 'Notes/README.canvas')).rejects.toThrow('문서')
   })
 
   it('.markdown 확장자 문서도 vault 안에서 읽고 외부 참조로 가져올 수 있다', async () => {
-    fsMocks.readTextFile.mockResolvedValue('# Long extension')
-    await expect(readMarkdown(vault, 'Notes/Guide.markdown')).resolves.toBe('# Long extension')
-    expect(fsMocks.readTextFile).toHaveBeenCalledWith('C:/Vault/Notes/Guide.markdown')
-    await expect(readMarkdown(vault, 'Notes/Guide.MARKDOWN')).resolves.toBe('# Long extension')
-    await expect(readMarkdown(vault, 'Notes/Guide.mdx')).rejects.toThrow('Markdown')
+    fsMocks.readFile.mockResolvedValue(new TextEncoder().encode('# Long extension'))
+    fsMocks.exists.mockResolvedValue(true)
+    fsMocks.stat.mockResolvedValue({ size: 16 })
+    await expect(readDocumentText(vault, 'Notes/Guide.markdown')).resolves.toBe('# Long extension')
+    expect(fsMocks.readFile).toHaveBeenCalledWith('C:/Vault/Notes/Guide.markdown')
+    await expect(readDocumentText(vault, 'Notes/Guide.MARKDOWN')).resolves.toBe('# Long extension')
+    await expect(readDocumentText(vault, 'Notes/Guide.mdx')).rejects.toThrow('문서')
     // 가져오기(참조 등록)
     fsMocks.readTextFile.mockImplementation(async (path: string) => (
       path.endsWith('index.json') ? JSON.stringify({ version: 1, entries: [] }) : '# Long extension\n'

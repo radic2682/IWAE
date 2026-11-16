@@ -34,7 +34,8 @@ import {
   pickVaultFolder,
   readCanvas,
   readLibrary,
-  readMarkdown,
+  readDocumentText,
+  readEagerSearchTexts,
   readPdfBookmarks,
   readPdfHighlights,
   registerUnlistedVaultPdfs,
@@ -361,7 +362,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
       const title = (indexed?.displayName === undefined || indexed.displayName === '' ? undefined : indexed.displayName) ?? markdownTitles.get(id)
       if (title === undefined) return null
       try {
-        const source = await readMarkdown(handle, external?.id ?? id)
+        const source = await readDocumentText(handle, external?.id ?? id)
         // 예전 세션의 Markdown 탭도 PDF 화면으로 연다(탭 id 가 색인 id 로 바뀐다)
         if (indexed !== undefined) {
           const document = await markdownAsPdf(handle, indexed.id, indexed.path, indexed.storage === 'reference' ? 'reference' : 'vault', title, source)
@@ -383,7 +384,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     const markdownEntry = entry === undefined ? reconciledIndex.entries.find((indexed) => indexed.id === baseId && indexed.kind === 'markdown' && !indexed.missing) : undefined
     if (markdownEntry !== undefined) {
       try {
-        const source = await readMarkdown(handle, markdownEntry.storage === 'reference' ? markdownEntry.id : markdownEntry.path)
+        const source = await readDocumentText(handle, markdownEntry.storage === 'reference' ? markdownEntry.id : markdownEntry.path)
         const title = markdownEntry.displayName ?? (markdownEntry.path.split('/').at(-1) ?? markdownEntry.path).replace(/\.(?:md|markdown)$/iu, '')
         const document = await markdownAsPdf(handle, markdownEntry.id, markdownEntry.path, markdownEntry.storage === 'reference' ? 'reference' : 'vault', title, source)
         // PDF 화면을 쓰지 않으면 Markdown 뷰어 탭으로(탭 id 는 경로)
@@ -734,17 +735,12 @@ export function useVault(options: UseVaultOptions = {}) {
       const markdownEntries = reconciledIndex.entries.filter((entry) => (
         isFlowVaultEntry(entry) && entry.storage === 'vault' && !entry.missing
       ))
-      void Promise.all(markdownEntries.map(async (entry) => {
-        try {
-          return [entry.id, await readMarkdown(handle, entry.path)] as const
-        } catch {
-          return null
-        }
-      })).then((records) => {
+      // 검색용 글을 미리 읽는다. Markdown 은 모두, 그 밖의 형식은 작은 파일만 적은 수로(나머지는 열 때 읽는다)
+      void readEagerSearchTexts(handle, markdownEntries).then((records) => {
         if (searchGenerationRef.current !== searchGeneration) return
         setExtractedSearchText((current) => ({
           ...current,
-          ...Object.fromEntries(records.filter((record) => record !== null)),
+          ...Object.fromEntries(records),
         }))
       })
       // 설정 「Vault를 열 때 모든 PDF 색인」을 끄면 미리 읽지 않는다(「색인 다시 만들기」로 따로 만든다)
@@ -1601,7 +1597,7 @@ export function useVault(options: UseVaultOptions = {}) {
         openInPane({ id: meta.docId, title: meta.title, kind: 'pdf' })
       } else if (firstImported?.kind === 'markdown') {
         const { entry } = firstImported
-        const source = await readMarkdown(vault, entry.id)
+        const source = await readDocumentText(vault, entry.id)
         setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
         openInPane({
           id: entry.path,
@@ -1707,7 +1703,7 @@ export function useVault(options: UseVaultOptions = {}) {
     } else if (first?.kind === 'markdown') {
       const { relativePath } = first
       try {
-        const source = await readMarkdown(vault, relativePath)
+        const source = await readDocumentText(vault, relativePath)
         setMarkdownSources((current) => ({ ...current, [relativePath]: source }))
         openInPane({ id: relativePath, title: stripDocumentExtension(relativePath.split('/').at(-1) ?? relativePath), kind: 'markdown' })
       } catch {
@@ -1728,7 +1724,7 @@ export function useVault(options: UseVaultOptions = {}) {
     const paths = Object.keys(markdownSourcesRef.current)
     const reloaded = await Promise.all(paths.map(async (path) => {
       try {
-        return [path, await readMarkdown(vault, path)] as const
+        return [path, await readDocumentText(vault, path)] as const
       } catch {
         return null
       }
@@ -1992,7 +1988,7 @@ export function useVault(options: UseVaultOptions = {}) {
       return null
     }
     try {
-      const source = await readMarkdown(vault, markdown.storage === 'reference' ? markdown.indexId : markdown.path)
+      const source = await readDocumentText(vault, markdown.storage === 'reference' ? markdown.indexId : markdown.path)
       const fileId = vaultIndex.find((entry) => entry.path === markdown.path)?.id
       if (fileId !== undefined) {
         setExtractedSearchText((current) => ({ ...current, [fileId]: source }))
@@ -2078,7 +2074,7 @@ export function useVault(options: UseVaultOptions = {}) {
     const entry = vaultIndex.find((candidate) => candidate.id === id)
     if (entry === undefined) return
     if (isFlowVaultEntry(entry) && entry.storage === 'vault') {
-      void readMarkdown(vault, entry.path).then((source) => {
+      void readDocumentText(vault, entry.path).then((source) => {
         setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
         setExtractedSearchText((current) => ({ ...current, [entry.id]: source }))
       }).catch(reportReloadError)

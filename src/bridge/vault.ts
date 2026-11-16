@@ -1,6 +1,7 @@
 import { EMPTY_PDF_OVERLAYS, parsePdfOverlays, serializePdfOverlays, type PdfOverlaysFile } from '../core/pdfOverlays'
 import { isMarkdownPath } from '../core/markdownPath'
 import { documentFormatOf, isFlowDocumentPath, isPdfPath } from '../core/documentFormat'
+import { decodeDocumentBytes, MAX_DOCUMENT_BYTES } from '../core/textDecode'
 import { EMPTY_VERSION_GROUPS, parseVersionGroups, type VersionGroupsFile } from '../core/versionGroups'
 import { EMPTY_DOC_SOURCES, parseDocSources, type DocSourcesFile } from '../core/docSources'
 import { EMPTY_BIBLIOGRAPHY, parseBibliographyFile, type BibliographyFile } from '../core/bibliography'
@@ -790,7 +791,7 @@ export async function attachMarkdownReference(
   sourcePath: string,
 ): Promise<VaultIndexEntry> {
   if (!isFlowDocumentPath(sourcePath) || /[\\/]$/u.test(sourcePath)) {
-    throw new Error(t('Markdown 파일 경로가 올바르지 않습니다.'))
+    throw new Error(t('문서 파일 경로가 올바르지 않습니다.'))
   }
 
   const index = await readVaultIndex(vault)
@@ -1351,30 +1352,86 @@ function validateMarkdownPath(markdownPath: string): readonly string[] {
     || parts.some((part) => part === '' || part === '.' || part === '..')
     || !isFlowDocumentPath(normalized)
   ) {
-    throw new Error(t('올바른 Vault Markdown 경로가 아닙니다.'))
+    throw new Error(t('올바른 Vault 문서 경로가 아닙니다.'))
   }
   return parts
 }
 
-export async function readMarkdown(vault: VaultHandle, markdownPath: string): Promise<string> {
-  const { exists, readTextFile } = await import('@tauri-apps/plugin-fs')
-  if (!isFlowDocumentPath(markdownPath)) {
-    if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/iu.test(markdownPath)) {
-      throw new Error(t('Markdown 파일 경로가 올바르지 않습니다.'))
+/** 문서 참조(Vault 상대 경로 또는 참조 색인 id)를 디스크의 실제 경로로 바꾼다. 검증은 예전 readDocumentText 과 같다 */
+async function resolveDocumentPath(vault: VaultHandle, documentPath: string): Promise<string> {
+  const { exists } = await import('@tauri-apps/plugin-fs')
+  if (!isFlowDocumentPath(documentPath)) {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/iu.test(documentPath)) {
+      throw new Error(t('문서 파일 경로가 올바르지 않습니다.'))
     }
     const index = await readVaultIndex(vault)
-    const entry = index.entries.find((candidate) => candidate.id === markdownPath)
+    const entry = index.entries.find((candidate) => candidate.id === documentPath)
     if (entry === undefined || !isFlowVaultEntry(entry) || entry.storage !== 'reference') {
-      throw new Error(t('Markdown 참조를 찾을 수 없습니다.'))
+      throw new Error(t('문서 참조를 찾을 수 없습니다.'))
     }
-    if (!(await exists(entry.path))) throw new Error(t('Markdown 파일을 찾을 수 없습니다.'))
-    return readTextFile(entry.path)
+    if (!(await exists(entry.path))) throw new Error(t('문서 파일을 찾을 수 없습니다.'))
+    return entry.path
   }
 
   const { join } = await import('@tauri-apps/api/path')
-  const path = await join(vault.root, ...validateMarkdownPath(markdownPath))
-  if (!(await exists(path))) throw new Error(t('Markdown 파일을 찾을 수 없습니다.'))
-  return readTextFile(path)
+  const path = await join(vault.root, ...validateMarkdownPath(documentPath))
+  if (!(await exists(path))) throw new Error(t('문서 파일을 찾을 수 없습니다.'))
+  return path
+}
+
+/** 바이트로 읽어 부호화를 알아내 푼다. 한도를 넘으면(크기를 알 수 있으면 읽기 전에) null */
+async function readDocumentFile(path: string, maxBytes: number): Promise<string | null> {
+  const { readFile, stat } = await import('@tauri-apps/plugin-fs')
+  const info = await stat(path).catch(() => null)
+  if (info !== null && info.size > maxBytes) return null
+  const bytes = await readFile(path)
+  if (bytes.length > maxBytes) return null
+  return decodeDocumentBytes(bytes)
+}
+
+/**
+ * 흐르는 글 문서(Markdown·텍스트·HTML·XML)의 글을 읽는다. 읽기 전용이다(IWAE 는 이 형식들을 쓰지 않는다).
+ * UTF-8(BOM 은 뗀다)·UTF-16(BOM)·한글 CP949 를 알아보고, 20MB 를 넘으면 거절한다.
+ */
+export async function readDocumentText(vault: VaultHandle, documentPath: string): Promise<string> {
+  const text = await readDocumentFile(await resolveDocumentPath(vault, documentPath), MAX_DOCUMENT_BYTES)
+  if (text === null) throw new Error(t('파일이 너무 커서 열 수 없습니다. (20MB까지)'))
+  return text
+}
+
+export const EAGER_SEARCH_MAX_BYTES = 1024 * 1024
+export const EAGER_SEARCH_MAX_FILES = 500
+
+/**
+ * Vault 를 열 때 검색용으로 미리 읽는 글. Markdown 은 모두(예전과 같다), 그 밖의 형식은 작은 파일만 적은 수로 읽는다
+ * (수백 MB 로그나 저장한 웹 페이지 수천 개가 열기를 멈추지 않게). 건너뛴 파일은 열 때 읽는다.
+ */
+export async function readEagerSearchTexts(
+  vault: VaultHandle,
+  entries: readonly { readonly id: string; readonly path: string }[],
+  limits: { readonly maxBytes: number; readonly maxFiles: number } = { maxBytes: EAGER_SEARCH_MAX_BYTES, maxFiles: EAGER_SEARCH_MAX_FILES },
+): Promise<(readonly [string, string])[]> {
+  const readOne = async (entry: { readonly id: string; readonly path: string }, maxBytes: number): Promise<readonly [string, string] | null> => {
+    try {
+      const text = await readDocumentFile(await resolveDocumentPath(vault, entry.path), maxBytes)
+      return text === null ? null : [entry.id, text] as const
+    } catch {
+      return null // 읽지 못한 파일은 건너뛴다
+    }
+  }
+  const isMarkdown = (entry: { readonly path: string }) => documentFormatOf(entry.path) === 'markdown'
+  const markdown = await Promise.all(entries.filter(isMarkdown).map((entry) => readOne(entry, MAX_DOCUMENT_BYTES)))
+  const records = markdown.filter((record) => record !== null)
+  let others = 0
+  for (const entry of entries) {
+    if (others >= limits.maxFiles) break
+    if (isMarkdown(entry)) continue
+    const record = await readOne(entry, limits.maxBytes)
+    if (record === null) continue
+    others += 1
+    records.push(record)
+  }
+  return records
 }
 
 export async function readCanvas(

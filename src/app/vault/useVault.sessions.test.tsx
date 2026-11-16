@@ -24,7 +24,7 @@ vi.mock('../../bridge/vault', () => ({
   listVaultTree: vi.fn().mockResolvedValue([]),
   openVault: vi.fn().mockResolvedValue({ root: 'C:/Vault' }),
   readLibrary: vi.fn().mockResolvedValue([]),
-  readMarkdown: vi.fn(),
+  readDocumentText: vi.fn(),
   readSession: vi.fn(),
   loadSessions: vi.fn(),
   listSessionNames: vi.fn(),
