@@ -343,9 +343,9 @@ describe('vault library', () => {
     fsMocks.readFile.mockClear()
     fsMocks.stat.mockRejectedValue(new Error('no stat'))
     // stat 이 실패하면 Markdown 만 읽는다(읽은 뒤 크기 검사). 그 밖의 형식은 읽지 않는다
+    expect((await readEagerSearchTexts(vault, entries)).map(([id]) => id)).toEqual(['m'])
     expect(fsMocks.readFile).toHaveBeenCalledTimes(1)
     fsMocks.readFile.mockClear()
-    expect(fsMocks.readFile).toHaveBeenCalledTimes(1)
     fsMocks.stat.mockImplementation(async () => ({ size: 21 * 1024 * 1024 }))
     expect(await readEagerSearchTexts(vault, entries)).toEqual([])
     expect(fsMocks.readFile).not.toHaveBeenCalled()
