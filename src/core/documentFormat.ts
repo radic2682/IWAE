@@ -99,7 +99,7 @@ export function documentPickerFilters(): readonly DocumentPickerFilter[] {
  * PDF·Markdown 은 예전처럼 확장자 없이 보인다
  */
 export function shownDocumentName(path: string, displayName: string): string {
-  const base = path.split(/[\/]/u).at(-1) ?? path
+  const base = path.split(/[\\/]/u).at(-1) ?? path
   const format = documentFormatOf(base)
   if ((format === 'text' || format === 'html' || format === 'xml') && displayName === stripDocumentExtension(base)) return base
   return displayName

@@ -91,6 +91,7 @@ describe('shownDocumentName', () => {
     expect(shownDocumentName('Docs/a.txt', 'a')).toBe('a.txt')
     expect(shownDocumentName('Docs/page.HTML', 'page')).toBe('page.HTML')
     expect(shownDocumentName('c:/x/data.xml', 'data')).toBe('data.xml')
+    expect(shownDocumentName(String.raw`c:\x\data.xml`, 'data')).toBe('data.xml')
     expect(shownDocumentName('Docs/a.md', 'a')).toBe('a')
     expect(shownDocumentName('Docs/a.pdf', 'a')).toBe('a')
   })

@@ -214,6 +214,20 @@ describe('Sidebar — 문서 추가', () => {
     await waitFor(() => expect(onRenameEntry).toHaveBeenCalledWith('77aa11bb22cc', 'Rust Handbook'))
   })
 
+  it('고치지 않고 이름 칸을 닫으면(blur) 아무것도 저장하지 않는다 — 확장자를 붙여 보인 a.txt 가 표시 이름으로 적히지 않는다', async () => {
+    const onRenameEntry = vi.fn().mockResolvedValue(undefined)
+    const tree: readonly VaultTreeNode[] = [{
+      id: 'markdown:Notes/a.txt', kind: 'markdown', name: 'a.txt', path: 'Notes/a.txt', storage: 'vault', indexId: 'Notes/a.txt',
+    }]
+    await renderSidebar({ tree, onRenameEntry })
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'a.txt, 텍스트' }))
+    const input = screen.getByRole('textbox', { name: 'a.txt 표시 이름' })
+    fireEvent.blur(input)
+    await Promise.resolve()
+    expect(onRenameEntry).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: 'a.txt 표시 이름' })).toBeNull()
+  })
+
   it('노트와 Markdown도 더블클릭으로 표시 이름을 바꾼다', async () => {
     const onRenameEntry = vi.fn().mockResolvedValue(undefined)
     const tree: readonly VaultTreeNode[] = [{

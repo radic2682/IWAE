@@ -632,10 +632,13 @@ export function Sidebar({
     ? undefined
     : (x: number, y: number) => setEmojiTarget({ key, x, y })
 
+  /** 이름 고치기를 시작할 때 보인 이름 */
+  const renameStartNameRef = useRef<string | null>(null)
   const startRenaming = (id: string, name: string) => {
     if (onRenameEntry === undefined) return
     // Enter 로 끝낸 앞 편집은 칸이 사라져 blur 가 오지 않으므로, 건너뛰기 표시가 남아 다음 편집의 blur 를 삼킨다
     skipRenameBlurRef.current = false
+    renameStartNameRef.current = name
     setEditingEntryId(id)
     setEditingName(name)
     setRenameError(null)
@@ -646,6 +649,13 @@ export function Sidebar({
     const displayName = editingName.trim()
     if (displayName === '') {
       setRenameError(t('표시 이름을 입력하세요.'))
+      return
+    }
+    // 고치지 않고 끝냈으면(blur 로 닫을 때 포함) 아무것도 저장하지 않는다.
+    // 안 그러면 보이는 이름(예: 확장자를 붙여 보이는 a.txt)이 표시 이름으로 색인에 적힌다
+    if (displayName === renameStartNameRef.current) {
+      setEditingEntryId(null)
+      setRenameError(null)
       return
     }
     // 판 묶음 줄: 줄에 보이는 것은 묶음 이름이므로 묶음 이름을 바꾼다(PDF 는 docId, Markdown 은 경로로 온다)
@@ -1786,7 +1796,7 @@ export function Sidebar({
             ? <div ref={setNavHost} className="library-nav-host" />
             : projectedTree.documents.length > 0 || draft?.section === 'documents'
             ? renderTree(projectedTree.documents, '', 0, 'documents')
-            : <p className="side-section-empty">{t('문서가 없습니다. PDF나 문서를 끌어 넣으세요')}</p>}
+            : <p className="side-section-empty">{t('문서 파일을 끌어 넣으세요')}</p>}
         </section>
 
         {memoNotes !== undefined && !libraryExpanded ? (

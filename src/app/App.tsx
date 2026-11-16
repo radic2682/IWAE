@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translation/translationCacheStore'
 import { isMarkdownPath } from '../core/markdownPath'
-import { documentFormatOf, isFlowDocumentPath, isOpenableDocumentPath, isPdfPath, stripDocumentExtension } from '../core/documentFormat'
+import { documentFormatOf, isFlowDocumentPath, isOpenableDocumentPath, isPdfPath, shownDocumentName, stripDocumentExtension } from '../core/documentFormat'
 import { isFlowVaultEntry } from '../core/vaultIndex'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
@@ -2280,7 +2280,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     if (opened !== undefined) return { id: opened.docId, title: docTitles[opened.docId] ?? opened.title, kind: 'pdf' }
     const entry = shownLibrary.find((doc) => doc.docId === docId)
     if (entry !== undefined) return { id: entry.docId, title: docTitles[entry.docId] ?? entry.title, kind: 'pdf' }
-    if (markdownSources[docId] !== undefined) return { id: docId, title: stripDocumentExtension(docId.split(/[\\/]/u).at(-1) ?? docId), kind: 'markdown' }
+    if (markdownSources[docId] !== undefined) return { id: docId, title: shownDocumentName(docId, stripDocumentExtension(docId.split(/[\\/]/u).at(-1) ?? docId)), kind: 'markdown' }
     return null
   }
   /** channel 의 보이는 캔버스(except 창 제외) 중에 그 메모에 이어진 블록이 있는 것이 있는가 */
@@ -3990,6 +3990,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         prefixText={prefixHint}
         onPdf={isDetachedWindow ? undefined : () => emptyPaneActions.pdf(pane)}
         onMarkdown={isDetachedWindow ? undefined : () => emptyPaneActions.markdown(pane)}
+        libraryOpen={libraryExpanded}
         onNote={isDetachedWindow || vault === null ? undefined : () => void emptyPaneActions.note(pane)}
         onCanvas={CANVAS_ENABLED && !isDetachedWindow && vault !== null ? () => void emptyPaneActions.canvas(pane) : undefined}
         onClose={paneCount > 1 ? () => closePane(pane) : undefined}
