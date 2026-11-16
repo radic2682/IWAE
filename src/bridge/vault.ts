@@ -1380,10 +1380,12 @@ async function resolveDocumentPath(vault: VaultHandle, documentPath: string): Pr
 }
 
 /** 바이트로 읽어 부호화를 알아내 푼다. 한도를 넘으면(크기를 알 수 있으면 읽기 전에) null */
-async function readDocumentFile(path: string, maxBytes: number): Promise<string | null> {
+async function readDocumentFile(path: string, maxBytes: number, strict = false): Promise<string | null> {
   const { readFile, stat } = await import('@tauri-apps/plugin-fs')
   const info = await stat(path).catch(() => null)
   if (info !== null && info.size > maxBytes) return null
+  // strict: 크기를 알 수 없으면 읽지 않는다(Vault 를 열 때 미리 읽기용. 거대한 파일을 통째로 읽지 않게)
+  if (info === null && strict) return null
   const bytes = await readFile(path)
   if (bytes.length > maxBytes) return null
   return decodeDocumentBytes(bytes)
@@ -1413,7 +1415,7 @@ export async function readEagerSearchTexts(
 ): Promise<(readonly [string, string])[]> {
   const readOne = async (entry: { readonly id: string; readonly path: string }, maxBytes: number): Promise<readonly [string, string] | null> => {
     try {
-      const text = await readDocumentFile(await resolveDocumentPath(vault, entry.path), maxBytes)
+      const text = await readDocumentFile(await resolveDocumentPath(vault, entry.path), maxBytes, true)
       return text === null ? null : [entry.id, text] as const
     } catch {
       return null // 읽지 못한 파일은 건너뛴다

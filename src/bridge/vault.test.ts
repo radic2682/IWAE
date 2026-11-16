@@ -336,6 +336,15 @@ describe('vault library', () => {
     expect(small.map(([id]) => id).sort()).toEqual(['m', 't1', 't2', 't3'])
     const limited = await readEagerSearchTexts(vault, entries, { maxBytes: 1024 * 1024, maxFiles: 2 })
     expect(limited.map(([id]) => id).sort()).toEqual(['m', 't1', 't2'])
+    // 크기를 알 수 없거나(stat 실패) 한도를 넘으면 미리 읽기는 readFile 을 부르지 않는다
+    fsMocks.readFile.mockClear()
+    fsMocks.stat.mockRejectedValue(new Error('no stat'))
+    expect(await readEagerSearchTexts(vault, entries)).toEqual([])
+    expect(fsMocks.readFile).not.toHaveBeenCalled()
+    fsMocks.stat.mockImplementation(async () => ({ size: 21 * 1024 * 1024 }))
+    expect(await readEagerSearchTexts(vault, entries)).toEqual([])
+    expect(fsMocks.readFile).not.toHaveBeenCalled()
+    fsMocks.stat.mockImplementation(async (path: string) => ({ size: sizes[path.split('/').at(-1)!] ?? 10 }))
     // 큰 Markdown 도 20MB 까지는 예전처럼 읽는다
     sizes['a.md'] = 5 * 1024 * 1024
     expect((await readEagerSearchTexts(vault, entries)).map(([id]) => id)).toContain('m')
