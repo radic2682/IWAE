@@ -14,7 +14,7 @@ pub enum InstallKind {
 /// Three numeric parts; pre-release/build suffix is ignored. None when unparseable.
 fn parse(v: &str) -> Option<(u64, u64, u64)> {
     let core = v.trim().trim_start_matches('v');
-    let core = core.split(|c| c == '-' || c == '+').next()?;
+    let core = core.split(['-', '+']).next()?;
     let mut parts = core.split('.');
     let a = parts.next()?.parse().ok()?;
     let b = parts.next()?.parse().ok()?;

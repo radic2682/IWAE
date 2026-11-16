@@ -116,10 +116,7 @@ pub fn run_uninstall(
 /// uninstall.exe next to us and return its code. Never copies or relaunches itself.
 pub fn run_sync_passthrough(runner: &dyn NsisRunner, current_exe_dir: &Path, args: &[OsString]) -> i32 {
     let exe = current_exe_dir.join("uninstall.exe");
-    match runner.run(&exe, args) {
-        Ok(code) => code,
-        Err(_) => -1,
-    }
+    runner.run(&exe, args).unwrap_or(-1)
 }
 
 /// Deletes our temp copy after we exit (a running exe cannot delete itself); `ping` is the
