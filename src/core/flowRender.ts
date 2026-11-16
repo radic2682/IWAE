@@ -2,9 +2,9 @@ import { t } from '../i18n'
 import type { DocumentFormat } from './documentFormat'
 import { renderMarkdown, sanitizeFlowHtml } from './markdown'
 import { markdownHeadings, markdownSectionPreviews } from './markdownHeadings'
-import { DROP_SELECTOR, hasParserError } from './flowPlainText'
+import { DROP_SELECTOR, flowPlainText, hasParserError } from './flowPlainText'
 
-export { flowPlainText } from './flowPlainText'
+export { flowPlainText }
 
 /**
  * 흐르는 글(Markdown·텍스트·HTML·XML) 읽기 화면이 그릴 본문을 만든다.
@@ -98,7 +98,11 @@ function sanitizeUrlAttributes(element: Element): void {
 }
 
 /** 이 문서를 읽기용으로 다듬는다: DOM 에서 위험·잡음 요소와 속성을 걷어 낸 뒤 공용 거르개(DOMPurify)에 넘긴다 */
+/** 이보다 큰 HTML 은 서식 없이 보이는 글만 보인다(파싱·거르기·렌더가 화면을 멈추지 않게) */
+const HTML_MAX_CHARS = 5 * 1024 * 1024
+
 function renderHtml(source: string): FlowDocument {
+  if (source.length > HTML_MAX_CHARS) return plainWithNotice(flowPlainText('html', source), 'htmlTooLarge')
   // DOMParser 가 만든 문서는 스크립트를 실행하지 않고 그림·스타일도 불러오지 않는다
   const doc = new DOMParser().parseFromString(source, 'text/html')
   const title = (doc.title ?? '').replace(/\s+/gu, ' ').trim()
@@ -347,7 +351,7 @@ const XML_MAX_CHARS = 2 * 1024 * 1024
 /** 이보다 깊은 XML 도 글자 그대로 보인다(재귀로 그리다 스택이 넘치지 않게) */
 const XML_MAX_DEPTH = 400
 
-type NoticeKind = 'xmlInvalid' | 'tooLarge' | 'failed'
+type NoticeKind = 'xmlInvalid' | 'tooLarge' | 'failed' | 'htmlTooLarge'
 
 /** 알림 문구는 읽는 때의 언어로 만든다(그려 둔 결과를 기억해도 언어를 바꾸면 따라간다) */
 function noticeText(kind: NoticeKind): string {
@@ -355,6 +359,7 @@ function noticeText(kind: NoticeKind): string {
     case 'xmlInvalid': return t('XML 형식이 올바르지 않아 글자 그대로 보여 줍니다.')
     case 'tooLarge': return t('파일이 커서 색 없이 글자 그대로 보여 줍니다.')
     case 'failed': return t('이 파일을 그리지 못해 글자 그대로 보여 줍니다.')
+    case 'htmlTooLarge': return t('파일이 커서 서식 없이 글자만 보여 줍니다.')
   }
 }
 

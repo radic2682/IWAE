@@ -471,3 +471,18 @@ describe('flowPlainText: 제목 규칙과 읽기 화면과 같은 걸러내기',
     expect(text).toBe('본문')
   })
 })
+
+describe('큰 HTML', () => {
+  it('5MB 를 넘는 HTML 은 서식 없이 보이는 글만 보이고 알린다(기억하지 않는다)', () => {
+    const big = `<html><body><nav>메뉴</nav><h1>큰 제목</h1>${'<p>문단 <b>글</b><script>var x=1</script></p>'.repeat(130_000)}</body></html>`
+    expect(big.length).toBeGreaterThan(5 * 1024 * 1024)
+    const result = renderFlowDocument('html', big)
+    expect(result.notice).toBe('파일이 커서 서식 없이 글자만 보여 줍니다.')
+    expect(result.html).toContain('<p class="flow-text">')
+    expect(result.html).not.toContain('<b>')
+    expect(result.html).not.toContain('var x')
+    expect(result.html).not.toContain('메뉴')
+    expect(result.headings).toEqual([])
+    expect(renderFlowDocument('html', big)).not.toBe(result)
+  })
+})

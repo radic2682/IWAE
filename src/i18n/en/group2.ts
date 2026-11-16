@@ -233,6 +233,7 @@ export const GROUP_2: Readonly<Record<string, string>> = {
   "문서 파일 경로가 올바르지 않습니다.": "Invalid document file path.",
   "파일이 너무 커서 열 수 없습니다. (20MB까지)": "The file is too large to open. (up to 20 MB)",
   "파일이 커서 색 없이 글자 그대로 보여 줍니다.": "The file is large, so it is shown as plain text without colors.",
+  "파일이 커서 서식 없이 글자만 보여 줍니다.": "The file is large, so only its text is shown without formatting.",
   "이 파일을 그리지 못해 글자 그대로 보여 줍니다.": "This file could not be rendered, so it is shown as plain text.",
   "XML 형식이 올바르지 않아 글자 그대로 보여 줍니다.": "This XML is not well-formed, so it is shown as plain text.",
   "트리 순서 형식이 올바르지 않습니다.": "Invalid tree order format.",
