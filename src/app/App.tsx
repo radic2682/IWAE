@@ -4412,7 +4412,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
         ) : sidebarMode === 'thumbnails' && activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
           <MarkdownSectionPreview
             source={markdownSources[activeDocumentTab.id]!}
-            format={documentFormatOf(activeDocumentTab.id) ?? 'text'}
+            format={documentFormatOf(activeDocumentTab.id) ?? 'markdown'}
             currentSection={markdownSectionState[activeDocumentTab.id] ?? 0}
             onSelectSection={(index) => window.dispatchEvent(new CustomEvent('iwae:md-section-go', { detail: { path: activeDocumentTab.id, index } }))}
           />
@@ -4427,7 +4427,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           activeDocumentTab?.kind === 'markdown' && markdownSources[activeDocumentTab.id] !== undefined ? (
             <MarkdownOutline
               source={markdownSources[activeDocumentTab.id]!}
-              format={documentFormatOf(activeDocumentTab.id) ?? 'text'}
+              format={documentFormatOf(activeDocumentTab.id) ?? 'markdown'}
               currentSection={markdownSectionState[activeDocumentTab.id] ?? 0}
               onSelectSection={(index) => window.dispatchEvent(new CustomEvent('iwae:md-section-go', { detail: { path: activeDocumentTab.id, index } }))}
               bookmarks={pdfBookmarks.bookmarks.filter((bookmark) => bookmark.docId === activeDocumentTab.id)}
