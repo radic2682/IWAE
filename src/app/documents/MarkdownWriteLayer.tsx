@@ -13,7 +13,8 @@ import { PdfBoxMemos } from '../../pdf/PdfBoxMemos'
 import { PdfOverlayLayer, type OverlayStyle, type OverlayTool } from '../../pdf/PdfOverlayLayer'
 import { PdfFloatPalette, PdfOverlayPalette } from '../../pdf/PdfOverlayPalette'
 import { MemoFormatSlotContext, type MemoContent } from '../../pdf/MemoEditor'
-import { createPersistentPdfHighlight, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from '../../pdf/persistentHighlight'
+import { createFlowHighlight } from '../../core/flowHighlight'
+import { updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from '../../pdf/persistentHighlight'
 import '../../ui/pdf-box-memo.css'
 import '../../ui/pdf-overlay.css'
 
@@ -151,16 +152,7 @@ export function MarkdownWriteLayer(props: MarkdownWriteLayerProps) {
     const rects = rectsOf(boxRequest.charRange)
     if (rects.length === 0) return
     const box: MemoBox = placeBoxMemo([MARKDOWN_PAPER_WIDTH, pageHeight], rects, [], BOX_DEFAULT_WIDTH)
-    const created = createPersistentPdfHighlight({
-      docId: path,
-      page: 0,
-      coordSpace: 'pdfium-page',
-      rects,
-      charRange: [boxRequest.charRange[0], boxRequest.charRange[1]],
-      quote: boxRequest.quote,
-      prefix: '',
-      suffix: '',
-    }, defaultHighlightColorId(getHighlightColors()), { createdAt: new Date().toISOString(), source: 'iwae' })
+    const created = createFlowHighlight(path, { rects, charRange: boxRequest.charRange, quote: boxRequest.quote }, defaultHighlightColorId(getHighlightColors()))
     setDraftBox({ ...created, box })
     setEditingBoxId(created.id)
     // 요청이 바뀔 때만

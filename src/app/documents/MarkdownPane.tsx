@@ -29,7 +29,8 @@ import type { MemoContent } from '../../pdf/MemoEditor'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from '../workspace/workspaceLinks'
 import { sourceTargetItems } from '../workspace/sourceLinkItems'
 import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink } from '../workspace/workspaceContext'
-import { createPersistentPdfHighlight, updatePersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../../pdf/persistentHighlight'
+import { createFlowHighlight } from '../../core/flowHighlight'
+import { updatePersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../../pdf/persistentHighlight'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../../pdf/persistentHighlight'
 import type { OverlayPatch, PdfOverlay } from '../../core/pdfOverlays'
 
@@ -818,16 +819,7 @@ export function MarkdownPane({
         const offsets = rangeOffsets(root, selection.getRangeAt(0))
         if (offsets !== null && selection.toString().trim() !== '') {
           const charRange: [number, number] = [offsets.startOffset, offsets.endOffset]
-          const highlight = createPersistentPdfHighlight({
-            docId: path,
-            page: 0,
-            coordSpace: 'pdfium-page',
-            rects: rectsOf(charRange),
-            charRange,
-            quote: selection.toString(),
-            prefix: '',
-            suffix: '',
-          }, defaultHighlightColorId(getHighlightColors()), { createdAt: new Date().toISOString(), source: 'iwae' })
+          const highlight = createFlowHighlight(path, { rects: rectsOf(charRange), charRange, quote: selection.toString() }, defaultHighlightColorId(getHighlightColors()))
           const existing = boxHighlights.find((item) => item.id === highlight.id)
           if (existing === undefined) onBoxHighlightCreated?.(highlight)
           noteApi?.updateNoteAt(attach.path, (note) => addMemoRef(note, attach.key, existing?.id ?? highlight.id))
@@ -858,16 +850,7 @@ export function MarkdownPane({
         const offsets = rangeOffsets(root, selection.getRangeAt(0))
         if (offsets !== null) {
           const charRange: [number, number] = [offsets.startOffset, offsets.endOffset]
-          routeDraft(createPersistentPdfHighlight({
-            docId: path,
-            page: 0,
-            coordSpace: 'pdfium-page',
-            rects: rectsOf(charRange),
-            charRange,
-            quote: selection.toString(),
-            prefix: '',
-            suffix: '',
-          }, defaultHighlightColorId(getHighlightColors()), { createdAt: new Date().toISOString(), source: 'iwae' }))
+          routeDraft(createFlowHighlight(path, { rects: rectsOf(charRange), charRange, quote: selection.toString() }, defaultHighlightColorId(getHighlightColors())))
         }
       }
     }
@@ -940,17 +923,12 @@ export function MarkdownPane({
       const toPaperY = (clientY: number) => (clientY - box.top + root.scrollTop) / paper.scale
       if (offsets !== null) {
         const html = selected.map((element) => element.outerHTML).join('')
-        const anchor = {
-          docId: path,
-          page: 0,
-          coordSpace: 'pdfium-page' as const,
+        const anchorParts = {
           rects: [{ x: toPaperX(rect.left), y: toPaperY(rect.top), w: rect.width / paper.scale, h: rect.height / paper.scale }],
           charRange: [offsets.startOffset, offsets.endOffset] as const,
           quote: range.toString().replace(/\s+/gu, ' ').trim().slice(0, 2000),
-          prefix: '',
-          suffix: '',
         }
-        routeDraft(createPersistentPdfHighlight(anchor, defaultHighlightColorId(getHighlightColors()), {
+        routeDraft(createFlowHighlight(path, anchorParts, defaultHighlightColorId(getHighlightColors()), {
           kind: 'region',
           // 글 칸의 자리·폭도 잰다(종이 안 글 칸 위치는 배율·창 폭에 따라 다르다)
           snapshot: html.length <= REGION_SNAPSHOT_LIMIT ? {
@@ -959,8 +937,6 @@ export function MarkdownPane({
             left: toPaperX(first.getBoundingClientRect().left),
             width: first.getBoundingClientRect().width / paper.scale,
           } : undefined,
-          createdAt: new Date().toISOString(),
-          source: 'iwae',
         }))
         return
       }
