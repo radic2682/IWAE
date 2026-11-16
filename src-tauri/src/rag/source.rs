@@ -63,6 +63,18 @@ struct CacheFile {
 /// 검색 캐시에서 받아들이는 가장 큰 쪽 수(이보다 큰 쪽 번호는 깨진 값으로 보고 버린다)
 const MAX_PDF_PAGES: usize = 100_000;
 
+/// 색인에 넣으려고 읽는 문서 파일의 크기 한도(화면 쪽 열기와 같은 20MB). 넘는 파일은 건너뛴다
+const MAX_DOCUMENT_BYTES: u64 = 20 * 1024 * 1024;
+
+/// 한도 이하인 파일만 글로 읽는다(크기를 알 수 없거나 글이 아니면 None). 수백 MB 로그를 통째로 읽어 멈추지 않게 한다
+fn read_document_text(file: &Path, limit: u64) -> Option<String> {
+    let size = std::fs::metadata(file).ok()?.len();
+    if size > limit {
+        return None;
+    }
+    std::fs::read_to_string(file).ok()
+}
+
 pub fn iwae_dir(root: &Path) -> PathBuf {
     root.join(".iwae")
 }
@@ -124,7 +136,7 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
                 } else {
                     PathBuf::from(&entry.path)
                 };
-                let Ok(text) = std::fs::read_to_string(&file) else {
+                let Some(text) = read_document_text(&file, MAX_DOCUMENT_BYTES) else {
                     continue;
                 };
                 sources.push(SourceDoc {
@@ -205,6 +217,20 @@ mod tests {
         );
         assert!(!sources[0].complete);
         assert_eq!(sources[1].pages, vec!["# 메모\n본문".to_string()]);
+    }
+
+    #[test]
+    fn files_over_the_size_limit_are_not_read() {
+        let dir = std::env::temp_dir().join(format!("iwae-source-limit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("big.log");
+        std::fs::write(&file, "0123456789").unwrap();
+        assert_eq!(read_document_text(&file, 10), Some("0123456789".to_string()));
+        assert_eq!(read_document_text(&file, 9), None);
+        assert_eq!(read_document_text(&dir.join("missing.log"), 10), None);
+        assert_eq!(MAX_DOCUMENT_BYTES, 20 * 1024 * 1024);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
