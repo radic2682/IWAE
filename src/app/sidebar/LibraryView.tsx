@@ -9,7 +9,6 @@ import {
   CaretDown,
   CaretRight,
   ClockCounterClockwise,
-  FileMd,
   FilePdf,
   Folder,
   MagnifyingGlass,
@@ -39,6 +38,8 @@ import type { VaultSearchRecord } from '../../core/vaultSearch'
 import { errorText } from '../../core/errorText'
 import type { BibEntry } from '../../core/bibliography'
 import { ItemEmoji } from './ItemEmoji'
+import { DocumentFormatIcon } from '../documents/DocumentFormatIcon'
+import { documentFormatLabel, documentFormatOf } from '../../core/documentFormat'
 import '../../ui/library-view.css'
 import { dateLocale, pick, t } from '../../i18n'
 
@@ -433,10 +434,13 @@ export function LibraryView({
 
   const kindIcon = (item: LibraryItem, size = 16) => item.kind === 'pdf'
     ? <FilePdf size={size} aria-hidden="true" />
-    : item.kind === 'markdown'
-      ? <FileMd size={size} aria-hidden="true" />
+    : item.open.kind === 'markdown'
+      ? <DocumentFormatIcon path={item.open.node.path} size={size} />
       : <NotePencil size={size} aria-hidden="true" />
-  const kindLabel = (item: LibraryItem) => item.kind === 'note' ? pick({ ko: KIND_LABEL.note, en: 'Note' }) : KIND_LABEL[item.kind]
+  const kindLabel = (item: LibraryItem) => item.kind === 'note'
+    ? pick({ ko: KIND_LABEL.note, en: 'Note' })
+    // 글 문서는 형식마다 이름이 다르다(Markdown·텍스트·HTML·XML)
+    : item.open.kind === 'markdown' ? documentFormatLabel(documentFormatOf(item.open.node.path) ?? 'markdown') : KIND_LABEL[item.kind]
 
   const canEdit = (item: LibraryItem, column: EditableColumn) => column === 'name'
     ? onRenameItem !== undefined

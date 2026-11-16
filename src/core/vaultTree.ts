@@ -1,5 +1,5 @@
 import { MEMO_NOTES_FOLDER_KO, MEMO_NOTE_EXTENSION, memoNotesFolder, pickMemoNotesFolder } from './memoNote'
-import { isFlowDocumentPath, stripDocumentExtension } from './documentFormat'
+import { isFlowDocumentPath, shownDocumentName, stripDocumentExtension } from './documentFormat'
 import { isMarkdownPath } from './markdownPath'
 import { isFlowVaultEntry, type VaultIndexEntry, type VaultStorageKind } from './vaultIndex'
 
@@ -284,7 +284,7 @@ export function buildVaultWorkspaceTree(
       ensureFolder(parts.slice(0, -1).join('/')).children.push({
         id: `markdown:${indexed?.id ?? path}`,
         kind: 'markdown',
-        name: stripDocumentExtension(displayNames.get(path) ?? filename),
+        name: shownDocumentName(filename, stripDocumentExtension(displayNames.get(path) ?? filename)),
         path,
         storage: 'vault',
         indexId: indexed?.id ?? path,
@@ -297,7 +297,7 @@ export function buildVaultWorkspaceTree(
     root.children.push({
       id: `markdown:${indexed.id}`,
       kind: 'markdown',
-      name: indexed.displayName,
+      name: shownDocumentName(indexed.path, indexed.displayName),
       path: indexed.path,
       storage: 'reference',
       indexId: indexed.id,

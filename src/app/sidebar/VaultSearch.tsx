@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Select } from '../../ui/Select'
-import { File, FileMd, FilePdf, MagnifyingGlass, Star, X } from '@phosphor-icons/react'
+import { MagnifyingGlass, Star, X } from '@phosphor-icons/react'
+import { DocumentFormatIcon } from '../documents/DocumentFormatIcon'
 import { searchVaultPages, type VaultSearchHit, type VaultSearchRecord } from '../../core/vaultSearch'
 import type { VaultFileKind } from '../../core/vaultIndex'
 import { CANVAS_ENABLED } from '../../core/features'
@@ -20,6 +21,8 @@ export function VaultSearch({ records, onOpen, onFavoriteChange, indexingProgres
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<VaultFileKind | undefined>()
+  // 글 문서(Markdown·텍스트·HTML·XML) 모아 보기
+  const [flow, setFlow] = useState(false)
   const [folder, setFolder] = useState<string | undefined>()
   const [favorite, setFavorite] = useState(false)
   const [recent, setRecent] = useState(false)
@@ -31,6 +34,7 @@ export function VaultSearch({ records, onOpen, onFavoriteChange, indexingProgres
     .sort((left, right) => left.localeCompare(right)), [records])
   const results = useMemo(() => searchVaultPages(records, query, {
     kind,
+    flow: flow ? true : undefined,
     folder,
     favorite: favorite ? true : undefined,
     recent: recent ? true : undefined,
@@ -38,7 +42,7 @@ export function VaultSearch({ records, onOpen, onFavoriteChange, indexingProgres
     caseSensitive,
     wholeWord,
     limit: 12,
-  }), [caseSensitive, favorite, folder, kind, missing, query, recent, records, wholeWord])
+  }), [caseSensitive, favorite, flow, folder, kind, missing, query, recent, records, wholeWord])
 
   useEffect(() => {
     if (!open) return
@@ -106,12 +110,12 @@ export function VaultSearch({ records, onOpen, onFavoriteChange, indexingProgres
             <button type="button" aria-label={t('Vault 검색 닫기')} onClick={closeSearch}><X size={14} /></button>
           </div>
           <div className="vault-search-filters" aria-label={t('파일 종류 필터')}>
-            <button type="button" aria-pressed={kind === undefined} onClick={() => setKind(undefined)}>{t('전체')}</button>
-            <button type="button" aria-label={t('PDF만 보기')} aria-pressed={kind === 'pdf'} onClick={() => setKind(kind === 'pdf' ? undefined : 'pdf')}>PDF</button>
-            <button type="button" aria-label={t('Markdown만 보기')} aria-pressed={kind === 'markdown'} onClick={() => setKind(kind === 'markdown' ? undefined : 'markdown')}>MD</button>
-            {CANVAS_ENABLED ? <button type="button" aria-label={t('캔버스만 보기')} aria-pressed={kind === 'canvas'} onClick={() => setKind(kind === 'canvas' ? undefined : 'canvas')}>{t('노트')}</button> : null}
-            <button type="button" aria-label={t('이미지만 보기')} aria-pressed={kind === 'image'} onClick={() => setKind(kind === 'image' ? undefined : 'image')}>{t('이미지')}</button>
-            <button type="button" aria-label={t('기타 파일만 보기')} aria-pressed={kind === 'other'} onClick={() => setKind(kind === 'other' ? undefined : 'other')}>{t('기타')}</button>
+            <button type="button" aria-pressed={kind === undefined && !flow} onClick={() => { setKind(undefined); setFlow(false) }}>{t('전체')}</button>
+            <button type="button" aria-label={t('PDF만 보기')} aria-pressed={kind === 'pdf'} onClick={() => { setFlow(false); setKind(kind === 'pdf' ? undefined : 'pdf') }}>PDF</button>
+            <button type="button" aria-label={t('글 문서만 보기')} aria-pressed={flow} onClick={() => { setKind(undefined); setFlow(!flow) }}>{t('글 문서')}</button>
+            {CANVAS_ENABLED ? <button type="button" aria-label={t('캔버스만 보기')} aria-pressed={kind === 'canvas'} onClick={() => { setFlow(false); setKind(kind === 'canvas' ? undefined : 'canvas') }}>{t('노트')}</button> : null}
+            <button type="button" aria-label={t('이미지만 보기')} aria-pressed={kind === 'image'} onClick={() => { setFlow(false); setKind(kind === 'image' ? undefined : 'image') }}>{t('이미지')}</button>
+            <button type="button" aria-label={t('기타 파일만 보기')} aria-pressed={kind === 'other'} onClick={() => { setFlow(false); setKind(kind === 'other' ? undefined : 'other') }}>{t('기타')}</button>
           </div>
           <div className="vault-search-filters vault-search-secondary-filters" aria-label={t('파일 상태 필터')}>
             <Select
@@ -144,7 +148,7 @@ export function VaultSearch({ records, onOpen, onFavoriteChange, indexingProgres
                   aria-label={`${hit.record.displayName}${hit.page === null ? '' : ` ${t('{page}쪽', { page: hit.page + 1 })}`}`}
                   onClick={() => openResult(hit)}
                 >
-                  {hit.record.kind === 'pdf' ? <FilePdf size={15} /> : hit.record.kind === 'markdown' ? <FileMd size={15} /> : <File size={15} />}
+                  <DocumentFormatIcon path={hit.record.path} size={15} />
                   <span>
                     <strong>{hit.record.displayName}</strong>
                     <small>{hit.page === null ? hit.record.folder || t('Vault 루트') : t('{page}쪽', { page: hit.page + 1 })}</small>

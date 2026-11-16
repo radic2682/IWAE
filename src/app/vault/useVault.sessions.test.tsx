@@ -9,7 +9,7 @@ import type { SessionState } from '../../core/session'
 import { parseSession } from '../../core/session'
 import { getTranslatorWindow, reloadTranslatorWindow } from '../translation/translatorPanelState'
 
-vi.mock('../../bridge/pdf', () => ({ invalidateDocument: vi.fn(), openPdf: vi.fn(), pageTextIndex: vi.fn(), pickPdfFile: vi.fn() }))
+vi.mock('../../bridge/pdf', () => ({ invalidateDocument: vi.fn(), openPdf: vi.fn(), pageTextIndex: vi.fn(), pickPdfFile: vi.fn(), pickDocumentFile: vi.fn() }))
 vi.mock('../../bridge/vault', () => ({
   setVaultFileNoticeHandler: vi.fn(),
   quarantineVaultMetaFile: vi.fn(),

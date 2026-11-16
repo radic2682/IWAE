@@ -74,7 +74,7 @@ export const GROUP_2: Readonly<Record<string, string>> = {
   "GitHub에서 가져오기": "Import from GitHub",
   "문서 추가": "Add document",
   "문서": "Documents",
-  "문서가 없습니다. PDF나 Markdown을 끌어 넣으세요": "No documents. Drag in PDF or Markdown files",
+  
   "노트": "Notes",
   "노트가 없습니다": "No notes",
   "{name} 작업": "{name} actions",

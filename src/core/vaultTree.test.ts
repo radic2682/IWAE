@@ -348,22 +348,30 @@ describe('placeInTreeOrder · renameFolderInTreeOrder', () => {
 })
 
 describe('buildVaultWorkspaceTree · text documents', () => {
-  it('txt·html·xml 파일도 읽기 문서 노드로 보이고, 표시 이름은 확장자를 뗀다', () => {
+  it('txt·html·xml 파일도 읽기 문서 노드로 보이고, 이름은 확장자를 붙여 보인다(Markdown 과 구분)', () => {
     const tree = buildVaultWorkspaceTree([
       { path: 'Docs/a.txt', isDirectory: false },
       { path: 'Docs/b.HTML', isDirectory: false },
       { path: 'Docs/c.xml', isDirectory: false },
       { path: 'Docs/d.docx', isDirectory: false },
+      { path: 'Docs/a.md', isDirectory: false },
     ], [])
     expect(tree).toMatchObject([{
       id: 'folder:Docs',
       children: [
-        { id: 'markdown:Docs/a.txt', kind: 'markdown', name: 'a', storage: 'vault' },
-        { id: 'markdown:Docs/b.HTML', kind: 'markdown', name: 'b' },
-        { id: 'markdown:Docs/c.xml', kind: 'markdown', name: 'c' },
+        { id: 'markdown:Docs/a.md', kind: 'markdown', name: 'a' },
+        { id: 'markdown:Docs/a.txt', kind: 'markdown', name: 'a.txt', storage: 'vault' },
+        { id: 'markdown:Docs/b.HTML', kind: 'markdown', name: 'b.HTML' },
+        { id: 'markdown:Docs/c.xml', kind: 'markdown', name: 'c.xml' },
       ],
     }])
-    expect((tree[0] as { children: unknown[] }).children).toHaveLength(3)
+    expect((tree[0] as { children: unknown[] }).children).toHaveLength(4)
+  })
+
+  it('고쳐 쓴 표시 이름은 그대로 보인다', () => {
+    const names = new Map([['Docs/a.txt', '내 메모']])
+    const tree = buildVaultWorkspaceTree([{ path: 'Docs/a.txt', isDirectory: false }], [], {}, names)
+    expect(tree).toMatchObject([{ children: [{ name: '내 메모' }] }])
   })
 
   it('vault 밖 txt·html·xml 참조(종류 other)도 투영한다', () => {

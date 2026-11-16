@@ -142,6 +142,13 @@ describe('TopBar', () => {
       expect(screen.getByRole('img', { name: '칸 0 · 노트 도구' })).toBeDefined()
     })
 
+    it('글 문서 주인 칩은 텍스트·HTML·XML 이면 형식 이름을 쓴다', () => {
+      const { rerender } = render(<TopBar {...props} toolbarOwner={{ channel: 'green', number: 2, kind: 'markdown', format: 'html' }} />)
+      expect(screen.getByRole('img', { name: '칸 2 · HTML 도구' })).toBeDefined()
+      rerender(<TopBar {...props} toolbarOwner={{ channel: null, number: null, kind: 'markdown', format: 'text' }} />)
+      expect(screen.getByRole('img', { name: '떠 있는 칸 · 텍스트 도구' })).toBeDefined()
+    })
+
     it('도구줄 주인 칩: 만지는 칸이 도구줄을 가진 종류일 때만 색 점 · 칸 번호 · 문서 종류 아이콘이 도구줄 앞에 붙는다', () => {
       const { container, rerender } = render(<TopBar {...props} toolbarOwner={{ channel: 'green', number: 2, kind: 'markdown' }} />)
       const chip = container.querySelector('.topbar-owner-chip') as HTMLElement

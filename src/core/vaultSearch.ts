@@ -1,4 +1,5 @@
 import type { VaultFileKind, VaultIndexEntry, VaultStorageKind } from './vaultIndex'
+import { isFlowDocumentPath, shownDocumentName } from './documentFormat'
 import { t } from '../i18n'
 
 export interface VaultSearchMetadata {
@@ -41,6 +42,8 @@ export interface VaultSearchOptions extends VaultSearchFilters {
 
 export interface VaultSearchFilters {
   kind?: VaultFileKind | readonly VaultFileKind[]
+  /** true 면 글 문서(Markdown·텍스트·HTML·XML)만 */
+  flow?: boolean
   folder?: string
   favorite?: boolean
   recent?: boolean
@@ -71,7 +74,7 @@ export function buildSearchRecords(
       path: entry.path,
       folder: parts.slice(0, -1).join('/'),
       filename: parts.at(-1) ?? entry.path,
-      displayName: entry.displayName,
+      displayName: shownDocumentName(entry.path, entry.displayName),
       extractedText: extractedText[entry.id] ?? pages[entry.id]?.map((page) => page.text).join('\n\n') ?? '',
       pages: pages[entry.id] ?? [],
       missing: entry.missing,
@@ -173,7 +176,10 @@ function matchesFilters(record: VaultSearchRecord, filters: VaultSearchFilters):
   const kinds = filters.kind === undefined
     ? null
     : Array.isArray(filters.kind) ? filters.kind : [filters.kind]
-  if (kinds !== null && !kinds.includes(record.kind)) return false
+  // 텍스트·HTML·XML 은 색인 종류가 'other' 이지만 문서다: 「기타」 필터에 섞이지 않고 flow 필터로 찾는다
+  const flowOther = record.kind === 'other' && isFlowDocumentPath(record.path)
+  if (kinds !== null && (flowOther || !kinds.includes(record.kind))) return false
+  if (filters.flow === true && record.kind !== 'markdown' && !flowOther) return false
   if (filters.folder !== undefined && normalize(record.folder) !== normalize(filters.folder)) return false
   if (filters.favorite !== undefined && record.favorite !== filters.favorite) return false
   if (filters.recent === true && record.lastOpenedAt === null) return false

@@ -1343,6 +1343,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       .map((record) => ({
         id: `doc:${record.id}`,
         kind: record.kind === 'pdf' ? 'pdf' as const : 'markdown' as const,
+        format: documentFormatOf(record.path) ?? undefined,
         label: record.displayName,
         keywords: record.path,
         run: () => openVaultSearchResult({ record, page: null, snippet: '', query: '' }),
@@ -3979,7 +3980,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const recents: EmptyPaneRecent[] = isDetachedWindow ? [] : [
       ...searchRecords
         .filter((record) => (record.kind === 'pdf' || isFlowVaultEntry(record)) && record.lastOpenedAt !== null && !record.missing)
-        .map((record) => ({ key: `doc:${record.id}`, at: record.lastOpenedAt ?? '', title: record.displayName || record.filename, kind: isFlowVaultEntry(record) ? 'markdown' as const : 'pdf' as const, onOpen: open(() => openVaultSearchResult({ record, page: null, snippet: '', query: '' })) })),
+        .map((record) => ({ key: `doc:${record.id}`, at: record.lastOpenedAt ?? '', title: record.displayName || record.filename, kind: isFlowVaultEntry(record) ? 'markdown' as const : 'pdf' as const, format: documentFormatOf(record.path) ?? undefined, onOpen: open(() => openVaultSearchResult({ record, page: null, snippet: '', query: '' })) })),
       ...recentPdfs.map((recent) => ({ key: `ext:${recent.path}`, at: recent.openedAt, title: recent.title, kind: 'pdf' as const, onOpen: open(() => { void openExternalPdf(recent.path) }) })),
     ].sort((left, right) => right.at.localeCompare(left.at)).slice(0, 4)
     return (
@@ -4380,7 +4381,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           <div className="side-search-tab">
             <SearchScopeSwitch scope={searchScope} onChange={setSearchScope} />
             <div className="side-pdf-search" ref={setPdfSearchSlot} aria-label={t('PDF 검색')} hidden={searchScope === 'vault'}>
-              {activePdfDoc === null && activeDocumentTab?.kind !== 'markdown' ? <p className="side-section-empty">{t('PDF·Markdown을 열면 여기서 검색할 수 있습니다')}</p> : null}
+              {activePdfDoc === null && activeDocumentTab?.kind !== 'markdown' ? <p className="side-section-empty">{t('문서를 열면 여기서 검색할 수 있습니다')}</p> : null}
             </div>
             {searchScope === 'vault' ? (
               <div className="side-pdf-search side-vault-search" aria-label={t('모든 문서 검색')}>

@@ -1,6 +1,7 @@
 import { createContext, useContext, useLayoutEffect, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { PaneId, Tab } from './workspace/tabs'
+import { documentFormatOf, type DocumentFormat } from '../core/documentFormat'
 import type { PaneChannel } from './workspace/workspaceChannels'
 import { PaneIdContext } from './workspace/workspaceContext'
 
@@ -29,11 +30,17 @@ export interface ToolbarOwner {
   /** 칸 번호(트리의 칸). 떠 있는 칸 · 번호를 모르면 null */
   readonly number: number | null
   readonly kind: 'pdf' | 'markdown' | 'memoNote'
+  /** 글 문서(kind 'markdown')의 형식. 텍스트·HTML·XML 이면 칩의 이름·아이콘이 형식을 따른다 */
+  readonly format?: DocumentFormat
 }
 
 /** 만지는 칸이 보는 탭에 도구줄이 있는 종류(PDF · MD · 메모 노트)일 때만 주인이 있다. 빈 칸 · 캔버스는 null(자리가 빈다) */
 export function toolbarOwnerOf(tab: Tab | null, channel: PaneChannel, number: number | null): ToolbarOwner | null {
   if (tab === null || (tab.kind !== 'pdf' && tab.kind !== 'markdown' && tab.kind !== 'memoNote')) return null
+  if (tab.kind === 'markdown') {
+    const format = documentFormatOf(tab.id)
+    if (format !== null && format !== 'markdown' && format !== 'pdf') return { channel, number, kind: tab.kind, format }
+  }
   return { channel, number, kind: tab.kind }
 }
 

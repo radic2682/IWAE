@@ -1,7 +1,7 @@
 import { getAppPrefs } from '../appPrefs'
 import { announceVaultFileNotice, loadOrQuarantine } from '../documents/storageRecovery'
 import { isMarkdownPath } from '../../core/markdownPath'
-import { isFlowDocumentPath, isPdfPath, stripDocumentExtension } from '../../core/documentFormat'
+import { isFlowDocumentPath, isPdfPath, shownDocumentName, stripDocumentExtension } from '../../core/documentFormat'
 import { isFlowVaultEntry } from '../../core/vaultIndex'
 import { emptyVaultSearchTextCache } from '../../core/vaultSearchCache'
 import type { FolderColor } from '../../core/folderColors'
@@ -21,7 +21,7 @@ import type {
   VaultTreeReorderRequest,
   VaultMarkdownNode,
 } from '../../core/vaultTree'
-import { editPdfPages, invalidateDocument, openPdf, pageTextIndex, pickPdfFile, runPdfTool, type PdfDocMeta, type PdfPageEditOp, type PdfToolOp, type PdfToolResult } from '../../bridge/pdf'
+import { editPdfPages, invalidateDocument, openPdf, pageTextIndex, pickDocumentFile, pickPdfFile, runPdfTool, type PdfDocMeta, type PdfPageEditOp, type PdfToolOp, type PdfToolResult } from '../../bridge/pdf'
 import {
   attachPdfToLibrary,
   attachMarkdownReference,
@@ -359,7 +359,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
       const external = externalMarkdownByPath.get(id.replaceAll('\\', '/').toLocaleLowerCase())
       // 탭 제목은 사이드바와 같은 표시 이름이다(Vault 안 Markdown 도). 파일 이름은 표시 이름이 없을 때만 쓴다
       const indexed = external ?? reconciledIndex.entries.find((entry) => isFlowVaultEntry(entry) && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
-      const title = (indexed?.displayName === undefined || indexed.displayName === '' ? undefined : indexed.displayName) ?? markdownTitles.get(id)
+      const title = (indexed?.displayName === undefined || indexed.displayName === '' ? undefined : shownDocumentName(indexed.path, indexed.displayName)) ?? markdownTitles.get(id)
       if (title === undefined) return null
       try {
         const source = await readDocumentText(handle, external?.id ?? id)
@@ -1272,14 +1272,22 @@ export function useVault(options: UseVaultOptions = {}) {
     })
   }, [])
 
+  // 열기 창에서 고른 글 문서(Markdown·텍스트·HTML·XML)는 끌어 놓기와 같은 길로 가져온다(아래에서 정의)
+  const importDroppedDocumentsRef = useRef<(paths: readonly string[]) => Promise<unknown>>(async () => undefined)
+
   const addDocument = useCallback(async (
     policy: PdfAttachmentPolicy = { kind: 'reference' },
   ) => {
     if (vault === null && !injected) return
     setError(null)
     try {
-      const path = await pickPdfFile()
+      const path = await pickDocumentFile()
       if (path === null) return
+      if (!isPdfPath(path)) {
+        // 끌어 놓기와 똑같이 참조로 올리고 연다. 끌어 놓기 길이 Vault 없음·실패 안내도 맡는다
+        await importDroppedDocumentsRef.current([path])
+        return
+      }
       const meta = await openPdf(path)
       if (vault === null) {
         setInjectedLibrary((current) => {
@@ -1362,7 +1370,7 @@ export function useVault(options: UseVaultOptions = {}) {
     setVaultIndex(nextIndex)
     setTree(buildVaultWorkspaceTree(treeEntries, displayEntries(entries, nextIndex), treeOrder, indexedDisplayNames(nextIndex), nextIndex))
     setPanes((current) => mapPaneTabs(current, (tab) => (
-      tab.id === updated.path || (isDocumentKind(tab.kind) && tab.id === id) ? { ...tab, title: updated.displayName } : tab
+      tab.id === updated.path || (isDocumentKind(tab.kind) && tab.id === id) ? { ...tab, title: shownDocumentName(updated.path, updated.displayName) } : tab
     )))
   }, [entries, injected, treeEntries, treeOrder, vault, vaultIndex])
 
@@ -1613,6 +1621,8 @@ export function useVault(options: UseVaultOptions = {}) {
     return { imported, rejected: rejected.length, failed }
   }, [refreshVaultFiles, vault])
 
+  importDroppedDocumentsRef.current = importDroppedDocuments
+
   /**
    * 탐색기에서 왼쪽 바로 끌어 온 PDF·Markdown 을 Vault 로 복사해 가져온다(기본은 복사 — 원본을 참조만 하지 않는다).
    * folderPath 폴더에 복사하고, place 가 있으면 트리의 그 자리(줄 앞·뒤)에 순서를 둔다. 여러 개면 놓은 차례대로 이어 붙인다.
@@ -1705,7 +1715,7 @@ export function useVault(options: UseVaultOptions = {}) {
       try {
         const source = await readDocumentText(vault, relativePath)
         setMarkdownSources((current) => ({ ...current, [relativePath]: source }))
-        openInPane({ id: relativePath, title: stripDocumentExtension(relativePath.split('/').at(-1) ?? relativePath), kind: 'markdown' })
+        openInPane({ id: relativePath, title: shownDocumentName(relativePath, stripDocumentExtension(relativePath.split('/').at(-1) ?? relativePath)), kind: 'markdown' })
       } catch {
         // 열지 못해도 가져오기는 끝났다. 왼쪽 바에서 열면 된다
       }

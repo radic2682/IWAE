@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { App } from './App'
 import type { LibraryDoc, NotebookGroup } from '../bridge/fake'
-import { pickPdfFile, openPdf, type PdfDocMeta } from '../bridge/pdf'
+import { pickDocumentFile, openPdf, type PdfDocMeta } from '../bridge/pdf'
 import type { Anchor } from '../core/anchor'
 import type { VisiblePdfSourceReference } from '../core/workspaceSources'
 import { PDF_EXCERPT_DRAG_MIME, serializePdfExcerptDrag, type PdfExcerptSelection } from '../core/pdfExcerpt'
@@ -93,7 +93,7 @@ vi.mock('../bridge/ai', () => ({
 }))
 
 vi.mock('../bridge/pdf', () => ({
-  pickPdfFile: vi.fn(),
+  pickDocumentFile: vi.fn(),
   openPdf: vi.fn(),
   pageImageUrl: (docId: string, page: number, width: number) =>
     `iwae://localhost/page/${docId}/${page}?w=${width}`,
@@ -290,7 +290,7 @@ describe('App — 껍데기 배선', () => {
     // 빈 칸에는 조용한 명령 목록이 있다(한 칸뿐이라 「이 칸 닫기」 는 없다. 번역기 · 캔버스 줄도 없다)
     expect(screen.getByText('빈 칸')).toBeDefined()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
-    expect(within(quick).getAllByRole('button').map((button) => button.textContent)).toEqual(['PDF 열기', 'Markdown 열기'])
+    expect(within(quick).getAllByRole('button').map((button) => button.textContent)).toEqual(['문서 열기', '라이브러리 열기'])
     expect(container.querySelectorAll('.pane-grid-cell')).toHaveLength(1)
   })
 
@@ -596,7 +596,7 @@ describe('App — 문서 추가', () => {
   }
 
   beforeEach(() => {
-    vi.mocked(pickPdfFile).mockReset()
+    vi.mocked(pickDocumentFile).mockReset()
     vi.mocked(openPdf).mockReset()
   })
 
@@ -606,16 +606,16 @@ describe('App — 문서 추가', () => {
   }
 
   it('버튼을 누르면 파일 대화상자를 연다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue(null)
+    vi.mocked(pickDocumentFile).mockResolvedValue(null)
     renderApp()
     addDocumentByReference()
     await waitFor(() => {
-      expect(pickPdfFile).toHaveBeenCalledTimes(1)
+      expect(pickDocumentFile).toHaveBeenCalledTimes(1)
     })
   })
 
   it('고른 파일이 열리고 왼쪽 패널에 탭이 된다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue('C:/specs/compilers5.pdf')
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/specs/compilers5.pdf')
     vi.mocked(openPdf).mockResolvedValue(meta)
     renderApp()
 
@@ -633,7 +633,7 @@ describe('App — 문서 추가', () => {
   })
 
   it('PdfPane 이 만든 앵커를 원문 강조 상태로 보존한다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue('C:/specs/compilers5.pdf')
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/specs/compilers5.pdf')
     vi.mocked(openPdf).mockResolvedValue(meta)
     renderApp()
 
@@ -644,7 +644,7 @@ describe('App — 문서 추가', () => {
   })
 
   it('PdfPane의 스크롤 보고는 새 페이지 이동 요청을 만들지 않는다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue('C:/specs/compilers5.pdf')
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/specs/compilers5.pdf')
     vi.mocked(openPdf).mockResolvedValue(meta)
     renderApp()
 
@@ -659,7 +659,7 @@ describe('App — 문서 추가', () => {
   })
 
   it('다른 PDF를 열면 이전 문서의 페이지 이동 요청을 이어받지 않고 1쪽에서 시작한다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue('C:/specs/compilers5.pdf')
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/specs/compilers5.pdf')
     vi.mocked(openPdf).mockResolvedValue(meta)
     render(<App developmentPreview />)
 
@@ -677,13 +677,13 @@ describe('App — 문서 추가', () => {
   })
 
   it('취소하면(null) 아무것도 바뀌지 않는다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue(null)
+    vi.mocked(pickDocumentFile).mockResolvedValue(null)
     renderApp()
     const before = screen.getAllByRole('button').length
 
     addDocumentByReference()
     await waitFor(() => {
-      expect(pickPdfFile).toHaveBeenCalled()
+      expect(pickDocumentFile).toHaveBeenCalled()
     })
 
     expect(openPdf).not.toHaveBeenCalled()
@@ -693,7 +693,7 @@ describe('App — 문서 추가', () => {
   })
 
   it('같은 문서를 두 번 추가해도 목록과 탭은 하나다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue('C:/specs/compilers5.pdf')
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/specs/compilers5.pdf')
     vi.mocked(openPdf).mockResolvedValue(meta)
     renderApp()
 
@@ -712,7 +712,7 @@ describe('App — 문서 추가', () => {
   })
 
   it('열지 못한 파일이 앱을 무너뜨리지 않는다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue('C:/broken.pdf')
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/broken.pdf')
     vi.mocked(openPdf).mockRejectedValue(new Error('PDF 가 아닙니다'))
     renderApp()
 
@@ -1126,15 +1126,15 @@ describe('App — 칸 머리 · ⋯ 메뉴 · 크게 · 빈 칸', () => {
   })
 
   it('빈 칸의 빠른 단추: PDF 는 파일 선택을, MD 는 라이브러리를 연다. 번역기 단추는 없고, 캔버스 단추는 CANVAS_ENABLED 일 때만 있다', async () => {
-    vi.mocked(pickPdfFile).mockResolvedValue(null)
+    vi.mocked(pickDocumentFile).mockResolvedValue(null)
     const { container } = renderApp()
     const quick = screen.getByRole('group', { name: '이 칸에 열기' })
     expect(within(quick).queryByRole('button', { name: /번역기/u })).toBeNull()
     // 캔버스를 끈 동안 줄이 없고, 켜면 (Vault 가 있을 때) 되살아난다
     if (!CANVAS_ENABLED) expect(within(quick).queryByRole('button', { name: /캔버스/u })).toBeNull()
-    fireEvent.click(within(quick).getByRole('button', { name: /^PDF 열기/u }))
-    await waitFor(() => expect(pickPdfFile).toHaveBeenCalled())
-    fireEvent.click(within(quick).getByRole('button', { name: /^Markdown 열기/u }))
+    fireEvent.click(within(quick).getByRole('button', { name: /^문서 열기/u }))
+    await waitFor(() => expect(pickDocumentFile).toHaveBeenCalled())
+    fireEvent.click(within(quick).getByRole('button', { name: /^라이브러리 열기/u }))
     expect(container.querySelector('.shell-library-expanded')).not.toBeNull()
   })
 })

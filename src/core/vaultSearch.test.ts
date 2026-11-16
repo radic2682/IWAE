@@ -93,3 +93,27 @@ describe('vault search snippets', () => {
     expect(searchVaultPages([record(text)], 'needle')[0]?.snippet).toContain('needle')
   })
 })
+
+describe('vault search · 글 문서 필터', () => {
+  const base = { storage: 'vault' as const, contentHash: null, size: 1, modifiedAt: null, addedAt: '2026-09-25T00:00:00.000Z', missing: false }
+  const mixed: VaultIndexEntry[] = [
+    { ...base, id: 'md', kind: 'markdown', path: 'a.md', displayName: 'a' },
+    { ...base, id: 'txt', kind: 'other', path: 'a.txt', displayName: 'a' },
+    { ...base, id: 'html', kind: 'other', path: 'p.html', displayName: 'p' },
+    { ...base, id: 'xml', kind: 'other', path: 'd.xml', displayName: 'd' },
+    { ...base, id: 'zip', kind: 'other', path: 'z.zip', displayName: 'z' },
+    { ...base, id: 'pdf', kind: 'pdf', path: 'x.pdf', displayName: 'x' },
+  ]
+  const records = buildSearchRecords(mixed, {})
+
+  it('flow 필터는 Markdown 과 텍스트·HTML·XML 만 보인다', () => {
+    expect(searchVault(records, '', { flow: true }).map((record) => record.id).sort()).toEqual(['html', 'md', 'txt', 'xml'])
+  })
+  it('「기타」 필터에는 문서로 열리는 파일이 섞이지 않는다', () => {
+    expect(searchVault(records, '', { kind: 'other' }).map((record) => record.id)).toEqual(['zip'])
+  })
+  it('텍스트·HTML·XML 의 표시 이름은 확장자를 붙여 같은 이름의 md 와 구분한다', () => {
+    expect(records.find((record) => record.id === 'txt')?.displayName).toBe('a.txt')
+    expect(records.find((record) => record.id === 'md')?.displayName).toBe('a')
+  })
+})

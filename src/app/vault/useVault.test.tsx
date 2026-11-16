@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { openPdf, pageTextIndex, pickPdfFile } from '../../bridge/pdf'
+import { openPdf, pageTextIndex, pickDocumentFile } from '../../bridge/pdf'
 import {
   createMarkdownFile,
   createNote,
@@ -52,7 +52,7 @@ vi.mock('../../bridge/pdf', () => ({
   invalidateDocument: vi.fn(),
   openPdf: vi.fn(),
   pageTextIndex: vi.fn(),
-  pickPdfFile: vi.fn(),
+  pickDocumentFile: vi.fn(),
 }))
 
 vi.mock('../../bridge/vault', () => ({
@@ -155,7 +155,7 @@ describe('useVault — 시작 복원', () => {
     vi.mocked(attachMarkdownReference).mockReset()
     vi.mocked(openPdf).mockReset()
     vi.mocked(pageTextIndex).mockReset()
-    vi.mocked(pickPdfFile).mockReset()
+    vi.mocked(pickDocumentFile).mockReset()
     vi.mocked(recognizePdfPageText).mockReset()
     vi.mocked(convertReferenceToCopy).mockReset()
     vi.mocked(copyVaultEntryPath).mockReset()
@@ -582,7 +582,7 @@ describe('useVault — 시작 복원', () => {
 
   it('선택한 PDF 첨부 정책 payload를 bridge에 그대로 전달한다', async () => {
     const policy = { kind: 'copy-another-folder' as const, folderPath: 'Archive/PDF' }
-    vi.mocked(pickPdfFile).mockResolvedValue('C:/Specs/source.pdf')
+    vi.mocked(pickDocumentFile).mockResolvedValue('C:/Specs/source.pdf')
     vi.mocked(openPdf).mockImplementation(async (path) => path === goodEntry.path
       ? {
           docId: goodEntry.docId,
@@ -723,6 +723,56 @@ describe('useVault — 시작 복원', () => {
     expect(result.current.tree).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: `markdown:${attachedMarkdown.id}` }),
     ]))
+  })
+
+  const attachedText = (name: string, kind: 'markdown' | 'other' = 'other') => ({
+    id: '8cc94e6f-13da-4fd3-87a8-4e61bcb82240',
+    kind,
+    storage: 'reference' as const,
+    path: `C:/External/${name}`,
+    displayName: name,
+    contentHash: 'e'.repeat(64),
+    size: 20,
+    modifiedAt: null,
+    addedAt: '2026-09-30T00:00:00.000Z',
+    missing: false,
+  })
+
+  it('드롭한 txt·html·xml 도 Markdown 과 같은 참조 등록 길로 가져와 읽기 탭으로 연다', async () => {
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    for (const name of ['memo.txt', 'page.html', 'data.xml']) {
+      const entry = attachedText(name)
+      vi.mocked(attachMarkdownReference).mockResolvedValueOnce(entry)
+      vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [entry] })
+      let summary: Awaited<ReturnType<typeof result.current.importDroppedDocuments>> | undefined
+      await act(async () => { summary = await result.current.importDroppedDocuments([entry.path]) })
+      expect(summary).toEqual({ imported: 1, rejected: 0, failed: 0 })
+      expect(attachMarkdownReference).toHaveBeenLastCalledWith(expect.anything(), entry.path)
+      expect(paneTabs(result, 0).tabs.some((tab) => tab.id === entry.path && tab.kind === 'markdown' && tab.title === name)).toBe(true)
+    }
+  })
+
+  it('PowerPoint 는 가져오지 않고, 지원하지 않는 확장자는 건너뛴 수로 센다', async () => {
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    let summary: Awaited<ReturnType<typeof result.current.importDroppedDocuments>> | undefined
+    await act(async () => { summary = await result.current.importDroppedDocuments(['C:/x/a.docx', 'C:/x/b.bin']) })
+    expect(summary).toEqual({ imported: 0, rejected: 2, failed: 0 })
+    expect(attachMarkdownReference).not.toHaveBeenCalled()
+  })
+
+  it('문서 추가: 열기 창에서 txt 를 고르면 끌어 놓기와 같은 길로 참조 등록하고 연다', async () => {
+    const entry = attachedText('memo.txt')
+    vi.mocked(pickDocumentFile).mockResolvedValue(entry.path)
+    vi.mocked(attachMarkdownReference).mockResolvedValue(entry)
+    vi.mocked(readVaultIndex).mockResolvedValue({ version: 1, entries: [entry] })
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    await act(async () => { await result.current.addDocument() })
+    expect(attachMarkdownReference).toHaveBeenCalledWith(expect.anything(), entry.path)
+    expect(vi.mocked(openPdf).mock.calls.some(([path]) => path === entry.path)).toBe(false)
+    expect(paneTabs(result, 0).tabs.some((tab) => tab.id === entry.path && tab.kind === 'markdown')).toBe(true)
   })
 
   it('열지 않은 Markdown 본문도 Vault 검색 레코드에 백그라운드로 넣는다', async () => {

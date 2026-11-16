@@ -7,7 +7,7 @@ import { createPillGhost, startDockSession, type DockSession, type SidebarDropIt
 import { setDockDragging, setDockDropOk } from '../workspace/tabDrag'
 import type { TabDropTarget } from '../workspace/tabDock'
 import { sidebarDefaults } from './sidebarDefaults'
-import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FileMd, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, PencilSimple, Quotes, Smiley, Stack, Star, Toolbox, Trash, WarningCircle } from '@phosphor-icons/react'
+import { ArrowClockwise, PushPin, GitBranch, GithubLogo, ArrowsInLineHorizontal, ArrowsInLineVertical, ArrowsOutLineHorizontal, ArrowsOutLineVertical, CaretDown, CaretRight, FilePdf, FilePlus, Books, Notebook, Folder, FolderOpen, FolderPlus, GearSix, NotePencil, Plus, X, ArrowSquareOut, CaretUpDown, Copy, House, Sparkle, BookOpenText, ClipboardText, CopySimple, DownloadSimple, Eraser, LinkSimple, ListBullets, PencilSimple, Quotes, Smiley, Stack, Star, Toolbox, Trash, WarningCircle } from '@phosphor-icons/react'
 import {
   buildLegacyWorkspaceTree,
   projectVaultTree,
@@ -44,6 +44,8 @@ import '../../ui/version-groups.css'
 import { cleanEntryName, type TrashSource } from '../../bridge/vaultFiles'
 import '../../ui/sidebar-followup.css'
 import { t } from '../../i18n'
+import { DocumentFormatIcon } from '../documents/DocumentFormatIcon'
+import { documentFormatLabel, documentFormatOf } from '../../core/documentFormat'
 import { createExampleVaultFolder, forgetVault, pickVaultFolder } from '../../bridge/vault'
 import { revealInFolder } from '../../bridge/vaultBackup'
 import { isMacPlatform } from '../../core/platform'
@@ -1506,7 +1508,7 @@ export function Sidebar({
               ) : (
                 editingEntryId === node.path ? (
                   <div className="side-item side-tree-item side-inline-rename-row">
-                    <ItemEmoji emoji={itemIcons[iconKeyFor(node)]} fallback={<FileMd className="side-file-icon side-file-icon-md" size={14} aria-hidden="true" />} />
+                    <ItemEmoji emoji={itemIcons[iconKeyFor(node)]} fallback={<DocumentFormatIcon path={node.path} className="side-file-icon side-file-icon-md" size={14} />} />
                     <input
                       className="side-inline-rename"
                       aria-label={t('{name} 표시 이름', { name: node.name })}
@@ -1542,7 +1544,7 @@ export function Sidebar({
                   <button
                     type="button"
                     className={`side-item side-tree-item side-markdown-item${openDocIds.includes(node.path) || openDocIds.includes(node.indexId) || (versionGroup !== undefined && versionGroup.versions.some((version) => openDocIds.includes(version.docId))) ? ' side-item-open' : ''}${activeDocId !== null && (activeDocId === node.path || activeDocId === node.indexId || (versionGroup !== undefined && versionGroup.versions.some((version) => version.docId === activeDocId))) ? ' side-item-active' : ''}`}
-                    aria-label={versionGroup === undefined ? `${node.name}, Markdown` : `${versionGroup.title} ${defaultVersion(versionGroup).label}`}
+                    aria-label={versionGroup === undefined ? `${node.name}, ${documentFormatLabel(documentFormatOf(node.path) ?? 'markdown')}` : `${versionGroup.title} ${defaultVersion(versionGroup).label}`}
                     disabled={onOpenMarkdown === undefined}
                     onClick={(event) => {
                       if (selectClick(event, node.id, section)) return
@@ -1557,7 +1559,7 @@ export function Sidebar({
                     }}
                     onContextMenu={(event) => openEntryMenu(event, node, parentPath)}
                   >
-                    <ItemEmoji emoji={itemIcons[iconKeyFor(node)]} onPick={pickIcon(iconKeyFor(node))} fallback={<FileMd className="side-file-icon side-file-icon-md" size={14} aria-hidden="true" />} />
+                    <ItemEmoji emoji={itemIcons[iconKeyFor(node)]} onPick={pickIcon(iconKeyFor(node))} fallback={<DocumentFormatIcon path={node.path} className="side-file-icon side-file-icon-md" size={14} />} />
                     <span className={`side-dot${openDocIds.includes(node.path) ? ' side-dot-open' : ''}`} aria-hidden="true" />
                     {docRowTitle(node.name, versionGroup)}
                   </button>
@@ -1784,7 +1786,7 @@ export function Sidebar({
             ? <div ref={setNavHost} className="library-nav-host" />
             : projectedTree.documents.length > 0 || draft?.section === 'documents'
             ? renderTree(projectedTree.documents, '', 0, 'documents')
-            : <p className="side-section-empty">{t('문서가 없습니다. PDF나 Markdown을 끌어 넣으세요')}</p>}
+            : <p className="side-section-empty">{t('문서가 없습니다. PDF나 문서를 끌어 넣으세요')}</p>}
         </section>
 
         {memoNotes !== undefined && !libraryExpanded ? (

@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLineRight, ArrowSquareIn, ArrowSquareOut, ArrowsLeftRight, Broom, CaretDown, Check, ClipboardText, CopySimple, FilePdf, Files, FileText, Graph, NotePencil, X, XSquare } from '@phosphor-icons/react'
+import { DocumentFormatIcon } from '../documents/DocumentFormatIcon'
+import { documentFormatOf } from '../../core/documentFormat'
 import { armClickSuppress } from '../../ui/clickSuppress'
 import type { PaneId, Tab, TabsState } from './tabs'
 import { ChannelDot } from './ChannelDot'
@@ -78,9 +80,14 @@ export function shortTabTitle(title: string): string {
   return head === '' ? title : head
 }
 
-function TabKindIcon({ kind }: { kind: Tab['kind'] }) {
+function TabKindIcon({ kind, id }: { kind: Tab['kind']; id: string }) {
   if (kind === 'memoNote') return <NotePencil size={13} aria-hidden="true" className="pane-top-tab-kind" />
   if (kind === 'canvas') return <Graph size={13} aria-hidden="true" className="pane-top-tab-kind" />
+  if (kind === 'markdown') {
+    // 텍스트·HTML·XML 은 형식마다 아이콘이 다르다(탭 id 가 파일 경로다). Markdown 은 예전 아이콘 그대로
+    const format = documentFormatOf(id)
+    if (format === 'text' || format === 'html' || format === 'xml') return <DocumentFormatIcon format={format} size={13} className="pane-top-tab-kind" />
+  }
   if (kind === 'markdown') return <FileText size={13} aria-hidden="true" className="pane-top-tab-kind" />
   return <FilePdf size={13} aria-hidden="true" className="pane-top-tab-kind" />
 }
@@ -332,7 +339,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
             >
               {renaming === tab.id ? (
                 <div className="pane-top-tab-title pane-top-tab-renaming">
-                  <TabKindIcon kind={tab.kind} />
+                  <TabKindIcon kind={tab.kind} id={tab.id} />
                   <input
                     className="pane-top-tab-rename"
                     aria-label={t('노트 이름')}
@@ -376,7 +383,7 @@ export function PaneTabsMenu({ state, label: rawLabel, onActivate, onClose, pane
                   onActivate(tab.id)
                 }}
               >
-                <TabKindIcon kind={tab.kind} />
+                <TabKindIcon kind={tab.kind} id={tab.id} />
                 <span className="pane-top-tab-label">{active ? tab.title : shortTabTitle(tab.title)}</span>
                 {/* 흐린 보조 글: 보는 탭의 제목 바로 뒤에 「·」 로 이어 붙는다(안 보이는 탭에는 없다) */}
                 {active && secondary !== null && secondary !== '' ? (

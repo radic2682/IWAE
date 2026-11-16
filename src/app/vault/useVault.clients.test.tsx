@@ -9,7 +9,7 @@ import type { SessionState } from '../../core/session'
 import { CLIENT_EVENTS } from '../workspace/sessionSync'
 import { emitPointSignal, REMOTE_PANE_ID, resetPointSignals, subscribePointSignal, type DeliveredSignal } from '../workspace/workspaceSignal'
 
-vi.mock('../../bridge/pdf', () => ({ invalidateDocument: vi.fn(), openPdf: vi.fn(), pageTextIndex: vi.fn(), pickPdfFile: vi.fn() }))
+vi.mock('../../bridge/pdf', () => ({ invalidateDocument: vi.fn(), openPdf: vi.fn(), pageTextIndex: vi.fn(), pickPdfFile: vi.fn(), pickDocumentFile: vi.fn() }))
 vi.mock('../../bridge/vault', () => ({
   setVaultFileNoticeHandler: vi.fn(),
   quarantineVaultMetaFile: vi.fn(),

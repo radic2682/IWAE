@@ -18,6 +18,7 @@ import { SUPPORT } from './en/support'
 import { RELEASE_NOTES } from './en/releaseNotes'
 import { THEME_FILES } from './en/themeFiles'
 import { WORKSPACE_COMMANDS } from './en/workspaceCommands'
+import { TEXT_FORMATS } from './en/textFormats'
 import { TICKETS } from './en/tickets'
 import { TOURS } from './en/tours'
 
@@ -25,6 +26,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...SHORTCUTS,
   ...GROUP_1,
   ...GROUP_2,
+  ...TEXT_FORMATS,
   ...GROUP_3,
   ...GROUP_4,
   ...GROUP_5,

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { FileMd, FilePdf, MagnifyingGlass, TerminalWindow } from '@phosphor-icons/react'
+import { MagnifyingGlass, TerminalWindow } from '@phosphor-icons/react'
+import { DocumentFormatIcon } from './documents/DocumentFormatIcon'
+import type { DocumentFormat } from '../core/documentFormat'
 import { t } from '../i18n'
 import { canonicalCommandName, commandCatalog, type CommandCatalogEntry } from './workspace/workspaceCommands'
 import { completeCommandLine, loadCommandHistory, pushCommandHistory, saveCommandHistory, stepCommandHistory, type CompletionContext } from './commandLine'
@@ -15,6 +17,8 @@ export interface PaletteCommand {
   readonly shortcut?: string
   /** 명령(동작)인가 문서 열기인가 */
   readonly kind: 'action' | 'pdf' | 'markdown'
+  /** 문서 항목의 형식(아이콘). 없으면 kind 에 따른다 */
+  readonly format?: DocumentFormat
   /** 찾을 때 함께 보는 말(영어 이름 등) */
   readonly keywords?: string
   readonly run: () => void
@@ -225,7 +229,7 @@ export function CommandPalette({ commands, onClose, initialQuery = '', onRunLine
                 onPointerMove={() => setActive(index)}
                 onClick={() => run(command)}
               >
-                {command.kind === 'pdf' ? <FilePdf size={15} aria-hidden="true" /> : command.kind === 'markdown' ? <FileMd size={15} aria-hidden="true" /> : <TerminalWindow size={15} aria-hidden="true" />}
+                {command.kind === 'action' ? <TerminalWindow size={15} aria-hidden="true" /> : <DocumentFormatIcon format={command.format ?? (command.kind === 'pdf' ? 'pdf' : 'markdown')} size={15} />}
                 <span className="command-palette-label">{command.label}</span>
                 {command.description === undefined ? null : <span className="command-palette-desc">{command.description}</span>}
                 {command.shortcut === undefined ? null : <kbd className="command-palette-kbd">{command.shortcut}</kbd>}

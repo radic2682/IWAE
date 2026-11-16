@@ -17,14 +17,14 @@ describe('EmptyPane', () => {
     expect(screen.getByText('빈 칸')).toBeDefined()
     expect(screen.getByText('문서를 열거나 다른 칸의 탭을 끌어 놓으세요')).toBeDefined()
     // 번역기 · 캔버스 줄은 없다(번역기는 창 전체에 떠 있는 창, 캔버스는 꺼 두었다)
-    expect(labels()).toEqual(['PDF 열기', 'Markdown 열기', '노트 열기', '이 칸 닫기Ctrl+B x'])
+    expect(labels()).toEqual(['문서 열기', '라이브러리 열기', '노트 열기', '이 칸 닫기Ctrl+B x'])
     expect(screen.queryByRole('button', { name: /번역기/u })).toBeNull()
     expect(screen.queryByRole('button', { name: /캔버스/u })).toBeNull()
     const close = screen.getByRole('button', { name: /^이 칸 닫기/u })
     expect(close.querySelector('.empty-pane-row-icon svg')).not.toBeNull()
     expect(close.querySelector('kbd.empty-pane-row-hint')?.textContent).toBe('Ctrl+B x')
     // 키 힌트가 없는 줄에는 kbd 가 없다
-    expect(screen.getByRole('button', { name: 'PDF 열기' }).querySelector('kbd')).toBeNull()
+    expect(screen.getByRole('button', { name: '문서 열기' }).querySelector('kbd')).toBeNull()
   })
 
   it('키 힌트는 접두키를 따른다(하드코딩이 아니다)', () => {
@@ -34,14 +34,14 @@ describe('EmptyPane', () => {
 
   it('이 칸 닫기는 onClose 가 있을 때(칸이 둘 이상)만 보이고, Vault 가 없으면 노트 줄이 없다', () => {
     render(<EmptyPane prefixText="Ctrl+B" onPdf={vi.fn()} onMarkdown={vi.fn()} />)
-    expect(labels()).toEqual(['PDF 열기', 'Markdown 열기'])
+    expect(labels()).toEqual(['문서 열기', '라이브러리 열기'])
   })
 
   it('줄을 누르면 그 동작이 불린다', () => {
     const handlers = all()
     render(<EmptyPane prefixText="Ctrl+B" {...handlers} />)
-    fireEvent.click(screen.getByRole('button', { name: 'PDF 열기' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Markdown 열기' }))
+    fireEvent.click(screen.getByRole('button', { name: '문서 열기' }))
+    fireEvent.click(screen.getByRole('button', { name: '라이브러리 열기' }))
     fireEvent.click(screen.getByRole('button', { name: '노트 열기' }))
     fireEvent.click(screen.getByRole('button', { name: /^이 칸 닫기/u }))
     for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledTimes(1)

@@ -278,4 +278,32 @@ describe('MarkdownPane', () => {
     window.removeEventListener('iwae:action-feedback', listen)
     expect(notices).toEqual(['열 수 없는 링크입니다', '열 수 없는 링크입니다'])
   })
+
+  it('문서 안의 상대 링크는 같은 Vault 의 txt·html·xml·md 를 열고(#조각 포함), Vault 밖으로 나가는 링크는 거절한다', () => {
+    const onOpenDocument = vi.fn()
+    const notices: string[] = []
+    const listen = (event: Event) => notices.push((event as CustomEvent<string>).detail)
+    window.addEventListener('iwae:action-feedback', listen)
+    const source = [
+      '[a](notes.txt) [b](sub/page.html#top) [c](../data.xml) [d](other.MD#x) [e](../../escape.txt) [f](archive.zip)',
+    ].join('')
+    const { container } = render(<MarkdownPane title="a" path="docs/a.md" source={source} onOpenDocument={onOpenDocument} />)
+    const links = [...container.querySelectorAll('a')]
+    for (const link of links) fireEvent.click(link)
+    window.removeEventListener('iwae:action-feedback', listen)
+    expect(onOpenDocument.mock.calls).toEqual([
+      ['docs/notes.txt', null],
+      ['docs/sub/page.html', 'top'],
+      ['data.xml', null],
+      ['docs/other.MD', 'x'],
+    ])
+    expect(notices).toEqual(['열 수 없는 링크입니다', '열 수 없는 링크입니다'])
+  })
+
+  it('HTML 문서 안의 링크도 같은 길로 txt·xml 을 연다', () => {
+    const onOpenDocument = vi.fn()
+    const { container } = render(<MarkdownPane title="a" path="docs/a.html" source={'<p><a href="log.txt">로그</a> <a href="cfg.xml#n">설정</a></p>'} onOpenDocument={onOpenDocument} />)
+    for (const link of container.querySelectorAll('a')) fireEvent.click(link)
+    expect(onOpenDocument.mock.calls).toEqual([['docs/log.txt', null], ['docs/cfg.xml', 'n']])
+  })
 })
