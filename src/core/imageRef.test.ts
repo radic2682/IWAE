@@ -44,9 +44,35 @@ describe('그림 참조 검사', () => {
     expect(resolve('/top.png')).toBe('C:/Vault/top.png')
   })
 
-  it('UNC·장치 경로 뿌리는 거절한다', () => {
-    expect(resolveImageFile('a.png', `${BS}${BS}host${BS}share${BS}a.md`, `${BS}${BS}host${BS}share`, resolveRelativePath)).toBeNull()
+  it('장치 경로 뿌리는 거절한다', () => {
     expect(resolveImageFile('a.png', `${BS}${BS}?${BS}C:${BS}a.md`, `${BS}${BS}?${BS}C:`, resolveRelativePath)).toBeNull()
+    expect(resolveImageFile('a.png', '//./C:/a.md', '//./C:', resolveRelativePath)).toBeNull()
+    expect(resolveImageFile('a.png', '//?/UNC/host/share/a.md', '//?/UNC/host/share', resolveRelativePath)).toBeNull()
+    // 호스트만 있고 공유가 없는 뿌리는 믿지 않는다
+    expect(resolveImageFile('a.png', '//host/a.md', '//host', resolveRelativePath)).toBeNull()
+  })
+
+  it('사용자가 고른 UNC Vault 뿌리는 믿고, 같은 호스트·공유 안의 그림만 푼다', () => {
+    const root = `${BS}${BS}nas${BS}share${BS}Vault`
+    const file = `${BS}${BS}nas${BS}share${BS}Vault${BS}docs${BS}a.md`
+    expect(resolveImageFile('img/a.png', file, root, resolveRelativePath)).toBe('//nas/share/Vault/docs/img/a.png')
+    expect(resolveImageFile('../top.png', file, root, resolveRelativePath)).toBe('//nas/share/Vault/top.png')
+    expect(resolveImageFile('/top.png', file, root, resolveRelativePath)).toBe('//nas/share/Vault/top.png')
+    // 대소문자는 가리지 않는다(Windows)
+    expect(resolveImageFile('a.png', '//NAS/Share/vault/docs/a.md', '//nas/share/Vault', resolveRelativePath)).toBe('//NAS/Share/vault/docs/a.png')
+  })
+
+  it('UNC 뿌리라도 뿌리 밖·다른 호스트·공유로 나가는 참조는 막는다', () => {
+    const root = '//nas/share/Vault'
+    const file = '//nas/share/Vault/docs/a.md'
+    expect(resolveImageFile('../../x.png', file, root, resolveRelativePath)).toBeNull()
+    expect(resolveImageFile('../../../x.png', file, root, resolveRelativePath)).toBeNull()
+    for (const ref of ['//evil/share/x.png', `${BS}${BS}evil${BS}share${BS}x.png`, 'C:/x.png', '//?/C:/x.png', `${BS}${BS}?${BS}C:${BS}x.png`]) {
+      expect(resolveImageFile(ref, file, root, resolveRelativePath)).toBeNull()
+    }
+    // 문서가 다른 공유·호스트에 있으면 이 뿌리 밖이다
+    expect(resolveImageFile('a.png', '//nas/other/docs/a.md', root, resolveRelativePath)).toBeNull()
+    expect(resolveImageFile('a.png', '//evil/share/Vault/docs/a.md', root, resolveRelativePath)).toBeNull()
   })
 
   it('참조 문서는 그 파일이 든 폴더 안만 읽는다', () => {

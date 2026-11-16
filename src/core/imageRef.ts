@@ -60,7 +60,9 @@ export function isSafeLocalImageRef(reference: string): boolean {
 /**
  * 그림 파일의 실제 경로를 정한다. 결과는 `root`(Vault 뿌리, 또는 참조 문서가 든 폴더) 안이어야 한다.
  * `relative` 는 문서 안 참조, `documentPath` 는 문서의 절대 경로, `resolve` 는 resolveRelativePath.
- * UNC·장치 경로(`\\?\`, `\\.\`)·root 밖으로 나가는 경로는 null.
+ * 장치 경로(`\\?\`, `\\.\`)·root 밖으로 나가는 경로는 null.
+ * 사용자가 고른 Vault(또는 참조 문서 폴더)가 네트워크 공유(`\\host\share\...`)에 있으면 그 뿌리는 믿는다:
+ * 같은 호스트·공유 안으로 풀리는 그림만 읽고, 다른 호스트·공유로 나가는 경로는 막는다.
  */
 export function resolveImageFile(
   relative: string,
@@ -74,9 +76,12 @@ export function resolveImageFile(
   try { decoded = decodeURIComponent(reference) } catch { /* 깨진 %XX 는 그대로 */ }
   if (!isSafeRelativeReference(decoded)) return null
   const resolved = resolve(decoded, documentPath.replaceAll('\\', '/'))
-  if (resolved === null || /[\\]/u.test(resolved) || resolved.startsWith('//')) return null
   const base = root.replaceAll('\\', '/').replace(/\/+$/u, '')
-  if (/^\/\/|^\/\/[?.]/u.test(base)) return null
+  // 장치 경로(//?/ · //./)는 뿌리가 될 수 없다. UNC 뿌리는 `//호스트/공유` 꼴일 때만 믿는다
+  if (/^\/\/[?.]/u.test(base)) return null
+  const trustedUnc = /^\/\/[^/?.][^/]*\/[^/]+/u.test(base)
+  if (base.startsWith('//') && !trustedUnc) return null
+  if (resolved === null || /[\\]/u.test(resolved) || (resolved.startsWith('//') && !trustedUnc)) return null
   // `/그림.png` 는 뿌리 기준이라 뿌리를 붙인다. 그 밖의 참조는 문서의 절대 경로에서 풀려 절대 경로여야 한다(아니면 맨 위를 넘어 나간 것이다)
   const rooted = decoded.startsWith('/')
   const isAbsolute = /^(?:[a-z]:\/|\/)/iu.test(resolved)
