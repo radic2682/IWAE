@@ -149,6 +149,7 @@ export const GROUP_2: Readonly<Record<string, string>> = {
   "영역 캡처": "Region capture",
   "손 도구": "Hand tool",
   "텍스트 선택": "Select text",
+  "텍스트": "Text",
   "영역 선택": "Select region",
   "형광펜": "Highlighter",
   "박스 메모": "Box memo",
