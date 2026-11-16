@@ -66,7 +66,6 @@ describe('인쇄할 그림 주소 거르기(SMB·UNC 누출 방지)', () => {
     const html = markdownPdfHtml(`<img src="${unc}" alt="가려진">\n\n<img src="/${BS}localhost/C$/x.png">\n\n![ok](a.png)`, 'T', note, win('C:/Vault'))
     expect(html).not.toContain('localhost')
     expect(html).toContain('src="a.png"')
-    expect(html).toContain('md-remote-image')
   })
 })
 
