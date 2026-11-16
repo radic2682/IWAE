@@ -348,3 +348,14 @@ describe('MarkdownPane 검색어 반영', () => {
     await waitFor(() => expect(view.container.querySelectorAll('mark.markdown-search-hit')).toHaveLength(0))
   })
 })
+
+describe('MarkdownPane 막힌 그림 자리표시', () => {
+  it('바깥 그림은 요청 없이 자리표시가 되고, 읽지 못한 로컬 그림도 같은 자리표시가 된다', async () => {
+    fsMock.stat.mockRejectedValue(new Error('missing'))
+    const { container } = render(<MarkdownPane title="p" path="docs/c.md" vaultRoot="C:/Vault" source={'<img src="https://tracker.example/p.png" alt="추적">\n\n<img src="gone-3.png" alt="없는 그림">'} />)
+    await waitFor(() => expect(container.querySelectorAll('.md-image-blocked')).toHaveLength(2))
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.innerHTML).not.toContain('tracker.example')
+    expect(container.querySelector('.md-image-blocked')?.getAttribute('data-label')).toBe('그림을 불러오지 않았습니다 · 추적')
+  })
+})

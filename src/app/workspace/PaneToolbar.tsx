@@ -336,8 +336,8 @@ export function PaneToolbar({
         <button
           type="button"
           className="toolbar-tool-btn pdf-compact-tool pane-copy-file"
-          aria-label={t('PDF 파일 복사')}
-          title={t('PDF 파일 복사')}
+          aria-label={kind === 'pdf' ? t('PDF 파일 복사') : t('파일 복사')}
+          title={kind === 'pdf' ? t('PDF 파일 복사') : t('파일 복사')}
           onClick={onCopyFile}
         >
           <Copy size={15} aria-hidden="true" />

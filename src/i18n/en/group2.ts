@@ -143,6 +143,8 @@ export const GROUP_2: Readonly<Record<string, string>> = {
   "버전 고르기: 지금 {label}": "Choose version: now {label}",
   "버전 고르기: 이 탭만 바뀝니다": "Choose version (this tab only)",
   "PDF 파일 복사": "Copy PDF file",
+  "파일 복사": "Copy file",
+  "그림을 불러오지 않았습니다": "Image not loaded",
   "인쇄": "Print",
   "도구 더 보기": "More tools",
   "영역 캡처": "Region capture",

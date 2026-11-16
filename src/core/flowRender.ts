@@ -142,8 +142,56 @@ function renderHtml(source: string): FlowDocument {
     heading.textContent = title
     body.prepend(heading)
   }
-  const html = sanitizeFlowHtml(body.innerHTML, { htmlOnly: true })
+  const html = unwrapDeadLinks(sanitizeFlowHtml(body.innerHTML, { htmlOnly: true }))
   return { html, headings: headingsOfHtml(html) }
+}
+
+/** 거르는 중에 href 가 지워진 링크(javascript: 따위)는 링크처럼 보이면 안 된다. 글만 남긴다(id 가 있는 이름표는 둔다) */
+function unwrapDeadLinks(html: string): string {
+  if (!html.includes('<a')) return html
+  const template = document.createElement('template')
+  template.innerHTML = html
+  let changed = false
+  for (const link of [...template.content.querySelectorAll('a:not([href])')]) {
+    if (link.hasAttribute('id')) continue
+    link.replaceWith(...link.childNodes)
+    changed = true
+  }
+  return changed ? template.innerHTML : html
+}
+
+/**
+ * 막힌 그림 자리표시. 바깥 주소·위험한 참조·읽지 못한 그림 대신 조용한 한 줄 상자를 둔다.
+ * 문구는 CSS(::before + data-label)로만 그려 본문 글자(textContent)가 달라지지 않는다 — 형광펜·검색 위치가 그대로다.
+ */
+export function blockedImagePlaceholder(alt: string): HTMLSpanElement {
+  const placeholder = document.createElement('span')
+  placeholder.className = 'md-image-blocked'
+  placeholder.setAttribute('role', 'img')
+  const label = alt.trim() === '' ? t('그림을 불러오지 않았습니다') : `${t('그림을 불러오지 않았습니다')} · ${alt.trim()}`
+  placeholder.setAttribute('aria-label', label)
+  placeholder.dataset.label = label
+  return placeholder
+}
+
+/**
+ * 읽기 화면에 넣기 전에, 불러오지 않을 그림(바깥 http(s)·주소가 지워진 것)을 자리표시로 바꾼다.
+ * 바꾸지 않으면 브라우저가 요청을 시도하다 CSP 에 막혀 깨진 그림 아이콘이 뜬다. 바깥 주소는 어떤 요청에도 쓰지 않는다.
+ * 상대 경로 그림(data-md-src)·data:·blob: 그림은 그대로 둔다.
+ */
+export function placeholderImages(html: string): string {
+  if (!html.includes('<img')) return html
+  const template = document.createElement('template')
+  template.innerHTML = html
+  let changed = false
+  for (const image of [...template.content.querySelectorAll('img')]) {
+    if (image.hasAttribute('data-md-src')) continue
+    const src = image.getAttribute('src') ?? ''
+    if (/^(?:data:|blob:)/iu.test(src)) continue
+    image.replaceWith(blockedImagePlaceholder(image.getAttribute('alt') ?? ''))
+    changed = true
+  }
+  return changed ? template.innerHTML : html
 }
 
 function headingsOfHtml(html: string): FlowHeading[] {
@@ -167,10 +215,86 @@ function hasMeaningfulText(node: Node): boolean {
   return (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) && (node.nodeValue ?? '').trim() !== ''
 }
 
+/** 요소별 원문 속성 순서(이름 목록). renderXml 이 채운다 */
+let attributeOrder = new WeakMap<Element, string[]>()
+
+/**
+ * 원문의 시작 태그를 훑어 요소마다 속성 이름 순서를 모은다(문서 순서). 주석·CDATA·처리 명령·DOCTYPE 는 건너뛴다.
+ * 깨진 꼴이면 null(DOM 순서를 쓴다)
+ */
+function sourceAttributeOrders(text: string): string[][] | null {
+  const orders: string[][] = []
+  let i = 0
+  while (i < text.length) {
+    const open = text.indexOf('<', i)
+    if (open < 0) break
+    if (text.startsWith('<!--', open)) {
+      const end = text.indexOf('-->', open + 4)
+      if (end < 0) return null
+      i = end + 3
+    } else if (text.startsWith('<![CDATA[', open)) {
+      const end = text.indexOf(']]>', open + 9)
+      if (end < 0) return null
+      i = end + 3
+    } else if (text.startsWith('<?', open)) {
+      const end = text.indexOf('?>', open + 2)
+      if (end < 0) return null
+      i = end + 2
+    } else if (text.startsWith('<!', open)) {
+      // DOCTYPE: [ ... ] 안쪽의 > 는 끝이 아니다
+      let depth = 0
+      let j = open + 2
+      for (; j < text.length; j += 1) {
+        const ch = text[j]
+        if (ch === '[') depth += 1
+        else if (ch === ']') depth -= 1
+        else if (ch === '>' && depth <= 0) break
+      }
+      if (j >= text.length) return null
+      i = j + 1
+    } else if (text[open + 1] === '/') {
+      const end = text.indexOf('>', open + 2)
+      if (end < 0) return null
+      i = end + 1
+    } else {
+      const names: string[] = []
+      let j = open + 1
+      while (j < text.length && !/[\s/>]/u.test(text[j]!)) j += 1
+      // 속성: 이름 = "값"
+      for (;;) {
+        while (j < text.length && /\s/u.test(text[j]!)) j += 1
+        if (j >= text.length) return null
+        if (text[j] === '>') { j += 1; break }
+        if (text[j] === '/') { j += 1; continue }
+        const nameStart = j
+        while (j < text.length && !/[\s=/>]/u.test(text[j]!)) j += 1
+        names.push(text.slice(nameStart, j))
+        while (j < text.length && /\s/u.test(text[j]!)) j += 1
+        if (text[j] === '=') {
+          j += 1
+          while (j < text.length && /\s/u.test(text[j]!)) j += 1
+          const quote = text[j]
+          if (quote !== '"' && quote !== "'") return null
+          const end = text.indexOf(quote, j + 1)
+          if (end < 0) return null
+          j = end + 1
+        }
+      }
+      orders.push(names)
+      i = j
+    }
+  }
+  return orders
+}
+
 /** 시작 태그: <이름 속성="값"> (속성은 입력 순서 그대로) */
 function openTag(element: Element, selfClosing: boolean): string {
   let out = span('xml-tag', `<${element.tagName}`)
-  for (const attribute of [...element.attributes]) {
+  const order = attributeOrder.get(element)
+  const attributes = [...element.attributes]
+  // DOM 은 xmlns 선언을 앞으로 모은다. 원문의 순서를 알면 그대로 보인다
+  if (order !== undefined) attributes.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name))
+  for (const attribute of attributes) {
     out += ` ${span('xml-attr', attribute.name)}${span('xml-tag', '=')}${span('xml-val', `"${attribute.value}"`)}`
   }
   return out + span('xml-tag', selfClosing ? '/>' : '>')
@@ -266,6 +390,13 @@ function renderXml(source: string): FlowDocument {
   const doc = new DOMParser().parseFromString(text, 'application/xml')
   if (hasParserError(doc)) return plainWithNotice(source, 'xmlInvalid')
   if (maxDepth(doc) > XML_MAX_DEPTH) return plainWithNotice(source, 'failed')
+  // 원문 속성 순서를 문서 순서로 짝 짓는다(요소 수가 안 맞으면 DOM 순서를 쓴다)
+  attributeOrder = new WeakMap()
+  const orders = sourceAttributeOrders(text)
+  const elements = [...doc.querySelectorAll('*')]
+  if (orders !== null && orders.length === elements.length) {
+    elements.forEach((element, index) => attributeOrder.set(element, orders[index]!))
+  }
   const lines: string[] = []
   // 파서는 맨 앞 <?xml ... ?> 선언을 DOM 에 남기지 않는다. 원문에서 읽어 그대로 보여 준다
   const declaration = /^\s*(<\?xml\s[^?]*\?>)/u.exec(text)

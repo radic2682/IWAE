@@ -39,7 +39,7 @@ const EMPTY_OVERLAYS: readonly PdfOverlay[] = []
 const EMPTY_PINS: readonly PdfBookmark[] = []
 
 import { resolveMarkdownLink, resolveRelativePath } from '../../core/markdown'
-import { renderFlowDocument } from '../../core/flowRender'
+import { blockedImagePlaceholder, placeholderImages, renderFlowDocument } from '../../core/flowRender'
 import { resolveImageFile } from '../../core/imageRef'
 import { MAX_DOCUMENT_BYTES } from '../../core/textDecode'
 import {
@@ -493,7 +493,8 @@ export function MarkdownPane({
   onRemovePin,
 }: MarkdownPaneProps) {
   const flow = useMemo(() => renderFlowDocument(format, source), [source, format])
-  const html = flow.html
+  // 불러오지 않을 그림(바깥 주소·막힌 참조)은 요청을 시도하지 않게 미리 자리표시로 바꾼다
+  const html = useMemo(() => placeholderImages(flow.html), [flow])
   const sourceHash = useMemo(() => markdownSourceHash(source), [source])
   const activeHighlights = useMemo(() => {
     const own = persistentHighlights.filter((highlight) => (
@@ -539,9 +540,15 @@ export function MarkdownPane({
       const relative = image.dataset.mdSrc ?? ''
       // UNC·장치 경로·뿌리 밖 경로는 읽지 않는다(경로가 네트워크로 나가는 일을 막는다)
       const absolute = resolveImageFile(relative, filePath, imageRoot, resolveRelativePath)
-      if (absolute === null) continue
+      const showBlocked = () => { if (image.isConnected) image.replaceWith(blockedImagePlaceholder(image.alt)) }
+      if (absolute === null) {
+        showBlocked()
+        continue
+      }
       void loadMarkdownImage(absolute).then((url) => {
-        if (alive && url !== null && image.isConnected) image.src = url
+        if (!alive) return
+        if (url === null) showBlocked()
+        else if (image.isConnected) image.src = url
       })
     }
     return () => { alive = false }

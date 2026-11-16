@@ -13,6 +13,8 @@ export const DROP_SELECTOR = [
   'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'portal', 'fencedframe',
   'svg', 'math', 'canvas', 'video', 'audio', 'source', 'track', 'picture', 'map', 'area',
   'dialog', '[hidden]',
+  // 사이트 메뉴(읽을 글이 아니다). header·footer·aside 는 남긴다
+  'nav',
 ].join(', ')
 
 export function hasParserError(doc: Document): boolean {

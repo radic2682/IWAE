@@ -359,3 +359,20 @@ describe('PaneToolbar — GitHub 와 이어진 Markdown', () => {
     }
   })
 })
+
+describe('PaneToolbar 파일 복사 단추 이름', () => {
+  const toolbar = (kind: 'pdf' | 'markdown') => (
+    <PaneIdContext.Provider value="copy">
+      <PaneToolbar kind={kind} mode="text" onModeChange={vi.fn()} query="" onQueryChange={vi.fn()} onCopyFile={vi.fn()} />
+    </PaneIdContext.Provider>
+  )
+
+  it('PDF 는 「PDF 파일 복사」, 그 밖의 문서는 형식과 상관없는 「파일 복사」', () => {
+    const pdf = render(toolbar('pdf'))
+    expect(screen.getByRole('button', { name: 'PDF 파일 복사' })).toBeDefined()
+    pdf.unmount()
+    render(toolbar('markdown'))
+    expect(screen.getByRole('button', { name: '파일 복사' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'PDF 파일 복사' })).toBeNull()
+  })
+})

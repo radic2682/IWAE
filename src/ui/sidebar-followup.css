@@ -1023,15 +1023,17 @@
   tab-size: 2;
   overflow-wrap: anywhere;
   overflow-x: visible;
+  font-weight: 400;
+  font-style: normal;
 }
 .markdown-pane .xml-tag { color: var(--md-muted, var(--text-muted)); }
 .markdown-pane .xml-attr { color: var(--md-link, var(--accent)); }
 .markdown-pane .xml-val { color: color-mix(in srgb, var(--accent) 65%, var(--md-foreground, var(--text))); }
-.markdown-pane .xml-text { color: var(--md-foreground, var(--text)); }
+.markdown-pane .xml-text { color: var(--md-foreground, var(--text)); font-weight: 400; }
 .markdown-pane .xml-cdata { color: color-mix(in srgb, var(--md-foreground, var(--text)) 75%, var(--md-muted, var(--text-muted))); }
 .markdown-pane .xml-comment,
 .markdown-pane .xml-pi,
-.markdown-pane .xml-doctype { color: var(--md-muted, var(--text-muted)); font-style: italic; }
+.markdown-pane .xml-doctype { color: var(--md-muted, var(--text-muted)); font-style: normal; }
 
 /* 읽기 화면 위 한 줄 알림(예: XML 이 깨져 글자 그대로 보여 줄 때). 종이 위쪽 빈 자리에 놓는다 */
 .flow-notice {
@@ -1062,3 +1064,22 @@
   .iwae-print-markdown pre.flow-xml .xml-pi,
   .iwae-print-markdown pre.flow-xml .xml-doctype { color: color-mix(in srgb, currentColor 65%, transparent); }
 }
+
+/* 불러오지 않은 그림 자리표시(바깥 주소·막힌 참조·읽지 못한 그림). 문구는 data-label 로만 그려 본문 글자에 끼지 않는다 */
+.markdown-pane .md-image-blocked {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 10px;
+  border: 1px dashed var(--md-border, var(--hairline));
+  border-radius: var(--r-sm);
+  background: var(--md-code-background, var(--chrome));
+  color: var(--md-muted, var(--text-muted));
+  font-size: 0.85em;
+  line-height: 1.6;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+.markdown-pane .md-image-blocked::before { content: attr(data-label); }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { flowHeadings, flowPlainText, flowSectionPreviews, renderFlowDocument } from './flowRender'
+import { readFileSync } from 'node:fs'
+import { flowHeadings, flowPlainText, flowSectionPreviews, placeholderImages, renderFlowDocument } from './flowRender'
 import { renderMarkdown, sanitizeFlowHtml } from './markdown'
 
 /** 결과 HTML 을 다시 읽어 실행될 수 있는 것이 남았는지 본다 */
@@ -172,8 +173,8 @@ describe('renderFlowDocument: html', () => {
     })
 
     it('data: 링크·file: 링크는 href 가 사라진다', () => {
-      expect(renderFlowDocument('html', '<a href="data:text/html;base64,AAAA">x</a>').html).toBe('<a>x</a>')
-      expect(renderFlowDocument('html', '<a href="file:///C:/a.txt">x</a>').html).toBe('<a>x</a>')
+      expect(renderFlowDocument('html', '<a href="data:text/html;base64,AAAA">x</a>').html).toBe('x')
+      expect(renderFlowDocument('html', '<a href="file:///C:/a.txt">x</a>').html).toBe('x')
     })
 
     it('target·ping 은 지운다', () => {
@@ -405,5 +406,55 @@ describe('큰 XML·실패 대비·알림 문구', () => {
     const out = sanitizeFlowHtml('<svg onload="x()"><script>1</script><a xlink:href="javascript:1"><text>t</text></a></svg><math><mtext>m</mtext></math><p>글</p>', { htmlOnly: true })
     expect(out).not.toMatch(/svg|math|script|onload|javascript/u)
     expect(out).toContain('<p>글</p>')
+  })
+})
+
+describe('다듬기: 링크·메뉴·XML 속성 순서·막힌 그림', () => {
+  it('href 가 지워진 링크는 글만 남긴다(살아 있는 링크와 id 이름표는 둔다)', () => {
+    const { html } = renderFlowDocument('html', '<p><a href="javascript:alert(1)"><b>굵게</b> 글</a> <a href="https://example.com">진짜</a> <a name="top">이름표</a></p>')
+    expect(html).not.toContain('javascript')
+    expect(html).toContain('<b>굵게</b> 글')
+    expect(html).toContain('href="https://example.com"')
+    expect(html).toContain('id="flow-top"')
+    expect(html.match(/<a[ >]/gu)).toHaveLength(2)
+  })
+
+  it('nav 는 지우고 header·footer·aside 는 둔다', () => {
+    const { html } = renderFlowDocument('html', '<nav><a href="a.html">메뉴</a></nav><header>머리</header><aside>곁글</aside><p>본문</p><footer>꼬리</footer>')
+    expect(html).not.toContain('메뉴')
+    for (const kept of ['머리', '곁글', '본문', '꼬리']) expect(html).toContain(kept)
+    expect(flowPlainText('html', '<nav>메뉴</nav><p>본문</p>')).not.toContain('메뉴')
+  })
+
+  it('XML 속성은 원문 순서 그대로 보인다(xmlns 를 앞으로 모으지 않는다)', () => {
+    const { html } = renderFlowDocument('xml', '<config version="2" xmlns:x="urn:example" x:k="v"><item b="1" a="2"/></config>')
+    const template = document.createElement('template')
+    template.innerHTML = html
+    expect(template.content.textContent).toBe('<config version="2" xmlns:x="urn:example" x:k="v">\n  <item b="1" a="2"/>\n</config>')
+  })
+
+  it('XML 주석·글에 기울임·굵기를 쓰지 않는다(CSS 가 색만 구분)', () => {
+    const css = readFileSync('src/ui/sidebar-followup.css', 'utf8')
+    expect(css).not.toMatch(/xml-(?:comment|pi|doctype)[^}]*font-style:\s*italic/u)
+  })
+
+  it('바깥 그림·주소가 지워진 그림은 자리표시가 되고 주소는 어디에도 남지 않는다', () => {
+    const html = placeholderImages(renderFlowDocument('html', '<img src="https://tracker.example/p.png" alt="추적"><img src="//host/x.png"><img src="ok.png" alt="로컬">').html)
+    expect(html).not.toContain('tracker.example')
+    expect(html.match(/class="md-image-blocked"/gu)).toHaveLength(2)
+    expect(html).toContain('data-label="그림을 불러오지 않았습니다 · 추적"')
+    expect(html).toContain('data-md-src="ok.png"')
+    const template = document.createElement('template')
+    template.innerHTML = html
+    // 문구는 data-label 로만 그려 본문 글자가 늘지 않는다
+    expect(template.content.textContent).toBe('')
+  })
+
+  it('Markdown 의 바깥 그림도 자리표시가 된다. 이미지가 없으면 그대로', () => {
+    const md = placeholderImages(renderMarkdown('![x](https://example.com/a.png) 글'))
+    expect(md).toContain('md-image-blocked')
+    expect(md).not.toContain('example.com')
+    expect(placeholderImages('<p>그림 없음</p>')).toBe('<p>그림 없음</p>')
+    expect(placeholderImages('<img src="data:image/png;base64,AAAA">')).toContain('data:image/png')
   })
 })
