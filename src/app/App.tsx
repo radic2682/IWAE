@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { translateWithCacheUsing, useTranslationCacheBridge } from './translation/translationCacheStore'
 import { isMarkdownPath } from '../core/markdownPath'
 import { isFlowDocumentPath, isOpenableDocumentPath, isPdfPath, stripDocumentExtension } from '../core/documentFormat'
-import { isFlowVaultKind } from '../core/vaultIndex'
+import { isFlowVaultEntry } from '../core/vaultIndex'
 import { clearUndo, redo as redoChange, undo as undoChange } from './undoStack'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { ShortcutOverlay } from './settings/ShortcutOverlay'
@@ -1160,7 +1160,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       else navigationJumpRef.current({ docId: record.id, page: hit.page + 1 })
       return
     }
-    if (isFlowVaultKind(record.kind)) {
+    if (isFlowVaultEntry(record)) {
       void openMarkdown({
         id: `markdown:${record.id}`,
         kind: 'markdown',
@@ -1341,7 +1341,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
       ...(activePdfDoc === null ? [] : pdfToolPaletteCommands(activePdfDoc.docId)),
     ]
     const documents: PaletteCommand[] = searchRecords
-      .filter((record) => record.kind === 'pdf' || isFlowVaultKind(record.kind))
+      .filter((record) => record.kind === 'pdf' || isFlowVaultEntry(record))
       .map((record) => ({
         id: `doc:${record.id}`,
         kind: record.kind === 'pdf' ? 'pdf' as const : 'markdown' as const,
@@ -2028,7 +2028,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     type Candidate = { readonly label: string; readonly hint: string; readonly run: () => void }
     const focus = (kind: 'doc' | 'note') => { setPaneRoute(kind, pane); setActivePaneId(pane) }
     const candidates: Candidate[] = [
-      ...searchRecords.filter((record) => record.kind === 'pdf' || isFlowVaultKind(record.kind)).map((record): Candidate => ({
+      ...searchRecords.filter((record) => record.kind === 'pdf' || isFlowVaultEntry(record)).map((record): Candidate => ({
         label: record.displayName || record.filename,
         hint: record.path,
         run: () => { focus('doc'); openVaultSearchResult({ record, page: null, snippet: '', query: '' }) },
@@ -2595,7 +2595,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
   const openAiLocation = useCallback((location: AiLocation) => {
     setAiLocations((current) => current.filter((item) => item.id !== location.id))
     const record = searchRecords.find((candidate) => candidate.id === location.docId)
-    if (record !== undefined && isFlowVaultKind(record.kind)) {
+    if (record !== undefined && isFlowVaultEntry(record)) {
       void openMarkdown({
         id: `markdown:${record.id}`,
         kind: 'markdown',
@@ -3980,8 +3980,8 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
     const open = (run: () => void) => () => { setPaneRoute('doc', pane); setActivePaneId(pane); run() }
     const recents: EmptyPaneRecent[] = isDetachedWindow ? [] : [
       ...searchRecords
-        .filter((record) => (record.kind === 'pdf' || isFlowVaultKind(record.kind)) && record.lastOpenedAt !== null && !record.missing)
-        .map((record) => ({ key: `doc:${record.id}`, at: record.lastOpenedAt ?? '', title: record.displayName || record.filename, kind: isFlowVaultKind(record.kind) ? 'markdown' as const : 'pdf' as const, onOpen: open(() => openVaultSearchResult({ record, page: null, snippet: '', query: '' })) })),
+        .filter((record) => (record.kind === 'pdf' || isFlowVaultEntry(record)) && record.lastOpenedAt !== null && !record.missing)
+        .map((record) => ({ key: `doc:${record.id}`, at: record.lastOpenedAt ?? '', title: record.displayName || record.filename, kind: isFlowVaultEntry(record) ? 'markdown' as const : 'pdf' as const, onOpen: open(() => openVaultSearchResult({ record, page: null, snippet: '', query: '' })) })),
       ...recentPdfs.map((recent) => ({ key: `ext:${recent.path}`, at: recent.openedAt, title: recent.title, kind: 'pdf' as const, onOpen: open(() => { void openExternalPdf(recent.path) }) })),
     ].sort((left, right) => right.at.localeCompare(left.at)).slice(0, 4)
     return (
@@ -4628,7 +4628,7 @@ export function App({ library, notebooks, developmentPreview }: AppProps = {}) {
           .filter((path) => path !== baseFolder && !path.startsWith(`${baseFolder}/`) && !baseFolder.startsWith(`${path}/`))
           .map((path) => `folder:${path}`)
         : baseIsMarkdown
-          ? searchRecords.filter((record) => isFlowVaultKind(record.kind)).map((record) => record.id)
+          ? searchRecords.filter((record) => isFlowVaultEntry(record)).map((record) => record.id)
           : shownLibrary.map((doc) => doc.docId)
       const candidates = candidateIds
         .filter((id) => id !== baseDocId && !inGroup.has(id))

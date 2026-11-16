@@ -347,6 +347,7 @@ fn arg_usize(args: &Value, name: &str) -> Option<usize> {
         .map(|value| value as usize)
 }
 
+/// "text" 는 txt·html·xml 을 가리키는 계산한 이름표다(색인 파일에는 'other' 로 적혀 있다). 검색 거르개·응답에만 쓰고 저장하지 않는다
 fn kind_arg(args: &Value) -> Result<Option<&str>, ()> {
     match args.get("kind") {
         None | Some(Value::Null) => Ok(None),

@@ -8,6 +8,7 @@ import { isDesktop } from './window'
 export interface RagHit {
   docId: string
   title: string
+  /** 'text' 는 응답용 계산 이름표(색인 파일의 'other' + txt·html·xml). 저장하지 않는다 */
   kind: 'pdf' | 'markdown' | 'text'
   /** 1-기반 */
   page: number

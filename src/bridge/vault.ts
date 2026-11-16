@@ -13,7 +13,7 @@ import type { SessionState } from '../core/session'
 import { SESSIONS_DIR, SESSIONS_META_FILE, emptySessionsMeta, parseSessionsMeta, touchSessionMeta, type SessionsMeta } from '../core/sessionNames'
 import {
   createVaultIndexEntry,
-  isFlowVaultKind,
+  isFlowVaultEntry,
   kindFromPath,
   libraryEntryVaultPath,
   migrateLibraryToIndex,
@@ -796,7 +796,7 @@ export async function attachMarkdownReference(
   const index = await readVaultIndex(vault)
   const normalized = normalizedReferencePath(sourcePath)
   const existing = index.entries.find((entry) => (
-    isFlowVaultKind(entry.kind)
+    isFlowVaultEntry(entry)
     && entry.storage === 'reference'
     && normalizedReferencePath(entry.path) === normalized
   ))
@@ -1364,7 +1364,7 @@ export async function readMarkdown(vault: VaultHandle, markdownPath: string): Pr
     }
     const index = await readVaultIndex(vault)
     const entry = index.entries.find((candidate) => candidate.id === markdownPath)
-    if (entry === undefined || !isFlowVaultKind(entry.kind) || entry.storage !== 'reference') {
+    if (entry === undefined || !isFlowVaultEntry(entry) || entry.storage !== 'reference') {
       throw new Error(t('Markdown 참조를 찾을 수 없습니다.'))
     }
     if (!(await exists(entry.path))) throw new Error(t('Markdown 파일을 찾을 수 없습니다.'))

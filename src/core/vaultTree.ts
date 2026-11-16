@@ -1,7 +1,7 @@
 import { MEMO_NOTES_FOLDER_KO, MEMO_NOTE_EXTENSION, memoNotesFolder, pickMemoNotesFolder } from './memoNote'
 import { isFlowDocumentPath, stripDocumentExtension } from './documentFormat'
 import { isMarkdownPath } from './markdownPath'
-import { isFlowVaultKind, type VaultIndexEntry, type VaultStorageKind } from './vaultIndex'
+import { isFlowVaultEntry, type VaultIndexEntry, type VaultStorageKind } from './vaultIndex'
 
 export interface LibraryDoc {
   docId: string
@@ -238,7 +238,7 @@ export function buildVaultWorkspaceTree(
   const isReserved = reservedMatcher(entries)
   const folders = new Map<string, VaultFolderNode>([['', root]])
   const indexedMarkdownByPath = new Map(indexedDocuments
-    .filter((entry) => isFlowVaultKind(entry.kind) && entry.storage === 'vault')
+    .filter((entry) => isFlowVaultEntry(entry) && entry.storage === 'vault')
     .map((entry) => [normalizedPath(entry.path).toLocaleLowerCase(), entry]))
 
   const ensureFolder = (folderPath: string): VaultFolderNode => {
@@ -293,7 +293,7 @@ export function buildVaultWorkspaceTree(
   }
 
   for (const indexed of indexedDocuments) {
-    if (!isFlowVaultKind(indexed.kind) || indexed.storage !== 'reference' || indexed.missing) continue
+    if (!isFlowVaultEntry(indexed) || indexed.storage !== 'reference' || indexed.missing) continue
     root.children.push({
       id: `markdown:${indexed.id}`,
       kind: 'markdown',

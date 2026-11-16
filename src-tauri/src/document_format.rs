@@ -27,12 +27,23 @@ pub fn is_openable_document(path: &Path) -> bool {
     document_format(path).is_some()
 }
 
-/// 색인 종류('pdf' | 'markdown' | 'text')로 바꾼다. 문서가 아니면 None. 텍스트·HTML·XML 은 모두 'text'
+/// 색인 파일(.iwae/index.json)에 적는 종류('pdf' | 'markdown' | 'other')로 바꾼다. 문서가 아니면 None.
+/// 텍스트·HTML·XML 은 예전 버전이 적던 대로 'other' 다(여러 기기·버전이 같은 Vault 를 연다. 새 값을 적지 않는다)
 pub fn index_kind(path: &Path) -> Option<&'static str> {
     match document_format(path)? {
         "pdf" => Some("pdf"),
         "markdown" => Some("markdown"),
-        _ => Some("text"),
+        _ => Some("other"),
+    }
+}
+
+/// 색인 항목의 종류를 응답·검색 거르개에 쓰는 이름표로 바꾼다: 종류 'other' 인데 경로가 txt·html·xml 이면 "text".
+/// 이것은 계산한 값일 뿐 색인 파일에 적지 않는다
+pub fn derived_kind<'a>(stored_kind: &'a str, path: &Path) -> &'a str {
+    if stored_kind == "other" && is_flow_document(path) {
+        "text"
+    } else {
+        stored_kind
     }
 }
 
@@ -92,7 +103,11 @@ mod tests {
         assert!(!is_openable_document(Path::new("a.png")));
         assert_eq!(index_kind(Path::new("a.pdf")), Some("pdf"));
         assert_eq!(index_kind(Path::new("a.markdown")), Some("markdown"));
-        assert_eq!(index_kind(Path::new("a.html")), Some("text"));
+        assert_eq!(index_kind(Path::new("a.html")), Some("other"));
+        assert_eq!(derived_kind("other", Path::new("a.html")), "text");
+        assert_eq!(derived_kind("other", Path::new("a.png")), "other");
+        assert_eq!(derived_kind("image", Path::new("a.xml")), "image");
+        assert_eq!(derived_kind("markdown", Path::new("a.md")), "markdown");
         assert_eq!(index_kind(Path::new("a.zip")), None);
     }
 }

@@ -1,4 +1,4 @@
-import { isFlowVaultKind } from '../../core/vaultIndex'
+import { isFlowVaultEntry } from '../../core/vaultIndex'
 import { pageTextIndex, type PdfToolOp } from '../../bridge/pdf'
 import { buildAnchor, type Anchor } from '../../core/anchor'
 import { findTextRange } from '../../core/canvasOps'
@@ -107,7 +107,7 @@ const norm = (text: string) => text.replace(/\s+/gu, ' ').trim().toLowerCase()
 /** 서재 문서(PDF·Markdown) 목록: 색인 기록 + 열린 문서 정보 */
 function libraryDocs(input: McpAppInput, ocrBusy: (docId: string) => boolean): McpLibraryDoc[] {
   return input.searchRecords.flatMap((record): McpLibraryDoc[] => {
-    if (record.kind !== 'pdf' && !isFlowVaultKind(record.kind)) return []
+    if (record.kind !== 'pdf' && !isFlowVaultEntry(record)) return []
     const library = input.shownLibrary.find((doc) => doc.docId === record.id)
     const opened = input.openedDocs.find((doc) => doc.docId === record.id)
     const withText = record.pages.length === 0 ? null : record.pages.filter((page) => page.text.trim() !== '').length
@@ -115,7 +115,8 @@ function libraryDocs(input: McpAppInput, ocrBusy: (docId: string) => boolean): M
     return [{
       docId: record.id,
       title: input.docTitles[record.id] ?? (record.displayName || record.filename),
-      kind: record.kind,
+      // 'text' 는 응답에만 쓰는 이름표다(색인 파일에는 적지 않는다): 종류 'other' 인 txt·html·xml
+      kind: record.kind === 'pdf' ? 'pdf' : record.kind === 'markdown' ? 'markdown' : 'text',
       folder: record.folder,
       favorite: record.favorite,
       pageCount: library?.pages ?? opened?.pageCount ?? (record.pages.length === 0 ? null : record.pages.length),

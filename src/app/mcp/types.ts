@@ -79,7 +79,7 @@ export interface McpScreenState {
 export interface McpLibraryDoc {
   readonly docId: string
   readonly title: string
-  /** 색인 종류: 'markdown' 은 Markdown, 'text' 는 txt·html·xml */
+  /** 응답용 종류: 'text' 는 txt·html·xml 을 가리키는 계산한 이름표다(색인 파일에는 적지 않는다) */
   readonly kind: 'pdf' | 'markdown' | 'text'
   /** Vault 안 폴더(맨 위는 '') */
   readonly folder: string

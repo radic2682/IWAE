@@ -366,9 +366,9 @@ describe('buildVaultWorkspaceTree · text documents', () => {
     expect((tree[0] as { children: unknown[] }).children).toHaveLength(3)
   })
 
-  it('vault 밖 text 참조도 투영한다', () => {
+  it('vault 밖 txt·html·xml 참조(종류 other)도 투영한다', () => {
     const reference: VaultIndexEntry = {
-      id: 'ref-text', kind: 'text', storage: 'reference', path: 'C:/External/page.html', displayName: '외부 페이지',
+      id: 'ref-text', kind: 'other', storage: 'reference', path: 'C:/External/page.html', displayName: '외부 페이지',
       contentHash: null, size: 1, modifiedAt: null, addedAt: '2026-09-30T00:00:00.000Z', missing: false,
     }
     expect(buildVaultWorkspaceTree([], [], {}, new Map(), [reference])).toMatchObject([{ id: 'markdown:ref-text', kind: 'markdown', name: '외부 페이지', storage: 'reference' }])

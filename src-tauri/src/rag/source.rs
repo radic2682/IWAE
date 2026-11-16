@@ -11,7 +11,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceDoc {
     pub id: String,
-    /// `pdf`, `markdown`, `text`(txt·html·xml)
+    /// `pdf`, `markdown`, `text`(txt·html·xml: 색인의 'other' 항목을 경로로 가려 부르는 이름표)
     pub kind: String,
     pub title: String,
     /// Vault 기준 상대 경로, 또는 외부 참조의 절대 경로.
@@ -85,7 +85,9 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
         if entry.missing {
             continue;
         }
-        match entry.kind.as_str() {
+        // 색인 파일에는 txt·html·xml 이 'other' 로 적혀 있다. 여기서 "text" 로 바꿔 부른다(RAG·MCP 응답용 이름표, 색인에는 적지 않는다)
+        let kind = crate::document_format::derived_kind(&entry.kind, Path::new(&entry.path)).to_string();
+        match kind.as_str() {
             "pdf" => {
                 let Some(document) = cache
                     .as_ref()
@@ -127,7 +129,7 @@ pub fn load_sources(root: &Path) -> Vec<SourceDoc> {
                 };
                 sources.push(SourceDoc {
                     id: entry.id,
-                    kind: entry.kind.clone(),
+                    kind: kind.clone(),
                     title: entry.display_name,
                     path: entry.path,
                     content_hash: entry.content_hash,
@@ -214,10 +216,13 @@ mod tests {
         std::fs::write(
             root.join(".iwae/index.json"),
             r#"{"version":1,"entries":[
-              {"id":"t1","kind":"text","storage":"vault","path":"run.txt","displayName":"run","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false}
+              {"id":"t1","kind":"other","storage":"vault","path":"run.txt","displayName":"run","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false},
+              {"id":"i1","kind":"other","storage":"vault","path":"pic.png","displayName":"pic","contentHash":null,"size":1,"modifiedAt":null,"addedAt":"","missing":false}
             ]}"#,
         )
         .unwrap();
+        std::fs::write(root.join("pic.png"), "x").unwrap();
+        // 색인에는 other 로 적혀 있고, txt 만 text 문서로 읽힌다(png 는 건너뛴다)
         let sources = load_sources(&root);
         assert_eq!(sources.len(), 1);
         assert_eq!(sources[0].kind, "text");

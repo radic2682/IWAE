@@ -2,7 +2,7 @@ import { getAppPrefs } from '../appPrefs'
 import { announceVaultFileNotice, loadOrQuarantine } from '../documents/storageRecovery'
 import { isMarkdownPath } from '../../core/markdownPath'
 import { isFlowDocumentPath, isPdfPath, stripDocumentExtension } from '../../core/documentFormat'
-import { isFlowVaultKind } from '../../core/vaultIndex'
+import { isFlowVaultEntry } from '../../core/vaultIndex'
 import { emptyVaultSearchTextCache } from '../../core/vaultSearchCache'
 import type { FolderColor } from '../../core/folderColors'
 import { seedSampleVaultInto } from './sampleVaultDesktop'
@@ -348,7 +348,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     markdownTitles.set(path, stripDocumentExtension(filename))
   }
   const externalMarkdownByPath = new Map(reconciledIndex.entries
-    .filter((entry) => isFlowVaultKind(entry.kind) && entry.storage === 'reference' && !entry.missing)
+    .filter((entry) => isFlowVaultEntry(entry) && entry.storage === 'reference' && !entry.missing)
     .map((entry) => [entry.path.replaceAll('\\', '/').toLocaleLowerCase(), entry]))
   // 예전 세션은 Markdown 탭을 노트 탭 목록에 적었다(Markdown 만 있었다). 지금은 흐르는 글 탭 모두 문서 탭 목록(pdfTabIds)에 적는다
   const legacyMarkdownIds = session.noteTabIds.filter(isMarkdownPath)
@@ -357,7 +357,7 @@ async function restoreSessionState(ctx: RestoreContext, session: SessionState, s
     if (isFlowDocumentPath(id)) {
       const external = externalMarkdownByPath.get(id.replaceAll('\\', '/').toLocaleLowerCase())
       // 탭 제목은 사이드바와 같은 표시 이름이다(Vault 안 Markdown 도). 파일 이름은 표시 이름이 없을 때만 쓴다
-      const indexed = external ?? reconciledIndex.entries.find((entry) => isFlowVaultKind(entry.kind) && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
+      const indexed = external ?? reconciledIndex.entries.find((entry) => isFlowVaultEntry(entry) && entry.path.replaceAll('\\', '/').toLocaleLowerCase() === id.replaceAll('\\', '/').toLocaleLowerCase())
       const title = (indexed?.displayName === undefined || indexed.displayName === '' ? undefined : indexed.displayName) ?? markdownTitles.get(id)
       if (title === undefined) return null
       try {
@@ -732,7 +732,7 @@ export function useVault(options: UseVaultOptions = {}) {
       sessionMetaRef.current = loadedSessions.meta
       setSessionReady(true)
       const markdownEntries = reconciledIndex.entries.filter((entry) => (
-        isFlowVaultKind(entry.kind) && entry.storage === 'vault' && !entry.missing
+        isFlowVaultEntry(entry) && entry.storage === 'vault' && !entry.missing
       ))
       void Promise.all(markdownEntries.map(async (entry) => {
         try {
@@ -2077,7 +2077,7 @@ export function useVault(options: UseVaultOptions = {}) {
     }
     const entry = vaultIndex.find((candidate) => candidate.id === id)
     if (entry === undefined) return
-    if (isFlowVaultKind(entry.kind) && entry.storage === 'vault') {
+    if (isFlowVaultEntry(entry) && entry.storage === 'vault') {
       void readMarkdown(vault, entry.path).then((source) => {
         setMarkdownSources((current) => ({ ...current, [entry.path]: source }))
         setExtractedSearchText((current) => ({ ...current, [entry.id]: source }))

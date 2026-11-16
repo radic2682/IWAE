@@ -1,8 +1,11 @@
 import { t } from '../i18n'
-import { documentFormatOf, stripDocumentExtension } from './documentFormat'
+import { documentFormatOf, isFlowDocumentPath, stripDocumentExtension } from './documentFormat'
 
-/** 'markdown' 은 Markdown, 'text' 는 txt·html·xml(형식은 확장자로 다시 안다). 둘 다 흐르는 글 문서다 */
-export type VaultFileKind = 'pdf' | 'markdown' | 'text' | 'canvas' | 'image' | 'other'
+/**
+ * 색인 파일(.iwae/index.json)에 적는 종류. 여러 기기·버전이 같은 Vault 를 열므로 새 값을 만들지 않는다:
+ * txt·html·xml 은 예전 버전이 적던 대로 'other' 로 남고, 흐르는 글인지는 경로로 안다(isFlowVaultEntry)
+ */
+export type VaultFileKind = 'pdf' | 'markdown' | 'canvas' | 'image' | 'other'
 export type VaultStorageKind = 'vault' | 'reference'
 
 export interface VaultIndexEntry {
@@ -95,16 +98,16 @@ function legacyPdfLocation(legacy: Record<string, unknown>): {
 }
 
 function isFileKind(value: unknown): value is VaultFileKind {
-  return value === 'pdf' || value === 'markdown' || value === 'text' || value === 'canvas' || value === 'image' || value === 'other'
+  return value === 'pdf' || value === 'markdown' || value === 'canvas' || value === 'image' || value === 'other'
 }
 
 function isStorageKind(value: unknown): value is VaultStorageKind {
   return value === 'vault' || value === 'reference'
 }
 
-/** 흐르는 글(Markdown·텍스트·HTML·XML)로 여는 색인 종류인가 */
-export function isFlowVaultKind(kind: VaultFileKind): kind is 'markdown' | 'text' {
-  return kind === 'markdown' || kind === 'text'
+/** 흐르는 글(Markdown·텍스트·HTML·XML)로 여는 색인 항목인가: Markdown 이거나, 종류 'other' 인데 경로가 txt·html·xml 등이다 */
+export function isFlowVaultEntry(entry: { readonly kind: VaultFileKind; readonly path: string }): boolean {
+  return entry.kind === 'markdown' || (entry.kind === 'other' && isFlowDocumentPath(entry.path))
 }
 
 /** 경로의 확장자로 색인 종류를 정한다(vaultRecovery 도 이것을 쓴다) */
@@ -113,7 +116,6 @@ export function kindFromPath(path: string): VaultFileKind {
   const format = documentFormatOf(normalized)
   if (format === 'pdf') return 'pdf'
   if (format === 'markdown') return 'markdown'
-  if (format !== null) return 'text'
   if (normalized.endsWith('.canvas')) return 'canvas'
   if (/\.(?:avif|gif|jpe?g|png|svg|webp)$/u.test(normalized)) return 'image'
   return 'other'
@@ -306,9 +308,7 @@ export function reconcileVaultIndexFiles(
     const missing = onDisk === undefined
     // 같은 이름을 다른 모양(NFC/NFD, 대소문자)으로 적어 둔 것은 디스크에 있는 모양으로 맞춘다(그대로 두면 파일을 열지 못한다)
     const path = onDisk ?? entry.path
-    // 문서 형식을 알기 전에 'other' 로 올라간 txt·html·xml 항목은 'text' 로 바로잡는다
-    const kind = entry.kind === 'other' && kindFromPath(path) === 'text' ? 'text' : entry.kind
-    return entry.missing === missing && entry.path === path && entry.kind === kind ? entry : { ...entry, missing, path, kind }
+    return entry.missing === missing && entry.path === path ? entry : { ...entry, missing, path }
   })
 
   for (const file of userFiles) {

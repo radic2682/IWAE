@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createVaultIndexEntry,
-  isFlowVaultKind,
+  isFlowVaultEntry,
   kindFromPath,
   migrateLibraryToIndex,
   moveIndexEntry,
@@ -185,44 +185,51 @@ describe('reconcileMissingVaultPdfs', () => {
 })
 
 describe('kindFromPath · text documents', () => {
-  it('txt·html·xml 은 text, Markdown 은 markdown, PDF 는 pdf, 그 밖은 기존대로', () => {
+  it('txt·html·xml 은 예전처럼 other 로 남는다(색인 파일에 새 종류를 적지 않는다)', () => {
     expect(kindFromPath('a.PDF')).toBe('pdf')
     expect(kindFromPath('a.md')).toBe('markdown')
     expect(kindFromPath('a.Markdown')).toBe('markdown')
-    for (const name of ['a.txt', 'a.text', 'a.log', 'a.html', 'a.HTM', 'a.xhtml', 'a.xml']) expect(kindFromPath(name)).toBe('text')
+    for (const name of ['a.txt', 'a.text', 'a.log', 'a.html', 'a.HTM', 'a.xhtml', 'a.xml']) expect(kindFromPath(name)).toBe('other')
     expect(kindFromPath('a.canvas')).toBe('canvas')
     expect(kindFromPath('a.PNG')).toBe('image')
     expect(kindFromPath('notes/cmd')).toBe('other')
     expect(kindFromPath('a.docx')).toBe('other')
   })
 
-  it('isFlowVaultKind 는 markdown 과 text 만 참이다', () => {
-    expect(isFlowVaultKind('markdown')).toBe(true)
-    expect(isFlowVaultKind('text')).toBe(true)
-    for (const kind of ['pdf', 'canvas', 'image', 'other'] as const) expect(isFlowVaultKind(kind)).toBe(false)
+  it('isFlowVaultEntry: markdown, 또는 other 인데 경로가 txt·html·xml', () => {
+    expect(isFlowVaultEntry({ kind: 'markdown', path: 'a.md' })).toBe(true)
+    for (const path of ['a.txt', 'b/c.HTML', 'd.xml', 'e.log']) expect(isFlowVaultEntry({ kind: 'other', path })).toBe(true)
+    expect(isFlowVaultEntry({ kind: 'other', path: 'a.png' })).toBe(false)
+    expect(isFlowVaultEntry({ kind: 'other', path: 'noext' })).toBe(false)
+    expect(isFlowVaultEntry({ kind: 'pdf', path: 'a.pdf' })).toBe(false)
+    expect(isFlowVaultEntry({ kind: 'canvas', path: 'a.canvas' })).toBe(false)
+    expect(isFlowVaultEntry({ kind: 'image', path: 'a.xml' })).toBe(false)
   })
 
-  it('text 종류 항목을 읽고 쓰며, 표시 이름은 확장자를 뗀다', () => {
-    const entry = createVaultIndexEntry({ id: 't1', kind: 'text', storage: 'vault', path: 'Logs/run.log', addedAt: NOW })
+  it("색인은 'text' 종류를 만들지도 받지도 않는다(예전 버전과 같다)", () => {
+    expect(() => parseVaultIndex({ version: 1, entries: [{ id: 't', kind: 'text', storage: 'vault', path: 'a.txt', displayName: 'a', contentHash: null, size: null, modifiedAt: null, addedAt: NOW, missing: false }] })).toThrow()
+  })
+
+  it('txt 항목은 other 로 쓰이고 읽히며, 표시 이름은 확장자를 뗀다', () => {
+    const entry = createVaultIndexEntry({ id: 't1', kind: kindFromPath('Logs/run.log'), storage: 'vault', path: 'Logs/run.log', addedAt: NOW })
     expect(entry.displayName).toBe('run')
-    expect(parseVaultIndex({ version: 1, entries: [entry] }).entries[0]?.kind).toBe('text')
+    const round = parseVaultIndex(JSON.parse(JSON.stringify({ version: 1, entries: [entry] })))
+    expect(round.entries[0]?.kind).toBe('other')
   })
 
-  it('목록 훑기가 txt·html·xml 파일을 text 로 올리고, 예전에 other 로 올라간 항목은 text 로 바로잡는다', () => {
+  it('목록 훑기는 txt·html·xml 파일을 other 로 올리고 기존 항목은 그대로 둔다', () => {
     const tree = [
       { path: 'N/a.txt', isDirectory: false },
       { path: 'N/b.html', isDirectory: false },
       { path: 'N/c.xml', isDirectory: false },
-      { path: 'N/d.docx', isDirectory: false },
     ]
     const old = createVaultIndexEntry({ id: 'old', kind: 'other', storage: 'vault', path: 'N/a.txt', addedAt: NOW })
     let n = 0
     const next = reconcileVaultIndexFiles({ version: 1, entries: [old] }, tree, NOW, () => `id-${++n}`)
     expect(next.entries.map((entry) => [entry.path, entry.kind, entry.id])).toEqual([
-      ['N/a.txt', 'text', 'old'],
-      ['N/b.html', 'text', 'id-1'],
-      ['N/c.xml', 'text', 'id-2'],
-      ['N/d.docx', 'other', 'id-3'],
+      ['N/a.txt', 'other', 'old'],
+      ['N/b.html', 'other', 'id-1'],
+      ['N/c.xml', 'other', 'id-2'],
     ])
   })
 })
