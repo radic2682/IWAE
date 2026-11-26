@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from 'react'
 import type { MemoTicket } from '../../core/memoNote'
+import { shortcutText } from '../../core/shortcutRegistry'
+import { t } from '../../i18n'
+import { announceAction } from '../actionFeedback'
 import type { MemoContent } from '../../pdf/MemoEditor'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../../pdf/persistentHighlight'
 import type { PaneId } from './tabs'
@@ -132,6 +135,22 @@ export function useRevealMemo(): (memoId: string) => void {
     if (channel !== null && (workspace.visibleNotePathsFor(pane).length > 0 || workspace.canvasShowsMemo?.(pane, memoId) === true)) send(memoId, 'document')
     else workspace.revealMemo(pane, memoId)
   }, [channel, pane, send, workspace])
+}
+
+/**
+ * 이 메모를 받을 노트가 같은 색 창에 보이는가: 새 메모가 갈 노트 탭이 보이거나, 보이는 노트·캔버스가 그 메모를 보인다.
+ * 글을 고르는 것만으로 노트를 열면 안 되는 길(PDF·글 문서의 선택)이 노트를 열기 전에 확인한다.
+ */
+export function noteVisibleFor(workspace: WorkspaceLink, pane: PaneId | null, channel: PaneChannel, memoId?: string): boolean {
+  if (workspace.memoNoteTargetFor(pane) !== null) return true
+  if (channel === null) return false
+  return workspace.visibleNotePathsFor(pane).length > 0 || (memoId !== undefined && workspace.canvasShowsMemo?.(pane, memoId) === true)
+}
+
+/** 고른 글을 받을 노트가 안 보일 때 알린다(노트는 열지 않는다): 노트를 여는 단축키를 알면 함께 알려 준다 */
+export function announceNoOpenNote(): void {
+  const shortcut = shortcutText('toggleNoteBeside')
+  announceAction(shortcut === undefined ? t('열린 노트가 없습니다') : t('열린 노트가 없습니다. {keys} 키로 노트를 엽니다', { keys: shortcut }))
 }
 
 /**

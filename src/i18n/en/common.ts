@@ -31,6 +31,8 @@ export const COMMON: Readonly<Record<string, string>> = {
   '캡처를 「{note}」 노트에 넣었습니다': 'Added the capture to "{note}"',
   '캡처를 「{note}」 노트에 넣었습니다. {keys} 키로 노트를 엽니다': 'Added the capture to "{note}". Press {keys} to open the note',
   '캡처를 넣을 노트가 없습니다': 'No note to put the capture in',
+  '열린 노트가 없습니다. {keys} 키로 노트를 엽니다': 'No note is open. Press {keys} to open one',
+  '열린 노트가 없습니다': 'No note is open',
   '원문 추가': 'Add source',
   '이 원문 분리': 'Remove this source',
   '티켓': 'Ticket',

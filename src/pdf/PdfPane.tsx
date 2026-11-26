@@ -39,7 +39,7 @@ import { BOX_DEFAULT_WIDTH, placeBoxMemo } from '../core/boxMemo'
 import { useMemoNoteApi } from './memoNoteContext'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from '../app/workspace/workspaceLinks'
 import { sourceTargetItems } from '../app/workspace/sourceLinkItems'
-import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, type AttachRequest } from '../app/workspace/workspaceContext'
+import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, announceNoOpenNote, noteVisibleFor, type AttachRequest } from '../app/workspace/workspaceContext'
 import { addMemoRef, insertBlock, memoBlock, memoHighlightIds, memoNoteTitleOf, type MemoNote, type MemoTicket } from '../core/memoNote'
 import { createTextExcerptSelection } from '../core/pdfExcerpt'
 import { createPersistentPdfHighlightAmong, highlightSpotId, withUniqueHighlightId, updatePersistentPdfHighlight, type PersistentPdfHighlight, type PersistentPdfHighlightPatch } from './persistentHighlight'
@@ -579,7 +579,7 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
   /**
    * 고른 것(글은 끌기, 표·그림은 Ctrl+끌기나 영역 선택 도구)에 새 메모를 만든다(설계 3.4).
    * 글 메모는 글을 써야 저장되고, 표·그림은 글 없이도 남는다. 새 메모는 같은 색 창에 보이는 메모 노트 탭으로 가고,
-   * 보이는 노트가 없으면 노트를 문서 창 옆에 열어(마지막으로 만진 노트 → 이 문서의 노트 → 새 노트) 거기로 간다.
+   * 보이는 노트가 없으면 글은 노트를 열지 않고 알리기만 하고(초안도 없다), 영역 캡처는 노트 끝에 조용히 넣는다.
    */
   const startDraftMemo = (selection: PdfExcerptSelection) => {
     // 메모에 원문을 더하는 중이면 고른 것을 그 메모의 원문으로
@@ -615,6 +615,11 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
           ? item.anchor.charRange[0] < selection.anchor.charRange[1] && selection.anchor.charRange[0] < item.anchor.charRange[1]
           : rectsOverlap(item.anchor.rects, selection.anchor.rects)))
     if (existing !== undefined) {
+      // 고르기만 해서는 노트를 열지 않는다: 그 메모를 받을 노트가 안 보이면 알리기만 한다(고른 글은 그대로 둔다)
+      if (!noteVisibleFor(workspace, paneId, paneChannel, existing.id)) {
+        announceNoOpenNote()
+        return
+      }
       setDraftMemo(null)
       clearPageSelection(selection.anchor.page)
       showInNote(existing.id)
@@ -630,9 +635,9 @@ export function PdfPane({ docId, pageSizes, hasText, title = 'PDF', zoomPercent 
     }
     const routedPath = workspace.memoNoteTargetFor(paneId)
     if (routedPath !== null) begin(routedPath)
-    // 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 조용히 넣는다(글 형광펜은 메모를 써야 하니 노트를 연다)
+    // 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 조용히 넣는다. 고른 글은 노트를 열지 않고 알리기만 한다(칠하지도 않는다)
     else if (region) void captureSilently(highlight, selection.anchor.page)
-    else void workspace.openNoteBeside(paneId).then((path) => { if (path !== null) begin(path) })
+    else announceNoOpenNote()
   }
 
   /** 영역 캡처를 노트를 열지 않고 넣고 알린다(보이는 같은 색 노트가 없을 때): 노트 끝에 캡션 없는 메모 블록. 노트를 못 구하면 아무것도 남기지 않는다 */

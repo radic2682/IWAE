@@ -28,7 +28,7 @@ import { addMemoRef, insertBlock, memoBlock, memoNoteTitleOf, type MemoNote, typ
 import type { MemoContent } from '../../pdf/MemoEditor'
 import { flushPaneLinks, registerPaneLinks, type LinkItem, type PaneLinkSnapshot } from '../workspace/workspaceLinks'
 import { sourceTargetItems } from '../workspace/sourceLinkItems'
-import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink } from '../workspace/workspaceContext'
+import { getAttachRequest, setAttachRequest, useMemoHoverReporter, usePaneChannel, usePointSignalReceiver, usePublishRoutedMemoDraft, useRevealMemo, useWorkspaceLink, announceNoOpenNote } from '../workspace/workspaceContext'
 import { createFlowHighlight } from '../../core/flowHighlight'
 import { updatePersistentPdfHighlight, REGION_SNAPSHOT_LIMIT } from '../../pdf/persistentHighlight'
 import type { PersistentPdfHighlight, PersistentPdfHighlightPatch } from '../../pdf/persistentHighlight'
@@ -672,7 +672,7 @@ export function MarkdownPane({
   }, [zoom])
 
   const noteApi = useMemoNoteApi()
-  // 작업 공간: 새 메모는 같은 색 창에 보이는 메모 노트 탭으로 가고(없으면 노트를 옆에 열어서), 가리키기 신호를 받고 보낸다
+  // 작업 공간: 새 메모는 같은 색 창에 보이는 메모 노트 탭으로 가고(없으면 알리기만 한다), 가리키기 신호를 받고 보낸다
   const workspace = useWorkspaceLink()
   const { pane: paneId, channel: paneChannel } = usePaneChannel()
   /** 형광펜의 카드를 노트에서 보인다: 같은 색 창에 노트가 보이면 신호로, 아니면 그 메모의 노트를 옆에 열고 */
@@ -690,7 +690,7 @@ export function MarkdownPane({
   useEffect(() => cancelMemoHoverFrame, [cancelMemoHoverFrame])
   /** 새 메모의 초안이 가는 노트(만드는 동안): 같은 색 창의 노트 탭이거나 옆에 막 연 노트 */
   const [draftNotePath, setDraftNotePath] = useState<string | null>(null)
-  /** 만든 초안을 노트로 보낸다: 같은 색 창에 보이는 노트(없으면 노트를 옆에 열어서) */
+  /** 만든 초안을 노트로 보낸다: 같은 색 창에 보이는 노트(없으면 노트를 열지 않고 알리기만 한다) */
   const routeDraft = (draft: PersistentPdfHighlight) => {
     const begin = (notePath: string) => {
       setDraftNotePath(notePath)
@@ -698,9 +698,9 @@ export function MarkdownPane({
     }
     const routed = workspace.memoNoteTargetFor(paneId)
     if (routed !== null) begin(routed)
-    // 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 조용히 넣는다(글 메모는 쓸 글이 있어 노트를 연다)
+    // 영역 캡처는 보이는 노트가 없으면 노트를 열지 않고 조용히 넣는다. 고른 글은 노트를 열지 않고 알리기만 한다(초안도 없다)
     else if (draft.kind === 'region') void captureSilently(draft)
-    else void workspace.openNoteBeside(paneId).then((notePath) => { if (notePath !== null) begin(notePath) })
+    else announceNoOpenNote()
   }
   /** 영역 캡처를 노트를 열지 않고 넣고 알린다: 노트 끝에 캡션 없는 메모 블록. 노트를 못 구하면 아무것도 남기지 않는다 */
   const captureSilently = async (draft: PersistentPdfHighlight) => {
@@ -863,7 +863,7 @@ export function MarkdownPane({
       return
     }
     if (interactionMode !== 'text' && interactionMode !== 'highlight') return
-    // 고른 글로 노트 메모를 만든다(PDF 와 같다): 같은 색 창에 보이는 노트로, 없으면 노트를 옆에 열어서
+    // 고른 글로 노트 메모를 만든다(PDF 와 같다): 같은 색 창에 보이는 노트로, 없으면 노트를 열지 않고 알리기만 한다
     if (interactionMode === 'text' && onBoxHighlightCreated !== undefined) {
       const root = articleRef.current
       const selection = window.getSelection()

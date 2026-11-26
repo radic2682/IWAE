@@ -118,29 +118,39 @@ describe('MarkdownPane — 새 메모는 노트 탭으로 간다(노트 바는 �
     expect(workspace.openNoteBeside).not.toHaveBeenCalled()
   })
 
-  it('보이는 노트가 없으면 노트를 옆에 열고 그 노트로 초안을 보낸다', async () => {
-    const workspace = link({ openNoteBeside: vi.fn().mockResolvedValue(NOTE) })
+  it('같은 색 창에 보이는 노트의 초안에는 고른 글이 원문으로 간다', async () => {
+    const workspace = link({ memoNoteTargetFor: () => NOTE })
     mount(noteApi(), workspace)
     selectHeading()
     await waitFor(() => expect(getRoutedMemoDraft()).not.toBeNull())
-    expect(workspace.openNoteBeside).toHaveBeenCalledWith('left')
-    expect(getRoutedMemoDraft()!.path).toBe(NOTE)
     expect(getRoutedMemoDraft()!.highlight.anchor.quote).toBe('중요한 제목')
   })
 
-  it('노트를 열 수 없으면 초안을 만들지 않는다', async () => {
-    const workspace = link({ openNoteBeside: vi.fn().mockResolvedValue(null) })
-    mount(noteApi(), workspace)
+  it('보이는 노트가 없으면 노트를 열지 않고 알리기만 한다(초안·형광펜도 없다)', async () => {
+    const messages: string[] = []
+    const listen = (event: Event) => { messages.push((event as CustomEvent<string>).detail) }
+    window.addEventListener('iwae:action-feedback', listen)
+    const created = vi.fn()
+    const workspace = link({ openNoteBeside: vi.fn().mockResolvedValue(NOTE) })
+    const api = noteApi()
+    mount(api, workspace, created)
     selectHeading()
-    await waitFor(() => expect(workspace.openNoteBeside).toHaveBeenCalled())
+    await waitFor(() => expect(messages.some((message) => message.startsWith('열린 노트가 없습니다'))).toBe(true))
+    window.removeEventListener('iwae:action-feedback', listen)
     await act(async () => { await Promise.resolve() })
+    expect(workspace.openNoteBeside).not.toHaveBeenCalled()
+    expect(workspace.resolveNoteFor).not.toHaveBeenCalled()
     expect(getRoutedMemoDraft()).toBeNull()
+    expect(created).not.toHaveBeenCalled()
+    expect(api.updateNoteAt).not.toHaveBeenCalled()
+    // 고른 글은 그대로 남는다
+    expect(window.getSelection()?.toString()).toBe('중요한 제목')
   })
 
   it('쓰지 않고 비워 두면 아무것도 남지 않고, 글을 쓰면 형광펜을 만들고 그 노트에 끼운다', async () => {
     const created = vi.fn()
     const api = noteApi()
-    mount(api, link({ openNoteBeside: vi.fn().mockResolvedValue(NOTE) }), created)
+    mount(api, link({ memoNoteTargetFor: () => NOTE }), created)
     selectHeading()
     await waitFor(() => expect(getRoutedMemoDraft()).not.toBeNull())
     act(() => getRoutedMemoDraft()!.cancel())
@@ -160,7 +170,7 @@ describe('MarkdownPane — 새 메모는 노트 탭으로 간다(노트 바는 �
   it('원문 더하기 요청이 있으면 고른 글은 새 메모가 아니라 그 카드의 원문이 된다', async () => {
     const created = vi.fn()
     const api = noteApi()
-    const workspace = link({ openNoteBeside: vi.fn().mockResolvedValue(NOTE) })
+    const workspace = link()
     mount(api, workspace, created)
     setAttachRequest({ path: NOTE, key: 'card' })
     selectHeading()
